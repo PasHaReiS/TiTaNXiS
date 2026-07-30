@@ -7,10 +7,6 @@ import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
 import { Users, Calendar, Star, TrendingUp, Download, Crown, Medal, Award } from "lucide-react";
 import { toast } from "sonner";
-import Header from "@/components/Header";
-import MemberProfileDialog from "@/components/MemberProfileDialog";
-import { Users, Calendar, Star, TrendingUp, Download, Crown, Medal, Award } from "lucide-react";
-import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
