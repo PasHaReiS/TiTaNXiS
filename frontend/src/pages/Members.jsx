@@ -43,10 +43,15 @@ export default function Members() {
       arr.sort((a, b) => (rankOrder[b.rank] || 0) - (rankOrder[a.rank] || 0) || a.name.localeCompare(b.name, "tr"))
     );
     // Group order: Türkçe alfabetik (case-insensitive), "Gruplandırılmamış" en sonda
+    // Group order: GOW → GoW → GOw → other alfabetik (tr) → Gruplandırılmamış en sonda
+    const ALLIANCE_PRIORITY = { "GOW": 1, "GoW": 2, "GOw": 3 };
     return Object.keys(groups)
       .sort((a, b) => {
         if (a === "Gruplandırılmamış") return 1;
         if (b === "Gruplandırılmamış") return -1;
+        const pa = ALLIANCE_PRIORITY[a] !== undefined ? ALLIANCE_PRIORITY[a] : 99;
+        const pb = ALLIANCE_PRIORITY[b] !== undefined ? ALLIANCE_PRIORITY[b] : 99;
+        if (pa !== pb) return pa - pb;
         return a.localeCompare(b, "tr");
       })
       .map((name) => ({ name, members: groups[name] }));
