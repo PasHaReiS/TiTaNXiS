@@ -164,6 +164,26 @@ async def enrich_point(p):
     return p
 
 
+async def enrich_points_batch(points):
+    """Batch-load members and events to avoid N+1 queries."""
+    member_ids = {p["member_id"] for p in points if not p.get("member_name")}
+    event_ids = {p["event_id"] for p in points if not p.get("event_name")}
+    member_map = {}
+    event_map = {}
+    if member_ids:
+        members = await db.members.find({"id": {"$in": list(member_ids)}}, {"_id": 0, "id": 1, "name": 1}).to_list(len(member_ids))
+        member_map = {m["id"]: m["name"] for m in members}
+    if event_ids:
+        events = await db.events.find({"id": {"$in": list(event_ids)}}, {"_id": 0, "id": 1, "name": 1}).to_list(len(event_ids))
+        event_map = {e["id"]: e["name"] for e in events}
+    for p in points:
+        if not p.get("member_name"):
+            p["member_name"] = member_map.get(p["member_id"], "Bilinmeyen")
+        if not p.get("event_name"):
+            p["event_name"] = event_map.get(p["event_id"], "Bilinmeyen")
+    return points
+
+
 # ---------- Root ----------
 @api_router.get("/")
 async def root():
@@ -197,8 +217,7 @@ async def member_history(member_id: str):
     if not m:
         raise HTTPException(404, "Üye bulunamadı")
     points = await db.points.find({"member_id": member_id}, {"_id": 0}).sort("date", -1).to_list(1000)
-    for p in points:
-        await enrich_point(p)
+    await enrich_points_batch(points)
     total = sum(int(p["points"]) * float(p.get("multiplier", 1.0)) for p in points)
     return {"member": m, "points": points, "total": int(total), "event_count": len(set(p["event_id"] for p in points))}
 
@@ -278,8 +297,7 @@ async def archive_group(group_name: str):
 @api_router.get("/points")
 async def list_points(search: Optional[str] = None, limit: int = 1000):
     docs = await db.points.find({}, {"_id": 0}).sort("date", -1).to_list(limit)
-    for d in docs:
-        await enrich_point(d)
+    await enrich_points_batch(docs)
     if search:
         s = search.lower()
         docs = [d for d in docs if s in (d.get("member_name") or "").lower() or s in (d.get("event_name") or "").lower() or s in (d.get("note") or "").lower()]
@@ -289,7 +307,6 @@ async def list_points(search: Optional[str] = None, limit: int = 1000):
 @api_router.post("/points")
 async def create_point(body: PointCreate):
     p = Point(**body.model_dump())
-    await enrich_point(p.model_dump())
     doc = p.model_dump()
     await enrich_point(doc)
     await db.points.insert_one(doc)
@@ -299,7 +316,7 @@ async def create_point(body: PointCreate):
 
 @api_router.post("/points/bulk")
 async def bulk_points(body: BulkPointCreate):
-    created = []
+    docs_to_insert = []
     for mid in body.member_ids:
         p = Point(
             member_id=mid,
@@ -308,12 +325,13 @@ async def bulk_points(body: BulkPointCreate):
             multiplier=body.multiplier or 1.0,
             note=body.note,
         )
-        doc = p.model_dump()
-        await enrich_point(doc)
-        await db.points.insert_one(doc)
-        doc.pop("_id", None)
-        created.append(doc)
-    return {"created": len(created), "points": created}
+        docs_to_insert.append(p.model_dump())
+    await enrich_points_batch(docs_to_insert)
+    if docs_to_insert:
+        await db.points.insert_many(docs_to_insert)
+    for d in docs_to_insert:
+        d.pop("_id", None)
+    return {"created": len(docs_to_insert), "points": docs_to_insert}
 
 
 @api_router.delete("/points/{point_id}")
@@ -385,52 +403,55 @@ async def delete_commander(commander_id: str):
 async def get_stats():
     member_count = await db.members.count_documents({})
     event_count = await db.events.count_documents({"archived": False})
-    points = await db.points.find({}, {"_id": 0}).to_list(100000)
-    total = sum(int(p["points"]) * float(p.get("multiplier", 1.0)) for p in points)
+    pipeline = [
+        {"$project": {"weighted": {"$multiply": ["$points", {"$ifNull": ["$multiplier", 1.0]}]}}},
+        {"$group": {"_id": None, "total": {"$sum": "$weighted"}}},
+    ]
+    result = await db.points.aggregate(pipeline).to_list(1)
+    total = int(result[0]["total"]) if result else 0
     avg = int(total / event_count) if event_count > 0 else 0
     return {
         "member_count": member_count,
         "event_count": event_count,
-        "total_points": int(total),
+        "total_points": total,
         "event_avg": avg,
     }
 
 
 @api_router.get("/leaderboard")
 async def leaderboard(event_id: Optional[str] = None, group_name: Optional[str] = None):
-    query = {}
+    match_stage = {}
     if event_id:
-        query["event_id"] = event_id
+        match_stage["event_id"] = event_id
     elif group_name:
-        # Find events in group
-        events = await db.events.find({"group_name": group_name}, {"_id": 0}).to_list(1000)
+        events = await db.events.find({"group_name": group_name}, {"_id": 0, "id": 1}).to_list(1000)
         event_ids = [e["id"] for e in events]
-        query["event_id"] = {"$in": event_ids}
-    points = await db.points.find(query, {"_id": 0}).to_list(100000)
-    # aggregate per member
-    agg = {}
-    for p in points:
-        mid = p["member_id"]
-        pts = int(p["points"]) * float(p.get("multiplier", 1.0))
-        agg[mid] = agg.get(mid, 0) + pts
-    members = await db.members.find({}, {"_id": 0}).to_list(1000)
+        match_stage["event_id"] = {"$in": event_ids}
+    pipeline = [
+        {"$match": match_stage} if match_stage else {"$match": {}},
+        {"$project": {"member_id": 1, "weighted": {"$multiply": ["$points", {"$ifNull": ["$multiplier", 1.0]}]}}},
+        {"$group": {"_id": "$member_id", "total_points": {"$sum": "$weighted"}}},
+        {"$sort": {"total_points": -1}},
+        {"$limit": 500},
+    ]
+    agg = await db.points.aggregate(pipeline).to_list(500)
+    member_ids = [r["_id"] for r in agg]
+    members = await db.members.find({"id": {"$in": member_ids}}, {"_id": 0}).to_list(len(member_ids)) if member_ids else []
     m_by_id = {m["id"]: m for m in members}
     result = []
-    for mid, total in agg.items():
-        m = m_by_id.get(mid)
+    for i, r in enumerate(agg):
+        m = m_by_id.get(r["_id"])
         if not m:
             continue
         result.append({
-            "member_id": mid,
+            "member_id": r["_id"],
             "name": m["name"],
             "rank": m["rank"],
             "level": m.get("level", 1),
             "title": m.get("title"),
-            "total_points": int(total),
+            "total_points": int(r["total_points"]),
+            "position": i + 1,
         })
-    result.sort(key=lambda x: x["total_points"], reverse=True)
-    for i, r in enumerate(result):
-        r["position"] = i + 1
     return result
 
 
