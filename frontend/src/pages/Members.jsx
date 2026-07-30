@@ -35,27 +35,19 @@ export default function Members() {
     const groups = {};
     members.forEach((m) => {
       const raw = (m.alliance_name || "").trim();
-      let key;
-      if (raw.toLowerCase() === "gow") key = "GOW";
-      else if (!raw) key = "Gruplandırılmamış";
-      else key = raw;
+      const key = raw || "Gruplandırılmamış";
       (groups[key] = groups[key] || []).push(m);
     });
     // Within each group: rank desc, then name alpha
     Object.values(groups).forEach((arr) =>
       arr.sort((a, b) => (rankOrder[b.rank] || 0) - (rankOrder[a.rank] || 0) || a.name.localeCompare(b.name, "tr"))
     );
-    // Group order: GOW → alpha (tr) → Gruplandırılmamış
-    const orderKey = (name) => {
-      if (name === "GOW") return [0, ""];
-      if (name === "Gruplandırılmamış") return [2, ""];
-      return [1, name.toLowerCase()];
-    };
+    // Group order: Türkçe alfabetik (case-insensitive), "Gruplandırılmamış" en sonda
     return Object.keys(groups)
       .sort((a, b) => {
-        const [ka, sa] = orderKey(a);
-        const [kb, sb] = orderKey(b);
-        return ka - kb || sa.localeCompare(sb, "tr");
+        if (a === "Gruplandırılmamış") return 1;
+        if (b === "Gruplandırılmamış") return -1;
+        return a.localeCompare(b, "tr");
       })
       .map((name) => ({ name, members: groups[name] }));
   }, [members]);
