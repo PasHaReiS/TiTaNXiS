@@ -107,8 +107,10 @@ export default function Members() {
                   </button>
                   <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setProfileId(m.id)}>
                     <div className="font-bold text-white truncate">{m.name}</div>
-                    <div className="text-[10px] text-muted-foreground mono">ID: {m.member_id}</div>
-                    {m.alliance_name && <div className="text-[10px] text-white/70 truncate">🛡 {m.alliance_name}</div>}
+                    <div className="text-[10px] text-muted-foreground mono">
+                      {m.member_id ? `ID: ${m.member_id}` : "—"}
+                      {m.castle_level && <span className="ml-2 gold-text">Kale F{m.castle_level}</span>}
+                    </div>
                     {m.title && <div className="text-[10px] gold-text font-semibold uppercase mt-0.5">{m.title}</div>}
                   </div>
                   <CanEdit>
