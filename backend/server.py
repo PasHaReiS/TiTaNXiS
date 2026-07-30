@@ -204,10 +204,18 @@ async def list_members(search: Optional[str] = None):
     if search:
         query = {"$or": [
             {"name": {"$regex": search, "$options": "i"}},
-            {"member_id": {"$regex": search, "$options": "i"}}
+            {"member_id": {"$regex": search, "$options": "i"}},
+            {"alliance_name": {"$regex": search, "$options": "i"}}
         ]}
     docs = await db.members.find(query, {"_id": 0}).to_list(1000)
     return docs
+
+
+@api_router.get("/alliances")
+async def list_alliances():
+    """Return distinct alliance names for autocomplete."""
+    names = await db.members.distinct("alliance_name")
+    return sorted([n for n in names if n])
 
 
 @api_router.get("/members/{member_id}")

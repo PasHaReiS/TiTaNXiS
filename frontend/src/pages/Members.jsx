@@ -199,6 +199,20 @@ function MemberForm({ initial, onClose }) {
         <input data-testid={MEMBERS.formId} value={memberId} onChange={(e) => setMemberId(e.target.value)}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono" />
 
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">İttifak Adı</label>
+        <input
+          data-testid="member-form-alliance"
+          value={allianceName}
+          onChange={(e) => setAllianceName(e.target.value)}
+          list="alliance-list"
+          placeholder="Örn: SvS Loncası"
+          autoComplete="off"
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
+        />
+        <datalist id="alliance-list">
+          {alliances.map((a) => (<option key={a} value={a} />))}
+        </datalist>
+
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Rütbe</label>
         <div data-testid={MEMBERS.formRank} className="flex gap-1.5 flex-wrap">
           {RANKS.map((r) => (

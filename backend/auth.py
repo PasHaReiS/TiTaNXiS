@@ -227,7 +227,7 @@ def make_auth_router(db):
 
 
 async def seed_admin(db):
-    """Seed default admin user if not exists. Also sync password from env."""
+    """Seed default admin user if not exists. Also sync password from env on each startup."""
     username = (os.environ.get("ADMIN_USERNAME") or "admin").lower()
     email = os.environ.get("ADMIN_EMAIL") or None
     password = os.environ.get("ADMIN_PASSWORD") or "admin123"
@@ -243,7 +243,7 @@ async def seed_admin(db):
         )
         await db.users.insert_one(u.model_dump())
     else:
-        # Ensure admin flags always correct
+        # Ensure admin flags always correct; re-sync password from env if it changed.
         updates = {}
         if existing.get("role") != "admin":
             updates["role"] = "admin"
@@ -251,6 +251,8 @@ async def seed_admin(db):
             updates["can_edit"] = True
         if email and existing.get("email") != email:
             updates["email"] = email
+        if not verify_password(password, existing["password_hash"]):
+            updates["password_hash"] = hash_password(password)
         if updates:
             await db.users.update_one({"id": existing["id"]}, {"$set": updates})
 
