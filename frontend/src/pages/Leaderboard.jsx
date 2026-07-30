@@ -100,7 +100,7 @@ export default function Leaderboard() {
               <div className="podium-medal" style={{ background: "linear-gradient(135deg,#c0c0c0,#8a8a8a)", color: "#0a0a0a" }}>
                 <Medal className="w-4 h-4" />
               </div>
-              <div className={`rank-badge rank-${top3[1].rank} mt-2`}>{top3[1].rank}</div>
+              <div className={`rank-badge rank-${top3[1].rank} mt-2`}>{top3[1].rank === "GOW" ? "" : top3[1].rank}</div>
               <div className="text-xs font-bold mt-2 text-white truncate w-full">{top3[1].name}</div>
               <div className="text-[10px] text-muted-foreground">Lv {top3[1].level}</div>
               <div className="gold-text font-bold text-xs mono mt-1">{fmt(top3[1].total_points)}</div>
@@ -111,7 +111,7 @@ export default function Leaderboard() {
               <div className="podium-medal" style={{ background: "linear-gradient(135deg,#F5A623,#d68810)", color: "#0a0a0a" }}>
                 <Crown className="w-4 h-4" />
               </div>
-              <div className={`rank-badge rank-${top3[0].rank} mt-2`}>{top3[0].rank}</div>
+              <div className={`rank-badge rank-${top3[0].rank} mt-2`}>{top3[0].rank === "GOW" ? "" : top3[0].rank}</div>
               <div className="text-sm font-bold mt-2 text-white truncate w-full">{top3[0].name}</div>
               <div className="text-[10px] text-muted-foreground">Lv {top3[0].level}</div>
               <div className="gold-text font-bold text-sm mono mt-1">{fmt(top3[0].total_points)}</div>
@@ -122,7 +122,7 @@ export default function Leaderboard() {
               <div className="podium-medal" style={{ background: "linear-gradient(135deg,#cd7f32,#8b4513)", color: "#fff" }}>
                 <Award className="w-4 h-4" />
               </div>
-              <div className={`rank-badge rank-${top3[2].rank} mt-2`}>{top3[2].rank}</div>
+              <div className={`rank-badge rank-${top3[2].rank} mt-2`}>{top3[2].rank === "GOW" ? "" : top3[2].rank}</div>
               <div className="text-xs font-bold mt-2 text-white truncate w-full">{top3[2].name}</div>
               <div className="text-[10px] text-muted-foreground">Lv {top3[2].level}</div>
               <div className="gold-text font-bold text-xs mono mt-1">{fmt(top3[2].total_points)}</div>
@@ -142,7 +142,7 @@ export default function Leaderboard() {
               <div className="w-8 text-center">
                 <span className="text-xs font-bold text-muted-foreground mono">#{r.position}</span>
               </div>
-              <div className={`rank-badge rank-${r.rank}`}>{r.rank}</div>
+              <div className={`rank-badge rank-${r.rank}`}>{r.rank === "GOW" ? "" : r.rank}</div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-white truncate">{r.name}</div>
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wider">

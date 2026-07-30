@@ -128,7 +128,7 @@ export default function AddPoints() {
                         onClick={() => { setSelectedMember(m); setShowMemberList(false); setMemberQ(""); }}
                         className="w-full flex items-center gap-2 p-2 hover:bg-primary/10 text-left"
                       >
-                        <div className={`rank-badge rank-${m.rank}`} style={{ width: 30, height: 30, fontSize: 10 }}>{m.rank}</div>
+                        <div className={`rank-badge rank-${m.rank}`} style={{ width: 30, height: 30, fontSize: 10 }}>{m.rank === "GOW" ? "" : m.rank}</div>
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-semibold text-white truncate">{m.name}</div>
                           <div className="text-[10px] text-muted-foreground mono">ID: {m.member_id}</div>
@@ -153,7 +153,7 @@ export default function AddPoints() {
                       onChange={(e) => setBulkIds(e.target.checked ? [...bulkIds, m.id] : bulkIds.filter((x) => x !== m.id))}
                       className="w-4 h-4 accent-red-500"
                     />
-                    <div className={`rank-badge rank-${m.rank}`} style={{ width: 24, height: 24, fontSize: 9 }}>{m.rank}</div>
+                    <div className={`rank-badge rank-${m.rank}`} style={{ width: 24, height: 24, fontSize: 9 }}>{m.rank === "GOW" ? "" : m.rank}</div>
                     <div className="text-sm text-white truncate flex-1">{m.name}</div>
                   </label>
                 ))}

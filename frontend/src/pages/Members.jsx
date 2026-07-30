@@ -87,11 +87,12 @@ export default function Members() {
                   className="card-dark p-3 flex items-center gap-3 row-hover"
                 >
                   <button onClick={() => setProfileId(m.id)} className={`rank-badge rank-${m.rank}`}>
-                    {m.rank}
+                    {m.rank === "GOW" ? "" : m.rank}
                   </button>
                   <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setProfileId(m.id)}>
                     <div className="font-bold text-white truncate">{m.name}</div>
                     <div className="text-[10px] text-muted-foreground mono">ID: {m.member_id}</div>
+                    {m.alliance_name && <div className="text-[10px] text-white/70 truncate">🛡 {m.alliance_name}</div>}
                     {m.title && <div className="text-[10px] gold-text font-semibold uppercase mt-0.5">{m.title}</div>}
                   </div>
                   <CanEdit>
@@ -144,10 +145,12 @@ export default function Members() {
 function MemberForm({ initial, onClose }) {
   const [name, setName] = useState(initial?.name || "");
   const [memberId, setMemberId] = useState(initial?.member_id || "");
+  const [allianceName, setAllianceName] = useState(initial?.alliance_name || "");
   const [rank, setRank] = useState(initial?.rank || "GOW");
   const [title, setTitle] = useState(initial?.title || "");
   const [level, setLevel] = useState(initial?.level || 30);
   const [saving, setSaving] = useState(false);
+  const { data: alliances = [] } = useSWR("/alliances", fetcher);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -157,7 +160,7 @@ function MemberForm({ initial, onClose }) {
     }
     setSaving(true);
     try {
-      const body = { name: name.trim(), member_id: memberId.trim(), rank, title: title.trim() || null, level: Number(level) || 1 };
+      const body = { name: name.trim(), member_id: memberId.trim(), alliance_name: allianceName.trim() || null, rank, title: title.trim() || null, level: Number(level) || 1 };
       if (initial) {
         await api.patch(`/members/${initial.id}`, body);
         toast.success("Üye güncellendi");

@@ -16,10 +16,11 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
           <DialogTitle className="flex items-center gap-2">
             {data?.member && (
               <>
-                <div className={`rank-badge rank-${data.member.rank}`}>{data.member.rank}</div>
+                <div className={`rank-badge rank-${data.member.rank}`}>{data.member.rank === "GOW" ? "" : data.member.rank}</div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold uppercase text-white truncate">{data.member.name}</div>
                   <div className="text-xs text-muted-foreground mono">ID: {data.member.member_id}</div>
+                  {data.member.alliance_name && <div className="text-xs text-white/70 truncate">🛡 {data.member.alliance_name}</div>}
                 </div>
               </>
             )}

@@ -40,6 +40,7 @@ class Member(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     member_id: str  # Game ID
+    alliance_name: Optional[str] = None
     rank: str  # GOW, R5, R4, R3, R2, R1
     title: Optional[str] = None  # Kral, Kraliçe, etc.
     level: Optional[int] = 1
@@ -49,6 +50,7 @@ class Member(BaseModel):
 class MemberCreate(BaseModel):
     name: str
     member_id: str
+    alliance_name: Optional[str] = None
     rank: str
     title: Optional[str] = None
     level: Optional[int] = 1
@@ -57,6 +59,7 @@ class MemberCreate(BaseModel):
 class MemberUpdate(BaseModel):
     name: Optional[str] = None
     member_id: Optional[str] = None
+    alliance_name: Optional[str] = None
     rank: Optional[str] = None
     title: Optional[str] = None
     level: Optional[int] = None
@@ -498,6 +501,9 @@ async def event_groups():
 
 
 # ---------- Seed ----------
+ALLIANCES = ["SvS Loncası", "Kartallar", "Bozkurtlar", "Prestige", "Osmanlı Torunu", "Ejderha Klanı"]
+
+
 TURKISH_NAMES = [
     "Selenay", "oOoHavan4oOo", "Grumpy Deanerys", "Vanya", "pasha", "Ayşe Han", "Mehmet Fatih",
     "Kral Aslan", "Kraliçe Melisa", "Barbaros", "Alparslan", "Timur", "Cengiz Han", "Attila",
@@ -685,6 +691,15 @@ logger = logging.getLogger(__name__)
 async def startup():
     await ensure_indexes(db)
     await seed_admin(db)
+    # Backfill alliance_name for legacy members
+    legacy = await db.members.find(
+        {"$or": [{"alliance_name": {"$exists": False}}, {"alliance_name": None}]},
+        {"_id": 0, "id": 1},
+    ).to_list(1000)
+    for m in legacy:
+        await db.members.update_one({"id": m["id"]}, {"$set": {"alliance_name": random.choice(ALLIANCES)}})
+    if legacy:
+        logger.info(f"Backfilled alliance_name for {len(legacy)} members")
     # Auto-seed if empty
     count = await db.members.count_documents({})
     if count == 0:
