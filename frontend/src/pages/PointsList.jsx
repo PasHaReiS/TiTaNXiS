@@ -11,7 +11,7 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
 
 export default function PointsList() {
   const [q, setQ] = useState("");
-  const { data: points = [] } = useSWR("/points?limit=2000", fetcher, { refreshInterval: 5000 });
+  const { data: points = [] } = useSWR("/scores?limit=2000", fetcher, { refreshInterval: 5000 });
 
   const filtered = useMemo(() => {
     if (!q) return points;
@@ -63,8 +63,8 @@ export default function PointsList() {
                 <button
                   onClick={async () => {
                     if (!window.confirm("Kayıt silinsin mi?")) return;
-                    await api.delete(`/points/${p.id}`);
-                    globalMutate((k) => typeof k === "string" && k.startsWith("/points"));
+                    await api.delete(`/scores/${p.id}`);
+                    globalMutate((k) => typeof k === "string" && (k.startsWith("/scores") || k.startsWith("/points")));
                     globalMutate("/stats");
                     globalMutate("/leaderboard");
                     toast.success("Silindi");

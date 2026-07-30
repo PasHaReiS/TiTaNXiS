@@ -23,7 +23,7 @@ export default function AddPoints() {
 
   const { data: members = [] } = useSWR("/members", fetcher);
   const { data: events = [] } = useSWR("/events?archived=false", fetcher);
-  const { data: recentPoints = [] } = useSWR("/points?limit=5", fetcher, { refreshInterval: 5000 });
+  const { data: recentPoints = [] } = useSWR("/scores?limit=5", fetcher, { refreshInterval: 5000 });
 
   const filteredMembers = useMemo(() => {
     if (!memberQ) return members.slice(0, 30);
@@ -43,7 +43,7 @@ export default function AddPoints() {
     setSaving(true);
     try {
       if (bulk) {
-        await api.post("/points/bulk", {
+        await api.post("/scores/bulk", {
           member_ids: bulkIds,
           event_id: eventId,
           points: Number(points),
@@ -52,7 +52,7 @@ export default function AddPoints() {
         });
         toast.success(`${bulkIds.length} üyeye puan eklendi`);
       } else {
-        await api.post("/points", {
+        await api.post("/scores", {
           member_id: selectedMember.id,
           event_id: eventId,
           points: Number(points),
@@ -62,7 +62,7 @@ export default function AddPoints() {
         toast.success(`${selectedMember.name} için ${fmt(Number(points) * finalMultiplier)} puan eklendi`);
       }
       setPoints(""); setNote(""); setSelectedMember(null); setMemberQ(""); setBulkIds([]);
-      mutate((k) => typeof k === "string" && k.startsWith("/points"));
+      mutate((k) => typeof k === "string" && (k.startsWith("/scores") || k.startsWith("/points")));
       mutate("/stats"); mutate("/leaderboard");
     } catch (err) {
       toast.error(err?.response?.data?.detail || err.message);

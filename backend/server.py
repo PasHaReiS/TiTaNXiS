@@ -324,6 +324,27 @@ async def delete_point(point_id: str):
     return {"ok": True}
 
 
+# ---------- Scores (alias for Points - same underlying collection) ----------
+@api_router.get("/scores")
+async def list_scores(search: Optional[str] = None, limit: int = 1000):
+    return await list_points(search=search, limit=limit)
+
+
+@api_router.post("/scores")
+async def create_score(body: PointCreate):
+    return await create_point(body)
+
+
+@api_router.post("/scores/bulk")
+async def bulk_scores(body: BulkPointCreate):
+    return await bulk_points(body)
+
+
+@api_router.delete("/scores/{score_id}")
+async def delete_score(score_id: str):
+    return await delete_point(score_id)
+
+
 # ---------- Commanders ----------
 @api_router.get("/commanders")
 async def list_commanders(category: Optional[str] = None):
