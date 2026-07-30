@@ -2,10 +2,42 @@ import axios from "axios";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
+const TOKEN_KEY = "ol_token";
+
+// Add token from localStorage on every request (works after refresh)
+axios.interceptors.request.use((config) => {
+  const t = localStorage.getItem(TOKEN_KEY);
+  if (t && config.url && (config.url.includes(BACKEND_URL) || config.url.startsWith("/"))) {
+    config.headers = config.headers || {};
+    if (!config.headers.Authorization) config.headers.Authorization = `Bearer ${t}`;
+  }
+  return config;
+});
+
+// Handle 401 globally
+axios.interceptors.response.use(
+  (r) => r,
+  (err) => {
+    if (err?.response?.status === 401) {
+      const p = window.location.pathname;
+      if (p !== "/login" && !p.startsWith("/login")) {
+        localStorage.removeItem(TOKEN_KEY);
+      }
+    }
+    return Promise.reject(err);
+  }
+);
 
 export const api = axios.create({
   baseURL: API,
   headers: { "Content-Type": "application/json" },
+});
+
+// Also attach token to the api instance
+api.interceptors.request.use((config) => {
+  const t = localStorage.getItem(TOKEN_KEY);
+  if (t) config.headers.Authorization = `Bearer ${t}`;
+  return config;
 });
 
 export const fmt = (n) => {
@@ -37,4 +69,12 @@ export function groupCategories() {
     grouped[c.section].push(c);
   });
   return grouped;
+}
+
+export function apiErr(e) {
+  const d = e?.response?.data?.detail;
+  if (!d) return e.message || "Bilinmeyen hata";
+  if (typeof d === "string") return d;
+  if (Array.isArray(d)) return d.map((x) => (x?.msg || JSON.stringify(x))).join(" ");
+  return JSON.stringify(d);
 }

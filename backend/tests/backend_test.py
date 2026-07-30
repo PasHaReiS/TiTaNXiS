@@ -18,9 +18,19 @@ API = f"{BASE}/api"
 
 
 @pytest.fixture(scope="session")
-def s():
+def admin_token():
+    r = requests.post(f"{API}/auth/login", json={"username": "admin", "password": "admin123"})
+    assert r.status_code == 200, f"admin login failed: {r.status_code} {r.text}"
+    return r.json()["token"]
+
+
+@pytest.fixture(scope="session")
+def s(admin_token):
     sess = requests.Session()
-    sess.headers.update({"Content-Type": "application/json"})
+    sess.headers.update({
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {admin_token}",
+    })
     return sess
 
 

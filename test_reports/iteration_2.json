@@ -1,0 +1,42 @@
+{
+  "summary": "Comprehensive backend testing of the new JWT + RBAC layer for Oyun Loncası. Created /app/backend/tests/test_auth.py covering login, /auth/me, change-password, /users CRUD, JWT structure/expiry, admin seed, and RBAC on all write endpoints (members, events, points, scores, commanders, events/archive-group, seed). Also updated /app/backend/tests/backend_test.py so the shared session fixture authenticates as admin (write endpoints now require auth). All 30 auth/RBAC tests pass (100%). Overall 60/62 tests pass. The 2 failures are pre-existing seed-data drift assertions in iteration_1 tests (member rank distribution & svs group count) — NOT related to this iteration and NOT auth-caused.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "seed_admin()", "issue": "seed_admin does NOT re-sync password if ADMIN_PASSWORD env changes after first seed. If the admin later changes their password via /auth/change-password, that is expected; but if ops rotates ADMIN_PASSWORD in .env, existing admin's hash won't be updated. Playbook recommendation was to sync on startup."},
+      {"endpoint": "/api/users PATCH", "issue": "Endpoint allows an admin to demote themselves to role='user' (no self-role guard). Combined with self-delete prevention, the system could end up with zero admins."},
+      {"endpoint": "/api/auth/*", "issue": "No brute-force lockout after N failed logins (playbook mentioned lockout after 5 fails). Currently unlimited attempts allowed."},
+      {"endpoint": "/api/auth/login", "issue": "No httpOnly cookie is set - token is only returned in JSON body (matches spec: localStorage). Playbook guidance about httpOnly cookies is not applied here; acceptable since spec explicitly asks for localStorage-based JWT."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_auth.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: consider adding brute-force lockout on /api/auth/login (5 failures → temp block) per auth playbook.",
+    "OPTIONAL: seed_admin should also re-hash password when ADMIN_PASSWORD env changes (currently only syncs role/can_edit/email).",
+    "OPTIONAL: prevent an admin from demoting themselves in PATCH /api/users/{id} to avoid zero-admin state.",
+    "Iteration_1 tests test_members_list_156_and_rank_distribution and test_event_groups fail because current DB seed does not match iteration_1's expected 156-member GOW/R5/... distribution — DB appears to have been seeded differently (94/1/8/20/18/15 not present). If seed correctness matters, main agent may want to POST /api/seed?force=true (with admin auth) to restore the expected dataset. Not an auth bug."
+  ],
+  "critical_code_review_comments": [
+    "auth.py public_user() always coerces can_edit=True for role=='admin' — good, consistent.",
+    "make_auth_deps() re-creates deps inside make_auth_router() as well; the router-scoped deps are separate closures from server.py's deps. Both hit the same db so behaviour is identical, but there is duplication.",
+    "server.py startup calls seed_data(force=False) directly, passing the Depends sentinel as `_` — this only works because require_admin is not evaluated. Fragile but currently correct; a comment already documents this.",
+    "No password_hash leakage in /api/users response (verified in test).",
+    "JWT exp is set to ~7 days (verified 6d20h < delta < 7d4h). HS256 with 64-char secret from env — good.",
+    "seed_admin uses bcrypt (verified $2b$ prefix implicitly via successful verify_password). Idempotent on subsequent startups."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (added admin_token session fixture; write endpoints now authenticated)",
+    "/app/backend/tests/test_auth.py (new file — 30 tests)"
+  ],
+  "success_rate": {"backend": "97% (60/62); auth-specific: 100% (30/30)", "frontend": "not tested"},
+  "test_credentials": "admin / admin123 (from /app/memory/test_credentials.md) — verified working.",
+  "seed_data_creation": "Test users created per-test via /api/users (prefixed test_viewer_ / test_editor_ / test_dup_ / test_todel_) and all deleted via fixture teardown / explicit cleanup. No permanent seed data added.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Auth layer is fully working. Admin seed on startup is idempotent. If iteration_1 seed-data assertions still fail (156 members, 14 events), it's because the DB doesn't match — main agent can call POST /api/seed?force=true with admin token. Test file pattern for creating auth'd users: POST /api/users with admin bearer, then POST /api/auth/login to get their token. Cleanup via DELETE /api/users/{id}. pyjwt package was installed to craft expired token in tests."
+}

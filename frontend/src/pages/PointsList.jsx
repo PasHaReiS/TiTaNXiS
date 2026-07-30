@@ -3,6 +3,7 @@ import useSWR from "swr";
 import { api, fmt } from "@/lib/api";
 import { POINTS } from "@/constants/testIds";
 import Header from "@/components/Header";
+import CanEdit from "@/components/CanEdit";
 import { Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { mutate as globalMutate } from "swr";
@@ -60,20 +61,22 @@ export default function PointsList() {
                   <div className="gold-text font-bold mono text-sm">+{fmt(p.points * (p.multiplier || 1))}</div>
                   <div className="text-[10px] text-muted-foreground">Puan: {fmt(p.points)} × {p.multiplier || 1}</div>
                 </div>
-                <button
-                  onClick={async () => {
-                    if (!window.confirm("Kayıt silinsin mi?")) return;
-                    await api.delete(`/scores/${p.id}`);
-                    globalMutate((k) => typeof k === "string" && (k.startsWith("/scores") || k.startsWith("/points")));
-                    globalMutate("/stats");
-                    globalMutate("/leaderboard");
-                    toast.success("Silindi");
-                  }}
-                  className="w-7 h-7 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
-                  aria-label="Sil"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                <CanEdit>
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm("Kayıt silinsin mi?")) return;
+                      await api.delete(`/scores/${p.id}`);
+                      globalMutate((k) => typeof k === "string" && (k.startsWith("/scores") || k.startsWith("/points")));
+                      globalMutate("/stats");
+                      globalMutate("/leaderboard");
+                      toast.success("Silindi");
+                    }}
+                    className="w-7 h-7 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
+                    aria-label="Sil"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </CanEdit>
               </div>
             </div>
           ))}

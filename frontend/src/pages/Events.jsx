@@ -3,6 +3,7 @@ import useSWR, { mutate } from "swr";
 import { api } from "@/lib/api";
 import { EVENTS } from "@/constants/testIds";
 import Header from "@/components/Header";
+import CanEdit from "@/components/CanEdit";
 import { Plus, Pencil, Trash2, Archive, X, Calendar } from "lucide-react";
 import { toast } from "sonner";
 
@@ -45,13 +46,15 @@ export default function Events() {
             <h2 className="text-xl font-bold uppercase red-text tracking-wider">Etkinlikler</h2>
             <p className="text-xs text-muted-foreground"><span className="gold-text font-bold mono">{activeCount}</span> aktif</p>
           </div>
-          <button
-            data-testid={EVENTS.addBtn}
-            onClick={() => { setEditing(null); setShowForm(true); }}
-            className="btn-gold flex items-center gap-1.5 text-xs"
-          >
-            <Plus className="w-4 h-4" /> Yeni
-          </button>
+          <CanEdit>
+            <button
+              data-testid={EVENTS.addBtn}
+              onClick={() => { setEditing(null); setShowForm(true); }}
+              className="btn-gold flex items-center gap-1.5 text-xs"
+            >
+              <Plus className="w-4 h-4" /> Yeni
+            </button>
+          </CanEdit>
         </div>
 
         <div className="flex gap-2 mb-4">
@@ -76,9 +79,11 @@ export default function Events() {
                 <span className="chip">{list.length}</span>
               </div>
               {tab === "active" && (
-                <button onClick={() => archiveGroup(group)} className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-red-500/15 red-text border border-red-500/30 hover:bg-red-500/25">
-                  Grubu Arşivle
-                </button>
+                <CanEdit>
+                  <button onClick={() => archiveGroup(group)} className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-red-500/15 red-text border border-red-500/30 hover:bg-red-500/25">
+                    Grubu Arşivle
+                  </button>
+                </CanEdit>
               )}
             </div>
 
@@ -92,40 +97,42 @@ export default function Events() {
                       Çarpan: <span className="gold-text mono">{e.multiplier}x</span> • {new Date(e.date).toLocaleDateString("tr-TR")} • {e.subtitle}
                     </div>
                   </div>
-                  {!e.archived && (
+                  <CanEdit>
+                    {!e.archived && (
+                      <button
+                        data-testid={EVENTS.archiveBtn(e.id)}
+                        onClick={async () => {
+                          await api.patch(`/events/${e.id}`, { archived: true });
+                          mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                          toast.success("Arşivlendi");
+                        }}
+                        className="w-8 h-8 rounded-md bg-yellow-500/15 hover:bg-yellow-500/30 gold-text flex items-center justify-center"
+                        aria-label="Arşivle"
+                      >
+                        <Archive className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <button
-                      data-testid={EVENTS.archiveBtn(e.id)}
-                      onClick={async () => {
-                        await api.patch(`/events/${e.id}`, { archived: true });
-                        mutate((k) => typeof k === "string" && k.startsWith("/events"));
-                        toast.success("Arşivlendi");
-                      }}
-                      className="w-8 h-8 rounded-md bg-yellow-500/15 hover:bg-yellow-500/30 gold-text flex items-center justify-center"
-                      aria-label="Arşivle"
+                      data-testid={EVENTS.editBtn(e.id)}
+                      onClick={() => { setEditing(e); setShowForm(true); }}
+                      className="w-8 h-8 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
                     >
-                      <Archive className="w-3.5 h-3.5" />
+                      <Pencil className="w-3.5 h-3.5" />
                     </button>
-                  )}
-                  <button
-                    data-testid={EVENTS.editBtn(e.id)}
-                    onClick={() => { setEditing(e); setShowForm(true); }}
-                    className="w-8 h-8 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    data-testid={EVENTS.deleteBtn(e.id)}
-                    onClick={async () => {
-                      if (!window.confirm(`${e.name} silinsin mi?`)) return;
-                      await api.delete(`/events/${e.id}`);
-                      mutate((k) => typeof k === "string" && k.startsWith("/events"));
-                      mutate("/stats");
-                      toast.success("Etkinlik silindi");
-                    }}
-                    className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                    <button
+                      data-testid={EVENTS.deleteBtn(e.id)}
+                      onClick={async () => {
+                        if (!window.confirm(`${e.name} silinsin mi?`)) return;
+                        await api.delete(`/events/${e.id}`);
+                        mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                        mutate("/stats");
+                        toast.success("Etkinlik silindi");
+                      }}
+                      className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </CanEdit>
                 </div>
               ))}
             </div>

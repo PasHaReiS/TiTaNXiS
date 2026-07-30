@@ -3,12 +3,14 @@ import useSWR, { mutate } from "swr";
 import { api, fmt } from "@/lib/api";
 import { ADD_POINTS } from "@/constants/testIds";
 import Header from "@/components/Header";
-import { Search, ChevronDown, Users } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { Search, ChevronDown, Users, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 export default function AddPoints() {
+  const { canEdit } = useAuth();
   const [memberQ, setMemberQ] = useState("");
   const [selectedMember, setSelectedMember] = useState(null);
   const [showMemberList, setShowMemberList] = useState(false);
@@ -68,6 +70,23 @@ export default function AddPoints() {
       toast.error(err?.response?.data?.detail || err.message);
     } finally { setSaving(false); }
   };
+
+  if (!canEdit) {
+    return (
+      <div data-testid={ADD_POINTS.container}>
+        <Header subtitle="Puan Ekle" />
+        <div className="px-4">
+          <div className="card-red-gold p-6 text-center fade-in">
+            <Lock className="w-10 h-10 gold-text mx-auto mb-3" />
+            <h3 className="text-lg font-bold uppercase red-text tracking-wider mb-2">Yetki Yok</h3>
+            <p className="text-sm text-muted-foreground">
+              Puan ekleme yetkisi için yönetici ile iletişime geçin.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div data-testid={ADD_POINTS.container}>

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Query, Depends
 from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -21,6 +21,10 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+
+# Auth wiring
+from auth import make_auth_router, make_auth_deps, seed_admin, ensure_indexes
+_optional_auth, require_auth, require_edit, require_admin = make_auth_deps(db)
 
 app = FastAPI(title="Oyun Loncası Yönetim API")
 api_router = APIRouter(prefix="/api")
@@ -223,14 +227,14 @@ async def member_history(member_id: str):
 
 
 @api_router.post("/members")
-async def create_member(body: MemberCreate):
+async def create_member(body: MemberCreate, _: dict = Depends(require_edit)):
     m = Member(**body.model_dump())
     await db.members.insert_one(m.model_dump())
     return m.model_dump()
 
 
 @api_router.patch("/members/{member_id}")
-async def update_member(member_id: str, body: MemberUpdate):
+async def update_member(member_id: str, body: MemberUpdate, _: dict = Depends(require_edit)):
     update = {k: v for k, v in body.model_dump().items() if v is not None}
     if not update:
         raise HTTPException(400, "Değişiklik yok")
@@ -242,7 +246,7 @@ async def update_member(member_id: str, body: MemberUpdate):
 
 
 @api_router.delete("/members/{member_id}")
-async def delete_member(member_id: str):
+async def delete_member(member_id: str, _: dict = Depends(require_edit)):
     res = await db.members.delete_one({"id": member_id})
     if res.deleted_count == 0:
         raise HTTPException(404, "Üye bulunamadı")
@@ -261,14 +265,14 @@ async def list_events(archived: Optional[bool] = None):
 
 
 @api_router.post("/events")
-async def create_event(body: EventCreate):
+async def create_event(body: EventCreate, _: dict = Depends(require_edit)):
     e = Event(**body.model_dump())
     await db.events.insert_one(e.model_dump())
     return e.model_dump()
 
 
 @api_router.patch("/events/{event_id}")
-async def update_event(event_id: str, body: EventUpdate):
+async def update_event(event_id: str, body: EventUpdate, _: dict = Depends(require_edit)):
     update = {k: v for k, v in body.model_dump().items() if v is not None}
     if not update:
         raise HTTPException(400, "Değişiklik yok")
@@ -280,7 +284,7 @@ async def update_event(event_id: str, body: EventUpdate):
 
 
 @api_router.delete("/events/{event_id}")
-async def delete_event(event_id: str):
+async def delete_event(event_id: str, _: dict = Depends(require_edit)):
     res = await db.events.delete_one({"id": event_id})
     if res.deleted_count == 0:
         raise HTTPException(404, "Etkinlik bulunamadı")
@@ -288,7 +292,7 @@ async def delete_event(event_id: str):
 
 
 @api_router.post("/events/archive-group")
-async def archive_group(group_name: str):
+async def archive_group(group_name: str, _: dict = Depends(require_edit)):
     res = await db.events.update_many({"group_name": group_name, "archived": False}, {"$set": {"archived": True}})
     return {"modified": res.modified_count}
 
@@ -305,7 +309,7 @@ async def list_points(search: Optional[str] = None, limit: int = 1000):
 
 
 @api_router.post("/points")
-async def create_point(body: PointCreate):
+async def create_point(body: PointCreate, _: dict = Depends(require_edit)):
     p = Point(**body.model_dump())
     doc = p.model_dump()
     await enrich_point(doc)
@@ -315,7 +319,7 @@ async def create_point(body: PointCreate):
 
 
 @api_router.post("/points/bulk")
-async def bulk_points(body: BulkPointCreate):
+async def bulk_points(body: BulkPointCreate, _: dict = Depends(require_edit)):
     docs_to_insert = []
     for mid in body.member_ids:
         p = Point(
@@ -335,7 +339,7 @@ async def bulk_points(body: BulkPointCreate):
 
 
 @api_router.delete("/points/{point_id}")
-async def delete_point(point_id: str):
+async def delete_point(point_id: str, _: dict = Depends(require_edit)):
     res = await db.points.delete_one({"id": point_id})
     if res.deleted_count == 0:
         raise HTTPException(404, "Puan kaydı bulunamadı")
@@ -349,18 +353,18 @@ async def list_scores(search: Optional[str] = None, limit: int = 1000):
 
 
 @api_router.post("/scores")
-async def create_score(body: PointCreate):
-    return await create_point(body)
+async def create_score(body: PointCreate, _: dict = Depends(require_edit)):
+    return await create_point(body, _)
 
 
 @api_router.post("/scores/bulk")
-async def bulk_scores(body: BulkPointCreate):
-    return await bulk_points(body)
+async def bulk_scores(body: BulkPointCreate, _: dict = Depends(require_edit)):
+    return await bulk_points(body, _)
 
 
 @api_router.delete("/scores/{score_id}")
-async def delete_score(score_id: str):
-    return await delete_point(score_id)
+async def delete_score(score_id: str, _: dict = Depends(require_edit)):
+    return await delete_point(score_id, _)
 
 
 # ---------- Commanders ----------
@@ -374,14 +378,14 @@ async def list_commanders(category: Optional[str] = None):
 
 
 @api_router.post("/commanders")
-async def create_commander(body: CommanderCreate):
+async def create_commander(body: CommanderCreate, _: dict = Depends(require_edit)):
     c = Commander(**body.model_dump())
     await db.commanders.insert_one(c.model_dump())
     return c.model_dump()
 
 
 @api_router.patch("/commanders/{commander_id}")
-async def update_commander(commander_id: str, body: CommanderUpdate):
+async def update_commander(commander_id: str, body: CommanderUpdate, _: dict = Depends(require_edit)):
     update = {k: v for k, v in body.model_dump().items() if v is not None}
     res = await db.commanders.update_one({"id": commander_id}, {"$set": update})
     if res.matched_count == 0:
@@ -391,7 +395,7 @@ async def update_commander(commander_id: str, body: CommanderUpdate):
 
 
 @api_router.delete("/commanders/{commander_id}")
-async def delete_commander(commander_id: str):
+async def delete_commander(commander_id: str, _: dict = Depends(require_edit)):
     res = await db.commanders.delete_one({"id": commander_id})
     if res.deleted_count == 0:
         raise HTTPException(404, "Komutan bulunamadı")
@@ -521,7 +525,7 @@ TURKISH_NAMES = [
 
 
 @api_router.post("/seed")
-async def seed_data(force: bool = False):
+async def seed_data(force: bool = False, _: dict = Depends(require_admin)):
     """Populate DB with initial data. If force=True, wipes existing."""
     if force:
         await db.members.delete_many({})
@@ -664,6 +668,7 @@ async def seed_data(force: bool = False):
 
 # ---------- Setup ----------
 app.include_router(api_router)
+app.include_router(make_auth_router(db))
 
 app.add_middleware(
     CORSMiddleware,
@@ -679,10 +684,13 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
 async def startup():
+    await ensure_indexes(db)
+    await seed_admin(db)
     # Auto-seed if empty
     count = await db.members.count_documents({})
     if count == 0:
         logger.info("Database empty, auto-seeding...")
+        # Direct call bypasses FastAPI's Depends resolution - the `_` default (Depends marker) is ignored.
         await seed_data(force=False)
         logger.info("Seed complete")
 

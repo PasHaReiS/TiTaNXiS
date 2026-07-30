@@ -3,6 +3,7 @@ import useSWR, { mutate } from "swr";
 import { api, CATEGORIES, groupCategories } from "@/lib/api";
 import { COMMANDERS } from "@/constants/testIds";
 import Header from "@/components/Header";
+import CanEdit from "@/components/CanEdit";
 import { Plus, Pencil, Trash2, X, Shield } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,13 +24,15 @@ export default function Commanders() {
       <div className="px-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-bold uppercase red-text tracking-wider">Komutanlar</h2>
-          <button
-            data-testid={COMMANDERS.addBtn}
-            onClick={() => { setEditing(null); setShowForm(true); }}
-            className="btn-gold flex items-center gap-1.5 text-xs"
-          >
-            <Plus className="w-4 h-4" /> Yeni
-          </button>
+          <CanEdit>
+            <button
+              data-testid={COMMANDERS.addBtn}
+              onClick={() => { setEditing(null); setShowForm(true); }}
+              className="btn-gold flex items-center gap-1.5 text-xs"
+            >
+              <Plus className="w-4 h-4" /> Yeni
+            </button>
+          </CanEdit>
         </div>
 
         <div className="grid grid-cols-[130px_1fr] gap-3">
@@ -80,25 +83,27 @@ export default function Commanders() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex justify-end gap-1 mt-2">
-                    <button
-                      onClick={() => { setEditing(c); setShowForm(true); }}
-                      className="w-7 h-7 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
-                    >
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (!window.confirm(`${c.name} silinsin mi?`)) return;
-                        await api.delete(`/commanders/${c.id}`);
-                        mutate((k) => typeof k === "string" && k.startsWith("/commanders"));
-                        toast.success("Silindi");
-                      }}
-                      className="w-7 h-7 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
+                  <CanEdit>
+                    <div className="flex justify-end gap-1 mt-2">
+                      <button
+                        onClick={() => { setEditing(c); setShowForm(true); }}
+                        className="w-7 h-7 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!window.confirm(`${c.name} silinsin mi?`)) return;
+                          await api.delete(`/commanders/${c.id}`);
+                          mutate((k) => typeof k === "string" && k.startsWith("/commanders"));
+                          toast.success("Silindi");
+                        }}
+                        className="w-7 h-7 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </CanEdit>
                 </div>
               ))}
               {commanders.length === 0 && (

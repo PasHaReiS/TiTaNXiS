@@ -4,6 +4,7 @@ import { api, RANKS } from "@/lib/api";
 import { MEMBERS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
+import CanEdit from "@/components/CanEdit";
 import { Search, Plus, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,13 +51,15 @@ export default function Members() {
             <h2 className="text-xl font-bold uppercase red-text tracking-wider">Üyeler</h2>
             <p className="text-xs text-muted-foreground">Toplam <span className="gold-text font-bold mono">{totalCount}</span> üye</p>
           </div>
-          <button
-            data-testid={MEMBERS.addBtn}
-            onClick={() => { setEditing(null); setShowForm(true); }}
-            className="btn-gold flex items-center gap-1.5 text-xs"
-          >
-            <Plus className="w-4 h-4" /> Yeni
-          </button>
+          <CanEdit>
+            <button
+              data-testid={MEMBERS.addBtn}
+              onClick={() => { setEditing(null); setShowForm(true); }}
+              className="btn-gold flex items-center gap-1.5 text-xs"
+            >
+              <Plus className="w-4 h-4" /> Yeni
+            </button>
+          </CanEdit>
         </div>
 
         <div className="relative mb-4">
@@ -91,28 +94,30 @@ export default function Members() {
                     <div className="text-[10px] text-muted-foreground mono">ID: {m.member_id}</div>
                     {m.title && <div className="text-[10px] gold-text font-semibold uppercase mt-0.5">{m.title}</div>}
                   </div>
-                  <button
-                    data-testid={MEMBERS.editBtn(m.id)}
-                    onClick={() => { setEditing(m); setShowForm(true); }}
-                    className="w-8 h-8 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
-                    aria-label="Düzenle"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    data-testid={MEMBERS.deleteBtn(m.id)}
-                    onClick={async () => {
-                      if (!window.confirm(`${m.name} silinsin mi?`)) return;
-                      await api.delete(`/members/${m.id}`);
-                      mutate((k) => typeof k === "string" && k.startsWith("/members"));
-                      mutate("/stats");
-                      toast.success("Üye silindi");
-                    }}
-                    className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
-                    aria-label="Sil"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <CanEdit>
+                    <button
+                      data-testid={MEMBERS.editBtn(m.id)}
+                      onClick={() => { setEditing(m); setShowForm(true); }}
+                      className="w-8 h-8 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
+                      aria-label="Düzenle"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      data-testid={MEMBERS.deleteBtn(m.id)}
+                      onClick={async () => {
+                        if (!window.confirm(`${m.name} silinsin mi?`)) return;
+                        await api.delete(`/members/${m.id}`);
+                        mutate((k) => typeof k === "string" && k.startsWith("/members"));
+                        mutate("/stats");
+                        toast.success("Üye silindi");
+                      }}
+                      className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
+                      aria-label="Sil"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </CanEdit>
                 </div>
               ))}
             </div>
