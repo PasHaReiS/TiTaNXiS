@@ -7,6 +7,10 @@ import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
 import { Users, Calendar, Star, TrendingUp, Download, Crown, Medal, Award } from "lucide-react";
 import { toast } from "sonner";
+import Header from "@/components/Header";
+import MemberProfileDialog from "@/components/MemberProfileDialog";
+import { Users, Calendar, Star, TrendingUp, Download, Crown, Medal, Award } from "lucide-react";
+import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -17,43 +21,61 @@ export default function Leaderboard() {
 
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 5000 });
   const { data: groups } = useSWR("/event-groups", fetcher, { refreshInterval: 10000 });
-  const { data: lb } = useSWR(group ? `/leaderboard?group_name=${encodeURIComponent(group)}` : "/leaderboard", fetcher, { refreshInterval: 5000 });
+  const { data: lb = [] } = useSWR(group ? `/leaderboard?group_name=${encodeURIComponent(group)}` : "/leaderboard", fetcher, { refreshInterval: 5000 });
   const { data: allMembers = [] } = useSWR("/members", fetcher, { refreshInterval: 15000 });
 
-  const memberIndex = useMemo(() => Object.fromEntries(allMembers.map((m) => [m.id, m])), [allMembers]);
+  const top3 = useMemo(() => lb.slice(0, 3), [lb]);
 
-  const [top3, groupedByAlliance] = useMemo(() => {
-    if (!lb) return [[], []];
-    // Attach alliance_name from members index. Normalize any GOW/GoW/gow variant to "GOW".
-    const enriched = lb.map((r) => {
-      const raw = memberIndex[r.member_id]?.alliance_name || "-";
-      const normalized = raw.trim().toLowerCase() === "gow" ? "GOW" : raw;
-      return { ...r, alliance_name: normalized };
+  // Frontend-only grouping — merge all members with their scores (0 if not in leaderboard)
+  const groupedByAlliance = useMemo(() => {
+    const pointsById = Object.fromEntries(lb.map((r) => [r.member_id, r]));
+    // Build unified rows including zero-point members
+    const rows = allMembers.map((m) => {
+      const lbRow = pointsById[m.id];
+      return {
+        member_id: m.id,
+        name: m.name,
+        rank: m.rank,
+        level: m.level,
+        title: m.title,
+        alliance_name: m.alliance_name,
+        total_points: lbRow ? lbRow.total_points : 0,
+        position: lbRow ? lbRow.position : null,
+      };
     });
-    const top = enriched.slice(0, 3);
-    const rest = enriched.slice(3);
-    // Group by (normalized) alliance
+    // Normalize alliance keys
     const groups = {};
-    rest.forEach((r) => {
-      const a = r.alliance_name || "-";
-      (groups[a] = groups[a] || []).push(r);
+    rows.forEach((r) => {
+      const raw = (r.alliance_name || "").trim();
+      let key;
+      if (raw.toLowerCase() === "gow") key = "GOW";
+      else if (!raw) key = "Gruplandırılmamış";
+      else key = raw;
+      (groups[key] = groups[key] || []).push({ ...r, alliance_name: key });
     });
-    // Within each alliance: sort by points desc
-    Object.values(groups).forEach((arr) => arr.sort((a, b) => b.total_points - a.total_points));
-    // Attach total points per alliance for header display + sorting
-    const entries = Object.entries(groups).map(([name, members]) => ({
-      name,
-      members,
-      total_points: members.reduce((s, m) => s + (m.total_points || 0), 0),
-    }));
-    // Sort groups: GOW always first, then others alphabetically (Turkish locale)
-    entries.sort((a, b) => {
-      if (a.name === "GOW") return -1;
-      if (b.name === "GOW") return 1;
-      return a.name.localeCompare(b.name, "tr");
-    });
-    return [top, entries];
-  }, [lb, memberIndex]);
+    // Sort members inside each group: points desc (zeroes fall to bottom naturally)
+    Object.values(groups).forEach((arr) =>
+      arr.sort((a, b) => b.total_points - a.total_points || a.name.localeCompare(b.name, "tr"))
+    );
+    // Sort group order: GOW → alfabetik (tr) → Gruplandırılmamış
+    const orderKey = (name) => {
+      if (name === "GOW") return [0, ""];
+      if (name === "Gruplandırılmamış") return [2, ""];
+      return [1, name.toLowerCase()];
+    };
+    return Object.keys(groups)
+      .sort((a, b) => {
+        const [ka, sa] = orderKey(a);
+        const [kb, sb] = orderKey(b);
+        if (ka !== kb) return ka - kb;
+        return sa.localeCompare(sb, "tr");
+      })
+      .map((name) => ({
+        name,
+        members: groups[name],
+        total_points: groups[name].reduce((s, m) => s + m.total_points, 0),
+      }));
+  }, [lb, allMembers]);
 
   const exportXlsx = async () => {
     try {
@@ -165,53 +187,56 @@ export default function Leaderboard() {
 
         <div className="section-title">Tam Sıralama</div>
         <div className="space-y-4 mb-4">
-          {groupedByAlliance.map((grp) => (
-            <div key={grp.name} className="fade-in">
-              <div
-                className="flex items-center justify-between px-3 py-2 rounded-lg mb-2"
-                style={{
-                  ...allianceBadgeStyle(grp.name),
-                  color: "#fff",
-                  border: "1px solid",
-                }}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-bold uppercase tracking-wider text-sm truncate">{grp.name}</span>
-                  <span className="text-[10px] font-bold mono opacity-90 flex-shrink-0">{grp.members.length} üye</span>
+          {groupedByAlliance.map((grp, gi) => (
+            <React.Fragment key={grp.name}>
+              {gi > 0 && <div className="divider-glow my-4" />}
+              <div className="fade-in">
+                <div
+                  className="flex items-center justify-between px-3 py-2.5 rounded-lg mb-2"
+                  style={{
+                    ...allianceBadgeStyle(grp.name),
+                    color: "#fff",
+                    border: "1px solid",
+                  }}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-bold uppercase tracking-wider text-base truncate">{grp.name}</span>
+                    <span className="text-[11px] font-bold mono opacity-90 flex-shrink-0">({grp.members.length} üye)</span>
+                  </div>
+                  <span className="text-sm font-bold mono flex-shrink-0" data-testid={`alliance-total-${grp.name}`}>{fmt(grp.total_points)}</span>
                 </div>
-                <span className="text-[11px] font-bold mono flex-shrink-0" data-testid={`alliance-total-${grp.name}`}>{fmt(grp.total_points)}</span>
-              </div>
-              <div className="space-y-1">
-                {grp.members.map((r) => (
-                  <button
-                    key={r.member_id}
-                    data-testid={LEADERBOARD.row(r.member_id)}
-                    onClick={() => setProfileId(r.member_id)}
-                    className="w-full card-dark p-3 flex items-center gap-3 row-hover text-left"
-                  >
-                    <div className="w-8 text-center">
-                      <span className="text-xs font-bold text-muted-foreground mono">#{r.position}</span>
-                    </div>
-                    <div
-                      className="rank-badge"
-                      style={{ ...allianceBadgeStyle(r.alliance_name), width: 36, height: 36, fontSize: 11 }}
-                      title={r.alliance_name}
+                <div className="space-y-1">
+                  {grp.members.map((r, idx) => (
+                    <button
+                      key={r.member_id}
+                      data-testid={LEADERBOARD.row(r.member_id)}
+                      onClick={() => setProfileId(r.member_id)}
+                      className="w-full card-dark p-3 flex items-center gap-3 row-hover text-left"
                     >
-                      {r.rank}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold text-white truncate">{r.name}</div>
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">
-                        {r.title || r.alliance_name || "Üye"} • Lv {r.level}
+                      <div className="w-8 text-center">
+                        <span className="text-xs font-bold text-muted-foreground mono">{idx + 1}.</span>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="gold-text font-bold mono text-sm">{fmt(r.total_points)}</div>
-                    </div>
-                  </button>
-                ))}
+                      <div
+                        className="rank-badge"
+                        style={{ ...allianceBadgeStyle(r.alliance_name), width: 36, height: 36, fontSize: 11 }}
+                        title={r.alliance_name}
+                      >
+                        {r.rank}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-white truncate">{r.name}</div>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">
+                          {r.title || r.alliance_name || "Üye"} • Lv {r.level}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`${r.total_points > 0 ? "gold-text" : "text-muted-foreground"} font-bold mono text-sm`}>{fmt(r.total_points)}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            </React.Fragment>
           ))}
           {groupedByAlliance.length === 0 && (
             <div className="card-dark p-6 text-center text-muted-foreground text-sm">Henüz puan kaydı yok. "Puan Ekle" sekmesinden başlayın.</div>

@@ -513,10 +513,45 @@ async def leaderboard(event_id: Optional[str] = None, group_name: Optional[str] 
             "rank": m["rank"],
             "level": m.get("level", 1),
             "title": m.get("title"),
+            "alliance_name": m.get("alliance_name"),
             "total_points": int(r["total_points"]),
             "position": i + 1,
         })
     return result
+
+
+@api_router.get("/leaderboard/by-alliance")
+async def leaderboard_by_alliance(event_id: Optional[str] = None, group_name: Optional[str] = None):
+    """Return leaderboard entries grouped by alliance.
+    - GOW variants (case-insensitive) merge into a single 'GOW' group.
+    - Members with no alliance go into 'Gruplandırılamamış'.
+    - Groups sorted: GOW first, others alphabetical (Turkish). Members inside groups sorted by points desc.
+    """
+    lb = await leaderboard(event_id=event_id, group_name=group_name)
+    groups = {}
+    for row in lb:
+        raw = (row.get("alliance_name") or "").strip()
+        if raw.lower() == "gow":
+            key = "GOW"
+        elif not raw:
+            key = "Gruplandırılamamış"
+        else:
+            key = raw
+        row = {**row, "alliance_name": key}
+        groups.setdefault(key, []).append(row)
+    # Sort each group by points desc
+    for arr in groups.values():
+        arr.sort(key=lambda r: r["total_points"], reverse=True)
+    # Sort groups: GOW first, Gruplandırılamamış last, others Turkish alpha
+    def sort_key(name):
+        if name == "GOW":
+            return (0, "")
+        if name == "Gruplandırılamamış":
+            return (2, "")
+        return (1, name.lower())
+    entries = [{"name": name, "members": groups[name], "total_points": sum(r["total_points"] for r in groups[name])}
+               for name in sorted(groups.keys(), key=sort_key)]
+    return entries
 
 
 # ---------- Multiplier history ----------
