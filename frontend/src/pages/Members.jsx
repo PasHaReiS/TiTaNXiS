@@ -6,6 +6,7 @@ import { MEMBERS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
 import CanEdit from "@/components/CanEdit";
+import { allianceBadgeStyle } from "@/lib/colors";
 import { Search, Plus, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,13 +32,33 @@ export default function Members() {
   });
 
   const grouped = useMemo(() => {
-    const g = {};
-    RANKS.forEach((r) => (g[r] = []));
+    const rankOrder = { R5: 5, R4: 4, R3: 3, R2: 2, R1: 1 };
+    const groups = {};
     members.forEach((m) => {
-      if (!g[m.rank]) g[m.rank] = [];
-      g[m.rank].push(m);
+      const raw = (m.alliance_name || "").trim();
+      let key;
+      if (raw.toLowerCase() === "gow") key = "GOW";
+      else if (!raw) key = "Gruplandırılmamış";
+      else key = raw;
+      (groups[key] = groups[key] || []).push(m);
     });
-    return g;
+    // Within each group: rank desc, then name alpha
+    Object.values(groups).forEach((arr) =>
+      arr.sort((a, b) => (rankOrder[b.rank] || 0) - (rankOrder[a.rank] || 0) || a.name.localeCompare(b.name, "tr"))
+    );
+    // Group order: GOW → alpha (tr) → Gruplandırılmamış
+    const orderKey = (name) => {
+      if (name === "GOW") return [0, ""];
+      if (name === "Gruplandırılmamış") return [2, ""];
+      return [1, name.toLowerCase()];
+    };
+    return Object.keys(groups)
+      .sort((a, b) => {
+        const [ka, sa] = orderKey(a);
+        const [kb, sb] = orderKey(b);
+        return ka - kb || sa.localeCompare(sb, "tr");
+      })
+      .map((name) => ({ name, members: groups[name] }));
   }, [members]);
 
   const totalCount = members.length;
@@ -74,73 +95,81 @@ export default function Members() {
           />
         </div>
 
-        {RANKS.map((rank) => grouped[rank] && grouped[rank].length > 0 && (
-          <div key={rank} className="mb-4 fade-in">
-            <div className={`rank-header rank-header-${rank}`}>
-              <span>{RANK_LABELS[rank]}</span>
-              <span className="mono">{grouped[rank].length}</span>
-            </div>
-            <div className="space-y-1.5">
-              {grouped[rank].map((m) => (
-                <div
-                  key={m.id}
-                  data-testid={MEMBERS.card(m.id)}
-                  className="card-dark p-3 flex items-center gap-3 row-hover"
-                >
-                  <button
-                    onClick={() => setProfileId(m.id)}
-                    className="rank-badge"
-                    style={{
-                      ...allianceBadgeStyle(m.alliance_name),
-                      width: 60,
-                      height: 44,
-                      borderRadius: 22,
-                      fontSize: 10,
-                      padding: "0 8px",
-                      lineHeight: 1.1,
-                      fontWeight: 800,
-                      textTransform: "uppercase",
-                    }}
-                    title={m.alliance_name || "İttifak yok"}
+        {grouped.map((grp, gi) => (
+          <React.Fragment key={grp.name}>
+            {gi > 0 && <div className="divider-glow my-4" />}
+            <div className="mb-4 fade-in">
+              <div
+                className="flex items-center justify-between px-3 py-2.5 rounded-lg mb-2"
+                style={{ ...allianceBadgeStyle(grp.name), color: "#fff", border: "1px solid" }}
+              >
+                <span className="font-bold uppercase tracking-wider text-sm truncate">{grp.name}</span>
+                <span className="text-[11px] font-bold mono opacity-90">{grp.members.length} üye</span>
+              </div>
+              <div className="space-y-1.5">
+                {grp.members.map((m) => (
+                  <div
+                    key={m.id}
+                    data-testid={MEMBERS.card(m.id)}
+                    className="card-dark p-3 flex items-center gap-3 row-hover"
                   >
-                    <span className="truncate w-full text-center">{m.alliance_name || "-"}</span>
-                  </button>
-                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setProfileId(m.id)}>
-                    <div className="font-bold text-white truncate">{m.name}</div>
-                    <div className="text-[10px] text-muted-foreground mono">
-                      {m.member_id ? `ID: ${m.member_id}` : "—"}
-                      {m.castle_level && <span className="ml-2 gold-text">Kale F{m.castle_level}</span>}
-                    </div>
-                    {m.title && <div className="text-[10px] gold-text font-semibold uppercase mt-0.5">{m.title}</div>}
-                  </div>
-                  <CanEdit>
                     <button
-                      data-testid={MEMBERS.editBtn(m.id)}
-                      onClick={() => { setEditing(m); setShowForm(true); }}
-                      className="w-8 h-8 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
-                      aria-label="Düzenle"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      data-testid={MEMBERS.deleteBtn(m.id)}
-                      onClick={async () => {
-                        if (!window.confirm(`${m.name} silinsin mi?`)) return;
-                        await api.delete(`/members/${m.id}`);
-                        mutate((k) => typeof k === "string" && k.startsWith("/members"));
-                        mutate("/stats");
-                        toast.success("Üye silindi");
+                      onClick={() => setProfileId(m.id)}
+                      className="rank-badge"
+                      style={{
+                        ...allianceBadgeStyle(m.alliance_name),
+                        width: 60,
+                        height: 44,
+                        borderRadius: 22,
+                        fontSize: 10,
+                        padding: "0 8px",
+                        lineHeight: 1.1,
+                        fontWeight: 800,
+                        textTransform: "uppercase",
                       }}
-                      className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
-                      aria-label="Sil"
+                      title={m.alliance_name || "İttifak yok"}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <span className="truncate w-full text-center">{m.alliance_name || "-"}</span>
                     </button>
-                  </CanEdit>
-                </div>
-              ))}
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setProfileId(m.id)}>
+                      <div className="font-bold text-white truncate">
+                        {m.name} <span className="text-[10px] gold-text font-bold ml-1">{m.rank}</span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mono">
+                        {m.member_id ? `ID: ${m.member_id}` : "—"}
+                        {m.castle_level && <span className="ml-2 gold-text">Kale F{m.castle_level}</span>}
+                      </div>
+                      {m.title && <div className="text-[10px] gold-text font-semibold uppercase mt-0.5">{m.title}</div>}
+                    </div>
+                    <CanEdit>
+                      <button
+                        data-testid={MEMBERS.editBtn(m.id)}
+                        onClick={() => { setEditing(m); setShowForm(true); }}
+                        className="w-8 h-8 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
+                        aria-label="Düzenle"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        data-testid={MEMBERS.deleteBtn(m.id)}
+                        onClick={async () => {
+                          if (!window.confirm(`${m.name} silinsin mi?`)) return;
+                          await api.delete(`/members/${m.id}`);
+                          mutate((k) => typeof k === "string" && k.startsWith("/members"));
+                          mutate("/stats");
+                          toast.success("Üye silindi");
+                        }}
+                        className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
+                        aria-label="Sil"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </CanEdit>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          </React.Fragment>
         ))}
 
         {totalCount === 0 && (

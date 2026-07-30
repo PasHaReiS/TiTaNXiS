@@ -18,60 +18,9 @@ export default function Leaderboard() {
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 5000 });
   const { data: groups } = useSWR("/event-groups", fetcher, { refreshInterval: 10000 });
   const { data: lb = [] } = useSWR(group ? `/leaderboard?group_name=${encodeURIComponent(group)}` : "/leaderboard", fetcher, { refreshInterval: 5000 });
-  const { data: allMembers = [] } = useSWR("/members", fetcher, { refreshInterval: 15000 });
 
   const top3 = useMemo(() => lb.slice(0, 3), [lb]);
-
-  // Frontend-only grouping — merge all members with their scores (0 if not in leaderboard)
-  const groupedByAlliance = useMemo(() => {
-    const pointsById = Object.fromEntries(lb.map((r) => [r.member_id, r]));
-    // Build unified rows including zero-point members
-    const rows = allMembers.map((m) => {
-      const lbRow = pointsById[m.id];
-      return {
-        member_id: m.id,
-        name: m.name,
-        rank: m.rank,
-        level: m.level,
-        title: m.title,
-        alliance_name: m.alliance_name,
-        total_points: lbRow ? lbRow.total_points : 0,
-        position: lbRow ? lbRow.position : null,
-      };
-    });
-    // Normalize alliance keys
-    const groups = {};
-    rows.forEach((r) => {
-      const raw = (r.alliance_name || "").trim();
-      let key;
-      if (raw.toLowerCase() === "gow") key = "GOW";
-      else if (!raw) key = "Gruplandırılmamış";
-      else key = raw;
-      (groups[key] = groups[key] || []).push({ ...r, alliance_name: key });
-    });
-    // Sort members inside each group: points desc (zeroes fall to bottom naturally)
-    Object.values(groups).forEach((arr) =>
-      arr.sort((a, b) => b.total_points - a.total_points || a.name.localeCompare(b.name, "tr"))
-    );
-    // Sort group order: GOW → alfabetik (tr) → Gruplandırılmamış
-    const orderKey = (name) => {
-      if (name === "GOW") return [0, ""];
-      if (name === "Gruplandırılmamış") return [2, ""];
-      return [1, name.toLowerCase()];
-    };
-    return Object.keys(groups)
-      .sort((a, b) => {
-        const [ka, sa] = orderKey(a);
-        const [kb, sb] = orderKey(b);
-        if (ka !== kb) return ka - kb;
-        return sa.localeCompare(sb, "tr");
-      })
-      .map((name) => ({
-        name,
-        members: groups[name],
-        total_points: groups[name].reduce((s, m) => s + m.total_points, 0),
-      }));
-  }, [lb, allMembers]);
+  const rest = useMemo(() => lb.slice(3, 200), [lb]);
 
   const exportXlsx = async () => {
     try {
@@ -182,58 +131,39 @@ export default function Leaderboard() {
         </div>
 
         <div className="section-title">Tam Sıralama</div>
-        <div className="space-y-4 mb-4">
-          {groupedByAlliance.map((grp, gi) => (
-            <React.Fragment key={grp.name}>
-              {gi > 0 && <div className="divider-glow my-4" />}
-              <div className="fade-in">
-                <div
-                  className="flex items-center justify-between px-3 py-2.5 rounded-lg mb-2"
-                  style={{
-                    ...allianceBadgeStyle(grp.name),
-                    color: "#fff",
-                    border: "1px solid",
-                  }}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-bold uppercase tracking-wider text-base truncate">{grp.name}</span>
-                    <span className="text-[11px] font-bold mono opacity-90 flex-shrink-0">({grp.members.length} üye)</span>
-                  </div>
-                  <span className="text-sm font-bold mono flex-shrink-0" data-testid={`alliance-total-${grp.name}`}>{fmt(grp.total_points)}</span>
-                </div>
-                <div className="space-y-1">
-                  {grp.members.map((r, idx) => (
-                    <button
-                      key={r.member_id}
-                      data-testid={LEADERBOARD.row(r.member_id)}
-                      onClick={() => setProfileId(r.member_id)}
-                      className="w-full card-dark p-3 flex items-center gap-3 row-hover text-left"
-                    >
-                      <div className="w-8 text-center">
-                        <span className="text-xs font-bold text-muted-foreground mono">{idx + 1}.</span>
-                      </div>
-                      <div
-                        className="rank-badge"
-                        style={{ ...allianceBadgeStyle(r.alliance_name), width: 36, height: 36, fontSize: 11 }}
-                        title={r.alliance_name}
-                      >
-                        {r.rank}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-white truncate">{r.name}</div>
-                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">
-                          {r.title || r.alliance_name || "Üye"} • Lv {r.level}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className={`${r.total_points > 0 ? "gold-text" : "text-muted-foreground"} font-bold mono text-sm`}>{fmt(r.total_points)}</div>
-                      </div>
-                    </button>
-                  ))}
+        <div className="space-y-1 mb-4">
+          {rest.map((r) => (
+            <button
+              key={r.member_id}
+              data-testid={LEADERBOARD.row(r.member_id)}
+              onClick={() => setProfileId(r.member_id)}
+              className="w-full card-dark p-3 flex items-center gap-3 row-hover text-left"
+            >
+              <div className="w-8 text-center">
+                <span className="text-xs font-bold text-muted-foreground mono">#{r.position}</span>
+              </div>
+              <div
+                className="rank-badge"
+                style={{ ...allianceBadgeStyle(r.alliance_name), width: 36, height: 36, fontSize: 11 }}
+                title={r.alliance_name || ""}
+              >
+                {r.rank}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-white truncate">{r.name}</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">
+                  {r.title || r.alliance_name || "Üye"} • Lv {r.level}
                 </div>
               </div>
-            </React.Fragment>
+              <div className="text-right">
+                <div className="gold-text font-bold mono text-sm">{fmt(r.total_points)}</div>
+              </div>
+            </button>
           ))}
+          {rest.length === 0 && top3.length === 0 && (
+            <div className="card-dark p-6 text-center text-muted-foreground text-sm">Henüz puan kaydı yok. "Puan Ekle" sekmesinden başlayın.</div>
+          )}
+        </div>
           {groupedByAlliance.length === 0 && (
             <div className="card-dark p-6 text-center text-muted-foreground text-sm">Henüz puan kaydı yok. "Puan Ekle" sekmesinden başlayın.</div>
           )}
