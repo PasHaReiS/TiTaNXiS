@@ -24,22 +24,35 @@ export default function Leaderboard() {
 
   const [top3, groupedByAlliance] = useMemo(() => {
     if (!lb) return [[], []];
-    const rankOrder = { R5: 5, R4: 4, R3: 3, R2: 2, R1: 1 };
-    // Attach alliance_name from members index
-    const enriched = lb.map((r) => ({ ...r, alliance_name: memberIndex[r.member_id]?.alliance_name || "-" }));
+    // Attach alliance_name from members index. Normalize any GOW/GoW/gow variant to "GOW".
+    const enriched = lb.map((r) => {
+      const raw = memberIndex[r.member_id]?.alliance_name || "-";
+      const normalized = raw.trim().toLowerCase() === "gow" ? "GOW" : raw;
+      return { ...r, alliance_name: normalized };
+    });
     const top = enriched.slice(0, 3);
     const rest = enriched.slice(3);
-    // Group by alliance
+    // Group by (normalized) alliance
     const groups = {};
     rest.forEach((r) => {
       const a = r.alliance_name || "-";
       (groups[a] = groups[a] || []).push(r);
     });
-    // Sort members inside each alliance by rank desc, then points desc
-    Object.values(groups).forEach((arr) => arr.sort((a, b) => (rankOrder[b.rank] || 0) - (rankOrder[a.rank] || 0) || b.total_points - a.total_points));
-    // Sort alliance groups: GOW first, others alpha
-    const sortedAlliances = Object.keys(groups).sort((a, b) => (a === "GOW" ? -1 : b === "GOW" ? 1 : a.localeCompare(b, "tr")));
-    return [top, sortedAlliances.map((name) => ({ name, members: groups[name] }))];
+    // Within each alliance: sort by points desc
+    Object.values(groups).forEach((arr) => arr.sort((a, b) => b.total_points - a.total_points));
+    // Attach total points per alliance for header display + sorting
+    const entries = Object.entries(groups).map(([name, members]) => ({
+      name,
+      members,
+      total_points: members.reduce((s, m) => s + (m.total_points || 0), 0),
+    }));
+    // Sort groups: GOW always first, then others alphabetically (Turkish locale)
+    entries.sort((a, b) => {
+      if (a.name === "GOW") return -1;
+      if (b.name === "GOW") return 1;
+      return a.name.localeCompare(b.name, "tr");
+    });
+    return [top, entries];
   }, [lb, memberIndex]);
 
   const exportXlsx = async () => {
@@ -162,8 +175,11 @@ export default function Leaderboard() {
                   border: "1px solid",
                 }}
               >
-                <span className="font-bold uppercase tracking-wider text-sm">{grp.name}</span>
-                <span className="text-[11px] font-bold mono opacity-90">{grp.members.length} üye</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-bold uppercase tracking-wider text-sm truncate">{grp.name}</span>
+                  <span className="text-[10px] font-bold mono opacity-90 flex-shrink-0">{grp.members.length} üye</span>
+                </div>
+                <span className="text-[11px] font-bold mono flex-shrink-0" data-testid={`alliance-total-${grp.name}`}>{fmt(grp.total_points)}</span>
               </div>
               <div className="space-y-1">
                 {grp.members.map((r) => (
