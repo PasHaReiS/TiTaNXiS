@@ -1,0 +1,650 @@
+from fastapi import FastAPI, APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
+from dotenv import load_dotenv
+from starlette.middleware.cors import CORSMiddleware
+from motor.motor_asyncio import AsyncIOMotorClient
+import os
+import logging
+import io
+import csv
+import random
+from pathlib import Path
+from pydantic import BaseModel, Field, ConfigDict
+from typing import List, Optional
+import uuid
+from datetime import datetime, timezone, timedelta
+
+
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')
+
+mongo_url = os.environ['MONGO_URL']
+client = AsyncIOMotorClient(mongo_url)
+db = client[os.environ['DB_NAME']]
+
+app = FastAPI(title="Oyun Loncası Yönetim API")
+api_router = APIRouter(prefix="/api")
+
+
+# ---------- Models ----------
+def now_iso():
+    return datetime.now(timezone.utc).isoformat()
+
+
+class Member(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    member_id: str  # Game ID
+    rank: str  # GOW, R5, R4, R3, R2, R1
+    title: Optional[str] = None  # Kral, Kraliçe, etc.
+    level: Optional[int] = 1
+    created_at: str = Field(default_factory=now_iso)
+
+
+class MemberCreate(BaseModel):
+    name: str
+    member_id: str
+    rank: str
+    title: Optional[str] = None
+    level: Optional[int] = 1
+
+
+class MemberUpdate(BaseModel):
+    name: Optional[str] = None
+    member_id: Optional[str] = None
+    rank: Optional[str] = None
+    title: Optional[str] = None
+    level: Optional[int] = None
+
+
+class Event(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    group_name: str = "SvS vs 10007"
+    multiplier: float = 1.0
+    date: str
+    subtitle: Optional[str] = None
+    archived: bool = False
+    created_at: str = Field(default_factory=now_iso)
+
+
+class EventCreate(BaseModel):
+    name: str
+    group_name: Optional[str] = "SvS vs 10007"
+    multiplier: Optional[float] = 1.0
+    date: str
+    subtitle: Optional[str] = None
+    archived: Optional[bool] = False
+
+
+class EventUpdate(BaseModel):
+    name: Optional[str] = None
+    group_name: Optional[str] = None
+    multiplier: Optional[float] = None
+    date: Optional[str] = None
+    subtitle: Optional[str] = None
+    archived: Optional[bool] = None
+
+
+class Point(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    member_id: str
+    member_name: Optional[str] = None
+    event_id: str
+    event_name: Optional[str] = None
+    points: int
+    multiplier: float = 1.0
+    note: Optional[str] = None
+    date: str = Field(default_factory=now_iso)
+
+
+class PointCreate(BaseModel):
+    member_id: str
+    event_id: str
+    points: int
+    multiplier: Optional[float] = 1.0
+    note: Optional[str] = None
+
+
+class BulkPointCreate(BaseModel):
+    member_ids: List[str]
+    event_id: str
+    points: int
+    multiplier: Optional[float] = 1.0
+    note: Optional[str] = None
+
+
+class Commander(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    category: str  # e.g. "tetikci", "bombaci"
+    subcategory: Optional[str] = None
+    characters: List[str] = []
+    image_url: Optional[str] = None
+    description: Optional[str] = None
+    created_at: str = Field(default_factory=now_iso)
+
+
+class CommanderCreate(BaseModel):
+    name: str
+    category: str
+    subcategory: Optional[str] = None
+    characters: Optional[List[str]] = []
+    image_url: Optional[str] = None
+    description: Optional[str] = None
+
+
+class CommanderUpdate(BaseModel):
+    name: Optional[str] = None
+    category: Optional[str] = None
+    subcategory: Optional[str] = None
+    characters: Optional[List[str]] = None
+    image_url: Optional[str] = None
+    description: Optional[str] = None
+
+
+# ---------- Helpers ----------
+def strip_id(doc):
+    if doc and "_id" in doc:
+        doc.pop("_id", None)
+    return doc
+
+
+async def enrich_point(p):
+    if not p.get("member_name"):
+        m = await db.members.find_one({"id": p["member_id"]}, {"_id": 0})
+        p["member_name"] = m["name"] if m else "Bilinmeyen"
+    if not p.get("event_name"):
+        e = await db.events.find_one({"id": p["event_id"]}, {"_id": 0})
+        p["event_name"] = e["name"] if e else "Bilinmeyen"
+    return p
+
+
+# ---------- Root ----------
+@api_router.get("/")
+async def root():
+    return {"message": "Oyun Loncası API", "status": "ok"}
+
+
+# ---------- Members ----------
+@api_router.get("/members")
+async def list_members(search: Optional[str] = None):
+    query = {}
+    if search:
+        query = {"$or": [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"member_id": {"$regex": search, "$options": "i"}}
+        ]}
+    docs = await db.members.find(query, {"_id": 0}).to_list(1000)
+    return docs
+
+
+@api_router.get("/members/{member_id}")
+async def get_member(member_id: str):
+    doc = await db.members.find_one({"id": member_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Üye bulunamadı")
+    return doc
+
+
+@api_router.get("/members/{member_id}/history")
+async def member_history(member_id: str):
+    m = await db.members.find_one({"id": member_id}, {"_id": 0})
+    if not m:
+        raise HTTPException(404, "Üye bulunamadı")
+    points = await db.points.find({"member_id": member_id}, {"_id": 0}).sort("date", -1).to_list(1000)
+    for p in points:
+        await enrich_point(p)
+    total = sum(int(p["points"]) * float(p.get("multiplier", 1.0)) for p in points)
+    return {"member": m, "points": points, "total": int(total), "event_count": len(set(p["event_id"] for p in points))}
+
+
+@api_router.post("/members")
+async def create_member(body: MemberCreate):
+    m = Member(**body.model_dump())
+    await db.members.insert_one(m.model_dump())
+    return m.model_dump()
+
+
+@api_router.patch("/members/{member_id}")
+async def update_member(member_id: str, body: MemberUpdate):
+    update = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not update:
+        raise HTTPException(400, "Değişiklik yok")
+    res = await db.members.update_one({"id": member_id}, {"$set": update})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Üye bulunamadı")
+    doc = await db.members.find_one({"id": member_id}, {"_id": 0})
+    return doc
+
+
+@api_router.delete("/members/{member_id}")
+async def delete_member(member_id: str):
+    res = await db.members.delete_one({"id": member_id})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Üye bulunamadı")
+    await db.points.delete_many({"member_id": member_id})
+    return {"ok": True}
+
+
+# ---------- Events ----------
+@api_router.get("/events")
+async def list_events(archived: Optional[bool] = None):
+    query = {}
+    if archived is not None:
+        query["archived"] = archived
+    docs = await db.events.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
+    return docs
+
+
+@api_router.post("/events")
+async def create_event(body: EventCreate):
+    e = Event(**body.model_dump())
+    await db.events.insert_one(e.model_dump())
+    return e.model_dump()
+
+
+@api_router.patch("/events/{event_id}")
+async def update_event(event_id: str, body: EventUpdate):
+    update = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not update:
+        raise HTTPException(400, "Değişiklik yok")
+    res = await db.events.update_one({"id": event_id}, {"$set": update})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Etkinlik bulunamadı")
+    doc = await db.events.find_one({"id": event_id}, {"_id": 0})
+    return doc
+
+
+@api_router.delete("/events/{event_id}")
+async def delete_event(event_id: str):
+    res = await db.events.delete_one({"id": event_id})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Etkinlik bulunamadı")
+    return {"ok": True}
+
+
+@api_router.post("/events/archive-group")
+async def archive_group(group_name: str):
+    res = await db.events.update_many({"group_name": group_name, "archived": False}, {"$set": {"archived": True}})
+    return {"modified": res.modified_count}
+
+
+# ---------- Points ----------
+@api_router.get("/points")
+async def list_points(search: Optional[str] = None, limit: int = 1000):
+    docs = await db.points.find({}, {"_id": 0}).sort("date", -1).to_list(limit)
+    for d in docs:
+        await enrich_point(d)
+    if search:
+        s = search.lower()
+        docs = [d for d in docs if s in (d.get("member_name") or "").lower() or s in (d.get("event_name") or "").lower() or s in (d.get("note") or "").lower()]
+    return docs
+
+
+@api_router.post("/points")
+async def create_point(body: PointCreate):
+    p = Point(**body.model_dump())
+    await enrich_point(p.model_dump())
+    doc = p.model_dump()
+    await enrich_point(doc)
+    await db.points.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.post("/points/bulk")
+async def bulk_points(body: BulkPointCreate):
+    created = []
+    for mid in body.member_ids:
+        p = Point(
+            member_id=mid,
+            event_id=body.event_id,
+            points=body.points,
+            multiplier=body.multiplier or 1.0,
+            note=body.note,
+        )
+        doc = p.model_dump()
+        await enrich_point(doc)
+        await db.points.insert_one(doc)
+        doc.pop("_id", None)
+        created.append(doc)
+    return {"created": len(created), "points": created}
+
+
+@api_router.delete("/points/{point_id}")
+async def delete_point(point_id: str):
+    res = await db.points.delete_one({"id": point_id})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Puan kaydı bulunamadı")
+    return {"ok": True}
+
+
+# ---------- Commanders ----------
+@api_router.get("/commanders")
+async def list_commanders(category: Optional[str] = None):
+    query = {}
+    if category:
+        query["category"] = category
+    docs = await db.commanders.find(query, {"_id": 0}).to_list(1000)
+    return docs
+
+
+@api_router.post("/commanders")
+async def create_commander(body: CommanderCreate):
+    c = Commander(**body.model_dump())
+    await db.commanders.insert_one(c.model_dump())
+    return c.model_dump()
+
+
+@api_router.patch("/commanders/{commander_id}")
+async def update_commander(commander_id: str, body: CommanderUpdate):
+    update = {k: v for k, v in body.model_dump().items() if v is not None}
+    res = await db.commanders.update_one({"id": commander_id}, {"$set": update})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Komutan bulunamadı")
+    doc = await db.commanders.find_one({"id": commander_id}, {"_id": 0})
+    return doc
+
+
+@api_router.delete("/commanders/{commander_id}")
+async def delete_commander(commander_id: str):
+    res = await db.commanders.delete_one({"id": commander_id})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Komutan bulunamadı")
+    return {"ok": True}
+
+
+# ---------- Stats & Leaderboard ----------
+@api_router.get("/stats")
+async def get_stats():
+    member_count = await db.members.count_documents({})
+    event_count = await db.events.count_documents({"archived": False})
+    points = await db.points.find({}, {"_id": 0}).to_list(100000)
+    total = sum(int(p["points"]) * float(p.get("multiplier", 1.0)) for p in points)
+    avg = int(total / event_count) if event_count > 0 else 0
+    return {
+        "member_count": member_count,
+        "event_count": event_count,
+        "total_points": int(total),
+        "event_avg": avg,
+    }
+
+
+@api_router.get("/leaderboard")
+async def leaderboard(event_id: Optional[str] = None, group_name: Optional[str] = None):
+    query = {}
+    if event_id:
+        query["event_id"] = event_id
+    elif group_name:
+        # Find events in group
+        events = await db.events.find({"group_name": group_name}, {"_id": 0}).to_list(1000)
+        event_ids = [e["id"] for e in events]
+        query["event_id"] = {"$in": event_ids}
+    points = await db.points.find(query, {"_id": 0}).to_list(100000)
+    # aggregate per member
+    agg = {}
+    for p in points:
+        mid = p["member_id"]
+        pts = int(p["points"]) * float(p.get("multiplier", 1.0))
+        agg[mid] = agg.get(mid, 0) + pts
+    members = await db.members.find({}, {"_id": 0}).to_list(1000)
+    m_by_id = {m["id"]: m for m in members}
+    result = []
+    for mid, total in agg.items():
+        m = m_by_id.get(mid)
+        if not m:
+            continue
+        result.append({
+            "member_id": mid,
+            "name": m["name"],
+            "rank": m["rank"],
+            "level": m.get("level", 1),
+            "title": m.get("title"),
+            "total_points": int(total),
+        })
+    result.sort(key=lambda x: x["total_points"], reverse=True)
+    for i, r in enumerate(result):
+        r["position"] = i + 1
+    return result
+
+
+# ---------- Multiplier history ----------
+@api_router.get("/multiplier-history")
+async def multiplier_history():
+    points = await db.points.find({}, {"_id": 0}).sort("date", -1).to_list(200)
+    for p in points:
+        await enrich_point(p)
+    # Aggregate by multiplier
+    by_mult = {}
+    for p in points:
+        m = str(p.get("multiplier", 1.0))
+        by_mult.setdefault(m, []).append(p)
+    return {"history": points, "grouped": by_mult}
+
+
+# ---------- Export ----------
+@api_router.get("/export/csv")
+async def export_csv():
+    lb = await leaderboard()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Sıra", "İsim", "Rütbe", "Seviye", "Ünvan", "Toplam Puan"])
+    for r in lb:
+        writer.writerow([r["position"], r["name"], r["rank"], r.get("level", ""), r.get("title", "") or "", r["total_points"]])
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=siralama.csv"}
+    )
+
+
+# ---------- Groups (for filter chips) ----------
+@api_router.get("/event-groups")
+async def event_groups():
+    pipeline = [{"$group": {"_id": "$group_name", "count": {"$sum": 1}, "active": {"$sum": {"$cond": [{"$eq": ["$archived", False]}, 1, 0]}}}}]
+    groups = await db.events.aggregate(pipeline).to_list(100)
+    return [{"name": g["_id"], "count": g["count"], "active": g["active"]} for g in groups]
+
+
+# ---------- Seed ----------
+TURKISH_NAMES = [
+    "Selenay", "oOoHavan4oOo", "Grumpy Deanerys", "Vanya", "pasha", "Ayşe Han", "Mehmet Fatih",
+    "Kral Aslan", "Kraliçe Melisa", "Barbaros", "Alparslan", "Timur", "Cengiz Han", "Attila",
+    "Fatih Sultan", "Yavuz Selim", "Kanuni", "Osman Bey", "Orhan Gazi", "Murat Han",
+    "Bayezid", "Süleyman", "İskender", "Selahattin", "Kılıçarslan", "Tuğrul Bey", "Alp Er Tunga",
+    "Bilge Kağan", "Mete Han", "Oğuz Kağan", "Şah Melik", "Hun Han", "Göktürk", "Uygur",
+    "Karakhan", "Selçuk", "Sinan Paşa", "Hızır Reis", "Turgut Reis", "Piri Reis", "Kemal Reis",
+    "Barbaros Hayrettin", "Uluç Ali", "Salih Reis", "Kaptan Paşa", "Yaman", "Ejder", "Şahin",
+    "Kartal", "Bozkurt", "Aslan Han", "Kaplan Bey", "Pars", "Doğan", "Atmaca", "Zümrüd",
+    "Semerkand", "Buhara", "Taşkent", "Kaşgar", "Turfan", "Kabil", "Bağdat", "Şam",
+    "Kudüs", "Kahire", "İstanbul", "Bursa", "Edirne", "Konya", "Sivas", "Erzurum",
+    "Van", "Diyarbakır", "Trabzon", "Antep", "Urfa", "Adana", "Mersin", "Antalya",
+    "İzmir", "Manisa", "Muğla", "Ankara", "Kayseri", "Malatya", "Elazığ", "Bitlis",
+    "Kars", "Ardahan", "Iğdır", "Ağrı", "Muş", "Bingöl", "Tunceli", "Erzincan",
+    "Gümüşhane", "Bayburt", "Rize", "Artvin", "Ordu", "Giresun", "Samsun", "Sinop",
+    "Kastamonu", "Bartın", "Zonguldak", "Karabük", "Çankırı", "Çorum", "Amasya", "Tokat",
+    "Yozgat", "Kırşehir", "Kırıkkale", "Aksaray", "Niğde", "Nevşehir", "Karaman", "Isparta",
+    "Burdur", "Denizli", "Aydın", "Uşak", "Afyon", "Kütahya", "Bilecik", "Bolu",
+    "Düzce", "Sakarya", "Kocaeli", "Yalova", "Tekirdağ", "Edirne2", "Kırklareli", "Balıkesir",
+    "Çanakkale", "Batman", "Şırnak", "Hakkari", "Mardin", "Siirt", "Bitlis2", "Kilis",
+    "Osmaniye", "Hatay", "K.Maraş", "Gaziantep", "Adıyaman", "Şanlıurfa", "Diyarbakır2", "Ercan",
+    "Volkan", "Emre", "Kaan", "Berk", "Baran", "Ege", "Deniz",
+]
+
+
+@api_router.post("/seed")
+async def seed_data(force: bool = False):
+    """Populate DB with initial data. If force=True, wipes existing."""
+    if force:
+        await db.members.delete_many({})
+        await db.events.delete_many({})
+        await db.points.delete_many({})
+        await db.commanders.delete_many({})
+
+    existing = await db.members.count_documents({})
+    if existing > 0 and not force:
+        return {"status": "already_seeded", "members": existing}
+
+    # --- Members: 156 total, split by rank ---
+    rank_distribution = [
+        ("GOW", 94, ["Kral", "Kraliçe", "Efsane", "Sultan", "Han"]),
+        ("R5", 1, ["Baş Komutan"]),
+        ("R4", 8, ["General", "Paşa"]),
+        ("R3", 20, ["Kaptan", "Binbaşı"]),
+        ("R2", 18, ["Yüzbaşı", "Onbaşı"]),
+        ("R1", 15, ["Er", "Yeni Üye"]),
+    ]
+
+    members_by_id = {}
+    idx = 0
+    for rank, count, titles in rank_distribution:
+        for i in range(count):
+            name = TURKISH_NAMES[idx % len(TURKISH_NAMES)]
+            if idx >= len(TURKISH_NAMES):
+                name = f"{name}{idx}"
+            m = Member(
+                name=name,
+                member_id=str(random.randint(100000000, 999999999)),
+                rank=rank,
+                title=random.choice(titles) if random.random() > 0.4 else None,
+                level=random.randint(25, 60),
+            )
+            await db.members.insert_one(m.model_dump())
+            members_by_id[m.id] = m
+            idx += 1
+
+    # --- Events: 6 active + 8 archived ---
+    active_events = [
+        ("Pre 1.Gün", "1. Gün Lütfen Katılın", 1.0),
+        ("Pre 2.Gün", "2. Gün Radar Etkinliği", 1.0),
+        ("Pre 3.Gün", "3. Gün Kaynak Toplama", 1.5),
+        ("Pre 4.Gün", "4. Gün Hero Etkinliği", 2.0),
+        ("Pre 5.Gün", "5. Gün Kalkanlı Savaş", 2.0),
+        ("Pre 6.Gün", "6. Gün Final Savaşı", 3.0),
+    ]
+    archived_events = [
+        ("SvS 1.Gün", "Geçmiş SvS 1", 1.0),
+        ("SvS 2.Gün", "Geçmiş SvS 2", 1.0),
+        ("SvS 3.Gün", "Geçmiş SvS 3", 1.5),
+        ("SvS 4.Gün", "Geçmiş SvS 4", 2.0),
+        ("SvS 5.Gün", "Geçmiş SvS 5", 2.0),
+        ("SvS 6.Gün", "Geçmiş SvS 6", 3.0),
+        ("KE Etkinliği", "Kafes Etkinliği", 1.5),
+        ("Garnizon Savunma", "Garnizon Etkinliği", 1.0),
+    ]
+
+    events = []
+    base_date = datetime(2026, 2, 20, tzinfo=timezone.utc)
+    for i, (name, sub, mult) in enumerate(active_events):
+        e = Event(
+            name=name,
+            group_name="SvS vs 10007",
+            multiplier=mult,
+            date=(base_date + timedelta(days=i)).isoformat(),
+            subtitle=sub,
+            archived=False,
+        )
+        await db.events.insert_one(e.model_dump())
+        events.append(e)
+    for i, (name, sub, mult) in enumerate(archived_events):
+        e = Event(
+            name=name,
+            group_name="SvS vs 10007",
+            multiplier=mult,
+            date=(base_date - timedelta(days=30 + i)).isoformat(),
+            subtitle=sub,
+            archived=True,
+        )
+        await db.events.insert_one(e.model_dump())
+        events.append(e)
+
+    # --- Points: seed realistic distribution ---
+    members_list = list(members_by_id.values())
+    active_events_list = [e for e in events if not e.archived]
+
+    for event in events:
+        # Top members get more points
+        sorted_members = sorted(members_list, key=lambda m: (0 if m.rank == "GOW" else 1, random.random()))
+        for i, m in enumerate(sorted_members[:80]):  # Not everyone plays every event
+            base = random.randint(50_000_000, 500_000_000) if m.rank == "GOW" else random.randint(1_000_000, 100_000_000)
+            # Give top 3 huge boosts
+            if event.archived:
+                base = base // 2
+            pts = base
+            p = Point(
+                member_id=m.id,
+                member_name=m.name,
+                event_id=event.id,
+                event_name=event.name,
+                points=pts,
+                multiplier=event.multiplier,
+                note=f"{event.name} kayıt",
+                date=(datetime.fromisoformat(event.date) + timedelta(hours=random.randint(0, 20))).isoformat(),
+            )
+            await db.points.insert_one(p.model_dump())
+
+    # --- Commanders ---
+    commanders_seed = [
+        {"name": "Mai Shiranui", "category": "tetikci", "characters": ["Mai Shiranui"], "description": "Uzak menzil hasar komutanı", "image_url": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=400&fit=crop"},
+        {"name": "Omega Rugal", "category": "tetikci", "characters": ["Omega Rugal"], "description": "Elite saldırı komutanı", "image_url": "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=400&fit=crop"},
+        {"name": "Terry Bogard", "category": "bombaci", "characters": ["Terry Bogard"], "description": "Patlayıcı hasar uzmanı", "image_url": "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&h=400&fit=crop"},
+        {"name": "Kyo Kusanagi", "category": "bombaci", "characters": ["Kyo Kusanagi"], "description": "Ateş patlaması komutanı", "image_url": "https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=400&h=400&fit=crop"},
+        {"name": "Iori Yagami", "category": "kalkanli", "characters": ["Iori Yagami"], "description": "Savunma odaklı komutan", "image_url": "https://images.unsplash.com/photo-1580327344181-c1163234e5a0?w=400&h=400&fit=crop"},
+        {"name": "K' Dash", "category": "robotlar", "characters": ["K' Dash"], "description": "Robot desteği komutanı", "image_url": "https://images.unsplash.com/photo-1535223289827-42f1e9919769?w=400&h=400&fit=crop"},
+        {"name": "Ana Ralli Lideri", "category": "kafes_ana_ralli", "characters": ["Selenay"], "description": "Ana ralli ekip lideri", "image_url": "https://images.unsplash.com/photo-1519669556878-63bdad8a1a49?w=400&h=400&fit=crop"},
+        {"name": "İkinci Ralli", "category": "kafes_diger_ralli", "characters": ["Havan"], "description": "İkincil ralli ekibi", "image_url": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=400&h=400&fit=crop"},
+        {"name": "Garnizon 1", "category": "garnizon", "characters": ["Grumpy"], "description": "Ana garnizon komutanı", "image_url": "https://images.unsplash.com/photo-1548484352-ea579e5233a8?w=400&h=400&fit=crop"},
+        {"name": "Solo Saldırı Alfa", "category": "savas_solo", "characters": ["Vanya"], "description": "Solo saldırı ekibi lideri", "image_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=400&fit=crop"},
+        {"name": "Ralli Bravo", "category": "savas_ralli", "characters": ["Ercan", "Volkan"], "description": "Ralli savaş ekibi", "image_url": "https://images.unsplash.com/photo-1552820728-8b83bb6b773f?w=400&h=400&fit=crop"},
+        {"name": "Ana Kale Komutanı", "category": "svs_ana_kale", "characters": ["Selenay"], "description": "Supreme Kale komutanı", "image_url": "https://images.unsplash.com/photo-1560253023-3ec5085ef0a3?w=400&h=400&fit=crop"},
+        {"name": "Taret 1", "category": "svs_taret", "characters": ["Kaan"], "description": "Taret ekibi 1", "image_url": "https://images.unsplash.com/photo-1601987177651-8edfe6c20009?w=400&h=400&fit=crop"},
+        {"name": "Genel Bilgi", "category": "bilgilendirme", "characters": [], "description": "SvS kuralları ve genel bilgilendirme dokümanı"},
+    ]
+
+    for c in commanders_seed:
+        commander = Commander(**c)
+        await db.commanders.insert_one(commander.model_dump())
+
+    stats = {
+        "members": await db.members.count_documents({}),
+        "events": await db.events.count_documents({}),
+        "points": await db.points.count_documents({}),
+        "commanders": await db.commanders.count_documents({}),
+    }
+    return {"status": "seeded", **stats}
+
+
+# ---------- Setup ----------
+app.include_router(api_router)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+
+@app.on_event("startup")
+async def startup():
+    # Auto-seed if empty
+    count = await db.members.count_documents({})
+    if count == 0:
+        logger.info("Database empty, auto-seeding...")
+        await seed_data(force=False)
+        logger.info("Seed complete")
+
+
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    client.close()
