@@ -463,8 +463,7 @@ async def leaderboard(event_id: Optional[str] = None, group_name: Optional[str] 
 @api_router.get("/multiplier-history")
 async def multiplier_history():
     points = await db.points.find({}, {"_id": 0}).sort("date", -1).to_list(200)
-    for p in points:
-        await enrich_point(p)
+    await enrich_points_batch(points)
     # Aggregate by multiplier
     by_mult = {}
     for p in points:
