@@ -6,7 +6,6 @@ import { MEMBERS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
 import CanEdit from "@/components/CanEdit";
-import { allianceBadgeStyle } from "@/lib/colors";
 import { Search, Plus, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 

@@ -164,10 +164,6 @@ export default function Leaderboard() {
             <div className="card-dark p-6 text-center text-muted-foreground text-sm">Henüz puan kaydı yok. "Puan Ekle" sekmesinden başlayın.</div>
           )}
         </div>
-          {groupedByAlliance.length === 0 && (
-            <div className="card-dark p-6 text-center text-muted-foreground text-sm">Henüz puan kaydı yok. "Puan Ekle" sekmesinden başlayın.</div>
-          )}
-        </div>
 
         <button
           data-testid={LEADERBOARD.exportButton}
