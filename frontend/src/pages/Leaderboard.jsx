@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
-import { api, fmt } from "@/lib/api";
+import { api, fmt, RANKS } from "@/lib/api";
+import { allianceBadgeStyle } from "@/lib/colors";
 import { LEADERBOARD } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
@@ -17,11 +18,29 @@ export default function Leaderboard() {
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 5000 });
   const { data: groups } = useSWR("/event-groups", fetcher, { refreshInterval: 10000 });
   const { data: lb } = useSWR(group ? `/leaderboard?group_name=${encodeURIComponent(group)}` : "/leaderboard", fetcher, { refreshInterval: 5000 });
+  const { data: allMembers = [] } = useSWR("/members", fetcher, { refreshInterval: 15000 });
 
-  const [top3, rest] = useMemo(() => {
+  const memberIndex = useMemo(() => Object.fromEntries(allMembers.map((m) => [m.id, m])), [allMembers]);
+
+  const [top3, groupedByAlliance] = useMemo(() => {
     if (!lb) return [[], []];
-    return [lb.slice(0, 3), lb.slice(3, 50)];
-  }, [lb]);
+    const rankOrder = { R5: 5, R4: 4, R3: 3, R2: 2, R1: 1 };
+    // Attach alliance_name from members index
+    const enriched = lb.map((r) => ({ ...r, alliance_name: memberIndex[r.member_id]?.alliance_name || "-" }));
+    const top = enriched.slice(0, 3);
+    const rest = enriched.slice(3);
+    // Group by alliance
+    const groups = {};
+    rest.forEach((r) => {
+      const a = r.alliance_name || "-";
+      (groups[a] = groups[a] || []).push(r);
+    });
+    // Sort members inside each alliance by rank desc, then points desc
+    Object.values(groups).forEach((arr) => arr.sort((a, b) => (rankOrder[b.rank] || 0) - (rankOrder[a.rank] || 0) || b.total_points - a.total_points));
+    // Sort alliance groups: GOW first, others alpha
+    const sortedAlliances = Object.keys(groups).sort((a, b) => (a === "GOW" ? -1 : b === "GOW" ? 1 : a.localeCompare(b, "tr")));
+    return [top, sortedAlliances.map((name) => ({ name, members: groups[name] }))];
+  }, [lb, memberIndex]);
 
   const exportCsv = async () => {
     try {
@@ -131,29 +150,55 @@ export default function Leaderboard() {
         </div>
 
         <div className="section-title">Tam Sıralama</div>
-        <div className="space-y-1 mb-4">
-          {rest.map((r) => (
-            <button
-              key={r.member_id}
-              data-testid={LEADERBOARD.row(r.member_id)}
-              onClick={() => setProfileId(r.member_id)}
-              className="w-full card-dark p-3 flex items-center gap-3 row-hover text-left"
-            >
-              <div className="w-8 text-center">
-                <span className="text-xs font-bold text-muted-foreground mono">#{r.position}</span>
+        <div className="space-y-4 mb-4">
+          {groupedByAlliance.map((grp) => (
+            <div key={grp.name} className="fade-in">
+              <div
+                className="flex items-center justify-between px-3 py-2 rounded-lg mb-2"
+                style={{
+                  ...allianceBadgeStyle(grp.name),
+                  color: "#fff",
+                  border: "1px solid",
+                }}
+              >
+                <span className="font-bold uppercase tracking-wider text-sm">{grp.name}</span>
+                <span className="text-[11px] font-bold mono opacity-90">{grp.members.length} üye</span>
               </div>
-              <div className={`rank-badge rank-${r.rank}`}>{r.rank === "GOW" ? "" : r.rank}</div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-white truncate">{r.name}</div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  {r.title || "Üye"} • Lv {r.level}
-                </div>
+              <div className="space-y-1">
+                {grp.members.map((r) => (
+                  <button
+                    key={r.member_id}
+                    data-testid={LEADERBOARD.row(r.member_id)}
+                    onClick={() => setProfileId(r.member_id)}
+                    className="w-full card-dark p-3 flex items-center gap-3 row-hover text-left"
+                  >
+                    <div className="w-8 text-center">
+                      <span className="text-xs font-bold text-muted-foreground mono">#{r.position}</span>
+                    </div>
+                    <div
+                      className="rank-badge"
+                      style={{ ...allianceBadgeStyle(r.alliance_name), width: 36, height: 36, fontSize: 11 }}
+                      title={r.alliance_name}
+                    >
+                      {r.rank}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-white truncate">{r.name}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">
+                        {r.title || r.alliance_name || "Üye"} • Lv {r.level}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="gold-text font-bold mono text-sm">{fmt(r.total_points)}</div>
+                    </div>
+                  </button>
+                ))}
               </div>
-              <div className="text-right">
-                <div className="gold-text font-bold mono text-sm">{fmt(r.total_points)}</div>
-              </div>
-            </button>
+            </div>
           ))}
+          {groupedByAlliance.length === 0 && (
+            <div className="card-dark p-6 text-center text-muted-foreground text-sm">Henüz puan kaydı yok. "Puan Ekle" sekmesinden başlayın.</div>
+          )}
         </div>
 
         <button

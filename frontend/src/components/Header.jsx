@@ -2,7 +2,7 @@ import React from "react";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, Trophy, LogIn, LogOut, User as UserIcon, Shield } from "lucide-react";
+import { Sun, Moon, Trophy, LogIn, LogOut, User as UserIcon, Shield, Settings } from "lucide-react";
 import { LEADERBOARD } from "@/constants/testIds";
 
 export default function Header({ title = "Oyun Loncası", subtitle }) {
@@ -35,15 +35,28 @@ export default function Header({ title = "Oyun Loncası", subtitle }) {
         </button>
 
         {user ? (
-          <button
-            data-testid="header-profile"
-            onClick={() => nav("/profil")}
-            className="flex items-center gap-1.5 px-2 h-9 rounded-full border border-border hover:border-primary transition-colors flex-shrink-0"
-            title={user.username}
-          >
-            {isAdmin ? <Shield className="w-3.5 h-3.5 gold-text" /> : <UserIcon className="w-3.5 h-3.5 text-white" />}
-            <span className="text-xs font-bold uppercase truncate max-w-[64px]">{user.username}</span>
-          </button>
+          <>
+            {isAdmin && loc.pathname !== "/kullanicilar" && (
+              <button
+                data-testid="header-settings-btn"
+                onClick={() => nav("/kullanicilar")}
+                className="w-9 h-9 rounded-full flex items-center justify-center border border-border hover:border-primary transition-colors flex-shrink-0"
+                aria-label="Kullanıcı yönetimi"
+                title="Kullanıcı yönetimi"
+              >
+                <Settings className="w-4 h-4 gold-text" />
+              </button>
+            )}
+            <button
+              data-testid="header-profile"
+              onClick={() => nav("/profil")}
+              className="flex items-center gap-1.5 px-2 h-9 rounded-full border border-border hover:border-primary transition-colors flex-shrink-0"
+              title={user.username}
+            >
+              {isAdmin ? <Shield className="w-3.5 h-3.5 gold-text" /> : <UserIcon className="w-3.5 h-3.5 text-white" />}
+              <span className="text-xs font-bold uppercase truncate max-w-[64px]">{user.username}</span>
+            </button>
+          </>
         ) : (
           loc.pathname !== "/login" && (
             <button

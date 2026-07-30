@@ -45,7 +45,7 @@ export const fmt = (n) => {
   return new Intl.NumberFormat("tr-TR").format(Math.round(n));
 };
 
-export const RANKS = ["GOW", "R5", "R4", "R3", "R2", "R1"];
+export const RANKS = ["R5", "R4", "R3", "R2", "R1"];
 
 export const CATEGORIES = [
   { key: "bilgilendirme", label: "Bilgilendirme", section: "BİLGİLENDİRME" },

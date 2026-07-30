@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import useSWR, { mutate } from "swr";
 import { api, RANKS } from "@/lib/api";
+import { allianceBadgeStyle } from "@/lib/colors";
 import { MEMBERS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
@@ -86,8 +87,23 @@ export default function Members() {
                   data-testid={MEMBERS.card(m.id)}
                   className="card-dark p-3 flex items-center gap-3 row-hover"
                 >
-                  <button onClick={() => setProfileId(m.id)} className={`rank-badge rank-${m.rank}`}>
-                    {m.rank === "GOW" ? "" : m.rank}
+                  <button
+                    onClick={() => setProfileId(m.id)}
+                    className="rank-badge"
+                    style={{
+                      ...allianceBadgeStyle(m.alliance_name),
+                      width: 60,
+                      height: 44,
+                      borderRadius: 22,
+                      fontSize: 10,
+                      padding: "0 8px",
+                      lineHeight: 1.1,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                    }}
+                    title={m.alliance_name || "İttifak yok"}
+                  >
+                    <span className="truncate w-full text-center">{m.alliance_name || "-"}</span>
                   </button>
                   <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setProfileId(m.id)}>
                     <div className="font-bold text-white truncate">{m.name}</div>
@@ -143,24 +159,40 @@ export default function Members() {
 }
 
 function MemberForm({ initial, onClose }) {
+  const [allianceName, setAllianceName] = useState(initial?.alliance_name || "");
   const [name, setName] = useState(initial?.name || "");
   const [memberId, setMemberId] = useState(initial?.member_id || "");
-  const [allianceName, setAllianceName] = useState(initial?.alliance_name || "");
-  const [rank, setRank] = useState(initial?.rank || "GOW");
-  const [title, setTitle] = useState(initial?.title || "");
-  const [level, setLevel] = useState(initial?.level || 30);
+  const [castleLevel, setCastleLevel] = useState(initial?.castle_level || "");
+  const [tetikciF, setTetikciF] = useState(initial?.tetikci_f || "");
+  const [tetikciT, setTetikciT] = useState(initial?.tetikci_t || "");
+  const [bombaciF, setBombaciF] = useState(initial?.bombaci_f || "");
+  const [bombaciT, setBombaciT] = useState(initial?.bombaci_t || "");
+  const [kalkanliF, setKalkanliF] = useState(initial?.kalkanli_f || "");
+  const [kalkanliT, setKalkanliT] = useState(initial?.kalkanli_t || "");
+  const [rank, setRank] = useState(initial?.rank && RANKS.includes(initial.rank) ? initial.rank : "R1");
+  const [note, setNote] = useState(initial?.note || "");
   const [saving, setSaving] = useState(false);
   const { data: alliances = [] } = useSWR("/alliances", fetcher);
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!name.trim() || !memberId.trim()) {
-      toast.error("İsim ve ID gerekli");
-      return;
-    }
+    if (!name.trim()) { toast.error("Oyuncu ismi gerekli"); return; }
     setSaving(true);
     try {
-      const body = { name: name.trim(), member_id: memberId.trim(), alliance_name: allianceName.trim() || null, rank, title: title.trim() || null, level: Number(level) || 1 };
+      const body = {
+        name: name.trim(),
+        member_id: memberId.trim() || null,
+        alliance_name: allianceName.trim() || null,
+        rank,
+        castle_level: castleLevel.trim() || null,
+        tetikci_f: tetikciF.trim() || null,
+        tetikci_t: tetikciT.trim() || null,
+        bombaci_f: bombaciF.trim() || null,
+        bombaci_t: bombaciT.trim() || null,
+        kalkanli_f: kalkanliF.trim() || null,
+        kalkanli_t: kalkanliT.trim() || null,
+        note: note.trim() || null,
+      };
       if (initial) {
         await api.patch(`/members/${initial.id}`, body);
         toast.success("Üye güncellendi");
@@ -168,7 +200,7 @@ function MemberForm({ initial, onClose }) {
         await api.post("/members", body);
         toast.success("Üye eklendi");
       }
-      mutate((k) => typeof k === "string" && k.startsWith("/members"));
+      mutate((k) => typeof k === "string" && (k.startsWith("/members") || k.startsWith("/alliances")));
       mutate("/stats");
       onClose();
     } catch (err) {
@@ -178,34 +210,41 @@ function MemberForm({ initial, onClose }) {
     }
   };
 
+  const numInput = "w-16 bg-background border border-border rounded-md px-2 py-1.5 text-sm text-white mono text-center focus:outline-none focus:border-primary";
+
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
       <form
         data-testid={MEMBERS.form}
         onSubmit={submit}
         onClick={(e) => e.stopPropagation()}
-        className="card-red-gold w-full max-w-md p-5 fade-in relative"
+        className="card-red-gold w-full max-w-md p-5 fade-in relative max-h-[90vh] overflow-y-auto"
       >
         <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white">
           <X className="w-5 h-5" />
         </button>
         <h3 className="text-lg font-bold uppercase gold-text mb-4">{initial ? "Üyeyi Düzenle" : "Yeni Üye"}</h3>
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">İsim</label>
-        <input data-testid={MEMBERS.formName} value={name} onChange={(e) => setName(e.target.value)}
-          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
-
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Oyun ID</label>
-        <input data-testid={MEMBERS.formId} value={memberId} onChange={(e) => setMemberId(e.target.value)}
-          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono" />
-
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">İttifak Adı</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">İttifak Adı</label>
+        {alliances.length > 0 && (
+          <div className="flex gap-1.5 flex-wrap mb-2">
+            {alliances.map((a) => (
+              <button
+                key={a}
+                type="button"
+                onClick={() => setAllianceName(a)}
+                className={`chip ${allianceName === a ? "active" : ""}`}
+                data-testid={`alliance-chip-${a}`}
+              >{a}</button>
+            ))}
+          </div>
+        )}
         <input
           data-testid="member-form-alliance"
           value={allianceName}
           onChange={(e) => setAllianceName(e.target.value)}
           list="alliance-list"
-          placeholder="Örn: SvS Loncası"
+          placeholder="Örn: GOW"
           autoComplete="off"
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
         />
@@ -213,24 +252,57 @@ function MemberForm({ initial, onClose }) {
           {alliances.map((a) => (<option key={a} value={a} />))}
         </datalist>
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Rütbe</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Oyuncu İsmi</label>
+        <input data-testid={MEMBERS.formName} value={name} onChange={(e) => setName(e.target.value)}
+          placeholder="Örn: Warlord42"
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
+
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">ID (opsiyonel)</label>
+        <input data-testid={MEMBERS.formId} value={memberId} onChange={(e) => setMemberId(e.target.value)}
+          placeholder="Oyun ID"
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono" />
+
+        <div className="mt-3 flex items-center gap-3">
+          <label className="text-xs uppercase text-muted-foreground font-bold flex-1">Kale Seviyesi</label>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] font-bold gold-text w-4 text-center">F</span>
+            <input data-testid="member-form-castle-f" value={castleLevel} onChange={(e) => setCastleLevel(e.target.value)}
+              placeholder="35" className={numInput} />
+          </div>
+        </div>
+
+        <div className="section-title mt-4">Askeri Kışla Seviyeleri</div>
+        {[
+          { label: "Tetikçi", f: tetikciF, setF: setTetikciF, t: tetikciT, setT: setTetikciT, tid: "tetikci" },
+          { label: "Bombacı", f: bombaciF, setF: setBombaciF, t: bombaciT, setT: setBombaciT, tid: "bombaci" },
+          { label: "Kalkanlı", f: kalkanliF, setF: setKalkanliF, t: kalkanliT, setT: setKalkanliT, tid: "kalkanli" },
+        ].map((b) => (
+          <div key={b.tid} className="flex items-center gap-2 mt-2">
+            <label className="text-xs uppercase text-white font-bold flex-1">{b.label}</label>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-bold gold-text w-4 text-center">F</span>
+              <input data-testid={`member-form-${b.tid}-f`} value={b.f} onChange={(e) => b.setF(e.target.value)} placeholder="0" className={numInput} />
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-bold red-text w-4 text-center">T</span>
+              <input data-testid={`member-form-${b.tid}-t`} value={b.t} onChange={(e) => b.setT(e.target.value)} placeholder="0" className={numInput} />
+            </div>
+          </div>
+        ))}
+
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-4">Rütbe</label>
         <div data-testid={MEMBERS.formRank} className="flex gap-1.5 flex-wrap">
           {RANKS.map((r) => (
             <button key={r} type="button" onClick={() => setRank(r)} className={`chip ${rank === r ? "active" : ""}`}>{r}</button>
           ))}
         </div>
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Ünvan (opsiyonel)</label>
-        <input data-testid={MEMBERS.formTitle} value={title} onChange={(e) => setTitle(e.target.value)}
-          placeholder="Örn: Kral"
-          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
-
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Seviye</label>
-        <input type="number" value={level} onChange={(e) => setLevel(e.target.value)} min="1" max="99"
-          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono" />
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Not (opsiyonel)</label>
+        <textarea data-testid="member-form-note" value={note} onChange={(e) => setNote(e.target.value)} rows={2}
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white resize-none" />
 
         <button data-testid={MEMBERS.formSubmit} type="submit" disabled={saving} className="btn-gold w-full mt-5">
-          {saving ? "Kaydediliyor..." : initial ? "Güncelle" : "Ekle"}
+          {saving ? "Kaydediliyor..." : "KAYDET"}
         </button>
       </form>
     </div>

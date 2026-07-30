@@ -39,9 +39,19 @@ class Member(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
-    member_id: str  # Game ID
+    member_id: Optional[str] = None
     alliance_name: Optional[str] = None
-    rank: str  # GOW, R5, R4, R3, R2, R1
+    rank: str  # R1-R5
+    title: Optional[str] = None
+    level: Optional[int] = 1
+    castle_level: Optional[str] = None
+    tetikci_f: Optional[str] = None
+    tetikci_t: Optional[str] = None
+    bombaci_f: Optional[str] = None
+    bombaci_t: Optional[str] = None
+    kalkanli_f: Optional[str] = None
+    kalkanli_t: Optional[str] = None
+    note: Optional[str] = None
     title: Optional[str] = None  # Kral, Kraliçe, etc.
     level: Optional[int] = 1
     created_at: str = Field(default_factory=now_iso)
@@ -63,6 +73,14 @@ class MemberUpdate(BaseModel):
     rank: Optional[str] = None
     title: Optional[str] = None
     level: Optional[int] = None
+    castle_level: Optional[str] = None
+    tetikci_f: Optional[str] = None
+    tetikci_t: Optional[str] = None
+    bombaci_f: Optional[str] = None
+    bombaci_t: Optional[str] = None
+    kalkanli_f: Optional[str] = None
+    kalkanli_t: Optional[str] = None
+    note: Optional[str] = None
 
 
 class Event(BaseModel):
@@ -114,6 +132,13 @@ class PointCreate(BaseModel):
     points: int
     multiplier: Optional[float] = 1.0
     note: Optional[str] = None
+
+
+class PointUpdate(BaseModel):
+    points: Optional[int] = None
+    multiplier: Optional[float] = None
+    note: Optional[str] = None
+    event_id: Optional[str] = None
 
 
 class BulkPointCreate(BaseModel):
@@ -355,6 +380,27 @@ async def delete_point(point_id: str, _: dict = Depends(require_edit)):
     if res.deleted_count == 0:
         raise HTTPException(404, "Puan kaydı bulunamadı")
     return {"ok": True}
+
+
+@api_router.patch("/points/{point_id}")
+async def update_point(point_id: str, body: PointUpdate, _: dict = Depends(require_edit)):
+    update = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not update:
+        raise HTTPException(400, "Değişiklik yok")
+    # If event_id changed, refresh cached event_name
+    if "event_id" in update:
+        ev = await db.events.find_one({"id": update["event_id"]}, {"_id": 0, "name": 1})
+        update["event_name"] = ev["name"] if ev else "Bilinmeyen"
+    res = await db.points.update_one({"id": point_id}, {"$set": update})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Puan kaydı bulunamadı")
+    doc = await db.points.find_one({"id": point_id}, {"_id": 0})
+    return doc
+
+
+@api_router.patch("/scores/{score_id}")
+async def update_score(score_id: str, body: PointUpdate, _: dict = Depends(require_edit)):
+    return await update_point(score_id, body, _)
 
 
 # ---------- Scores (alias for Points - same underlying collection) ----------

@@ -4,7 +4,7 @@ import { api, CATEGORIES, groupCategories } from "@/lib/api";
 import { COMMANDERS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
-import { Plus, Pencil, Trash2, X, Shield } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Shield, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -13,9 +13,19 @@ export default function Commanders() {
   const [selectedCat, setSelectedCat] = useState(CATEGORIES[1].key);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+  const sections = groupCategories();
+  const [expanded, setExpanded] = useState(() => {
+    // Expand the section containing the initially selected category
+    const initial = {};
+    Object.entries(sections).forEach(([sec, cats]) => {
+      initial[sec] = cats.some((c) => c.key === CATEGORIES[1].key);
+    });
+    return initial;
+  });
 
   const { data: commanders = [] } = useSWR(`/commanders?category=${selectedCat}`, fetcher, { refreshInterval: 8000 });
-  const sections = groupCategories();
+
+  const toggleSection = (section) => setExpanded((e) => ({ ...e, [section]: !e[section] }));
 
   return (
     <div data-testid={COMMANDERS.container}>
@@ -36,12 +46,21 @@ export default function Commanders() {
         </div>
 
         <div className="grid grid-cols-[130px_1fr] gap-3">
-          {/* Sidebar tree */}
+          {/* Sidebar tree (accordion) */}
           <div className="card-dark p-2 max-h-[calc(100vh-260px)] overflow-y-auto">
             {Object.entries(sections).map(([section, cats]) => (
-              <div key={section}>
-                <div className="tree-cat">{section}</div>
-                {cats.map((c) => (
+              <div key={section} className="mb-1">
+                <button
+                  type="button"
+                  onClick={() => toggleSection(section)}
+                  data-testid={`section-toggle-${section}`}
+                  className="w-full flex items-center justify-between tree-cat hover:text-white"
+                  style={{ background: "transparent", border: 0, cursor: "pointer" }}
+                >
+                  <span>{section}</span>
+                  {expanded[section] ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                </button>
+                {expanded[section] && cats.map((c) => (
                   <div
                     key={c.key}
                     data-testid={COMMANDERS.categoryItem(c.key)}
