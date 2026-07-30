@@ -13,6 +13,9 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
+from collections import defaultdict
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment
 
 
 ROOT_DIR = Path(__file__).parent
@@ -546,6 +549,114 @@ async def export_csv():
     )
 
 
+@api_router.get("/export/xlsx")
+async def export_xlsx():
+    """Multi-sheet Excel report: Üye Listesi, Etkinlik Kayıtları, Sıralama Listesi, İttifak Sıralaması."""
+    wb = openpyxl.Workbook()
+
+    members = await db.members.find({}, {"_id": 0}).to_list(10000)
+    points = await db.points.find({}, {"_id": 0}).sort("date", -1).to_list(100000)
+    await enrich_points_batch(points)
+    m_by_id = {m["id"]: m for m in members}
+
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill("solid", fgColor="DC2626")
+    header_align = Alignment(horizontal="center", vertical="center")
+
+    def make_sheet(name, columns):
+        if wb.sheetnames == ["Sheet"]:
+            ws = wb.active
+            ws.title = name
+        else:
+            ws = wb.create_sheet(name)
+        for i, c in enumerate(columns, 1):
+            cell = ws.cell(row=1, column=i, value=c)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
+        return ws
+
+    def fmt_dual(f, t):
+        f = f if f not in (None, "") else "-"
+        t = t if t not in (None, "") else "-"
+        return f"F{f} / T{t}"
+
+    # Sheet 1: Üye Listesi
+    ws1 = make_sheet("Üye Listesi", ["İttifak", "Üye", "Rütbe", "ID", "Kale", "Tetikçi", "Bombacı", "Kalkanlı"])
+    for i, m in enumerate(members, start=2):
+        ws1.cell(row=i, column=1, value=m.get("alliance_name") or "")
+        ws1.cell(row=i, column=2, value=m.get("name") or "")
+        ws1.cell(row=i, column=3, value=m.get("rank") or "")
+        ws1.cell(row=i, column=4, value=m.get("member_id") or "")
+        ws1.cell(row=i, column=5, value=m.get("castle_level") or "")
+        ws1.cell(row=i, column=6, value=fmt_dual(m.get("tetikci_f"), m.get("tetikci_t")))
+        ws1.cell(row=i, column=7, value=fmt_dual(m.get("bombaci_f"), m.get("bombaci_t")))
+        ws1.cell(row=i, column=8, value=fmt_dual(m.get("kalkanli_f"), m.get("kalkanli_t")))
+
+    # Sheet 2: Etkinlik Kayıtları
+    ws2 = make_sheet("Etkinlik Kayıtları", ["Üye", "Rütbe", "Etkinlik", "Puan", "Not", "Tarih"])
+    for i, p in enumerate(points, start=2):
+        m = m_by_id.get(p["member_id"], {})
+        ws2.cell(row=i, column=1, value=p.get("member_name") or m.get("name") or "")
+        ws2.cell(row=i, column=2, value=m.get("rank") or "")
+        ws2.cell(row=i, column=3, value=p.get("event_name") or "")
+        pts = int(p["points"]) * float(p.get("multiplier", 1.0))
+        ws2.cell(row=i, column=4, value=int(pts))
+        ws2.cell(row=i, column=5, value=p.get("note") or "")
+        try:
+            dt = datetime.fromisoformat(str(p["date"]).replace("Z", "+00:00"))
+            ws2.cell(row=i, column=6, value=dt.strftime("%d.%m.%Y %H:%M"))
+        except Exception:
+            ws2.cell(row=i, column=6, value=str(p.get("date") or ""))
+
+    # Sheet 3: Sıralama Listesi
+    lb = await leaderboard()
+    ws3 = make_sheet("Sıralama Listesi", ["Sıra", "Üye", "Rütbe", "İttifak", "Puan"])
+    for i, r in enumerate(lb, start=2):
+        m = m_by_id.get(r["member_id"], {})
+        ws3.cell(row=i, column=1, value=r["position"])
+        ws3.cell(row=i, column=2, value=r["name"])
+        ws3.cell(row=i, column=3, value=r["rank"])
+        ws3.cell(row=i, column=4, value=m.get("alliance_name") or "")
+        ws3.cell(row=i, column=5, value=r["total_points"])
+
+    # Sheet 4: İttifak Sıralaması
+    alliance_stats = defaultdict(lambda: {"members": 0, "points": 0})
+    for m in members:
+        alliance = m.get("alliance_name") or "-"
+        alliance_stats[alliance]["members"] += 1
+    for r in lb:
+        m = m_by_id.get(r["member_id"], {})
+        alliance = m.get("alliance_name") or "-"
+        alliance_stats[alliance]["points"] += r["total_points"]
+    alliance_ranked = sorted(alliance_stats.items(), key=lambda x: x[1]["points"], reverse=True)
+    ws4 = make_sheet("İttifak Sıralaması", ["Sıra", "İttifak", "Üye Sayısı", "Puan"])
+    for i, (name, stats) in enumerate(alliance_ranked, start=2):
+        ws4.cell(row=i, column=1, value=i - 1)
+        ws4.cell(row=i, column=2, value=name)
+        ws4.cell(row=i, column=3, value=stats["members"])
+        ws4.cell(row=i, column=4, value=stats["points"])
+
+    # Auto-size columns
+    for ws in wb.worksheets:
+        for col in ws.columns:
+            max_len = max((len(str(c.value or "")) for c in col), default=10)
+            ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 40)
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    filename = f"detayli_rapor_{today}.xlsx"
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
 # ---------- Groups (for filter chips) ----------
 @api_router.get("/event-groups")
 async def event_groups():
@@ -754,13 +865,8 @@ async def startup():
         await db.members.update_one({"id": m["id"]}, {"$set": {"alliance_name": random.choice(ALLIANCES)}})
     if legacy:
         logger.info(f"Backfilled alliance_name for {len(legacy)} members")
-    # Auto-seed if empty
-    count = await db.members.count_documents({})
-    if count == 0:
-        logger.info("Database empty, auto-seeding...")
-        # Direct call bypasses FastAPI's Depends resolution - the `_` default (Depends marker) is ignored.
-        await seed_data(force=False)
-        logger.info("Seed complete")
+    # Auto-seed disabled: guild leaders now populate their own members.
+    # To manually populate demo data, POST /api/seed?force=true with admin token.
 
 
 @app.on_event("shutdown")

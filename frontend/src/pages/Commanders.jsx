@@ -13,9 +13,9 @@ export default function Commanders() {
   const [selectedCat, setSelectedCat] = useState(CATEGORIES[1].key);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [lightbox, setLightbox] = useState(null);
   const sections = groupCategories();
   const [expanded, setExpanded] = useState(() => {
-    // Expand the section containing the initially selected category
     const initial = {};
     Object.entries(sections).forEach(([sec, cats]) => {
       initial[sec] = cats.some((c) => c.key === CATEGORIES[1].key);
@@ -82,7 +82,12 @@ export default function Commanders() {
             <div className="space-y-2">
               {commanders.map((c) => (
                 <div key={c.id} data-testid={COMMANDERS.card(c.id)} className="card-red-gold p-3 fade-in">
-                  <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setLightbox(c)}
+                    data-testid={`commander-open-${c.id}`}
+                    className="flex gap-3 w-full text-left"
+                  >
                     {c.image_url ? (
                       <img src={c.image_url} alt={c.name} className="w-16 h-16 rounded-md object-cover border border-primary/30" />
                     ) : (
@@ -101,7 +106,7 @@ export default function Commanders() {
                         ))}
                       </div>
                     </div>
-                  </div>
+                  </button>
                   <CanEdit>
                     <div className="flex justify-end gap-1 mt-2">
                       <button
@@ -136,6 +141,64 @@ export default function Commanders() {
       {showForm && (
         <CommanderForm initial={editing} defaultCategory={selectedCat} onClose={() => { setShowForm(false); setEditing(null); }} />
       )}
+      {lightbox && <CommanderLightbox commander={lightbox} onClose={() => setLightbox(null)} />}
+    </div>
+  );
+}
+
+function CommanderLightbox({ commander, onClose }) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4 fade-in"
+      onClick={onClose}
+      data-testid="commander-lightbox"
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        data-testid="commander-lightbox-close"
+        className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 border border-primary/50 hover:bg-primary/30 flex items-center justify-center z-10"
+        aria-label="Kapat"
+      >
+        <X className="w-5 h-5 text-white" />
+      </button>
+
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md flex flex-col items-center max-h-[95vh] overflow-y-auto"
+      >
+        {commander.image_url ? (
+          <img
+            src={commander.image_url}
+            alt={commander.name}
+            className="max-w-full max-h-[60vh] rounded-lg object-contain shadow-2xl border-2 border-primary/40"
+          />
+        ) : (
+          <div className="w-56 h-56 rounded-lg bg-black/60 border-2 border-primary/40 flex items-center justify-center">
+            <Shield className="w-20 h-20 gold-text" />
+          </div>
+        )}
+
+        <div className="w-full mt-4 text-center px-2">
+          <h3 className="text-2xl font-bold uppercase gold-text tracking-wider mb-2" style={{ fontFamily: "Rajdhani" }}>
+            {commander.name}
+          </h3>
+          {commander.description && (
+            <p className="text-sm text-white/85 leading-relaxed whitespace-pre-wrap">
+              {commander.description}
+            </p>
+          )}
+          {(commander.characters || []).length > 0 && (
+            <div className="flex flex-wrap gap-1.5 justify-center mt-3">
+              {commander.characters.map((ch) => (
+                <span key={ch} className="text-xs px-2.5 py-1 rounded-full bg-red-500/20 red-text border border-red-500/40 font-semibold">
+                  {ch}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

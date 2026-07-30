@@ -42,14 +42,15 @@ export default function Leaderboard() {
     return [top, sortedAlliances.map((name) => ({ name, members: groups[name] }))];
   }, [lb, memberIndex]);
 
-  const exportCsv = async () => {
+  const exportXlsx = async () => {
     try {
-      const url = `${api.defaults.baseURL}/export/csv`;
+      const url = `${api.defaults.baseURL}/export/xlsx`;
       const a = document.createElement("a");
       a.href = url;
-      a.download = "siralama.csv";
+      const today = new Date().toISOString().slice(0, 10);
+      a.download = `detayli_rapor_${today}.xlsx`;
       a.click();
-      toast.success("Detaylı rapor indirildi");
+      toast.success("Detaylı rapor indirildi (Excel)");
     } catch (e) {
       toast.error("Rapor oluşturulamadı");
     }
@@ -203,11 +204,11 @@ export default function Leaderboard() {
 
         <button
           data-testid={LEADERBOARD.exportButton}
-          onClick={exportCsv}
+          onClick={exportXlsx}
           className="btn-gold w-full flex items-center justify-center gap-2 mb-6"
         >
           <Download className="w-4 h-4" />
-          Detaylı Rapor (CSV)
+          Detaylı Rapor (Excel)
         </button>
       </div>
 

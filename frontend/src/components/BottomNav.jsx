@@ -1,12 +1,12 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Trophy, Shield, ListOrdered, PlusCircle, Users, Calendar, Lock, UserCog } from "lucide-react";
+import { Trophy, Shield, ListOrdered, PlusCircle, Users, Calendar, Lock } from "lucide-react";
 import { NAV } from "@/constants/testIds";
 import { useAuth } from "@/context/AuthContext";
 
 // items visible to all: leaderboard, commanders
 // items requiring auth: points, add-points, members, events
-// items requiring admin: users
+// Note: User management moved to Header ⚙️ icon; removed from bottom nav.
 const allItems = [
   { to: "/", label: "Sıralama", icon: Trophy, testId: NAV.leaderboard, guest: true },
   { to: "/komutanlar", label: "Komutan", icon: Shield, testId: NAV.commanders, guest: true },
@@ -14,7 +14,6 @@ const allItems = [
   { to: "/puan-ekle", label: "Ekle", icon: PlusCircle, testId: NAV.addPoints, guest: false, requiresEdit: true },
   { to: "/uyeler", label: "Üyeler", icon: Users, testId: NAV.members, guest: false },
   { to: "/etkinlikler", label: "Etkinlik", icon: Calendar, testId: NAV.events, guest: false },
-  { to: "/kullanicilar", label: "Kullanıcı", icon: UserCog, testId: "nav-users", adminOnly: true },
 ];
 
 export default function BottomNav() {
