@@ -96,14 +96,19 @@ export default function Members() {
 
         {grouped.map((grp, gi) => (
           <React.Fragment key={grp.name}>
-            {gi > 0 && <div className="divider-glow my-4" />}
+            {gi > 0 && (
+              <div className="my-5 flex items-center gap-2">
+                <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(220,38,38,0.4) 20%, rgba(245,166,35,0.5) 50%, rgba(220,38,38,0.4) 80%, transparent)" }} />
+              </div>
+            )}
             <div className="mb-4 fade-in">
               <div
-                className="flex items-center justify-between px-3 py-2.5 rounded-lg mb-2"
+                className="flex items-center justify-between px-3 py-3 rounded-lg mb-2 shadow-lg"
                 style={{ ...allianceBadgeStyle(grp.name), color: "#fff", border: "1px solid" }}
+                data-testid={`members-group-${grp.name}`}
               >
-                <span className="font-bold uppercase tracking-wider text-sm truncate">{grp.name}</span>
-                <span className="text-[11px] font-bold mono opacity-90">{grp.members.length} üye</span>
+                <span className="font-bold uppercase tracking-wider text-base truncate">── {grp.name}</span>
+                <span className="text-xs font-bold mono opacity-95">({grp.members.length} üye)</span>
               </div>
               <div className="space-y-1.5">
                 {grp.members.map((m) => (
@@ -114,29 +119,17 @@ export default function Members() {
                   >
                     <button
                       onClick={() => setProfileId(m.id)}
-                      className="rank-badge"
-                      style={{
-                        ...allianceBadgeStyle(m.alliance_name),
-                        width: 60,
-                        height: 44,
-                        borderRadius: 22,
-                        fontSize: 10,
-                        padding: "0 8px",
-                        lineHeight: 1.1,
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                      }}
-                      title={m.alliance_name || "İttifak yok"}
+                      className={`rank-badge rank-${m.rank}`}
+                      style={{ width: 44, height: 44, fontSize: 13, borderRadius: 8, fontWeight: 800 }}
+                      title={`Rütbe ${m.rank}`}
                     >
-                      <span className="truncate w-full text-center">{m.alliance_name || "-"}</span>
+                      {m.rank}
                     </button>
                     <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setProfileId(m.id)}>
-                      <div className="font-bold text-white truncate">
-                        {m.name} <span className="text-[10px] gold-text font-bold ml-1">{m.rank}</span>
-                      </div>
+                      <div className="font-bold text-white truncate">{m.name}</div>
                       <div className="text-[10px] text-muted-foreground mono">
                         {m.member_id ? `ID: ${m.member_id}` : "—"}
-                        {m.castle_level && <span className="ml-2 gold-text">Kale F{m.castle_level}</span>}
+                        {m.castle_level && <span className="ml-2 gold-text">• Kale F{m.castle_level}</span>}
                       </div>
                       {m.title && <div className="text-[10px] gold-text font-semibold uppercase mt-0.5">{m.title}</div>}
                     </div>
