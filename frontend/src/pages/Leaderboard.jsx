@@ -154,7 +154,7 @@ export default function Leaderboard() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-white truncate">{r.name}</div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">
+                <div className="text-[10px] text-muted-foreground tracking-wider truncate">
                   {r.title || r.alliance_name || t("member")} • Lv {r.level}
                 </div>
               </div>

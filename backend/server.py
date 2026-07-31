@@ -547,32 +547,28 @@ async def leaderboard(event_id: Optional[str] = None, group_name: Optional[str] 
 @api_router.get("/leaderboard/by-alliance")
 async def leaderboard_by_alliance(event_id: Optional[str] = None, group_name: Optional[str] = None):
     """Return leaderboard entries grouped by alliance.
-    - GOW variants (case-insensitive) merge into a single 'GOW' group.
+    - Alliance names are CASE-SENSITIVE (GOW, GoW, GOw are different groups).
     - Members with no alliance go into 'Gruplandırılamamış'.
-    - Groups sorted: GOW first, others alphabetical (Turkish). Members inside groups sorted by points desc.
+    - Groups sorted: GOW → GoW → GOw → alphabetical → 'Gruplandırılamamış' last.
     """
     lb = await leaderboard(event_id=event_id, group_name=group_name)
     groups = {}
     for row in lb:
         raw = (row.get("alliance_name") or "").strip()
-        if raw.lower() == "gow":
-            key = "GOW"
-        elif not raw:
-            key = "Gruplandırılamamış"
-        else:
-            key = raw
+        key = raw if raw else "Gruplandırılamamış"
         row = {**row, "alliance_name": key}
         groups.setdefault(key, []).append(row)
     # Sort each group by points desc
     for arr in groups.values():
         arr.sort(key=lambda r: r["total_points"], reverse=True)
-    # Sort groups: GOW first, Gruplandırılamamış last, others Turkish alpha
+    # Sort groups: case-sensitive GOW → GoW → GOw priority, then alpha, Gruplandırılamamış last.
+    ALLIANCE_PRIORITY = {"GOW": 0, "GoW": 1, "GOw": 2}
     def sort_key(name):
-        if name == "GOW":
-            return (0, "")
         if name == "Gruplandırılamamış":
-            return (2, "")
-        return (1, name.lower())
+            return (3, "")
+        if name in ALLIANCE_PRIORITY:
+            return (0, ALLIANCE_PRIORITY[name])
+        return (2, name.lower())
     entries = [{"name": name, "members": groups[name], "total_points": sum(r["total_points"] for r in groups[name])}
                for name in sorted(groups.keys(), key=sort_key)]
     return entries

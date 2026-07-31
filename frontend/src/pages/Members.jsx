@@ -217,7 +217,7 @@ export default function Members() {
                 data-testid={`members-group-${grp.name}`}
                 aria-expanded={!collapsedAlliances.has(grp.name)}
               >
-                <span className="flex items-center gap-2 font-bold uppercase tracking-wider text-base truncate">
+                <span className="flex items-center gap-2 font-bold tracking-wider text-base truncate">
                   <ChevronDown
                     className="w-4 h-4 flex-shrink-0 transition-transform"
                     style={{ transform: collapsedAlliances.has(grp.name) ? "rotate(-90deg)" : "rotate(0deg)" }}
@@ -258,7 +258,6 @@ export default function Members() {
                     if (rankMembers.length === 0) return null;
                     const secKey = `${grp.name}::${rk}`;
                     const isCollapsed = collapsedRankSections.has(secKey);
-                    const isFullWidth = rk === "R5";
                     return (
                       <div key={rk} data-testid={`rank-section-${grp.name}-${rk}`}>
                         <button
@@ -283,37 +282,51 @@ export default function Members() {
                         </button>
 
                         {!isCollapsed && (
-                          <div className={`mt-1.5 grid gap-1.5 ${isFullWidth ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
+                          <div className="mt-1.5 grid gap-1.5 grid-cols-1 sm:grid-cols-2">
                             {rankMembers.map((m) => (
                               <div
                                 key={m.id}
                                 data-testid={MEMBERS.card(m.id)}
-                                className="card-dark p-3 flex items-center gap-3 row-hover"
+                                className="card-dark p-2.5 flex items-center gap-2 row-hover min-w-0"
                               >
                                 <button
                                   onClick={() => setProfileId(m.id)}
-                                  className={`rank-badge rank-${m.rank}`}
-                                  style={{ width: 44, height: 44, fontSize: 13, borderRadius: 8, fontWeight: 800 }}
+                                  className={`rank-badge rank-${m.rank} flex-shrink-0`}
+                                  style={{ width: 36, height: 36, fontSize: 12, borderRadius: 6, fontWeight: 800 }}
                                   title={`${t("rank")} ${m.rank}`}
                                 >
                                   {m.rank}
                                 </button>
                                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setProfileId(m.id)}>
-                                  <div className="font-bold text-white truncate">{m.name}</div>
-                                  <div className="text-[10px] text-muted-foreground mono">
-                                    {m.member_id ? `ID: ${m.member_id}` : "—"}
-                                    {m.castle_level && <span className="ml-2 gold-text">• {t("castle_short")}{m.castle_level}</span>}
+                                  <div
+                                    className="font-bold text-white text-sm truncate leading-tight"
+                                    title={m.name}
+                                    data-testid={`member-name-${m.id}`}
+                                  >
+                                    {m.name}
                                   </div>
-                                  {m.title && <div className="text-[10px] gold-text font-semibold uppercase mt-0.5">{m.title}</div>}
+                                  <div className="text-[9px] text-muted-foreground mono truncate">
+                                    {m.member_id ? `ID: ${m.member_id}` : "—"}
+                                    {m.castle_level && <span className="ml-1 gold-text">• {t("castle_short")}{m.castle_level}</span>}
+                                  </div>
+                                  {m.alliance_name && (
+                                    <span
+                                      className="inline-block text-[9px] font-bold rounded px-1.5 py-0.5 mt-0.5 truncate max-w-full"
+                                      style={{ ...allianceBadgeStyle(m.alliance_name, allianceColors), border: "1px solid" }}
+                                      title={m.alliance_name}
+                                    >
+                                      {m.alliance_name}
+                                    </span>
+                                  )}
                                 </div>
                                 <CanEdit>
                                   <button
                                     data-testid={MEMBERS.editBtn(m.id)}
                                     onClick={() => { setEditing(m); setShowForm(true); }}
-                                    className="w-8 h-8 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
+                                    className="w-7 h-7 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center flex-shrink-0"
                                     aria-label={t("edit")}
                                   >
-                                    <Pencil className="w-3.5 h-3.5" />
+                                    <Pencil className="w-3 h-3" />
                                   </button>
                                   <button
                                     data-testid={MEMBERS.deleteBtn(m.id)}
@@ -324,10 +337,10 @@ export default function Members() {
                                       mutate("/stats");
                                       toast.success(t("member_deleted"));
                                     }}
-                                    className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
+                                    className="w-7 h-7 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center flex-shrink-0"
                                     aria-label={t("delete")}
                                   >
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <Trash2 className="w-3 h-3" />
                                   </button>
                                 </CanEdit>
                               </div>
@@ -585,7 +598,7 @@ function AllianceColorPicker({ allianceName, current, onClose }) {
 
         {/* Preview */}
         <div className="rounded-lg p-3 mb-4" style={{ ...allianceBadgeStyle(allianceName, { [allianceName]: selected }), border: "1px solid" }}>
-          <span className="font-bold uppercase tracking-wider text-white">── {allianceName}</span>
+          <span className="font-bold tracking-wider text-white">── {allianceName}</span>
         </div>
 
         <div className="flex gap-2">
