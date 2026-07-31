@@ -310,8 +310,18 @@ export default function Members() {
                                   >
                                     {m.name}
                                   </div>
-                                  <div className="text-[9px] gold-text mono truncate leading-tight">
-                                    {m.castle_level ? `F${m.castle_level}` : "-"}
+                                  <div className="text-[9px] mono truncate leading-tight flex items-center gap-1">
+                                    <span className="gold-text">{m.castle_level ? `F${m.castle_level}` : "-"}</span>
+                                    {m.note && (
+                                      <span
+                                        className="truncate"
+                                        style={{ color: "#DC2626", fontWeight: 700 }}
+                                        title={m.note}
+                                        data-testid={`member-note-${m.id}`}
+                                      >
+                                        • {m.note}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                                 <CanEdit>

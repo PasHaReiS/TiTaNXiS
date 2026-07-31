@@ -79,15 +79,27 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
               </div>
             </div>
 
-            {/* Alliance badge (case-preserved) */}
-            {m.alliance_name && (
-              <div className="mb-3">
-                <span
-                  className="inline-block text-[10px] font-bold rounded px-2 py-1 tracking-wider"
-                  style={{ ...allianceBadgeStyle(m.alliance_name, allianceColors), border: "1px solid" }}
-                >
-                  {m.alliance_name}
-                </span>
+            {/* Alliance badge + note (case-preserved) */}
+            {(m.alliance_name || m.note) && (
+              <div className="mb-3 flex items-center gap-2 flex-wrap">
+                {m.alliance_name && (
+                  <span
+                    className="inline-block text-[10px] font-bold rounded px-2 py-1 tracking-wider"
+                    style={{ ...allianceBadgeStyle(m.alliance_name, allianceColors), border: "1px solid" }}
+                  >
+                    {m.alliance_name}
+                  </span>
+                )}
+                {m.note && (
+                  <span
+                    className="text-xs truncate"
+                    style={{ color: "#DC2626", fontWeight: 700 }}
+                    title={m.note}
+                    data-testid="profile-inline-note"
+                  >
+                    {m.note}
+                  </span>
+                )}
               </div>
             )}
 
@@ -106,7 +118,7 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
               <>
                 <div className="h-px my-3" style={{ background: "linear-gradient(90deg, transparent, rgba(220,38,38,0.4), transparent)" }} />
                 <div className="text-[10px] uppercase tracking-widest font-bold gold-text mb-1">{t("note_optional")}</div>
-                <div className="text-xs text-white/85 leading-relaxed">{m.note}</div>
+                <div className="text-xs leading-relaxed" style={{ color: "#DC2626", fontWeight: 700 }}>{m.note}</div>
               </>
             )}
           </>
