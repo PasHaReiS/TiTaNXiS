@@ -610,6 +610,43 @@ async def export_xlsx():
     await enrich_points_batch(points)
     m_by_id = {m["id"]: m for m in members}
 
+    # Alliance color map (from DB); fallback to deterministic palette so every alliance always has a color.
+    color_docs = await db.alliance_colors.find({}, {"_id": 0}).to_list(500)
+    custom_colors = {d["name"]: d["color"] for d in color_docs}
+
+    PALETTE = ["2563EB", "16A34A", "7C3AED", "EA580C", "0891B2", "DB2777", "65A30D", "0D9488", "A16207", "4B5563"]
+    GOW_HEX = "DC2626"
+
+    def _norm(h):
+        return (h or "").lstrip("#").upper()
+
+    def hex_for(name):
+        if not name or name == "-":
+            return "6B7280"  # gray
+        h = custom_colors.get(name)
+        if h:
+            return _norm(h)
+        if name == "GOW":
+            return GOW_HEX
+        # deterministic hash → palette
+        idx = 0
+        for ch in name:
+            idx = (idx * 31 + ord(ch)) & 0x7FFFFFFF
+        return PALETTE[idx % len(PALETTE)]
+
+    def blend_with_white(hex6, alpha):
+        r = int(hex6[0:2], 16); g = int(hex6[2:4], 16); b = int(hex6[4:6], 16)
+        rr = round(r + (255 - r) * (1 - alpha))
+        gg = round(g + (255 - g) * (1 - alpha))
+        bb = round(b + (255 - b) * (1 - alpha))
+        return f"{rr:02X}{gg:02X}{bb:02X}"
+
+    def contrast_text(hex6):
+        r = int(hex6[0:2], 16); g = int(hex6[2:4], 16); b = int(hex6[4:6], 16)
+        # perceived brightness
+        y = (r * 299 + g * 587 + b * 114) / 1000
+        return "000000" if y > 160 else "FFFFFF"
+
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill("solid", fgColor="DC2626")
     header_align = Alignment(horizontal="center", vertical="center")
@@ -632,10 +669,11 @@ async def export_xlsx():
         t = t if t not in (None, "") else "-"
         return f"F{f} / T{t}"
 
-    # Sheet 1: Üye Listesi
+    # Sheet 1: Üye Listesi — İttifak cell painted with full alliance color + contrasting text
     ws1 = make_sheet("Üye Listesi", ["İttifak", "Üye", "Rütbe", "ID", "Kale", "Tetikçi", "Bombacı", "Kalkanlı"])
     for i, m in enumerate(members, start=2):
-        ws1.cell(row=i, column=1, value=m.get("alliance_name") or "")
+        alliance = m.get("alliance_name") or ""
+        ws1.cell(row=i, column=1, value=alliance)
         ws1.cell(row=i, column=2, value=m.get("name") or "")
         ws1.cell(row=i, column=3, value=m.get("rank") or "")
         ws1.cell(row=i, column=4, value=m.get("member_id") or "")
@@ -643,8 +681,14 @@ async def export_xlsx():
         ws1.cell(row=i, column=6, value=fmt_dual(m.get("tetikci_f"), m.get("tetikci_t")))
         ws1.cell(row=i, column=7, value=fmt_dual(m.get("bombaci_f"), m.get("bombaci_t")))
         ws1.cell(row=i, column=8, value=fmt_dual(m.get("kalkanli_f"), m.get("kalkanli_t")))
+        if alliance:
+            c = hex_for(alliance)
+            ac = ws1.cell(row=i, column=1)
+            ac.fill = PatternFill("solid", fgColor=c)
+            ac.font = Font(bold=True, color=contrast_text(c))
+            ac.alignment = Alignment(horizontal="center", vertical="center")
 
-    # Sheet 2: Etkinlik Kayıtları
+    # Sheet 2: Etkinlik Kayıtları — soft alliance tint across the whole row
     ws2 = make_sheet("Etkinlik Kayıtları", ["Üye", "Rütbe", "Etkinlik", "Puan", "Not", "Tarih"])
     for i, p in enumerate(points, start=2):
         m = m_by_id.get(p["member_id"], {})
@@ -659,19 +703,36 @@ async def export_xlsx():
             ws2.cell(row=i, column=6, value=dt.strftime("%d.%m.%Y %H:%M"))
         except Exception:
             ws2.cell(row=i, column=6, value=str(p.get("date") or ""))
+        alliance = m.get("alliance_name")
+        if alliance:
+            soft = blend_with_white(hex_for(alliance), 0.22)
+            row_fill = PatternFill("solid", fgColor=soft)
+            for col in range(1, 7):
+                ws2.cell(row=i, column=col).fill = row_fill
 
-    # Sheet 3: Sıralama Listesi
+    # Sheet 3: Sıralama Listesi — soft alliance tint across the row, full color on Alliance cell
     lb = await leaderboard()
     ws3 = make_sheet("Sıralama Listesi", ["Sıra", "Üye", "Rütbe", "İttifak", "Puan"])
     for i, r in enumerate(lb, start=2):
         m = m_by_id.get(r["member_id"], {})
+        alliance = m.get("alliance_name") or ""
         ws3.cell(row=i, column=1, value=r["position"])
         ws3.cell(row=i, column=2, value=r["name"])
         ws3.cell(row=i, column=3, value=r["rank"])
-        ws3.cell(row=i, column=4, value=m.get("alliance_name") or "")
+        ws3.cell(row=i, column=4, value=alliance)
         ws3.cell(row=i, column=5, value=r["total_points"])
+        if alliance:
+            full = hex_for(alliance)
+            soft = blend_with_white(full, 0.22)
+            row_fill = PatternFill("solid", fgColor=soft)
+            for col in range(1, 6):
+                ws3.cell(row=i, column=col).fill = row_fill
+            ac = ws3.cell(row=i, column=4)
+            ac.fill = PatternFill("solid", fgColor=full)
+            ac.font = Font(bold=True, color=contrast_text(full))
+            ac.alignment = Alignment(horizontal="center", vertical="center")
 
-    # Sheet 4: İttifak Sıralaması
+    # Sheet 4: İttifak Sıralaması — İttifak cell = full color, rest of row = soft tint
     alliance_stats = defaultdict(lambda: {"members": 0, "points": 0})
     for m in members:
         alliance = m.get("alliance_name") or "-"
@@ -687,6 +748,25 @@ async def export_xlsx():
         ws4.cell(row=i, column=2, value=name)
         ws4.cell(row=i, column=3, value=stats["members"])
         ws4.cell(row=i, column=4, value=stats["points"])
+        if name and name != "-":
+            full = hex_for(name)
+            soft = blend_with_white(full, 0.22)
+            row_fill = PatternFill("solid", fgColor=soft)
+            for col in range(1, 5):
+                ws4.cell(row=i, column=col).fill = row_fill
+            ac = ws4.cell(row=i, column=2)
+            ac.fill = PatternFill("solid", fgColor=full)
+            ac.font = Font(bold=True, color=contrast_text(full))
+            ac.alignment = Alignment(horizontal="center", vertical="center")
+
+    # AutoFilter on all sheets covering the full data range
+    for ws in wb.worksheets:
+        last_col = ws.max_column
+        last_row = ws.max_row
+        if last_col > 0 and last_row >= 1:
+            ws.auto_filter.ref = f"A1:{ws.cell(row=last_row, column=last_col).coordinate}"
+        # Freeze the header row
+        ws.freeze_panes = "A2"
 
     # Auto-size columns
     for ws in wb.worksheets:
