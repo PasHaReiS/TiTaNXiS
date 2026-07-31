@@ -477,16 +477,26 @@ function CommanderLightbox({ commander, commanderById, onClose }) {
   );
 }
 
-// Roles used by team squads (KAFES / GARNİZON / SAVAŞ / SVS sections).
+// Roles used by team squads. First 3 slots have USER-SELECTABLE type; slot 3 is locked to robot.
 const TEAM_ROLES = [
-  { role: "tetikci", labelKey: "slot_1_marksman" },
-  { role: "kalkanli", labelKey: "slot_2_shield" },
-  { role: "bombaci", labelKey: "slot_3_bomber" },
-  { role: "robotlar", labelKey: "slot_robot" },
+  { fixed: false, labelKey: "slot_1_label" },
+  { fixed: false, labelKey: "slot_2_label" },
+  { fixed: false, labelKey: "slot_3_label" },
+  { fixed: true, role: "robotlar", labelKey: "slot_robot_label" },
+];
+const TYPE_CHOICES = [
+  { role: "tetikci", labelKey: "tetikci" },
+  { role: "bombaci", labelKey: "bombaci" },
+  { role: "kalkanli", labelKey: "kalkanli" },
 ];
 const TEAM_SECTIONS = new Set(["KAFES ETKİNLİK", "GARNİZON", "SAVAŞ", "SVS EKİP"]);
 
-const defaultTeamSlots = () => TEAM_ROLES.map((r) => ({ role: r.role, commander_id: null, kof_id: null }));
+const defaultTeamSlots = () => [
+  { role: "tetikci", commander_id: null, kof_id: null },
+  { role: "kalkanli", commander_id: null, kof_id: null },
+  { role: "bombaci", commander_id: null, kof_id: null },
+  { role: "robotlar", commander_id: null, kof_id: null },
+];
 
 // Searchable multi-select of commanders / characters with thumbnails + free-text add.
 function CharacterMultiSelect({ value, onChange, allCommanders, allCharacters, excludeId }) {
@@ -630,32 +640,53 @@ function CharacterMultiSelect({ value, onChange, allCommanders, allCharacters, e
   );
 }
 
-// Team composition editor: 4 slots (tetikci/kalkanli/bombaci/robotlar).
-// Each slot picks one commander (bottom) and optionally one KoF hero (top) of the same type.
+// Team composition editor: 4 slots — first 3 have user-selectable type (Tetikçi/Bombacı/Kalkanlı),
+// slot 4 is always Robot. Each slot picks a commander (bottom) and optionally a KoF hero (top) of matching type.
 function TeamSlotsEditor({ value, onChange, allCommanders }) {
   const { t } = useTranslation();
-  const updateSlot = (role, patch) => {
-    onChange(value.map((s) => s.role === role ? { ...s, ...patch } : s));
+  const updateSlotAt = (idx, patch) => {
+    onChange(value.map((s, i) => i === idx ? { ...s, ...patch } : s));
   };
   return (
     <div className="flex gap-1.5" data-testid="team-slots-editor">
-      {TEAM_ROLES.map((r) => {
-        const slot = value.find((s) => s.role === r.role) || { role: r.role, commander_id: null, kof_id: null };
-        const cmdOptions = allCommanders.filter((c) => c.category === r.role && !c.is_kof);
-        const kofOptions = allCommanders.filter((c) => c.category === r.role && c.is_kof);
+      {TEAM_ROLES.map((meta, idx) => {
+        const slot = value[idx] || { role: meta.fixed ? meta.role : "tetikci", commander_id: null, kof_id: null };
+        const activeRole = meta.fixed ? meta.role : slot.role;
+        const cmdOptions = allCommanders.filter((c) => c.category === activeRole && !c.is_kof);
+        const kofOptions = allCommanders.filter((c) => c.category === activeRole && c.is_kof);
         const cmd = allCommanders.find((c) => c.id === slot.commander_id);
         const kof = allCommanders.find((c) => c.id === slot.kof_id);
-        const canPickKof = r.role !== "robotlar";
+        const canPickKof = activeRole !== "robotlar";
         return (
           <div
-            key={r.role}
+            key={idx}
             className="flex-1 min-w-0 rounded-lg overflow-hidden"
             style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(220,38,38,0.35)" }}
-            data-testid={`team-slot-${r.role}`}
+            data-testid={`team-slot-${idx}`}
           >
             <div className="text-[9px] uppercase tracking-wider font-bold text-center py-1 gold-text" style={{ background: "rgba(245,166,35,0.10)" }}>
-              {t(r.labelKey)}
+              {t(meta.labelKey)}
             </div>
+
+            {/* Type chip picker for editable slots (slots 0-2) */}
+            {!meta.fixed && (
+              <div className="flex gap-0.5 p-1 border-b border-border/40" data-testid={`slot-type-picker-${idx}`}>
+                {TYPE_CHOICES.map((tc) => (
+                  <button
+                    key={tc.role}
+                    type="button"
+                    onClick={() => updateSlotAt(idx, { role: tc.role, commander_id: null, kof_id: null })}
+                    data-testid={`slot-type-${idx}-${tc.role}`}
+                    className={`flex-1 text-[9px] font-bold uppercase py-1 rounded transition-colors ${
+                      slot.role === tc.role ? "gold-gradient text-black" : "bg-black/30 text-white hover:bg-primary/20"
+                    }`}
+                  >
+                    {t(tc.labelKey).slice(0, 3)}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {canPickKof && (
               <div className="p-1.5 border-b border-border/40">
                 <div className="text-[8px] uppercase text-muted-foreground text-center font-bold mb-1">{t("kof_pair_short")}</div>
@@ -677,8 +708,8 @@ function TeamSlotsEditor({ value, onChange, allCommanders }) {
                 )}
                 <select
                   value={slot.kof_id || ""}
-                  onChange={(e) => updateSlot(r.role, { kof_id: e.target.value || null })}
-                  data-testid={`slot-kof-select-${r.role}`}
+                  onChange={(e) => updateSlotAt(idx, { kof_id: e.target.value || null })}
+                  data-testid={`slot-kof-select-${idx}`}
                   className="w-full mt-1 text-[9px] bg-background border border-border rounded px-1 py-0.5 text-white"
                 >
                   <option value="">--</option>
@@ -686,6 +717,7 @@ function TeamSlotsEditor({ value, onChange, allCommanders }) {
                 </select>
               </div>
             )}
+
             <div className="p-1.5">
               <div className="text-[8px] uppercase text-muted-foreground text-center font-bold mb-1">{t("commander_short")}</div>
               {cmd ? (
@@ -706,8 +738,8 @@ function TeamSlotsEditor({ value, onChange, allCommanders }) {
               )}
               <select
                 value={slot.commander_id || ""}
-                onChange={(e) => updateSlot(r.role, { commander_id: e.target.value || null })}
-                data-testid={`slot-cmd-select-${r.role}`}
+                onChange={(e) => updateSlotAt(idx, { commander_id: e.target.value || null })}
+                data-testid={`slot-cmd-select-${idx}`}
                 className="w-full mt-1 text-[9px] bg-background border border-border rounded px-1 py-0.5 text-white"
               >
                 <option value="">--</option>
