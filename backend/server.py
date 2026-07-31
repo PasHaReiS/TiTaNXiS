@@ -46,7 +46,7 @@ class Member(BaseModel):
     name: str
     member_id: Optional[str] = None
     alliance_name: Optional[str] = None
-    rank: str  # R1-R5
+    rank: Optional[str] = "R1"  # R1-R5
     title: Optional[str] = None
     level: Optional[int] = 1
     castle_level: Optional[str] = None
@@ -57,18 +57,25 @@ class Member(BaseModel):
     kalkanli_f: Optional[str] = None
     kalkanli_t: Optional[str] = None
     note: Optional[str] = None
-    title: Optional[str] = None  # Kral, Kraliçe, etc.
-    level: Optional[int] = 1
     created_at: str = Field(default_factory=now_iso)
 
 
 class MemberCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     name: str
-    member_id: str
+    member_id: Optional[str] = None
     alliance_name: Optional[str] = None
-    rank: str
+    rank: Optional[str] = "R1"
     title: Optional[str] = None
     level: Optional[int] = 1
+    castle_level: Optional[str] = None
+    tetikci_f: Optional[str] = None
+    tetikci_t: Optional[str] = None
+    bombaci_f: Optional[str] = None
+    bombaci_t: Optional[str] = None
+    kalkanli_f: Optional[str] = None
+    kalkanli_t: Optional[str] = None
+    note: Optional[str] = None
 
 
 class MemberUpdate(BaseModel):

@@ -15,6 +15,7 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 ## Implemented (feature snapshot)
 - Auth: JWT, roles (admin / user + can_edit / view), user management, forced password change
 - Members: grouped by alliance, filter/sort, alliance color picker, castle level, military barracks (tetikçi/bombacı/kalkanlı F+T)
+- **[2026-02] Members POST validation fix**: `MemberCreate` schema — only `name` is required; `member_id`, `rank` (defaults to `R1`), `alliance_name`, `castle_level`, `tetikci_*`, `bombaci_*`, `kalkanli_*`, `note`, `title`, `level` all optional. Extra unknown fields ignored via `ConfigDict(extra="ignore")`.
 - **[2026-02] Members list restructure**: Each alliance is an independent collapsible accordion block. Within each alliance, rank sections (R5→R4→R3→R2→R1) are independent collapsible sub-accordions. R5 renders full-width single column; R4/R3/R2/R1 render 2-column responsive grid. Alliance groups sorted GOW → GoW → GOw → alpha → NoGroup last.
 - Commanders: image upload, rarity (Legendary/Epic/Common), KoF matching, dynamic multi-select ranks, 4-slot team compositions (Tetikçi/Bombacı/Kalkanlı/Robot), custom sort (KoF S6→S1 first, then non-KoF R5→R1)
 - Points/Events: add points, event archive/active/all filter, per-event scoreboard, podium
