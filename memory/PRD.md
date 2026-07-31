@@ -80,3 +80,9 @@ Turkish Gaming Guild Management App (Oyun Loncası). Replica + improved version 
 - Member growth chart in stats
 - Import from CSV
 - Push notifications for new events
+
+## 2026-07-31 — Team Composition (4-slot squads)
+- Backend: Commander/Create/Update models gained `team_slots: List[Dict[role, commander_id, kof_id]]`. E2E create+delete 200.
+- Frontend: `TeamSlotsEditor` renders 4-column squad form in KAFES/GARNİZON/SAVAŞ/SVS sections. Each column filters by role type: tetikci/kalkanli/bombaci for KoF top + regular commander bottom, robotlar has no KoF slot.
+- Cards show 4-mini-slot grid preview when `team_slots` present.
+- Label "Karakter/Komutan" → "Komutanlar/Robot" (8 langs).

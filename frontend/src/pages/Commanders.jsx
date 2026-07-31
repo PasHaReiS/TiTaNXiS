@@ -254,6 +254,7 @@ function CommanderCard({ commander: c, commanderById, onOpen, onEdit, onDelete }
   const { t } = useTranslation();
   const matchNames = (c.kof_pairs || []).map((id) => commanderById[id]).filter(Boolean);
   const catLabel = CATEGORIES.find((x) => x.key === c.category)?.label || c.category;
+  const isTeam = Array.isArray(c.team_slots) && c.team_slots.length > 0;
 
   return (
     <div data-testid={COMMANDERS.card(c.id)} className="card-red-gold p-3 fade-in">
@@ -261,51 +262,95 @@ function CommanderCard({ commander: c, commanderById, onOpen, onEdit, onDelete }
         type="button"
         onClick={onOpen}
         data-testid={`commander-open-${c.id}`}
-        className="flex gap-3 w-full text-left"
+        className="w-full text-left"
       >
-        {c.image_url ? (
-          <img src={resolveImageUrl(c.image_url)} alt={c.name} className="w-16 h-16 rounded-md object-cover border border-primary/30 flex-shrink-0" />
-        ) : (
-          <div className="w-16 h-16 rounded-md bg-black/40 border border-primary/30 flex items-center justify-center flex-shrink-0">
-            <Shield className="w-6 h-6 gold-text" />
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <div className="text-sm font-bold text-white truncate">{c.name}</div>
-            {c.is_kof && <KofBadge id={c.id} />}
-            {c.rank && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded font-bold gold-gradient text-black" data-testid={`rank-${c.id}`}>
-                {c.rank}
-              </span>
-            )}
-          </div>
-          <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{catLabel}</div>
-          {c.description && <div className="text-[10px] text-muted-foreground line-clamp-2 mt-1">{c.description}</div>}
-          <div className="flex flex-wrap gap-1 mt-2">
-            {(c.characters || []).map((ch) => (
-              <span key={ch} className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 red-text border border-red-500/30">
-                {ch}
-              </span>
-            ))}
-          </div>
-          {matchNames.length > 0 && (
-            <div className="mt-2 flex flex-wrap items-center gap-1" data-testid={`kof-matches-${c.id}`}>
-              <span className="text-[9px] uppercase font-bold gold-text flex items-center gap-0.5">
-                <LinkIcon className="w-2.5 h-2.5" /> KoF:
-              </span>
-              {matchNames.map((m) => (
-                <span
-                  key={m.id}
-                  className="text-[9px] px-1.5 py-0.5 rounded-full bg-yellow-500/15 gold-text border border-yellow-500/30 flex items-center gap-1"
-                >
-                  {m.image_url && <img src={resolveImageUrl(m.image_url)} alt="" className="w-3 h-3 rounded-full object-cover" />}
-                  {m.name}
-                </span>
-              ))}
-            </div>
+        <div className="flex items-center gap-1.5 flex-wrap mb-2">
+          <div className="text-sm font-bold text-white truncate flex-1 min-w-0">{c.name}</div>
+          {c.is_kof && <KofBadge id={c.id} />}
+          {c.rank && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded font-bold gold-gradient text-black" data-testid={`rank-${c.id}`}>
+              {c.rank}
+            </span>
           )}
         </div>
+        <div className="text-[9px] uppercase tracking-wider text-muted-foreground mb-2">{catLabel}</div>
+
+        {isTeam ? (
+          <div className="grid grid-cols-4 gap-1" data-testid={`team-preview-${c.id}`}>
+            {c.team_slots.map((s, i) => {
+              const cmd = commanderById[s.commander_id];
+              const kof = commanderById[s.kof_id];
+              return (
+                <div key={i} className="min-w-0 rounded overflow-hidden" style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(220,38,38,0.3)" }}>
+                  {kof && (
+                    <div className="p-0.5" style={{ background: "linear-gradient(135deg,rgba(220,38,38,0.2),rgba(245,166,35,0.2))" }}>
+                      {kof.image_url ? (
+                        <img src={resolveImageUrl(kof.image_url)} alt={kof.name} className="w-full aspect-square object-cover rounded" />
+                      ) : (
+                        <div className="w-full aspect-square rounded bg-red-500/30 flex items-center justify-center">
+                          <Sparkles className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                      <div className="text-[7px] text-white truncate text-center">{kof.name}</div>
+                    </div>
+                  )}
+                  <div className="p-0.5">
+                    {cmd ? (
+                      <>
+                        {cmd.image_url ? (
+                          <img src={resolveImageUrl(cmd.image_url)} alt={cmd.name} className="w-full aspect-square object-cover rounded" />
+                        ) : (
+                          <div className="w-full aspect-square rounded bg-black/40 flex items-center justify-center">
+                            <Shield className="w-3 h-3 gold-text" />
+                          </div>
+                        )}
+                        <div className="text-[7px] text-white truncate text-center">{cmd.name}</div>
+                      </>
+                    ) : (
+                      <div className="w-full aspect-square rounded flex items-center justify-center text-[7px] text-muted-foreground border border-dashed border-border">—</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex gap-3">
+            {c.image_url ? (
+              <img src={resolveImageUrl(c.image_url)} alt={c.name} className="w-16 h-16 rounded-md object-cover border border-primary/30 flex-shrink-0" />
+            ) : (
+              <div className="w-16 h-16 rounded-md bg-black/40 border border-primary/30 flex items-center justify-center flex-shrink-0">
+                <Shield className="w-6 h-6 gold-text" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              {c.description && <div className="text-[10px] text-muted-foreground line-clamp-2">{c.description}</div>}
+              <div className="flex flex-wrap gap-1 mt-1">
+                {(c.characters || []).map((ch) => (
+                  <span key={ch} className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 red-text border border-red-500/30">
+                    {ch}
+                  </span>
+                ))}
+              </div>
+              {matchNames.length > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-1" data-testid={`kof-matches-${c.id}`}>
+                  <span className="text-[9px] uppercase font-bold gold-text flex items-center gap-0.5">
+                    <LinkIcon className="w-2.5 h-2.5" /> KoF:
+                  </span>
+                  {matchNames.map((m) => (
+                    <span
+                      key={m.id}
+                      className="text-[9px] px-1.5 py-0.5 rounded-full bg-yellow-500/15 gold-text border border-yellow-500/30 flex items-center gap-1"
+                    >
+                      {m.image_url && <img src={resolveImageUrl(m.image_url)} alt="" className="w-3 h-3 rounded-full object-cover" />}
+                      {m.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </button>
       <CanEdit>
         <div className="flex justify-end gap-1 mt-2">
@@ -431,6 +476,17 @@ function CommanderLightbox({ commander, commanderById, onClose }) {
     </div>
   );
 }
+
+// Roles used by team squads (KAFES / GARNİZON / SAVAŞ / SVS sections).
+const TEAM_ROLES = [
+  { role: "tetikci", labelKey: "slot_1_marksman" },
+  { role: "kalkanli", labelKey: "slot_2_shield" },
+  { role: "bombaci", labelKey: "slot_3_bomber" },
+  { role: "robotlar", labelKey: "slot_robot" },
+];
+const TEAM_SECTIONS = new Set(["KAFES ETKİNLİK", "GARNİZON", "SAVAŞ", "SVS EKİP"]);
+
+const defaultTeamSlots = () => TEAM_ROLES.map((r) => ({ role: r.role, commander_id: null, kof_id: null }));
 
 // Searchable multi-select of commanders / characters with thumbnails + free-text add.
 function CharacterMultiSelect({ value, onChange, allCommanders, allCharacters, excludeId }) {
@@ -574,6 +630,97 @@ function CharacterMultiSelect({ value, onChange, allCommanders, allCharacters, e
   );
 }
 
+// Team composition editor: 4 slots (tetikci/kalkanli/bombaci/robotlar).
+// Each slot picks one commander (bottom) and optionally one KoF hero (top) of the same type.
+function TeamSlotsEditor({ value, onChange, allCommanders }) {
+  const { t } = useTranslation();
+  const updateSlot = (role, patch) => {
+    onChange(value.map((s) => s.role === role ? { ...s, ...patch } : s));
+  };
+  return (
+    <div className="flex gap-1.5" data-testid="team-slots-editor">
+      {TEAM_ROLES.map((r) => {
+        const slot = value.find((s) => s.role === r.role) || { role: r.role, commander_id: null, kof_id: null };
+        const cmdOptions = allCommanders.filter((c) => c.category === r.role && !c.is_kof);
+        const kofOptions = allCommanders.filter((c) => c.category === r.role && c.is_kof);
+        const cmd = allCommanders.find((c) => c.id === slot.commander_id);
+        const kof = allCommanders.find((c) => c.id === slot.kof_id);
+        const canPickKof = r.role !== "robotlar";
+        return (
+          <div
+            key={r.role}
+            className="flex-1 min-w-0 rounded-lg overflow-hidden"
+            style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(220,38,38,0.35)" }}
+            data-testid={`team-slot-${r.role}`}
+          >
+            <div className="text-[9px] uppercase tracking-wider font-bold text-center py-1 gold-text" style={{ background: "rgba(245,166,35,0.10)" }}>
+              {t(r.labelKey)}
+            </div>
+            {canPickKof && (
+              <div className="p-1.5 border-b border-border/40">
+                <div className="text-[8px] uppercase text-muted-foreground text-center font-bold mb-1">{t("kof_pair_short")}</div>
+                {kof ? (
+                  <div className="text-center">
+                    {kof.image_url ? (
+                      <img src={resolveImageUrl(kof.image_url)} alt={kof.name} className="w-full aspect-square object-cover rounded" />
+                    ) : (
+                      <div className="w-full aspect-square rounded flex items-center justify-center" style={{ background: "linear-gradient(135deg,#DC2626,#F5A623)" }}>
+                        <Sparkles className="w-5 h-5 text-white" />
+                      </div>
+                    )}
+                    <div className="text-[9px] text-white truncate mt-0.5">{kof.name}</div>
+                  </div>
+                ) : (
+                  <div className="w-full aspect-square rounded flex items-center justify-center text-[9px] text-muted-foreground border border-dashed border-border">
+                    {t("empty_slot")}
+                  </div>
+                )}
+                <select
+                  value={slot.kof_id || ""}
+                  onChange={(e) => updateSlot(r.role, { kof_id: e.target.value || null })}
+                  data-testid={`slot-kof-select-${r.role}`}
+                  className="w-full mt-1 text-[9px] bg-background border border-border rounded px-1 py-0.5 text-white"
+                >
+                  <option value="">--</option>
+                  {kofOptions.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                </select>
+              </div>
+            )}
+            <div className="p-1.5">
+              <div className="text-[8px] uppercase text-muted-foreground text-center font-bold mb-1">{t("commander_short")}</div>
+              {cmd ? (
+                <div className="text-center">
+                  {cmd.image_url ? (
+                    <img src={resolveImageUrl(cmd.image_url)} alt={cmd.name} className="w-full aspect-square object-cover rounded" />
+                  ) : (
+                    <div className="w-full aspect-square rounded bg-black/40 flex items-center justify-center">
+                      <Shield className="w-5 h-5 gold-text" />
+                    </div>
+                  )}
+                  <div className="text-[9px] text-white truncate mt-0.5">{cmd.name}</div>
+                </div>
+              ) : (
+                <div className="w-full aspect-square rounded flex items-center justify-center text-[9px] text-muted-foreground border border-dashed border-border">
+                  {t("empty_slot")}
+                </div>
+              )}
+              <select
+                value={slot.commander_id || ""}
+                onChange={(e) => updateSlot(r.role, { commander_id: e.target.value || null })}
+                data-testid={`slot-cmd-select-${r.role}`}
+                className="w-full mt-1 text-[9px] bg-background border border-border rounded px-1 py-0.5 text-white"
+              >
+                <option value="">--</option>
+                {cmdOptions.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders, allCommanders, allRanks, allCharacters, allDescriptions, allCustomTypes, onClose }) {
   const { t } = useTranslation();
   const editing = !!initial;
@@ -585,6 +732,7 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
   const [characters, setCharacters] = useState(initial?.characters || []);
   const [isKof, setIsKof] = useState(!!initial?.is_kof);
   const [kofPairs, setKofPairs] = useState(initial?.kof_pairs || []);
+  const [teamSlots, setTeamSlots] = useState(initial?.team_slots || defaultTeamSlots());
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = React.useRef(null);
@@ -616,6 +764,8 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
 
   const togglePair = (id) => setKofPairs((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
 
+  const isTeamMode = TEAM_SECTIONS.has(currentSection);
+
   const submit = async (e) => {
     e.preventDefault();
     if (!name.trim()) { toast.error(t("name_required")); return; }
@@ -629,8 +779,9 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
         image_url: imageUrl.trim() || null,
         description: description.trim() || null,
         characters: characters.map((s) => s.trim()).filter(Boolean),
-        is_kof: !!isKof,
-        kof_pairs: isKof ? [] : kofPairs,
+        is_kof: isTeamMode ? false : !!isKof,
+        kof_pairs: isTeamMode || isKof ? [] : kofPairs,
+        team_slots: isTeamMode ? teamSlots : null,
       };
       if (initial) await api.patch(`/commanders/${initial.id}`, body);
       else await api.post("/commanders", body);
@@ -670,8 +821,8 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
         />
 
-        {/* Type/Category chips + free-text */}
-        {!isInfo && sectionChoices.length > 0 && (
+        {/* Type/Category chips + free-text — hidden in team mode (team is a squad) */}
+        {!isInfo && !isTeamMode && sectionChoices.length > 0 && (
           <>
             <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("commander_type")}</label>
             <div className="flex gap-1.5 flex-wrap mb-2" data-testid="commander-form-type-chips">
@@ -736,15 +887,33 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
           </>
         )}
 
-        {/* Character / Commander multi-select — available in ALL modes (info + commanders) */}
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("character_commander")}</label>
-        <CharacterMultiSelect
-          value={characters}
-          onChange={setCharacters}
-          allCommanders={allCommanders || []}
-          allCharacters={allCharacters || []}
-          excludeId={initial?.id}
-        />
+        {/* Character / Commander multi-select — hidden in team mode (team uses slots instead) */}
+        {!isTeamMode && (
+          <>
+            <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("character_commander")}</label>
+            <CharacterMultiSelect
+              value={characters}
+              onChange={setCharacters}
+              allCommanders={allCommanders || []}
+              allCharacters={allCharacters || []}
+              excludeId={initial?.id}
+            />
+          </>
+        )}
+
+        {/* Team composition — 4 slots (marksman / shield / bomber / robot) with KoF above each */}
+        {isTeamMode && (
+          <>
+            <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">
+              {t("team_composition")}
+            </label>
+            <TeamSlotsEditor
+              value={teamSlots}
+              onChange={setTeamSlots}
+              allCommanders={allCommanders || []}
+            />
+          </>
+        )}
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("image_url")}</label>
         <div className="flex items-start gap-2">
@@ -791,7 +960,7 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
           {allDescriptions.map((d, i) => (<option key={i} value={d} />))}
         </datalist>
 
-        {!isInfo && (
+        {!isInfo && !isTeamMode && (
           <>
             <div className="mt-4 flex items-center justify-between p-3 rounded-lg" style={{ background: "rgba(245,166,35,0.05)", border: "1px solid rgba(245,166,35,0.3)" }}>
               <div className="min-w-0 flex-1">
