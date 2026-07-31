@@ -1,6 +1,7 @@
 import React from "react";
 import "@/App.css";
 import "@/lib/api"; // register axios interceptors
+import "@/i18n"; // initialize i18n
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/context/ThemeContext";
