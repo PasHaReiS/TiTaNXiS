@@ -33,7 +33,7 @@ const RARITY = {
   common: { color: "#3B82F6", labelKey: "rarity_common" },
 };
 const RARITY_ORDER = { legendary: 3, epic: 2, common: 1 };
-const RANK_ORDER = { R5: 5, R4: 4, R3: 3, R2: 2, R1: 1 };
+const RANK_ORDER = { S6: 11, S5: 10, S4: 9, S3: 8, S2: 7, S1: 6, R5: 5, R4: 4, R3: 3, R2: 2, R1: 1 };
 // Groups used by the KOMUTANLAR section view (order matters).
 const COMMANDER_GROUPS = ["tetikci", "kalkanli", "bombaci", "robotlar"];
 

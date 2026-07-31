@@ -6,7 +6,7 @@ import { MEMBERS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
 import CanEdit from "@/components/CanEdit";
-import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -44,6 +44,24 @@ export default function Members() {
   const [filterRanks, setFilterRanks] = useState([]);
   const [sortMode, setSortMode] = useState("default");
   const [colorPickerAlliance, setColorPickerAlliance] = useState(null);
+  const [collapsedAlliances, setCollapsedAlliances] = useState(() => new Set());
+  const [collapsedRankSections, setCollapsedRankSections] = useState(() => new Set());
+
+  const toggleAlliance = (name) =>
+    setCollapsedAlliances((s) => {
+      const next = new Set(s);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
+
+  const toggleRankSection = (allianceName, rank) => {
+    const key = `${allianceName}::${rank}`;
+    setCollapsedRankSections((s) => {
+      const next = new Set(s);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
 
   const { data: members = [] } = useSWR(`/members${q ? `?search=${encodeURIComponent(q)}` : ""}`, fetcher, {
     refreshInterval: 8000,
@@ -51,9 +69,8 @@ export default function Members() {
   const { data: allianceColors = {} } = useSWR("/alliance-colors", fetcher, { refreshInterval: 15000 });
   const { data: alliancesList = [] } = useSWR("/alliances", fetcher);
 
-  const rankOrder = { GOW: 100, R5: 5, R4: 4, R3: 3, R2: 2, R1: 1 };
-
   const grouped = useMemo(() => {
+    const rankOrder = { GOW: 100, R5: 5, R4: 4, R3: 3, R2: 2, R1: 1 };
     // 1. Apply filters
     let filtered = members;
     if (filterAlliances.length) {
@@ -192,80 +209,136 @@ export default function Members() {
               </div>
             )}
             <div className="mb-4 fade-in">
-              <div
-                className="flex items-center justify-between px-3 py-3 rounded-lg mb-2 shadow-lg"
+              <button
+                type="button"
+                onClick={() => toggleAlliance(grp.name)}
+                className="w-full flex items-center justify-between px-3 py-3 rounded-lg mb-2 shadow-lg text-left"
                 style={{ ...allianceBadgeStyle(grp.name, allianceColors), color: "#fff", border: "1px solid" }}
                 data-testid={`members-group-${grp.name}`}
+                aria-expanded={!collapsedAlliances.has(grp.name)}
               >
-                <span className="font-bold uppercase tracking-wider text-base truncate">── {grp.name}</span>
+                <span className="flex items-center gap-2 font-bold uppercase tracking-wider text-base truncate">
+                  <ChevronDown
+                    className="w-4 h-4 flex-shrink-0 transition-transform"
+                    style={{ transform: collapsedAlliances.has(grp.name) ? "rotate(-90deg)" : "rotate(0deg)" }}
+                  />
+                  ── {grp.name}
+                </span>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <CanEdit>
                     {grp.name !== t("no_group") && (
-                      <button
-                        type="button"
-                        onClick={() => setColorPickerAlliance(grp.name)}
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => { e.stopPropagation(); setColorPickerAlliance(grp.name); }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setColorPickerAlliance(grp.name);
+                          }
+                        }}
                         data-testid={`alliance-color-btn-${grp.name}`}
                         aria-label={t("choose_color")}
                         title={t("choose_color")}
-                        className="w-6 h-6 rounded-full flex items-center justify-center bg-black/30 hover:bg-black/50 transition-colors"
+                        className="w-6 h-6 rounded-full flex items-center justify-center bg-black/30 hover:bg-black/50 transition-colors cursor-pointer"
                       >
                         <Palette className="w-3.5 h-3.5 text-white" />
-                      </button>
+                      </span>
                     )}
                   </CanEdit>
                   <span className="text-xs font-bold mono opacity-95">({grp.members.length} {t("members_word")})</span>
                 </div>
-              </div>
-              <div className="space-y-1.5">
-                {grp.members.map((m) => (
-                  <div
-                    key={m.id}
-                    data-testid={MEMBERS.card(m.id)}
-                    className="card-dark p-3 flex items-center gap-3 row-hover"
-                  >
-                    <button
-                      onClick={() => setProfileId(m.id)}
-                      className={`rank-badge rank-${m.rank}`}
-                      style={{ width: 44, height: 44, fontSize: 13, borderRadius: 8, fontWeight: 800 }}
-                      title={`${t("rank")} ${m.rank}`}
-                    >
-                      {m.rank}
-                    </button>
-                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setProfileId(m.id)}>
-                      <div className="font-bold text-white truncate">{m.name}</div>
-                      <div className="text-[10px] text-muted-foreground mono">
-                        {m.member_id ? `ID: ${m.member_id}` : "—"}
-                        {m.castle_level && <span className="ml-2 gold-text">• {t("castle_short")}{m.castle_level}</span>}
+              </button>
+
+              {!collapsedAlliances.has(grp.name) && (
+                <div className="space-y-2">
+                  {RANKS.map((rk) => {
+                    const rankMembers = grp.members.filter((m) => m.rank === rk);
+                    if (rankMembers.length === 0) return null;
+                    const secKey = `${grp.name}::${rk}`;
+                    const isCollapsed = collapsedRankSections.has(secKey);
+                    const isFullWidth = rk === "R5";
+                    return (
+                      <div key={rk} data-testid={`rank-section-${grp.name}-${rk}`}>
+                        <button
+                          type="button"
+                          onClick={() => toggleRankSection(grp.name, rk)}
+                          className="w-full flex items-center justify-between px-3 py-2 rounded-md text-left bg-black/40 hover:bg-black/60 border border-border transition-colors"
+                          data-testid={`rank-section-toggle-${grp.name}-${rk}`}
+                          aria-expanded={!isCollapsed}
+                        >
+                          <span className="flex items-center gap-2">
+                            <ChevronDown
+                              className="w-3.5 h-3.5 gold-text transition-transform"
+                              style={{ transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}
+                            />
+                            <span className={`rank-badge rank-${rk}`} style={{ width: 32, height: 22, fontSize: 11, borderRadius: 4, fontWeight: 800 }}>
+                              {rk}
+                            </span>
+                            <span className="text-xs font-bold uppercase tracking-wider text-white">
+                              ({rankMembers.length})
+                            </span>
+                          </span>
+                        </button>
+
+                        {!isCollapsed && (
+                          <div className={`mt-1.5 grid gap-1.5 ${isFullWidth ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
+                            {rankMembers.map((m) => (
+                              <div
+                                key={m.id}
+                                data-testid={MEMBERS.card(m.id)}
+                                className="card-dark p-3 flex items-center gap-3 row-hover"
+                              >
+                                <button
+                                  onClick={() => setProfileId(m.id)}
+                                  className={`rank-badge rank-${m.rank}`}
+                                  style={{ width: 44, height: 44, fontSize: 13, borderRadius: 8, fontWeight: 800 }}
+                                  title={`${t("rank")} ${m.rank}`}
+                                >
+                                  {m.rank}
+                                </button>
+                                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setProfileId(m.id)}>
+                                  <div className="font-bold text-white truncate">{m.name}</div>
+                                  <div className="text-[10px] text-muted-foreground mono">
+                                    {m.member_id ? `ID: ${m.member_id}` : "—"}
+                                    {m.castle_level && <span className="ml-2 gold-text">• {t("castle_short")}{m.castle_level}</span>}
+                                  </div>
+                                  {m.title && <div className="text-[10px] gold-text font-semibold uppercase mt-0.5">{m.title}</div>}
+                                </div>
+                                <CanEdit>
+                                  <button
+                                    data-testid={MEMBERS.editBtn(m.id)}
+                                    onClick={() => { setEditing(m); setShowForm(true); }}
+                                    className="w-8 h-8 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
+                                    aria-label={t("edit")}
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    data-testid={MEMBERS.deleteBtn(m.id)}
+                                    onClick={async () => {
+                                      if (!window.confirm(t("confirm_delete_generic", { name: m.name }))) return;
+                                      await api.delete(`/members/${m.id}`);
+                                      mutate((k) => typeof k === "string" && k.startsWith("/members"));
+                                      mutate("/stats");
+                                      toast.success(t("member_deleted"));
+                                    }}
+                                    className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
+                                    aria-label={t("delete")}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </CanEdit>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      {m.title && <div className="text-[10px] gold-text font-semibold uppercase mt-0.5">{m.title}</div>}
-                    </div>
-                    <CanEdit>
-                      <button
-                        data-testid={MEMBERS.editBtn(m.id)}
-                        onClick={() => { setEditing(m); setShowForm(true); }}
-                        className="w-8 h-8 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
-                        aria-label={t("edit")}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        data-testid={MEMBERS.deleteBtn(m.id)}
-                        onClick={async () => {
-                          if (!window.confirm(t("confirm_delete_generic", { name: m.name }))) return;
-                          await api.delete(`/members/${m.id}`);
-                          mutate((k) => typeof k === "string" && k.startsWith("/members"));
-                          mutate("/stats");
-                          toast.success(t("member_deleted"));
-                        }}
-                        className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
-                        aria-label={t("delete")}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </CanEdit>
-                  </div>
-                ))}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </React.Fragment>
         ))}
