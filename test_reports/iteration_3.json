@@ -1,0 +1,35 @@
+{
+  "summary": "Backend fully reachable on PUBLIC URL (https://oyun-loncasi.preview.emergentagent.com). All 13 pytest checks passed (root, login, bad-creds, /auth/me, stats, members, leaderboard, commanders, alliances). Admin login (admin/admin123) returns valid JWT with role=admin and must_change_password=true. Localhost:8001 also returns 200 on /api/. The user-reported 404 on /api/* could NOT be reproduced from this environment — most likely a client-side issue (stale APK build pointing to an old backend URL, service worker cache, offline/DNS problem, or corporate network blocking the preview domain). No backend code changes needed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_public_endpoints.py",
+    "/app/test_reports/pytest/public_endpoints.xml"
+  ],
+  "action_items": [
+    "Ask the user to hard-refresh the web app / clear service worker (chrome://serviceworker-internals) and confirm REACT_APP_BACKEND_URL in their built APK matches https://oyun-loncasi.preview.emergentagent.com.",
+    "For the APK: verify the release build was rebuilt AFTER REACT_APP_BACKEND_URL was set — env vars are baked in at build time and old APKs will hit a stale URL and get 404.",
+    "Optionally add a startup log printing the resolved backend URL in the app to help diagnose future 'API unreachable' reports."
+  ],
+  "critical_code_review_comments": [
+    "server.py & auth.py routing looks correct: APIRouter(prefix='/api') on api_router and auth_router mounted via app.include_router(make_auth_router(db)) — all endpoints resolve under /api/*.",
+    "Seed admin flow appears idempotent (login works repeatedly with admin/admin123). must_change_password=true still set — confirm main agent has handled first-login flow."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_public_endpoints.py (new — reusable regression suite via PUBLIC URL)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "admin / admin123 (working)",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reusable pytest suite at /app/backend/tests/test_public_endpoints.py hits the PUBLIC URL and covers root, auth (login/me/bad-creds), stats, members, leaderboard, commanders, alliances. All 13 passed on this run. If user still reports 404 from web/APK while these pass, the problem is client-side (build cache / service worker / stale APK bundle).",
+  "rca of the issue": "Not a backend bug. /api/, /api/auth/login, /api/health-equivalents all return 200 via the public URL. Reproduction from server side: curl https://oyun-loncasi.preview.emergentagent.com/api/ -> 200 {message:'Oyun Loncası API',status:'ok'}. Admin login returns JWT + admin user. Mitigation: instruct user to rebuild the APK with the current REACT_APP_BACKEND_URL, clear service-worker cache in the browser (DevTools -> Application -> Service Workers -> Unregister), and hard-reload. If corporate network, whitelist *.preview.emergentagent.com."
+}
