@@ -303,25 +303,23 @@ export default function Members() {
                                   {m.rank}
                                 </button>
                                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setProfileId(m.id)}>
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <span
-                                      className="font-bold text-white text-xs truncate leading-tight"
-                                      title={m.name}
-                                      data-testid={`member-name-${m.id}`}
-                                    >
-                                      {m.name}
-                                    </span>
-                                    {m.note && (
-                                      <span
-                                        className="text-[10px] truncate leading-tight"
-                                        style={{ color: "#DC2626", fontWeight: 700 }}
-                                        title={m.note}
-                                        data-testid={`member-note-${m.id}`}
-                                      >
-                                        {m.note}
-                                      </span>
-                                    )}
+                                  <div
+                                    className="font-bold text-white text-xs truncate leading-tight"
+                                    title={m.name}
+                                    data-testid={`member-name-${m.id}`}
+                                  >
+                                    {m.name}
                                   </div>
+                                  {m.note && (
+                                    <div
+                                      className="text-xs truncate leading-tight"
+                                      style={{ color: "#DC2626", fontWeight: 700 }}
+                                      title={m.note}
+                                      data-testid={`member-note-${m.id}`}
+                                    >
+                                      {m.note}
+                                    </div>
+                                  )}
                                   <div className="text-[9px] gold-text mono truncate leading-tight">
                                     {m.castle_level ? `F${m.castle_level}` : "-"}
                                   </div>
