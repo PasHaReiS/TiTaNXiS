@@ -57,6 +57,8 @@ class Member(BaseModel):
     kalkanli_f: Optional[str] = None
     kalkanli_t: Optional[str] = None
     note: Optional[str] = None
+    note_position: Optional[str] = "inline"  # "inline" | "bottom"
+    note_color: Optional[str] = "#DC2626"    # hex color for bottom-position notes
     created_at: str = Field(default_factory=now_iso)
 
 
@@ -76,6 +78,8 @@ class MemberCreate(BaseModel):
     kalkanli_f: Optional[str] = None
     kalkanli_t: Optional[str] = None
     note: Optional[str] = None
+    note_position: Optional[str] = "inline"
+    note_color: Optional[str] = "#DC2626"
 
 
 class MemberUpdate(BaseModel):
@@ -93,6 +97,8 @@ class MemberUpdate(BaseModel):
     kalkanli_f: Optional[str] = None
     kalkanli_t: Optional[str] = None
     note: Optional[str] = None
+    note_position: Optional[str] = None
+    note_color: Optional[str] = None
 
 
 class Event(BaseModel):

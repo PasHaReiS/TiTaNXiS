@@ -6,7 +6,7 @@ import { MEMBERS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
 import CanEdit from "@/components/CanEdit";
-import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, MapPin, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -31,6 +31,18 @@ const COLOR_PALETTE = [
   "#db2777", // pink
   "#0891b2", // cyan
   "#ea580c", // orange
+];
+
+// 8 preset colors for the "bottom" position member note.
+const NOTE_COLORS = [
+  "#DC2626", // red
+  "#F97316", // orange
+  "#FACC15", // yellow
+  "#16A34A", // green
+  "#2563EB", // blue
+  "#7C3AED", // purple
+  "#FFFFFF", // white
+  "#F5A623", // gold
 ];
 
 export default function Members() {
@@ -303,26 +315,38 @@ export default function Members() {
                                   {m.rank}
                                 </button>
                                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setProfileId(m.id)}>
-                                  <div
-                                    className="font-bold text-white text-xs truncate leading-tight"
-                                    title={m.name}
-                                    data-testid={`member-name-${m.id}`}
-                                  >
-                                    {m.name}
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span
+                                      className="font-bold text-white text-xs truncate leading-tight"
+                                      title={m.name}
+                                      data-testid={`member-name-${m.id}`}
+                                    >
+                                      {m.name}
+                                    </span>
+                                    {m.note && (m.note_position || "inline") === "inline" && (
+                                      <span
+                                        className="text-xs truncate leading-tight"
+                                        style={{ color: "#DC2626", fontWeight: 700 }}
+                                        title={m.note}
+                                        data-testid={`member-note-inline-${m.id}`}
+                                      >
+                                        {m.note}
+                                      </span>
+                                    )}
                                   </div>
-                                  {m.note && (
+                                  <div className="text-[9px] gold-text mono truncate leading-tight">
+                                    {m.castle_level ? `F${m.castle_level}` : "-"}
+                                  </div>
+                                  {m.note && m.note_position === "bottom" && (
                                     <div
-                                      className="text-xs truncate leading-tight"
-                                      style={{ color: "#DC2626", fontWeight: 700 }}
+                                      className="text-xs truncate leading-tight mt-0.5"
+                                      style={{ color: m.note_color || "#DC2626", fontWeight: 700, fontStyle: "italic" }}
                                       title={m.note}
-                                      data-testid={`member-note-${m.id}`}
+                                      data-testid={`member-note-bottom-${m.id}`}
                                     >
                                       {m.note}
                                     </div>
                                   )}
-                                  <div className="text-[9px] gold-text mono truncate leading-tight">
-                                    {m.castle_level ? `F${m.castle_level}` : "-"}
-                                  </div>
                                 </div>
                                 <CanEdit>
                                   <div className="flex items-center gap-1 flex-shrink-0">
@@ -654,6 +678,8 @@ function MemberForm({ initial, onClose }) {
   const [kalkanliT, setKalkanliT] = useState(digitsOnly(initial?.kalkanli_t));
   const [rank, setRank] = useState(initial?.rank && RANKS.includes(initial.rank) ? initial.rank : "R1");
   const [note, setNote] = useState(initial?.note || "");
+  const [notePosition, setNotePosition] = useState(initial?.note_position || "inline");
+  const [noteColor, setNoteColor] = useState(initial?.note_color || "#DC2626");
   const [saving, setSaving] = useState(false);
   const { data: alliances = [] } = useSWR("/alliances", fetcher);
 
@@ -802,6 +828,47 @@ function MemberForm({ initial, onClose }) {
         </div>
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">&nbsp;</label>
+        <div className="flex items-center gap-1.5 mb-1.5" data-testid="note-position-toggle">
+          <button
+            type="button"
+            onClick={() => setNotePosition("inline")}
+            data-testid="note-position-inline"
+            className={`chip flex-1 justify-center text-[10px] ${notePosition === "inline" ? "active" : ""}`}
+          >
+            <MapPin className="w-3 h-3" /> {t("note_pos_inline")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setNotePosition("bottom")}
+            data-testid="note-position-bottom"
+            className={`chip flex-1 justify-center text-[10px] ${notePosition === "bottom" ? "active" : ""}`}
+          >
+            <ClipboardList className="w-3 h-3" /> {t("note_pos_bottom")}
+          </button>
+        </div>
+        {notePosition === "bottom" && (
+          <div className="flex items-center gap-1.5 mb-1.5" data-testid="note-color-picker">
+            <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">{t("color")}</span>
+            {NOTE_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setNoteColor(c)}
+                data-testid={`note-color-${c.replace("#", "")}`}
+                aria-label={c}
+                className="rounded-full transition-all"
+                style={{
+                  width: 18,
+                  height: 18,
+                  background: c,
+                  border: noteColor.toLowerCase() === c.toLowerCase() ? "2px solid #F5A623" : "1px solid rgba(255,255,255,0.2)",
+                  transform: noteColor.toLowerCase() === c.toLowerCase() ? "scale(1.2)" : "scale(1)",
+                  boxShadow: noteColor.toLowerCase() === c.toLowerCase() ? "0 0 6px rgba(245,166,35,0.6)" : "none",
+                }}
+              />
+            ))}
+          </div>
+        )}
         <textarea data-testid="member-form-note" value={note} onChange={(e) => setNote(e.target.value)} rows={2}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white resize-none" />
 

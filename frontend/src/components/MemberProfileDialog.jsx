@@ -74,7 +74,7 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
                   >
                     {m.name}
                   </span>
-                  {m.note && (
+                  {m.note && (m.note_position || "inline") === "inline" && (
                     <span
                       className="text-xs truncate leading-tight"
                       style={{ color: "#DC2626", fontWeight: 700 }}
@@ -113,6 +113,19 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
               <StatRow label={t("kalkanli")} value={formatFT(m.kalkanli_f, m.kalkanli_t)} />
               <StatRow label={t("bombaci")} value={formatFT(m.bombaci_f, m.bombaci_t)} />
             </div>
+
+            {m.note && m.note_position === "bottom" && (
+              <>
+                <div className="h-px my-3" style={{ background: "linear-gradient(90deg, transparent, rgba(220,38,38,0.4), transparent)" }} />
+                <div
+                  className="text-sm leading-relaxed"
+                  style={{ color: m.note_color || "#DC2626", fontWeight: 700, fontStyle: "italic" }}
+                  data-testid="profile-bottom-note"
+                >
+                  {m.note}
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
