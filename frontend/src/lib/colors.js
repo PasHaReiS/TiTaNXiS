@@ -1,4 +1,7 @@
-// Alliance color assignment: consistent color per alliance name
+// Alliance color assignment: consistent color per alliance name.
+// Supports custom color overrides via a map passed as second arg
+// (populated from GET /api/alliance-colors).
+
 const PALETTE = [
   { bg: "#2563eb", border: "#60a5fa" }, // blue
   { bg: "#16a34a", border: "#4ade80" }, // green
@@ -23,14 +26,29 @@ function hash(s) {
   return Math.abs(h);
 }
 
-export function getAllianceColor(name) {
+// Lighten a hex color by mixing with white — used to derive the border shade.
+function lightenHex(hex, amt = 0.35) {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  const mix = (c) => Math.round(c + (255 - c) * amt).toString(16).padStart(2, "0");
+  return `#${mix(r)}${mix(g)}${mix(b)}`;
+}
+
+export function getAllianceColor(name, customColors) {
   if (!name) return { bg: "#374151", border: "#6b7280" };
+  const custom = customColors && customColors[name];
+  if (custom) {
+    return { bg: custom, border: lightenHex(custom, 0.4) };
+  }
   if (name === "GOW") return GOW_GRADIENT;
   return PALETTE[hash(name) % PALETTE.length];
 }
 
-export function allianceBadgeStyle(name) {
-  const c = getAllianceColor(name);
+export function allianceBadgeStyle(name, customColors) {
+  const c = getAllianceColor(name, customColors);
   return {
     background: c.bg,
     borderColor: c.border,

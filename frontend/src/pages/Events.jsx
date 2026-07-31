@@ -161,6 +161,7 @@ function EventForm({ initial, onClose }) {
   const [subtitle, setSubtitle] = useState(initial?.subtitle || "");
   const [groupName, setGroupName] = useState(initial?.group_name || "SvS vs 10007");
   const [saving, setSaving] = useState(false);
+  const { data: activeGroups = [] } = useSWR("/event-groups?active_only=true", fetcher);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -170,7 +171,7 @@ function EventForm({ initial, onClose }) {
       const body = { name: name.trim(), date: new Date(date).toISOString(), multiplier: Number(multiplier), subtitle: subtitle.trim() || null, group_name: groupName };
       if (initial) await api.patch(`/events/${initial.id}`, body);
       else await api.post("/events", body);
-      mutate((k) => typeof k === "string" && k.startsWith("/events"));
+      mutate((k) => typeof k === "string" && (k.startsWith("/events") || k.startsWith("/event-groups")));
       mutate("/stats");
       toast.success(initial ? t("updated") : t("event_added"));
       onClose();
@@ -205,7 +206,24 @@ function EventForm({ initial, onClose }) {
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("group")}</label>
+        {activeGroups.length > 0 && (
+          <div className="flex gap-1.5 flex-wrap mb-2">
+            {activeGroups.map((g) => (
+              <button
+                key={g.name}
+                type="button"
+                data-testid={`event-group-chip-${g.name}`}
+                onClick={() => setGroupName(g.name)}
+                className={`chip ${groupName === g.name ? "active" : ""}`}
+              >
+                {g.name}
+                <span className="ml-1 text-[9px] opacity-70">({g.active})</span>
+              </button>
+            ))}
+          </div>
+        )}
         <input value={groupName} onChange={(e) => setGroupName(e.target.value)}
+          data-testid={EVENTS.formGroup || "event-form-group"}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
         <button data-testid={EVENTS.formSubmit} type="submit" disabled={saving} className="btn-gold w-full mt-5">

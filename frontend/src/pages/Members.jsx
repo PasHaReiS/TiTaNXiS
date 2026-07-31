@@ -1,25 +1,37 @@
 import React, { useState, useMemo } from "react";
 import useSWR, { mutate } from "swr";
-import { api, RANKS } from "@/lib/api";
+import { api, apiErr, RANKS } from "@/lib/api";
 import { allianceBadgeStyle } from "@/lib/colors";
 import { MEMBERS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
 import CanEdit from "@/components/CanEdit";
-import { Search, Plus, Pencil, Trash2, X } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
-const RANK_LABELS = {
-  GOW: "GOW",
-  R5: "R5",
-  R4: "R4",
-  R3: "R3",
-  R2: "R2",
-  R1: "R1",
-};
+const SORT_MODES = [
+  "default",
+  "name_asc",
+  "name_desc",
+  "rank_desc",
+  "rank_asc",
+  "castle_desc",
+  "castle_asc",
+];
+
+const COLOR_PALETTE = [
+  "#DC2626", // red
+  "#F5A623", // gold
+  "#2563eb", // blue
+  "#16a34a", // green
+  "#7c3aed", // purple
+  "#db2777", // pink
+  "#0891b2", // cyan
+  "#ea580c", // orange
+];
 
 export default function Members() {
   const { t } = useTranslation();
@@ -27,26 +39,59 @@ export default function Members() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [profileId, setProfileId] = useState(null);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [filterAlliances, setFilterAlliances] = useState([]);
+  const [filterRanks, setFilterRanks] = useState([]);
+  const [sortMode, setSortMode] = useState("default");
+  const [colorPickerAlliance, setColorPickerAlliance] = useState(null);
 
   const { data: members = [] } = useSWR(`/members${q ? `?search=${encodeURIComponent(q)}` : ""}`, fetcher, {
     refreshInterval: 8000,
   });
+  const { data: allianceColors = {} } = useSWR("/alliance-colors", fetcher, { refreshInterval: 15000 });
+  const { data: alliancesList = [] } = useSWR("/alliances", fetcher);
+
+  const rankOrder = { GOW: 100, R5: 5, R4: 4, R3: 3, R2: 2, R1: 1 };
 
   const grouped = useMemo(() => {
-    const rankOrder = { R5: 5, R4: 4, R3: 3, R2: 2, R1: 1 };
+    // 1. Apply filters
+    let filtered = members;
+    if (filterAlliances.length) {
+      filtered = filtered.filter((m) => filterAlliances.includes((m.alliance_name || "").trim()));
+    }
+    if (filterRanks.length) {
+      filtered = filtered.filter((m) => filterRanks.includes(m.rank));
+    }
+
+    // 2. Group by alliance
+    const NOGROUP = t("no_group");
     const groups = {};
-    members.forEach((m) => {
+    filtered.forEach((m) => {
       const raw = (m.alliance_name || "").trim();
-      const key = raw || t("no_group");
+      const key = raw || NOGROUP;
       (groups[key] = groups[key] || []).push(m);
     });
-    // Within each group: rank desc, then name alpha
-    Object.values(groups).forEach((arr) =>
-      arr.sort((a, b) => (rankOrder[b.rank] || 0) - (rankOrder[a.rank] || 0) || a.name.localeCompare(b.name, "tr"))
-    );
-    // Group order: GOW → GoW → GOw → other alfabetik (tr) → no_group en sonda
-    const NOGROUP = t("no_group");
-    const ALLIANCE_PRIORITY = { "GOW": 1, "GoW": 2, "GOw": 3 };
+
+    // 3. Sort within groups per selected sort mode (default = rank desc + name)
+    const cmp = (a, b) => {
+      const ca = parseInt(a.castle_level || "0", 10) || 0;
+      const cb = parseInt(b.castle_level || "0", 10) || 0;
+      const ra = rankOrder[a.rank] || 0;
+      const rb = rankOrder[b.rank] || 0;
+      switch (sortMode) {
+        case "name_asc": return a.name.localeCompare(b.name, "tr");
+        case "name_desc": return b.name.localeCompare(a.name, "tr");
+        case "rank_asc": return ra - rb || a.name.localeCompare(b.name, "tr");
+        case "rank_desc": return rb - ra || a.name.localeCompare(b.name, "tr");
+        case "castle_desc": return cb - ca || a.name.localeCompare(b.name, "tr");
+        case "castle_asc": return ca - cb || a.name.localeCompare(b.name, "tr");
+        default: return rb - ra || a.name.localeCompare(b.name, "tr");
+      }
+    };
+    Object.values(groups).forEach((arr) => arr.sort(cmp));
+
+    // 4. Sort groups: GOW → GoW → GOw → alphabetical (tr) → NOGROUP last
+    const ALLIANCE_PRIORITY = { GOW: 1, GoW: 2, GOw: 3 };
     return Object.keys(groups)
       .sort((a, b) => {
         if (a === NOGROUP) return 1;
@@ -57,9 +102,17 @@ export default function Members() {
         return a.localeCompare(b, "tr");
       })
       .map((name) => ({ name, members: groups[name] }));
-  }, [members, t]);
+  }, [members, filterAlliances, filterRanks, sortMode, t]);
 
   const totalCount = members.length;
+  const shownCount = grouped.reduce((n, g) => n + g.members.length, 0);
+  const activeFilterCount = filterAlliances.length + filterRanks.length + (sortMode !== "default" ? 1 : 0);
+
+  const clearFilters = () => {
+    setFilterAlliances([]);
+    setFilterRanks([]);
+    setSortMode("default");
+  };
 
   return (
     <div data-testid={MEMBERS.container}>
@@ -69,7 +122,12 @@ export default function Members() {
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="text-xl font-bold uppercase red-text tracking-wider">{t("members")}</h2>
-            <p className="text-xs text-muted-foreground">{t("members_total", { count: totalCount })}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("members_total", { count: totalCount })}
+              {activeFilterCount > 0 && (
+                <span className="ml-2 gold-text">({shownCount} {t("members_word")})</span>
+              )}
+            </p>
           </div>
           <CanEdit>
             <button
@@ -82,16 +140,49 @@ export default function Members() {
           </CanEdit>
         </div>
 
-        <div className="relative mb-4">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input
-            data-testid={MEMBERS.search}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={t("search_member_or_id")}
-            className="w-full card-dark pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary"
-          />
+        <div className="flex gap-2 mb-3">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              data-testid={MEMBERS.search}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={t("search_member_or_id")}
+              className="w-full card-dark pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+            />
+          </div>
+          <button
+            type="button"
+            data-testid="members-filter-toggle"
+            onClick={() => setShowFilterPanel((v) => !v)}
+            className={`chip relative ${showFilterPanel || activeFilterCount > 0 ? "active" : ""}`}
+            style={{ minWidth: 44, justifyContent: "center" }}
+            aria-label={t("filter")}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            {activeFilterCount > 0 && (
+              <span
+                data-testid="members-filter-badge"
+                className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center"
+                style={{ background: "#F5A623", color: "#0a0a0a" }}
+              >{activeFilterCount}</span>
+            )}
+          </button>
         </div>
+
+        {showFilterPanel && (
+          <FilterSortPanel
+            alliances={alliancesList}
+            filterAlliances={filterAlliances}
+            setFilterAlliances={setFilterAlliances}
+            filterRanks={filterRanks}
+            setFilterRanks={setFilterRanks}
+            sortMode={sortMode}
+            setSortMode={setSortMode}
+            onClear={clearFilters}
+            onClose={() => setShowFilterPanel(false)}
+          />
+        )}
 
         {grouped.map((grp, gi) => (
           <React.Fragment key={grp.name}>
@@ -103,11 +194,27 @@ export default function Members() {
             <div className="mb-4 fade-in">
               <div
                 className="flex items-center justify-between px-3 py-3 rounded-lg mb-2 shadow-lg"
-                style={{ ...allianceBadgeStyle(grp.name), color: "#fff", border: "1px solid" }}
+                style={{ ...allianceBadgeStyle(grp.name, allianceColors), color: "#fff", border: "1px solid" }}
                 data-testid={`members-group-${grp.name}`}
               >
                 <span className="font-bold uppercase tracking-wider text-base truncate">── {grp.name}</span>
-                <span className="text-xs font-bold mono opacity-95">({grp.members.length} {t("members_word")})</span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <CanEdit>
+                    {grp.name !== t("no_group") && (
+                      <button
+                        type="button"
+                        onClick={() => setColorPickerAlliance(grp.name)}
+                        data-testid={`alliance-color-btn-${grp.name}`}
+                        aria-label={t("choose_color")}
+                        title={t("choose_color")}
+                        className="w-6 h-6 rounded-full flex items-center justify-center bg-black/30 hover:bg-black/50 transition-colors"
+                      >
+                        <Palette className="w-3.5 h-3.5 text-white" />
+                      </button>
+                    )}
+                  </CanEdit>
+                  <span className="text-xs font-bold mono opacity-95">({grp.members.length} {t("members_word")})</span>
+                </div>
               </div>
               <div className="space-y-1.5">
                 {grp.members.map((m) => (
@@ -163,7 +270,7 @@ export default function Members() {
           </React.Fragment>
         ))}
 
-        {totalCount === 0 && (
+        {shownCount === 0 && (
           <div className="card-dark p-6 text-center text-muted-foreground">{t("no_records_dot")}</div>
         )}
       </div>
@@ -175,23 +282,281 @@ export default function Members() {
         />
       )}
 
+      {colorPickerAlliance && (
+        <AllianceColorPicker
+          allianceName={colorPickerAlliance}
+          current={allianceColors[colorPickerAlliance]}
+          onClose={() => setColorPickerAlliance(null)}
+        />
+      )}
+
       <MemberProfileDialog memberId={profileId} open={!!profileId} onClose={() => setProfileId(null)} />
     </div>
   );
 }
+
+function FilterSortPanel({
+  alliances,
+  filterAlliances,
+  setFilterAlliances,
+  filterRanks,
+  setFilterRanks,
+  sortMode,
+  setSortMode,
+  onClear,
+  onClose,
+}) {
+  const { t } = useTranslation();
+  const [localAlliances, setLocalAlliances] = useState(filterAlliances);
+  const [localRanks, setLocalRanks] = useState(filterRanks);
+  const [localSort, setLocalSort] = useState(sortMode);
+
+  const toggle = (arr, setArr, val) => {
+    setArr(arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]);
+  };
+
+  const apply = () => {
+    setFilterAlliances(localAlliances);
+    setFilterRanks(localRanks);
+    setSortMode(localSort);
+    onClose();
+  };
+
+  const clear = () => {
+    setLocalAlliances([]);
+    setLocalRanks([]);
+    setLocalSort("default");
+    onClear();
+  };
+
+  return (
+    <div
+      data-testid="members-filter-panel"
+      className="card-red-gold p-4 mb-4 fade-in"
+      style={{ background: "linear-gradient(180deg, rgba(26,26,26,0.98), rgba(15,15,15,0.98))" }}
+    >
+      {/* Alliance filter */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[10px] uppercase tracking-widest font-bold gold-text">{t("filter_alliance")}</div>
+          <button
+            type="button"
+            data-testid="filter-alliance-toggle-all"
+            onClick={() =>
+              setLocalAlliances(localAlliances.length === alliances.length ? [] : [...alliances])
+            }
+            className="text-[10px] uppercase font-bold text-muted-foreground hover:gold-text"
+          >
+            {localAlliances.length === alliances.length ? t("deselect_all") : t("select_all")}
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-1.5 mb-3 max-h-32 overflow-y-auto">
+          {alliances.map((a) => (
+            <button
+              key={a}
+              type="button"
+              data-testid={`filter-alliance-${a}`}
+              onClick={() => toggle(localAlliances, setLocalAlliances, a)}
+              className={`chip ${localAlliances.includes(a) ? "active" : ""}`}
+            >
+              {localAlliances.includes(a) && <Check className="w-3 h-3" />}
+              {a}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Rank filter */}
+      <div>
+        <div className="text-[10px] uppercase tracking-widest font-bold gold-text mb-2">{t("filter_rank")}</div>
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {RANKS.map((r) => (
+            <button
+              key={r}
+              type="button"
+              data-testid={`filter-rank-${r}`}
+              onClick={() => toggle(localRanks, setLocalRanks, r)}
+              className={`chip ${localRanks.includes(r) ? "active" : ""}`}
+            >
+              {localRanks.includes(r) && <Check className="w-3 h-3" />}
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Sort */}
+      <div>
+        <div className="text-[10px] uppercase tracking-widest font-bold gold-text mb-2">{t("sort")}</div>
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {SORT_MODES.map((m) => (
+            <button
+              key={m}
+              type="button"
+              data-testid={`sort-${m}`}
+              onClick={() => setLocalSort(m)}
+              className={`chip ${localSort === m ? "active" : ""}`}
+            >
+              {t("sort_" + m, { defaultValue: t(m === "default" ? "sort_default" : "sort_" + m) })}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-1">
+        <button
+          type="button"
+          data-testid="filter-clear"
+          onClick={clear}
+          className="chip flex-1 justify-center"
+        >
+          <RotateCcw className="w-3 h-3" /> {t("clear")}
+        </button>
+        <button
+          type="button"
+          data-testid="filter-apply"
+          onClick={apply}
+          className="btn-gold flex-1 justify-center py-2 text-xs"
+        >
+          {t("apply")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AllianceColorPicker({ allianceName, current, onClose }) {
+  const { t } = useTranslation();
+  const [selected, setSelected] = useState(current || COLOR_PALETTE[0]);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api.put("/alliance-colors", { name: allianceName, color: selected });
+      mutate("/alliance-colors");
+      toast.success(t("color_saved"));
+      onClose();
+    } catch (e) { toast.error(apiErr(e)); }
+    finally { setSaving(false); }
+  };
+
+  const reset = async () => {
+    setSaving(true);
+    try {
+      await api.delete(`/alliance-colors/${encodeURIComponent(allianceName)}`);
+      mutate("/alliance-colors");
+      toast.success(t("color_saved"));
+      onClose();
+    } catch (e) { toast.error(apiErr(e)); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="card-red-gold w-full max-w-md p-5 fade-in relative"
+        data-testid="alliance-color-picker"
+      >
+        <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white">
+          <X className="w-5 h-5" />
+        </button>
+        <h3 className="text-lg font-bold uppercase gold-text mb-1">{t("choose_color")}</h3>
+        <p className="text-xs text-muted-foreground mb-4">
+          <span className="red-text font-semibold">{allianceName}</span>
+        </p>
+
+        <div className="grid grid-cols-8 gap-2 mb-4">
+          {COLOR_PALETTE.map((c) => (
+            <button
+              key={c}
+              type="button"
+              data-testid={`color-swatch-${c.replace("#", "")}`}
+              onClick={() => setSelected(c)}
+              className="w-9 h-9 rounded-full transition-all"
+              style={{
+                background: c,
+                border: selected.toLowerCase() === c.toLowerCase() ? "2px solid #F5A623" : "2px solid rgba(255,255,255,0.15)",
+                transform: selected.toLowerCase() === c.toLowerCase() ? "scale(1.15)" : "scale(1)",
+                boxShadow: selected.toLowerCase() === c.toLowerCase() ? "0 0 12px rgba(245,166,35,0.5)" : "none",
+              }}
+              aria-label={c}
+            />
+          ))}
+        </div>
+
+        <label className="block text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">{t("custom_color")}</label>
+        <div className="flex items-center gap-2 mb-4">
+          <input
+            type="color"
+            data-testid="color-native-input"
+            value={selected}
+            onChange={(e) => setSelected(e.target.value)}
+            className="w-10 h-10 rounded cursor-pointer border border-border"
+            style={{ background: "transparent" }}
+          />
+          <input
+            type="text"
+            data-testid="color-hex-input"
+            value={selected}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) setSelected(v);
+            }}
+            placeholder="#DC2626"
+            maxLength={7}
+            className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono focus:outline-none focus:border-primary"
+          />
+        </div>
+
+        {/* Preview */}
+        <div className="rounded-lg p-3 mb-4" style={{ ...allianceBadgeStyle(allianceName, { [allianceName]: selected }), border: "1px solid" }}>
+          <span className="font-bold uppercase tracking-wider text-white">── {allianceName}</span>
+        </div>
+
+        <div className="flex gap-2">
+          {current && (
+            <button
+              type="button"
+              onClick={reset}
+              disabled={saving}
+              data-testid="color-reset"
+              className="chip flex-1 justify-center"
+            >
+              <RotateCcw className="w-3 h-3" /> {t("reset_color")}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            data-testid="color-save"
+            className="btn-gold flex-1 justify-center py-2 text-xs"
+          >
+            {saving ? t("saving") : t("save")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Strip non-digit chars — used to sanitize numeric level fields.
+const digitsOnly = (v) => String(v || "").replace(/[^0-9]/g, "");
 
 function MemberForm({ initial, onClose }) {
   const { t } = useTranslation();
   const [allianceName, setAllianceName] = useState(initial?.alliance_name || "");
   const [name, setName] = useState(initial?.name || "");
   const [memberId, setMemberId] = useState(initial?.member_id || "");
-  const [castleLevel, setCastleLevel] = useState(initial?.castle_level || "");
-  const [tetikciF, setTetikciF] = useState(initial?.tetikci_f || "");
-  const [tetikciT, setTetikciT] = useState(initial?.tetikci_t || "");
-  const [bombaciF, setBombaciF] = useState(initial?.bombaci_f || "");
-  const [bombaciT, setBombaciT] = useState(initial?.bombaci_t || "");
-  const [kalkanliF, setKalkanliF] = useState(initial?.kalkanli_f || "");
-  const [kalkanliT, setKalkanliT] = useState(initial?.kalkanli_t || "");
+  const [castleLevel, setCastleLevel] = useState(digitsOnly(initial?.castle_level));
+  const [tetikciF, setTetikciF] = useState(digitsOnly(initial?.tetikci_f));
+  const [tetikciT, setTetikciT] = useState(digitsOnly(initial?.tetikci_t));
+  const [bombaciF, setBombaciF] = useState(digitsOnly(initial?.bombaci_f));
+  const [bombaciT, setBombaciT] = useState(digitsOnly(initial?.bombaci_t));
+  const [kalkanliF, setKalkanliF] = useState(digitsOnly(initial?.kalkanli_f));
+  const [kalkanliT, setKalkanliT] = useState(digitsOnly(initial?.kalkanli_t));
   const [rank, setRank] = useState(initial?.rank && RANKS.includes(initial.rank) ? initial.rank : "R1");
   const [note, setNote] = useState(initial?.note || "");
   const [saving, setSaving] = useState(false);
@@ -207,13 +572,13 @@ function MemberForm({ initial, onClose }) {
         member_id: memberId.trim() || null,
         alliance_name: allianceName.trim() || null,
         rank,
-        castle_level: castleLevel.trim() || null,
-        tetikci_f: tetikciF.trim() || null,
-        tetikci_t: tetikciT.trim() || null,
-        bombaci_f: bombaciF.trim() || null,
-        bombaci_t: bombaciT.trim() || null,
-        kalkanli_f: kalkanliF.trim() || null,
-        kalkanli_t: kalkanliT.trim() || null,
+        castle_level: castleLevel || null,
+        tetikci_f: tetikciF || null,
+        tetikci_t: tetikciT || null,
+        bombaci_f: bombaciF || null,
+        bombaci_t: bombaciT || null,
+        kalkanli_f: kalkanliF || null,
+        kalkanli_t: kalkanliT || null,
         note: note.trim() || null,
       };
       if (initial) {
@@ -227,13 +592,14 @@ function MemberForm({ initial, onClose }) {
       mutate("/stats");
       onClose();
     } catch (err) {
-      toast.error((err?.response?.data?.detail || err.message));
+      toast.error(err?.response?.data?.detail || err.message);
     } finally {
       setSaving(false);
     }
   };
 
   const numInput = "w-16 bg-background border border-border rounded-md px-2 py-1.5 text-sm text-white mono text-center focus:outline-none focus:border-primary";
+  const numProps = { type: "number", inputMode: "numeric", pattern: "[0-9]*", min: "0" };
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
@@ -289,8 +655,14 @@ function MemberForm({ initial, onClose }) {
           <label className="text-xs uppercase text-muted-foreground font-bold flex-1">{t("castle_level")}</label>
           <div className="flex items-center gap-1">
             <span className="text-[10px] font-bold gold-text w-4 text-center">F</span>
-            <input data-testid="member-form-castle-f" value={castleLevel} onChange={(e) => setCastleLevel(e.target.value)}
-              placeholder="35" className={numInput} />
+            <input
+              data-testid="member-form-castle-f"
+              {...numProps}
+              value={castleLevel}
+              onChange={(e) => setCastleLevel(digitsOnly(e.target.value))}
+              placeholder="35"
+              className={numInput}
+            />
           </div>
         </div>
 
@@ -304,11 +676,25 @@ function MemberForm({ initial, onClose }) {
             <label className="text-xs uppercase text-white font-bold flex-1">{b.label}</label>
             <div className="flex items-center gap-1">
               <span className="text-[10px] font-bold gold-text w-4 text-center">F</span>
-              <input data-testid={`member-form-${b.tid}-f`} value={b.f} onChange={(e) => b.setF(e.target.value)} placeholder="0" className={numInput} />
+              <input
+                data-testid={`member-form-${b.tid}-f`}
+                {...numProps}
+                value={b.f}
+                onChange={(e) => b.setF(digitsOnly(e.target.value))}
+                placeholder="0"
+                className={numInput}
+              />
             </div>
             <div className="flex items-center gap-1">
               <span className="text-[10px] font-bold red-text w-4 text-center">T</span>
-              <input data-testid={`member-form-${b.tid}-t`} value={b.t} onChange={(e) => b.setT(e.target.value)} placeholder="0" className={numInput} />
+              <input
+                data-testid={`member-form-${b.tid}-t`}
+                {...numProps}
+                value={b.t}
+                onChange={(e) => b.setT(digitsOnly(e.target.value))}
+                placeholder="0"
+                className={numInput}
+              />
             </div>
           </div>
         ))}

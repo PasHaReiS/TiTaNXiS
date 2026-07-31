@@ -20,6 +20,7 @@ export default function Leaderboard() {
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 5000 });
   const { data: groups } = useSWR("/event-groups", fetcher, { refreshInterval: 10000 });
   const { data: lb = [] } = useSWR(group ? `/leaderboard?group_name=${encodeURIComponent(group)}` : "/leaderboard", fetcher, { refreshInterval: 5000 });
+  const { data: allianceColors = {} } = useSWR("/alliance-colors", fetcher, { refreshInterval: 15000 });
 
   const top3 = useMemo(() => lb.slice(0, 3), [lb]);
   const rest = useMemo(() => lb.slice(3, 200), [lb]);
@@ -146,7 +147,7 @@ export default function Leaderboard() {
               </div>
               <div
                 className="rank-badge"
-                style={{ ...allianceBadgeStyle(r.alliance_name), width: 36, height: 36, fontSize: 11 }}
+                style={{ ...allianceBadgeStyle(r.alliance_name, allianceColors), width: 36, height: 36, fontSize: 11 }}
                 title={r.alliance_name || ""}
               >
                 {r.rank}

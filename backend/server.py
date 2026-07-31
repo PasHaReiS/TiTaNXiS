@@ -694,10 +694,48 @@ async def export_xlsx():
 
 # ---------- Groups (for filter chips) ----------
 @api_router.get("/event-groups")
-async def event_groups():
+async def event_groups(active_only: bool = False):
     pipeline = [{"$group": {"_id": "$group_name", "count": {"$sum": 1}, "active": {"$sum": {"$cond": [{"$eq": ["$archived", False]}, 1, 0]}}}}]
     groups = await db.events.aggregate(pipeline).to_list(100)
-    return [{"name": g["_id"], "count": g["count"], "active": g["active"]} for g in groups]
+    result = [{"name": g["_id"], "count": g["count"], "active": g["active"]} for g in groups]
+    if active_only:
+        result = [g for g in result if g["active"] > 0]
+    result.sort(key=lambda g: g["name"].lower())
+    return result
+
+
+# ---------- Alliance Colors ----------
+class AllianceColor(BaseModel):
+    name: str
+    color: str  # hex like "#DC2626"
+
+
+@api_router.get("/alliance-colors")
+async def list_alliance_colors():
+    docs = await db.alliance_colors.find({}, {"_id": 0}).to_list(500)
+    return {d["name"]: d["color"] for d in docs}
+
+
+@api_router.put("/alliance-colors")
+async def upsert_alliance_color(body: AllianceColor, _: dict = Depends(require_edit)):
+    name = (body.name or "").strip()
+    color = (body.color or "").strip()
+    if not name:
+        raise HTTPException(400, "Alliance name required")
+    if not color.startswith("#") or len(color) not in (4, 7):
+        raise HTTPException(400, "Color must be hex like #RRGGBB or #RGB")
+    await db.alliance_colors.update_one(
+        {"name": name},
+        {"$set": {"name": name, "color": color, "updated_at": now_iso()}},
+        upsert=True,
+    )
+    return {"name": name, "color": color}
+
+
+@api_router.delete("/alliance-colors/{name}")
+async def delete_alliance_color(name: str, _: dict = Depends(require_edit)):
+    await db.alliance_colors.delete_one({"name": name})
+    return {"deleted": True}
 
 
 # ---------- Seed ----------
@@ -900,6 +938,25 @@ async def startup():
         await db.members.update_one({"id": m["id"]}, {"$set": {"alliance_name": random.choice(ALLIANCES)}})
     if legacy:
         logger.info(f"Backfilled alliance_name for {len(legacy)} members")
+
+    # One-time migration: strip non-digit chars from numeric level fields ("F8" -> "8", "T11" -> "11")
+    import re as _re
+    numeric_fields = ["castle_level", "tetikci_f", "tetikci_t", "bombaci_f", "bombaci_t", "kalkanli_f", "kalkanli_t"]
+    ored = [{f: {"$regex": r"[^0-9]"}} for f in numeric_fields]
+    dirty = await db.members.find({"$or": ored}, {"_id": 0, **{"id": 1, **{f: 1 for f in numeric_fields}}}).to_list(5000)
+    migrated = 0
+    for m in dirty:
+        upd = {}
+        for f in numeric_fields:
+            v = m.get(f)
+            if isinstance(v, str) and v.strip() and _re.search(r"[^0-9]", v):
+                cleaned = _re.sub(r"[^0-9]", "", v)
+                upd[f] = cleaned if cleaned else None
+        if upd:
+            await db.members.update_one({"id": m["id"]}, {"$set": upd})
+            migrated += 1
+    if migrated:
+        logger.info(f"Stripped non-digit chars from level fields for {migrated} members")
     # Auto-seed disabled: guild leaders now populate their own members.
     # To manually populate demo data, POST /api/seed?force=true with admin token.
 
