@@ -282,56 +282,65 @@ export default function Members() {
                         </button>
 
                         {!isCollapsed && (
-                          <div className="mt-1.5 grid gap-1.5 grid-cols-1 sm:grid-cols-2">
+                          <div
+                            className="mt-1.5"
+                            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}
+                            data-testid={`rank-section-grid-${grp.name}-${rk}`}
+                          >
                             {rankMembers.map((m) => (
                               <div
                                 key={m.id}
                                 data-testid={MEMBERS.card(m.id)}
-                                className="card-dark p-2.5 flex items-center gap-2 row-hover min-w-0"
+                                className="card-dark row-hover min-w-0"
+                                style={{ padding: "8px", display: "flex", alignItems: "center", gap: "6px" }}
                               >
                                 <button
                                   onClick={() => setProfileId(m.id)}
                                   className={`rank-badge rank-${m.rank} flex-shrink-0`}
-                                  style={{ width: 36, height: 36, fontSize: 12, borderRadius: 6, fontWeight: 800 }}
+                                  style={{ width: 28, height: 28, fontSize: 10, borderRadius: 5, fontWeight: 800 }}
                                   title={`${t("rank")} ${m.rank}`}
                                 >
                                   {m.rank}
                                 </button>
                                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setProfileId(m.id)}>
                                   <div
-                                    className="font-bold text-white text-sm truncate leading-tight"
+                                    className="font-bold text-white text-xs truncate leading-tight"
                                     title={m.name}
                                     data-testid={`member-name-${m.id}`}
                                   >
                                     {m.name}
                                   </div>
-                                  <div className="text-[10px] gold-text mono truncate mt-0.5">
-                                    {m.castle_level ? `${t("castle_short")}${m.castle_level}` : "-"}
+                                  <div className="text-[9px] gold-text mono truncate leading-tight">
+                                    {m.castle_level ? `F${m.castle_level}` : "-"}
                                   </div>
                                 </div>
                                 <CanEdit>
-                                  <button
-                                    data-testid={MEMBERS.editBtn(m.id)}
-                                    onClick={() => { setEditing(m); setShowForm(true); }}
-                                    className="w-7 h-7 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center flex-shrink-0"
-                                    aria-label={t("edit")}
-                                  >
-                                    <Pencil className="w-3 h-3" />
-                                  </button>
-                                  <button
-                                    data-testid={MEMBERS.deleteBtn(m.id)}
-                                    onClick={async () => {
-                                      if (!window.confirm(t("confirm_delete_generic", { name: m.name }))) return;
-                                      await api.delete(`/members/${m.id}`);
-                                      mutate((k) => typeof k === "string" && k.startsWith("/members"));
-                                      mutate("/stats");
-                                      toast.success(t("member_deleted"));
-                                    }}
-                                    className="w-7 h-7 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center flex-shrink-0"
-                                    aria-label={t("delete")}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    <button
+                                      data-testid={MEMBERS.editBtn(m.id)}
+                                      onClick={() => { setEditing(m); setShowForm(true); }}
+                                      className="rounded bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
+                                      style={{ width: 22, height: 22 }}
+                                      aria-label={t("edit")}
+                                    >
+                                      <Pencil style={{ width: 11, height: 11 }} />
+                                    </button>
+                                    <button
+                                      data-testid={MEMBERS.deleteBtn(m.id)}
+                                      onClick={async () => {
+                                        if (!window.confirm(t("confirm_delete_generic", { name: m.name }))) return;
+                                        await api.delete(`/members/${m.id}`);
+                                        mutate((k) => typeof k === "string" && k.startsWith("/members"));
+                                        mutate("/stats");
+                                        toast.success(t("member_deleted"));
+                                      }}
+                                      className="rounded bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
+                                      style={{ width: 22, height: 22 }}
+                                      aria-label={t("delete")}
+                                    >
+                                      <Trash2 style={{ width: 11, height: 11 }} />
+                                    </button>
+                                  </div>
                                 </CanEdit>
                               </div>
                             ))}
