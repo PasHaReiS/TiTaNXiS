@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { LEADERBOARD } from "@/constants/testIds";
 
-export default function Header({ title = "Oyun Loncası", subtitle }) {
+export default function Header({ title = "GOD OF WAR", subtitle }) {
   const { theme, toggle } = useTheme();
   const { user, isAdmin, canEdit } = useAuth();
   const { t } = useTranslation();
@@ -22,7 +22,7 @@ export default function Header({ title = "Oyun Loncası", subtitle }) {
           <div className="flex items-center gap-2">
             <Trophy className="w-4 h-4 gold-text" />
             <h1 className="text-lg font-bold uppercase tracking-wider" style={{ fontFamily: "Rajdhani" }}>
-              <span className="red-text">OYUN</span> <span className="gold-text">LONCASI</span>
+              <span className="red-text">GOD</span> <span className="gold-text">OF WAR</span>
             </h1>
           </div>
           {subtitle && <p className="text-xs text-muted-foreground mt-0.5 truncate">{subtitle}</p>}

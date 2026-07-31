@@ -31,7 +31,7 @@ db = client[os.environ['DB_NAME']]
 from auth import make_auth_router, make_auth_deps, seed_admin, ensure_indexes
 _optional_auth, require_auth, require_edit, require_admin = make_auth_deps(db)
 
-app = FastAPI(title="Oyun Loncası Yönetim API")
+app = FastAPI(title="GOD OF WAR Yönetim API")
 api_router = APIRouter(prefix="/api")
 
 
@@ -238,7 +238,7 @@ async def enrich_points_batch(points):
 # ---------- Root ----------
 @api_router.get("/")
 async def root():
-    return {"message": "Oyun Loncası API", "status": "ok"}
+    return {"message": "GOD OF WAR API", "status": "ok"}
 
 
 # ---------- Members ----------

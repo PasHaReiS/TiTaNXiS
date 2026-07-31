@@ -9,8 +9,8 @@ import { initReactI18next } from "react-i18next";
 
 const tr = {
   // Header / brand
-  brand_top: "OYUN",
-  brand_bottom: "LONCASI",
+  brand_top: "GOD",
+  brand_bottom: "OF WAR",
   loading: "Yükleniyor...",
 
   // Nav
@@ -296,8 +296,8 @@ const tr = {
 };
 
 const en = {
-  brand_top: "OYUN",
-  brand_bottom: "LONCASI",
+  brand_top: "GOD",
+  brand_bottom: "OF WAR",
   loading: "Loading...",
   nav_leaderboard: "Leaderboard",
   nav_commanders: "Commanders",
@@ -552,8 +552,8 @@ const en = {
 };
 
 const ru = {
-  brand_top: "OYUN",
-  brand_bottom: "LONCASI",
+  brand_top: "GOD",
+  brand_bottom: "OF WAR",
   loading: "Загрузка...",
   nav_leaderboard: "Рейтинг",
   nav_commanders: "Командиры",
@@ -808,8 +808,8 @@ const ru = {
 };
 
 const de = {
-  brand_top: "OYUN",
-  brand_bottom: "LONCASI",
+  brand_top: "GOD",
+  brand_bottom: "OF WAR",
   loading: "Wird geladen...",
   nav_leaderboard: "Rangliste",
   nav_commanders: "Kommandanten",
@@ -1064,8 +1064,8 @@ const de = {
 };
 
 const fr = {
-  brand_top: "OYUN",
-  brand_bottom: "LONCASI",
+  brand_top: "GOD",
+  brand_bottom: "OF WAR",
   loading: "Chargement...",
   nav_leaderboard: "Classement",
   nav_commanders: "Commandants",
@@ -1320,8 +1320,8 @@ const fr = {
 };
 
 const es = {
-  brand_top: "OYUN",
-  brand_bottom: "LONCASI",
+  brand_top: "GOD",
+  brand_bottom: "OF WAR",
   loading: "Cargando...",
   nav_leaderboard: "Ranking",
   nav_commanders: "Comandantes",
@@ -1576,8 +1576,8 @@ const es = {
 };
 
 const ko = {
-  brand_top: "OYUN",
-  brand_bottom: "LONCASI",
+  brand_top: "GOD",
+  brand_bottom: "OF WAR",
   loading: "로딩 중...",
   nav_leaderboard: "리더보드",
   nav_commanders: "지휘관",
@@ -1832,8 +1832,8 @@ const ko = {
 };
 
 const ar = {
-  brand_top: "OYUN",
-  brand_bottom: "LONCASI",
+  brand_top: "GOD",
+  brand_bottom: "OF WAR",
   loading: "جارٍ التحميل...",
   nav_leaderboard: "الترتيب",
   nav_commanders: "القادة",
