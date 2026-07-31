@@ -303,25 +303,27 @@ export default function Members() {
                                   {m.rank}
                                 </button>
                                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setProfileId(m.id)}>
-                                  <div
-                                    className="font-bold text-white text-xs truncate leading-tight"
-                                    title={m.name}
-                                    data-testid={`member-name-${m.id}`}
-                                  >
-                                    {m.name}
-                                  </div>
-                                  <div className="text-[9px] mono truncate leading-tight flex items-center gap-1">
-                                    <span className="gold-text">{m.castle_level ? `F${m.castle_level}` : "-"}</span>
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span
+                                      className="font-bold text-white text-xs truncate leading-tight"
+                                      title={m.name}
+                                      data-testid={`member-name-${m.id}`}
+                                    >
+                                      {m.name}
+                                    </span>
                                     {m.note && (
                                       <span
-                                        className="truncate"
+                                        className="text-[10px] truncate leading-tight"
                                         style={{ color: "#DC2626", fontWeight: 700 }}
                                         title={m.note}
                                         data-testid={`member-note-${m.id}`}
                                       >
-                                        • {m.note}
+                                        {m.note}
                                       </span>
                                     )}
+                                  </div>
+                                  <div className="text-[9px] gold-text mono truncate leading-tight">
+                                    {m.castle_level ? `F${m.castle_level}` : "-"}
                                   </div>
                                 </div>
                                 <CanEdit>
@@ -801,7 +803,7 @@ function MemberForm({ initial, onClose }) {
           ))}
         </div>
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("note_optional")}</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">&nbsp;</label>
         <textarea data-testid="member-form-note" value={note} onChange={(e) => setNote(e.target.value)} rows={2}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white resize-none" />
 

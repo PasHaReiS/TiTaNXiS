@@ -66,12 +66,24 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
                 {m.rank}
               </div>
               <div className="flex-1 min-w-0">
-                <div
-                  className="font-bold text-white text-base truncate leading-tight"
-                  data-testid="profile-member-name"
-                  title={m.name}
-                >
-                  {m.name}
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="font-bold text-white text-base truncate leading-tight"
+                    data-testid="profile-member-name"
+                    title={m.name}
+                  >
+                    {m.name}
+                  </span>
+                  {m.note && (
+                    <span
+                      className="text-xs truncate leading-tight"
+                      style={{ color: "#DC2626", fontWeight: 700 }}
+                      title={m.note}
+                      data-testid="profile-inline-note"
+                    >
+                      {m.note}
+                    </span>
+                  )}
                 </div>
                 <div className="text-[11px] text-muted-foreground mono truncate">
                   ID: <span className="gold-text">{m.member_id || "-"}</span>
@@ -79,27 +91,15 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
               </div>
             </div>
 
-            {/* Alliance badge + note (case-preserved) */}
-            {(m.alliance_name || m.note) && (
-              <div className="mb-3 flex items-center gap-2 flex-wrap">
-                {m.alliance_name && (
-                  <span
-                    className="inline-block text-[10px] font-bold rounded px-2 py-1 tracking-wider"
-                    style={{ ...allianceBadgeStyle(m.alliance_name, allianceColors), border: "1px solid" }}
-                  >
-                    {m.alliance_name}
-                  </span>
-                )}
-                {m.note && (
-                  <span
-                    className="text-xs truncate"
-                    style={{ color: "#DC2626", fontWeight: 700 }}
-                    title={m.note}
-                    data-testid="profile-inline-note"
-                  >
-                    {m.note}
-                  </span>
-                )}
+            {/* Alliance badge (case-preserved) */}
+            {m.alliance_name && (
+              <div className="mb-3">
+                <span
+                  className="inline-block text-[10px] font-bold rounded px-2 py-1 tracking-wider"
+                  style={{ ...allianceBadgeStyle(m.alliance_name, allianceColors), border: "1px solid" }}
+                >
+                  {m.alliance_name}
+                </span>
               </div>
             )}
 
@@ -113,14 +113,6 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
               <StatRow label={t("kalkanli")} value={formatFT(m.kalkanli_f, m.kalkanli_t)} />
               <StatRow label={t("bombaci")} value={formatFT(m.bombaci_f, m.bombaci_t)} />
             </div>
-
-            {m.note && (
-              <>
-                <div className="h-px my-3" style={{ background: "linear-gradient(90deg, transparent, rgba(220,38,38,0.4), transparent)" }} />
-                <div className="text-[10px] uppercase tracking-widest font-bold gold-text mb-1">{t("note_optional")}</div>
-                <div className="text-xs leading-relaxed" style={{ color: "#DC2626", fontWeight: 700 }}>{m.note}</div>
-              </>
-            )}
           </>
         )}
       </div>
