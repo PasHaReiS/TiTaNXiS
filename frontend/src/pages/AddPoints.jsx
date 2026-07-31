@@ -6,11 +6,13 @@ import Header from "@/components/Header";
 import { useAuth } from "@/context/AuthContext";
 import { Search, ChevronDown, Users, Lock, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 export default function AddPoints() {
   const { canEdit } = useAuth();
+  const { t } = useTranslation();
   const [memberQ, setMemberQ] = useState("");
   const [selectedMember, setSelectedMember] = useState(null);
   const [showMemberList, setShowMemberList] = useState(false);
@@ -37,10 +39,10 @@ export default function AddPoints() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!points || Number(points) <= 0) { toast.error("Geçerli puan gir"); return; }
-    if (!eventId) { toast.error("Etkinlik seç"); return; }
-    if (bulk && bulkIds.length === 0) { toast.error("En az bir üye seç"); return; }
-    if (!bulk && !selectedMember) { toast.error("Üye seç"); return; }
+    if (!points || Number(points) <= 0) { toast.error(t("need_valid_points")); return; }
+    if (!eventId) { toast.error(t("need_event")); return; }
+    if (bulk && bulkIds.length === 0) { toast.error(t("need_at_least_one_member")); return; }
+    if (!bulk && !selectedMember) { toast.error(t("need_member")); return; }
 
     setSaving(true);
     try {
@@ -52,7 +54,7 @@ export default function AddPoints() {
           multiplier: finalMultiplier,
           note: note.trim() || null,
         });
-        toast.success(`${bulkIds.length} üyeye puan eklendi`);
+        toast.success(t("points_added_bulk", { n: bulkIds.length }));
       } else {
         await api.post("/scores", {
           member_id: selectedMember.id,
@@ -61,7 +63,7 @@ export default function AddPoints() {
           multiplier: finalMultiplier,
           note: note.trim() || null,
         });
-        toast.success(`${selectedMember.name} için ${fmt(Number(points) * finalMultiplier)} puan eklendi`);
+        toast.success(t("point_added_for", { name: selectedMember.name, n: fmt(Number(points) * finalMultiplier) }));
       }
       setPoints(""); setNote(""); setSelectedMember(null); setMemberQ(""); setBulkIds([]);
       mutate((k) => typeof k === "string" && (k.startsWith("/scores") || k.startsWith("/points")));
@@ -74,13 +76,13 @@ export default function AddPoints() {
   if (!canEdit) {
     return (
       <div data-testid={ADD_POINTS.container}>
-        <Header subtitle="Puan Ekle" />
+        <Header subtitle={t("add_points_sub")} />
         <div className="px-4">
           <div className="card-red-gold p-6 text-center fade-in">
             <Lock className="w-10 h-10 gold-text mx-auto mb-3" />
-            <h3 className="text-lg font-bold uppercase red-text tracking-wider mb-2">Yetki Yok</h3>
+            <h3 className="text-lg font-bold uppercase red-text tracking-wider mb-2">{t("no_permission")}</h3>
             <p className="text-sm text-muted-foreground">
-              Puan ekleme yetkisi için yönetici ile iletişime geçin.
+              {t("no_permission_msg")}
             </p>
           </div>
         </div>
@@ -90,31 +92,31 @@ export default function AddPoints() {
 
   return (
     <div data-testid={ADD_POINTS.container}>
-      <Header subtitle="Puan Ekle" />
+      <Header subtitle={t("add_points_sub")} />
       <div className="px-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-bold uppercase red-text tracking-wider">Puan Ekle</h2>
+          <h2 className="text-xl font-bold uppercase red-text tracking-wider">{t("add_points_sub")}</h2>
           <button
             data-testid={ADD_POINTS.bulkToggle}
             onClick={() => { setBulk(!bulk); setBulkIds([]); setSelectedMember(null); }}
             className={`chip ${bulk ? "active" : ""}`}
           >
             <Users className="w-3 h-3" />
-            {bulk ? "Toplu Mod" : "Tekli Mod"}
+            {bulk ? t("bulk_mode") : t("single_mode")}
           </button>
         </div>
 
         <form onSubmit={submit} className="space-y-4">
           {!bulk ? (
             <div>
-              <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">Üye</label>
+              <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">{t("member")}</label>
               <div className="relative">
                 <input
                   data-testid={ADD_POINTS.memberSelect}
                   value={selectedMember ? selectedMember.name : memberQ}
                   onFocus={() => setShowMemberList(true)}
                   onChange={(e) => { setSelectedMember(null); setMemberQ(e.target.value); setShowMemberList(true); }}
-                  placeholder="Üye ara..."
+                  placeholder={t("search_member")}
                   className="w-full card-dark pl-9 pr-8 py-2.5 text-sm text-white focus:outline-none focus:border-primary"
                 />
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -135,14 +137,14 @@ export default function AddPoints() {
                         </div>
                       </button>
                     ))}
-                    {filteredMembers.length === 0 && <div className="p-3 text-xs text-muted-foreground text-center">Bulunamadı</div>}
+                    {filteredMembers.length === 0 && <div className="p-3 text-xs text-muted-foreground text-center">{t("not_found")}</div>}
                   </div>
                 )}
               </div>
             </div>
           ) : (
             <div>
-              <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">Üyeler ({bulkIds.length} seçili)</label>
+              <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">{t("bulk_selected", { n: bulkIds.length })}</label>
               <div className="card-dark p-2 max-h-56 overflow-y-auto space-y-1">
                 {members.map((m) => (
                   <label key={m.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-primary/5 cursor-pointer">
@@ -162,7 +164,7 @@ export default function AddPoints() {
           )}
 
           <div>
-            <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">Etkinlik</label>
+            <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">{t("event")}</label>
             <div className="relative">
               <select
                 data-testid={ADD_POINTS.eventSelect}
@@ -170,7 +172,7 @@ export default function AddPoints() {
                 onChange={(e) => setEventId(e.target.value)}
                 className="w-full card-dark px-3 py-2.5 pr-8 text-sm text-white focus:outline-none focus:border-primary appearance-none"
               >
-                <option value="">-- Seç --</option>
+                <option value="">{t("select_placeholder")}</option>
                 {events.map((e) => (
                   <option key={e.id} value={e.id}>🇹🇷 {e.name} ({e.multiplier}x)</option>
                 ))}
@@ -180,19 +182,19 @@ export default function AddPoints() {
           </div>
 
           <div>
-            <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">Puan</label>
+            <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">{t("points")}</label>
             <input
               data-testid={ADD_POINTS.pointsInput}
               type="number"
               value={points}
               onChange={(e) => setPoints(e.target.value)}
-              placeholder="Örn: 1500"
+              placeholder={t("point_example")}
               className="w-full card-dark px-3 py-2.5 text-sm text-white mono focus:outline-none focus:border-primary"
             />
           </div>
 
           <div>
-            <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">Çarpan</label>
+            <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">{t("multiplier")}</label>
             <div className="flex gap-1.5 flex-wrap">
               {[
                 { label: "1x", val: 1, tid: ADD_POINTS.multiplier1x },
@@ -216,23 +218,23 @@ export default function AddPoints() {
                 onChange={(e) => setCustomMult(e.target.value)}
                 type="number"
                 step="0.1"
-                placeholder="Özel"
+                placeholder={t("custom_short")}
                 className="chip w-20 text-center bg-transparent focus:outline-none"
                 style={{ padding: "6px 8px" }}
               />
             </div>
             <div className="text-[10px] text-muted-foreground mt-1">
-              Sonuç: <span className="gold-text mono font-bold">{fmt(Number(points || 0) * finalMultiplier)}</span>
+              {t("result_label")} <span className="gold-text mono font-bold">{fmt(Number(points || 0) * finalMultiplier)}</span>
             </div>
           </div>
 
           <div>
-            <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">Not (opsiyonel)</label>
+            <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">{t("note_optional")}</label>
             <input
               data-testid={ADD_POINTS.note}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Örn: 1. gün"
+              placeholder={t("note_example")}
               className="w-full card-dark px-3 py-2.5 text-sm text-white focus:outline-none focus:border-primary"
             />
           </div>
@@ -243,14 +245,14 @@ export default function AddPoints() {
             disabled={saving}
             className="btn-gold w-full text-lg py-3"
           >
-            {saving ? "Kaydediliyor..." : "PUANI EKLE"}
+            {saving ? t("saving") : t("add_points_btn")}
           </button>
         </form>
 
-        <div className="section-title mt-8">Üye Puanlarını Filtrele ve Düzenle</div>
+        <div className="section-title mt-8">{t("filter_edit_points")}</div>
         <EditMemberPointsSection events={events} />
 
-        <div className="section-title mt-8">Son 5 Kayıt</div>
+        <div className="section-title mt-8">{t("last_5")}</div>
         <div className="space-y-1.5">
           {recentPoints.slice(0, 5).map((p) => (
             <div key={p.id} className="card-dark p-3 flex items-center justify-between">
@@ -263,7 +265,7 @@ export default function AddPoints() {
                   {p.event_name} {p.note && `• ${p.note}`}
                 </div>
               </div>
-              <div className="text-[10px] text-muted-foreground mono">{new Date(p.date).toLocaleDateString("tr-TR")}</div>
+              <div className="text-[10px] text-muted-foreground mono">{new Date(p.date).toLocaleDateString()}</div>
             </div>
           ))}
         </div>
@@ -273,6 +275,7 @@ export default function AddPoints() {
 }
 
 function EditMemberPointsSection({ events }) {
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const [selectedMember, setSelectedMember] = useState(null);
   const [editing, setEditing] = useState(null);
@@ -293,7 +296,7 @@ function EditMemberPointsSection({ events }) {
           data-testid="edit-points-search"
           value={q}
           onChange={(e) => { setQ(e.target.value); setSelectedMember(null); }}
-          placeholder="Üye ismi veya ID ara..."
+          placeholder={t("search_member_id_placeholder")}
           className="w-full card-dark pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary"
         />
       </div>
@@ -303,7 +306,7 @@ function EditMemberPointsSection({ events }) {
           {filtered.map((m) => (
             <MemberSearchRow key={m.id} member={m} onSelect={() => setSelectedMember(m)} />
           ))}
-          {filtered.length === 0 && <div className="text-xs text-muted-foreground text-center py-3">Eşleşme yok</div>}
+          {filtered.length === 0 && <div className="text-xs text-muted-foreground text-center py-3">{t("no_match")}</div>}
         </div>
       )}
 
@@ -313,7 +316,7 @@ function EditMemberPointsSection({ events }) {
             <div className="min-w-0 flex-1">
               <div className="font-bold text-white truncate">{history.member.name}</div>
               <div className="text-[10px] text-muted-foreground">
-                {history.member.alliance_name || "-"} • <span className="gold-text mono font-bold">{fmt(history.total)}</span> toplam
+                {history.member.alliance_name || "-"} • <span className="gold-text mono font-bold">{fmt(history.total)}</span> {t("total_label")}
               </div>
             </div>
             <button
@@ -326,7 +329,7 @@ function EditMemberPointsSection({ events }) {
           </div>
 
           <div className="space-y-1.5 max-h-64 overflow-y-auto">
-            {history.points.length === 0 && <div className="card-dark p-3 text-xs text-center text-muted-foreground">Kayıt yok</div>}
+            {history.points.length === 0 && <div className="card-dark p-3 text-xs text-center text-muted-foreground">{t("no_records_short")}</div>}
             {history.points.map((p) => (
               <div key={p.id} className="card-dark p-2.5 flex items-center gap-2">
                 <div className="min-w-0 flex-1">
@@ -340,7 +343,7 @@ function EditMemberPointsSection({ events }) {
                   data-testid={`edit-point-${p.id}`}
                   onClick={() => setEditing(p)}
                   className="w-7 h-7 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center flex-shrink-0"
-                  aria-label="Düzenle"
+                  aria-label={t("edit")}
                 >
                   <Pencil className="w-3 h-3" />
                 </button>
@@ -388,6 +391,7 @@ function MemberSearchRow({ member, onSelect }) {
 }
 
 function EditPointDialog({ point, events, onClose, onSaved }) {
+  const { t } = useTranslation();
   const [pts, setPts] = useState(String(point.points));
   const [mult, setMult] = useState(String(point.multiplier || 1));
   const [eventId, setEventId] = useState(point.event_id);
@@ -404,7 +408,7 @@ function EditPointDialog({ point, events, onClose, onSaved }) {
         event_id: eventId,
         note: note.trim() || null,
       });
-      toast.success("Puan güncellendi");
+      toast.success(t("points_updated"));
       onSaved();
     } catch (err) { toast.error(err?.response?.data?.detail || err.message); }
     finally { setSaving(false); }
@@ -414,28 +418,28 @@ function EditPointDialog({ point, events, onClose, onSaved }) {
     <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
       <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="card-red-gold w-full max-w-md p-5 fade-in relative">
         <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white"><X className="w-5 h-5" /></button>
-        <h3 className="text-lg font-bold uppercase gold-text mb-4">Puanı Düzenle</h3>
+        <h3 className="text-lg font-bold uppercase gold-text mb-4">{t("edit_points_title")}</h3>
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">Etkinlik</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">{t("event")}</label>
         <select value={eventId} onChange={(e) => setEventId(e.target.value)}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white">
           {events.map((e) => <option key={e.id} value={e.id}>{e.name} ({e.multiplier}x)</option>)}
         </select>
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Puan</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("points")}</label>
         <input data-testid="edit-point-points" type="number" value={pts} onChange={(e) => setPts(e.target.value)}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono" />
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Çarpan</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("multiplier")}</label>
         <input type="number" step="0.1" value={mult} onChange={(e) => setMult(e.target.value)}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono" />
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Not</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("note")}</label>
         <input value={note} onChange={(e) => setNote(e.target.value)}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
         <button type="submit" data-testid="edit-point-save" disabled={saving} className="btn-gold w-full mt-5">
-          {saving ? "Kaydediliyor..." : "Kaydet"}
+          {saving ? t("saving") : t("save")}
         </button>
       </form>
     </div>

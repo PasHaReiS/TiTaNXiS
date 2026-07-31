@@ -3,10 +3,12 @@ import useSWR from "swr";
 import { api, fmt } from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { X, Trophy, Calendar, TrendingUp } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 export default function MemberProfileDialog({ memberId, open, onClose }) {
+  const { t } = useTranslation();
   const { data } = useSWR(memberId && open ? `/members/${memberId}/history` : null, fetcher);
 
   return (
@@ -27,7 +29,7 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
           </DialogTitle>
         </DialogHeader>
 
-        {!data && <div className="p-4 text-center text-muted-foreground">Yükleniyor...</div>}
+        {!data && <div className="p-4 text-center text-muted-foreground">{t("loading")}</div>}
 
         {data && (
           <div className="px-4 pb-4">
@@ -40,25 +42,25 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
 
             <div className="grid grid-cols-2 gap-2 mb-4">
               <div className="stat-pill">
-                <div className="stat-label">Toplam Puan</div>
+                <div className="stat-label">{t("total_points")}</div>
                 <div className="stat-value">{fmt(data.total)}</div>
               </div>
               <div className="stat-pill">
-                <div className="stat-label">Etkinlik</div>
+                <div className="stat-label">{t("event")}</div>
                 <div className="stat-value">{data.event_count}</div>
               </div>
             </div>
 
-            <div className="section-title">Puan Geçmişi</div>
+            <div className="section-title">{t("recent_records")}</div>
             <div className="max-h-80 overflow-y-auto space-y-2">
-              {data.points.length === 0 && <div className="text-sm text-muted-foreground text-center py-4">Henüz puan kaydı yok.</div>}
+              {data.points.length === 0 && <div className="text-sm text-muted-foreground text-center py-4">{t("no_points_yet")}</div>}
               {data.points.map((p) => (
                 <div key={p.id} className="card-dark p-3 flex items-center justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold text-white truncate">{p.event_name}</div>
                     <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
                       <Calendar className="w-3 h-3" />
-                      {new Date(p.date).toLocaleDateString("tr-TR")}
+                      {new Date(p.date).toLocaleDateString()}
                       {p.note && <span className="truncate">• {p.note}</span>}
                     </div>
                   </div>

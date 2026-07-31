@@ -3,10 +3,12 @@ import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { apiErr } from "@/lib/api";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { LogIn, User, Lock, Shield } from "lucide-react";
 
 export default function Login() {
   const { user, login } = useAuth();
+  const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -16,13 +18,13 @@ export default function Login() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!username.trim() || !password) { toast.error("Kullanıcı adı ve şifre gerekli"); return; }
+    if (!username.trim() || !password) { toast.error(t("login_missing_credentials")); return; }
     setLoading(true);
     try {
       const u = await login(username.trim().toLowerCase(), password);
-      toast.success(`Hoş geldin, ${u.username}!`);
+      toast.success(t("welcome_user", { name: u.username }));
       if (u.must_change_password) {
-        toast.warning("İlk girişte şifrenizi değiştirmeniz önerilir", { duration: 6000 });
+        toast.warning(t("first_login_change_pwd"), { duration: 6000 });
         nav("/profil", { replace: true });
       } else {
         nav("/", { replace: true });
@@ -42,15 +44,15 @@ export default function Login() {
           <div className="flex items-center gap-2">
             <div className="tr-flag" />
             <h1 className="text-2xl font-bold uppercase tracking-widest">
-              <span className="red-text">OYUN</span> <span className="gold-text">LONCASI</span>
+              <span className="red-text">{t("brand_top")}</span> <span className="gold-text">{t("brand_bottom")}</span>
             </h1>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 uppercase tracking-widest">Yönetim Paneli Girişi</p>
+          <p className="text-xs text-muted-foreground mt-2 uppercase tracking-widest">{t("login_subtitle")}</p>
         </div>
 
         <form onSubmit={submit} className="card-red-gold p-5 space-y-4">
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">Kullanıcı Adı</label>
+            <label className="block text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">{t("username")}</label>
             <div className="relative">
               <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -65,7 +67,7 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">Şifre</label>
+            <label className="block text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">{t("password")}</label>
             <div className="relative">
               <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -87,11 +89,11 @@ export default function Login() {
             className="btn-gold w-full flex items-center justify-center gap-2 py-3"
           >
             <LogIn className="w-4 h-4" />
-            {loading ? "GİRİŞ YAPILIYOR..." : "GİRİŞ YAP"}
+            {loading ? t("login_loading") : t("login_btn_upper")}
           </button>
 
           <p className="text-[10px] text-center text-muted-foreground pt-2">
-            Hesabınız yoksa <span className="red-text font-semibold">yönetici</span> ile iletişime geçin
+            {t("login_contact_admin_1")} <span className="red-text font-semibold">{t("login_contact_admin_2")}</span> {t("login_contact_admin_3")}
           </p>
         </form>
 
@@ -100,7 +102,7 @@ export default function Login() {
           onClick={() => nav("/")}
           className="w-full text-xs text-muted-foreground hover:gold-text mt-4 uppercase tracking-wider"
         >
-          ← Ziyaretçi olarak devam et
+          {t("guest_continue")}
         </button>
       </div>
     </div>

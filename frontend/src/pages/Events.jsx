@@ -6,10 +6,12 @@ import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
 import { Plus, Pencil, Trash2, Archive, X, Calendar } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 export default function Events() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState("active");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -29,22 +31,22 @@ export default function Events() {
   }, [events]);
 
   const archiveGroup = async (group) => {
-    if (!window.confirm(`${group} grubu arşivlensin mi?`)) return;
+    if (!window.confirm(t("confirm_archive_group", { group }))) return;
     await api.post(`/events/archive-group?group_name=${encodeURIComponent(group)}`);
     mutate((k) => typeof k === "string" && k.startsWith("/events"));
     mutate("/stats");
-    toast.success("Grup arşivlendi");
+    toast.success(t("group_archived"));
   };
 
   return (
     <div data-testid={EVENTS.container}>
-      <Header subtitle="Etkinlik Yönetimi" />
+      <Header subtitle={t("event_mgmt_sub")} />
 
       <div className="px-4">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-xl font-bold uppercase red-text tracking-wider">Etkinlikler</h2>
-            <p className="text-xs text-muted-foreground"><span className="gold-text font-bold mono">{activeCount}</span> aktif</p>
+            <h2 className="text-xl font-bold uppercase red-text tracking-wider">{t("nav_events")}</h2>
+            <p className="text-xs text-muted-foreground"><span className="gold-text font-bold mono">{activeCount}</span> {t("active")}</p>
           </div>
           <CanEdit>
             <button
@@ -52,7 +54,7 @@ export default function Events() {
               onClick={() => { setEditing(null); setShowForm(true); }}
               className="btn-gold flex items-center gap-1.5 text-xs"
             >
-              <Plus className="w-4 h-4" /> Yeni
+              <Plus className="w-4 h-4" /> {t("new_short")}
             </button>
           </CanEdit>
         </div>
@@ -62,12 +64,12 @@ export default function Events() {
             data-testid={EVENTS.tabActive}
             onClick={() => setTab("active")}
             className={`chip ${tab === "active" ? "active" : ""}`}
-          >AKTİF ({activeCount})</button>
+          >{t("active_upper")} ({activeCount})</button>
           <button
             data-testid={EVENTS.tabArchived}
             onClick={() => setTab("archive")}
             className={`chip ${tab === "archive" ? "active" : ""}`}
-          >ARŞİV ({archivedCount})</button>
+          >{t("archive_upper")} ({archivedCount})</button>
         </div>
 
         {Object.entries(grouped).map(([group, list]) => (
@@ -104,10 +106,10 @@ export default function Events() {
                         onClick={async () => {
                           await api.patch(`/events/${e.id}`, { archived: true });
                           mutate((k) => typeof k === "string" && k.startsWith("/events"));
-                          toast.success("Arşivlendi");
+                          toast.success(t("archived"));
                         }}
                         className="w-8 h-8 rounded-md bg-yellow-500/15 hover:bg-yellow-500/30 gold-text flex items-center justify-center"
-                        aria-label="Arşivle"
+                        aria-label={t("archive")}
                       >
                         <Archive className="w-3.5 h-3.5" />
                       </button>
@@ -122,11 +124,11 @@ export default function Events() {
                     <button
                       data-testid={EVENTS.deleteBtn(e.id)}
                       onClick={async () => {
-                        if (!window.confirm(`${e.name} silinsin mi?`)) return;
+                        if (!window.confirm(t("confirm_delete_generic", { name: e.name }))) return;
                         await api.delete(`/events/${e.id}`);
                         mutate((k) => typeof k === "string" && k.startsWith("/events"));
                         mutate("/stats");
-                        toast.success("Etkinlik silindi");
+                        toast.success(t("event_deleted"));
                       }}
                       className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
                     >
@@ -140,7 +142,7 @@ export default function Events() {
         ))}
 
         {events.length === 0 && (
-          <div className="card-dark p-6 text-center text-muted-foreground">Etkinlik bulunmuyor.</div>
+          <div className="card-dark p-6 text-center text-muted-foreground">{t("no_events")}</div>
         )}
       </div>
 
@@ -152,6 +154,7 @@ export default function Events() {
 }
 
 function EventForm({ initial, onClose }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(initial?.name || "");
   const [date, setDate] = useState(initial?.date?.slice(0, 10) || new Date().toISOString().slice(0, 10));
   const [multiplier, setMultiplier] = useState(initial?.multiplier || 1);
@@ -161,7 +164,7 @@ function EventForm({ initial, onClose }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!name.trim()) { toast.error("Ad gerekli"); return; }
+    if (!name.trim()) { toast.error(t("name_field_required")); return; }
     setSaving(true);
     try {
       const body = { name: name.trim(), date: new Date(date).toISOString(), multiplier: Number(multiplier), subtitle: subtitle.trim() || null, group_name: groupName };
@@ -169,7 +172,7 @@ function EventForm({ initial, onClose }) {
       else await api.post("/events", body);
       mutate((k) => typeof k === "string" && k.startsWith("/events"));
       mutate("/stats");
-      toast.success(initial ? "Güncellendi" : "Etkinlik eklendi");
+      toast.success(initial ? t("updated") : t("event_added"));
       onClose();
     } catch (err) {
       toast.error(err?.response?.data?.detail || err.message);
@@ -182,31 +185,31 @@ function EventForm({ initial, onClose }) {
         <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white">
           <X className="w-5 h-5" />
         </button>
-        <h3 className="text-lg font-bold uppercase gold-text mb-4">{initial ? "Etkinliği Düzenle" : "Yeni Etkinlik"}</h3>
+        <h3 className="text-lg font-bold uppercase gold-text mb-4">{initial ? t("edit_event") : t("new_event")}</h3>
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Ad</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("name_field")}</label>
         <input data-testid={EVENTS.formName} value={name} onChange={(e) => setName(e.target.value)}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Tarih</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("date")}</label>
         <input data-testid={EVENTS.formDate} type="date" value={date} onChange={(e) => setDate(e.target.value)}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Çarpan</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("multiplier")}</label>
         <input data-testid={EVENTS.formMultiplier} type="number" step="0.5" value={multiplier} onChange={(e) => setMultiplier(e.target.value)}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono" />
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Alt Başlık</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("subtitle")}</label>
         <input data-testid={EVENTS.formSubtitle} value={subtitle} onChange={(e) => setSubtitle(e.target.value)}
-          placeholder="Örn: 1. Gün Lütfen Katılın"
+          placeholder={t("subtitle_example")}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Grup</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("group")}</label>
         <input value={groupName} onChange={(e) => setGroupName(e.target.value)}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
         <button data-testid={EVENTS.formSubmit} type="submit" disabled={saving} className="btn-gold w-full mt-5">
-          {saving ? "Kaydediliyor..." : initial ? "Güncelle" : "Ekle"}
+          {saving ? t("saving") : initial ? t("update") : t("add_short")}
         </button>
       </form>
     </div>

@@ -25,7 +25,6 @@ Turkish Gaming Guild Management App (Oyun Loncası). Replica + improved version 
 - Multiplier system 1x/1.5x/2x/3x + custom
 
 ## What's Been Implemented (2026-02-XX)
-### Backend (server.py, 651 lines)
 - Models: Member, Event, Point, Commander (UUID ids, timezone-aware ISO datetimes)
 - CRUD: /api/members, /api/events, /api/points, /api/commanders (all with GET/POST/PATCH/DELETE)
 - POST /api/points/bulk — bulk points to multiple members

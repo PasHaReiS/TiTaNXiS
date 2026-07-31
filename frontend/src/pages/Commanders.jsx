@@ -6,10 +6,12 @@ import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
 import { Plus, Pencil, Trash2, X, Shield, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 export default function Commanders() {
+  const { t } = useTranslation();
   const [selectedCat, setSelectedCat] = useState(CATEGORIES[1].key);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -29,18 +31,18 @@ export default function Commanders() {
 
   return (
     <div data-testid={COMMANDERS.container}>
-      <Header subtitle="Komutan Rehberi" />
+      <Header subtitle={t("commander_guide")} />
 
       <div className="px-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-bold uppercase red-text tracking-wider">Komutanlar</h2>
+          <h2 className="text-xl font-bold uppercase red-text tracking-wider">{t("commanders_title")}</h2>
           <CanEdit>
             <button
               data-testid={COMMANDERS.addBtn}
               onClick={() => { setEditing(null); setShowForm(true); }}
               className="btn-gold flex items-center gap-1.5 text-xs"
             >
-              <Plus className="w-4 h-4" /> Yeni
+              <Plus className="w-4 h-4" /> {t("new_short")}
             </button>
           </CanEdit>
         </div>
@@ -117,10 +119,10 @@ export default function Commanders() {
                       </button>
                       <button
                         onClick={async () => {
-                          if (!window.confirm(`${c.name} silinsin mi?`)) return;
+                          if (!window.confirm(t("confirm_delete_generic", { name: c.name }))) return;
                           await api.delete(`/commanders/${c.id}`);
                           mutate((k) => typeof k === "string" && k.startsWith("/commanders"));
-                          toast.success("Silindi");
+                          toast.success(t("deleted"));
                         }}
                         className="w-7 h-7 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
                       >
@@ -131,7 +133,7 @@ export default function Commanders() {
                 </div>
               ))}
               {commanders.length === 0 && (
-                <div className="card-dark p-6 text-center text-muted-foreground text-xs">Bu kategoride komutan yok.</div>
+                <div className="card-dark p-6 text-center text-muted-foreground text-xs">{t("no_commanders_in_category")}</div>
               )}
             </div>
           </div>
@@ -147,6 +149,7 @@ export default function Commanders() {
 }
 
 function CommanderLightbox({ commander, onClose }) {
+  const { t } = useTranslation();
   return (
     <div
       className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4 fade-in"
@@ -158,7 +161,7 @@ function CommanderLightbox({ commander, onClose }) {
         onClick={onClose}
         data-testid="commander-lightbox-close"
         className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 border border-primary/50 hover:bg-primary/30 flex items-center justify-center z-10"
-        aria-label="Kapat"
+        aria-label={t("close")}
       >
         <X className="w-5 h-5 text-white" />
       </button>
@@ -204,6 +207,7 @@ function CommanderLightbox({ commander, onClose }) {
 }
 
 function CommanderForm({ initial, defaultCategory, onClose }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(initial?.name || "");
   const [category, setCategory] = useState(initial?.category || defaultCategory);
   const [imageUrl, setImageUrl] = useState(initial?.image_url || "");
@@ -213,7 +217,7 @@ function CommanderForm({ initial, defaultCategory, onClose }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!name.trim()) { toast.error("İsim gerekli"); return; }
+    if (!name.trim()) { toast.error(t("name_required")); return; }
     setSaving(true);
     try {
       const body = {
@@ -226,7 +230,7 @@ function CommanderForm({ initial, defaultCategory, onClose }) {
       if (initial) await api.patch(`/commanders/${initial.id}`, body);
       else await api.post("/commanders", body);
       mutate((k) => typeof k === "string" && k.startsWith("/commanders"));
-      toast.success(initial ? "Güncellendi" : "Komutan eklendi");
+      toast.success(initial ? t("updated") : t("commander_added"));
       onClose();
     } catch (err) {
       toast.error(err?.response?.data?.detail || err.message);
@@ -239,33 +243,33 @@ function CommanderForm({ initial, defaultCategory, onClose }) {
         <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white">
           <X className="w-5 h-5" />
         </button>
-        <h3 className="text-lg font-bold uppercase gold-text mb-4">{initial ? "Komutanı Düzenle" : "Yeni Komutan"}</h3>
+        <h3 className="text-lg font-bold uppercase gold-text mb-4">{initial ? t("edit_commander") : t("new_commander")}</h3>
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">İsim</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("name_person")}</label>
         <input value={name} onChange={(e) => setName(e.target.value)}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Kategori</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("category")}</label>
         <select value={category} onChange={(e) => setCategory(e.target.value)}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white">
           {CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.section} — {c.label}</option>)}
         </select>
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Karakterler (virgülle)</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("characters_comma")}</label>
         <input value={characters} onChange={(e) => setCharacters(e.target.value)}
-          placeholder="Mai Shiranui, Terry Bogard"
+          placeholder={t("characters_example")}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Resim URL</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("image_url")}</label>
         <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono" />
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Açıklama</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("description")}</label>
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
         <button type="submit" disabled={saving} className="btn-gold w-full mt-5">
-          {saving ? "Kaydediliyor..." : initial ? "Güncelle" : "Ekle"}
+          {saving ? t("saving") : initial ? t("update") : t("add_short")}
         </button>
       </form>
     </div>

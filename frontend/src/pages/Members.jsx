@@ -8,6 +8,7 @@ import MemberProfileDialog from "@/components/MemberProfileDialog";
 import CanEdit from "@/components/CanEdit";
 import { Search, Plus, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -21,6 +22,7 @@ const RANK_LABELS = {
 };
 
 export default function Members() {
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -35,39 +37,39 @@ export default function Members() {
     const groups = {};
     members.forEach((m) => {
       const raw = (m.alliance_name || "").trim();
-      const key = raw || "Gruplandırılmamış";
+      const key = raw || t("no_group");
       (groups[key] = groups[key] || []).push(m);
     });
     // Within each group: rank desc, then name alpha
     Object.values(groups).forEach((arr) =>
       arr.sort((a, b) => (rankOrder[b.rank] || 0) - (rankOrder[a.rank] || 0) || a.name.localeCompare(b.name, "tr"))
     );
-    // Group order: Türkçe alfabetik (case-insensitive), "Gruplandırılmamış" en sonda
-    // Group order: GOW → GoW → GOw → other alfabetik (tr) → Gruplandırılmamış en sonda
+    // Group order: GOW → GoW → GOw → other alfabetik (tr) → no_group en sonda
+    const NOGROUP = t("no_group");
     const ALLIANCE_PRIORITY = { "GOW": 1, "GoW": 2, "GOw": 3 };
     return Object.keys(groups)
       .sort((a, b) => {
-        if (a === "Gruplandırılmamış") return 1;
-        if (b === "Gruplandırılmamış") return -1;
+        if (a === NOGROUP) return 1;
+        if (b === NOGROUP) return -1;
         const pa = ALLIANCE_PRIORITY[a] !== undefined ? ALLIANCE_PRIORITY[a] : 99;
         const pb = ALLIANCE_PRIORITY[b] !== undefined ? ALLIANCE_PRIORITY[b] : 99;
         if (pa !== pb) return pa - pb;
         return a.localeCompare(b, "tr");
       })
       .map((name) => ({ name, members: groups[name] }));
-  }, [members]);
+  }, [members, t]);
 
   const totalCount = members.length;
 
   return (
     <div data-testid={MEMBERS.container}>
-      <Header subtitle="Üye Yönetimi" />
+      <Header subtitle={t("member_mgmt_sub")} />
 
       <div className="px-4">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-xl font-bold uppercase red-text tracking-wider">Üyeler</h2>
-            <p className="text-xs text-muted-foreground">Toplam <span className="gold-text font-bold mono">{totalCount}</span> üye</p>
+            <h2 className="text-xl font-bold uppercase red-text tracking-wider">{t("members")}</h2>
+            <p className="text-xs text-muted-foreground">{t("members_total", { count: totalCount })}</p>
           </div>
           <CanEdit>
             <button
@@ -75,7 +77,7 @@ export default function Members() {
               onClick={() => { setEditing(null); setShowForm(true); }}
               className="btn-gold flex items-center gap-1.5 text-xs"
             >
-              <Plus className="w-4 h-4" /> Yeni
+              <Plus className="w-4 h-4" /> {t("new_short")}
             </button>
           </CanEdit>
         </div>
@@ -86,7 +88,7 @@ export default function Members() {
             data-testid={MEMBERS.search}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="İsim veya ID ara..."
+            placeholder={t("search_member_or_id")}
             className="w-full card-dark pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary"
           />
         </div>
@@ -105,7 +107,7 @@ export default function Members() {
                 data-testid={`members-group-${grp.name}`}
               >
                 <span className="font-bold uppercase tracking-wider text-base truncate">── {grp.name}</span>
-                <span className="text-xs font-bold mono opacity-95">({grp.members.length} üye)</span>
+                <span className="text-xs font-bold mono opacity-95">({grp.members.length} {t("members_word")})</span>
               </div>
               <div className="space-y-1.5">
                 {grp.members.map((m) => (
@@ -118,7 +120,7 @@ export default function Members() {
                       onClick={() => setProfileId(m.id)}
                       className={`rank-badge rank-${m.rank}`}
                       style={{ width: 44, height: 44, fontSize: 13, borderRadius: 8, fontWeight: 800 }}
-                      title={`Rütbe ${m.rank}`}
+                      title={`${t("rank")} ${m.rank}`}
                     >
                       {m.rank}
                     </button>
@@ -126,7 +128,7 @@ export default function Members() {
                       <div className="font-bold text-white truncate">{m.name}</div>
                       <div className="text-[10px] text-muted-foreground mono">
                         {m.member_id ? `ID: ${m.member_id}` : "—"}
-                        {m.castle_level && <span className="ml-2 gold-text">• Kale F{m.castle_level}</span>}
+                        {m.castle_level && <span className="ml-2 gold-text">• {t("castle_short")}{m.castle_level}</span>}
                       </div>
                       {m.title && <div className="text-[10px] gold-text font-semibold uppercase mt-0.5">{m.title}</div>}
                     </div>
@@ -135,21 +137,21 @@ export default function Members() {
                         data-testid={MEMBERS.editBtn(m.id)}
                         onClick={() => { setEditing(m); setShowForm(true); }}
                         className="w-8 h-8 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
-                        aria-label="Düzenle"
+                        aria-label={t("edit")}
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
                       <button
                         data-testid={MEMBERS.deleteBtn(m.id)}
                         onClick={async () => {
-                          if (!window.confirm(`${m.name} silinsin mi?`)) return;
+                          if (!window.confirm(t("confirm_delete_generic", { name: m.name }))) return;
                           await api.delete(`/members/${m.id}`);
                           mutate((k) => typeof k === "string" && k.startsWith("/members"));
                           mutate("/stats");
-                          toast.success("Üye silindi");
+                          toast.success(t("member_deleted"));
                         }}
                         className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
-                        aria-label="Sil"
+                        aria-label={t("delete")}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -162,7 +164,7 @@ export default function Members() {
         ))}
 
         {totalCount === 0 && (
-          <div className="card-dark p-6 text-center text-muted-foreground">Kayıt bulunamadı.</div>
+          <div className="card-dark p-6 text-center text-muted-foreground">{t("no_records_dot")}</div>
         )}
       </div>
 
@@ -179,6 +181,7 @@ export default function Members() {
 }
 
 function MemberForm({ initial, onClose }) {
+  const { t } = useTranslation();
   const [allianceName, setAllianceName] = useState(initial?.alliance_name || "");
   const [name, setName] = useState(initial?.name || "");
   const [memberId, setMemberId] = useState(initial?.member_id || "");
@@ -196,7 +199,7 @@ function MemberForm({ initial, onClose }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!name.trim()) { toast.error("Oyuncu ismi gerekli"); return; }
+    if (!name.trim()) { toast.error(t("player_name_required")); return; }
     setSaving(true);
     try {
       const body = {
@@ -215,16 +218,16 @@ function MemberForm({ initial, onClose }) {
       };
       if (initial) {
         await api.patch(`/members/${initial.id}`, body);
-        toast.success("Üye güncellendi");
+        toast.success(t("member_updated"));
       } else {
         await api.post("/members", body);
-        toast.success("Üye eklendi");
+        toast.success(t("member_added"));
       }
       mutate((k) => typeof k === "string" && (k.startsWith("/members") || k.startsWith("/alliances")));
       mutate("/stats");
       onClose();
     } catch (err) {
-      toast.error("Hata: " + (err?.response?.data?.detail || err.message));
+      toast.error((err?.response?.data?.detail || err.message));
     } finally {
       setSaving(false);
     }
@@ -243,9 +246,9 @@ function MemberForm({ initial, onClose }) {
         <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white">
           <X className="w-5 h-5" />
         </button>
-        <h3 className="text-lg font-bold uppercase gold-text mb-4">{initial ? "Üyeyi Düzenle" : "Yeni Üye"}</h3>
+        <h3 className="text-lg font-bold uppercase gold-text mb-4">{initial ? t("edit_member") : t("new_member")}</h3>
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">İttifak Adı</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">{t("alliance_name")}</label>
         {alliances.length > 0 && (
           <div className="flex gap-1.5 flex-wrap mb-2">
             {alliances.map((a) => (
@@ -264,7 +267,7 @@ function MemberForm({ initial, onClose }) {
           value={allianceName}
           onChange={(e) => setAllianceName(e.target.value)}
           list="alliance-list"
-          placeholder="Örn: GOW"
+          placeholder={t("alliance_example")}
           autoComplete="off"
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
         />
@@ -272,18 +275,18 @@ function MemberForm({ initial, onClose }) {
           {alliances.map((a) => (<option key={a} value={a} />))}
         </datalist>
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Oyuncu İsmi</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("player_name")}</label>
         <input data-testid={MEMBERS.formName} value={name} onChange={(e) => setName(e.target.value)}
-          placeholder="Örn: Warlord42"
+          placeholder={t("player_example")}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">ID (opsiyonel)</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("id_optional")}</label>
         <input data-testid={MEMBERS.formId} value={memberId} onChange={(e) => setMemberId(e.target.value)}
-          placeholder="Oyun ID"
+          placeholder={t("game_id")}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono" />
 
         <div className="mt-3 flex items-center gap-3">
-          <label className="text-xs uppercase text-muted-foreground font-bold flex-1">Kale Seviyesi</label>
+          <label className="text-xs uppercase text-muted-foreground font-bold flex-1">{t("castle_level")}</label>
           <div className="flex items-center gap-1">
             <span className="text-[10px] font-bold gold-text w-4 text-center">F</span>
             <input data-testid="member-form-castle-f" value={castleLevel} onChange={(e) => setCastleLevel(e.target.value)}
@@ -291,11 +294,11 @@ function MemberForm({ initial, onClose }) {
           </div>
         </div>
 
-        <div className="section-title mt-4">Askeri Kışla Seviyeleri</div>
+        <div className="section-title mt-4">{t("military_barracks")}</div>
         {[
-          { label: "Tetikçi", f: tetikciF, setF: setTetikciF, t: tetikciT, setT: setTetikciT, tid: "tetikci" },
-          { label: "Bombacı", f: bombaciF, setF: setBombaciF, t: bombaciT, setT: setBombaciT, tid: "bombaci" },
-          { label: "Kalkanlı", f: kalkanliF, setF: setKalkanliF, t: kalkanliT, setT: setKalkanliT, tid: "kalkanli" },
+          { label: t("tetikci"), f: tetikciF, setF: setTetikciF, t: tetikciT, setT: setTetikciT, tid: "tetikci" },
+          { label: t("bombaci"), f: bombaciF, setF: setBombaciF, t: bombaciT, setT: setBombaciT, tid: "bombaci" },
+          { label: t("kalkanli"), f: kalkanliF, setF: setKalkanliF, t: kalkanliT, setT: setKalkanliT, tid: "kalkanli" },
         ].map((b) => (
           <div key={b.tid} className="flex items-center gap-2 mt-2">
             <label className="text-xs uppercase text-white font-bold flex-1">{b.label}</label>
@@ -310,19 +313,19 @@ function MemberForm({ initial, onClose }) {
           </div>
         ))}
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-4">Rütbe</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-4">{t("rank")}</label>
         <div data-testid={MEMBERS.formRank} className="flex gap-1.5 flex-wrap">
           {RANKS.map((r) => (
             <button key={r} type="button" onClick={() => setRank(r)} className={`chip ${rank === r ? "active" : ""}`}>{r}</button>
           ))}
         </div>
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Not (opsiyonel)</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("note_optional")}</label>
         <textarea data-testid="member-form-note" value={note} onChange={(e) => setNote(e.target.value)} rows={2}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white resize-none" />
 
         <button data-testid={MEMBERS.formSubmit} type="submit" disabled={saving} className="btn-gold w-full mt-5">
-          {saving ? "Kaydediliyor..." : "KAYDET"}
+          {saving ? t("saving") : t("save_upper")}
         </button>
       </form>
     </div>

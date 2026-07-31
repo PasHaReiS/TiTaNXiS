@@ -7,10 +7,12 @@ import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
 import { Users, Calendar, Star, TrendingUp, Download, Crown, Medal, Award } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 export default function Leaderboard() {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState("active");
   const [group, setGroup] = useState(null);
   const [profileId, setProfileId] = useState(null);
@@ -30,55 +32,55 @@ export default function Leaderboard() {
       const today = new Date().toISOString().slice(0, 10);
       a.download = `detayli_rapor_${today}.xlsx`;
       a.click();
-      toast.success("Detaylı rapor indirildi (Excel)");
+      toast.success(t("report_downloaded"));
     } catch (e) {
-      toast.error("Rapor oluşturulamadı");
+      toast.error(t("report_failed"));
     }
   };
 
   return (
     <div data-testid={LEADERBOARD.container}>
-      <Header subtitle="Hoş Geldin, pasha" />
+      <Header />
 
       <div className="px-4">
-        <div className="section-title">Genel İstatistikler</div>
+        <div className="section-title">{t("general_stats")}</div>
         <div className="grid grid-cols-2 gap-2 mb-4 fade-in">
           <div data-testid={LEADERBOARD.statsMember} className="stat-pill">
-            <div className="stat-label flex items-center gap-1"><Users className="w-3 h-3" /> Üye Sayısı</div>
+            <div className="stat-label flex items-center gap-1"><Users className="w-3 h-3" /> {t("member_count_stat")}</div>
             <div className="stat-value">{fmt(stats?.member_count)}</div>
           </div>
           <div data-testid={LEADERBOARD.statsEvent} className="stat-pill">
-            <div className="stat-label flex items-center gap-1"><Calendar className="w-3 h-3" /> Etkinlik</div>
+            <div className="stat-label flex items-center gap-1"><Calendar className="w-3 h-3" /> {t("event")}</div>
             <div className="stat-value">{fmt(stats?.event_count)}</div>
           </div>
           <div data-testid={LEADERBOARD.statsTotal} className="stat-pill">
-            <div className="stat-label flex items-center gap-1"><Star className="w-3 h-3" /> Toplam Puan</div>
+            <div className="stat-label flex items-center gap-1"><Star className="w-3 h-3" /> {t("total_points")}</div>
             <div className="stat-value">{fmt(stats?.total_points)}</div>
           </div>
           <div data-testid={LEADERBOARD.statsAvg} className="stat-pill">
-            <div className="stat-label flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Etkinlik Ort.</div>
+            <div className="stat-label flex items-center gap-1"><TrendingUp className="w-3 h-3" /> {t("event_avg")}</div>
             <div className="stat-value">{fmt(stats?.event_avg)}</div>
           </div>
         </div>
 
-        <div className="section-title">Etkinlik Filtresi</div>
+        <div className="section-title">{t("event_filter")}</div>
         <div className="flex gap-2 mb-3">
           <button
             data-testid={LEADERBOARD.filterActive}
             onClick={() => setFilter("active")}
             className={`chip ${filter === "active" ? "active" : ""}`}
-          >AKTİF</button>
+          >{t("active_upper")}</button>
           <button
             data-testid={LEADERBOARD.filterArchive}
             onClick={() => setFilter("archive")}
             className={`chip ${filter === "archive" ? "active" : ""}`}
-          >ARŞİV</button>
+          >{t("archive_upper")}</button>
         </div>
 
         {groups && groups.length > 0 && (
           <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
             <button className={`chip ${!group ? "active" : ""}`} onClick={() => setGroup(null)}>
-              Tümü
+              {t("all_short")}
             </button>
             {groups.map((g) => (
               <button
@@ -93,7 +95,7 @@ export default function Leaderboard() {
         )}
 
         {/* Podium */}
-        <div className="section-title">Podyum</div>
+        <div className="section-title">{t("podium")}</div>
         <div className="grid grid-cols-3 gap-2 mb-6 fade-in items-end">
           {top3[1] && (
             <div className="podium-item podium-2" style={{ minHeight: 130 }}>
@@ -130,7 +132,7 @@ export default function Leaderboard() {
           )}
         </div>
 
-        <div className="section-title">Tam Sıralama</div>
+        <div className="section-title">{t("full_ranking")}</div>
         <div className="space-y-1 mb-4">
           {rest.map((r) => (
             <button
@@ -152,7 +154,7 @@ export default function Leaderboard() {
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-white truncate">{r.name}</div>
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">
-                  {r.title || r.alliance_name || "Üye"} • Lv {r.level}
+                  {r.title || r.alliance_name || t("member")} • Lv {r.level}
                 </div>
               </div>
               <div className="text-right">
@@ -161,7 +163,7 @@ export default function Leaderboard() {
             </button>
           ))}
           {rest.length === 0 && top3.length === 0 && (
-            <div className="card-dark p-6 text-center text-muted-foreground text-sm">Henüz puan kaydı yok. "Puan Ekle" sekmesinden başlayın.</div>
+            <div className="card-dark p-6 text-center text-muted-foreground text-sm">{t("no_points_yet")}</div>
           )}
         </div>
 
@@ -171,7 +173,7 @@ export default function Leaderboard() {
           className="btn-gold w-full flex items-center justify-center gap-2 mb-6"
         >
           <Download className="w-4 h-4" />
-          Detaylı Rapor (Excel)
+          {t("detailed_report")}
         </button>
       </div>
 

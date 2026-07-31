@@ -7,10 +7,12 @@ import CanEdit from "@/components/CanEdit";
 import { Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { mutate as globalMutate } from "swr";
+import { useTranslation } from "react-i18next";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 export default function PointsList() {
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const { data: points = [] } = useSWR("/scores?limit=2000", fetcher, { refreshInterval: 5000 });
 
@@ -26,11 +28,11 @@ export default function PointsList() {
 
   return (
     <div data-testid={POINTS.container}>
-      <Header subtitle="Tüm Puan Kayıtları" />
+      <Header subtitle={t("all_point_records")} />
       <div className="px-4">
-        <h2 className="text-xl font-bold uppercase red-text tracking-wider">Puan Listesi</h2>
+        <h2 className="text-xl font-bold uppercase red-text tracking-wider">{t("point_list_title")}</h2>
         <p className="text-xs text-muted-foreground mb-3">
-          Görüntülenen: <span className="gold-text font-bold mono">{filtered.length}</span> / {points.length}
+          {t("points_shown")} <span className="gold-text font-bold mono">{filtered.length}</span> / {points.length}
         </p>
 
         <div className="relative mb-4">
@@ -39,7 +41,7 @@ export default function PointsList() {
             data-testid={POINTS.search}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Üye, etkinlik veya not ara..."
+            placeholder={t("search_points")}
             className="w-full card-dark pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary"
           />
         </div>
@@ -54,25 +56,25 @@ export default function PointsList() {
                     {p.event_name} {p.note && <span className="text-white/70">• {p.note}</span>}
                   </div>
                   <div className="text-[10px] text-muted-foreground mt-1 mono">
-                    {new Date(p.date).toLocaleString("tr-TR")}
+                    {new Date(p.date).toLocaleString()}
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="gold-text font-bold mono text-sm">+{fmt(p.points * (p.multiplier || 1))}</div>
-                  <div className="text-[10px] text-muted-foreground">Puan: {fmt(p.points)} × {p.multiplier || 1}</div>
+                  <div className="text-[10px] text-muted-foreground">{t("points_x_multiplier", { p: fmt(p.points), m: p.multiplier || 1 })}</div>
                 </div>
                 <CanEdit>
                   <button
                     onClick={async () => {
-                      if (!window.confirm("Kayıt silinsin mi?")) return;
+                      if (!window.confirm(t("confirm_delete_record"))) return;
                       await api.delete(`/scores/${p.id}`);
                       globalMutate((k) => typeof k === "string" && (k.startsWith("/scores") || k.startsWith("/points")));
                       globalMutate("/stats");
                       globalMutate("/leaderboard");
-                      toast.success("Silindi");
+                      toast.success(t("deleted"));
                     }}
                     className="w-7 h-7 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
-                    aria-label="Sil"
+                    aria-label={t("delete")}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -80,7 +82,7 @@ export default function PointsList() {
               </div>
             </div>
           ))}
-          {filtered.length === 0 && <div className="card-dark p-6 text-center text-muted-foreground">Kayıt bulunamadı.</div>}
+          {filtered.length === 0 && <div className="card-dark p-6 text-center text-muted-foreground">{t("no_records_dot")}</div>}
         </div>
       </div>
     </div>

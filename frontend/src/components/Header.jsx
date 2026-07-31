@@ -34,7 +34,7 @@ export default function Header({ title = "Oyun Loncası", subtitle }) {
           data-testid={LEADERBOARD.themeToggle}
           onClick={toggle}
           className="w-8 h-8 rounded-full flex items-center justify-center border border-border hover:border-primary transition-colors flex-shrink-0"
-          aria-label="Tema"
+          aria-label={t("choose_language")}
         >
           {theme === "dark" ? <Sun className="w-3.5 h-3.5 gold-text" /> : <Moon className="w-3.5 h-3.5 red-text" />}
         </button>

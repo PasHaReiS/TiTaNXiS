@@ -2,6 +2,7 @@ import React from "react";
 import "@/App.css";
 import "@/lib/api"; // register axios interceptors
 import "@/i18n"; // initialize i18n
+import i18n from "@/i18n";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/context/ThemeContext";
@@ -22,7 +23,7 @@ function LoadingScreen() {
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
         <div className="w-12 h-12 rounded-2xl red-gold-gradient mx-auto mb-4 animate-pulse" />
-        <p className="text-xs uppercase tracking-widest gold-text">Yükleniyor...</p>
+        <p className="text-xs uppercase tracking-widest gold-text">...</p>
       </div>
     </div>
   );
@@ -68,6 +69,16 @@ function AppShell() {
 }
 
 export default function App() {
+  React.useEffect(() => {
+    const apply = (lng) => {
+      const dir = lng === "ar" ? "rtl" : "ltr";
+      document.documentElement.setAttribute("dir", dir);
+      document.documentElement.setAttribute("lang", lng);
+    };
+    apply(i18n.language);
+    i18n.on("languageChanged", apply);
+    return () => i18n.off("languageChanged", apply);
+  }, []);
   return (
     <AuthProvider>
       <ThemeProvider>
