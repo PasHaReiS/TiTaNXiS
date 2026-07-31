@@ -323,7 +323,7 @@ export default function Members() {
                                     >
                                       {m.name}
                                     </span>
-                                    {m.note && (m.note_position || "inline") === "inline" && (
+                                    {m.note && m.note.trim() !== "" && (m.note_position || "inline") === "inline" && (
                                       <span
                                         className="text-xs truncate leading-tight"
                                         style={{ color: "#DC2626", fontWeight: 700 }}
@@ -337,7 +337,7 @@ export default function Members() {
                                   <div className="text-[9px] gold-text mono truncate leading-tight">
                                     {m.castle_level ? `F${m.castle_level}` : "-"}
                                   </div>
-                                  {m.note && m.note_position === "bottom" && (
+                                  {m.note && m.note.trim() !== "" && m.note_position === "bottom" && (
                                     <div
                                       className="text-xs truncate leading-tight mt-0.5"
                                       style={{ color: m.note_color || "#DC2626", fontWeight: 700, fontStyle: "italic" }}
