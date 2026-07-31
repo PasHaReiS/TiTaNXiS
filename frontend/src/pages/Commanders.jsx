@@ -4,11 +4,43 @@ import { api, CATEGORIES, groupCategories } from "@/lib/api";
 import { COMMANDERS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
-import { Plus, Pencil, Trash2, X, Shield, ChevronDown, ChevronRight, Upload, Image as ImageIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Shield, ChevronDown, ChevronRight, Upload, Image as ImageIcon, Sparkles, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
+
+// Resolve /uploads/... to full backend URL for preview.
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
+const resolveImageUrl = (u) => {
+  if (!u) return "";
+  if (u.startsWith("http://") || u.startsWith("https://")) return u;
+  if (u.startsWith("/uploads/")) return `${BACKEND_URL}/api${u}`;
+  if (u.startsWith("/api/uploads/")) return `${BACKEND_URL}${u}`;
+  return u;
+};
+
+const SECTION_LABELS = (t) => ({
+  "BİLGİLENDİRME": t("commanders_section_info", { defaultValue: "BİLGİLENDİRME" }),
+  "KOMUTANLAR": t("commanders_section_commanders", { defaultValue: "KOMUTANLAR" }),
+  "KAFES ETKİNLİK": t("commanders_section_cage", { defaultValue: "KAFES ETKİNLİK" }),
+  "GARNİZON": t("commanders_section_garrison", { defaultValue: "GARNİZON" }),
+  "SAVAŞ": t("commanders_section_war", { defaultValue: "SAVAŞ" }),
+  "SVS EKİP": t("commanders_section_svs", { defaultValue: "SVS EKİP" }),
+});
+
+// Label the "+ Yeni" button based on the currently-selected category's section.
+function addButtonLabel(t, category) {
+  const key = category?.key;
+  if (key === "bilgilendirme") return t("add_info_item");
+  const section = category?.section;
+  if (section === "KOMUTANLAR") return t("add_commander_short");
+  if (section === "KAFES ETKİNLİK") return t("add_squad_short");
+  if (section === "GARNİZON") return t("add_garrison_short");
+  if (section === "SAVAŞ") return t("add_squad_short");
+  if (section === "SVS EKİP") return t("add_squad_short");
+  return t("new_short");
+}
 
 export default function Commanders() {
   const { t } = useTranslation();
@@ -26,7 +58,17 @@ export default function Commanders() {
   });
 
   const { data: commanders = [] } = useSWR(`/commanders?category=${selectedCat}`, fetcher, { refreshInterval: 8000 });
+  // All KoF-tagged commanders (for pair dropdown + name lookup on cards)
+  const { data: allCommanders = [] } = useSWR("/commanders", fetcher, { refreshInterval: 15000 });
+  const kofCommanders = useMemo(() => allCommanders.filter((c) => c.is_kof), [allCommanders]);
+  const commanderById = useMemo(() => {
+    const m = {};
+    allCommanders.forEach((c) => { m[c.id] = c; });
+    return m;
+  }, [allCommanders]);
 
+  const currentCategory = CATEGORIES.find((c) => c.key === selectedCat);
+  const isInfoCategory = selectedCat === "bilgilendirme";
   const toggleSection = (section) => setExpanded((e) => ({ ...e, [section]: !e[section] }));
 
   return (
@@ -41,8 +83,9 @@ export default function Commanders() {
               data-testid={COMMANDERS.addBtn}
               onClick={() => { setEditing(null); setShowForm(true); }}
               className="btn-gold flex items-center gap-1.5 text-xs"
+              title={currentCategory?.label}
             >
-              <Plus className="w-4 h-4" /> {t("new_short")}
+              <Plus className="w-4 h-4" /> {addButtonLabel(t, currentCategory)}
             </button>
           </CanEdit>
         </div>
@@ -78,59 +121,25 @@ export default function Commanders() {
 
           {/* Content */}
           <div className="min-w-0">
-            <div className="text-[11px] uppercase gold-text font-bold tracking-widest mb-2">
-              {CATEGORIES.find((c) => c.key === selectedCat)?.label}
+            <div className="text-[11px] uppercase gold-text font-bold tracking-widest mb-2 flex items-center gap-2">
+              <span>{currentCategory?.label}</span>
+              <span className="text-muted-foreground font-normal">• {commanders.length}</span>
             </div>
             <div className="space-y-2">
               {commanders.map((c) => (
-                <div key={c.id} data-testid={COMMANDERS.card(c.id)} className="card-red-gold p-3 fade-in">
-                  <button
-                    type="button"
-                    onClick={() => setLightbox(c)}
-                    data-testid={`commander-open-${c.id}`}
-                    className="flex gap-3 w-full text-left"
-                  >
-                    {c.image_url ? (
-                      <img src={resolveImageUrl(c.image_url)} alt={c.name} className="w-16 h-16 rounded-md object-cover border border-primary/30" />
-                    ) : (
-                      <div className="w-16 h-16 rounded-md bg-black/40 border border-primary/30 flex items-center justify-center">
-                        <Shield className="w-6 h-6 gold-text" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-bold text-white truncate">{c.name}</div>
-                      {c.description && <div className="text-[10px] text-muted-foreground line-clamp-2 mt-1">{c.description}</div>}
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {(c.characters || []).map((ch) => (
-                          <span key={ch} className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 red-text border border-red-500/30">
-                            {ch}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </button>
-                  <CanEdit>
-                    <div className="flex justify-end gap-1 mt-2">
-                      <button
-                        onClick={() => { setEditing(c); setShowForm(true); }}
-                        className="w-7 h-7 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
-                      >
-                        <Pencil className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (!window.confirm(t("confirm_delete_generic", { name: c.name }))) return;
-                          await api.delete(`/commanders/${c.id}`);
-                          mutate((k) => typeof k === "string" && k.startsWith("/commanders"));
-                          toast.success(t("deleted"));
-                        }}
-                        className="w-7 h-7 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </CanEdit>
-                </div>
+                <CommanderCard
+                  key={c.id}
+                  commander={c}
+                  commanderById={commanderById}
+                  onOpen={() => setLightbox(c)}
+                  onEdit={() => { setEditing(c); setShowForm(true); }}
+                  onDelete={async () => {
+                    if (!window.confirm(t("confirm_delete_generic", { name: c.name }))) return;
+                    await api.delete(`/commanders/${c.id}`);
+                    mutate((k) => typeof k === "string" && k.startsWith("/commanders"));
+                    toast.success(t("deleted"));
+                  }}
+                />
               ))}
               {commanders.length === 0 && (
                 <div className="card-dark p-6 text-center text-muted-foreground text-xs">{t("no_commanders_in_category")}</div>
@@ -141,15 +150,107 @@ export default function Commanders() {
       </div>
 
       {showForm && (
-        <CommanderForm initial={editing} defaultCategory={selectedCat} onClose={() => { setShowForm(false); setEditing(null); }} />
+        <CommanderForm
+          initial={editing}
+          defaultCategory={selectedCat}
+          isInfoMode={!editing && isInfoCategory}
+          kofCommanders={kofCommanders}
+          onClose={() => { setShowForm(false); setEditing(null); }}
+        />
       )}
-      {lightbox && <CommanderLightbox commander={lightbox} onClose={() => setLightbox(null)} />}
+      {lightbox && <CommanderLightbox commander={lightbox} commanderById={commanderById} onClose={() => setLightbox(null)} />}
     </div>
   );
 }
 
-function CommanderLightbox({ commander, onClose }) {
+function CommanderCard({ commander: c, commanderById, onOpen, onEdit, onDelete }) {
   const { t } = useTranslation();
+  const matchNames = (c.kof_pairs || [])
+    .map((id) => commanderById[id])
+    .filter(Boolean);
+
+  return (
+    <div data-testid={COMMANDERS.card(c.id)} className="card-red-gold p-3 fade-in">
+      <button
+        type="button"
+        onClick={onOpen}
+        data-testid={`commander-open-${c.id}`}
+        className="flex gap-3 w-full text-left"
+      >
+        {c.image_url ? (
+          <img src={resolveImageUrl(c.image_url)} alt={c.name} className="w-16 h-16 rounded-md object-cover border border-primary/30 flex-shrink-0" />
+        ) : (
+          <div className="w-16 h-16 rounded-md bg-black/40 border border-primary/30 flex items-center justify-center flex-shrink-0">
+            <Shield className="w-6 h-6 gold-text" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <div className="text-sm font-bold text-white truncate">{c.name}</div>
+            {c.is_kof && (
+              <span
+                className="text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5"
+                style={{ background: "linear-gradient(135deg,#DC2626,#F5A623)", color: "#fff" }}
+                data-testid={`kof-badge-${c.id}`}
+              >
+                <Sparkles className="w-2.5 h-2.5" /> KoF
+              </span>
+            )}
+          </div>
+          {c.description && <div className="text-[10px] text-muted-foreground line-clamp-2 mt-1">{c.description}</div>}
+          <div className="flex flex-wrap gap-1 mt-2">
+            {(c.characters || []).map((ch) => (
+              <span key={ch} className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 red-text border border-red-500/30">
+                {ch}
+              </span>
+            ))}
+          </div>
+          {matchNames.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-1" data-testid={`kof-matches-${c.id}`}>
+              <span className="text-[9px] uppercase font-bold gold-text flex items-center gap-0.5">
+                <LinkIcon className="w-2.5 h-2.5" /> KoF:
+              </span>
+              {matchNames.map((m) => (
+                <span
+                  key={m.id}
+                  className="text-[9px] px-1.5 py-0.5 rounded-full bg-yellow-500/15 gold-text border border-yellow-500/30 flex items-center gap-1"
+                  data-testid={`kof-pair-${c.id}-${m.id}`}
+                >
+                  {m.image_url && (
+                    <img src={resolveImageUrl(m.image_url)} alt="" className="w-3 h-3 rounded-full object-cover" />
+                  )}
+                  {m.name}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </button>
+      <CanEdit>
+        <div className="flex justify-end gap-1 mt-2">
+          <button
+            onClick={onEdit}
+            data-testid={`commander-edit-${c.id}`}
+            className="w-7 h-7 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
+          >
+            <Pencil className="w-3 h-3" />
+          </button>
+          <button
+            onClick={onDelete}
+            data-testid={`commander-delete-${c.id}`}
+            className="w-7 h-7 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+      </CanEdit>
+    </div>
+  );
+}
+
+function CommanderLightbox({ commander, commanderById, onClose }) {
+  const { t } = useTranslation();
+  const matchNames = (commander.kof_pairs || []).map((id) => commanderById[id]).filter(Boolean);
   return (
     <div
       className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4 fade-in"
@@ -183,9 +284,16 @@ function CommanderLightbox({ commander, onClose }) {
         )}
 
         <div className="w-full mt-4 text-center px-2">
-          <h3 className="text-2xl font-bold uppercase gold-text tracking-wider mb-2" style={{ fontFamily: "Rajdhani" }}>
-            {commander.name}
-          </h3>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <h3 className="text-2xl font-bold uppercase gold-text tracking-wider" style={{ fontFamily: "Rajdhani" }}>
+              {commander.name}
+            </h3>
+            {commander.is_kof && (
+              <span className="text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1" style={{ background: "linear-gradient(135deg,#DC2626,#F5A623)", color: "#fff" }}>
+                <Sparkles className="w-3 h-3" /> KoF
+              </span>
+            )}
+          </div>
           {commander.description && (
             <p className="text-sm text-white/85 leading-relaxed whitespace-pre-wrap">
               {commander.description}
@@ -200,32 +308,43 @@ function CommanderLightbox({ commander, onClose }) {
               ))}
             </div>
           )}
+          {matchNames.length > 0 && (
+            <div className="mt-4">
+              <div className="text-[10px] uppercase gold-text font-bold tracking-widest mb-2">{t("kof_matches")}</div>
+              <div className="flex flex-wrap gap-1.5 justify-center">
+                {matchNames.map((m) => (
+                  <span key={m.id} className="text-xs px-2.5 py-1 rounded-full bg-yellow-500/20 gold-text border border-yellow-500/40 font-semibold flex items-center gap-1.5">
+                    {m.image_url && <img src={resolveImageUrl(m.image_url)} alt="" className="w-4 h-4 rounded-full object-cover" />}
+                    {m.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-// Resolve /uploads/... to full backend URL for preview.
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
-const resolveImageUrl = (u) => {
-  if (!u) return "";
-  if (u.startsWith("http://") || u.startsWith("https://")) return u;
-  if (u.startsWith("/uploads/")) return `${BACKEND_URL}/api${u}`;
-  if (u.startsWith("/api/uploads/")) return `${BACKEND_URL}${u}`;
-  return u;
-};
-
-function CommanderForm({ initial, defaultCategory, onClose }) {
+function CommanderForm({ initial, defaultCategory, isInfoMode, kofCommanders, onClose }) {
   const { t } = useTranslation();
+  const editing = !!initial;
   const [name, setName] = useState(initial?.name || "");
-  const [category, setCategory] = useState(initial?.category || defaultCategory);
+  const [category] = useState(initial?.category || defaultCategory); // locked to context on create
   const [imageUrl, setImageUrl] = useState(initial?.image_url || "");
   const [description, setDescription] = useState(initial?.description || "");
   const [characters, setCharacters] = useState((initial?.characters || []).join(", "));
+  const [isKof, setIsKof] = useState(!!initial?.is_kof);
+  const [kofPairs, setKofPairs] = useState(initial?.kof_pairs || []);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = React.useRef(null);
+
+  // The category label is shown as a locked chip on top so the user always knows where they are adding to.
+  const categoryMeta = CATEGORIES.find((c) => c.key === category);
+  // In edit mode we still show KoF match UI, since the user may want to enrich the entry.
+  const isInfo = isInfoMode || category === "bilgilendirme";
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
@@ -247,6 +366,10 @@ function CommanderForm({ initial, defaultCategory, onClose }) {
     }
   };
 
+  const togglePair = (id) => {
+    setKofPairs((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     if (!name.trim()) { toast.error(t("name_required")); return; }
@@ -258,6 +381,8 @@ function CommanderForm({ initial, defaultCategory, onClose }) {
         image_url: imageUrl.trim() || null,
         description: description.trim() || null,
         characters: characters.split(",").map((s) => s.trim()).filter(Boolean),
+        is_kof: !!isKof,
+        kof_pairs: isKof ? [] : kofPairs, // a KoF commander itself is not paired to others
       };
       if (initial) await api.patch(`/commanders/${initial.id}`, body);
       else await api.post("/commanders", body);
@@ -269,28 +394,46 @@ function CommanderForm({ initial, defaultCategory, onClose }) {
     } finally { setSaving(false); }
   };
 
+  // Pairing pool excludes the commander itself when editing.
+  const pairingPool = kofCommanders.filter((c) => c.id !== initial?.id);
+
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
-      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="card-red-gold w-full max-w-md p-5 fade-in relative">
+      <form
+        onSubmit={submit}
+        onClick={(e) => e.stopPropagation()}
+        className="card-red-gold w-full max-w-md p-5 fade-in relative max-h-[90vh] overflow-y-auto"
+        data-testid="commander-form"
+      >
         <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white">
           <X className="w-5 h-5" />
         </button>
-        <h3 className="text-lg font-bold uppercase gold-text mb-4">{initial ? t("edit_commander") : t("new_commander")}</h3>
+        <h3 className="text-lg font-bold uppercase gold-text mb-1">
+          {editing
+            ? (isInfo ? t("edit_info_item") : t("edit_commander"))
+            : (isInfo ? t("new_info_item") : t("new_commander"))}
+        </h3>
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-4" data-testid="commander-form-category-label">
+          {t("category")}: <span className="gold-text font-bold">{categoryMeta?.section} — {categoryMeta?.label}</span>
+        </div>
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("name_person")}</label>
-        <input value={name} onChange={(e) => setName(e.target.value)}
-          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">{isInfo ? t("title") : t("name_person")}</label>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          data-testid="commander-form-name"
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
+        />
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("category")}</label>
-        <select value={category} onChange={(e) => setCategory(e.target.value)}
-          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white">
-          {CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.section} — {c.label}</option>)}
-        </select>
-
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("characters_comma")}</label>
-        <input value={characters} onChange={(e) => setCharacters(e.target.value)}
-          placeholder={t("characters_example")}
-          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
+        {!isInfo && (
+          <>
+            <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("characters_comma")}</label>
+            <input value={characters} onChange={(e) => setCharacters(e.target.value)}
+              data-testid="commander-form-characters"
+              placeholder={t("characters_example")}
+              className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
+          </>
+        )}
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("image_url")}</label>
         <div className="flex items-start gap-2">
@@ -327,24 +470,81 @@ function CommanderForm({ initial, defaultCategory, onClose }) {
               className="chip w-full justify-center py-2"
             >
               {uploading ? (
-                <>
-                  <Upload className="w-3.5 h-3.5 animate-pulse" /> {t("uploading")}
-                </>
+                <><Upload className="w-3.5 h-3.5 animate-pulse" /> {t("uploading")}</>
               ) : (
-                <>
-                  <ImageIcon className="w-3.5 h-3.5" /> {t("upload_from_device")}
-                </>
+                <><ImageIcon className="w-3.5 h-3.5" /> {t("upload_from_device")}</>
               )}
             </button>
           </div>
         </div>
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("description")}</label>
-        <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
-          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">
+          {isInfo ? t("body_text") : t("description")}
+        </label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          data-testid="commander-form-description"
+          rows={isInfo ? 6 : 3}
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
+        />
 
-        <button type="submit" disabled={saving} className="btn-gold w-full mt-5">
-          {saving ? t("saving") : initial ? t("update") : t("add_short")}
+        {!isInfo && (
+          <>
+            {/* KoF toggle */}
+            <div className="mt-4 flex items-center justify-between p-3 rounded-lg" style={{ background: "rgba(245,166,35,0.05)", border: "1px solid rgba(245,166,35,0.3)" }}>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold uppercase gold-text tracking-widest flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" /> {t("kof_commander")}
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">{t("kof_commander_help")}</div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-2">
+                <input
+                  type="checkbox"
+                  checked={isKof}
+                  onChange={(e) => setIsKof(e.target.checked)}
+                  data-testid="commander-form-is-kof"
+                  className="sr-only peer"
+                />
+                <div className="w-10 h-5 bg-secondary rounded-full peer-checked:bg-primary transition-colors" />
+                <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5" />
+              </label>
+            </div>
+
+            {/* KoF pairing (hidden if this commander IS a KoF, since it cannot be paired to others) */}
+            {!isKof && (
+              <div className="mt-3">
+                <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">
+                  {t("kof_matches")} <span className="text-muted-foreground">({kofPairs.length})</span>
+                </label>
+                {pairingPool.length === 0 ? (
+                  <div className="text-[10px] text-muted-foreground p-2 rounded border border-dashed border-border" data-testid="kof-empty-hint">
+                    {t("kof_no_candidates")}
+                  </div>
+                ) : (
+                  <div className="flex gap-1.5 flex-wrap max-h-32 overflow-y-auto" data-testid="commander-form-kof-pairs">
+                    {pairingPool.map((kc) => (
+                      <button
+                        key={kc.id}
+                        type="button"
+                        onClick={() => togglePair(kc.id)}
+                        data-testid={`kof-pair-toggle-${kc.id}`}
+                        className={`chip ${kofPairs.includes(kc.id) ? "active" : ""}`}
+                      >
+                        {kc.image_url && <img src={resolveImageUrl(kc.image_url)} alt="" className="w-4 h-4 rounded-full object-cover" />}
+                        {kc.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        <button type="submit" disabled={saving} className="btn-gold w-full mt-5" data-testid="commander-form-submit">
+          {saving ? t("saving") : editing ? t("update") : t("add_short")}
         </button>
       </form>
     </div>

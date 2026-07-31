@@ -163,6 +163,8 @@ class Commander(BaseModel):
     characters: List[str] = []
     image_url: Optional[str] = None
     description: Optional[str] = None
+    is_kof: bool = False
+    kof_pairs: List[str] = []  # commander ids of matched KoF commanders
     created_at: str = Field(default_factory=now_iso)
 
 
@@ -173,6 +175,8 @@ class CommanderCreate(BaseModel):
     characters: Optional[List[str]] = []
     image_url: Optional[str] = None
     description: Optional[str] = None
+    is_kof: Optional[bool] = False
+    kof_pairs: Optional[List[str]] = []
 
 
 class CommanderUpdate(BaseModel):
@@ -182,6 +186,8 @@ class CommanderUpdate(BaseModel):
     characters: Optional[List[str]] = None
     image_url: Optional[str] = None
     description: Optional[str] = None
+    is_kof: Optional[bool] = None
+    kof_pairs: Optional[List[str]] = None
 
 
 # ---------- Helpers ----------
