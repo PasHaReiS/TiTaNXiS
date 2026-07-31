@@ -1,5 +1,6 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Query, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Query, Depends, UploadFile, File
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -8,6 +9,7 @@ import logging
 import io
 import csv
 import random
+import mimetypes
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
@@ -909,9 +911,39 @@ async def seed_data(force: bool = False, _: dict = Depends(require_admin)):
     return {"status": "seeded", **stats}
 
 
+# ---------- Uploads ----------
+UPLOADS_DIR = Path("/app/uploads")
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
+ALLOWED_IMG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+MAX_UPLOAD_BYTES = 8 * 1024 * 1024  # 8MB
+
+
+@api_router.post("/upload")
+async def upload_image(file: UploadFile = File(...), _: dict = Depends(require_edit)):
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in ALLOWED_IMG_EXT:
+        # try infer from content type
+        guessed = mimetypes.guess_extension((file.content_type or "").split(";")[0]) or ""
+        ext = guessed.lower() if guessed.lower() in ALLOWED_IMG_EXT else ""
+        if not ext:
+            raise HTTPException(400, f"Unsupported image type: {file.content_type or file.filename}")
+    contents = await file.read()
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)}MB)")
+    if not contents:
+        raise HTTPException(400, "Empty file")
+    fname = f"{uuid.uuid4().hex}{ext}"
+    dest = UPLOADS_DIR / fname
+    with dest.open("wb") as f:
+        f.write(contents)
+    return {"url": f"/api/uploads/{fname}", "filename": fname, "size": len(contents)}
+
+
 # ---------- Setup ----------
 app.include_router(api_router)
 app.include_router(make_auth_router(db))
+app.mount("/api/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,

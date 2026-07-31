@@ -4,7 +4,7 @@ import { api, CATEGORIES, groupCategories } from "@/lib/api";
 import { COMMANDERS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
-import { Plus, Pencil, Trash2, X, Shield, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Shield, ChevronDown, ChevronRight, Upload, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -91,7 +91,7 @@ export default function Commanders() {
                     className="flex gap-3 w-full text-left"
                   >
                     {c.image_url ? (
-                      <img src={c.image_url} alt={c.name} className="w-16 h-16 rounded-md object-cover border border-primary/30" />
+                      <img src={resolveImageUrl(c.image_url)} alt={c.name} className="w-16 h-16 rounded-md object-cover border border-primary/30" />
                     ) : (
                       <div className="w-16 h-16 rounded-md bg-black/40 border border-primary/30 flex items-center justify-center">
                         <Shield className="w-6 h-6 gold-text" />
@@ -172,7 +172,7 @@ function CommanderLightbox({ commander, onClose }) {
       >
         {commander.image_url ? (
           <img
-            src={commander.image_url}
+            src={resolveImageUrl(commander.image_url)}
             alt={commander.name}
             className="max-w-full max-h-[60vh] rounded-lg object-contain shadow-2xl border-2 border-primary/40"
           />
@@ -206,6 +206,16 @@ function CommanderLightbox({ commander, onClose }) {
   );
 }
 
+// Resolve /uploads/... to full backend URL for preview.
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
+const resolveImageUrl = (u) => {
+  if (!u) return "";
+  if (u.startsWith("http://") || u.startsWith("https://")) return u;
+  if (u.startsWith("/uploads/")) return `${BACKEND_URL}/api${u}`;
+  if (u.startsWith("/api/uploads/")) return `${BACKEND_URL}${u}`;
+  return u;
+};
+
 function CommanderForm({ initial, defaultCategory, onClose }) {
   const { t } = useTranslation();
   const [name, setName] = useState(initial?.name || "");
@@ -214,6 +224,28 @@ function CommanderForm({ initial, defaultCategory, onClose }) {
   const [description, setDescription] = useState(initial?.description || "");
   const [characters, setCharacters] = useState((initial?.characters || []).join(", "));
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = React.useRef(null);
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error(t("upload_invalid_type")); return; }
+    if (file.size > 8 * 1024 * 1024) { toast.error(t("upload_too_large")); return; }
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      setImageUrl(res.data.url);
+      toast.success(t("upload_done"));
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || err.message);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -261,8 +293,51 @@ function CommanderForm({ initial, defaultCategory, onClose }) {
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("image_url")}</label>
-        <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
-          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono" />
+        <div className="flex items-start gap-2">
+          {imageUrl && (
+            <img
+              src={resolveImageUrl(imageUrl)}
+              alt="preview"
+              className="w-14 h-14 rounded-md object-cover border border-primary/40 flex-shrink-0"
+              onError={(e) => { e.currentTarget.style.display = "none"; }}
+              data-testid="commander-image-preview"
+            />
+          )}
+          <div className="flex-1 space-y-1.5">
+            <input
+              data-testid="commander-image-url"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://... or /api/uploads/..."
+              className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono"
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFile}
+              className="hidden"
+              data-testid="commander-image-file-input"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              data-testid="commander-image-upload-btn"
+              className="chip w-full justify-center py-2"
+            >
+              {uploading ? (
+                <>
+                  <Upload className="w-3.5 h-3.5 animate-pulse" /> {t("uploading")}
+                </>
+              ) : (
+                <>
+                  <ImageIcon className="w-3.5 h-3.5" /> {t("upload_from_device")}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("description")}</label>
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
