@@ -158,16 +158,15 @@ class Commander(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
-    category: str  # e.g. "tetikci", "bombaci"
+    category: str
     subcategory: Optional[str] = None
     rank: Optional[str] = None
+    rarity: Optional[str] = None  # legendary | epic | common
     characters: List[str] = []
     image_url: Optional[str] = None
     description: Optional[str] = None
     is_kof: bool = False
     kof_pairs: List[str] = []
-    # Team squads (used by KAFES / GARNİZON / SAVAŞ / SVS sections).
-    # Each entry: {role: "tetikci"|"kalkanli"|"bombaci"|"robotlar", commander_id, kof_id}
     team_slots: Optional[List[Dict[str, Optional[str]]]] = None
     created_at: str = Field(default_factory=now_iso)
 
@@ -177,6 +176,7 @@ class CommanderCreate(BaseModel):
     category: str
     subcategory: Optional[str] = None
     rank: Optional[str] = None
+    rarity: Optional[str] = None
     characters: Optional[List[str]] = []
     image_url: Optional[str] = None
     description: Optional[str] = None
@@ -190,6 +190,7 @@ class CommanderUpdate(BaseModel):
     category: Optional[str] = None
     subcategory: Optional[str] = None
     rank: Optional[str] = None
+    rarity: Optional[str] = None
     characters: Optional[List[str]] = None
     image_url: Optional[str] = None
     description: Optional[str] = None

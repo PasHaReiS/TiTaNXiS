@@ -26,6 +26,17 @@ const SECTION_PREFIX = "__section:";
 const isSectionKey = (k) => typeof k === "string" && k.startsWith(SECTION_PREFIX);
 const sectionOf = (k) => (isSectionKey(k) ? k.slice(SECTION_PREFIX.length) : null);
 
+// Rarity: legendary (orange) > epic (purple) > common (blue).
+const RARITY = {
+  legendary: { color: "#F97316", labelKey: "rarity_legendary" },
+  epic: { color: "#A855F7", labelKey: "rarity_epic" },
+  common: { color: "#3B82F6", labelKey: "rarity_common" },
+};
+const RARITY_ORDER = { legendary: 3, epic: 2, common: 1 };
+const RANK_ORDER = { R5: 5, R4: 4, R3: 3, R2: 2, R1: 1 };
+// Groups used by the KOMUTANLAR section view (order matters).
+const COMMANDER_GROUPS = ["tetikci", "kalkanli", "bombaci", "robotlar"];
+
 // Label the "+ Yeni" button based on the currently-selected category or section.
 function addButtonLabel(t, category, section) {
   if (section) return t("add_commander_short");
@@ -46,6 +57,7 @@ export default function Commanders() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [lightbox, setLightbox] = useState(null);
+  const [gridSearch, setGridSearch] = useState("");
   const sections = groupCategories();
   const [expanded, setExpanded] = useState(() => {
     const initial = {};
@@ -173,26 +185,66 @@ export default function Commanders() {
               <span className="text-muted-foreground font-normal">• {commanders.length}</span>
             </div>
             {activeSection ? (
-              <div className="grid grid-cols-2 gap-2" data-testid="commanders-section-grid">
-                {commanders.map((c) => (
-                  <CommanderGridCard
-                    key={c.id}
-                    commander={c}
-                    commanderById={commanderById}
-                    onOpen={() => setLightbox(c)}
-                    onEdit={() => { setEditing(c); setShowForm(true); }}
-                    onDelete={async () => {
-                      if (!window.confirm(t("confirm_delete_generic", { name: c.name }))) return;
-                      await api.delete(`/commanders/${c.id}`);
-                      mutate((k) => typeof k === "string" && k.startsWith("/commanders"));
-                      toast.success(t("deleted"));
-                    }}
+              <>
+                <div className="relative mb-2">
+                  <input
+                    value={gridSearch}
+                    onChange={(e) => setGridSearch(e.target.value)}
+                    placeholder={t("search_commander")}
+                    data-testid="commanders-grid-search"
+                    className="w-full card-dark px-3 py-2 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary"
                   />
-                ))}
-                {commanders.length === 0 && (
-                  <div className="col-span-2 card-dark p-6 text-center text-muted-foreground text-xs">{t("no_commanders_in_category")}</div>
-                )}
-              </div>
+                </div>
+                {(() => {
+                  const q = gridSearch.trim().toLowerCase();
+                  const searched = q ? commanders.filter((c) => (c.name || "").toLowerCase().includes(q)) : commanders;
+                  const rarityRank = (r) => RARITY_ORDER[r] || 0;
+                  const rankRank = (r) => RANK_ORDER[r] || 0;
+                  const groupsOrder = activeSection === "KOMUTANLAR" ? COMMANDER_GROUPS : null;
+                  const groups = {};
+                  searched.forEach((c) => { (groups[c.category] = groups[c.category] || []).push(c); });
+                  Object.values(groups).forEach((arr) => arr.sort((a, b) => {
+                    if (a.is_kof !== b.is_kof) return a.is_kof ? -1 : 1;
+                    const dr = rankRank(b.rank) - rankRank(a.rank);
+                    if (dr) return dr;
+                    const dq = rarityRank(b.rarity) - rarityRank(a.rarity);
+                    if (dq) return dq;
+                    return (a.name || "").localeCompare(b.name || "", "tr");
+                  }));
+                  const orderedCats = groupsOrder
+                    ? groupsOrder.filter((k) => groups[k]).concat(Object.keys(groups).filter((k) => !groupsOrder.includes(k)))
+                    : Object.keys(groups);
+                  return orderedCats.length === 0 ? (
+                    <div className="card-dark p-6 text-center text-muted-foreground text-xs">{t("no_commanders_in_category")}</div>
+                  ) : orderedCats.map((catKey) => {
+                    const label = CATEGORIES.find((x) => x.key === catKey)?.label || catKey;
+                    return (
+                      <div key={catKey} className="mb-4" data-testid={`grid-group-${catKey}`}>
+                        <div className="text-[10px] uppercase gold-text font-bold tracking-widest mb-1.5">
+                          {label} <span className="text-muted-foreground font-normal">• {groups[catKey].length}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {groups[catKey].map((c) => (
+                            <CommanderGridCard
+                              key={c.id}
+                              commander={c}
+                              commanderById={commanderById}
+                              onOpen={() => setLightbox(c)}
+                              onEdit={() => { setEditing(c); setShowForm(true); }}
+                              onDelete={async () => {
+                                if (!window.confirm(t("confirm_delete_generic", { name: c.name }))) return;
+                                await api.delete(`/commanders/${c.id}`);
+                                mutate((k) => typeof k === "string" && k.startsWith("/commanders"));
+                                toast.success(t("deleted"));
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </>
             ) : (
               <div className="space-y-2">
                 {commanders.map((c) => (
@@ -378,7 +430,11 @@ function CommanderGridCard({ commander: c, commanderById, onOpen, onEdit, onDele
         data-testid={`commander-open-${c.id}`}
         className="w-full text-left flex flex-col"
       >
-        <div className="relative w-full aspect-square rounded-md overflow-hidden bg-black/40 border border-primary/30 flex items-center justify-center mb-2">
+        <div
+          className="relative w-full aspect-square rounded-md overflow-hidden bg-black/40 flex items-center justify-center mb-2"
+          style={{ border: `3px solid ${RARITY[c.rarity]?.color || "rgba(220,38,38,0.35)"}` }}
+          data-testid={`grid-rarity-frame-${c.id}`}
+        >
           {c.image_url ? (
             <img src={resolveImageUrl(c.image_url)} alt={c.name} className="w-full h-full object-cover" />
           ) : (
@@ -759,6 +815,7 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
   const [name, setName] = useState(initial?.name || "");
   const [category, setCategory] = useState(initial?.category || defaultCategory || "tetikci");
   const [rank, setRank] = useState(initial?.rank || "");
+  const [rarity, setRarity] = useState(initial?.rarity || "");
   const [imageUrl, setImageUrl] = useState(initial?.image_url || "");
   const [description, setDescription] = useState(initial?.description || "");
   const [characters, setCharacters] = useState(initial?.characters || []);
@@ -808,6 +865,7 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
         name: name.trim(),
         category: category.trim(),
         rank: rank.trim() || null,
+        rarity: rarity || null,
         image_url: imageUrl.trim() || null,
         description: description.trim() || null,
         characters: characters.map((s) => s.trim()).filter(Boolean),
@@ -916,6 +974,32 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
             <datalist id="commander-rank-list">
               {allRanks.map((r) => (<option key={r} value={r} />))}
             </datalist>
+
+            {/* Rarity picker */}
+            <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("rarity")}</label>
+            <div className="flex gap-1.5" data-testid="rarity-picker">
+              {["legendary", "epic", "common"].map((k) => {
+                const r = RARITY[k];
+                const isActive = rarity === k;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setRarity(isActive ? "" : k)}
+                    data-testid={`rarity-${k}`}
+                    className="flex-1 text-[10px] font-bold uppercase py-2 rounded transition-all"
+                    style={{
+                      background: isActive ? r.color : "rgba(0,0,0,0.3)",
+                      color: isActive ? "#fff" : r.color,
+                      border: `2px solid ${r.color}`,
+                      boxShadow: isActive ? `0 0 12px ${r.color}80` : "none",
+                    }}
+                  >
+                    {t(r.labelKey)}
+                  </button>
+                );
+              })}
+            </div>
           </>
         )}
 
