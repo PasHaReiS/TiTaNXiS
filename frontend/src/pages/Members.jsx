@@ -305,19 +305,9 @@ export default function Members() {
                                   >
                                     {m.name}
                                   </div>
-                                  <div className="text-[9px] text-muted-foreground mono truncate">
-                                    {m.member_id ? `ID: ${m.member_id}` : "—"}
-                                    {m.castle_level && <span className="ml-1 gold-text">• {t("castle_short")}{m.castle_level}</span>}
+                                  <div className="text-[10px] gold-text mono truncate mt-0.5">
+                                    {m.castle_level ? `${t("castle_short")}${m.castle_level}` : "-"}
                                   </div>
-                                  {m.alliance_name && (
-                                    <span
-                                      className="inline-block text-[9px] font-bold rounded px-1.5 py-0.5 mt-0.5 truncate max-w-full"
-                                      style={{ ...allianceBadgeStyle(m.alliance_name, allianceColors), border: "1px solid" }}
-                                      title={m.alliance_name}
-                                    >
-                                      {m.alliance_name}
-                                    </span>
-                                  )}
                                 </div>
                                 <CanEdit>
                                   <button

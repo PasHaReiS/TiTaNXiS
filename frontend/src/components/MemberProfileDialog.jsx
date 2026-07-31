@@ -1,79 +1,133 @@
 import React from "react";
 import useSWR from "swr";
-import { api, fmt } from "@/lib/api";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { X, Trophy, Calendar, TrendingUp } from "lucide-react";
+import { api } from "@/lib/api";
+import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { allianceBadgeStyle } from "@/lib/colors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
+// Format an F/T pair as "F8 - T11" — falls back to '-' when both are missing.
+const formatFT = (f, tVal) => {
+  const hasF = f !== null && f !== undefined && String(f).trim() !== "";
+  const hasT = tVal !== null && tVal !== undefined && String(tVal).trim() !== "";
+  if (!hasF && !hasT) return "-";
+  const fPart = hasF ? `F${f}` : "F—";
+  const tPart = hasT ? `T${tVal}` : "T—";
+  return `${fPart} - ${tPart}`;
+};
+
+const formatCastle = (val) => {
+  if (val === null || val === undefined || String(val).trim() === "") return "-";
+  return `F${val}`;
+};
+
 export default function MemberProfileDialog({ memberId, open, onClose }) {
   const { t } = useTranslation();
-  const { data } = useSWR(memberId && open ? `/members/${memberId}/history` : null, fetcher);
+  const { data: allianceColors = {} } = useSWR(open ? "/alliance-colors" : null, fetcher);
+  const { data: m } = useSWR(memberId && open ? `/members/${memberId}` : null, fetcher);
+
+  if (!open) return null;
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="card-dark border-primary/30 max-w-md p-0 overflow-hidden">
-        <DialogHeader className="p-4 pb-2">
-          <DialogTitle className="flex items-center gap-2">
-            {data?.member && (
-              <>
-                <div className={`rank-badge rank-${data.member.rank}`}>{data.member.rank === "GOW" ? "" : data.member.rank}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold uppercase text-white truncate">{data.member.name}</div>
-                  <div className="text-xs text-muted-foreground mono">ID: {data.member.member_id}</div>
-                  {data.member.alliance_name && <div className="text-xs text-white/70 truncate">🛡 {data.member.alliance_name}</div>}
+    <div
+      className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4"
+      onClick={onClose}
+      data-testid="member-profile-backdrop"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="card-red-gold w-full max-w-sm p-4 fade-in relative"
+        style={{ background: "linear-gradient(180deg, rgba(26,26,26,0.98), rgba(15,15,15,0.98))" }}
+        data-testid="member-profile-dialog"
+        role="dialog"
+        aria-modal="true"
+      >
+        <button
+          type="button"
+          data-testid="member-profile-close"
+          onClick={onClose}
+          className="absolute top-2 right-2 w-7 h-7 rounded-md bg-black/40 hover:bg-black/70 text-muted-foreground hover:text-white flex items-center justify-center z-10"
+          aria-label={t("close")}
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {!m && <div className="p-3 text-center text-muted-foreground text-sm">{t("loading")}</div>}
+
+        {m && (
+          <>
+            {/* Header: rank badge + name + ID */}
+            <div className="flex items-center gap-3 mb-3 pr-8">
+              <div
+                className={`rank-badge rank-${m.rank}`}
+                style={{ width: 42, height: 42, fontSize: 13, borderRadius: 8, fontWeight: 800 }}
+              >
+                {m.rank}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div
+                  className="font-bold text-white text-base truncate leading-tight"
+                  data-testid="profile-member-name"
+                  title={m.name}
+                >
+                  {m.name}
                 </div>
+                <div className="text-[11px] text-muted-foreground mono truncate">
+                  ID: <span className="gold-text">{m.member_id || "-"}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Alliance badge (case-preserved) */}
+            {m.alliance_name && (
+              <div className="mb-3">
+                <span
+                  className="inline-block text-[10px] font-bold rounded px-2 py-1 tracking-wider"
+                  style={{ ...allianceBadgeStyle(m.alliance_name, allianceColors), border: "1px solid" }}
+                >
+                  {m.alliance_name}
+                </span>
+              </div>
+            )}
+
+            {/* Divider */}
+            <div className="h-px my-3" style={{ background: "linear-gradient(90deg, transparent, rgba(245,166,35,0.4), transparent)" }} />
+
+            {/* Stats */}
+            <div className="space-y-2">
+              <StatRow label={t("castle_level")} value={formatCastle(m.castle_level)} accent />
+              <StatRow label={t("tetikci")} value={formatFT(m.tetikci_f, m.tetikci_t)} />
+              <StatRow label={t("kalkanli")} value={formatFT(m.kalkanli_f, m.kalkanli_t)} />
+              <StatRow label={t("bombaci")} value={formatFT(m.bombaci_f, m.bombaci_t)} />
+            </div>
+
+            {m.note && (
+              <>
+                <div className="h-px my-3" style={{ background: "linear-gradient(90deg, transparent, rgba(220,38,38,0.4), transparent)" }} />
+                <div className="text-[10px] uppercase tracking-widest font-bold gold-text mb-1">{t("note_optional")}</div>
+                <div className="text-xs text-white/85 leading-relaxed">{m.note}</div>
               </>
             )}
-          </DialogTitle>
-        </DialogHeader>
-
-        {!data && <div className="p-4 text-center text-muted-foreground">{t("loading")}</div>}
-
-        {data && (
-          <div className="px-4 pb-4">
-            {data.member.title && (
-              <div className="chip active mb-3">
-                <Trophy className="w-3 h-3" />
-                {data.member.title}
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-2 mb-4">
-              <div className="stat-pill">
-                <div className="stat-label">{t("total_points")}</div>
-                <div className="stat-value">{fmt(data.total)}</div>
-              </div>
-              <div className="stat-pill">
-                <div className="stat-label">{t("event")}</div>
-                <div className="stat-value">{data.event_count}</div>
-              </div>
-            </div>
-
-            <div className="section-title">{t("recent_records")}</div>
-            <div className="max-h-80 overflow-y-auto space-y-2">
-              {data.points.length === 0 && <div className="text-sm text-muted-foreground text-center py-4">{t("no_points_yet")}</div>}
-              {data.points.map((p) => (
-                <div key={p.id} className="card-dark p-3 flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold text-white truncate">{p.event_name}</div>
-                    <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
-                      <Calendar className="w-3 h-3" />
-                      {new Date(p.date).toLocaleDateString()}
-                      {p.note && <span className="truncate">• {p.note}</span>}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="gold-text font-bold mono">+{fmt(p.points * (p.multiplier || 1))}</div>
-                    <div className="text-[10px] text-muted-foreground">{p.multiplier}x</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          </>
         )}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
+  );
+}
+
+function StatRow({ label, value, accent }) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className={`text-xs font-semibold uppercase tracking-wider ${accent ? "gold-text" : "text-muted-foreground"}`}>
+        {label}
+      </span>
+      <span
+        className="mono font-bold text-white text-sm"
+        data-testid={`profile-stat-${String(label).toLowerCase().replace(/\s+/g, "-")}`}
+      >
+        {value}
+      </span>
+    </div>
   );
 }
