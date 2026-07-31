@@ -160,11 +160,12 @@ class Commander(BaseModel):
     name: str
     category: str  # e.g. "tetikci", "bombaci"
     subcategory: Optional[str] = None
+    rank: Optional[str] = None  # free-form (R1..R5, KoF, custom)
     characters: List[str] = []
     image_url: Optional[str] = None
     description: Optional[str] = None
     is_kof: bool = False
-    kof_pairs: List[str] = []  # commander ids of matched KoF commanders
+    kof_pairs: List[str] = []
     created_at: str = Field(default_factory=now_iso)
 
 
@@ -172,6 +173,7 @@ class CommanderCreate(BaseModel):
     name: str
     category: str
     subcategory: Optional[str] = None
+    rank: Optional[str] = None
     characters: Optional[List[str]] = []
     image_url: Optional[str] = None
     description: Optional[str] = None
@@ -183,6 +185,7 @@ class CommanderUpdate(BaseModel):
     name: Optional[str] = None
     category: Optional[str] = None
     subcategory: Optional[str] = None
+    rank: Optional[str] = None
     characters: Optional[List[str]] = None
     image_url: Optional[str] = None
     description: Optional[str] = None
