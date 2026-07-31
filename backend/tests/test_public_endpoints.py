@@ -97,3 +97,43 @@ def test_alliances_is_list(auth):
     r = auth.get(f"{BASE_URL}/api/alliances", timeout=15)
     assert r.status_code == 200
     assert isinstance(r.json(), list)
+
+
+
+def test_login_can_edit_true(api):
+    r = api.post(f"{BASE_URL}/api/auth/login",
+                 json={"username": "admin", "password": "admin123"}, timeout=15)
+    assert r.status_code == 200
+    u = r.json()["user"]
+    assert u.get("can_edit") is True, f"expected can_edit=true, got {u}"
+
+
+def test_stats_keys(auth):
+    r = auth.get(f"{BASE_URL}/api/stats", timeout=15)
+    assert r.status_code == 200
+    j = r.json()
+    for k in ("member_count", "event_count", "total_points", "event_avg"):
+        assert k in j, f"missing key {k} in stats: {j}"
+
+
+def test_export_xlsx(auth):
+    r = auth.get(f"{BASE_URL}/api/export/xlsx", timeout=30)
+    assert r.status_code == 200, f"{r.status_code} {r.text[:200]}"
+    ct = r.headers.get("content-type", "")
+    assert "spreadsheetml" in ct or "xlsx" in ct or "officedocument" in ct, f"unexpected ct: {ct}"
+
+
+def test_post_members_requires_edit(auth):
+    payload = {"name": "TEST_verify_user", "power": 1, "kp_total": 0}
+    r = auth.post(f"{BASE_URL}/api/members", json=payload, timeout=15)
+    # accept created (200/201) OR validation error (422) — but NOT 401/403 (auth broken)
+    assert r.status_code not in (401, 403), f"require_edit failed for admin: {r.status_code} {r.text[:300]}"
+    # cleanup if created
+    if r.status_code in (200, 201):
+        try:
+            body = r.json()
+            mid = body.get("id") or body.get("_id")
+            if mid:
+                auth.delete(f"{BASE_URL}/api/members/{mid}", timeout=15)
+        except Exception:
+            pass
