@@ -33,6 +33,30 @@ const RARITY = {
   common: { color: "#3B82F6", labelKey: "rarity_common", bg: "#001530" },
 };
 
+// Sidebar section header → i18n key map. Section names come from CATEGORIES[i].section (Turkish literal).
+const SIDEBAR_SECTION_I18N = {
+  "BİLGİLENDİRME": "sb_bilgilendirme",
+  "KOMUTANLAR": "sb_komutanlar",
+  "KAFES ETKİNLİK": "sb_kafes",
+  "GARNİZON": "sb_garnizon",
+  "SAVAŞ": "sb_savas",
+  "SVS EKİP": "sb_svs",
+};
+
+// Content language badge — the app stores commander names/desc as free text.
+// This static badge tells viewers the content was entered in Turkish.
+function ContentLangBadge() {
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 text-white/60 border border-white/10"
+      title="Content language: Turkish"
+      data-testid="content-lang-badge"
+    >
+      <span aria-hidden>🌐</span> TR
+    </span>
+  );
+}
+
 // Style helper: returns rarity-tinted frame + background for a commander card,
 // or null when no rarity is set (caller keeps the default red/gold card look).
 function rarityCardStyle(rarity) {
@@ -195,7 +219,7 @@ export default function Commanders() {
                       style={{ background: isSectionActive ? "rgba(245,166,35,0.10)" : "transparent", border: 0, cursor: "pointer", padding: "6px 6px" }}
                     >
                       <Grid3x3 className="w-3 h-3 opacity-70" />
-                      <span className="text-left flex-1 truncate">{section}</span>
+                      <span className="text-left flex-1 truncate">{t(SIDEBAR_SECTION_I18N[section] || "") || section}</span>
                     </button>
                     <button
                       type="button"
@@ -214,7 +238,7 @@ export default function Commanders() {
                       onClick={() => setSelectedCat(c.key)}
                       className={`tree-item ${selectedCat === c.key ? "active" : ""}`}
                     >
-                      {c.label}
+                      {t(`cat_${c.key}`) !== `cat_${c.key}` ? t(`cat_${c.key}`) : c.label}
                     </div>
                   ))}
                 </div>
@@ -225,7 +249,11 @@ export default function Commanders() {
           {/* Content */}
           <div className="min-w-0">
             <div className="text-[11px] uppercase gold-text font-bold tracking-widest mb-2 flex items-center gap-2">
-              <span>{activeSection ? `${activeSection} — ${t("all_short")}` : currentCategory?.label}</span>
+              <span>
+                {activeSection
+                  ? `${t(SIDEBAR_SECTION_I18N[activeSection] || "") || activeSection} — ${t("all_short")}`
+                  : (currentCategory ? (t(`cat_${currentCategory.key}`) !== `cat_${currentCategory.key}` ? t(`cat_${currentCategory.key}`) : currentCategory.label) : "")}
+              </span>
               <span className="text-muted-foreground font-normal">• {commanders.length}</span>
             </div>
             {activeSection ? (
@@ -249,7 +277,7 @@ export default function Commanders() {
                       return <div className="card-dark p-6 text-center text-muted-foreground text-xs">{t("no_commanders_in_category")}</div>;
                     }
                     return (
-                      <div className="grid grid-cols-2 gap-2" data-testid="grid-group-KOMUTANLAR-all">
+                      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2" data-testid="grid-group-KOMUTANLAR-all">
                         {searched.map((c) => (
                           <CommanderGridCard
                             key={c.id}
@@ -286,7 +314,7 @@ export default function Commanders() {
                         <div className="text-[10px] uppercase gold-text font-bold tracking-widest mb-1.5">
                           {label} <span className="text-muted-foreground font-normal">• {groups[catKey].length}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2">
                           {groups[catKey].map((c) => (
                             <CommanderGridCard
                               key={c.id}
@@ -392,7 +420,10 @@ function CommanderCard({ commander: c, commanderById, onOpen, onEdit, onDelete }
             </span>
           )}
         </div>
-        <div className="text-[9px] uppercase tracking-wider text-muted-foreground mb-2">{catLabel}</div>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="text-[9px] uppercase tracking-wider text-muted-foreground flex-1">{catLabel}</div>
+          <ContentLangBadge />
+        </div>
 
         {isTeam ? (
           <div className="grid grid-cols-4 gap-1" data-testid={`team-preview-${c.id}`}>
@@ -528,7 +559,10 @@ function CommanderGridCard({ commander: c, commanderById, onOpen, onEdit, onDele
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-bold text-white truncate">{c.name}</div>
-          <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{catLabel}</div>
+          <div className="flex items-center gap-1.5">
+            <div className="text-[9px] uppercase tracking-wider text-muted-foreground flex-1 truncate">{catLabel}</div>
+            <ContentLangBadge />
+          </div>
           {matchNames.length > 0 && (
             <div className="text-[9px] gold-text mt-1 truncate flex items-center gap-1">
               <LinkIcon className="w-2.5 h-2.5 flex-shrink-0" />
