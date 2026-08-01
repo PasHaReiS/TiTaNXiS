@@ -62,7 +62,7 @@ export default function Header() {
       const p = a.play();
       if (p && typeof p.catch === "function") {
         p.then(() => setIsPlaying(true)).catch(() => {
-          toast.error(t("music_blocked") || "Audio playback blocked by browser");
+          toast.error(t("music_blocked"));
           setIsPlaying(false);
         });
       } else {
@@ -122,7 +122,7 @@ export default function Header() {
             color: isPlaying ? "#E74C1A" : "#F5F0E8",
             boxShadow: isPlaying ? "0 0 8px rgba(231,76,26,0.5)" : "none",
           }}
-          title={isPlaying ? t("music_stop") || "Müziği Durdur" : t("music_play") || "Müzik Çal"}
+          title={isPlaying ? t("music_stop") : t("music_play")}
           aria-pressed={isPlaying}
         >
           {isPlaying ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
