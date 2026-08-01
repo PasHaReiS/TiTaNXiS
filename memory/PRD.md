@@ -20,7 +20,7 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - **[2026-02] Commander grid sort (shared helper)**: Module-level `sortCommandersList(arr)` in `Commanders.jsx`. Order: (1) KoF first → (2) Ranked non-KoF (S6→…→R1) → (3) Unranked by rarity (legendary > epic > common) → (4) Turkish-locale name tie-break. Used by both single-category and aggregate grid views.
 - **[2026-02] Commander form: hide Rank + Rarity for Team & Garrison**: `CommanderForm` in `Commanders.jsx` skips Rank + Rarity block when current section is `KAFES ETKİNLİK`, `SAVAŞ`, `SVS EKİP`, or `GARNİZON`.
 - **[2026-02] Note position + color (Member)**: Backend `Member`/`MemberCreate`/`MemberUpdate` extended with `note_position` (`inline` | `bottom`) and `note_color` (hex). Form has toggle chips + 8-color palette shown only when bottom is selected. Card + Profile Dialog render conditionally with defensive `note.trim() !== ""` guard.
-- **[2026-02] Tablet/desktop responsive + i18n sidebar + content-lang badge**: `.app-shell` and `.bottom-nav` max-width now scales via media queries (mobile 430px → tablet 100% → desktop max 1280px). Commander grid uses `grid-cols-2 md:grid-cols-3 xl:grid-cols-4` for adaptive columns. Sidebar section + category labels routed through i18n (`sb_*` and `cat_*` keys) for all 8 languages (tr/en/ru/de/fr/es/ko/ar). New static `<ContentLangBadge>` renders a subtle `🌐 TR` chip next to category labels on both `CommanderCard` and `CommanderGridCard`, indicating user-entered content language.
+- **[2026-02] Stone & Fire theme**: `index.css` repainted with volcanic palette — base `#0D0D0D` body + cracked-stone SVG overlay, lava orange `#E74C1A` primary accent, fire red `#C0392B`, amber gold `#D4730A`, cream text `#F5F0E8`. Card borders + divider-glow + bottom-nav + buttons + chips + tree-items + scrollbar all shifted to lava tones with inset glow shadows. All rank/rarity badge colors, i18n, responsive, and data preserved.
 - **[2026-02] Member card + compact profile modal**: Card body now shows only the member name (bold) + castle level (`t("castle_short")` format like "Kale F8") — alliance badge moved into the popup. Clicking a name opens `MemberProfileDialog` — a compact custom (non-Radix) modal that lists: name+ID, alliance chip (case-preserved), Kale Seviyesi (F8), Tetikçi/Kalkanlı/Bombacı as `F# - T#` rows. Missing values render as `-`. Backdrop click closes. Radix `Dialog` replaced due to portal/transform positioning bug that placed content at y=6021.
 - **[2026-02] Members POST validation fix**: `MemberCreate` schema — only `name` is required; `member_id`, `rank` (defaults to `R1`), `alliance_name`, `castle_level`, `tetikci_*`, `bombaci_*`, `kalkanli_*`, `note`, `title`, `level` all optional. Extra unknown fields ignored via `ConfigDict(extra="ignore")`.
 - **[2026-02] Members list restructure**: Each alliance is an independent collapsible accordion block. Within each alliance, rank sections (R5→R4→R3→R2→R1) are independent collapsible sub-accordions. **All ranks render as 2-column responsive grid** (previous R5-full-width rule removed). Card shows large name, ID, castle level, and an alliance badge preserving DB case. Alliance groups sorted GOW → GoW → GOw → alpha → NoGroup last.
@@ -48,6 +48,15 @@ See `/app/memory/test_credentials.md`
 
 ## Notes for Next Agent
 - Do NOT create random files under `/app/backend/` that trigger uvicorn watchfiles reload cascade (502 crash).
+- Router prefixes: `auth_router` mounted so `/api/auth/login` resolves.
+- REACT_APP_BACKEND_URL is the only correct external URL — never hardcode.
+See `/app/memory/test_credentials.md`
+
+## Notes for Next Agent
+- Do NOT create random files under `/app/backend/` that trigger uvicorn watchfiles reload cascade (502 crash).
+- Router prefixes: `auth_router` mounted so `/api/auth/login` resolves.
+- REACT_APP_BACKEND_URL is the only correct external URL — never hardcode.
+
 - Router prefixes: `auth_router` mounted so `/api/auth/login` resolves.
 - REACT_APP_BACKEND_URL is the only correct external URL — never hardcode.
 See `/app/memory/test_credentials.md`
