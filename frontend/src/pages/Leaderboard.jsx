@@ -133,17 +133,17 @@ export default function Leaderboard() {
           )}
         </div>
 
-        <div className="section-title">{t("full_ranking")}</div>
+        <div className="section-title heading-cinzel">{t("full_ranking")}</div>
         <div className="space-y-1 mb-4">
           {rest.map((r) => (
             <button
               key={r.member_id}
               data-testid={LEADERBOARD.row(r.member_id)}
               onClick={() => setProfileId(r.member_id)}
-              className="w-full card-dark p-3 flex items-center gap-3 row-hover text-left"
+              className="w-full rank-row flex items-center gap-3 text-left"
             >
               <div className="w-8 text-center">
-                <span className="text-xs font-bold text-muted-foreground mono">#{r.position}</span>
+                <span className="text-xs font-bold mono" style={{ color: "#D4730A", fontFamily: "Cinzel, Rajdhani, serif" }}>#{r.position}</span>
               </div>
               <div
                 className="rank-badge"
@@ -153,13 +153,13 @@ export default function Leaderboard() {
                 {r.rank}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-bold text-white truncate">{r.name}</div>
+                <div className="font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Cinzel, Rajdhani, serif" }}>{r.name}</div>
                 <div className="text-[10px] text-muted-foreground tracking-wider truncate">
                   {r.title || r.alliance_name || t("member")} • Lv {r.level}
                 </div>
               </div>
               <div className="text-right">
-                <div className="gold-text font-bold mono text-sm">{fmt(r.total_points)}</div>
+                <div className="font-bold mono text-sm" style={{ color: "#E74C1A" }}>{fmt(r.total_points)}</div>
               </div>
             </button>
           ))}

@@ -436,7 +436,8 @@ select:focus, textarea:focus {
 .section-title {
     font-size: 11px;
     font-weight: 700;
-    color: #E74C1A;
+    color: #D4730A;
+    font-family: 'Cinzel', 'Rajdhani', serif;
     text-transform: uppercase;
     letter-spacing: 0.15em;
     margin-bottom: 12px;

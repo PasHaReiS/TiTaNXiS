@@ -1,0 +1,15 @@
+{
+  "summary": "Smoke verification of iteration 8 polish (Stone & Fire theme final polish). App loads at preview URL with no compile overlay. Homepage /Sıralama shows Cinzel amber section titles (Genel İstatistikler, Etkinlik Filtresi, Podyum, Tam Sıralama) all with fontFamily='Cinzel, Rajdhani, serif' and color rgb(212,115,10). Podium renders 3 slabs (Czar R4 10k, Ekko R5 11k, Ecyu R4 5k). After adding sample points to 4 more members, TAM SIRALAMA rendered 4 .rank-row items (#4-#7): position number '#4' in amber Cinzel (rgb(212,115,10)), member name 'HANA' in white Cinzel (rgb(245,240,232)), point total '3.500' in lava orange rgb(231,76,26)=#E74C1A. Admin login (admin/admin123) succeeded, token stored, must-change-password prompt shown. After login, bottom nav shows 6 runic-SVG buttons (Leaderboard, Commanders, Points List, Add Points, Members, Events) with active button showing lava glow (visible in screenshot). /uyeler alliance headers render in Cinzel bold 700 with letterSpacing 1.28px, correct case preserved: 'GOW', 'GoW', 'Gruplandırılmamış'. Language switcher TR→EN successfully updates all sidebar labels on /komutanlar: KOMUTANLAR→COMMANDERS, BİLGİLENDİRME→INFORMATION, Tetikçi→Marksman, Bombacı→Infantry, Kalkanlı→Lancer, KAFES ETKİNLİK→CAGE EVENT, GARNİZON→GARRISON, SAVAŞ→BATTLE, SVS EKİP→SVS TEAM. Backend POST /api/members with just {name:'x'} returned 200 with default null fields. All 8 requested checks pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin / admin123 (works, must_change_password prompt shown as expected, dismissible via Escape)",
+  "seed_data_creation": "Temporarily added 4 point entries (2000-3500 pts) to members HANA, Lanzee, Thor, Vanya against event 'test' to force .rank-row rendering. All 4 point entries deleted after verification (DELETE /api/points/{id} returned 200 for each). Also created and deleted 1 TEST_smoke_iter8 member via POST /api/members schema check. No residual data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 8 polish (.rank-row stone slab class in Leaderboard.jsx, Cinzel on .section-title and rank position/name spans, Cinzel on Members.jsx alliance header, lava orange point totals, amber position numbers) all render correctly. Rank rows require >3 members with points on active event to become visible (top 3 go to podium). rank-row visual style: no gradient background (bg=none rendered), border-left rgb(82,35,20) via .rank-row block CSS. Language switcher testids: [data-testid='lang-toggle'] then [data-testid='lang-en']. Login testid: [data-testid='header-login-btn']. Bottom nav is fixed position container with 2 btns for guests, 6 for admins."
+}

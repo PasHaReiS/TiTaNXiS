@@ -229,7 +229,7 @@ export default function Members() {
                 data-testid={`members-group-${grp.name}`}
                 aria-expanded={!collapsedAlliances.has(grp.name)}
               >
-                <span className="flex items-center gap-2 font-bold tracking-wider text-base truncate">
+                <span className="flex items-center gap-2 font-bold tracking-wider text-base truncate" style={{ fontFamily: "Cinzel, Rajdhani, serif", letterSpacing: "0.08em" }}>
                   <ChevronDown
                     className="w-4 h-4 flex-shrink-0 transition-transform"
                     style={{ transform: collapsedAlliances.has(grp.name) ? "rotate(-90deg)" : "rotate(0deg)" }}
