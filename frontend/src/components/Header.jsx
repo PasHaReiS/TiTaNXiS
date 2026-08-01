@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound } from "lucide-react";
+import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound, Volume2, VolumeX } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { LEADERBOARD } from "@/constants/testIds";
@@ -33,7 +33,43 @@ export default function Header() {
   const nav = useNavigate();
   const loc = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const menuRef = useRef(null);
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    const a = new Audio("/audio/epic_battle.mp3");
+    a.loop = true;
+    a.volume = 0.3;
+    a.preload = "auto";
+    audioRef.current = a;
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  const toggleMusic = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (isPlaying) {
+      a.pause();
+      setIsPlaying(false);
+    } else {
+      const p = a.play();
+      if (p && typeof p.catch === "function") {
+        p.then(() => setIsPlaying(true)).catch(() => {
+          toast.error(t("music_blocked") || "Audio playback blocked by browser");
+          setIsPlaying(false);
+        });
+      } else {
+        setIsPlaying(true);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -75,6 +111,22 @@ export default function Header() {
         </div>
 
         <LanguageSwitcher />
+
+        <button
+          data-testid="header-music-toggle"
+          onClick={toggleMusic}
+          className="w-8 h-8 rounded-full flex items-center justify-center transition-colors flex-shrink-0"
+          style={{
+            background: "#1A1210",
+            border: `1px solid ${isPlaying ? "#E74C1A" : "rgba(255,255,255,0.15)"}`,
+            color: isPlaying ? "#E74C1A" : "#F5F0E8",
+            boxShadow: isPlaying ? "0 0 8px rgba(231,76,26,0.5)" : "none",
+          }}
+          title={isPlaying ? t("music_stop") || "Müziği Durdur" : t("music_play") || "Müzik Çal"}
+          aria-pressed={isPlaying}
+        >
+          {isPlaying ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+        </button>
 
         <button
           data-testid={LEADERBOARD.themeToggle}
