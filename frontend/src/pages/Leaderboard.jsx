@@ -115,17 +115,56 @@ export default function Leaderboard() {
 
         {/* Podium — Stone slab tiered (2nd | 1st | 3rd, aligned bottom) */}
         <div className="section-title heading-cinzel">{t("podium")}</div>
-        <div className="mb-6 fade-in" style={{ display: "flex", alignItems: "flex-end", gap: "8px", padding: "8px 0" }}>
-          {top3[1] && (
-            <PodiumSlab place={2} entry={top3[1]} minHeight={120} borderColor="#8A9BB0" glow="rgba(138,155,176,0.45)" bg="linear-gradient(180deg,#1E1E22,#141418)" medal="🥈" />
-          )}
-          {top3[0] && (
-            <PodiumSlab place={1} entry={top3[0]} minHeight={160} borderColor="#D4730A" glow="rgba(212,115,10,0.55)" bg="linear-gradient(180deg,#2A1A08,#1A0E04)" medal="👑" />
-          )}
-          {top3[2] && (
-            <PodiumSlab place={3} entry={top3[2]} minHeight={100} borderColor="#8B6914" glow="rgba(139,105,20,0.45)" bg="linear-gradient(180deg,#221608,#160E04)" medal="🥉" />
-          )}
-        </div>
+        {(top3[0] || top3[1] || top3[2]) && (() => {
+          const first = top3[0], second = top3[1], third = top3[2];
+          return (
+            <div className="mb-6 fade-in" style={{
+              display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '8px',
+              padding: '16px 8px',
+              background: 'linear-gradient(180deg, rgba(231,76,26,0.05) 0%, transparent 100%)'
+            }}>
+              {/* 2. SIRA - SOL */}
+              {second && (
+                <div data-testid="podium-2" onClick={() => setProfileId(second.member_id)} style={{
+                  flex: 1, minHeight: '120px', background: 'linear-gradient(180deg, #1E1E22 0%, #141418 100%)',
+                  border: '2px solid #8A9BB0', boxShadow: '0 0 15px rgba(138,155,176,0.5), inset 0 0 10px rgba(0,0,0,0.5)',
+                  borderRadius: '6px 6px 0 0', padding: '10px 6px', textAlign: 'center',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', cursor: 'pointer'
+                }}>
+                  <span style={{ fontSize: '20px' }}>🥈</span>
+                  <span style={{ color: '#F5F0E8', fontFamily: 'Cinzel, serif', fontSize: '13px', fontWeight: 700, marginTop: '6px' }}>{second.name}</span>
+                  <span style={{ color: '#8A9BB0', fontSize: '11px', marginTop: '2px' }}>{(second.total_points ?? 0).toLocaleString()}</span>
+                </div>
+              )}
+              {/* 1. SIRA - ORTA (EN YÜKSEK) */}
+              {first && (
+                <div data-testid="podium-1" onClick={() => setProfileId(first.member_id)} style={{
+                  flex: 1, minHeight: '170px', background: 'linear-gradient(180deg, #2A1A08 0%, #1A0E04 100%)',
+                  border: '2px solid #D4730A', boxShadow: '0 0 25px rgba(212,115,10,0.7), inset 0 0 10px rgba(0,0,0,0.5)',
+                  borderRadius: '6px 6px 0 0', padding: '10px 6px', textAlign: 'center',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', cursor: 'pointer'
+                }}>
+                  <span style={{ fontSize: '24px' }}>👑</span>
+                  <span style={{ color: '#D4730A', fontFamily: 'Cinzel, serif', fontSize: '14px', fontWeight: 700, marginTop: '6px' }}>{first.name}</span>
+                  <span style={{ color: '#E74C1A', fontSize: '13px', fontWeight: 'bold', marginTop: '4px' }}>{(first.total_points ?? 0).toLocaleString()}</span>
+                </div>
+              )}
+              {/* 3. SIRA - SAĞ */}
+              {third && (
+                <div data-testid="podium-3" onClick={() => setProfileId(third.member_id)} style={{
+                  flex: 1, minHeight: '100px', background: 'linear-gradient(180deg, #221608 0%, #160E04 100%)',
+                  border: '2px solid #8B6914', boxShadow: '0 0 12px rgba(139,105,20,0.5), inset 0 0 10px rgba(0,0,0,0.5)',
+                  borderRadius: '6px 6px 0 0', padding: '10px 6px', textAlign: 'center',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', cursor: 'pointer'
+                }}>
+                  <span style={{ fontSize: '18px' }}>🥉</span>
+                  <span style={{ color: '#F5F0E8', fontFamily: 'Cinzel, serif', fontSize: '12px', fontWeight: 700, marginTop: '6px' }}>{third.name}</span>
+                  <span style={{ color: '#8B6914', fontSize: '11px', marginTop: '2px' }}>{(third.total_points ?? 0).toLocaleString()}</span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         <div className="section-title heading-cinzel">{t("full_ranking")}</div>
         <div className="space-y-1 mb-4">
@@ -173,38 +212,6 @@ export default function Leaderboard() {
       </div>
 
       <MemberProfileDialog memberId={profileId} open={!!profileId} onClose={() => setProfileId(null)} />
-    </div>
-  );
-}
-
-// Compact stone-slab podium tile — inline styled to keep the Stone & Fire aesthetic without extra CSS.
-function PodiumSlab({ place, entry, minHeight, borderColor, glow, bg, medal }) {
-  return (
-    <div
-      data-testid={`podium-${place}`}
-      style={{
-        flex: 1, minHeight, background: bg, border: `2px solid ${borderColor}`,
-        boxShadow: `0 0 20px ${glow}, inset 0 0 12px rgba(0,0,0,0.4)`,
-        borderRadius: 10, padding: 12, textAlign: "center",
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start",
-        fontFamily: "Cinzel, Rajdhani, serif",
-      }}
-    >
-      <div style={{ fontSize: place === 1 ? 26 : 22, lineHeight: 1, marginBottom: 6 }}>{medal}</div>
-      <div style={{ fontSize: 10, color: borderColor, fontWeight: 700, letterSpacing: "0.08em" }}>#{place}</div>
-      <div style={{
-        display: "inline-block", marginTop: 4, fontSize: 10,
-        background: "#1A1008", border: `1px solid ${borderColor}`, color: borderColor,
-        padding: "2px 6px", borderRadius: 4, fontWeight: 700,
-      }}>{entry.rank}</div>
-      <div style={{
-        fontSize: place === 1 ? 13 : 11, fontWeight: 700, color: "#F5F0E8",
-        marginTop: 8, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
-      }} title={entry.name}>{entry.name}</div>
-      <div style={{
-        fontSize: place === 1 ? 15 : 12, fontWeight: 800, marginTop: 6,
-        color: place === 1 ? "#D4730A" : "#E74C1A", fontFamily: "'JetBrains Mono', monospace"
-      }}>{fmt(entry.total_points)}</div>
     </div>
   );
 }
