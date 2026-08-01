@@ -4,7 +4,7 @@ import { api, fmt } from "@/lib/api";
 import { POINTS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
-import { Search, Trash2 } from "lucide-react";
+import { Search, Trash2, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { mutate as globalMutate } from "swr";
 import { useTranslation } from "react-i18next";
@@ -14,7 +14,9 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
 export default function PointsList() {
   const { t } = useTranslation();
   const [q, setQ] = useState("");
+  const [editing, setEditing] = useState(null);
   const { data: points = [] } = useSWR("/scores?limit=2000", fetcher, { refreshInterval: 5000 });
+  const { data: events = [] } = useSWR("/events?archived=false", fetcher);
 
   const filtered = useMemo(() => {
     if (!q) return points;
@@ -65,6 +67,16 @@ export default function PointsList() {
                 </div>
                 <CanEdit>
                   <button
+                    data-testid={`edit-scorelist-${p.id}`}
+                    onClick={() => setEditing(p)}
+                    className="w-7 h-7 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
+                    aria-label={t("edit")}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </CanEdit>
+                <CanEdit>
+                  <button
                     onClick={async () => {
                       if (!window.confirm(t("confirm_delete_record"))) return;
                       await api.delete(`/scores/${p.id}`);
@@ -85,6 +97,78 @@ export default function PointsList() {
           {filtered.length === 0 && <div className="card-dark p-6 text-center text-muted-foreground">{t("no_records_dot")}</div>}
         </div>
       </div>
+
+      {editing && (
+        <EditScoreDialog
+          point={editing}
+          events={events}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            globalMutate((k) => typeof k === "string" && (k.startsWith("/scores") || k.startsWith("/points") || k.startsWith("/members/")));
+            globalMutate("/stats");
+            globalMutate("/leaderboard");
+            setEditing(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function EditScoreDialog({ point, events, onClose, onSaved }) {
+  const { t } = useTranslation();
+  const [pts, setPts] = useState(String(point.points));
+  const [mult, setMult] = useState(String(point.multiplier || 1));
+  const [eventId, setEventId] = useState(point.event_id);
+  const [note, setNote] = useState(point.note || "");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.patch(`/scores/${point.id}`, {
+        points: Number(pts),
+        multiplier: Number(mult),
+        event_id: eventId,
+        note: note.trim() || null,
+      });
+      toast.success(t("points_updated"));
+      onSaved();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || err.message);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
+      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="card-red-gold w-full max-w-md p-5 fade-in relative" data-testid="scorelist-edit-dialog">
+        <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white"><X className="w-5 h-5" /></button>
+        <h3 className="text-lg font-bold uppercase gold-text mb-1">{t("edit_points_title")}</h3>
+        <p className="text-xs text-muted-foreground mb-4">{point.member_name}</p>
+
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">{t("event")}</label>
+        <select value={eventId} onChange={(e) => setEventId(e.target.value)}
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white">
+          {events.map((e) => <option key={e.id} value={e.id}>{e.name} ({e.multiplier}x)</option>)}
+        </select>
+
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("points")}</label>
+        <input data-testid="scorelist-edit-points" type="number" value={pts} onChange={(e) => setPts(e.target.value)}
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono" />
+
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("multiplier")}</label>
+        <input type="number" step="0.1" value={mult} onChange={(e) => setMult(e.target.value)}
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono" />
+
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("note")}</label>
+        <input value={note} onChange={(e) => setNote(e.target.value)}
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
+
+        <button type="submit" data-testid="scorelist-edit-save" disabled={saving} className="btn-gold w-full mt-5">
+          {saving ? t("saving") : t("save")}
+        </button>
+      </form>
     </div>
   );
 }

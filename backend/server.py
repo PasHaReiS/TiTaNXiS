@@ -720,13 +720,20 @@ async def export_xlsx():
             for col in range(1, 7):
                 ws2.cell(row=i, column=col).fill = row_fill
 
-    # Sheet 3: Sıralama Listesi — soft alliance tint across the row, full color on Alliance cell
+    # Sheet 3: Sıralama Listesi — soft alliance tint across the row, full color on Alliance cell.
+    # Include ALL members (zero-point ones appended after scored) so col A always has a rank.
     lb = await leaderboard()
+    scored_ids = {r["member_id"] for r in lb}
+    full_lb = list(lb) + [
+        {"member_id": m["id"], "name": m.get("name") or "", "rank": m.get("rank") or "", "total_points": 0}
+        for m in members if m["id"] not in scored_ids
+    ]
     ws3 = make_sheet("Sıralama Listesi", ["Sıra", "Üye", "Rütbe", "İttifak", "Puan"])
-    for i, r in enumerate(lb, start=2):
+    for idx, r in enumerate(full_lb, start=1):
+        i = idx + 1
         m = m_by_id.get(r["member_id"], {})
         alliance = m.get("alliance_name") or ""
-        ws3.cell(row=i, column=1, value=r["position"])
+        ws3.cell(row=i, column=1, value=idx)
         ws3.cell(row=i, column=2, value=r["name"])
         ws3.cell(row=i, column=3, value=r["rank"])
         ws3.cell(row=i, column=4, value=alliance)

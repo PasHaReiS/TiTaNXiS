@@ -36,7 +36,7 @@ export default function BottomNav() {
             to={it.to}
             end={it.to === "/"}
             data-testid={it.testId}
-            className={({ isActive }) => `bottom-nav-btn ${isActive ? "active" : ""}`}
+            className={({ isActive }) => `bottom-nav-btn flex flex-col items-center justify-center text-center ${isActive ? "active" : ""}`}
             onClick={(e) => { if (disabledEdit) { e.preventDefault(); } }}
             style={disabledEdit ? { opacity: 0.5 } : undefined}
             title={disabledEdit ? t("view_only") : undefined}
@@ -53,6 +53,7 @@ export default function BottomNav() {
                     {disabledEdit && <Lock className="w-2.5 h-2.5 absolute -top-1 -right-1 gold-text" />}
                   </div>
                   <span
+                    className="text-center leading-tight w-full"
                     style={{
                       color,
                       fontWeight: isActive ? 700 : 500,

@@ -27,7 +27,6 @@ export default function Header({ subtitle }) {
             className="flex-shrink-0 rounded-md"
             style={{ height: 42, width: "auto", maxWidth: 140, objectFit: "contain" }}
           />
-          {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
         </div>
 
         <LanguageSwitcher />

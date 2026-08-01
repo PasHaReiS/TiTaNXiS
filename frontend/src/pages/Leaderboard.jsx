@@ -5,7 +5,7 @@ import { allianceBadgeStyle } from "@/lib/colors";
 import { LEADERBOARD } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
-import { Users, Calendar, Star, TrendingUp, Download, Crown, Medal, Award } from "lucide-react";
+import { Users, Calendar, Star, TrendingUp, Download, Crown, Medal, Award, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -16,6 +16,7 @@ export default function Leaderboard() {
   const [filter, setFilter] = useState("active");
   const [group, setGroup] = useState(null);
   const [profileId, setProfileId] = useState(null);
+  const [podiumOpen, setPodiumOpen] = useState(true);
 
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 5000 });
   const { data: groups } = useSWR("/event-groups", fetcher, { refreshInterval: 10000 });
@@ -114,8 +115,28 @@ export default function Leaderboard() {
         )}
 
         {/* Podium — Stone & Fire circles restored */}
-        <div className="section-title heading-cinzel">{t("podium")}</div>
         {(top3[0] || top3[1] || top3[2]) && (
+          <div className="mb-2 mt-3 flex items-center justify-end">
+            <button
+              type="button"
+              data-testid="podium-toggle"
+              onClick={() => setPodiumOpen((v) => !v)}
+              className="w-9 h-9 rounded-md flex items-center justify-center transition-transform"
+              style={{
+                background: "linear-gradient(180deg, #2A1408 0%, #1A0F0A 100%)",
+                border: "1px solid rgba(231,76,26,0.55)",
+                boxShadow: "0 0 8px rgba(231,76,26,0.35), inset 0 0 6px rgba(0,0,0,0.4)",
+                color: "#E74C1A",
+              }}
+              aria-label="toggle podium"
+              aria-expanded={podiumOpen}
+              title={t("podium")}
+            >
+              {podiumOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          </div>
+        )}
+        {(top3[0] || top3[1] || top3[2]) && podiumOpen && (
           <div className="grid grid-cols-3 gap-2 mb-6 fade-in items-end">
             {top3[1] && (
               <div
@@ -132,7 +153,7 @@ export default function Leaderboard() {
                   <Medal className="w-4 h-4" />
                 </div>
                 <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={top3[1].name}>{top3[1].name}</div>
-                <div style={{ fontSize: 10, color: '#8A9BB0', marginTop: 2 }}>Lv {top3[1].level}</div>
+                <div style={{ fontSize: 10, color: '#8A9BB0', marginTop: 2 }} title={top3[1].alliance_name || ""}>{top3[1].alliance_name || "-"}</div>
                 <div style={{ marginTop: 6, fontWeight: 600, fontSize: 12, color: '#E74C1A', fontFamily: "'JetBrains Mono', monospace" }}>{fmt(top3[1].total_points)}</div>
               </div>
             )}
@@ -152,7 +173,7 @@ export default function Leaderboard() {
                   <Crown className="w-4 h-4" />
                 </div>
                 <div style={{ marginTop: 8, fontSize: 14, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={top3[0].name}>{top3[0].name}</div>
-                <div style={{ fontSize: 10, color: '#D4730A', marginTop: 2 }}>Lv {top3[0].level}</div>
+                <div style={{ fontSize: 10, color: '#D4730A', marginTop: 2 }} title={top3[0].alliance_name || ""}>{top3[0].alliance_name || "-"}</div>
                 <div style={{ marginTop: 6, fontWeight: 600, fontSize: 14, color: '#E74C1A', fontFamily: "'JetBrains Mono', monospace" }}>{fmt(top3[0].total_points)}</div>
               </div>
             )}
@@ -171,7 +192,7 @@ export default function Leaderboard() {
                   <Award className="w-4 h-4" />
                 </div>
                 <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={top3[2].name}>{top3[2].name}</div>
-                <div style={{ fontSize: 10, color: '#8B6914', marginTop: 2 }}>Lv {top3[2].level}</div>
+                <div style={{ fontSize: 10, color: '#8B6914', marginTop: 2 }} title={top3[2].alliance_name || ""}>{top3[2].alliance_name || "-"}</div>
                 <div style={{ marginTop: 6, fontWeight: 600, fontSize: 11, color: '#E74C1A', fontFamily: "'JetBrains Mono', monospace" }}>{fmt(top3[2].total_points)}</div>
               </div>
             )}
@@ -200,7 +221,7 @@ export default function Leaderboard() {
               <div className="flex-1 min-w-0">
                 <div className="font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Cinzel, Rajdhani, serif" }}>{r.name}</div>
                 <div className="text-[10px] text-muted-foreground tracking-wider truncate">
-                  {r.title || r.alliance_name || t("member")} • Lv {r.level}
+                  {r.alliance_name || t("member")}
                 </div>
               </div>
               <div className="text-right">

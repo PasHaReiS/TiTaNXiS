@@ -238,7 +238,7 @@ export default function Members() {
                 </span>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <CanEdit>
-                    {grp.name !== t("no_group") && (
+                    {(
                       <span
                         role="button"
                         tabIndex={0}
