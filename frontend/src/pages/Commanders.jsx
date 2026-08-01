@@ -705,7 +705,7 @@ function CharacterMultiSelect({ value, onChange, allCommanders, allCharacters, e
     const s = q.trim().toLowerCase();
     const notSelected = options.filter((o) => !value.includes(o.name));
     if (!s) return notSelected.slice(0, 30);
-    return notSelected.filter((o) => o.name.toLowerCase().includes(s)).slice(0, 30);
+    return notSelected.filter((o) => (o.name || "").toLowerCase().includes(s)).slice(0, 30);
   }, [options, q, value]);
 
   const add = (n) => {
@@ -770,7 +770,7 @@ function CharacterMultiSelect({ value, onChange, allCommanders, allCharacters, e
           }}
           data-testid="character-dropdown"
         >
-          {q.trim() && !options.some((o) => o.name.toLowerCase() === q.trim().toLowerCase()) && (
+          {q.trim() && !options.some((o) => (o.name || "").toLowerCase() === q.trim().toLowerCase()) && (
             <button
               type="button"
               onClick={() => add(q)}

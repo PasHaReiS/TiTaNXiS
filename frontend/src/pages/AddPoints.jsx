@@ -32,7 +32,7 @@ export default function AddPoints() {
   const filteredMembers = useMemo(() => {
     if (!memberQ) return members.slice(0, 30);
     const s = memberQ.toLowerCase();
-    return members.filter((m) => m.name.toLowerCase().includes(s) || m.member_id.includes(memberQ)).slice(0, 50);
+    return members.filter((m) => (m.name || "").toLowerCase().includes(s) || (m.member_id || "").includes(memberQ || "")).slice(0, 50);
   }, [members, memberQ]);
 
   const finalMultiplier = customMult ? Number(customMult) : multiplier;
@@ -285,7 +285,7 @@ function EditMemberPointsSection({ events }) {
   const filtered = useMemo(() => {
     if (!q) return [];
     const s = q.toLowerCase();
-    return members.filter((m) => m.name.toLowerCase().includes(s) || (m.member_id || "").includes(q)).slice(0, 20);
+    return members.filter((m) => (m.name || "").toLowerCase().includes(s) || (m.member_id || "").includes(q || "")).slice(0, 20);
   }, [members, q]);
 
   return (

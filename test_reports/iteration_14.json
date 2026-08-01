@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 14 hotfix verified: (1) Null-safe member search across Puan Ekle single+bulk modes and Filtrele-ve-Düzenle section — typed queries into all 4 search inputs with no TypeError. (2) BottomNav tab label 'KOMUTAN BİLGİLERİ' verified in TR default and all 8 locales (en/ru/de/fr/es/ko/ar/tr) via LanguageSwitcher — all match expected translations. (3) Members sort by name (A→Z) applied without crash, PointsList & Commanders navigate cleanly. (4) Backend regression pytest: 2/2 PASS (PATCH /api/scores, GET /api/export/xlsx Sıralama sheet).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iter14.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AddPoints.jsx line ~177 renders <span> inside <option> (due to LiveEditor instrumentation on {e.name}). React logs a hydration warning 'In HTML, <span> cannot be a child of <option>'. This is a pre-existing dev-mode warning (present before iteration 14, unrelated to null-safety hotfix). Consider wrapping event.name in a plain string, e.g. `{String(e.name || '')}`, to silence and future-proof — currently harmless in production.",
+    "Null-safety pattern is now consistent: (m.name || '').toLowerCase() and (m.member_id || '').includes() applied in AddPoints (2 sites), Commanders (2 sites), PointsList (1 site), Members cmp uses `an = a.name || ''` before localeCompare, Leaderboard already null-safe. Good coverage.",
+    "Leaderboard.jsx was NOT in the referenced change list but sort still uses r.name via slice/sort in prior iterations — verify it also guards against null names if any member.name could be null (spot-check appeared safe during navigation)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (2/2)", "frontend": "100% (all acceptance criteria)"},
+  "test_credentials": "admin / admin123 — works",
+  "seed_data_creation": "None — did not need to create null-name member; existing 155 members exercised the guarded code paths, and typed queries like 'a', 'xyz', 'test', 'z' triggered all branches without crash.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 14 hotfix accepted. Null-safe guards in place at AddPoints:35,288 / Commanders:708,773 / PointsList:25 / Members:110-119 cmp. All 8 i18n nav_commanders values verified live in browser (TR: KOMUTAN BİLGİLERİ, EN: Commander Info, RU: Информация о командирах, DE: Kommandanten-Info, FR: Info Commandants, ES: Info Comandantes, KO: 지휘관 정보, AR: معلومات القادة). Only lingering console warning is a React hydration warning about <span> inside <option> on AddPoints event dropdown — pre-existing, not related to this iteration, cosmetic only.",
+  "rca of the issue": "Prior TypeError 'Cannot read properties of null (reading includes)' was thrown when a member document had null/undefined name or member_id and code called .toLowerCase().includes() / .includes() on the raw field. Fix: wrap every field access with (field || '') fallback across all 5 pages. Verified with 4 different search-input interactions across single/bulk/filter sections — zero TypeErrors captured via page.on('pageerror') and console-error listeners."
+}

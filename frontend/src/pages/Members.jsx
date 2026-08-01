@@ -107,14 +107,16 @@ export default function Members() {
       const cb = parseInt(b.castle_level || "0", 10) || 0;
       const ra = rankOrder[a.rank] || 0;
       const rb = rankOrder[b.rank] || 0;
+      const an = a.name || "";
+      const bn = b.name || "";
       switch (sortMode) {
-        case "name_asc": return a.name.localeCompare(b.name, "tr");
-        case "name_desc": return b.name.localeCompare(a.name, "tr");
-        case "rank_asc": return ra - rb || a.name.localeCompare(b.name, "tr");
-        case "rank_desc": return rb - ra || a.name.localeCompare(b.name, "tr");
-        case "castle_desc": return cb - ca || a.name.localeCompare(b.name, "tr");
-        case "castle_asc": return ca - cb || a.name.localeCompare(b.name, "tr");
-        default: return rb - ra || a.name.localeCompare(b.name, "tr");
+        case "name_asc": return an.localeCompare(bn, "tr");
+        case "name_desc": return bn.localeCompare(an, "tr");
+        case "rank_asc": return ra - rb || an.localeCompare(bn, "tr");
+        case "rank_desc": return rb - ra || an.localeCompare(bn, "tr");
+        case "castle_desc": return cb - ca || an.localeCompare(bn, "tr");
+        case "castle_asc": return ca - cb || an.localeCompare(bn, "tr");
+        default: return rb - ra || an.localeCompare(bn, "tr");
       }
     };
     Object.values(groups).forEach((arr) => arr.sort(cmp));
