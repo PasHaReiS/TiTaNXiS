@@ -113,58 +113,70 @@ export default function Leaderboard() {
           </div>
         )}
 
-        {/* Podium — Stone slab tiered (2nd | 1st | 3rd, aligned bottom) */}
+        {/* Podium — Stone & Fire circles restored */}
         <div className="section-title heading-cinzel">{t("podium")}</div>
-        {(top3[0] || top3[1] || top3[2]) && (() => {
-          const first = top3[0], second = top3[1], third = top3[2];
-          return (
-            <div className="mb-6 fade-in" style={{
-              display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '8px',
-              padding: '16px 8px',
-              background: 'linear-gradient(180deg, rgba(231,76,26,0.05) 0%, transparent 100%)'
-            }}>
-              {/* 2. SIRA - SOL */}
-              {second && (
-                <div data-testid="podium-2" onClick={() => setProfileId(second.member_id)} style={{
-                  flex: 1, minHeight: '120px', background: 'linear-gradient(180deg, #1E1E22 0%, #141418 100%)',
-                  border: '2px solid #8A9BB0', boxShadow: '0 0 15px rgba(138,155,176,0.5), inset 0 0 10px rgba(0,0,0,0.5)',
-                  borderRadius: '6px 6px 0 0', padding: '10px 6px', textAlign: 'center',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', cursor: 'pointer'
-                }}>
-                  <span style={{ fontSize: '20px' }}>🥈</span>
-                  <span style={{ color: '#F5F0E8', fontFamily: 'Cinzel, serif', fontSize: '13px', fontWeight: 700, marginTop: '6px' }}>{second.name}</span>
-                  <span style={{ color: '#8A9BB0', fontSize: '11px', marginTop: '2px' }}>{(second.total_points ?? 0).toLocaleString()}</span>
+        {(top3[0] || top3[1] || top3[2]) && (
+          <div className="grid grid-cols-3 gap-2 mb-6 fade-in items-end">
+            {top3[1] && (
+              <div
+                data-testid="podium-2"
+                onClick={() => setProfileId(top3[1].member_id)}
+                style={{
+                  background: '#1A1210', border: '2px solid #8A9BB0',
+                  boxShadow: '0 0 15px rgba(138,155,176,0.4), inset 0 0 10px rgba(0,0,0,0.4)',
+                  borderRadius: 12, padding: '16px 8px 12px', minHeight: 120,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer',
+                }}
+              >
+                <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#c0c0c0,#8a8a8a)', color: '#0a0a0a' }}>
+                  <Medal className="w-4 h-4" />
                 </div>
-              )}
-              {/* 1. SIRA - ORTA (EN YÜKSEK) */}
-              {first && (
-                <div data-testid="podium-1" onClick={() => setProfileId(first.member_id)} style={{
-                  flex: 1, minHeight: '170px', background: 'linear-gradient(180deg, #2A1A08 0%, #1A0E04 100%)',
-                  border: '2px solid #D4730A', boxShadow: '0 0 25px rgba(212,115,10,0.7), inset 0 0 10px rgba(0,0,0,0.5)',
-                  borderRadius: '6px 6px 0 0', padding: '10px 6px', textAlign: 'center',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', cursor: 'pointer'
-                }}>
-                  <span style={{ fontSize: '24px' }}>👑</span>
-                  <span style={{ color: '#D4730A', fontFamily: 'Cinzel, serif', fontSize: '14px', fontWeight: 700, marginTop: '6px' }}>{first.name}</span>
-                  <span style={{ color: '#E74C1A', fontSize: '13px', fontWeight: 'bold', marginTop: '4px' }}>{(first.total_points ?? 0).toLocaleString()}</span>
+                <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={top3[1].name}>{top3[1].name}</div>
+                <div style={{ fontSize: 10, color: '#8A9BB0', marginTop: 2 }}>Lv {top3[1].level}</div>
+                <div style={{ marginTop: 6, fontWeight: 600, fontSize: 12, color: '#E74C1A', fontFamily: "'JetBrains Mono', monospace" }}>{fmt(top3[1].total_points)}</div>
+              </div>
+            )}
+            {top3[0] && (
+              <div
+                data-testid="podium-1"
+                onClick={() => setProfileId(top3[0].member_id)}
+                style={{
+                  background: '#1A1210', border: '2px solid #D4730A',
+                  boxShadow: '0 0 20px rgba(212,115,10,0.5), 0 0 40px rgba(212,115,10,0.2), inset 0 0 10px rgba(0,0,0,0.4)',
+                  borderRadius: 12, padding: '18px 8px 14px', minHeight: 140,
+                  transform: 'scale(1.05)', zIndex: 2,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer',
+                }}
+              >
+                <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#D4730A,#E74C1A)', color: '#0a0a0a' }}>
+                  <Crown className="w-4 h-4" />
                 </div>
-              )}
-              {/* 3. SIRA - SAĞ */}
-              {third && (
-                <div data-testid="podium-3" onClick={() => setProfileId(third.member_id)} style={{
-                  flex: 1, minHeight: '100px', background: 'linear-gradient(180deg, #221608 0%, #160E04 100%)',
-                  border: '2px solid #8B6914', boxShadow: '0 0 12px rgba(139,105,20,0.5), inset 0 0 10px rgba(0,0,0,0.5)',
-                  borderRadius: '6px 6px 0 0', padding: '10px 6px', textAlign: 'center',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', cursor: 'pointer'
-                }}>
-                  <span style={{ fontSize: '18px' }}>🥉</span>
-                  <span style={{ color: '#F5F0E8', fontFamily: 'Cinzel, serif', fontSize: '12px', fontWeight: 700, marginTop: '6px' }}>{third.name}</span>
-                  <span style={{ color: '#8B6914', fontSize: '11px', marginTop: '2px' }}>{(third.total_points ?? 0).toLocaleString()}</span>
+                <div style={{ marginTop: 8, fontSize: 14, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={top3[0].name}>{top3[0].name}</div>
+                <div style={{ fontSize: 10, color: '#D4730A', marginTop: 2 }}>Lv {top3[0].level}</div>
+                <div style={{ marginTop: 6, fontWeight: 600, fontSize: 14, color: '#E74C1A', fontFamily: "'JetBrains Mono', monospace" }}>{fmt(top3[0].total_points)}</div>
+              </div>
+            )}
+            {top3[2] && (
+              <div
+                data-testid="podium-3"
+                onClick={() => setProfileId(top3[2].member_id)}
+                style={{
+                  background: '#1A1210', border: '2px solid #8B6914',
+                  boxShadow: '0 0 15px rgba(139,105,20,0.4), inset 0 0 10px rgba(0,0,0,0.4)',
+                  borderRadius: 12, padding: '14px 8px 10px', minHeight: 100,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer',
+                }}
+              >
+                <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#8B6914,#A67C00)', color: '#0a0a0a' }}>
+                  <Award className="w-4 h-4" />
                 </div>
-              )}
-            </div>
-          );
-        })()}
+                <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={top3[2].name}>{top3[2].name}</div>
+                <div style={{ fontSize: 10, color: '#8B6914', marginTop: 2 }}>Lv {top3[2].level}</div>
+                <div style={{ marginTop: 6, fontWeight: 600, fontSize: 11, color: '#E74C1A', fontFamily: "'JetBrains Mono', monospace" }}>{fmt(top3[2].total_points)}</div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="section-title heading-cinzel">{t("full_ranking")}</div>
         <div className="space-y-1 mb-4">
