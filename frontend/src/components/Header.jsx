@@ -9,7 +9,7 @@ import { LEADERBOARD } from "@/constants/testIds";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
-const BRAND_LOGO_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/fb92b583ca964c22a56b6b68f1cf73ef_1000073431.jpg";
+const BRAND_LOGO_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/4e1d325e85084ea69c28857dabe96728_1000073434.jpg";
 
 function MenuItem({ icon: Icon, label, onClick, testId }) {
   return (
@@ -70,7 +70,7 @@ export default function Header() {
             alt="Brand"
             data-testid="header-brand-logo"
             className="flex-shrink-0 rounded"
-            style={{ height: 44, width: 88, objectFit: "cover", borderRadius: 4, transform: "scaleX(1.15)", transformOrigin: "left center" }}
+            style={{ height: 40, width: "auto", maxWidth: 160, objectFit: "contain", borderRadius: 4 }}
           />
         </div>
 
@@ -99,61 +99,69 @@ export default function Header() {
             </button>
 
             {menuOpen && (
-              <div
-                data-testid="header-profile-dropdown"
-                className="min-w-[200px] rounded-md overflow-hidden"
-                style={{
-                  position: "absolute",
-                  right: 0,
-                  top: "100%",
-                  marginTop: 4,
-                  zIndex: 9999,
-                  background: "#1E1410",
-                  border: "1px solid #E74C1A",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.8), 0 0 12px rgba(231,76,26,0.25)",
-                }}
-              >
-                <MenuItem
-                  icon={UserIcon}
-                  label={t("my_profile")}
-                  onClick={() => goto("/profil")}
-                  testId="dropdown-profile"
+              <>
+                <div
+                  data-testid="header-profile-overlay"
+                  onClick={() => setMenuOpen(false)}
+                  style={{ position: "fixed", inset: 0, zIndex: 99998, background: "transparent" }}
                 />
-                {isAdmin && (
-                  <MenuItem
-                    icon={Settings}
-                    label={t("user_mgmt")}
-                    onClick={() => goto("/kullanicilar")}
-                    testId="dropdown-users"
-                  />
-                )}
-                <MenuItem
-                  icon={KeyRound}
-                  label={t("change_password_title")}
-                  onClick={() => goto("/profil")}
-                  testId="dropdown-password"
-                />
-                {isAdmin && (
-                  <MenuItem
-                    icon={Download}
-                    label={t("detailed_report")}
-                    onClick={downloadXlsx}
-                    testId="dropdown-export"
-                  />
-                )}
-                <div style={{ height: 1, background: "rgba(231,76,26,0.3)" }} />
-                <MenuItem
-                  icon={LogOut}
-                  label={t("logout")}
-                  onClick={() => {
-                    logout();
-                    nav("/");
-                    toast.success(t("logout_done"));
-                    setMenuOpen(false);
+                <div
+                  data-testid="header-profile-dropdown"
+                  className="overflow-hidden"
+                  style={{
+                    position: "fixed",
+                    top: 60,
+                    right: 8,
+                    zIndex: 99999,
+                    minWidth: 200,
+                    background: "#1E1410",
+                    border: "1px solid #E74C1A",
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.9)",
+                    borderRadius: 8,
                   }}
-                  testId="dropdown-logout"
-                />
-              </div>
+                >
+                  <MenuItem
+                    icon={UserIcon}
+                    label={t("my_profile")}
+                    onClick={() => goto("/profil")}
+                    testId="dropdown-profile"
+                  />
+                  {isAdmin && (
+                    <MenuItem
+                      icon={Settings}
+                      label={t("user_mgmt")}
+                      onClick={() => goto("/kullanicilar")}
+                      testId="dropdown-users"
+                    />
+                  )}
+                  <MenuItem
+                    icon={KeyRound}
+                    label={t("change_password_title")}
+                    onClick={() => goto("/profil")}
+                    testId="dropdown-password"
+                  />
+                  {isAdmin && (
+                    <MenuItem
+                      icon={Download}
+                      label={t("detailed_report")}
+                      onClick={downloadXlsx}
+                      testId="dropdown-export"
+                    />
+                  )}
+                  <div style={{ height: 1, background: "rgba(231,76,26,0.3)" }} />
+                  <MenuItem
+                    icon={LogOut}
+                    label={t("logout")}
+                    onClick={() => {
+                      logout();
+                      nav("/");
+                      toast.success(t("logout_done"));
+                      setMenuOpen(false);
+                    }}
+                    testId="dropdown-logout"
+                  />
+                </div>
+              </>
             )}
           </div>
         ) : (

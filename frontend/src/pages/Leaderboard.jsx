@@ -5,7 +5,7 @@ import { allianceBadgeStyle } from "@/lib/colors";
 import { LEADERBOARD } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
-import { Users, Calendar, Star, TrendingUp, Crown, Medal, Award, Sparkles } from "lucide-react";
+import { Users, Calendar, Star, TrendingUp, Crown, Medal, Award } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -16,7 +16,6 @@ export default function Leaderboard() {
   const [filter, setFilter] = useState("active");
   const [group, setGroup] = useState(null);
   const [profileId, setProfileId] = useState(null);
-  const [podiumLit, setPodiumLit] = useState(false);
 
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 5000 });
   const { data: groups } = useSWR("/event-groups", fetcher, { refreshInterval: 10000 });
@@ -114,49 +113,17 @@ export default function Leaderboard() {
           </div>
         )}
 
-        {/* Podium — Stone & Fire */}
+        {/* Podium — Stone & Fire (always lit) */}
         {(top3[0] || top3[1] || top3[2]) && (
-          <div className="mb-2 mt-3 flex items-center justify-end">
-            <button
-              type="button"
-              data-testid="podium-illuminate"
-              onClick={() => setPodiumLit((v) => !v)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all"
-              style={{
-                background: podiumLit
-                  ? "linear-gradient(180deg, #3A1808 0%, #2A0F0A 100%)"
-                  : "linear-gradient(180deg, #2A1408 0%, #1A0F0A 100%)",
-                border: "1px solid rgba(231,76,26,0.55)",
-                boxShadow: podiumLit
-                  ? "0 0 12px rgba(231,76,26,0.75), inset 0 0 6px rgba(0,0,0,0.4)"
-                  : "0 0 6px rgba(231,76,26,0.3), inset 0 0 6px rgba(0,0,0,0.4)",
-                color: "#F5A623",
-                fontFamily: "Cinzel, serif",
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-              }}
-              aria-pressed={podiumLit}
-              title={t("illuminate")}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              {t("illuminate")}
-            </button>
-          </div>
-        )}
-        {(top3[0] || top3[1] || top3[2]) && (
-          <div className="mb-6 fade-in" style={{ display: "grid", gridTemplateColumns: "0.85fr 1fr 0.85fr", gap: "4px", alignItems: "end" }}>
+          <div className="mb-6 mt-3 fade-in" style={{ display: "grid", gridTemplateColumns: "0.85fr 1fr 0.85fr", gap: "4px", alignItems: "end" }}>
             {top3[1] && (
               <div
                 data-testid="podium-2"
                 onClick={() => setProfileId(top3[1].member_id)}
                 style={{
-                  background: '#1A1210', border: '2px solid #8A9BB0',
-                  boxShadow: podiumLit
-                    ? '0 0 25px rgba(192,192,192,0.8), 0 0 50px rgba(192,192,192,0.3), inset 0 0 10px rgba(0,0,0,0.4)'
-                    : '0 0 15px rgba(138,155,176,0.4), inset 0 0 10px rgba(0,0,0,0.4)',
-                  transition: 'box-shadow 0.5s ease',
+                  background: 'linear-gradient(180deg, rgba(192,192,192,0.12) 0%, #141418 100%)',
+                  border: '2px solid #8A9BB0',
+                  boxShadow: '0 0 25px rgba(192,192,192,0.5), inset 0 0 15px rgba(192,192,192,0.08)',
                   borderRadius: 12, padding: '16px 8px 12px', minHeight: 120,
                   display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer',
                 }}
@@ -165,7 +132,22 @@ export default function Leaderboard() {
                   <Medal className="w-4 h-4" />
                 </div>
                 <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[1].name}>{top3[1].name}</div>
-                <div style={{ fontSize: 10, color: '#8A9BB0', marginTop: 2 }} title={top3[1].alliance_name || ""}>{top3[1].alliance_name || "-"}</div>
+                <div
+                  data-testid={`podium-alliance-badge-2`}
+                  className="text-[9px] font-bold rounded-full mt-1"
+                  style={{
+                    background: (top3[1].alliance_name && allianceColors[top3[1].alliance_name]) || "#E74C1A",
+                    color: "#fff",
+                    padding: "2px 8px",
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    fontFamily: "Cinzel, Rajdhani, serif",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                  }}
+                  title={top3[1].alliance_name || ""}
+                >
+                  {top3[1].alliance_name || "-"}
+                </div>
                 <div style={{ marginTop: 6, fontWeight: 600, fontSize: 12, color: '#E74C1A', fontFamily: "'JetBrains Mono', monospace" }}>{fmt(top3[1].total_points)}</div>
               </div>
             )}
@@ -174,11 +156,9 @@ export default function Leaderboard() {
                 data-testid="podium-1"
                 onClick={() => setProfileId(top3[0].member_id)}
                 style={{
-                  background: '#1A1210', border: '2px solid #D4730A',
-                  boxShadow: podiumLit
-                    ? '0 0 30px rgba(220,38,38,0.9), 0 0 60px rgba(220,38,38,0.4), inset 0 0 10px rgba(0,0,0,0.4)'
-                    : '0 0 20px rgba(212,115,10,0.5), 0 0 40px rgba(212,115,10,0.2), inset 0 0 10px rgba(0,0,0,0.4)',
-                  transition: 'box-shadow 0.5s ease',
+                  background: 'linear-gradient(180deg, rgba(220,38,38,0.15) 0%, #1A0E04 100%)',
+                  border: '2px solid #D4730A',
+                  boxShadow: '0 0 30px rgba(220,38,38,0.6), inset 0 0 20px rgba(220,38,38,0.1)',
                   borderRadius: 12, padding: '18px 8px 14px', minHeight: 140,
                   transform: 'scale(1.05)', zIndex: 2,
                   display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer',
@@ -188,7 +168,22 @@ export default function Leaderboard() {
                   <Crown className="w-4 h-4" />
                 </div>
                 <div style={{ marginTop: 8, fontSize: 14, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[0].name}>{top3[0].name}</div>
-                <div style={{ fontSize: 10, color: '#D4730A', marginTop: 2 }} title={top3[0].alliance_name || ""}>{top3[0].alliance_name || "-"}</div>
+                <div
+                  data-testid={`podium-alliance-badge-1`}
+                  className="text-[9px] font-bold rounded-full mt-1"
+                  style={{
+                    background: (top3[0].alliance_name && allianceColors[top3[0].alliance_name]) || "#E74C1A",
+                    color: "#fff",
+                    padding: "2px 8px",
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    fontFamily: "Cinzel, Rajdhani, serif",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                  }}
+                  title={top3[0].alliance_name || ""}
+                >
+                  {top3[0].alliance_name || "-"}
+                </div>
                 <div style={{ marginTop: 6, fontWeight: 600, fontSize: 14, color: '#E74C1A', fontFamily: "'JetBrains Mono', monospace" }}>{fmt(top3[0].total_points)}</div>
               </div>
             )}
@@ -197,11 +192,9 @@ export default function Leaderboard() {
                 data-testid="podium-3"
                 onClick={() => setProfileId(top3[2].member_id)}
                 style={{
-                  background: '#1A1210', border: '2px solid #8B6914',
-                  boxShadow: podiumLit
-                    ? '0 0 20px rgba(205,127,50,0.8), 0 0 40px rgba(205,127,50,0.3), inset 0 0 10px rgba(0,0,0,0.4)'
-                    : '0 0 15px rgba(139,105,20,0.4), inset 0 0 10px rgba(0,0,0,0.4)',
-                  transition: 'box-shadow 0.5s ease',
+                  background: 'linear-gradient(180deg, rgba(205,127,50,0.12) 0%, #160E04 100%)',
+                  border: '2px solid #8B6914',
+                  boxShadow: '0 0 20px rgba(205,127,50,0.5), inset 0 0 15px rgba(205,127,50,0.08)',
                   borderRadius: 12, padding: '14px 8px 10px', minHeight: 100,
                   display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer',
                 }}
@@ -210,7 +203,22 @@ export default function Leaderboard() {
                   <Award className="w-4 h-4" />
                 </div>
                 <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[2].name}>{top3[2].name}</div>
-                <div style={{ fontSize: 10, color: '#8B6914', marginTop: 2 }} title={top3[2].alliance_name || ""}>{top3[2].alliance_name || "-"}</div>
+                <div
+                  data-testid={`podium-alliance-badge-3`}
+                  className="text-[9px] font-bold rounded-full mt-1"
+                  style={{
+                    background: (top3[2].alliance_name && allianceColors[top3[2].alliance_name]) || "#E74C1A",
+                    color: "#fff",
+                    padding: "2px 8px",
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    fontFamily: "Cinzel, Rajdhani, serif",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                  }}
+                  title={top3[2].alliance_name || ""}
+                >
+                  {top3[2].alliance_name || "-"}
+                </div>
                 <div style={{ marginTop: 6, fontWeight: 600, fontSize: 11, color: '#E74C1A', fontFamily: "'JetBrains Mono', monospace" }}>{fmt(top3[2].total_points)}</div>
               </div>
             )}

@@ -1,0 +1,58 @@
+{
+  "summary": "Iteration 17 frontend-only verification of 5 GOD OF WAR guild app changes. All 5 requested changes verified successfully via Playwright on the preview URL as admin/admin123.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verified_changes": [
+    {
+      "change": "Header logo swap",
+      "status": "PASS",
+      "evidence": "header-brand-logo src ends with 4e1d325e85084ea69c28857dabe96728_1000073434.jpg. Computed styles: height=40px, maxWidth=160px, objectFit=contain, borderRadius=4px, transform=none. Header innerText contains only flag/'TR'/'ADMİN'/'ADMIN' — no 'GOD OF WAR' text."
+    },
+    {
+      "change": "Profile dropdown fixed z-index + overlay",
+      "status": "PASS",
+      "evidence": "Dropdown computed: position=fixed, top=60px, right=8px, zIndex=99999, background=rgb(30,20,16), border='1px solid rgb(231,76,26)', boxShadow contains 'rgba(0,0,0,0.9) 0px 8px 32px'. Overlay: position=fixed, all insets 0px, zIndex=99998. elementFromPoint at dropdown center returns dropdown (i.e., rendered above stats cards). Clicking overlay closes menu (data-testid disappears)."
+    },
+    {
+      "change": "Işıklandır button + Sparkles removed",
+      "status": "PASS",
+      "evidence": "No element with data-testid='podium-illuminate'. No .lucide-sparkles svg found in DOM. Podium still renders 3 tiered cards."
+    },
+    {
+      "change": "Podium alliance pill",
+      "status": "PASS",
+      "evidence": "podium-alliance-badge-1/2/3 all present. fontSize=9px, borderRadius=9999px (rounded-full), color=rgb(255,255,255), backgroundColor=rgb(234,88,12) — that's the actual alliance-color hex for 'GOW' from /api/alliance-colors (custom color, not fallback #E74C1A). Text is uppercase 'GOW'. Fallback '-' path present in code for members with no alliance_name."
+    },
+    {
+      "change": "Podium constant glow (no toggle)",
+      "status": "PASS",
+      "evidence": "p1 backgroundImage='linear-gradient(rgba(220, 38, 38, 0.15) 0%, rgb(26, 14, 4) 100%)' [180deg normalized by browser], boxShadow='rgba(220, 38, 38, 0.6) 0px 0px 30px 0px, rgba(220, 38, 38, 0.1) 0px 0px 20px 0px inset'. p2 'rgba(192,192,192,0.12) 0%, rgb(20,20,24) 100%' + shadow 'rgba(192,192,192,0.5) 0px 0px 25px 0px, rgba(192,192,192,0.08) 0px 0px 15px 0px inset'. p3 'rgba(205,127,50,0.12) 0%, rgb(22,14,4) 100%' + shadow 'rgba(205,127,50,0.5) 0px 0px 20px 0px, rgba(205,127,50,0.08) 0px 0px 15px 0px inset'. All applied on initial load — no user toggle exists."
+    },
+    {
+      "change": "Regression — dropdown-export present",
+      "status": "PASS",
+      "evidence": "dropdown-export button visible in admin dropdown; still triggers /export/xlsx as anchor download."
+    }
+  ],
+  "notes": [
+    "Browser normalizes CSS 'linear-gradient(180deg, ...)' to 'linear-gradient(...)' since 180deg equals the default 'to bottom' — this is a browser serialization only; visual result is identical to spec.",
+    "Alliance pill background on the seeded data (all GOW members) resolves to rgb(234,88,12) via allianceColors['GOW'] custom color from backend, not the fallback #E74C1A. Fallback branch verified by code inspection."
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Header.jsx still has an unused legacy mousedown outside-click handler (menuRef) — harmless but redundant given the overlay now handles closing. Consider removing to reduce dead code.",
+    "Header.jsx: menuRef ref is attached to a <div class='relative'> that only wraps the trigger button (dropdown is now fixed outside it), so the mousedown handler never sees the dropdown children as 'inside'. It still works because overlay click closes the menu, but the logic is misleading."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "admin / admin123 (from review request)",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 5 iter-17 changes verified via computed-style assertions in Playwright. Preview URL loads; login flow works with 2 input fields (not name=username). Podium alliance color for GOW resolves to rgb(234,88,12) via /api/alliance-colors."
+}
