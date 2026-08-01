@@ -854,6 +854,8 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
   const togglePair = (id) => setKofPairs((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
 
   const isTeamMode = TEAM_SECTIONS.has(currentSection);
+  const isGarrison = currentSection === "GARNİZON" || category === "garnizon";
+  const hideRankAndRarity = isTeamMode || isGarrison;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -864,8 +866,8 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
       const body = {
         name: name.trim(),
         category: category.trim(),
-        rank: rank.trim() || null,
-        rarity: rarity || null,
+        rank: hideRankAndRarity ? null : (rank.trim() || null),
+        rarity: hideRankAndRarity ? null : (rarity || null),
         image_url: imageUrl.trim() || null,
         description: description.trim() || null,
         characters: characters.map((s) => s.trim()).filter(Boolean),
@@ -943,8 +945,8 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
           </>
         )}
 
-        {/* Rank — writable + autocomplete via datalist */}
-        {!isInfo && (
+        {/* Rank + Rarity — hidden for Team and Garrison forms (not needed there) */}
+        {!isInfo && !hideRankAndRarity && (
           <>
             <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("rank")}</label>
             {allRanks.length > 0 && (
