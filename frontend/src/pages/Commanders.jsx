@@ -95,12 +95,17 @@ export default function Commanders() {
 
   const activeSection = sectionOf(selectedCat);
   const commanders = useMemo(() => {
-    const base = activeSection
-      ? allCommanders.filter((c) => {
-          const catKeys = CATEGORIES.filter((cc) => cc.section === activeSection).map((cc) => cc.key);
-          return catKeys.includes(c.category);
-        })
-      : allCommanders.filter((c) => c.category === selectedCat);
+    let base;
+    if (activeSection) {
+      const catKeys = CATEGORIES.filter((cc) => cc.section === activeSection).map((cc) => cc.key);
+      base = allCommanders.filter((c) => catKeys.includes(c.category));
+      // KOMUTANLAR aggregate ("Tümü") intentionally excludes Robotlar — robots only appear in their own tab.
+      if (activeSection === "KOMUTANLAR") {
+        base = base.filter((c) => c.category !== "robotlar");
+      }
+    } else {
+      base = allCommanders.filter((c) => c.category === selectedCat);
+    }
     return sortCommandersList(base);
   }, [allCommanders, selectedCat, activeSection]);
 
@@ -226,7 +231,35 @@ export default function Commanders() {
                 {(() => {
                   const q = gridSearch.trim().toLowerCase();
                   const searched = q ? commanders.filter((c) => (c.name || "").toLowerCase().includes(q)) : commanders;
-                  const groupsOrder = activeSection === "KOMUTANLAR" ? COMMANDER_GROUPS : null;
+
+                  // KOMUTANLAR "Tümü" view: single flat list mixing Tetikçi/Bombacı/Kalkanlı (Robotlar excluded upstream).
+                  if (activeSection === "KOMUTANLAR") {
+                    if (searched.length === 0) {
+                      return <div className="card-dark p-6 text-center text-muted-foreground text-xs">{t("no_commanders_in_category")}</div>;
+                    }
+                    return (
+                      <div className="grid grid-cols-2 gap-2" data-testid="grid-group-KOMUTANLAR-all">
+                        {searched.map((c) => (
+                          <CommanderGridCard
+                            key={c.id}
+                            commander={c}
+                            commanderById={commanderById}
+                            onOpen={() => setLightbox(c)}
+                            onEdit={() => { setEditing(c); setShowForm(true); }}
+                            onDelete={async () => {
+                              if (!window.confirm(t("confirm_delete_generic", { name: c.name }))) return;
+                              await api.delete(`/commanders/${c.id}`);
+                              mutate((k) => typeof k === "string" && k.startsWith("/commanders"));
+                              toast.success(t("deleted"));
+                            }}
+                          />
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  // Other sections: group by category (keeps team/garrison behavior intact).
+                  const groupsOrder = null;
                   const groups = {};
                   searched.forEach((c) => { (groups[c.category] = groups[c.category] || []).push(c); });
                   Object.keys(groups).forEach((k) => { groups[k] = sortCommandersList(groups[k]); });
