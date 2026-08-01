@@ -2,12 +2,14 @@ import React from "react";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, Trophy, LogIn, LogOut, User as UserIcon, Shield, Settings } from "lucide-react";
+import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { LEADERBOARD } from "@/constants/testIds";
 
-export default function Header({ title = "GOD OF WAR", subtitle }) {
+const BRAND_LOGO_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/c07b4fb61b36495797d713aa97cdd08f_1000073363.jpg";
+
+export default function Header({ subtitle }) {
   const { theme, toggle } = useTheme();
   const { user, isAdmin, canEdit } = useAuth();
   const { t } = useTranslation();
@@ -17,15 +19,15 @@ export default function Header({ title = "GOD OF WAR", subtitle }) {
   return (
     <header className="px-4 pt-5 pb-3 fade-in">
       <div className="flex items-center gap-2">
-        <div className="tr-flag" aria-hidden />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-4 h-4 gold-text" />
-            <h1 className="text-lg font-bold uppercase tracking-wider" style={{ fontFamily: "Rajdhani" }}>
-              <span className="red-text">GOD</span> <span className="gold-text">OF WAR</span>
-            </h1>
-          </div>
-          {subtitle && <p className="text-xs text-muted-foreground mt-0.5 truncate">{subtitle}</p>}
+        <div className="flex-1 min-w-0 flex items-center gap-3">
+          <img
+            src={BRAND_LOGO_URL}
+            alt="Brand"
+            data-testid="header-brand-logo"
+            className="flex-shrink-0 rounded-md"
+            style={{ height: 42, width: "auto", maxWidth: 140, objectFit: "contain" }}
+          />
+          {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
         </div>
 
         <LanguageSwitcher />
