@@ -21,9 +21,27 @@ export default function Leaderboard() {
   const { data: groups } = useSWR("/event-groups", fetcher, { refreshInterval: 10000 });
   const { data: lb = [] } = useSWR(group ? `/leaderboard?group_name=${encodeURIComponent(group)}` : "/leaderboard", fetcher, { refreshInterval: 5000 });
   const { data: allianceColors = {} } = useSWR("/alliance-colors", fetcher, { refreshInterval: 15000 });
+  const { data: allMembers = [] } = useSWR("/members", fetcher, { refreshInterval: 10000 });
 
-  const top3 = useMemo(() => lb.slice(0, 3), [lb]);
-  const rest = useMemo(() => lb.slice(3, 200), [lb]);
+  // Merge zero-point members below scored ones so the whole guild is always listed.
+  const fullLb = useMemo(() => {
+    const scoredIds = new Set(lb.map((r) => r.member_id));
+    const zeros = allMembers
+      .filter((m) => !scoredIds.has(m.id))
+      .map((m) => ({
+        member_id: m.id,
+        name: m.name,
+        rank: m.rank || "R1",
+        alliance_name: m.alliance_name,
+        level: m.level || 1,
+        title: m.title,
+        total_points: 0,
+      }));
+    return [...lb, ...zeros].map((r, i) => ({ ...r, position: i + 1 }));
+  }, [lb, allMembers]);
+
+  const top3 = useMemo(() => fullLb.slice(0, 3), [fullLb]);
+  const rest = useMemo(() => fullLb.slice(3, 500), [fullLb]);
 
   const exportXlsx = async () => {
     try {
@@ -95,41 +113,17 @@ export default function Leaderboard() {
           </div>
         )}
 
-        {/* Podium */}
-        <div className="section-title">{t("podium")}</div>
-        <div className="grid grid-cols-3 gap-2 mb-6 fade-in items-end">
+        {/* Podium — Stone slab tiered (2nd | 1st | 3rd, aligned bottom) */}
+        <div className="section-title heading-cinzel">{t("podium")}</div>
+        <div className="mb-6 fade-in" style={{ display: "flex", alignItems: "flex-end", gap: "8px", padding: "8px 0" }}>
           {top3[1] && (
-            <div className="podium-item podium-2" style={{ minHeight: 130 }}>
-              <div className="podium-medal" style={{ background: "linear-gradient(135deg,#c0c0c0,#8a8a8a)", color: "#0a0a0a" }}>
-                <Medal className="w-4 h-4" />
-              </div>
-              <div className={`rank-badge rank-${top3[1].rank} mt-2`}>{top3[1].rank === "GOW" ? "" : top3[1].rank}</div>
-              <div className="text-xs font-bold mt-2 text-white truncate w-full">{top3[1].name}</div>
-              <div className="text-[10px] text-muted-foreground">Lv {top3[1].level}</div>
-              <div className="gold-text font-bold text-xs mono mt-1">{fmt(top3[1].total_points)}</div>
-            </div>
+            <PodiumSlab place={2} entry={top3[1]} minHeight={120} borderColor="#8A9BB0" glow="rgba(138,155,176,0.45)" bg="linear-gradient(180deg,#1E1E22,#141418)" medal="🥈" />
           )}
           {top3[0] && (
-            <div className="podium-item podium-1" style={{ minHeight: 150 }}>
-              <div className="podium-medal" style={{ background: "linear-gradient(135deg,#F5A623,#d68810)", color: "#0a0a0a" }}>
-                <Crown className="w-4 h-4" />
-              </div>
-              <div className={`rank-badge rank-${top3[0].rank} mt-2`}>{top3[0].rank === "GOW" ? "" : top3[0].rank}</div>
-              <div className="text-sm font-bold mt-2 text-white truncate w-full">{top3[0].name}</div>
-              <div className="text-[10px] text-muted-foreground">Lv {top3[0].level}</div>
-              <div className="gold-text font-bold text-sm mono mt-1">{fmt(top3[0].total_points)}</div>
-            </div>
+            <PodiumSlab place={1} entry={top3[0]} minHeight={160} borderColor="#D4730A" glow="rgba(212,115,10,0.55)" bg="linear-gradient(180deg,#2A1A08,#1A0E04)" medal="👑" />
           )}
           {top3[2] && (
-            <div className="podium-item podium-3" style={{ minHeight: 130 }}>
-              <div className="podium-medal" style={{ background: "linear-gradient(135deg,#cd7f32,#8b4513)", color: "#fff" }}>
-                <Award className="w-4 h-4" />
-              </div>
-              <div className={`rank-badge rank-${top3[2].rank} mt-2`}>{top3[2].rank === "GOW" ? "" : top3[2].rank}</div>
-              <div className="text-xs font-bold mt-2 text-white truncate w-full">{top3[2].name}</div>
-              <div className="text-[10px] text-muted-foreground">Lv {top3[2].level}</div>
-              <div className="gold-text font-bold text-xs mono mt-1">{fmt(top3[2].total_points)}</div>
-            </div>
+            <PodiumSlab place={3} entry={top3[2]} minHeight={100} borderColor="#8B6914" glow="rgba(139,105,20,0.45)" bg="linear-gradient(180deg,#221608,#160E04)" medal="🥉" />
           )}
         </div>
 
@@ -179,6 +173,38 @@ export default function Leaderboard() {
       </div>
 
       <MemberProfileDialog memberId={profileId} open={!!profileId} onClose={() => setProfileId(null)} />
+    </div>
+  );
+}
+
+// Compact stone-slab podium tile — inline styled to keep the Stone & Fire aesthetic without extra CSS.
+function PodiumSlab({ place, entry, minHeight, borderColor, glow, bg, medal }) {
+  return (
+    <div
+      data-testid={`podium-${place}`}
+      style={{
+        flex: 1, minHeight, background: bg, border: `2px solid ${borderColor}`,
+        boxShadow: `0 0 20px ${glow}, inset 0 0 12px rgba(0,0,0,0.4)`,
+        borderRadius: 10, padding: 12, textAlign: "center",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start",
+        fontFamily: "Cinzel, Rajdhani, serif",
+      }}
+    >
+      <div style={{ fontSize: place === 1 ? 26 : 22, lineHeight: 1, marginBottom: 6 }}>{medal}</div>
+      <div style={{ fontSize: 10, color: borderColor, fontWeight: 700, letterSpacing: "0.08em" }}>#{place}</div>
+      <div style={{
+        display: "inline-block", marginTop: 4, fontSize: 10,
+        background: "#1A1008", border: `1px solid ${borderColor}`, color: borderColor,
+        padding: "2px 6px", borderRadius: 4, fontWeight: 700,
+      }}>{entry.rank}</div>
+      <div style={{
+        fontSize: place === 1 ? 13 : 11, fontWeight: 700, color: "#F5F0E8",
+        marginTop: 8, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+      }} title={entry.name}>{entry.name}</div>
+      <div style={{
+        fontSize: place === 1 ? 15 : 12, fontWeight: 800, marginTop: 6,
+        color: place === 1 ? "#D4730A" : "#E74C1A", fontFamily: "'JetBrains Mono', monospace"
+      }}>{fmt(entry.total_points)}</div>
     </div>
   );
 }
