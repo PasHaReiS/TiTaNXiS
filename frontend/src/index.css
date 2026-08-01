@@ -358,11 +358,9 @@ code, .mono {
     background: linear-gradient(90deg, rgba(231,76,26,0.55), transparent);
 }
 
-/* ============================================================ */
-/* Stone & Fire — Global Tailwind palette overrides                */
-/* Forces existing bg-red-*/yellow-*/text-white utilities and     */
-/* any hard-coded gray shades to align with the Fire palette.     */
-/* ============================================================ */
+/* Stone & Fire — Global Tailwind palette overrides */
+/* Forces bg-red / yellow / text-white utilities and gray shades */
+/* to align with the Fire palette using !important. */
 
 /* Text — cream white overrides the default pure white */
 .text-white { color: #F5F0E8 !important; }
