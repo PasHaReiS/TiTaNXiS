@@ -34,6 +34,32 @@ const RARITY = {
 };
 const RARITY_ORDER = { legendary: 3, epic: 2, common: 1 };
 const RANK_ORDER = { S6: 11, S5: 10, S4: 9, S3: 8, S2: 7, S1: 6, R5: 5, R4: 4, R3: 3, R2: 2, R1: 1 };
+
+// Shared sort for commander lists:
+//  1) KoF first (S6→S1 among KoF).
+//  2) Non-KoF ranked commanders (R5→R1, then any S-rank).
+//  3) Non-KoF unranked, by rarity (legendary > epic > common).
+//  4) Ties broken by name in Turkish locale.
+function sortCommandersList(arr) {
+  const rankRank = (r) => RANK_ORDER[r] || 0;
+  const rarityRank = (r) => RARITY_ORDER[r] || 0;
+  return [...arr].sort((a, b) => {
+    if (a.is_kof !== b.is_kof) return a.is_kof ? -1 : 1;
+    const aRank = rankRank(a.rank);
+    const bRank = rankRank(b.rank);
+    const aHasRank = aRank > 0;
+    const bHasRank = bRank > 0;
+    if (aHasRank !== bHasRank) return aHasRank ? -1 : 1;
+    if (aHasRank && bHasRank) {
+      if (aRank !== bRank) return bRank - aRank;
+      return (a.name || "").localeCompare(b.name || "", "tr");
+    }
+    const aRar = rarityRank(a.rarity);
+    const bRar = rarityRank(b.rarity);
+    if (aRar !== bRar) return bRar - aRar;
+    return (a.name || "").localeCompare(b.name || "", "tr");
+  });
+}
 // Groups used by the KOMUTANLAR section view (order matters).
 const COMMANDER_GROUPS = ["tetikci", "kalkanli", "bombaci", "robotlar"];
 
@@ -69,11 +95,13 @@ export default function Commanders() {
 
   const activeSection = sectionOf(selectedCat);
   const commanders = useMemo(() => {
-    if (activeSection) {
-      const catKeys = CATEGORIES.filter((c) => c.section === activeSection).map((c) => c.key);
-      return allCommanders.filter((c) => catKeys.includes(c.category));
-    }
-    return allCommanders.filter((c) => c.category === selectedCat);
+    const base = activeSection
+      ? allCommanders.filter((c) => {
+          const catKeys = CATEGORIES.filter((cc) => cc.section === activeSection).map((cc) => cc.key);
+          return catKeys.includes(c.category);
+        })
+      : allCommanders.filter((c) => c.category === selectedCat);
+    return sortCommandersList(base);
   }, [allCommanders, selectedCat, activeSection]);
 
   const kofCommanders = useMemo(() => allCommanders.filter((c) => c.is_kof), [allCommanders]);
@@ -198,19 +226,10 @@ export default function Commanders() {
                 {(() => {
                   const q = gridSearch.trim().toLowerCase();
                   const searched = q ? commanders.filter((c) => (c.name || "").toLowerCase().includes(q)) : commanders;
-                  const rarityRank = (r) => RARITY_ORDER[r] || 0;
-                  const rankRank = (r) => RANK_ORDER[r] || 0;
                   const groupsOrder = activeSection === "KOMUTANLAR" ? COMMANDER_GROUPS : null;
                   const groups = {};
                   searched.forEach((c) => { (groups[c.category] = groups[c.category] || []).push(c); });
-                  Object.values(groups).forEach((arr) => arr.sort((a, b) => {
-                    if (a.is_kof !== b.is_kof) return a.is_kof ? -1 : 1;
-                    const dr = rankRank(b.rank) - rankRank(a.rank);
-                    if (dr) return dr;
-                    const dq = rarityRank(b.rarity) - rarityRank(a.rarity);
-                    if (dq) return dq;
-                    return (a.name || "").localeCompare(b.name || "", "tr");
-                  }));
+                  Object.keys(groups).forEach((k) => { groups[k] = sortCommandersList(groups[k]); });
                   const orderedCats = groupsOrder
                     ? groupsOrder.filter((k) => groups[k]).concat(Object.keys(groups).filter((k) => !groupsOrder.includes(k)))
                     : Object.keys(groups);
