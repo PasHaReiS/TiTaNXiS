@@ -5,7 +5,7 @@ import { allianceBadgeStyle } from "@/lib/colors";
 import { LEADERBOARD } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
-import { Users, Calendar, Star, TrendingUp, Download, Crown, Medal, Award, ChevronUp, ChevronDown } from "lucide-react";
+import { Users, Calendar, Star, TrendingUp, Crown, Medal, Award, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -16,7 +16,7 @@ export default function Leaderboard() {
   const [filter, setFilter] = useState("active");
   const [group, setGroup] = useState(null);
   const [profileId, setProfileId] = useState(null);
-  const [podiumOpen, setPodiumOpen] = useState(true);
+  const [podiumLit, setPodiumLit] = useState(false);
 
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 5000 });
   const { data: groups } = useSWR("/event-groups", fetcher, { refreshInterval: 10000 });
@@ -114,37 +114,49 @@ export default function Leaderboard() {
           </div>
         )}
 
-        {/* Podium — Stone & Fire circles restored */}
+        {/* Podium — Stone & Fire */}
         {(top3[0] || top3[1] || top3[2]) && (
           <div className="mb-2 mt-3 flex items-center justify-end">
             <button
               type="button"
-              data-testid="podium-toggle"
-              onClick={() => setPodiumOpen((v) => !v)}
-              className="w-9 h-9 rounded-md flex items-center justify-center transition-transform"
+              data-testid="podium-illuminate"
+              onClick={() => setPodiumLit((v) => !v)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all"
               style={{
-                background: "linear-gradient(180deg, #2A1408 0%, #1A0F0A 100%)",
+                background: podiumLit
+                  ? "linear-gradient(180deg, #3A1808 0%, #2A0F0A 100%)"
+                  : "linear-gradient(180deg, #2A1408 0%, #1A0F0A 100%)",
                 border: "1px solid rgba(231,76,26,0.55)",
-                boxShadow: "0 0 8px rgba(231,76,26,0.35), inset 0 0 6px rgba(0,0,0,0.4)",
-                color: "#E74C1A",
+                boxShadow: podiumLit
+                  ? "0 0 12px rgba(231,76,26,0.75), inset 0 0 6px rgba(0,0,0,0.4)"
+                  : "0 0 6px rgba(231,76,26,0.3), inset 0 0 6px rgba(0,0,0,0.4)",
+                color: "#F5A623",
+                fontFamily: "Cinzel, serif",
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
               }}
-              aria-label="toggle podium"
-              aria-expanded={podiumOpen}
-              title={t("podium")}
+              aria-pressed={podiumLit}
+              title={t("illuminate")}
             >
-              {podiumOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              <Sparkles className="w-3.5 h-3.5" />
+              {t("illuminate")}
             </button>
           </div>
         )}
-        {(top3[0] || top3[1] || top3[2]) && podiumOpen && (
-          <div className="grid grid-cols-3 gap-2 mb-6 fade-in items-end">
+        {(top3[0] || top3[1] || top3[2]) && (
+          <div className="mb-6 fade-in" style={{ display: "grid", gridTemplateColumns: "0.85fr 1fr 0.85fr", gap: "4px", alignItems: "end" }}>
             {top3[1] && (
               <div
                 data-testid="podium-2"
                 onClick={() => setProfileId(top3[1].member_id)}
                 style={{
                   background: '#1A1210', border: '2px solid #8A9BB0',
-                  boxShadow: '0 0 15px rgba(138,155,176,0.4), inset 0 0 10px rgba(0,0,0,0.4)',
+                  boxShadow: podiumLit
+                    ? '0 0 25px rgba(192,192,192,0.8), 0 0 50px rgba(192,192,192,0.3), inset 0 0 10px rgba(0,0,0,0.4)'
+                    : '0 0 15px rgba(138,155,176,0.4), inset 0 0 10px rgba(0,0,0,0.4)',
+                  transition: 'box-shadow 0.5s ease',
                   borderRadius: 12, padding: '16px 8px 12px', minHeight: 120,
                   display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer',
                 }}
@@ -163,7 +175,10 @@ export default function Leaderboard() {
                 onClick={() => setProfileId(top3[0].member_id)}
                 style={{
                   background: '#1A1210', border: '2px solid #D4730A',
-                  boxShadow: '0 0 20px rgba(212,115,10,0.5), 0 0 40px rgba(212,115,10,0.2), inset 0 0 10px rgba(0,0,0,0.4)',
+                  boxShadow: podiumLit
+                    ? '0 0 30px rgba(220,38,38,0.9), 0 0 60px rgba(220,38,38,0.4), inset 0 0 10px rgba(0,0,0,0.4)'
+                    : '0 0 20px rgba(212,115,10,0.5), 0 0 40px rgba(212,115,10,0.2), inset 0 0 10px rgba(0,0,0,0.4)',
+                  transition: 'box-shadow 0.5s ease',
                   borderRadius: 12, padding: '18px 8px 14px', minHeight: 140,
                   transform: 'scale(1.05)', zIndex: 2,
                   display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer',
@@ -183,7 +198,10 @@ export default function Leaderboard() {
                 onClick={() => setProfileId(top3[2].member_id)}
                 style={{
                   background: '#1A1210', border: '2px solid #8B6914',
-                  boxShadow: '0 0 15px rgba(139,105,20,0.4), inset 0 0 10px rgba(0,0,0,0.4)',
+                  boxShadow: podiumLit
+                    ? '0 0 20px rgba(205,127,50,0.8), 0 0 40px rgba(205,127,50,0.3), inset 0 0 10px rgba(0,0,0,0.4)'
+                    : '0 0 15px rgba(139,105,20,0.4), inset 0 0 10px rgba(0,0,0,0.4)',
+                  transition: 'box-shadow 0.5s ease',
                   borderRadius: 12, padding: '14px 8px 10px', minHeight: 100,
                   display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer',
                 }}
@@ -212,11 +230,21 @@ export default function Leaderboard() {
                 <span className="text-xs font-bold mono" style={{ color: "#D4730A", fontFamily: "Cinzel, Rajdhani, serif" }}>#{r.position}</span>
               </div>
               <div
-                className="rank-badge"
-                style={{ ...allianceBadgeStyle(r.alliance_name, allianceColors), width: 36, height: 36, fontSize: 11 }}
+                data-testid={`row-alliance-badge-${r.member_id}`}
+                className="text-[10px] font-bold rounded-full flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: (r.alliance_name && allianceColors[r.alliance_name]) || "#E74C1A",
+                  color: "#fff",
+                  minWidth: 48,
+                  padding: "4px 8px",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  fontFamily: "Cinzel, Rajdhani, serif",
+                }}
                 title={r.alliance_name || ""}
               >
-                {r.rank}
+                {r.alliance_name || "-"}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Cinzel, Rajdhani, serif" }}>{r.name}</div>
@@ -237,9 +265,10 @@ export default function Leaderboard() {
         <button
           data-testid={LEADERBOARD.exportButton}
           onClick={exportXlsx}
-          className="btn-gold w-full flex items-center justify-center gap-2 mb-6"
+          className="hidden"
+          aria-hidden="true"
+          tabIndex={-1}
         >
-          <Download className="w-4 h-4" />
           {t("detailed_report")}
         </button>
       </div>

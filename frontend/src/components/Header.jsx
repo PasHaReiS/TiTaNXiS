@@ -1,20 +1,65 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings } from "lucide-react";
+import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { LEADERBOARD } from "@/constants/testIds";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 const BRAND_LOGO_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/c07b4fb61b36495797d713aa97cdd08f_1000073363.jpg";
 
-export default function Header({ subtitle }) {
+function MenuItem({ icon: Icon, label, onClick, testId }) {
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      onClick={onClick}
+      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-white hover:bg-primary/15 text-left transition-colors"
+      style={{ fontFamily: "Cinzel, Rajdhani, serif", letterSpacing: "0.06em" }}
+    >
+      <Icon className="w-3.5 h-3.5 gold-text flex-shrink-0" />
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+export default function Header() {
   const { theme, toggle } = useTheme();
-  const { user, isAdmin, canEdit } = useAuth();
+  const { user, isAdmin, canEdit, logout } = useAuth();
   const { t } = useTranslation();
   const nav = useNavigate();
   const loc = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [menuOpen]);
+
+  const downloadXlsx = () => {
+    try {
+      const url = `${api.defaults.baseURL}/export/xlsx`;
+      const a = document.createElement("a");
+      a.href = url;
+      const today = new Date().toISOString().slice(0, 10);
+      a.download = `detayli_rapor_${today}.xlsx`;
+      a.click();
+      toast.success(t("report_downloaded"));
+    } catch (e) {
+      toast.error(t("report_failed"));
+    }
+    setMenuOpen(false);
+  };
+
+  const goto = (path) => { nav(path); setMenuOpen(false); };
 
   return (
     <header className="px-4 pt-5 pb-3 fade-in">
@@ -41,28 +86,71 @@ export default function Header({ subtitle }) {
         </button>
 
         {user ? (
-          <>
-            {isAdmin && loc.pathname !== "/kullanicilar" && (
-              <button
-                data-testid="header-settings-btn"
-                onClick={() => nav("/kullanicilar")}
-                className="w-8 h-8 rounded-full flex items-center justify-center border border-border hover:border-primary transition-colors flex-shrink-0"
-                aria-label={t("user_mgmt")}
-                title={t("user_mgmt")}
-              >
-                <Settings className="w-3.5 h-3.5 gold-text" />
-              </button>
-            )}
+          <div ref={menuRef} className="relative">
             <button
               data-testid="header-profile"
-              onClick={() => nav("/profil")}
+              onClick={() => setMenuOpen((v) => !v)}
               className="flex items-center gap-1 px-1.5 h-8 rounded-full border border-border hover:border-primary transition-colors flex-shrink-0"
               title={user.username}
+              aria-expanded={menuOpen}
             >
               {isAdmin ? <Shield className="w-3 h-3 gold-text" /> : <UserIcon className="w-3 h-3 text-white" />}
               <span className="text-[10px] font-bold uppercase truncate max-w-[52px]">{user.username}</span>
             </button>
-          </>
+
+            {menuOpen && (
+              <div
+                data-testid="header-profile-dropdown"
+                className="absolute right-0 top-full mt-1 z-50 min-w-[190px] rounded-md overflow-hidden"
+                style={{
+                  background: "linear-gradient(180deg, #1A0F0A 0%, #0D0806 100%)",
+                  border: "1px solid rgba(231,76,26,0.45)",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.6), 0 0 12px rgba(231,76,26,0.25)",
+                }}
+              >
+                <MenuItem
+                  icon={UserIcon}
+                  label={t("my_profile")}
+                  onClick={() => goto("/profil")}
+                  testId="dropdown-profile"
+                />
+                {isAdmin && (
+                  <MenuItem
+                    icon={Settings}
+                    label={t("user_mgmt")}
+                    onClick={() => goto("/kullanicilar")}
+                    testId="dropdown-users"
+                  />
+                )}
+                <MenuItem
+                  icon={KeyRound}
+                  label={t("change_password_title")}
+                  onClick={() => goto("/profil")}
+                  testId="dropdown-password"
+                />
+                {isAdmin && (
+                  <MenuItem
+                    icon={Download}
+                    label={t("detailed_report")}
+                    onClick={downloadXlsx}
+                    testId="dropdown-export"
+                  />
+                )}
+                <div style={{ height: 1, background: "rgba(231,76,26,0.3)" }} />
+                <MenuItem
+                  icon={LogOut}
+                  label={t("logout")}
+                  onClick={() => {
+                    logout();
+                    nav("/");
+                    toast.success(t("logout_done"));
+                    setMenuOpen(false);
+                  }}
+                  testId="dropdown-logout"
+                />
+              </div>
+            )}
+          </div>
         ) : (
           loc.pathname !== "/login" && (
             <button

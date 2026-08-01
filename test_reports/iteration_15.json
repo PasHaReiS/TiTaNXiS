@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 15 verified — all 5 UI changes work. (1) Leaderboard rest rows show alliance-name pills (data-testid=row-alliance-badge-{id}) with text 'GOW', minWidth 48px, bg rgb(234,88,12) from allianceColors map (fallback #E74C1A verified via inline style); no R4/R5 rank code shown. 152 badges rendered. (2) Podium grid inline style is exactly 'display: grid; grid-template-columns: 0.85fr 1fr 0.85fr; gap: 4px; align-items: end;'. (3) Old data-testid='podium-toggle' REMOVED; new 'podium-illuminate' Sparkles button toggles aria-pressed false→true→false and switches boxShadow on all 3 podium cards to exact rgba specs — p1 rgba(220,38,38,0.9)/0.4, p2 rgba(192,192,192,0.8)/0.3, p3 rgba(205,127,50,0.8)/0.3; transition 'box-shadow 0.5s' present. Old bottom Detaylı Rapor button has className='hidden', not visible. No 'PODYUM' section text. (4) Header profile dropdown: admin login (admin/admin123) → click header-profile opens header-profile-dropdown with all 5 items (dropdown-profile, dropdown-users, dropdown-password, dropdown-export, dropdown-logout). dropdown-users navigates to /kullanicilar. GET /api/export/xlsx returns 200 with xlsx content-type. dropdown-logout logs out (header-login-btn re-appears). Outside-click closes menu. (5) header-settings-btn REMOVED. i18n TR label 'Işıklandır' verified on button. All 8 i18n keys present in /app/frontend/src/i18n/index.js. Backend regression pytest 2/2 PASS.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iter15.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Header.jsx line 128: 'dropdown-password' item routes to /profil (same as dropdown-profile) — this is intentional per current spec (profile page contains change-password section), but consider deep-linking to a hash like /profil#change-password so the section is scrolled/highlighted for better UX.",
+    "Leaderboard.jsx retains an unused exportXlsx() helper (lines 47-59) — the button is now hidden and export is triggered from Header dropdown. The dead handler can be removed to reduce duplication with Header.jsx downloadXlsx(). Currently harmless but violates DRY.",
+    "Both exportXlsx (Leaderboard) and downloadXlsx (Header) trigger XLSX download via anchor <a href=... .click()> — this relies on browser session cookies/JWT. Since JWT is in localStorage as Bearer, the anchor download won't send Authorization header. GET /api/export/xlsx returns 200 in tests only because the endpoint is likely public (verified: response 200 without explicit auth header in my request from browser context which also lacked the Bearer header on the anchor). If auth is later enforced, this download will break — flag for future hardening. Consider using api.get('/export/xlsx', {responseType:'blob'}) instead."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (2/2)", "frontend": "100% (all 5 acceptance criteria + i18n + outside-click)"},
+  "test_credentials": "admin / admin123 — works",
+  "seed_data_creation": "None — used existing 155 members. Non-admin dropdown gating verified by code inspection ({isAdmin && ...} guards on dropdown-users and dropdown-export).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 15 accepted. Key testIds now: podium-illuminate (replaces podium-toggle), header-profile-dropdown, dropdown-profile/users/password/export/logout, row-alliance-badge-{member_id}. Old testIds gone: podium-toggle, header-settings-btn. Bottom leaderboard export-report-btn still exists but has className='hidden'. Alliance color map endpoint: GET /api/alliance-colors returns {'GOW': '#EA580C', ...}. Podium boxShadow off-state values: p1 rgba(212,115,10,0.5)+0.2, p2 rgba(138,155,176,0.4), p3 rgba(139,105,20,0.4).",
+  "rca of the issue": "N/A — no issues found. All acceptance criteria met exactly as specified in review_request."
+}
