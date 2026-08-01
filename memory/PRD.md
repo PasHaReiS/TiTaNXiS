@@ -20,7 +20,8 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - **[2026-02] Commander grid sort (shared helper)**: Module-level `sortCommandersList(arr)` in `Commanders.jsx`. Order: (1) KoF first → (2) Ranked non-KoF (S6→…→R1) → (3) Unranked by rarity (legendary > epic > common) → (4) Turkish-locale name tie-break. Used by both single-category and aggregate grid views.
 - **[2026-02] Commander form: hide Rank + Rarity for Team & Garrison**: `CommanderForm` in `Commanders.jsx` skips Rank + Rarity block when current section is `KAFES ETKİNLİK`, `SAVAŞ`, `SVS EKİP`, or `GARNİZON`.
 - **[2026-02] Note position + color (Member)**: Backend `Member`/`MemberCreate`/`MemberUpdate` extended with `note_position` (`inline` | `bottom`) and `note_color` (hex). Form has toggle chips + 8-color palette shown only when bottom is selected. Card + Profile Dialog render conditionally with defensive `note.trim() !== ""` guard.
-- **[2026-02] Stone & Fire final polish**: `Leaderboard.jsx` rest rows now use `.rank-row` (carved stone slab + lava left border + inset shadow) instead of `.card-dark`. Position `#N` amber-Cinzel, name Cinzel-cream, total lava `#E74C1A`. `.section-title` promoted to Cinzel+amber+lava-underline via `.heading-cinzel`. Üyeler alliance header span uses Cinzel with 0.08em tracking. Rune SVG bottom-nav preserved.
+- **[2026-02] Stone & Fire final polish**: `Leaderboard.jsx` rest rows now use `.rank-row` (carved stone slab + lava left border + inset shadow) instead of `.card-dark`. Position `#N` amber-Cinzel, name Cinzel-cream, total lava `#E74C1A`. `.section-title` promoted to Cinzel+amber+lava-underline via `.heading-cinzel`. Üyeler alliance header span uses Cinzel with 0.08em tracking.
+- **[2026-02] BottomNav lucide icons**: Reverted custom SVG runic icons to standard `lucide-react` (Trophy, Swords, BarChart2, PlusCircle, Users, Flag). Size `w-[22px] h-[22px]`, ACTIVE `#E74C1A` with `drop-shadow(0 0 6px rgba(231,76,26,0.5))` glow, INACTIVE `#666`. Verified via testing_agent iteration_12 — 100% pass.
 - **[2026-02] Member card + compact profile modal**: Card body now shows only the member name (bold) + castle level (`t("castle_short")` format like "Kale F8") — alliance badge moved into the popup. Clicking a name opens `MemberProfileDialog` — a compact custom (non-Radix) modal that lists: name+ID, alliance chip (case-preserved), Kale Seviyesi (F8), Tetikçi/Kalkanlı/Bombacı as `F# - T#` rows. Missing values render as `-`. Backdrop click closes. Radix `Dialog` replaced due to portal/transform positioning bug that placed content at y=6021.
 - **[2026-02] Members POST validation fix**: `MemberCreate` schema — only `name` is required; `member_id`, `rank` (defaults to `R1`), `alliance_name`, `castle_level`, `tetikci_*`, `bombaci_*`, `kalkanli_*`, `note`, `title`, `level` all optional. Extra unknown fields ignored via `ConfigDict(extra="ignore")`.
 - **[2026-02] Members list restructure**: Each alliance is an independent collapsible accordion block. Within each alliance, rank sections (R5→R4→R3→R2→R1) are independent collapsible sub-accordions. **All ranks render as 2-column responsive grid** (previous R5-full-width rule removed). Card shows large name, ID, castle level, and an alliance badge preserving DB case. Alliance groups sorted GOW → GoW → GOw → alpha → NoGroup last.
@@ -50,18 +51,4 @@ See `/app/memory/test_credentials.md`
 - Do NOT create random files under `/app/backend/` that trigger uvicorn watchfiles reload cascade (502 crash).
 - Router prefixes: `auth_router` mounted so `/api/auth/login` resolves.
 - REACT_APP_BACKEND_URL is the only correct external URL — never hardcode.
-See `/app/memory/test_credentials.md`
-
-## Notes for Next Agent
-- Do NOT create random files under `/app/backend/` that trigger uvicorn watchfiles reload cascade (502 crash).
-- Router prefixes: `auth_router` mounted so `/api/auth/login` resolves.
-- REACT_APP_BACKEND_URL is the only correct external URL — never hardcode.
-
-- Router prefixes: `auth_router` mounted so `/api/auth/login` resolves.
-- REACT_APP_BACKEND_URL is the only correct external URL — never hardcode.
-See `/app/memory/test_credentials.md`
-
-## Notes for Next Agent
-- Do NOT create random files under `/app/backend/` that trigger uvicorn watchfiles reload cascade (502 crash).
-- Router prefixes: `auth_router` mounted so `/api/auth/login` resolves.
-- REACT_APP_BACKEND_URL is the only correct external URL — never hardcode.
+- User communicates in Turkish — respond in Turkish.
