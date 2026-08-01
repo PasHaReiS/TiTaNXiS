@@ -25,6 +25,16 @@ code, .mono {
 
 @layer base {
     :root {
+        --bg-primary: #0D0B0A;
+        --bg-secondary: #1A1210;
+        --bg-card: #1E1412;
+        --accent-primary: #C0392B;
+        --accent-secondary: #E74C1A;
+        --accent-gold: #D4730A;
+        --text-primary: #F5F0E8;
+        --text-secondary: #AAA098;
+        --border-color: #E74C1A;
+
         --background: 0 0% 5.1%;
         --foreground: 40 40% 93.5%;
         --card: 12 12% 8.6%;
@@ -347,3 +357,34 @@ code, .mono {
     content: ''; flex: 1; height: 1px;
     background: linear-gradient(90deg, rgba(231,76,26,0.55), transparent);
 }
+
+/* ============================================================ */
+/* Stone & Fire — Global Tailwind palette overrides                */
+/* Forces existing bg-red-*/yellow-*/text-white utilities and     */
+/* any hard-coded gray shades to align with the Fire palette.     */
+/* ============================================================ */
+
+/* Text — cream white overrides the default pure white */
+.text-white { color: #F5F0E8 !important; }
+
+/* Red family → fire red / lava */
+.bg-red-500 { background-color: #E74C1A !important; }
+.bg-red-600 { background-color: #C0392B !important; }
+.text-red-300, .text-red-400, .text-red-500 { color: #E74C1A !important; }
+.text-red-600 { color: #C0392B !important; }
+.border-red-500 { border-color: #E74C1A !important; }
+
+/* Yellow / amber → amber gold */
+.bg-yellow-500 { background-color: #D4730A !important; }
+.text-yellow-400, .text-yellow-500 { color: #D4730A !important; }
+.text-amber-400, .text-amber-500 { color: #D4730A !important; }
+.border-yellow-500 { border-color: #D4730A !important; }
+
+/* Gray family → stone dark tones */
+.bg-gray-700 { background-color: #1A1210 !important; }
+.bg-gray-800 { background-color: #14100F !important; }
+.bg-gray-900 { background-color: #0D0B0A !important; }
+.text-gray-300 { color: #F5F0E8 !important; }
+.text-gray-400, .text-gray-500 { color: #AAA098 !important; }
+.border-gray-700 { border-color: rgba(231, 76, 26, 0.4) !important; }
+.border-gray-800 { border-color: rgba(231, 76, 26, 0.3) !important; }
