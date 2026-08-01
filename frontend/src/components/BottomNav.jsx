@@ -1,21 +1,24 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Trophy, Shield, ListOrdered, PlusCircle, Users, Calendar, Lock } from "lucide-react";
+import { Trophy, Swords, ClipboardList, PlusCircle, Users, Flag, Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NAV } from "@/constants/testIds";
 import { useAuth } from "@/context/AuthContext";
 
 // items visible to all: leaderboard, commanders
 // items requiring auth: points, add-points, members, events
-// Note: User management moved to Header ⚙️ icon; removed from bottom nav.
-const buildItems = (t) => [
+// Icon choices intentionally battle-themed: Trophy / Swords / ClipboardList / PlusCircle / Users / Flag.
+const buildItems = () => [
   { to: "/", labelKey: "nav_leaderboard", icon: Trophy, testId: NAV.leaderboard, guest: true },
-  { to: "/komutanlar", labelKey: "nav_commanders", icon: Shield, testId: NAV.commanders, guest: true },
-  { to: "/puanlar", labelKey: "nav_points", icon: ListOrdered, testId: NAV.points, guest: false },
+  { to: "/komutanlar", labelKey: "nav_commanders", icon: Swords, testId: NAV.commanders, guest: true },
+  { to: "/puanlar", labelKey: "nav_points", icon: ClipboardList, testId: NAV.points, guest: false },
   { to: "/puan-ekle", labelKey: "nav_add_points", icon: PlusCircle, testId: NAV.addPoints, guest: false, requiresEdit: true },
   { to: "/uyeler", labelKey: "nav_members", icon: Users, testId: NAV.members, guest: false },
-  { to: "/etkinlikler", labelKey: "nav_events", icon: Calendar, testId: NAV.events, guest: false },
+  { to: "/etkinlikler", labelKey: "nav_events", icon: Flag, testId: NAV.events, guest: false },
 ];
+
+const ACTIVE = "#F5A623";
+const INACTIVE = "#888888";
 
 export default function BottomNav() {
   const { user, canEdit } = useAuth();
@@ -23,7 +26,7 @@ export default function BottomNav() {
   const location = useLocation();
   if (location.pathname === "/login") return null;
 
-  const items = buildItems(t).filter((it) => {
+  const items = buildItems().filter((it) => {
     if (it.guest) return true;
     return !!user;
   });
@@ -45,11 +48,18 @@ export default function BottomNav() {
             style={disabledEdit ? { opacity: 0.5 } : undefined}
             title={disabledEdit ? t("view_only") : undefined}
           >
-            <div className="relative">
-              <it.icon className="w-5 h-5" />
-              {disabledEdit && <Lock className="w-2.5 h-2.5 absolute -top-1 -right-1 gold-text" />}
-            </div>
-            <span>{t(it.labelKey)}</span>
+            {({ isActive }) => {
+              const color = isActive ? ACTIVE : INACTIVE;
+              return (
+                <>
+                  <div className="relative" style={{ color }}>
+                    <it.icon style={{ width: 24, height: 24, color }} strokeWidth={isActive ? 2.4 : 2} />
+                    {disabledEdit && <Lock className="w-2.5 h-2.5 absolute -top-1 -right-1 gold-text" />}
+                  </div>
+                  <span style={{ color, fontWeight: isActive ? 700 : 500 }}>{t(it.labelKey)}</span>
+                </>
+              );
+            }}
           </NavLink>
         );
       })}

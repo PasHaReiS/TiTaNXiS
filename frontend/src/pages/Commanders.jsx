@@ -28,10 +28,21 @@ const sectionOf = (k) => (isSectionKey(k) ? k.slice(SECTION_PREFIX.length) : nul
 
 // Rarity: legendary (orange) > epic (purple) > common (blue).
 const RARITY = {
-  legendary: { color: "#F97316", labelKey: "rarity_legendary" },
-  epic: { color: "#A855F7", labelKey: "rarity_epic" },
-  common: { color: "#3B82F6", labelKey: "rarity_common" },
+  legendary: { color: "#F97316", labelKey: "rarity_legendary", bg: "#1a0d00" },
+  epic: { color: "#A855F7", labelKey: "rarity_epic", bg: "#1a0030" },
+  common: { color: "#3B82F6", labelKey: "rarity_common", bg: "#001530" },
 };
+
+// Style helper: returns rarity-tinted frame + background for a commander card,
+// or null when no rarity is set (caller keeps the default red/gold card look).
+function rarityCardStyle(rarity) {
+  const r = RARITY[rarity];
+  if (!r) return null;
+  return {
+    border: `2px solid ${r.color}`,
+    background: `linear-gradient(180deg, ${r.bg}f5, ${r.bg}cc)`,
+  };
+}
 const RARITY_ORDER = { legendary: 3, epic: 2, common: 1 };
 const RANK_ORDER = { S6: 11, S5: 10, S4: 9, S3: 8, S2: 7, S1: 6, R5: 5, R4: 4, R3: 3, R2: 2, R1: 1 };
 
@@ -361,7 +372,11 @@ function CommanderCard({ commander: c, commanderById, onOpen, onEdit, onDelete }
   const isTeam = Array.isArray(c.team_slots) && c.team_slots.length > 0;
 
   return (
-    <div data-testid={COMMANDERS.card(c.id)} className="card-red-gold p-3 fade-in">
+    <div
+      data-testid={COMMANDERS.card(c.id)}
+      className={rarityCardStyle(c.rarity) ? "p-3 fade-in rounded-lg" : "card-red-gold p-3 fade-in"}
+      style={rarityCardStyle(c.rarity) || undefined}
+    >
       <button
         type="button"
         onClick={onOpen}
@@ -421,9 +436,17 @@ function CommanderCard({ commander: c, commanderById, onOpen, onEdit, onDelete }
         ) : (
           <div className="flex gap-3">
             {c.image_url ? (
-              <img src={resolveImageUrl(c.image_url)} alt={c.name} className="w-16 h-16 rounded-md object-cover border border-primary/30 flex-shrink-0" />
+              <img
+                src={resolveImageUrl(c.image_url)}
+                alt={c.name}
+                className="w-16 h-16 rounded-md object-cover flex-shrink-0"
+                style={{ border: `2px solid ${RARITY[c.rarity]?.color || "rgba(136,136,136,0.5)"}` }}
+              />
             ) : (
-              <div className="w-16 h-16 rounded-md bg-black/40 border border-primary/30 flex items-center justify-center flex-shrink-0">
+              <div
+                className="w-16 h-16 rounded-md bg-black/40 flex items-center justify-center flex-shrink-0"
+                style={{ border: `2px solid ${RARITY[c.rarity]?.color || "rgba(136,136,136,0.5)"}` }}
+              >
                 <Shield className="w-6 h-6 gold-text" />
               </div>
             )}
@@ -475,7 +498,11 @@ function CommanderGridCard({ commander: c, commanderById, onOpen, onEdit, onDele
   const matchNames = (c.kof_pairs || []).map((id) => commanderById[id]).filter(Boolean);
 
   return (
-    <div data-testid={COMMANDERS.card(c.id)} className="card-red-gold p-2 fade-in flex flex-col">
+    <div
+      data-testid={COMMANDERS.card(c.id)}
+      className={rarityCardStyle(c.rarity) ? "p-2 fade-in flex flex-col rounded-lg" : "card-red-gold p-2 fade-in flex flex-col"}
+      style={rarityCardStyle(c.rarity) || undefined}
+    >
       <button
         type="button"
         onClick={onOpen}
@@ -484,7 +511,7 @@ function CommanderGridCard({ commander: c, commanderById, onOpen, onEdit, onDele
       >
         <div
           className="relative w-full aspect-square rounded-md overflow-hidden bg-black/40 flex items-center justify-center mb-2"
-          style={{ border: `3px solid ${RARITY[c.rarity]?.color || "rgba(220,38,38,0.35)"}` }}
+          style={{ border: `3px solid ${RARITY[c.rarity]?.color || "rgba(136,136,136,0.5)"}` }}
           data-testid={`grid-rarity-frame-${c.id}`}
         >
           {c.image_url ? (
