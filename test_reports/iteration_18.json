@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 18 frontend-only verification of Header.jsx logo enlargement (fill left side). All requested checks PASS on 430px viewport preview URL.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "verified_changes": [
+    {
+      "change": "Header logo dimensions & styles",
+      "status": "PASS",
+      "evidence": "data-testid='header-brand-logo' computed: height=56px, maxWidth=400px, objectFit=cover, objectPosition='0% 50%', borderRadius=6px. src ends with '4e1d325e85084ea69c28857dabe96728_1000073434.jpg'. Bounding rect on 430px viewport: x=17, right=216.33, w=199.33, h=56 — fills remaining flex-1 space up to the right-side controls (well under 400px cap because right controls consume ~213px)."
+    },
+    {
+      "change": "Layout — right controls do not overlap logo",
+      "status": "PASS",
+      "evidence": "logo.right=216.33; lang-toggle x=224.33, theme-toggle x=297.5, login x=337.5 (when logged out) / profile x=354.19 (when logged in). All controls sit right of logo.right with >=8px gap. LanguageSwitcher (data-testid='lang-toggle'), theme toggle (data-testid='theme-toggle'), and header-profile/header-login-btn present."
+    },
+    {
+      "change": "Regression — dropdown-export & podium pills",
+      "status": "PASS",
+      "evidence": "Admin login (admin/admin123) succeeds. Profile menu opens (after dismissing initial toasts) and contains ['dropdown-profile','dropdown-users','dropdown-password','dropdown-export','dropdown-logout']. Podium alliance badges 1/2/3 all present on leaderboard."
+    }
+  ],
+  "notes": [
+    "The two initial toasts (welcome + 'change password recommended') briefly overlap the header profile button and can intercept clicks for ~5s. Closing toasts (data-close-button) before clicking resolves this. Not a regression — same behavior as iter17. Consider giving Sonner toasts a lower z-index than the fixed profile trigger, or shift toast position, if this hurts real-users clicking header quickly after login."
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Header.jsx line 67: wrapping div still has gap-3 with only one child (the img). The gap has no visual effect; can be removed for clarity.",
+    "Header.jsx img uses both className='flex-1 min-w-0' and inline style width:'100%' — the width:100% is redundant given flex-1 already sets flex-basis; harmless but noise.",
+    "Legacy menuRef mousedown outside-click handler is still present but useless (dropdown is portalled via position:fixed and overlay handles closing). Previously flagged in iter17 — still not cleaned up."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "admin / admin123",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Header logo now fills left side with height=56, maxWidth=400, objectFit=cover, objectPosition='0% 50%', borderRadius=6. Right controls remain unchanged. On 430px viewport rendered logo width ~199px (constrained by remaining flex space, not by maxWidth). To click header-profile right after admin login, dismiss the two Sonner toasts first — they overlap the profile button for a few seconds."
+}
