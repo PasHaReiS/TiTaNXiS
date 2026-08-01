@@ -164,7 +164,7 @@ export default function Leaderboard() {
                 <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#c0c0c0,#8a8a8a)', color: '#0a0a0a' }}>
                   <Medal className="w-4 h-4" />
                 </div>
-                <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={top3[1].name}>{top3[1].name}</div>
+                <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[1].name}>{top3[1].name}</div>
                 <div style={{ fontSize: 10, color: '#8A9BB0', marginTop: 2 }} title={top3[1].alliance_name || ""}>{top3[1].alliance_name || "-"}</div>
                 <div style={{ marginTop: 6, fontWeight: 600, fontSize: 12, color: '#E74C1A', fontFamily: "'JetBrains Mono', monospace" }}>{fmt(top3[1].total_points)}</div>
               </div>
@@ -187,7 +187,7 @@ export default function Leaderboard() {
                 <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#D4730A,#E74C1A)', color: '#0a0a0a' }}>
                   <Crown className="w-4 h-4" />
                 </div>
-                <div style={{ marginTop: 8, fontSize: 14, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={top3[0].name}>{top3[0].name}</div>
+                <div style={{ marginTop: 8, fontSize: 14, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[0].name}>{top3[0].name}</div>
                 <div style={{ fontSize: 10, color: '#D4730A', marginTop: 2 }} title={top3[0].alliance_name || ""}>{top3[0].alliance_name || "-"}</div>
                 <div style={{ marginTop: 6, fontWeight: 600, fontSize: 14, color: '#E74C1A', fontFamily: "'JetBrains Mono', monospace" }}>{fmt(top3[0].total_points)}</div>
               </div>
@@ -209,7 +209,7 @@ export default function Leaderboard() {
                 <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#8B6914,#A67C00)', color: '#0a0a0a' }}>
                   <Award className="w-4 h-4" />
                 </div>
-                <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={top3[2].name}>{top3[2].name}</div>
+                <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[2].name}>{top3[2].name}</div>
                 <div style={{ fontSize: 10, color: '#8B6914', marginTop: 2 }} title={top3[2].alliance_name || ""}>{top3[2].alliance_name || "-"}</div>
                 <div style={{ marginTop: 6, fontWeight: 600, fontSize: 11, color: '#E74C1A', fontFamily: "'JetBrains Mono', monospace" }}>{fmt(top3[2].total_points)}</div>
               </div>
@@ -247,7 +247,7 @@ export default function Leaderboard() {
                 {r.alliance_name || "-"}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Cinzel, Rajdhani, serif" }}>{r.name}</div>
+                <div className="font-bold truncate normal-case" style={{ color: "#F5F0E8", fontFamily: "Cinzel, Rajdhani, serif", textTransform: "none" }}>{r.name}</div>
                 <div className="text-[10px] text-muted-foreground tracking-wider truncate">
                   {r.alliance_name || t("member")}
                 </div>

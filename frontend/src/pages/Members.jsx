@@ -319,7 +319,8 @@ export default function Members() {
                                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setProfileId(m.id)}>
                                   <div className="flex items-center gap-1.5 min-w-0">
                                     <span
-                                      className="font-bold text-white text-xs truncate leading-tight"
+                                      className="font-bold text-white text-xs truncate leading-tight normal-case"
+                                      style={{ textTransform: "none" }}
                                       title={m.name}
                                       data-testid={`member-name-${m.id}`}
                                     >

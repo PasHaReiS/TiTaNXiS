@@ -53,7 +53,7 @@ export default function PointsList() {
             <div key={p.id} data-testid={POINTS.row(p.id)} className="card-dark p-3 row-hover">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <div className="font-bold text-white text-sm truncate">{p.member_name}</div>
+                  <div className="font-bold text-white text-sm truncate normal-case" style={{ textTransform: "none" }}>{p.member_name}</div>
                   <div className="text-xs text-muted-foreground truncate">
                     {p.event_name} {p.note && <span className="text-white/70">• {p.note}</span>}
                   </div>

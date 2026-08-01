@@ -132,7 +132,7 @@ export default function AddPoints() {
                       >
                         <div className={`rank-badge rank-${m.rank}`} style={{ width: 30, height: 30, fontSize: 10 }}>{m.rank === "GOW" ? "" : m.rank}</div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm font-semibold text-white truncate">{m.name}</div>
+                          <div className="text-sm font-semibold text-white truncate normal-case" style={{ textTransform: "none" }}>{m.name}</div>
                           <div className="text-[10px] text-muted-foreground mono">ID: {m.member_id}</div>
                         </div>
                       </button>
@@ -156,7 +156,7 @@ export default function AddPoints() {
                       className="w-4 h-4 accent-red-500"
                     />
                     <div className={`rank-badge rank-${m.rank}`} style={{ width: 24, height: 24, fontSize: 9 }}>{m.rank === "GOW" ? "" : m.rank}</div>
-                    <div className="text-sm text-white truncate flex-1">{m.name}</div>
+                    <div className="text-sm text-white truncate flex-1 normal-case" style={{ textTransform: "none" }}>{m.name}</div>
                   </label>
                 ))}
               </div>
@@ -314,7 +314,7 @@ function EditMemberPointsSection({ events }) {
         <div className="mt-3 fade-in">
           <div className="card-red-gold p-3 flex items-center justify-between mb-2">
             <div className="min-w-0 flex-1">
-              <div className="font-bold text-white truncate">{history.member.name}</div>
+              <div className="font-bold text-white truncate normal-case" style={{ textTransform: "none" }}>{history.member.name}</div>
               <div className="text-[10px] text-muted-foreground">
                 {history.member.alliance_name || "-"} • <span className="gold-text mono font-bold">{fmt(history.total)}</span> {t("total_label")}
               </div>
@@ -379,7 +379,7 @@ function MemberSearchRow({ member, onSelect }) {
       className="w-full card-dark p-2.5 flex items-center gap-2 row-hover text-left"
     >
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-bold text-white truncate">{member.name}</div>
+        <div className="text-sm font-bold text-white truncate normal-case" style={{ textTransform: "none" }}>{member.name}</div>
         <div className="text-[10px] text-muted-foreground truncate">
           {member.alliance_name || "-"} • {member.rank}
           {member.member_id && ` • ID ${member.member_id}`}

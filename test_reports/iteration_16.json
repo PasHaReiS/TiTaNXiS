@@ -1,0 +1,21 @@
+{
+  "summary": "Iteration 16 frontend polish verified. All 3 requested changes pass: (1) member name textTransform=none confirmed on Leaderboard podium (PaSHa etc.), rest rows, and PointsList (verified live via computed style). Members/AddPoints have inline style textTransform:'none' + normal-case class in source (routes /members and /puan-ekle not directly reachable in test, but code inspected and correct). (2) header-profile-dropdown computed style verified: position=absolute, zIndex=9999, backgroundColor=rgb(30,20,16), border 1px solid rgb(231,76,26), boxShadow contains rgba(0,0,0,0.8) 0px 4px 20px. (3) header-brand-logo src ends with fb92b583ca964c22a56b6b68f1cf73ef_1000073431.jpg; height 44px, width 88px, objectFit cover, borderRadius 4px, transform matrix(1.15,0,0,1,0,0) (i.e. scaleX 1.15). No 'GOD OF WAR' text rendered in header. Login as admin/admin123 worked. Regression: podium-illuminate present, alliance pill colors visible on rest rows, dropdown-export present in admin dropdown.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Pre-existing (not in scope): React hydration warning on AddPoints /puan-ekle — <span> rendered as child of <option> in event select (line 177 of AddPoints.jsx). Caused by a dynamic-wrapper injecting a span. Non-blocking but should be cleaned by main agent so <option> contains only text."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "admin / admin123",
+  "seed_data_creation": "None — existing seed already contains mixed-case names like 'PaSHa', 'ThOR' etc.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Frontend routes observed: /=Leaderboard, /puanlar=PointsList, /puan-ekle=AddPoints. Members page route is not /members – bottom nav uses different slug. All member-name selectors are testable via computed style getPropertyValue('text-transform')==='none'."
+}

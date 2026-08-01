@@ -9,7 +9,7 @@ import { LEADERBOARD } from "@/constants/testIds";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
-const BRAND_LOGO_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/c07b4fb61b36495797d713aa97cdd08f_1000073363.jpg";
+const BRAND_LOGO_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/fb92b583ca964c22a56b6b68f1cf73ef_1000073431.jpg";
 
 function MenuItem({ icon: Icon, label, onClick, testId }) {
   return (
@@ -69,8 +69,8 @@ export default function Header() {
             src={BRAND_LOGO_URL}
             alt="Brand"
             data-testid="header-brand-logo"
-            className="flex-shrink-0 rounded-md"
-            style={{ height: 42, width: "auto", maxWidth: 140, objectFit: "contain" }}
+            className="flex-shrink-0 rounded"
+            style={{ height: 44, width: 88, objectFit: "cover", borderRadius: 4, transform: "scaleX(1.15)", transformOrigin: "left center" }}
           />
         </div>
 
@@ -101,11 +101,16 @@ export default function Header() {
             {menuOpen && (
               <div
                 data-testid="header-profile-dropdown"
-                className="absolute right-0 top-full mt-1 z-50 min-w-[190px] rounded-md overflow-hidden"
+                className="min-w-[200px] rounded-md overflow-hidden"
                 style={{
-                  background: "linear-gradient(180deg, #1A0F0A 0%, #0D0806 100%)",
-                  border: "1px solid rgba(231,76,26,0.45)",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.6), 0 0 12px rgba(231,76,26,0.25)",
+                  position: "absolute",
+                  right: 0,
+                  top: "100%",
+                  marginTop: 4,
+                  zIndex: 9999,
+                  background: "#1E1410",
+                  border: "1px solid #E74C1A",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.8), 0 0 12px rgba(231,76,26,0.25)",
                 }}
               >
                 <MenuItem
