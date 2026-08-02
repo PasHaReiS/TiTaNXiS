@@ -75,6 +75,8 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - **P3** — Members: "Expand all" / "Collapse all" quick buttons for the rank sections
 - **P3** — Persist collapse state in localStorage per alliance
 
+- **[2026-02] EquipmentTables interactive filters**: `/app/frontend/src/components/EquipmentTables.jsx` now stateful (`selectedLevel` null|1..20, `selectedHero` null|0..4). Added `[data-testid=reform-level-selector]` 5×4 grid with 20 buttons (`reform-level-btn-1..20`) and `[data-testid=hero-range-selector]` flex-wrap row with 5 buttons (`hero-range-btn-0..4`). Clicking a button filters to that single row/card with 22px centered font; second click deselects. Removed unused `ICON_GEAR`/`ICON_MAGNET` constants and `<img>` from reformation `<th>`s (headers now plain "Seviye"/"Dişli"/"Mıknatıs"). Active btn `#F5A623` bg / `#0B0704` text, aria-pressed reflects state. Verified 100% in iteration_42.
+
 ## Test Credentials
 See `/app/memory/test_credentials.md`
 
