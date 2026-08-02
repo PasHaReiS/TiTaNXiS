@@ -1,16 +1,6 @@
 import React, { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
-const ICON_GEAR = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/b6ada6ac7abf4f579e421ac33c33f220_1000073487.jpg";
-const ICON_BOLT = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/7a65ce2753904b0ca2cfa8da3e2def8e_1000073485.jpg";
-const ICON_COIL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/59757d68af81428e9732fdcd9b3c861e_1000073483.jpg";
-const ICON_MAGNET = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/43eb8dbd3a604f1e8fd6e587bac7e7c3_1000073480.jpg";
-
-const iconStyle = { height: 20, width: "auto", objectFit: "contain", display: "inline-block", verticalAlign: "middle", marginRight: 4 };
-const Icon = ({ src, alt, testId }) => (
-  <img src={src} alt={alt} data-testid={testId} style={iconStyle} />
-);
-
 const REFORM_ROWS = [
   { lv: 1, gear: 20, batt: null },
   { lv: 2, gear: 40, batt: null },
