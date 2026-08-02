@@ -37,6 +37,8 @@ const RARITY = {
   common: { color: "#3B82F6", labelKey: "rarity_common", bg: "#001530" },
 };
 
+const NO_TUMU_SECTIONS = new Set(["KAFES ETKİNLİK", "SAVAŞ", "SVS EKİP"]);
+
 // Sidebar section header → i18n key map. Section names come from CATEGORIES[i].section (Turkish literal).
 const SIDEBAR_SECTION_I18N = {
   "BİLGİLENDİRME": "sb_bilgilendirme",
@@ -186,7 +188,7 @@ export default function Commanders() {
   const toggleSection = (section) => setExpanded((e) => ({ ...e, [section]: !e[section] }));
   const openSectionView = (section) => {
     const catsInSection = CATEGORIES.filter((c) => c.section === section);
-    if (catsInSection.length === 1) {
+    if (catsInSection.length === 1 || NO_TUMU_SECTIONS.has(section)) {
       setSelectedCat(catsInSection[0].key);
     } else {
       setSelectedCat(SECTION_PREFIX + section);
@@ -261,21 +263,23 @@ export default function Commanders() {
               const showingAll = !!activeSection;
               return (
                 <div className="flex flex-wrap gap-2 mb-3" data-testid="section-tab-strip">
-                  <button
-                    type="button"
-                    data-testid={`section-tab-all-${currentSection}`}
-                    onClick={() => openSectionView(currentSection)}
-                    className="px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider"
-                    style={{
-                      background: showingAll ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
-                      color: showingAll ? "#0B0704" : "#F5F0E8",
-                      border: `1px solid ${showingAll ? "#F5A623" : "rgba(255,255,255,0.15)"}`,
-                      cursor: "pointer",
-                      fontFamily: "Cinzel, serif",
-                    }}
-                  >
-                    {t("all_short")}
-                  </button>
+                  {!NO_TUMU_SECTIONS.has(currentSection) && (
+                    <button
+                      type="button"
+                      data-testid={`section-tab-all-${currentSection}`}
+                      onClick={() => setSelectedCat(SECTION_PREFIX + currentSection)}
+                      className="px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider"
+                      style={{
+                        background: showingAll ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
+                        color: showingAll ? "#0B0704" : "#F5F0E8",
+                        border: `1px solid ${showingAll ? "#F5A623" : "rgba(255,255,255,0.15)"}`,
+                        cursor: "pointer",
+                        fontFamily: "Cinzel, serif",
+                      }}
+                    >
+                      {t("all_short")}
+                    </button>
+                  )}
                   {subs.map((s) => {
                     const active = s.key === selectedCat;
                     return (
@@ -325,15 +329,17 @@ export default function Commanders() {
               <SoldierCalculator />
             ) : activeSection ? (
               <>
-                <div className="relative mb-2">
-                  <input
-                    value={gridSearch}
-                    onChange={(e) => setGridSearch(e.target.value)}
-                    placeholder={t("search_commander")}
-                    data-testid="commanders-grid-search"
-                    className="w-full card-dark px-3 py-2 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary"
-                  />
-                </div>
+                {!NO_TUMU_SECTIONS.has(activeSection) && (
+                  <div className="relative mb-2">
+                    <input
+                      value={gridSearch}
+                      onChange={(e) => setGridSearch(e.target.value)}
+                      placeholder={t("search_commander")}
+                      data-testid="commanders-grid-search"
+                      className="w-full card-dark px-3 py-2 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                )}
                 {(() => {
                   const q = gridSearch.trim().toLowerCase();
                   const searched = q ? commanders.filter((c) => (c.name || "").toLowerCase().includes(q)) : commanders;
@@ -420,7 +426,7 @@ export default function Commanders() {
                     }}
                   />
                 ))}
-                {commanders.length === 0 && !String(selectedCat).startsWith("mh_") && (
+                {commanders.length === 0 && !String(selectedCat).startsWith("mh_") && !NO_TUMU_SECTIONS.has(currentCategory?.section) && (
                   <div className="card-dark p-6 text-center text-muted-foreground text-xs">{t("no_commanders_in_category")}</div>
                 )}
               </div>
@@ -671,14 +677,59 @@ function CommanderLightbox({ commander, commanderById, onClose }) {
         <X className="w-5 h-5 text-white" />
       </button>
 
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md flex flex-col items-center max-h-[95vh] overflow-y-auto">
-        {commander.image_url ? (
-          <img src={resolveImageUrl(commander.image_url)} alt={commander.name} className="max-w-full max-h-[60vh] rounded-lg object-contain shadow-2xl border-2 border-primary/40" />
-        ) : (
-          <div className="w-56 h-56 rounded-lg bg-black/60 border-2 border-primary/40 flex items-center justify-center">
-            <Shield className="w-20 h-20 gold-text" />
-          </div>
-        )}
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-3xl flex flex-col items-center max-h-[95vh] overflow-y-auto">
+        {(() => {
+          const imgs = Array.isArray(commander.images) && commander.images.length > 0
+            ? commander.images
+            : (commander.image_url ? [commander.image_url] : []);
+          if (imgs.length === 0) {
+            return (
+              <div className="w-56 h-56 rounded-lg bg-black/60 border-2 border-primary/40 flex items-center justify-center">
+                <Shield className="w-20 h-20 gold-text" />
+              </div>
+            );
+          }
+          if (imgs.length === 1) {
+            return (
+              <img
+                src={resolveImageUrl(imgs[0])}
+                alt={commander.name}
+                onClick={() => window.open(resolveImageUrl(imgs[0]), "_blank")}
+                className="max-w-full max-h-[60vh] rounded-lg object-contain shadow-2xl border-2 border-primary/40 cursor-zoom-in"
+                data-testid="lightbox-img-0"
+              />
+            );
+          }
+          // 2+ images: 2-column grid, 3rd centered spans full row if odd
+          const isOddThree = imgs.length === 3;
+          return (
+            <div
+              className="grid grid-cols-2 w-full"
+              style={{ gap: 8 }}
+              data-testid="lightbox-image-grid"
+            >
+              {imgs.map((url, i) => {
+                // For exactly 3 images, third one spans both columns and centers
+                const spanBoth = isOddThree && i === 2;
+                return (
+                  <div
+                    key={i}
+                    className={spanBoth ? "col-span-2 flex justify-center" : ""}
+                  >
+                    <img
+                      src={resolveImageUrl(url)}
+                      alt={`${commander.name} ${i + 1}`}
+                      onClick={() => window.open(resolveImageUrl(url), "_blank")}
+                      className="w-full max-h-[42vh] object-contain rounded-lg border-2 border-primary/40 cursor-zoom-in bg-black/40"
+                      style={spanBoth ? { maxWidth: "50%" } : undefined}
+                      data-testid={`lightbox-img-${i}`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         <div className="w-full mt-4 text-center px-2">
           <div className="flex items-center justify-center gap-2 mb-2 flex-wrap">
