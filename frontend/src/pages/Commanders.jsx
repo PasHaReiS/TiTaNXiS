@@ -184,6 +184,14 @@ export default function Commanders() {
   }, [allCommanders]);
 
   const currentCategory = CATEGORIES.find((c) => c.key === selectedCat);
+  const currentCategoryLabel = currentCategory
+    ? (t(`cat_${currentCategory.key}`) !== `cat_${currentCategory.key}`
+      ? t(`cat_${currentCategory.key}`)
+      : currentCategory.label)
+    : "";
+  const currentSectionLabel = currentCategory
+    ? (t(SIDEBAR_SECTION_I18N[currentCategory.section] || "") || currentCategory.section)
+    : "";
   const isInfoCategory = selectedCat === "bilgilendirme";
   const toggleSection = (section) => setExpanded((e) => ({ ...e, [section]: !e[section] }));
   const openSectionView = (section) => {
@@ -196,8 +204,8 @@ export default function Commanders() {
   };
 
   const contextLabel = activeSection
-    ? activeSection
-    : `${currentCategory?.section} — ${currentCategory?.label}`;
+    ? (t(SIDEBAR_SECTION_I18N[activeSection] || "") || activeSection)
+    : `${currentSectionLabel} — ${currentCategoryLabel}`;
 
   return (
     <div data-testid={COMMANDERS.container}>
@@ -469,7 +477,9 @@ function KofBadge({ id, small = false }) {
 function CommanderCard({ commander: c, commanderById, onOpen, onEdit, onDelete }) {
   const { t } = useTranslation();
   const matchNames = (c.kof_pairs || []).map((id) => commanderById[id]).filter(Boolean);
-  const catLabel = CATEGORIES.find((x) => x.key === c.category)?.label || c.category;
+  const catLabel = t(`cat_${c.category}`) !== `cat_${c.category}`
+    ? t(`cat_${c.category}`)
+    : (CATEGORIES.find((x) => x.key === c.category)?.label || c.category);
   const isTeam = Array.isArray(c.team_slots) && c.team_slots.length > 0;
 
   return (
@@ -598,7 +608,10 @@ function CommanderCard({ commander: c, commanderById, onOpen, onEdit, onDelete }
 }
 
 function CommanderGridCard({ commander: c, commanderById, onOpen, onEdit, onDelete }) {
-  const catLabel = CATEGORIES.find((x) => x.key === c.category)?.label || c.category;
+  const { t } = useTranslation();
+  const catLabel = t(`cat_${c.category}`) !== `cat_${c.category}`
+    ? t(`cat_${c.category}`)
+    : (CATEGORIES.find((x) => x.key === c.category)?.label || c.category);
   const matchNames = (c.kof_pairs || []).map((id) => commanderById[id]).filter(Boolean);
 
   return (
@@ -1210,7 +1223,7 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
                   data-testid={`type-chip-${c.key}`}
                   className={`chip ${category === c.key ? "active" : ""}`}
                 >
-                  {c.label}
+                  {t(`cat_${c.key}`) !== `cat_${c.key}` ? t(`cat_${c.key}`) : c.label}
                 </button>
               ))}
               {allCustomTypes.map((ct) => (
