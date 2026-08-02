@@ -34,7 +34,25 @@ export default function SoldierCalculator() {
   const category = catFor(tier);
   const { data: unitCosts = { yemek: 0, odun: 0, celik: 0, benzin: 0, sure_saniye: 0 } } =
     useSWR(`/unit-costs/${category}`, fetcher);
-  const { data: calculations = [] } = useSWR(`/calculations?category=asker_egitim`, fetcher);
+
+  // Fetch history for all 4 tiers in parallel and merge (backend uses exact-match on category)
+  const t11 = useSWR(`/calculations?category=asker_egitim_t11`, fetcher);
+  const t8 = useSWR(`/calculations?category=asker_egitim_t8`, fetcher);
+  const t7 = useSWR(`/calculations?category=asker_egitim_t7`, fetcher);
+  const t6 = useSWR(`/calculations?category=asker_egitim_t6`, fetcher);
+  const calculations = [
+    ...(t11.data || []),
+    ...(t8.data || []),
+    ...(t7.data || []),
+    ...(t6.data || []),
+  ].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+
+  const refreshAllHistory = () => {
+    globalMutate(`/calculations?category=asker_egitim_t11`);
+    globalMutate(`/calculations?category=asker_egitim_t8`);
+    globalMutate(`/calculations?category=asker_egitim_t7`);
+    globalMutate(`/calculations?category=asker_egitim_t6`);
+  };
 
   const n = Number(soldierCount) || 0;
   const totalYemek = n * (unitCosts.yemek || 0);
@@ -56,7 +74,7 @@ export default function SoldierCalculator() {
         benzin: totalBenzin,
         sure_saniye: totalSure,
       });
-      globalMutate(`/calculations?category=asker_egitim`);
+      refreshAllHistory();
       toast.success("Kaydedildi");
     } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
   };
@@ -64,7 +82,7 @@ export default function SoldierCalculator() {
   const removeCalc = async (id) => {
     try {
       await api.delete(`/calculations/${id}`);
-      globalMutate(`/calculations?category=asker_egitim`);
+      refreshAllHistory();
     } catch (e) { toast.error(e.message); }
   };
 

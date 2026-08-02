@@ -1,0 +1,30 @@
+{
+  "summary": "Iteration 29 retest of the critical history-table bug from iter_28. Fix VERIFIED: SoldierCalculator now runs 4 parallel useSWR queries (asker_egitim_t11/t8/t7/t6), merges and sorts by created_at desc. History table renders with existing records (pre-seeded T11 rows) as soon as /komutanlar → HESAPLA → Asker Eğitim is opened. All acceptance criteria from the retest request pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "BottomNav overlay on SoldierCalculator history table", "issue": "Fixed .bottom-nav (72px tall at bottom of viewport) overlays interactive elements when a history row is positioned within y=[827,900] on 1440x900. Concretely, when the top row's delete-calc-{id} sits at y=855, elementFromPoint returns the [data-testid=nav-events] anchor. A user scrolling to view lower rows will find the trash icon un-clickable in that specific y-band (they must scroll a bit more or use a taller viewport). Not a blocker (DELETE works fine when button is fully clear of the nav), but affects UX/testability.", "selector": "nav.bottom-nav vs [data-testid^='delete-calc-']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iter29_history.png", "/app/test_reports/iter29_after_delete.png"],
+  "action_items": [
+    "Optional (LOW): Add bottom-padding to the SoldierCalculator container (or a scroll-margin-bottom on table rows) equal to the bottom-nav height (~72px) so trash buttons are never occluded. Alternative: hide bottom-nav on desktop (>=lg) or reduce its z-index."
+  ],
+  "critical_code_review_comments": [
+    "Fix is correct and minimal: 4 useSWR calls + refreshAllHistory mutating all 4 keys after save/delete. Merge sort uses (b.created_at||'').localeCompare(a.created_at||'') which works for ISO8601 strings. tierOf(cat) regex correctly parses 'asker_egitim_t{n}' into 'T{n}'.",
+    "Verified network flow: POST /api/calculations returns 200; on save, revalidation fires only for the affected key (SWR dedup) — that's fine since the newly-created row is in that same tier's response. On delete, refreshAllHistory triggers GETs for all 4 tier categories (all 200) — confirmed via Playwright request logging.",
+    "Table headers match spec: [Tier, Asker, Yemek, Odun, Çelik, Benzin, Süre, action-col]. Süre format 'Xg YYs ZZd' verified: '2g 02s 00d', '0g 02s 47d', '0g 06s 05d', '0g 05s 08d', '0g 00s 15d'.",
+    "Rows sorted correctly (newest first): after saving T11-500 the new row appears at top; after saving T8-500 the T8 row jumps to top of the merged list.",
+    "3 time boxes present (sure-gun, sure-saat, sure-dakika); [data-testid=sure-saniye] confirmed absent — iter_28 layout regressions still hold."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100% on retest scope"},
+  "test_credentials": "admin / admin123",
+  "seed_data_creation": "Created transient rows via UI during test: T11×500, T8×500, T7×300. Deleted T7×300 at end. Pre-existing T11×1000 rows from iter_28 still present.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter_28's CRITICAL history-table bug is fully fixed by the 4-parallel-SWR merge approach. Only remaining note is the low-priority bottom-nav overlay on trash icons which is orthogonal to this fix. When automating clicks on delete-calc-{id} with Playwright, prefer element.click() (not force=True at coordinates) or scroll rows above y=827 to avoid the fixed .bottom-nav intercepting the click.",
+  "rca of the issue": "Original iter_28 bug: useSWR key was static '/calculations?category=asker_egitim' while stored records used tier-suffixed categories (asker_egitim_t11, _t8, ...) and backend does exact-match on category → 0 results → conditional render skipped. Fix in iter_29: SoldierCalculator.jsx now issues 4 useSWR calls (one per tier-suffixed category) and merges + sorts client-side; refreshAllHistory() mutates all 4 keys after save/delete. Verified via UI flow and network capture (200s across the board)."
+}
