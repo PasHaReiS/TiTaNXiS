@@ -1,0 +1,31 @@
+{
+  "summary": "Iteration 36 frontend verification of Hero Equipment Level Guide card refactor on /komutanlar → MALİYET HESAPLAMA → Ekipman. The refactor was NOT applied. EquipmentTables.jsx still renders hero-equipment-guide as a <table> with <tr data-testid=hero-row-{i}> rows, and there are NO hero-row-{i}-bolts/magnets/coils sub-testids. Accordion toggle, note text, and equipment-reformation table (20 rows) remain intact.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "EquipmentTables.jsx hero-equipment-guide", "issue": "Still uses <table>/<tr>; requirement is 5 <div> cards under [data-testid=hero-equipment-guide]. Each hero-row-{i} element has tagName=TR, not DIV.", "selector": "[data-testid=hero-equipment-guide] table", "priority": "HIGH"},
+      {"component": "EquipmentTables.jsx hero rows", "issue": "Missing required sub-testids hero-row-{i}-bolts, hero-row-{i}-magnets, hero-row-{i}-coils for i in 0..4.", "selector": "[data-testid^=hero-row-][data-testid$=-bolts]", "priority": "HIGH"},
+      {"component": "EquipmentTables.jsx card styling", "issue": "Requested card styling (bg rgba(26,26,46,0.8), border rgba(231,76,26,0.3), radius 8, padding 12px 16px, marginBottom 12, flex-wrap resources row) not present because refactor was skipped.", "selector": "[data-testid=hero-equipment-guide]", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Actually apply the card refactor to /app/frontend/src/components/EquipmentTables.jsx: replace the second <table> (HERO_ROWS) with a vertical stack of 5 <div data-testid=hero-row-{i}> cards.",
+    "Each card must contain: line1 startTier (tierColor) → endTier (tierColor); line2 LV range (#F5A623); line3 flex-wrap div with three spans data-testid=hero-row-{i}-bolts/magnets/coils rendering '🔩 Bolts: {v}', '🔷 Magnets: {v}', '🔌 Coils: {v}' at font-size 13.",
+    "Container styling: background rgba(26,26,46,0.8), border 1px solid rgba(231,76,26,0.3), borderRadius 8, padding '12px 16px', marginBottom 12.",
+    "Keep [data-testid=hero-equipment-guide-toggle] accordion behavior, hero-guide-note text unchanged, and equipment-reformation table intact."
+  ],
+  "critical_code_review_comments": [
+    "EquipmentTables.jsx lines 106-138 still use <table><thead><tbody> for HERO_ROWS — refactor was not committed/applied even though the review request claims it was.",
+    "Note: bolts value 117K in card requirement should be prefixed with '🔩 Bolts: ' string, not just numeric — current table cell only shows '117K' plain."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "0% for card refactor; 100% for regression (reformation table & toggle & note)"},
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The card refactor in EquipmentTables.jsx was NEVER applied — file at /app/frontend/src/components/EquipmentTables.jsx lines 106-138 still renders <table>. Live preview confirms hero-row-{i} tagName=TR and hero-row-{i}-bolts/magnets/coils testids do not exist. After main agent applies the refactor, re-verify: (1) [data-testid=hero-equipment-guide] contains 0 <table>; (2) 5 hero-row-{i} elements each <div>; (3) sub-testids -bolts/-magnets/-coils exist per row; (4) row 0 colors LEGENDARY rgb(255,215,0), row 1 endTier EXOTIC rgb(231,76,26), row 4 both EXOTIC red; (5) LV range color rgb(245,166,35); (6) responsive at 430px width — no horizontal overflow; (7) toggle collapse/expand still works; (8) hero-guide-note unchanged; (9) equipment-reformation still 20 rows.",
+  "rca of the issue": "Main agent E1 stated in review_request that EquipmentTables.jsx was refactored from table to cards, but the file on disk (/app/frontend/src/components/EquipmentTables.jsx) still contains the original <table>...<tr data-testid=hero-row-{i}>...</table> markup for HERO_ROWS. Either the edit was lost or never made. Reproduction: open /komutanlar, expand MALİYET HESAPLAMA section, click category-item-mh_ekipman → hero-equipment-guide renders as a table (6-column header: Başlangıç Tier, Bitiş Tier, Seviye Aralığı, 🔩 Bolts, 🧲 Magnets, 🔌 Potential Coils). Mitigation: main agent must actually apply the described JSX changes to EquipmentTables.jsx."
+}
