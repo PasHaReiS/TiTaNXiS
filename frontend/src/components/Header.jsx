@@ -72,15 +72,6 @@ export default function Header() {
     }
   };
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDown = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [menuOpen]);
-
   const downloadXlsx = () => {
     try {
       const url = `${api.defaults.baseURL}/export/xlsx`;

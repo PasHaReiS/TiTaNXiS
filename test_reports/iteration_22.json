@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 22 — Header portal dropdown retest after complete removal of mousedown outside-click useEffect from Header.jsx. All 7 requested test cases PASS. grep confirmed 0 hits for 'mousedown' in Header.jsx. Overlay div (position:fixed, inset:0, z-index 999998) is now the sole outside-click handler. Dropdown portaled to document.body with z-index 999999.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "tests_executed": [
+    {"name": "Login admin/admin123", "result": "PASS"},
+    {"name": "dropdown-profile → URL /profil", "result": "PASS"},
+    {"name": "dropdown-users → URL /kullanicilar", "result": "PASS"},
+    {"name": "dropdown-password → URL /profil", "result": "PASS"},
+    {"name": "dropdown-export → /api/export/xlsx anchor download (file: detayli_rapor_2026-08-02.xlsx)", "result": "PASS"},
+    {"name": "dropdown-logout → auth state cleared, header-login-btn visible again on /", "result": "PASS"},
+    {"name": "Overlay outside-click closes menu, URL unchanged (no accidental navigation)", "result": "PASS"},
+    {"name": "Regression: dropdown portaled to document.body (parentElement.tagName==='BODY'), z-index computed=999999", "result": "PASS"}
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Note: Auth uses httpOnly cookies (per playbook), so localStorage 'token' key is empty by design. The review_request check 'token cleared from localStorage' is a no-op; the correct signal is header-login-btn reappearing on /, which was verified.",
+    "Header.jsx clean: no mousedown listeners, overlay-only outside-click. Portal implementation is correct."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped per request)", "frontend": "100% (7/7)"},
+  "test_credentials": "admin / admin123 (from review_request)",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Header portal fix is fully validated. All dropdown menu items navigate/execute correctly. Overlay outside-click closes menu without spurious action or navigation. The auth uses httpOnly cookies — do NOT assert on localStorage 'token' for logout verification; instead verify header-login-btn reappears on non-/login routes."
+}
