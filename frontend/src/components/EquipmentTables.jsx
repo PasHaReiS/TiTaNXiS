@@ -90,56 +90,123 @@ const th = { padding: "8px 10px", textAlign: "left", background: "#E74C1A", colo
 const td = { padding: "8px 10px", borderBottom: "1px solid rgba(231,76,26,0.15)", color: "#F5F0E8", fontSize: 12 };
 
 export default function EquipmentTables() {
+  const [selectedLevel, setSelectedLevel] = useState(null);
+  const [selectedHero, setSelectedHero] = useState(null);
+
+  const btnBase = {
+    borderRadius: 6,
+    padding: "6px 8px",
+    fontSize: 12,
+    fontWeight: 700,
+    fontFamily: "Cinzel, serif",
+    letterSpacing: "0.04em",
+    cursor: "pointer",
+    transition: "all 0.15s ease",
+  };
+  const btnStyle = (active) => ({
+    ...btnBase,
+    background: active ? "#F5A623" : "#1a1a2e",
+    color: active ? "#0B0704" : "#F5F0E8",
+    border: `1px solid ${active ? "#F5A623" : "rgba(231,76,26,0.4)"}`,
+    boxShadow: active ? "0 0 8px rgba(245,166,35,0.5)" : "none",
+  });
+
+  const reformRows = selectedLevel === null
+    ? REFORM_ROWS
+    : REFORM_ROWS.filter((r) => r.lv === selectedLevel);
+  const heroRows = selectedHero === null ? HERO_ROWS : [HERO_ROWS[selectedHero]];
+
   return (
     <div data-testid="equipment-tables" className="flex flex-col mb-6" style={{ gap: 24 }}>
       <CollapseCard testId="equipment-reformation" title="Equipment Reformation - Seviye Maliyetleri">
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 320 }}>
+        <div
+          data-testid="reform-level-selector"
+          style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginBottom: 12 }}
+        >
+          {REFORM_ROWS.map((r) => (
+            <button
+              key={r.lv}
+              type="button"
+              data-testid={`reform-level-btn-${r.lv}`}
+              aria-pressed={selectedLevel === r.lv}
+              onClick={() => setSelectedLevel((v) => (v === r.lv ? null : r.lv))}
+              style={btnStyle(selectedLevel === r.lv)}
+            >
+              {r.lv}
+            </button>
+          ))}
+        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 240 }}>
           <thead>
             <tr>
               <th style={th}>Seviye</th>
-              <th style={th}><Icon src={ICON_GEAR} alt="gear" testId="icon-gear-header" /> Dişli</th>
-              <th style={th}><Icon src={ICON_MAGNET} alt="magnet" testId="icon-magnet-header" /> Mıknatıs</th>
+              <th style={th}>Dişli</th>
+              <th style={th}>Mıknatıs</th>
             </tr>
           </thead>
           <tbody>
-            {REFORM_ROWS.map((r) => (
-              <tr key={r.lv} className="row-hover" data-testid={`reform-row-${r.lv}`}>
-                <td style={{ ...td, fontWeight: 700, color: "#F5A623" }}>{r.lv}</td>
-                <td style={td}>{fmt(r.gear)}</td>
-                <td style={{ ...td, color: r.batt === null ? "#666" : "#F5F0E8" }}>{r.batt === null ? "-" : fmt(r.batt)}</td>
-              </tr>
-            ))}
+            {reformRows.map((r) => {
+              const big = selectedLevel !== null;
+              const cellStyle = { ...td, fontSize: big ? 22 : 12, padding: big ? "14px 10px" : "8px 10px", textAlign: big ? "center" : "left" };
+              return (
+                <tr key={r.lv} className="row-hover" data-testid={`reform-row-${r.lv}`}>
+                  <td style={{ ...cellStyle, fontWeight: 700, color: "#F5A623" }}>{r.lv}</td>
+                  <td style={cellStyle}>{fmt(r.gear)}</td>
+                  <td style={{ ...cellStyle, color: r.batt === null ? "#666" : "#F5F0E8" }}>{r.batt === null ? "-" : fmt(r.batt)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </CollapseCard>
 
       <CollapseCard testId="hero-equipment-guide" title="Hero Equip Level Guide - LV 100-200">
-        <div className="flex flex-col">
+        <div
+          data-testid="hero-range-selector"
+          style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}
+        >
           {HERO_ROWS.map((r, i) => (
-            <div
+            <button
               key={i}
-              data-testid={`hero-row-${i}`}
-              style={{
-                background: "rgba(26,26,46,0.8)",
-                border: "1px solid rgba(231,76,26,0.3)",
-                borderRadius: 8,
-                padding: "12px 16px",
-                marginBottom: 12,
-              }}
+              type="button"
+              data-testid={`hero-range-btn-${i}`}
+              aria-pressed={selectedHero === i}
+              onClick={() => setSelectedHero((v) => (v === i ? null : i))}
+              style={{ ...btnStyle(selectedHero === i), whiteSpace: "nowrap" }}
             >
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
-                <span style={{ color: tierColor(r.from), fontFamily: "Cinzel, serif" }}>{r.from}</span>
-                <span style={{ color: "#F5F0E8", margin: "0 8px" }}>→</span>
-                <span style={{ color: tierColor(r.to), fontFamily: "Cinzel, serif" }}>{r.to}</span>
-              </div>
-              <div style={{ fontSize: 12, color: "#F5A623", marginBottom: 8, letterSpacing: "0.06em" }}>{r.lv}</div>
-              <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 13, color: "#F5F0E8" }}>
-                <span data-testid={`hero-row-${i}-bolts`}>Bolts: {r.bolts}</span>
-                <span data-testid={`hero-row-${i}-magnets`}>Magnets: {r.mag}</span>
-                <span data-testid={`hero-row-${i}-coils`}>Potential Coils: {r.coils}</span>
-              </div>
-            </div>
+              {r.lv}
+            </button>
           ))}
+        </div>
+        <div className="flex flex-col">
+          {heroRows.map((r) => {
+            const i = HERO_ROWS.indexOf(r);
+            return (
+              <div
+                key={i}
+                data-testid={`hero-row-${i}`}
+                style={{
+                  background: "rgba(26,26,46,0.8)",
+                  border: "1px solid rgba(231,76,26,0.3)",
+                  borderRadius: 8,
+                  padding: "12px 16px",
+                  marginBottom: 12,
+                }}
+              >
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
+                  <span style={{ color: tierColor(r.from), fontFamily: "Cinzel, serif" }}>{r.from}</span>
+                  <span style={{ color: "#F5F0E8", margin: "0 8px" }}>→</span>
+                  <span style={{ color: tierColor(r.to), fontFamily: "Cinzel, serif" }}>{r.to}</span>
+                </div>
+                <div style={{ fontSize: 12, color: "#F5A623", marginBottom: 8, letterSpacing: "0.06em" }}>{r.lv}</div>
+                <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 13, color: "#F5F0E8" }}>
+                  <span data-testid={`hero-row-${i}-bolts`}>Bolts: {r.bolts}</span>
+                  <span data-testid={`hero-row-${i}-magnets`}>Magnets: {r.mag}</span>
+                  <span data-testid={`hero-row-${i}-coils`}>Potential Coils: {r.coils}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
         <p
           data-testid="hero-guide-note"
