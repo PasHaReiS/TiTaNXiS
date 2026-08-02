@@ -12,17 +12,13 @@ const catFor = (tier) => `asker_egitim_${tier.toLowerCase()}`;
 const fmt = (n) => Number(n || 0).toLocaleString("tr-TR");
 const pad2 = (n) => String(Math.max(0, Math.floor(n))).padStart(2, "0");
 
-function secondsToGSD(total) {
+function secondsToDHMS(total) {
   const s = Math.max(0, Number(total) || 0);
   const gun = Math.floor(s / 86400);
   const saat = Math.floor((s % 86400) / 3600);
-  const dakika = Math.ceil((s % 3600) / 60);
-  return { gun, saat, dakika };
-}
-
-function formatSureShort(total) {
-  const { gun, saat, dakika } = secondsToGSD(total);
-  return `${gun}g ${pad2(saat)}s ${pad2(dakika)}d`;
+  const dakika = Math.floor((s % 3600) / 60);
+  const saniye = Math.floor(s % 60);
+  return { gun, saat, dakika, saniye };
 }
 
 export default function SoldierCalculator() {
@@ -60,7 +56,7 @@ export default function SoldierCalculator() {
   const totalCelik = n * (unitCosts.celik || 0);
   const totalBenzin = n * (unitCosts.benzin || 0);
   const totalSure = n * (unitCosts.sure_saniye || 0);
-  const { gun, saat, dakika } = secondsToGSD(totalSure);
+  const { gun, saat, dakika, saniye } = secondsToDHMS(totalSure);
 
   const save = async () => {
     if (!n || n <= 0) { toast.error("Asker sayısı girin"); return; }
@@ -171,14 +167,15 @@ export default function SoldierCalculator() {
         </div>
       </div>
 
-      {/* Time — Gün / Saat / Dakika */}
+      {/* Time — Gün / Saat / Dakika / Saniye */}
       <div className="mb-5">
         <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>Süre</label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {[
             { label: "GÜN", value: gun, tid: "sure-gun" },
             { label: "SAAT", value: saat, tid: "sure-saat" },
             { label: "DAKİKA", value: dakika, tid: "sure-dakika" },
+            { label: "SANİYE", value: saniye, tid: "sure-saniye" },
           ].map((it) => (
             <div key={it.label} className="text-center">
               <div className="text-[10px] mb-1" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
@@ -213,33 +210,42 @@ export default function SoldierCalculator() {
                 <th className="p-2 text-left">Odun</th>
                 <th className="p-2 text-left">Çelik</th>
                 <th className="p-2 text-left">Benzin</th>
-                <th className="p-2 text-left">Süre</th>
+                <th className="p-2 text-left">GÜN</th>
+                <th className="p-2 text-left">SAAT</th>
+                <th className="p-2 text-left">DAKİKA</th>
+                <th className="p-2 text-left">SANİYE</th>
                 {canEdit && <th className="p-2"></th>}
               </tr>
             </thead>
             <tbody>
-              {calculations.map((c) => (
-                <tr key={c.id} style={{ borderBottom: "1px solid #222" }}>
-                  <td className="p-2 mono font-bold" style={{ color: "#F5A623" }}>{tierOf(c.category)}</td>
-                  <td className="p-2">{fmt(c.soldier_count)}</td>
-                  <td className="p-2">{fmt(c.yemek)}</td>
-                  <td className="p-2">{fmt(c.odun)}</td>
-                  <td className="p-2">{fmt(c.celik)}</td>
-                  <td className="p-2">{fmt(c.benzin)}</td>
-                  <td className="p-2 mono">{formatSureShort(c.sure_saniye)}</td>
-                  {canEdit && (
-                    <td className="p-2">
-                      <button
-                        onClick={() => removeCalc(c.id)}
-                        data-testid={`delete-calc-${c.id}`}
-                        className="text-red-400 hover:text-red-200"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
+              {calculations.map((c) => {
+                const d = secondsToDHMS(c.sure_saniye);
+                return (
+                  <tr key={c.id} style={{ borderBottom: "1px solid #222" }}>
+                    <td className="p-2 mono font-bold" style={{ color: "#F5A623" }}>{tierOf(c.category)}</td>
+                    <td className="p-2">{fmt(c.soldier_count)}</td>
+                    <td className="p-2">{fmt(c.yemek)}</td>
+                    <td className="p-2">{fmt(c.odun)}</td>
+                    <td className="p-2">{fmt(c.celik)}</td>
+                    <td className="p-2">{fmt(c.benzin)}</td>
+                    <td className="p-2 mono" data-testid={`hist-gun-${c.id}`}>{d.gun}</td>
+                    <td className="p-2 mono" data-testid={`hist-saat-${c.id}`}>{d.saat}</td>
+                    <td className="p-2 mono" data-testid={`hist-dakika-${c.id}`}>{d.dakika}</td>
+                    <td className="p-2 mono" data-testid={`hist-saniye-${c.id}`}>{d.saniye}</td>
+                    {canEdit && (
+                      <td className="p-2">
+                        <button
+                          onClick={() => removeCalc(c.id)}
+                          data-testid={`delete-calc-${c.id}`}
+                          className="text-red-400 hover:text-red-200"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
