@@ -104,30 +104,33 @@ export default function EquipmentTables() {
       </CollapseCard>
 
       <CollapseCard testId="hero-equipment-guide" title="Hero Equip Level Guide - LV 100-200">
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
-          <thead>
-            <tr>
-              <th style={th}>Başlangıç Tier</th>
-              <th style={th}>Bitiş Tier</th>
-              <th style={th}>Seviye Aralığı</th>
-              <th style={th}>🔩 Bolts</th>
-              <th style={th}>🧲 Magnets</th>
-              <th style={th}>🔌 Potential Coils</th>
-            </tr>
-          </thead>
-          <tbody>
-            {HERO_ROWS.map((r, i) => (
-              <tr key={i} className="row-hover" data-testid={`hero-row-${i}`}>
-                <td style={{ ...td, color: tierColor(r.from), fontWeight: 700 }}>{r.from}</td>
-                <td style={{ ...td, color: tierColor(r.to), fontWeight: 700 }}>{r.to}</td>
-                <td style={{ ...td, color: "#F5A623" }}>{r.lv}</td>
-                <td style={td}>{r.bolts}</td>
-                <td style={td}>{r.mag}</td>
-                <td style={td}>{r.coils}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="flex flex-col">
+          {HERO_ROWS.map((r, i) => (
+            <div
+              key={i}
+              data-testid={`hero-row-${i}`}
+              style={{
+                background: "rgba(26,26,46,0.8)",
+                border: "1px solid rgba(231,76,26,0.3)",
+                borderRadius: 8,
+                padding: "12px 16px",
+                marginBottom: 12,
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
+                <span style={{ color: tierColor(r.from), fontFamily: "Cinzel, serif" }}>{r.from}</span>
+                <span style={{ color: "#F5F0E8", margin: "0 8px" }}>→</span>
+                <span style={{ color: tierColor(r.to), fontFamily: "Cinzel, serif" }}>{r.to}</span>
+              </div>
+              <div style={{ fontSize: 12, color: "#F5A623", marginBottom: 8, letterSpacing: "0.06em" }}>{r.lv}</div>
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 13, color: "#F5F0E8" }}>
+                <span data-testid={`hero-row-${i}-bolts`}>🔩 Bolts: {r.bolts}</span>
+                <span data-testid={`hero-row-${i}-magnets`}>🔷 Magnets: {r.mag}</span>
+                <span data-testid={`hero-row-${i}-coils`}>🔌 Coils: {r.coils}</span>
+              </div>
+            </div>
+          ))}
+        </div>
         <p
           data-testid="hero-guide-note"
           className="mt-2"
