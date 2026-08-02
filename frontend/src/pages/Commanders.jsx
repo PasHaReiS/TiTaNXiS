@@ -8,6 +8,7 @@ import { Plus, Pencil, Trash2, X, Shield, ChevronDown, ChevronRight, Upload, Ima
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import SoldierCalculator from "@/components/SoldierCalculator";
+import EquipmentTables from "@/components/EquipmentTables";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -259,6 +260,7 @@ export default function Commanders() {
               </span>
               <span className="text-muted-foreground font-normal">• {commanders.length}</span>
             </div>
+            {selectedCat === "mh_ekipman" && <EquipmentTables />}
             {selectedCat === "mh_asker_egitim" ? (
               <SoldierCalculator />
             ) : activeSection ? (
