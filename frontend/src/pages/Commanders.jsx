@@ -935,6 +935,12 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
   const [rank, setRank] = useState(initial?.rank || "");
   const [rarity, setRarity] = useState(initial?.rarity || "");
   const [imageUrl, setImageUrl] = useState(initial?.image_url || "");
+  const initialImages = (initial?.images && initial.images.length > 0)
+    ? initial.images
+    : (initial?.image_url ? [initial.image_url] : []);
+  const [images, setImages] = useState(initialImages);
+  const [urlDraft, setUrlDraft] = useState("");
+  const multiImageInputRef = React.useRef(null);
   const [description, setDescription] = useState(initial?.description || "");
   const [characters, setCharacters] = useState(initial?.characters || []);
   const [isKof, setIsKof] = useState(!!initial?.is_kof);
@@ -948,6 +954,52 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
   const currentSection = activeSection || CATEGORIES.find((c) => c.key === category)?.section;
   const sectionChoices = useMemo(() => CATEGORIES.filter((c) => c.section === currentSection), [currentSection]);
   const isInfo = category === "bilgilendirme" || (typeof category === "string" && category.startsWith("mh_"));
+  const isMultiImage = typeof category === "string" && category.startsWith("mh_") && category !== "mh_asker_egitim";
+
+  const MAX_IMAGES = 10;
+  const addImages = (arr) => {
+    if (!arr || arr.length === 0) return;
+    setImages((prev) => {
+      const room = Math.max(0, MAX_IMAGES - prev.length);
+      if (arr.length > room) toast.warning(`Maksimum ${MAX_IMAGES} resim eklenebilir`);
+      return [...prev, ...arr.slice(0, room)];
+    });
+  };
+
+  const handleMultiFiles = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const room = Math.max(0, MAX_IMAGES - images.length);
+    if (files.length > room) toast.warning(`Maksimum ${MAX_IMAGES} resim eklenebilir`);
+    const toUpload = files.slice(0, room).filter((f) => f.type.startsWith("image/") && f.size <= 8 * 1024 * 1024);
+    if (toUpload.length === 0) { toast.error(t("upload_invalid_type")); return; }
+    setUploading(true);
+    try {
+      const urls = [];
+      for (const file of toUpload) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+        urls.push(res.data.url);
+      }
+      addImages(urls);
+      toast.success(t("upload_done"));
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || err.message);
+    } finally {
+      setUploading(false);
+      if (multiImageInputRef.current) multiImageInputRef.current.value = "";
+    }
+  };
+
+  const addUrlDraft = () => {
+    const u = urlDraft.trim();
+    if (!u) return;
+    if (images.length >= MAX_IMAGES) { toast.warning(`Maksimum ${MAX_IMAGES} resim eklenebilir`); return; }
+    addImages([u]);
+    setUrlDraft("");
+  };
+  const removeImage = (idx) => setImages((prev) => prev.filter((_, i) => i !== idx));
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
@@ -986,7 +1038,8 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
         category: category.trim(),
         rank: hideRankAndRarity ? null : (rank.trim() || null),
         rarity: hideRankAndRarity ? null : (rarity || null),
-        image_url: imageUrl.trim() || null,
+        image_url: isMultiImage ? (images[0] || null) : (imageUrl.trim() || null),
+        images: isMultiImage ? images : (imageUrl.trim() ? [imageUrl.trim()] : []),
         description: description.trim() || null,
         characters: characters.map((s) => s.trim()).filter(Boolean),
         is_kof: isTeamMode ? false : !!isKof,
@@ -1152,6 +1205,61 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
         )}
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("image_url")}</label>
+        {isMultiImage ? (
+          <div data-testid="multi-image-section" className="space-y-2">
+            {images.length > 0 && (
+              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))" }}>
+                {images.map((url, idx) => (
+                  <div key={`${url}-${idx}`} className="relative group" data-testid={`multi-image-thumb-${idx}`}>
+                    <img
+                      src={resolveImageUrl(url)}
+                      alt={`img-${idx}`}
+                      className="w-full aspect-square object-cover rounded-md"
+                      style={{ border: "1px solid rgba(231,76,26,0.4)" }}
+                      onError={(e) => { e.currentTarget.style.opacity = "0.35"; }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(idx)}
+                      data-testid={`multi-image-remove-${idx}`}
+                      aria-label="remove"
+                      className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-white font-bold text-xs"
+                      style={{ background: "#C0392B", boxShadow: "0 2px 6px rgba(0,0,0,0.6)" }}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                data-testid="multi-image-url-input"
+                value={urlDraft}
+                onChange={(e) => setUrlDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addUrlDraft(); } }}
+                placeholder="https://... (Enter ile ekle)"
+                className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono"
+              />
+              <button
+                type="button"
+                onClick={addUrlDraft}
+                data-testid="multi-image-add-url"
+                className="chip px-3"
+              ><LinkIcon className="w-3.5 h-3.5" /> Ekle</button>
+            </div>
+            <input ref={multiImageInputRef} type="file" accept="image/*" multiple onChange={handleMultiFiles} className="hidden" data-testid="multi-image-file-input" />
+            <button
+              type="button"
+              onClick={() => multiImageInputRef.current?.click()}
+              disabled={uploading || images.length >= MAX_IMAGES}
+              data-testid="multi-image-upload-btn"
+              className="chip w-full justify-center py-2"
+            >
+              {uploading ? (<><Upload className="w-3.5 h-3.5 animate-pulse" /> {t("uploading")}</>) : (<><ImageIcon className="w-3.5 h-3.5" /> Cihazdan Yükle ({images.length}/{MAX_IMAGES})</>)}
+            </button>
+          </div>
+        ) : (
         <div className="flex items-start gap-2">
           {imageUrl && (
             <img
@@ -1182,6 +1290,7 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
             </button>
           </div>
         </div>
+        )}
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{isInfo ? t("body_text") : t("description")}</label>
         <textarea

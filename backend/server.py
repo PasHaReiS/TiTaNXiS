@@ -177,6 +177,7 @@ class Commander(BaseModel):
     rarity: Optional[str] = None  # legendary | epic | common
     characters: List[str] = []
     image_url: Optional[str] = None
+    images: List[str] = []
     description: Optional[str] = None
     is_kof: bool = False
     kof_pairs: List[str] = []
@@ -192,6 +193,7 @@ class CommanderCreate(BaseModel):
     rarity: Optional[str] = None
     characters: Optional[List[str]] = []
     image_url: Optional[str] = None
+    images: Optional[List[str]] = []
     description: Optional[str] = None
     is_kof: Optional[bool] = False
     kof_pairs: Optional[List[str]] = []
@@ -206,6 +208,7 @@ class CommanderUpdate(BaseModel):
     rarity: Optional[str] = None
     characters: Optional[List[str]] = None
     image_url: Optional[str] = None
+    images: Optional[List[str]] = None
     description: Optional[str] = None
     is_kof: Optional[bool] = None
     kof_pairs: Optional[List[str]] = None

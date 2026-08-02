@@ -1,0 +1,45 @@
+{
+  "summary": "Iter 32 — Multi-image upload for Commander (mh_* except mh_asker_egitim). All 9 review scenarios PASS. Backend Commander/Create/Update models accept & echo images:List[str] alongside legacy image_url (5/5 pytest cases pass, incl. CREATE→GET, PATCH update, default-empty on non-mh, and cleanup of main-agent's stale record f35ee83f...). Frontend: /komutanlar → MALİYET HESAPLAMA → mh_bina → '+ Yeni' renders [data-testid=multi-image-section] with all 4 sub-testids (multi-image-url-input, multi-image-add-url, multi-image-file-input, multi-image-upload-btn); legacy commander-image-url & commander-image-upload-btn are correctly absent. Add-via-URL: Enter key adds thumb-0, Ekle button adds thumb-1, remove-1 removes only thumb-1 leaving thumb-0. Max-10 guard: after 11 add-loop, exactly 10 thumbs remain and 'Maksimum 10 resim eklenebilir' warning is visible. Submit persisted (GET /api/commanders confirms images=[x.jpg,z.jpg] and image_url=x.jpg on the new record). Edit path: reopening the record pre-populates 2 thumbs, adding a 3rd URL then Save produces 3 images in DB (confirmed via GET). Non-mh regression: tetikci category shows legacy commander-image-url and NO multi-image-section. mh_asker_egitim regression: SoldierCalculator (sure-gun) renders — no form, no regression. Test record cleaned up (DELETE).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verified_behaviors": {
+    "backend_create_with_images": "POST /api/commanders {category:mh_bina, images:[3 urls]} → 200 with echoed images array & image_url",
+    "backend_patch_images": "PATCH /api/commanders/{id} updates images list (note: endpoint is PATCH, not PUT)",
+    "backend_default_images": "Creating commander without images key returns images=[] (List default)",
+    "multi_image_section_rendered_mh_bina": "[data-testid=multi-image-section] + 4 sub-testids present on mh_bina add-form",
+    "legacy_ui_absent_on_mh": "commander-image-url and commander-image-upload-btn NOT rendered on mh_bina",
+    "add_url_enter_key": "typing URL + Enter → multi-image-thumb-0 appears with inner <img>",
+    "add_url_button": "typing URL + click multi-image-add-url → multi-image-thumb-1 appears",
+    "remove_thumb": "multi-image-remove-1 removes thumb-1, thumb-0 remains",
+    "max_10_warning": "adding 11 URLs in a loop → exactly 10 thumbs; warning text 'Maksimum 10 resim eklenebilir' visible in DOM",
+    "submit_persists": "TEST_Bina_Multi_UI saved with images=['https://example.com/x.jpg','https://example.com/z.jpg'] & image_url=first",
+    "edit_path": "reopening the record pre-populated 2 thumbs, adding 3rd URL + Save resulted in images=[x,z,edit3] persisted (verified via API GET)",
+    "non_mh_regression_tetikci": "legacy commander-image-url renders, multi-image-section absent on tetikci",
+    "asker_egitim_regression": "mh_asker_egitim renders SoldierCalculator ([data-testid=sure-gun] present) — form correctly NOT shown",
+    "form_submit_testid": "form save button testid is 'commander-form-submit' (documented for future testers)"
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_commanders_multi_image.py",
+    "/app/test_reports/pytest/iter32_multi_image.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Commanders.jsx is now 1361 lines — consider splitting the form (CommanderForm) into its own component for maintainability. Approaching the 700-line guideline threshold heavily.",
+    "isMultiImage rule is duplicated implicitly (checked on both render and submit). Fine now, but if a 3rd branch is added, extract to a helper.",
+    "handleMultiFiles uploads sequentially (for-loop with await). For 10 files this could be slow; consider Promise.all with concurrency limit.",
+    "Backend Commander model uses images: List[str] = [] which is a mutable default — Pydantic handles it, but be aware if migrating to dataclass."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_commanders_multi_image.py (created)"
+  ],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% (all 9 review scenarios verified)"},
+  "test_credentials": "admin / admin123 (login via [data-testid=header-login-btn])",
+  "seed_data_creation": "Created TEST_Bina_Multi_UI (id e9f66815-...) during UI test then DELETED. Also deleted main-agent's stale record f35ee83f-7efa-4149-95f2-f431ccd4d374. Pytest also creates & cleans TEST_MultiImg_Bina / TEST_NoImg_Tetikci records automatically via fixture teardown.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Multi-image UI testids: multi-image-section, multi-image-url-input, multi-image-add-url, multi-image-file-input, multi-image-upload-btn, multi-image-thumb-{i}, multi-image-remove-{i}. Form save button is [data-testid=commander-form-submit]. Backend uses PATCH (not PUT) for /api/commanders/{id}. To reach mh_bina form: login → /komutanlar → click [data-testid='section-toggle-MALİYET HESAPLAMA'] → [data-testid=category-item-mh_bina] → [data-testid=commanders-add-btn]."
+}
