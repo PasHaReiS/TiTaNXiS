@@ -30,11 +30,11 @@ export default function TroveCollectionTable() {
   const current = COLLECTIONS.find((c) => c.key === selected) || COLLECTIONS[0];
 
   return (
-    <div data-testid="trove-collection-table" className="flex flex-col" style={{ gap: 16 }}>
-      {/* Type selector */}
+    <div data-testid="trove-collection-table" className="flex flex-col" style={{ gap: 8 }}>
+      {/* Type selector — compact wrap */}
       <div
         data-testid="trove-type-selector"
-        style={{ display: "flex", flexWrap: "wrap", gap: 6 }}
+        style={{ display: "flex", flexWrap: "wrap", gap: 3 }}
       >
         {COLLECTIONS.map((c) => {
           const active = c.key === selected;
@@ -46,19 +46,22 @@ export default function TroveCollectionTable() {
               aria-pressed={active}
               onClick={() => setSelected(c.key)}
               style={{
-                borderRadius: 6,
-                padding: "6px 10px",
-                fontSize: 11,
+                borderRadius: 4,
+                padding: "3px 5px",
+                height: 22,
+                fontSize: 9,
                 fontWeight: 700,
                 fontFamily: "Cinzel, serif",
-                letterSpacing: "0.04em",
+                letterSpacing: "0.02em",
                 cursor: "pointer",
                 transition: "all 0.15s ease",
                 background: active ? c.color : "#1a1a2e",
                 color: active ? "#0B0704" : "#F5F0E8",
-                border: `1px solid ${active ? c.color : "rgba(231,76,26,0.4)"}`,
-                boxShadow: active ? `0 0 8px ${c.color}88` : "none",
+                border: `1px solid ${active ? c.color : "rgba(231,76,26,0.35)"}`,
+                boxShadow: active ? `0 0 6px ${c.color}88` : "none",
                 whiteSpace: "nowrap",
+                display: "inline-flex",
+                alignItems: "center",
               }}
             >
               {c.key}
@@ -67,11 +70,10 @@ export default function TroveCollectionTable() {
         })}
       </div>
 
-      {/* Rows: Base / 1 Star / 2 Star / 3 Star */}
+      {/* 2×2 grid of Base / 1★ / 2★ / 3★ */}
       <div
         data-testid="trove-rows"
-        className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4"
-        style={{ gap: 12 }}
+        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}
       >
         {ROW_KEYS.map((rowKey, ri) => {
           const row = current.rows[ri];
@@ -81,34 +83,33 @@ export default function TroveCollectionTable() {
               data-testid={`trove-row-${current.key}-${ri}`}
               style={{
                 background: "rgba(26,26,46,0.85)",
-                border: `1px solid ${current.color}66`,
-                borderRadius: 8,
-                padding: "12px 14px",
+                border: `1px solid ${current.color}55`,
+                borderRadius: 5,
+                padding: "5px 7px",
               }}
             >
               <div
                 style={{
-                  fontSize: 13,
+                  fontSize: 10,
                   fontWeight: 700,
                   fontFamily: "Cinzel, serif",
                   color: current.color,
-                  letterSpacing: "0.08em",
+                  letterSpacing: "0.06em",
                   textTransform: "uppercase",
-                  marginBottom: 8,
-                  borderBottom: `1px solid ${current.color}44`,
-                  paddingBottom: 6,
+                  marginBottom: 3,
+                  borderBottom: `1px solid ${current.color}33`,
+                  paddingBottom: 2,
                 }}
               >
                 {t(rowKey)}
               </div>
-              <div className="flex flex-col" style={{ gap: 6 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                 {COIN_KEYS.map((coinKey, ci) => (
                   <div
                     key={coinKey}
-                    className="flex items-center justify-between"
-                    style={{ fontSize: 12 }}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, lineHeight: 1.3 }}
                   >
-                    <span style={{ color: COIN_COLORS[ci], fontWeight: 600 }}>
+                    <span style={{ color: COIN_COLORS[ci], fontWeight: 600, fontSize: 10 }}>
                       {t(coinKey)}
                     </span>
                     <span
@@ -125,57 +126,50 @@ export default function TroveCollectionTable() {
         })}
       </div>
 
-      {/* Grand total */}
+      {/* Grand total — single compact row */}
       <div
         data-testid="trove-grand-total"
         style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          flexWrap: "wrap",
           background: "linear-gradient(180deg, #2A1408 0%, #1a0d05 100%)",
           border: "1px solid #F5A623",
-          borderRadius: 8,
-          padding: "12px 16px",
-          boxShadow: "0 0 12px rgba(245,166,35,0.25) inset",
+          borderRadius: 5,
+          padding: "5px 10px",
+          boxShadow: "0 0 8px rgba(245,166,35,0.2) inset",
         }}
       >
-        <div
+        <span
           style={{
-            fontSize: 12,
+            fontSize: 10,
             fontWeight: 700,
             fontFamily: "Cinzel, serif",
             color: "#F5A623",
-            letterSpacing: "0.1em",
+            letterSpacing: "0.08em",
             textTransform: "uppercase",
-            marginBottom: 8,
           }}
         >
           {t("tc_grand_total")}
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4" style={{ gap: 8 }}>
-          {[
-            { labelKey: "tc_common_short", value: GRAND_TOTAL.common, color: COIN_COLORS[0], key: "common" },
-            { labelKey: "tc_rare_short", value: GRAND_TOTAL.rare, color: COIN_COLORS[1], key: "rare" },
-            { labelKey: "tc_precious_short", value: GRAND_TOTAL.precious, color: COIN_COLORS[2], key: "precious" },
-            { labelKey: "tc_legendary_short", value: GRAND_TOTAL.legendary, color: COIN_COLORS[3], key: "legendary" },
-          ].map((it) => (
-            <div
-              key={it.key}
-              className="flex flex-col"
-              data-testid={`trove-total-${it.key}`}
-              style={{
-                background: "rgba(0,0,0,0.35)",
-                borderRadius: 6,
-                padding: "8px 10px",
-                border: `1px solid ${it.color}44`,
-              }}
-            >
-              <span style={{ fontSize: 10, color: it.color, letterSpacing: "0.06em", fontWeight: 700 }}>
-                {t(it.labelKey)}
-              </span>
-              <span style={{ fontSize: 14, color: "#F5F0E8", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                {fmt(it.value)}
-              </span>
-            </div>
-          ))}
-        </div>
+        </span>
+        {[
+          { labelKey: "tc_common_short", value: GRAND_TOTAL.common, color: COIN_COLORS[0], key: "common" },
+          { labelKey: "tc_rare_short", value: GRAND_TOTAL.rare, color: COIN_COLORS[1], key: "rare" },
+          { labelKey: "tc_precious_short", value: GRAND_TOTAL.precious, color: COIN_COLORS[2], key: "precious" },
+          { labelKey: "tc_legendary_short", value: GRAND_TOTAL.legendary, color: COIN_COLORS[3], key: "legendary" },
+        ].map((it) => (
+          <span
+            key={it.key}
+            data-testid={`trove-total-${it.key}`}
+            style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700 }}
+          >
+            <span style={{ color: it.color, fontSize: 9, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              {t(it.labelKey)}:
+            </span>
+            <span style={{ color: "#F5F0E8", fontVariantNumeric: "tabular-nums" }}>{fmt(it.value)}</span>
+          </span>
+        ))}
       </div>
     </div>
   );
