@@ -1,0 +1,44 @@
+{
+  "summary": "Iteration 41 frontend test of new EquipmentTables level/range selectors. CRITICAL: The described feature is NOT implemented in /app/frontend/src/components/EquipmentTables.jsx — file still contains the previous version with icon <img>s in reform headers and no selector grids. All new-feature assertions FAIL.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "EquipmentTables (Reformation header)", "issue": "icon-gear-header and icon-magnet-header <img> elements still render inside reformation <th>s. Expected 0 imgs, found 2.", "selector": "[data-testid=equipment-reformation] th img", "priority": "HIGH"},
+      {"component": "EquipmentTables (Reform selector)", "issue": "[data-testid=reform-level-selector] not present. 0 buttons matching reform-level-btn-{1..20} rendered.", "selector": "[data-testid=reform-level-selector]", "priority": "CRITICAL"},
+      {"component": "EquipmentTables (Hero selector)", "issue": "[data-testid=hero-range-selector] not present. 0 buttons matching hero-range-btn-{0..4} rendered.", "selector": "[data-testid=hero-range-selector]", "priority": "CRITICAL"},
+      {"component": "EquipmentTables state", "issue": "Component is not stateful (no selectedLevel/selectedHero). All 20 reform rows + 5 hero rows render unconditionally, no filter behavior implemented.", "selector": "N/A", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "assertions_verified": {
+    "reformation_header_img_count": "2 (FAIL — expected 0)",
+    "reform_level_selector_present": "false (FAIL — expected true)",
+    "reform_level_btn_count": "0 (FAIL — expected 20)",
+    "hero_range_selector_present": "false (FAIL — expected true)",
+    "hero_range_btn_count": "0 (FAIL — expected 5)",
+    "reform_th_texts": "['Seviye', 'Dişli', 'Mıknatıs'] (header text OK; images still inside th 2 and 3)",
+    "accordion_toggles": "equipment-reformation-toggle and hero-equipment-guide-toggle still function (open/close preserved from prior implementation)"
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Main agent: implement the feature in /app/frontend/src/components/EquipmentTables.jsx. Current file still has old implementation (viewed at test time — no useState for selectedLevel/selectedHero, no selector grids, and Icon components still used inside <th>s at lines 100-101).",
+    "Add useState-driven selectedLevel (null|1..20) and selectedHero (null|0..4).",
+    "Add reform-level-selector 5x4 grid above the reformation table with 20 buttons (data-testid reform-level-btn-1..20). aria-pressed reflects selection. Active bg rgb(245,166,35) / text #0B0704; inactive bg #1a1a2e / text #F5F0E8.",
+    "When selectedLevel set: render only that single reform-row-{lv}, remove others from DOM, apply fontSize:22 centered. Click same button again → deselect (null).",
+    "Remove <Icon src=ICON_GEAR .../> and <Icon src=ICON_MAGNET .../> from the reformation <th>s (headers become plain 'Dişli' / 'Mıknatıs').",
+    "Add hero-range-selector with 5 buttons (data-testid hero-range-btn-0..4), labels 'LV 100-120','LV 120-140','LV 140-160','LV 160-180','LV 180-200'. Same active/inactive styling, aria-pressed. Selection filters hero-row-{i} to only chosen index; second click deselects.",
+    "Keep CollapseCard accordions intact (they currently work)."
+  ],
+  "critical_code_review_comments": [
+    "The review_request 'files_of_reference' claims 'EquipmentTables now stateful (selectedLevel, selectedHero). Selector grids above each table; conditional filter renders subset when a button is active. Icon components removed from reform headers.' — this is FALSE. The file on disk is the previous (iteration-40) version. Either the implementation was never committed, or the wrong file was saved. Main agent must re-apply the change.",
+    "Minor: hard-coded external asset URLs for icons (ICON_GEAR/MAGNET/BOLT/COIL) — after the feature is implemented, ICON_GEAR/ICON_MAGNET become unused and should be removed to avoid dead code."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "0% (feature not implemented)"},
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "To reach the tables: /komutanlar → click [data-testid='section-toggle-MALİYET HESAPLAMA'] → click [data-testid='category-item-mh_ekipman']. Verified route works. On retest, first check that /app/frontend/src/components/EquipmentTables.jsx contains useState and the selector grids before running Playwright assertions — this iteration failed because the file was not updated. Use hard reload + service_workers='block' to avoid stale bundle (been an issue 3+ iterations).",
+  "rca of the issue": "Root cause: /app/frontend/src/components/EquipmentTables.jsx on disk is still the iteration-40 version. It has no useState, no reform-level-selector, no hero-range-selector, and still renders <Icon src=ICON_GEAR/> and <Icon src=ICON_MAGNET/> inside reformation <th> cells (lines 100–101). The main agent's stated change was not applied to the file. Reproduction: view file → confirm absence of selector grids; load /komutanlar → mh_ekipman → DOM contains 0 reform-level-btn-* and 0 hero-range-btn-* elements while 2 <img> remain inside reformation th. Mitigation: main agent must rewrite EquipmentTables.jsx per the spec in the problem statement."
+}
