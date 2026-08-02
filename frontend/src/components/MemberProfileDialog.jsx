@@ -175,25 +175,41 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
                 <div className="text-xs text-muted-foreground p-2">{t("no_records_dot")}</div>
               )}
               {grouped.map(([evName, g]) => (
-                <div key={evName} className="mb-3 card-dark p-2" data-testid={`profile-event-${evName}`}>
-                  <div className="text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}>
+                <div
+                  key={evName}
+                  className="mb-1.5 flex items-center gap-2"
+                  data-testid={`profile-event-${evName}`}
+                  style={{
+                    padding: "6px 10px",
+                    background: "rgba(26,26,46,0.55)",
+                    border: "1px solid rgba(245,166,35,0.2)",
+                    borderRadius: 6,
+                  }}
+                >
+                  <span
+                    className="text-xs font-bold uppercase tracking-wider truncate"
+                    style={{ color: "#F5A623", fontFamily: "Cinzel, serif", flexShrink: 1, minWidth: 0 }}
+                    title={evName}
+                  >
                     {evName}
-                  </div>
-                  <div className="space-y-1">
-                    {g.rows.map((r) => (
-                      <div key={r.id} className="flex items-center justify-between gap-2 text-[11px]">
-                        <div className="text-white/85 truncate flex-1" title={r.note || evName}>
-                          {r.note || evName}
-                        </div>
-                        <div className="mono font-bold text-white/90 whitespace-nowrap">+{fmt(r.effective)}</div>
-                        <div className="text-[9px] mono text-muted-foreground whitespace-nowrap">×{r.mult}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-1.5 pt-1.5 flex items-center justify-between text-[11px] font-bold" style={{ borderTop: "1px dashed rgba(245,166,35,0.35)" }}>
-                    <span className="uppercase tracking-wider" style={{ color: "#D4730A" }}>{t("total_points")}</span>
-                    <span className="mono" style={{ color: "#E74C1A" }}>+{fmt(g.total)}</span>
-                  </div>
+                  </span>
+                  <span
+                    aria-hidden
+                    style={{
+                      flex: 1,
+                      minWidth: 12,
+                      borderBottom: "1px dotted rgba(245,166,35,0.35)",
+                      alignSelf: "flex-end",
+                      marginBottom: 6,
+                    }}
+                  />
+                  <span
+                    className="mono font-bold whitespace-nowrap"
+                    data-testid={`profile-event-total-${evName}`}
+                    style={{ color: "#E74C1A", fontSize: 12 }}
+                  >
+                    +{fmt(g.total)}
+                  </span>
                 </div>
               ))}
             </div>
