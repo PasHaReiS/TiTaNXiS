@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
 import { api, fmt, RANKS } from "@/lib/api";
 import { allianceBadgeStyle } from "@/lib/colors";
@@ -16,6 +16,12 @@ export default function Leaderboard() {
   const [filter, setFilter] = useState("active");
   const [group, setGroup] = useState(null);
   const [profileId, setProfileId] = useState(null);
+  const [rawSearch, setRawSearch] = useState("");
+  const [debSearch, setDebSearch] = useState("");
+  useEffect(() => {
+    const h = setTimeout(() => setDebSearch(rawSearch), 300);
+    return () => clearTimeout(h);
+  }, [rawSearch]);
 
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 5000 });
   const { data: groups } = useSWR("/event-groups", fetcher, { refreshInterval: 10000 });
@@ -226,8 +232,23 @@ export default function Leaderboard() {
         )}
 
         <div className="section-title heading-cinzel">{t("full_ranking")}</div>
+        <div className="relative mb-3">
+          <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <input
+            data-testid="leaderboard-search"
+            value={rawSearch}
+            onChange={(e) => setRawSearch(e.target.value)}
+            placeholder={t("search_by_name_or_id") || "İsim veya ID ile ara..."}
+            className="w-full pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-muted-foreground focus:outline-none rounded-md"
+            style={{ background: "#1A1210", border: "1px solid rgba(231,76,26,0.35)" }}
+          />
+        </div>
         <div className="space-y-1 mb-4">
-          {rest.map((r) => (
+          {(() => {
+            const s = debSearch.trim().toLowerCase();
+            const list = s ? rest.filter((r) => (r.name || "").toLowerCase().includes(s) || String(r.member_id || "").toLowerCase().includes(s)) : rest;
+            return list;
+          })().map((r) => (
             <button
               key={r.member_id}
               data-testid={LEADERBOARD.row(r.member_id)}

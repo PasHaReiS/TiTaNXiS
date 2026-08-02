@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
 import { api, fmt } from "@/lib/api";
 import { POINTS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
+import MemberProfileDialog from "@/components/MemberProfileDialog";
 import { Search, Trash2, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { mutate as globalMutate } from "swr";
@@ -13,16 +14,24 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
 
 export default function PointsList() {
   const { t } = useTranslation();
+  const [rawQ, setRawQ] = useState("");
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState(null);
+  const [profileId, setProfileId] = useState(null);
   const { data: points = [] } = useSWR("/scores?limit=2000", fetcher, { refreshInterval: 5000 });
   const { data: events = [] } = useSWR("/events?archived=false", fetcher);
+
+  useEffect(() => {
+    const h = setTimeout(() => setQ(rawQ), 300);
+    return () => clearTimeout(h);
+  }, [rawQ]);
 
   const filtered = useMemo(() => {
     if (!q) return points;
     const s = q.toLowerCase();
     return points.filter((p) =>
       (p.member_name || "").toLowerCase().includes(s) ||
+      (p.member_game_id || "").toLowerCase().includes(s) ||
       (p.event_name || "").toLowerCase().includes(s) ||
       (p.note || "").toLowerCase().includes(s)
     );
@@ -41,16 +50,22 @@ export default function PointsList() {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             data-testid={POINTS.search}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={t("search_points")}
+            value={rawQ}
+            onChange={(e) => setRawQ(e.target.value)}
+            placeholder={t("search_by_name_or_id") || "İsim veya ID ile ara..."}
             className="w-full card-dark pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+            style={{ background: "#1A1210", border: "1px solid rgba(231,76,26,0.35)" }}
           />
         </div>
 
         <div className="space-y-1.5">
           {filtered.map((p) => (
-            <div key={p.id} data-testid={POINTS.row(p.id)} className="card-dark p-3 row-hover">
+            <div
+              key={p.id}
+              data-testid={POINTS.row(p.id)}
+              onClick={() => p.member_id && setProfileId(p.member_id)}
+              className="card-dark p-3 row-hover cursor-pointer"
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="font-bold text-white text-sm truncate normal-case" style={{ textTransform: "none" }}>{p.member_name}</div>
@@ -68,7 +83,7 @@ export default function PointsList() {
                 <CanEdit>
                   <button
                     data-testid={`edit-scorelist-${p.id}`}
-                    onClick={() => setEditing(p)}
+                    onClick={(e) => { e.stopPropagation(); setEditing(p); }}
                     className="w-7 h-7 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
                     aria-label={t("edit")}
                   >
@@ -77,7 +92,8 @@ export default function PointsList() {
                 </CanEdit>
                 <CanEdit>
                   <button
-                    onClick={async () => {
+                    onClick={async (e) => {
+                      e.stopPropagation();
                       if (!window.confirm(t("confirm_delete_record"))) return;
                       await api.delete(`/scores/${p.id}`);
                       globalMutate((k) => typeof k === "string" && (k.startsWith("/scores") || k.startsWith("/points")));
@@ -97,6 +113,8 @@ export default function PointsList() {
           {filtered.length === 0 && <div className="card-dark p-6 text-center text-muted-foreground">{t("no_records_dot")}</div>}
         </div>
       </div>
+
+      <MemberProfileDialog memberId={profileId} open={!!profileId} onClose={() => setProfileId(null)} />
 
       {editing && (
         <EditScoreDialog

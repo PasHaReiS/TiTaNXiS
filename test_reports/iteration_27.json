@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 27: Tested Leaderboard/PointsList search + MemberProfileDialog portal. Functional flows all PASS (debounced search filters correctly by name & member_id; row/podium click opens profile dialog portaled to <body> with z-index 999999; total-points + event-grouped detail render; close via X and backdrop works; edit-scorelist stopPropagation prevents profile dialog opening). BUG FOUND: i18n keys 'search_by_name_or_id' and 'event_detail' are NOT actually added to /app/frontend/src/i18n/index.js — the placeholder renders the literal string 'search_by_name_or_id' in the UI. The fallback pattern `t('key') || 'İsim veya ID ile ara...'` does NOT work because react-i18next returns the key itself (a truthy string) when missing.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Leaderboard search input", "issue": "Placeholder shows literal i18n key 'search_by_name_or_id' instead of 'İsim veya ID ile ara...' — i18n key was never added to /app/frontend/src/i18n/index.js. Fallback `|| 'İsim...'` is dead code because t() returns the key string (truthy) on miss.", "selector": "[data-testid='leaderboard-search']", "priority": "HIGH"},
+      {"component": "PointsList search input", "issue": "Same: placeholder shows 'search_by_name_or_id' literal key.", "selector": "[data-testid='points-search']", "priority": "HIGH"},
+      {"component": "MemberProfileDialog event detail heading", "issue": "Similarly uses `t('event_detail') || 'Etkinlik Detayı'` — key missing in i18n, so header will render literal 'event_detail'. Confirmed key not present via grep.", "selector": "[data-testid='profile-event-detail']", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Add i18n keys `search_by_name_or_id` (value: 'İsim veya ID ile ara...' in TR, plus translations for EN/RU/DE/FR/ES/KO/AR) to /app/frontend/src/i18n/index.js — currently missing from ALL 8 locales.",
+    "Add i18n key `event_detail` (TR: 'Etkinlik Detayı') to all 8 locales in /app/frontend/src/i18n/index.js.",
+    "OR: change react-i18next config so missing keys return the fallback via `returnEmptyString: false, parseMissingKeyHandler` OR remove the `|| 'literal'` fallbacks and rely on i18next fallback lng. The `t('key') || 'literal'` pattern used in Leaderboard.jsx line 241, PointsList.jsx line 55, and MemberProfileDialog.jsx line 156 is broken because t() returns the key (truthy) when missing."
+  ],
+  "critical_code_review_comments": [
+    "Frontend fallback anti-pattern: `t('missing_key') || 'default'` is a known react-i18next pitfall — t() returns the key string on miss, which is truthy. Should either (a) actually add the keys (as promised in review request), or (b) configure i18next with `returnNull: true` + `t('key', {defaultValue: '...'})`.",
+    "MemberProfileDialog.jsx is well-structured with portal + high z-index. Portal parent verified === document.body. Hit-test elementFromPoint on profile-total-points returns element inside dialog — no overlay bleeding.",
+    "PointsList row onClick + edit/delete stopPropagation correctly implemented.",
+    "Leaderboard search filters `rest` only (top3 stays as podium) — verified: searching 'Pasha' (rest row) reduced rows 150→1 while podium stayed. Reasonable UX but note: searching for a name that is in the podium (e.g., 'Ekko') will show 0 rows in TAM SIRALAMA — podium remains. Acceptable given design."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "90% (functional pass; i18n placeholder text bug)"},
+  "test_credentials": "admin / admin123",
+  "seed_data_creation": "None. Used existing seeded members/scores.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "After main agent adds the two i18n keys, verify placeholders switch across languages (TR/EN at minimum). Test that data-testids leaderboard-search, points-search, member-profile-dialog, profile-total-points, profile-event-detail, member-profile-backdrop, member-profile-close, edit-scorelist-{id}, podium-1/2/3 are stable.",
+  "rca of the issue": "Root cause: When calling t('search_by_name_or_id') in react-i18next with a missing key and default config, the function returns the key string 'search_by_name_or_id'. Since this is a non-empty string (truthy), the JS `||` fallback never evaluates. The i18n/index.js file was grep'd for 'search_by_name_or_id' and 'event_detail' and returned zero matches — confirming the keys were never added despite the problem statement claiming '(4) i18n additions: event_detail and search_by_name_or_id keys added in all 8 locales'. Mitigation: add the keys to all 8 locale blocks."
+}

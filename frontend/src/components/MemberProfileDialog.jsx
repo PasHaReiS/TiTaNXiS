@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import useSWR from "swr";
-import { api } from "@/lib/api";
+import { api, fmt } from "@/lib/api";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { allianceBadgeStyle } from "@/lib/colors";
+import ReactDOM from "react-dom";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -26,19 +27,35 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
   const { t } = useTranslation();
   const { data: allianceColors = {} } = useSWR(open ? "/alliance-colors" : null, fetcher);
   const { data: m } = useSWR(memberId && open ? `/members/${memberId}` : null, fetcher);
+  const { data: history } = useSWR(memberId && open ? `/members/${memberId}/history` : null, fetcher);
+
+  const grouped = useMemo(() => {
+    const list = history?.points || [];
+    const groups = {};
+    list.forEach((p) => {
+      const key = p.event_name || t("event");
+      if (!groups[key]) groups[key] = { rows: [], total: 0 };
+      const mult = Number(p.multiplier || 1);
+      const effective = Number(p.points || 0) * mult;
+      groups[key].rows.push({ ...p, effective, mult });
+      groups[key].total += effective;
+    });
+    return Object.entries(groups).sort((a, b) => b[1].total - a[1].total);
+  }, [history, t]);
 
   if (!open) return null;
 
-  return (
+  return ReactDOM.createPortal(
     <div
-      className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4"
+      className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center p-4"
+      style={{ zIndex: 999999 }}
       onClick={onClose}
       data-testid="member-profile-backdrop"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="card-red-gold w-full max-w-sm p-4 fade-in relative"
-        style={{ background: "linear-gradient(180deg, rgba(26,26,26,0.98), rgba(15,15,15,0.98))" }}
+        className="card-red-gold w-full max-w-md p-4 fade-in relative flex flex-col"
+        style={{ background: "linear-gradient(180deg, rgba(26,26,26,0.98), rgba(15,15,15,0.98))", maxHeight: "85vh" }}
         data-testid="member-profile-dialog"
         role="dialog"
         aria-modal="true"
@@ -126,10 +143,48 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
                 </div>
               </>
             )}
+
+            {/* Points detail — total + per-event grouping */}
+            <div className="mt-4 rounded-lg p-3" style={{ background: "linear-gradient(135deg, rgba(231,76,26,0.12), rgba(212,115,10,0.08))", border: "1px solid rgba(231,76,26,0.35)" }}>
+              <div className="text-[10px] uppercase tracking-widest font-bold gold-text mb-1">{t("total_points")}</div>
+              <div className="text-2xl font-black mono" data-testid="profile-total-points" style={{ color: "#E74C1A", fontFamily: "'JetBrains Mono', monospace" }}>
+                {fmt(history?.total || 0)}
+              </div>
+            </div>
+
+            <div className="mt-3 overflow-y-auto pr-1" data-testid="profile-event-detail" style={{ maxHeight: "40vh" }}>
+              <div className="text-[10px] uppercase tracking-widest font-bold gold-text mb-2">{t("event_detail") || "Etkinlik Detayı"}</div>
+              {grouped.length === 0 && (
+                <div className="text-xs text-muted-foreground p-2">{t("no_records_dot")}</div>
+              )}
+              {grouped.map(([evName, g]) => (
+                <div key={evName} className="mb-3 card-dark p-2" data-testid={`profile-event-${evName}`}>
+                  <div className="text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}>
+                    {evName}
+                  </div>
+                  <div className="space-y-1">
+                    {g.rows.map((r) => (
+                      <div key={r.id} className="flex items-center justify-between gap-2 text-[11px]">
+                        <div className="text-white/85 truncate flex-1" title={r.note || evName}>
+                          {r.note || evName}
+                        </div>
+                        <div className="mono font-bold text-white/90 whitespace-nowrap">+{fmt(r.effective)}</div>
+                        <div className="text-[9px] mono text-muted-foreground whitespace-nowrap">×{r.mult}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-1.5 pt-1.5 flex items-center justify-between text-[11px] font-bold" style={{ borderTop: "1px dashed rgba(245,166,35,0.35)" }}>
+                    <span className="uppercase tracking-wider" style={{ color: "#D4730A" }}>{t("total_points")}</span>
+                    <span className="mono" style={{ color: "#E74C1A" }}>+{fmt(g.total)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
