@@ -214,6 +214,7 @@ export default function Commanders() {
           <div className="card-dark p-2 max-h-[calc(100vh-260px)] overflow-y-auto">
             {Object.entries(sections).map(([section, cats]) => {
               const isSectionActive = activeSection === section;
+              const isHesaplaSection = section === "MALİYET HESAPLAMA";
               return (
                 <div key={section} className="mb-1">
                   <div className="flex items-stretch">
@@ -227,17 +228,19 @@ export default function Commanders() {
                       <Grid3x3 className="w-3 h-3 opacity-70" />
                       <span className="text-left flex-1 truncate">{t(SIDEBAR_SECTION_I18N[section] || "") || section}</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => toggleSection(section)}
-                      data-testid={`section-toggle-${section}`}
-                      className="w-6 flex items-center justify-center hover:text-white"
-                      style={{ background: "transparent", border: 0, cursor: "pointer" }}
-                    >
-                      {expanded[section] ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                    </button>
+                    {!isHesaplaSection && (
+                      <button
+                        type="button"
+                        onClick={() => toggleSection(section)}
+                        data-testid={`section-toggle-${section}`}
+                        className="w-6 flex items-center justify-center hover:text-white"
+                        style={{ background: "transparent", border: 0, cursor: "pointer" }}
+                      >
+                        {expanded[section] ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                      </button>
+                    )}
                   </div>
-                  {expanded[section] && cats.map((c) => (
+                  {!isHesaplaSection && expanded[section] && cats.map((c) => (
                     <div
                       key={c.key}
                       data-testid={COMMANDERS.categoryItem(c.key)}
@@ -265,7 +268,27 @@ export default function Commanders() {
             {selectedCat === "mh_ekipman" && <EquipmentTables />}
             {selectedCat === "mh_koleksiyon" && <TroveCollectionTable />}
             {selectedCat === "mh_kahraman" && <HeroTables />}
-            {["mh_ekipman", "mh_koleksiyon", "mh_kahraman"].includes(selectedCat) ? null : selectedCat === "mh_asker_egitim" ? (
+            {activeSection === "MALİYET HESAPLAMA" ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2" data-testid="hesapla-category-list">
+                {CATEGORIES.filter((c) => c.section === "MALİYET HESAPLAMA").map((c) => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    data-testid={COMMANDERS.categoryItem(c.key)}
+                    onClick={() => setSelectedCat(c.key)}
+                    className="card-dark hover:border-primary transition-colors text-left"
+                    style={{ padding: "12px 14px", cursor: "pointer" }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Grid3x3 className="w-4 h-4" style={{ color: "#F5A623" }} />
+                      <span className="text-sm font-bold uppercase tracking-wider" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }}>
+                        {t(`cat_${c.key}`) !== `cat_${c.key}` ? t(`cat_${c.key}`) : c.label}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : ["mh_ekipman", "mh_koleksiyon", "mh_kahraman"].includes(selectedCat) ? null : selectedCat === "mh_asker_egitim" ? (
               <SoldierCalculator />
             ) : activeSection ? (
               <>
@@ -364,7 +387,7 @@ export default function Commanders() {
                     }}
                   />
                 ))}
-                {commanders.length === 0 && (
+                {commanders.length === 0 && !String(selectedCat).startsWith("mh_") && (
                   <div className="card-dark p-6 text-center text-muted-foreground text-xs">{t("no_commanders_in_category")}</div>
                 )}
               </div>
