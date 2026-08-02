@@ -77,7 +77,7 @@ function CollapseCard({ testId, title, defaultOpen = true, children }) {
   );
 }
 
-const th = { padding: "8px 10px", textAlign: "left", background: "#E74C1A", color: "#fff", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" };
+const th = { padding: "8px 10px", textAlign: "center", background: "#E74C1A", color: "#fff", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" };
 const td = { padding: "8px 10px", borderBottom: "1px solid rgba(231,76,26,0.15)", color: "#F5F0E8", fontSize: 12 };
 
 export default function EquipmentTables() {
