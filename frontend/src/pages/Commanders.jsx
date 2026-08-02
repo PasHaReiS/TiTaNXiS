@@ -184,7 +184,14 @@ export default function Commanders() {
   const currentCategory = CATEGORIES.find((c) => c.key === selectedCat);
   const isInfoCategory = selectedCat === "bilgilendirme";
   const toggleSection = (section) => setExpanded((e) => ({ ...e, [section]: !e[section] }));
-  const openSectionView = (section) => setSelectedCat(SECTION_PREFIX + section);
+  const openSectionView = (section) => {
+    const catsInSection = CATEGORIES.filter((c) => c.section === section);
+    if (catsInSection.length === 1) {
+      setSelectedCat(catsInSection[0].key);
+    } else {
+      setSelectedCat(SECTION_PREFIX + section);
+    }
+  };
 
   const contextLabel = activeSection
     ? activeSection
@@ -210,46 +217,22 @@ export default function Commanders() {
         </div>
 
         <div className="grid grid-cols-[130px_1fr] gap-3">
-          {/* Sidebar tree (accordion) */}
+          {/* Sidebar tree — flat section links, no accordion */}
           <div className="card-dark p-2 max-h-[calc(100vh-260px)] overflow-y-auto">
-            {Object.entries(sections).map(([section, cats]) => {
-              const isSectionActive = activeSection === section;
-              const isHesaplaSection = section === "MALİYET HESAPLAMA";
+            {Object.entries(sections).map(([section]) => {
+              const isSectionActive = activeSection === section || CATEGORIES.find((c) => c.key === selectedCat)?.section === section;
               return (
                 <div key={section} className="mb-1">
-                  <div className="flex items-stretch">
-                    <button
-                      type="button"
-                      onClick={() => openSectionView(section)}
-                      data-testid={`section-open-${section}`}
-                      className={`flex-1 flex items-center gap-1 tree-cat hover:text-white ${isSectionActive ? "gold-text" : ""}`}
-                      style={{ background: isSectionActive ? "rgba(245,166,35,0.10)" : "transparent", border: 0, cursor: "pointer", padding: "6px 6px" }}
-                    >
-                      <Grid3x3 className="w-3 h-3 opacity-70" />
-                      <span className="text-left flex-1 truncate">{t(SIDEBAR_SECTION_I18N[section] || "") || section}</span>
-                    </button>
-                    {!isHesaplaSection && (
-                      <button
-                        type="button"
-                        onClick={() => toggleSection(section)}
-                        data-testid={`section-toggle-${section}`}
-                        className="w-6 flex items-center justify-center hover:text-white"
-                        style={{ background: "transparent", border: 0, cursor: "pointer" }}
-                      >
-                        {expanded[section] ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                      </button>
-                    )}
-                  </div>
-                  {!isHesaplaSection && expanded[section] && cats.map((c) => (
-                    <div
-                      key={c.key}
-                      data-testid={COMMANDERS.categoryItem(c.key)}
-                      onClick={() => setSelectedCat(c.key)}
-                      className={`tree-item ${selectedCat === c.key ? "active" : ""}`}
-                    >
-                      {t(`cat_${c.key}`) !== `cat_${c.key}` ? t(`cat_${c.key}`) : c.label}
-                    </div>
-                  ))}
+                  <button
+                    type="button"
+                    onClick={() => openSectionView(section)}
+                    data-testid={`section-open-${section}`}
+                    className={`w-full flex items-center gap-1 tree-cat hover:text-white ${isSectionActive ? "gold-text" : ""}`}
+                    style={{ background: isSectionActive ? "rgba(245,166,35,0.10)" : "transparent", border: 0, cursor: "pointer", padding: "6px 6px" }}
+                  >
+                    <Grid3x3 className="w-3 h-3 opacity-70" />
+                    <span className="text-left flex-1 truncate">{t(SIDEBAR_SECTION_I18N[section] || "") || section}</span>
+                  </button>
                 </div>
               );
             })}
@@ -268,6 +251,56 @@ export default function Commanders() {
             {selectedCat === "mh_ekipman" && <EquipmentTables />}
             {selectedCat === "mh_koleksiyon" && <TroveCollectionTable />}
             {selectedCat === "mh_kahraman" && <HeroTables />}
+
+            {/* Sub-category tab strip for sections with multiple children (except HESAPLA which has its own picker) */}
+            {(() => {
+              const currentSection = activeSection || CATEGORIES.find((c) => c.key === selectedCat)?.section;
+              if (!currentSection || currentSection === "MALİYET HESAPLAMA" || currentSection === "BİLGİLENDİRME" || currentSection === "GARNİZON") return null;
+              const subs = CATEGORIES.filter((c) => c.section === currentSection);
+              if (subs.length <= 1) return null;
+              const showingAll = !!activeSection;
+              return (
+                <div className="flex flex-wrap gap-2 mb-3" data-testid="section-tab-strip">
+                  <button
+                    type="button"
+                    data-testid={`section-tab-all-${currentSection}`}
+                    onClick={() => openSectionView(currentSection)}
+                    className="px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider"
+                    style={{
+                      background: showingAll ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
+                      color: showingAll ? "#0B0704" : "#F5F0E8",
+                      border: `1px solid ${showingAll ? "#F5A623" : "rgba(255,255,255,0.15)"}`,
+                      cursor: "pointer",
+                      fontFamily: "Cinzel, serif",
+                    }}
+                  >
+                    {t("all_short")}
+                  </button>
+                  {subs.map((s) => {
+                    const active = s.key === selectedCat;
+                    return (
+                      <button
+                        key={s.key}
+                        type="button"
+                        data-testid={COMMANDERS.categoryItem(s.key)}
+                        onClick={() => setSelectedCat(s.key)}
+                        className="px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider"
+                        style={{
+                          background: active ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
+                          color: active ? "#0B0704" : "#F5F0E8",
+                          border: `1px solid ${active ? "#F5A623" : "rgba(255,255,255,0.15)"}`,
+                          cursor: "pointer",
+                          fontFamily: "Cinzel, serif",
+                        }}
+                      >
+                        {t(`cat_${s.key}`) !== `cat_${s.key}` ? t(`cat_${s.key}`) : s.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
             {activeSection === "MALİYET HESAPLAMA" ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2" data-testid="hesapla-category-list">
                 {CATEGORIES.filter((c) => c.section === "MALİYET HESAPLAMA").map((c) => (
