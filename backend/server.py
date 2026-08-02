@@ -255,6 +255,17 @@ async def root():
     return {"message": "GOD OF WAR API", "status": "ok"}
 
 
+@api_router.get("/health")
+async def health():
+    """Lightweight liveness probe used post-deploy to confirm the API router is mounted."""
+    try:
+        await db.command("ping")
+        db_ok = True
+    except Exception:
+        db_ok = False
+    return {"status": "ok", "db": "up" if db_ok else "down"}
+
+
 # ---------- Members ----------
 @api_router.get("/members")
 async def list_members(search: Optional[str] = None):
