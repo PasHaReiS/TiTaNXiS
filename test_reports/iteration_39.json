@@ -1,0 +1,32 @@
+{
+  "summary": "Frontend-only verification for Hero Equipment Level Guide icon removal + 'Coils'→'Potential Coils' relabel. Source code inspection shows the intended changes were NOT applied to /app/frontend/src/components/EquipmentTables.jsx. All three hero-row icons (icon-bolt-{i}, icon-magnet-{i}, icon-coil-{i}) are still present in the JSX (lines 137-139), and the label still reads 'Coils:' rather than 'Potential Coils:'. The reformation table headers remain intact as expected.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "EquipmentTables.jsx Hero Guide (Level 5 card)", "issue": "icon-bolt-{i} still rendered inside hero-row-{i}-bolts span (line 137). Requested removal not applied.", "selector": "[data-testid^='icon-bolt-']", "priority": "HIGH"},
+      {"component": "EquipmentTables.jsx Hero Guide (Level 5 card)", "issue": "icon-magnet-{i} still rendered inside hero-row-{i}-magnets span (line 138). Requested removal not applied.", "selector": "[data-testid^='icon-magnet-'] (numeric suffix)", "priority": "HIGH"},
+      {"component": "EquipmentTables.jsx Hero Guide (Level 5 card)", "issue": "icon-coil-{i} still rendered inside hero-row-{i}-coils span (line 139). Requested removal not applied.", "selector": "[data-testid^='icon-coil-']", "priority": "HIGH"},
+      {"component": "EquipmentTables.jsx Hero Guide (Level 5 card)", "issue": "Label still says 'Coils:' — must be 'Potential Coils:' per spec (line 139).", "selector": "[data-testid='hero-row-0-coils']", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "In /app/frontend/src/components/EquipmentTables.jsx lines 137-139 remove the three <Icon .../> components from the hero row spans (only inside the Level 5 Hero Guide row loop).",
+    "On line 139 change 'Coils: {r.coils}' to 'Potential Coils: {r.coils}'.",
+    "Do NOT touch the reformation table THs (icon-gear-header, icon-magnet-header on lines around 100-101) — those must remain."
+  ],
+  "critical_code_review_comments": [
+    "Source grep shows: line 137 icon-bolt-${i}, line 138 icon-magnet-${i}, line 139 icon-coil-${i} + text 'Coils:' — none of the requested edits landed. E1 likely edited a different file/branch or the write was lost.",
+    "The stale-bundle hypothesis from iters 34/36 is not the cause here — the JSX source itself was never updated."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "0% (changes not present in source)"},
+  "test_credentials": "not required for this test",
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The E1 change was reported but not applied. Grep on EquipmentTables.jsx still returns all 3 hero-row icon testIds and 'Coils:' label. After E1 applies the 2 edits (remove 3 Icon components on lines 137-139 and change Coils→Potential Coils on line 139), rerun the checks: (1) grep '/app/frontend/src/components/EquipmentTables.jsx' should NOT match icon-bolt-, icon-coil-, or icon-magnet-\\$\\{i\\} (only icon-magnet-header remains). (2) Load /komutanlar → HESAPLA (MALİYET HESAPLAMA) → category-item-mh_ekipman → check hero-equipment-guide has 0 imgs and hero-row-0-coils textContent === 'Potential Coils: 20'. Note: on this deployment the calc menu is labeled 'HESAPLA' in the left sidebar, not 'MALİYET HESAPLAMA' at the top.",
+  "rca of the issue": "Code inspection: /app/frontend/src/components/EquipmentTables.jsx lines 137-139 unchanged from prior iteration. Requested removal + relabel edits were never written to disk. No frontend rebuild issue — the source file is the ground truth and the intended diff is absent."
+}
