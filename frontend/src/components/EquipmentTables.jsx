@@ -86,12 +86,12 @@ export default function EquipmentTables() {
   const [selectedHero, setSelectedHero] = useState(0);
 
   const btnBase = {
-    borderRadius: 6,
-    padding: "6px 8px",
-    fontSize: 12,
+    borderRadius: 4,
+    padding: "3px 4px",
+    fontSize: 10,
     fontWeight: 700,
     fontFamily: "Cinzel, serif",
-    letterSpacing: "0.04em",
+    letterSpacing: "0.02em",
     cursor: "pointer",
     transition: "all 0.15s ease",
   };
@@ -100,18 +100,37 @@ export default function EquipmentTables() {
     background: active ? "#F5A623" : "#1a1a2e",
     color: active ? "#0B0704" : "#F5F0E8",
     border: `1px solid ${active ? "#F5A623" : "rgba(231,76,26,0.4)"}`,
-    boxShadow: active ? "0 0 8px rgba(245,166,35,0.5)" : "none",
+    boxShadow: active ? "0 0 6px rgba(245,166,35,0.5)" : "none",
   });
 
-  const reformRows = REFORM_ROWS.filter((r) => r.lv === selectedLevel);
-  const heroRows = [HERO_ROWS[selectedHero]];
+  const currentReform = REFORM_ROWS.find((r) => r.lv === selectedLevel) || REFORM_ROWS[0];
+  const heroRow = HERO_ROWS[selectedHero];
+
+  const sectionStyle = {
+    background: "#1a1a2e",
+    border: "1px solid rgba(231,76,26,0.3)",
+    borderRadius: 8,
+    padding: 10,
+  };
+  const sectionTitleStyle = {
+    color: "#E74C1A",
+    fontFamily: "Cinzel, serif",
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    fontWeight: 700,
+    fontSize: 12,
+    marginBottom: 8,
+  };
 
   return (
-    <div data-testid="equipment-tables" className="flex flex-col mb-6" style={{ gap: 24 }}>
-      <CollapseCard testId="equipment-reformation" title={t("et_reformation_title")}>
+    <div data-testid="equipment-tables" className="flex flex-col mb-4" style={{ gap: 8 }}>
+      {/* ===== TABLE 1: EQUIPMENT REFORMATION (compact) ===== */}
+      <div data-testid="equipment-reformation" style={sectionStyle}>
+        <h3 style={sectionTitleStyle}>{t("et_reformation_title")}</h3>
+
         <div
           data-testid="reform-level-selector"
-          style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginBottom: 12 }}
+          style={{ display: "grid", gridTemplateColumns: "repeat(5, 40px)", gap: 3, marginBottom: 8, maxWidth: 212 }}
         >
           {REFORM_ROWS.map((r) => (
             <button
@@ -120,39 +139,46 @@ export default function EquipmentTables() {
               data-testid={`reform-level-btn-${r.lv}`}
               aria-pressed={selectedLevel === r.lv}
               onClick={() => setSelectedLevel(r.lv)}
-              style={btnStyle(selectedLevel === r.lv)}
+              style={{ ...btnStyle(selectedLevel === r.lv), width: 40, height: 24, boxSizing: "border-box", textAlign: "center" }}
             >
               {r.lv}
             </button>
           ))}
         </div>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 240 }}>
-          <thead>
-            <tr>
-              <th style={th}>{t("et_col_level")}</th>
-              <th style={th}>{t("et_col_gear")}</th>
-              <th style={th}>{t("et_col_magnet")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {reformRows.map((r) => {
-              const cellStyle = { ...td, fontSize: 22, padding: "14px 10px", textAlign: "center" };
-              return (
-                <tr key={r.lv} className="row-hover" data-testid={`reform-row-${r.lv}`}>
-                  <td style={{ ...cellStyle, fontWeight: 700, color: "#F5A623" }}>{r.lv}</td>
-                  <td style={cellStyle}>{fmt(r.gear)}</td>
-                  <td style={{ ...cellStyle, color: r.batt === null ? "#666" : "#F5F0E8" }}>{r.batt === null ? "-" : fmt(r.batt)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </CollapseCard>
 
-      <CollapseCard testId="hero-equipment-guide" title={t("et_hero_guide_title")}>
+        {/* Inline row for selected level */}
+        <div
+          data-testid={`reform-row-${currentReform.lv}`}
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            alignItems: "center",
+            padding: "6px 10px",
+            background: "rgba(11,7,4,0.5)",
+            borderRadius: 6,
+            border: "1px solid rgba(245,166,35,0.3)",
+          }}
+        >
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#F5A623", fontFamily: "Cinzel, serif", letterSpacing: "0.04em" }}>
+            {t("et_col_level")}: <span style={{ color: "#F5F0E8" }}>{currentReform.lv}</span>
+          </span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#F5A623", fontFamily: "Cinzel, serif", letterSpacing: "0.04em" }}>
+            {t("et_col_gear")}: <span style={{ color: "#F5F0E8", fontVariantNumeric: "tabular-nums" }}>{fmt(currentReform.gear)}</span>
+          </span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#F5A623", fontFamily: "Cinzel, serif", letterSpacing: "0.04em" }}>
+            {t("et_col_magnet")}: <span style={{ color: currentReform.batt === null ? "#666" : "#F5F0E8", fontVariantNumeric: "tabular-nums" }}>{currentReform.batt === null ? "-" : fmt(currentReform.batt)}</span>
+          </span>
+        </div>
+      </div>
+
+      {/* ===== TABLE 2: HERO EQUIPMENT GUIDE ===== */}
+      <div data-testid="hero-equipment-guide" style={sectionStyle}>
+        <h3 style={sectionTitleStyle}>{t("et_hero_guide_title")}</h3>
+
         <div
           data-testid="hero-range-selector"
-          style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}
+          style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}
         >
           {HERO_ROWS.map((r, i) => (
             <button
@@ -161,50 +187,41 @@ export default function EquipmentTables() {
               data-testid={`hero-range-btn-${i}`}
               aria-pressed={selectedHero === i}
               onClick={() => setSelectedHero(i)}
-              style={{ ...btnStyle(selectedHero === i), whiteSpace: "nowrap" }}
+              style={{ ...btnStyle(selectedHero === i), whiteSpace: "nowrap", padding: "4px 8px", fontSize: 11 }}
             >
               {r.lv}
             </button>
           ))}
         </div>
-        <div className="flex flex-col">
-          {heroRows.map((r) => {
-            const i = HERO_ROWS.indexOf(r);
-            return (
-              <div
-                key={i}
-                data-testid={`hero-row-${i}`}
-                style={{
-                  background: "rgba(26,26,46,0.8)",
-                  border: "1px solid rgba(231,76,26,0.3)",
-                  borderRadius: 8,
-                  padding: "12px 16px",
-                  marginBottom: 12,
-                }}
-              >
-                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
-                  <span style={{ color: tierColor(r.from), fontFamily: "Cinzel, serif" }}>{r.from}</span>
-                  <span style={{ color: "#F5F0E8", margin: "0 8px" }}>→</span>
-                  <span style={{ color: tierColor(r.to), fontFamily: "Cinzel, serif" }}>{r.to}</span>
-                </div>
-                <div style={{ fontSize: 12, color: "#F5A623", marginBottom: 8, letterSpacing: "0.06em" }}>{r.lv}</div>
-                <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 13, color: "#F5F0E8" }}>
-                  <span data-testid={`hero-row-${i}-bolts`}>{t("et_bolts")}: {r.bolts}</span>
-                  <span data-testid={`hero-row-${i}-magnets`}>{t("et_magnets")}: {r.mag}</span>
-                  <span data-testid={`hero-row-${i}-coils`}>{t("et_potential_coils")}: {r.coils}</span>
-                </div>
-              </div>
-            );
-          })}
+
+        <div
+          data-testid={`hero-row-${selectedHero}`}
+          style={{
+            background: "rgba(26,26,46,0.8)",
+            border: "1px solid rgba(231,76,26,0.3)",
+            borderRadius: 6,
+            padding: "8px 12px",
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2 }}>
+            <span style={{ color: tierColor(heroRow.from), fontFamily: "Cinzel, serif" }}>{heroRow.from}</span>
+            <span style={{ color: "#F5F0E8", margin: "0 6px" }}>→</span>
+            <span style={{ color: tierColor(heroRow.to), fontFamily: "Cinzel, serif" }}>{heroRow.to}</span>
+          </div>
+          <div style={{ fontSize: 11, color: "#F5A623", marginBottom: 6, letterSpacing: "0.06em" }}>{heroRow.lv}</div>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 12, color: "#F5F0E8" }}>
+            <span data-testid={`hero-row-${selectedHero}-bolts`}>{t("et_bolts")}: {heroRow.bolts}</span>
+            <span data-testid={`hero-row-${selectedHero}-magnets`}>{t("et_magnets")}: {heroRow.mag}</span>
+            <span data-testid={`hero-row-${selectedHero}-coils`}>{t("et_potential_coils")}: {heroRow.coils}</span>
+          </div>
         </div>
         <p
           data-testid="hero-guide-note"
-          className="mt-2"
-          style={{ fontStyle: "italic", fontSize: 11, color: "rgba(245,240,232,0.65)" }}
+          style={{ fontStyle: "italic", fontSize: 10, color: "rgba(245,240,232,0.6)", marginTop: 6 }}
         >
           {t("et_hero_note")}
         </p>
-      </CollapseCard>
+      </div>
     </div>
   );
 }
