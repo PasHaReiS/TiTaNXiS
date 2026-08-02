@@ -1,0 +1,33 @@
+{
+  "summary": "Frontend UI + integration testing for iteration 25 changes: (1) tab/title renamed from 'Komutan Bilgileri' to 'LoJ Hakkında' in all 8 i18n locales, and (2) new 'MALİYET HESAPLAMA' sidebar section with 8 mh_* accordion sub-categories on /komutanlar. All targeted flows verified end-to-end including admin login (admin/admin123), item creation via commander-form treated as info (title + body_text, no rank/rarity/is_kof/type-chips), POST /api/commanders returning 200 with category='mh_bina', new card appearing, aggregate section-open view, empty state, regression on existing 6 sections, and language switcher.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Commanders.jsx is 1249 lines — over the 700-line threshold. Consider splitting CommanderForm, TeamSlotsEditor, CharacterMultiSelect, CommanderLightbox, CommanderCard, CommanderGridCard into separate files for maintainability.",
+    "isInfo logic is duplicated (Commanders.jsx line 947 in CommanderForm and line 107 in addButtonLabel) — extract into a shared helper isInfoCategory(catKey, section) to prevent drift when more info-style prefixes are added later.",
+    "Section header key MALİYET HESAPLAMA uses Turkish literal string as a lookup key across CATEGORIES/SIDEBAR_SECTION_I18N/openSectionView/data-testid. Special characters (İ, Ş) in data-testid attributes work but consider stable ASCII keys (e.g. 'maliyet_hesaplama') for section identifiers with a separate display label — safer for CSS/query selector edge cases across browsers."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (not requested / verified via UI integration)", "frontend": "100%"},
+  "test_credentials": "admin / admin123 (verified working)",
+  "seed_data_creation": "Created and cleaned up a single test commander (name='Test Bina', category='mh_bina') via UI; deletion confirmed with 'Silindi' toast.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 8 locales already have nav_commanders + commanders_title set to LoJ Hakkında variants and sb_maliyet_hesaplama translations. CommanderForm treats category='mh_*' as info (title + body_text only). Backend accepts arbitrary category strings — no schema change was required.",
+  "verified_features": [
+    "H2 title reads 'LoJ Hakkında' (TR default) — verified visually",
+    "BottomNav second tab reads 'LOJ HAKKINDA' — verified visually",
+    "section-open-MALİYET HESAPLAMA + section-toggle-MALİYET HESAPLAMA present",
+    "All 8 category-item-mh_* testids present with labels: Asker Eğitim, Bina, Teknoloji, Kitap, Koleksiyon, Ekipman, Uydu, Robot",
+    "Clicking mh_bina shows empty state 'Bu kategoride komutan yok.'",
+    "Admin '+ Yeni Bilgi' button visible after admin login (correct info-mode label)",
+    "Form opens in info mode: rarity-picker=absent, is-kof=absent, type-chips=absent, rank=absent; labels 'Başlık' + 'İçerik' present",
+    "POST /api/commanders returned status=200 with category='mh_bina' — new card visible immediately in grid",
+    "section-open aggregate view header reads 'MALİYET HESAPLAMA — Tümü'",
+    "Regression: BİLGİLENDİRME, KOMUTANLAR, KAFES ETKİNLİK, GARNİZON, SAVAŞ, SVS EKİP all still render",
+    "No console errors observed during flow",
+    "Language switcher present (deeper per-locale label verification for EN/RU/DE/FR/ES/KO/AR was done by reading the i18n source — all values correct)"
+  ]
+}

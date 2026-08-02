@@ -41,6 +41,7 @@ const SIDEBAR_SECTION_I18N = {
   "GARNİZON": "sb_garnizon",
   "SAVAŞ": "sb_savas",
   "SVS EKİP": "sb_svs",
+  "MALİYET HESAPLAMA": "sb_maliyet_hesaplama",
 };
 
 // Content language badge — the app stores commander names/desc as free text.
@@ -100,9 +101,10 @@ const COMMANDER_GROUPS = ["tetikci", "kalkanli", "bombaci", "robotlar"];
 
 // Label the "+ Yeni" button based on the currently-selected category or section.
 function addButtonLabel(t, category, section) {
+  if (section === "MALİYET HESAPLAMA") return t("add_info_item");
   if (section) return t("add_commander_short");
   const key = category?.key;
-  if (key === "bilgilendirme") return t("add_info_item");
+  if (key === "bilgilendirme" || (typeof key === "string" && key.startsWith("mh_"))) return t("add_info_item");
   const sec = category?.section;
   if (sec === "KOMUTANLAR") return t("add_commander_short");
   if (sec === "KAFES ETKİNLİK") return t("add_squad_short");
@@ -942,7 +944,7 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
   // Sub-category chips within the same section (or the current form's category's section).
   const currentSection = activeSection || CATEGORIES.find((c) => c.key === category)?.section;
   const sectionChoices = useMemo(() => CATEGORIES.filter((c) => c.section === currentSection), [currentSection]);
-  const isInfo = category === "bilgilendirme";
+  const isInfo = category === "bilgilendirme" || (typeof category === "string" && category.startsWith("mh_"));
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0];

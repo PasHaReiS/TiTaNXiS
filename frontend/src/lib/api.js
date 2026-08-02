@@ -60,6 +60,14 @@ export const CATEGORIES = [
   { key: "savas_ralli", label: "Ralli Ekibi", section: "SAVAŞ" },
   { key: "svs_ana_kale", label: "Ana (Supreme) Kale", section: "SVS EKİP" },
   { key: "svs_taret", label: "Taret Ekipleri", section: "SVS EKİP" },
+  { key: "mh_asker_egitim", label: "Asker Eğitim", section: "MALİYET HESAPLAMA" },
+  { key: "mh_bina", label: "Bina", section: "MALİYET HESAPLAMA" },
+  { key: "mh_teknoloji", label: "Teknoloji", section: "MALİYET HESAPLAMA" },
+  { key: "mh_kitap", label: "Kitap", section: "MALİYET HESAPLAMA" },
+  { key: "mh_koleksiyon", label: "Koleksiyon", section: "MALİYET HESAPLAMA" },
+  { key: "mh_ekipman", label: "Ekipman", section: "MALİYET HESAPLAMA" },
+  { key: "mh_uydu", label: "Uydu", section: "MALİYET HESAPLAMA" },
+  { key: "mh_robot", label: "Robot", section: "MALİYET HESAPLAMA" },
 ];
 
 export function groupCategories() {
