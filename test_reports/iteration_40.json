@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 40 retest of hero equipment guide in MALİYET HESAPLAMA → mh_ekipman. Fresh browser context (bypass_csp=True, service_workers='block'), two hard reloads. All four assertions PASSED.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "assertions_verified": {
+    "hero_guide_img_count": "0 (PASS — no <img> inside [data-testid=hero-equipment-guide])",
+    "hero_row_0_coils_text": "'Potential Coils: 20' (PASS — contains 'Potential')",
+    "hero_row_0_coils_outerHTML": "<span data-testid=\"hero-row-0-coils\">Potential Coils: <span>20</span></span> (no icon components)",
+    "hero_row_0_bolts_text": "'Bolts: 117K'",
+    "hero_row_0_magnets_text": "'Magnets: 600'",
+    "icon_gear_header": "IMG, naturalWidth=201 (PASS)",
+    "icon_magnet_header": "IMG, naturalWidth=203 (PASS)"
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Fresh bundle now serves correctly. To reach the hero equipment guide: navigate to /komutanlar, click [data-testid='section-toggle-MALİYET HESAPLAMA'] to expand section, then click [data-testid='category-item-mh_ekipman']. Hero rows use spans (no icons) — text is plain 'Bolts: X', 'Magnets: X', 'Potential Coils: X'. Reformation table header icons (icon-gear-header, icon-magnet-header) render as <img> with naturalWidth>0."
+}

@@ -134,9 +134,9 @@ export default function EquipmentTables() {
               </div>
               <div style={{ fontSize: 12, color: "#F5A623", marginBottom: 8, letterSpacing: "0.06em" }}>{r.lv}</div>
               <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 13, color: "#F5F0E8" }}>
-                <span data-testid={`hero-row-${i}-bolts`}><Icon src={ICON_BOLT} alt="bolt" testId={`icon-bolt-${i}`} /> Bolts: {r.bolts}</span>
-                <span data-testid={`hero-row-${i}-magnets`}><Icon src={ICON_MAGNET} alt="magnet" testId={`icon-magnet-${i}`} /> Magnets: {r.mag}</span>
-                <span data-testid={`hero-row-${i}-coils`}><Icon src={ICON_COIL} alt="coil" testId={`icon-coil-${i}`} /> Coils: {r.coils}</span>
+                <span data-testid={`hero-row-${i}-bolts`}>Bolts: {r.bolts}</span>
+                <span data-testid={`hero-row-${i}-magnets`}>Magnets: {r.mag}</span>
+                <span data-testid={`hero-row-${i}-coils`}>Potential Coils: {r.coils}</span>
               </div>
             </div>
           ))}
