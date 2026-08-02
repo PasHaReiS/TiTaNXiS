@@ -88,7 +88,7 @@ export default function EquipmentTables() {
             <tr>
               <th style={th}>Seviye</th>
               <th style={th}>⚙️ Dişli</th>
-              <th style={th}>🧲 Mıknatıs</th>
+              <th style={th}>🔷 Mıknatıs</th>
             </tr>
           </thead>
           <tbody>
