@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import ReactDOM from "react-dom";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -150,26 +151,26 @@ export default function Header() {
               <span className="text-[10px] font-bold uppercase truncate max-w-[52px]">{user.username}</span>
             </button>
 
-            {menuOpen && (
+            {menuOpen && ReactDOM.createPortal(
               <>
                 <div
                   data-testid="header-profile-overlay"
                   onClick={() => setMenuOpen(false)}
-                  style={{ position: "fixed", inset: 0, zIndex: 99998, background: "transparent" }}
+                  style={{ position: "fixed", inset: 0, zIndex: 999998, background: "transparent" }}
                 />
                 <div
                   data-testid="header-profile-dropdown"
-                  className="overflow-hidden"
                   style={{
                     position: "fixed",
-                    top: 60,
-                    right: 8,
-                    zIndex: 99999,
-                    minWidth: 200,
+                    top: "60px",
+                    right: "8px",
+                    zIndex: 999999,
+                    minWidth: 220,
                     background: "#1E1410",
                     border: "1px solid #E74C1A",
-                    boxShadow: "0 8px 32px rgba(0,0,0,0.9)",
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.95)",
                     borderRadius: 8,
+                    overflow: "visible",
                   }}
                 >
                   <MenuItem
@@ -213,7 +214,8 @@ export default function Header() {
                     testId="dropdown-logout"
                   />
                 </div>
-              </>
+              </>,
+              document.body
             )}
           </div>
         ) : (
