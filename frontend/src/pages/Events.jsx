@@ -27,6 +27,10 @@ export default function Events() {
       if (!g[e.group_name]) g[e.group_name] = [];
       g[e.group_name].push(e);
     });
+    // Sort each group's events by date ascending (oldest first, newest last)
+    Object.keys(g).forEach((k) => {
+      g[k].sort((a, b) => new Date(a.date) - new Date(b.date));
+    });
     return g;
   }, [events]);
 
