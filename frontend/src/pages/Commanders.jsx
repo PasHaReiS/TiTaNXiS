@@ -7,6 +7,7 @@ import CanEdit from "@/components/CanEdit";
 import { Plus, Pencil, Trash2, X, Shield, ChevronDown, ChevronRight, Upload, Image as ImageIcon, Sparkles, Link as LinkIcon, Grid3x3 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import SoldierCalculator from "@/components/SoldierCalculator";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -258,7 +259,9 @@ export default function Commanders() {
               </span>
               <span className="text-muted-foreground font-normal">• {commanders.length}</span>
             </div>
-            {activeSection ? (
+            {selectedCat === "mh_asker_egitim" ? (
+              <SoldierCalculator />
+            ) : activeSection ? (
               <>
                 <div className="relative mb-2">
                   <input

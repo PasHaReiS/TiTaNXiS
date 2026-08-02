@@ -1,0 +1,21 @@
+{
+  "summary": "Iteration 26: Tested MALİYET HESAPLAMA → HESAPLA rename + SoldierCalculator UI + new backend endpoints (unit-costs, calculations). All backend (5/5 pytest) and all frontend flows pass. Sidebar header renders 'HESAPLA' in TR. Realtime calc for 1000 soldiers with preseeded unit costs shows exactly 100.000 / 50.000 / 30.000 / 20.000 and time 01:23:20. Save/Delete calc, Unit cost modal (admin-only), and mh_bina regression (calculator not shown) all verified.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_calculator.py", "/app/test_reports/pytest/iter26.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "SoldierCalculator uses `useAuth()` for isAdmin/canEdit — good. RBAC (guest cannot see save, non-admin cannot see modal) is implemented via conditional render.",
+    "Backend endpoints correctly use require_admin for PUT unit-costs and require_edit for POST/DELETE calculations. Data assertions PASS via GET after PUT/POST/DELETE.",
+    "Minor: `strip_id` helper exists in server.py but list_calculations uses inline `d.pop('_id', None)` — consistent with pattern elsewhere. No _id leaks.",
+    "i18n coverage: sb_maliyet_hesaplama updated for tr/en/ru/de/fr/es/ko — verified in file. AR not fully re-verified in this test but present in codebase.",
+    "server.py is now ~1177 lines — approaching the 700-line splitting guideline. Consider splitting into routers (members, events, points, commanders, calculator) for maintainability. (Non-blocking.)"
+  ],
+  "updated_files": ["/app/backend/tests/test_calculator.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin / admin123",
+  "seed_data_creation": "Backend preseeded unit_costs for asker_egitim by main agent; test re-writes same values via PUT.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "SoldierCalculator lives at /komutanlar under HESAPLA → Asker Eğitim (category key mh_asker_egitim). Sidebar section internal key remains 'MALİYET HESAPLAMA' — data-testid section-open-MALİYET HESAPLAMA is unchanged. Backend collections: unit_costs (keyed by category), calculations."
+}
