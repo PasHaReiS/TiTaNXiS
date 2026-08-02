@@ -476,3 +476,9 @@ select:focus, textarea:focus {
 .text-gray-400, .text-gray-500 { color: #AAA098 !important; }
 .border-gray-700 { border-color: rgba(231, 76, 26, 0.4) !important; }
 .border-gray-800 { border-color: rgba(231, 76, 26, 0.3) !important; }
+
+@keyframes musicPulse {
+  0%   { transform: scale(1);    box-shadow: 0 4px 12px rgba(231,76,26,0.5); }
+  50%  { transform: scale(1.08); box-shadow: 0 6px 20px rgba(231,76,26,0.7); }
+  100% { transform: scale(1);    box-shadow: 0 4px 12px rgba(231,76,26,0.5); }
+}
