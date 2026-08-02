@@ -265,7 +265,7 @@ export default function Commanders() {
             {selectedCat === "mh_ekipman" && <EquipmentTables />}
             {selectedCat === "mh_koleksiyon" && <TroveCollectionTable />}
             {selectedCat === "mh_kahraman" && <HeroTables />}
-            {selectedCat === "mh_asker_egitim" ? (
+            {["mh_ekipman", "mh_koleksiyon", "mh_kahraman"].includes(selectedCat) ? null : selectedCat === "mh_asker_egitim" ? (
               <SoldierCalculator />
             ) : activeSection ? (
               <>
