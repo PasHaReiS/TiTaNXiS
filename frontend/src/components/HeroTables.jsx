@@ -56,7 +56,7 @@ export default function HeroTables() {
   const rightColumn = [4, 5, 6, 7];
 
   return (
-    <div data-testid="hero-tables" className="flex flex-col" style={{ gap: 24 }}>
+    <div data-testid="hero-tables" className="flex flex-col" style={{ gap: 10 }}>
       {/* ===== TABLE 1: HERO STAR ===== */}
       <div
         data-testid="hero-star-section"
@@ -64,7 +64,7 @@ export default function HeroTables() {
           background: "#1a1a2e",
           border: "1px solid rgba(231,76,26,0.3)",
           borderRadius: 8,
-          padding: 16,
+          padding: 10,
         }}
       >
         <h3
@@ -74,17 +74,17 @@ export default function HeroTables() {
             letterSpacing: "0.06em",
             textTransform: "uppercase",
             fontWeight: 700,
-            fontSize: 13,
-            marginBottom: 12,
+            fontSize: 12,
+            marginBottom: 8,
           }}
         >
           {t("ht_hero_star_title")}
         </h3>
 
-        {/* Star selector — 3 top + 2 bottom */}
+        {/* Star selector — 3 top + 2 bottom, compact 60px buttons */}
         <div
           data-testid="hero-star-selector"
-          style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 16, maxWidth: 282, boxSizing: "border-box", overflow: "hidden" }}
+          style={{ display: "grid", gridTemplateColumns: "repeat(3, 60px)", gap: 4, marginBottom: 8, maxWidth: 192, boxSizing: "border-box", overflow: "hidden" }}
         >
           {[1, 2, 3, 4, 5].map((n) => {
             const active = n === selectedStar;
@@ -97,14 +97,14 @@ export default function HeroTables() {
                 onClick={() => setSelectedStar(n)}
                 style={{
                   width: "100%",
-                  height: 34,
+                  height: 24,
                   flexGrow: 0,
                   flexShrink: 0,
                   boxSizing: "border-box",
-                  borderRadius: 6,
-                  padding: "4px 6px",
-                  fontSize: 11,
-                  lineHeight: 1.2,
+                  borderRadius: 4,
+                  padding: "2px 3px",
+                  fontSize: 9,
+                  lineHeight: 1.1,
                   fontWeight: 700,
                   cursor: "pointer",
                   transition: "all 0.15s ease",
@@ -113,7 +113,7 @@ export default function HeroTables() {
                     : "#1A1210",
                   color: active ? "#0B0704" : "#F5F0E8",
                   border: `1px solid ${active ? "#F5A623" : "rgba(255,255,255,0.12)"}`,
-                  boxShadow: active ? "0 0 10px rgba(231,76,26,0.5)" : "none",
+                  boxShadow: active ? "0 0 6px rgba(231,76,26,0.5)" : "none",
                   whiteSpace: "nowrap",
                   textOverflow: "ellipsis",
                   overflow: "hidden",
@@ -128,60 +128,59 @@ export default function HeroTables() {
           })}
         </div>
 
-        {/* Selected star card - 2 columns grid */}
+        {/* Selected star — 2×4 label/value grid */}
         <div
           data-testid={`hero-star-card-${currentStar.star}`}
-          className="grid grid-cols-1 md:grid-cols-2"
           style={{
-            gap: 12,
-            background: "rgba(11,7,4,0.6)",
-            border: "1px solid rgba(245,166,35,0.35)",
-            borderRadius: 8,
-            padding: "14px 16px",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            columnGap: 8,
+            rowGap: 2,
+            background: "rgba(11,7,4,0.4)",
+            borderRadius: 4,
+            padding: "6px 8px",
           }}
         >
-          {[leftColumn, rightColumn].map((col, colIdx) => (
-            <div key={colIdx} className="flex flex-col" style={{ gap: 8 }}>
-              {col.map((idx) => {
-                const isTotal = idx === 7;
-                return (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between"
-                    data-testid={`hero-star-${currentStar.star}-row-${idx}`}
-                    style={{
-                      padding: "8px 10px",
-                      background: isTotal ? "rgba(245,166,35,0.12)" : "rgba(26,18,16,0.6)",
-                      borderRadius: 6,
-                      border: isTotal ? "1px solid #F5A623" : "1px solid rgba(255,255,255,0.06)",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: 12,
-                        fontWeight: isTotal ? 700 : 600,
-                        color: isTotal ? "#F5A623" : "#F5F0E8",
-                        letterSpacing: isTotal ? "0.08em" : "normal",
-                        textTransform: isTotal ? "uppercase" : "none",
-                      }}
-                    >
-                      {partLabels[idx]}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: isTotal ? 16 : 14,
-                        fontWeight: 700,
-                        color: isTotal ? "#F5A623" : "#F5F0E8",
-                        fontVariantNumeric: "tabular-nums",
-                      }}
-                    >
-                      {fmt(currentStar.values[idx])}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+          {[0, 1, 2, 3, 4, 5, 6, 7].map((idx) => {
+            const isTotal = idx === 7;
+            return (
+              <div
+                key={idx}
+                data-testid={`hero-star-${currentStar.star}-row-${idx}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "2px 4px",
+                  background: isTotal ? "rgba(245,166,35,0.15)" : "transparent",
+                  borderRadius: 3,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: isTotal ? 700 : 500,
+                    color: isTotal ? "#F5A623" : "#B8B0A5",
+                    letterSpacing: isTotal ? "0.06em" : "normal",
+                    textTransform: isTotal ? "uppercase" : "none",
+                  }}
+                >
+                  {partLabels[idx]}
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: isTotal ? "#F5A623" : "#F5F0E8",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {fmt(currentStar.values[idx])}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -192,7 +191,7 @@ export default function HeroTables() {
           background: "#1a1a2e",
           border: "1px solid rgba(231,76,26,0.3)",
           borderRadius: 8,
-          padding: 16,
+          padding: 10,
         }}
       >
         <h3
@@ -202,8 +201,8 @@ export default function HeroTables() {
             letterSpacing: "0.06em",
             textTransform: "uppercase",
             fontWeight: 700,
-            fontSize: 13,
-            marginBottom: 12,
+            fontSize: 12,
+            marginBottom: 8,
           }}
         >
           {t("ht_weapons_title")}
@@ -213,7 +212,7 @@ export default function HeroTables() {
         <div
           data-testid="hero-weapon-selector"
           className="grid grid-cols-5"
-          style={{ gap: 6, marginBottom: 16 }}
+          style={{ gap: 4, marginBottom: 8 }}
         >
           {WEAPON_ROWS.map((r, i) => {
             const active = i === selectedWeapon;
@@ -225,9 +224,9 @@ export default function HeroTables() {
                 aria-pressed={active}
                 onClick={() => setSelectedWeapon(i)}
                 style={{
-                  borderRadius: 6,
-                  padding: "8px 4px",
-                  fontSize: 12,
+                  borderRadius: 5,
+                  padding: "5px 3px",
+                  fontSize: 11,
                   fontWeight: 700,
                   fontFamily: "Cinzel, serif",
                   letterSpacing: "0.04em",
@@ -238,7 +237,7 @@ export default function HeroTables() {
                     : "#1A1210",
                   color: active ? "#0B0704" : "#F5F0E8",
                   border: `1px solid ${active ? "#F5A623" : "rgba(255,255,255,0.12)"}`,
-                  boxShadow: active ? "0 0 8px rgba(231,76,26,0.5)" : "none",
+                  boxShadow: active ? "0 0 6px rgba(231,76,26,0.5)" : "none",
                 }}
               >
                 {r.from}→{r.to}
@@ -252,20 +251,20 @@ export default function HeroTables() {
           data-testid={`hero-weapon-card-${selectedWeapon}`}
           className="flex items-center justify-between"
           style={{
-            padding: "14px 18px",
+            padding: "8px 12px",
             background: "linear-gradient(180deg, #2A1408 0%, #1a0d05 100%)",
             border: "1px solid #F5A623",
-            borderRadius: 8,
-            boxShadow: "0 0 12px rgba(245,166,35,0.25) inset",
+            borderRadius: 6,
+            boxShadow: "0 0 8px rgba(245,166,35,0.25) inset",
           }}
         >
           <span
             style={{
-              fontSize: 14,
+              fontSize: 11,
               fontWeight: 700,
               color: "#F5A623",
               fontFamily: "Cinzel, serif",
-              letterSpacing: "0.08em",
+              letterSpacing: "0.06em",
               textTransform: "uppercase",
             }}
           >
@@ -274,7 +273,7 @@ export default function HeroTables() {
           <span
             data-testid={`hero-weapon-value-${selectedWeapon}`}
             style={{
-              fontSize: 22,
+              fontSize: 18,
               fontWeight: 700,
               color: "#F5F0E8",
               fontVariantNumeric: "tabular-nums",
