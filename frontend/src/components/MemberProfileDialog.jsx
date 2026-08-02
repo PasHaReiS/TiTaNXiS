@@ -28,20 +28,37 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
   const { data: allianceColors = {} } = useSWR(open ? "/alliance-colors" : null, fetcher);
   const { data: m } = useSWR(memberId && open ? `/members/${memberId}` : null, fetcher);
   const { data: history } = useSWR(memberId && open ? `/members/${memberId}/history` : null, fetcher);
+  const { data: allEvents = [] } = useSWR(open ? "/events?archived=false" : null, fetcher);
+  const { data: archivedEvents = [] } = useSWR(open ? "/events?archived=true" : null, fetcher);
+
+  const eventDateMap = useMemo(() => {
+    const map = {};
+    [...allEvents, ...archivedEvents].forEach((e) => { map[e.id] = e.date; });
+    return map;
+  }, [allEvents, archivedEvents]);
 
   const grouped = useMemo(() => {
     const list = history?.points || [];
     const groups = {};
     list.forEach((p) => {
       const key = p.event_name || t("event");
-      if (!groups[key]) groups[key] = { rows: [], total: 0 };
+      if (!groups[key]) groups[key] = { rows: [], total: 0, eventDate: null };
       const mult = Number(p.multiplier || 1);
       const effective = Number(p.points || 0) * mult;
       groups[key].rows.push({ ...p, effective, mult });
       groups[key].total += effective;
+      const evDate = eventDateMap[p.event_id] || p.date;
+      if (evDate && (!groups[key].eventDate || evDate < groups[key].eventDate)) {
+        groups[key].eventDate = evDate;
+      }
     });
-    return Object.entries(groups).sort((a, b) => b[1].total - a[1].total);
-  }, [history, t]);
+    // Ascending by event date (oldest first, newest last)
+    return Object.entries(groups).sort((a, b) => {
+      const da = a[1].eventDate ? new Date(a[1].eventDate).getTime() : 0;
+      const db = b[1].eventDate ? new Date(b[1].eventDate).getTime() : 0;
+      return da - db;
+    });
+  }, [history, t, eventDateMap]);
 
   if (!open) return null;
 
