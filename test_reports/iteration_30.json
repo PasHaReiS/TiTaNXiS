@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 30 test: SoldierCalculator time display changes (4 live boxes GÜN/SAAT/DAKİKA/SANİYE with Math.floor, + 4 separate history columns with hist-* testids). Code inspection of /app/frontend/src/components/SoldierCalculator.jsx shows NONE of the requested changes have been implemented — the file still contains the previous 3-box GSD implementation with Math.ceil for dakika, and the history table still uses a single 'Süre' column via formatSureShort(). Live UI verification against preview URL confirmed sure-gun / sure-saat / sure-dakika / sure-saniye testids are all MISSING. Effectively this iteration's diff was not applied.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "SoldierCalculator - live time row", "issue": "Only 3 boxes rendered (GÜN/SAAT/DAKİKA). SANİYE box missing. Also DAKİKA uses Math.ceil (secondsToGSD line 19) instead of Math.floor. Required: 4 boxes with data-testids sure-gun, sure-saat, sure-dakika, sure-saniye using Math.floor across the board.", "selector": "[data-testid=sure-saniye]", "priority": "HIGH"},
+      {"component": "SoldierCalculator - history table", "issue": "History table still has single 'Süre' column (line 216, 229 using formatSureShort). Required: 4 separate columns GÜN, SAAT, DAKİKA, SANİYE with data-testids hist-gun-{id}, hist-saat-{id}, hist-dakika-{id}, hist-saniye-{id}, each showing integer only (no unit suffix). Header order required: Tier, Asker, Yemek, Odun, Çelik, Benzin, GÜN, SAAT, DAKİKA, SANİYE.", "selector": "[data-testid=calc-history-table] thead", "priority": "HIGH"},
+      {"component": "SoldierCalculator - helper", "issue": "secondsToDHMS() helper not present. Only secondsToGSD() (3 fields with Math.ceil on dakika) exists.", "selector": "n/a", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Implement secondsToDHMS(total) helper returning { gun, saat, dakika, saniye } all via Math.floor: gun=floor(s/86400); saat=floor((s%86400)/3600); dakika=floor((s%3600)/60); saniye=floor(s%60).",
+    "Replace the 3-box live time grid (grid-cols-3) with a 4-box grid-cols-4 rendering GÜN/SAAT/DAKİKA/SANİYE with data-testids sure-gun, sure-saat, sure-dakika, sure-saniye.",
+    "In the history table, remove the single 'Süre' <th> and its <td>{formatSureShort(c.sure_saniye)}</td>. Add 4 separate <th> (GÜN, SAAT, DAKİKA, SANİYE) and 4 <td> cells with data-testids hist-gun-{c.id}, hist-saat-{c.id}, hist-dakika-{c.id}, hist-saniye-{c.id} rendering the integer value (no unit suffix).",
+    "Verify: T11 record sure_saniye=180000 → 2/2/0/0; sure_saniye=10000 → 0/2/46/40."
+  ],
+  "critical_code_review_comments": [
+    "The diff described in the review_request was not committed to SoldierCalculator.jsx. Confirm the correct file was edited and hot reload picked it up.",
+    "Existing secondsToGSD uses Math.ceil for the last field which corrupts decomposition (e.g. 10000s currently gives dakika=47 instead of 46 with saniye=40). Requirement is Math.floor everywhere."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "0%"},
+  "test_credentials": "admin / admin123 (not exercised — code inspection alone was conclusive)",
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "After E1 actually applies the SoldierCalculator.jsx changes, re-test: (1) navigate /komutanlar → HESAPLA → Asker Eğitim, verify 4 live boxes with correct testids; (2) enter 1000 with T11 unit sure_saniye=180 → expect 2/2/0/0; (3) verify history header text order Tier/Asker/Yemek/Odun/Çelik/Benzin/GÜN/SAAT/DAKİKA/SANİYE and hist-* cells for existing T11 rows (180000→2/2/0/0; 10000→0/2/46/40). Login: admin/admin123.",
+  "rca of the issue": "Root cause: E1 stated the file was edited but /app/frontend/src/components/SoldierCalculator.jsx retains the previous implementation (secondsToGSD with Math.ceil, 3 live boxes, single Süre history column). No file save appears to have taken place. Reproduction: view /app/frontend/src/components/SoldierCalculator.jsx lines 15-21, 174-191, 205-246 — none contain 'saniye', 'sure-saniye', 'secondsToDHMS', or 'hist-'. Preview URL DOM confirms sure-saniye testid absent. Mitigation: E1 must re-apply the diff to SoldierCalculator.jsx (helper + live grid + history columns) and re-request testing."
+}
