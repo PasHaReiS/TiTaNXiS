@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import useSWR, { mutate as globalMutate } from "swr";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -22,6 +23,7 @@ function secondsToDHMS(total) {
 }
 
 export default function SoldierCalculator() {
+  const { t } = useTranslation();
   const { isAdmin, canEdit } = useAuth();
   const [tier, setTier] = useState("T11");
   const [soldierCount, setSoldierCount] = useState("");
@@ -59,7 +61,7 @@ export default function SoldierCalculator() {
   const { gun, saat, dakika, saniye } = secondsToDHMS(totalSure);
 
   const save = async () => {
-    if (!n || n <= 0) { toast.error("Asker sayısı girin"); return; }
+    if (!n || n <= 0) { toast.error(t("sc_need_count")); return; }
     try {
       await api.post("/calculations", {
         category: `asker_egitim_${tier.toLowerCase()}`,
@@ -71,7 +73,7 @@ export default function SoldierCalculator() {
         sure_saniye: totalSure,
       });
       refreshAllHistory();
-      toast.success("Kaydedildi");
+      toast.success(t("sc_saved"));
     } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
   };
 
@@ -91,7 +93,7 @@ export default function SoldierCalculator() {
     <div className="p-1" data-testid="soldier-calculator">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-bold" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}>
-          ASKER EĞİTİM HESAPLAYICI
+          {t("sc_title")}
         </h2>
         {isAdmin && (
           <button
@@ -100,14 +102,14 @@ export default function SoldierCalculator() {
             className="px-3 py-1.5 rounded text-white text-xs font-bold flex items-center gap-1"
             style={{ background: "linear-gradient(135deg,#C0392B,#E74C1A)" }}
           >
-            <Settings className="w-3.5 h-3.5" /> Birim Maliyet
+            <Settings className="w-3.5 h-3.5" /> {t("sc_unit_cost_btn")}
           </button>
         )}
       </div>
 
       {/* Tier selector */}
       <div className="mb-4">
-        <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>Tier</label>
+        <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_tier_label")}</label>
         <div className="grid grid-cols-4 gap-2">
           {TIERS.map((tt) => (
             <button
@@ -134,7 +136,7 @@ export default function SoldierCalculator() {
 
       {/* Soldier count */}
       <div className="mb-5">
-        <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>Asker Sayısı</label>
+        <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_soldier_count")}</label>
         <input
           type="number"
           value={soldierCount}
@@ -149,13 +151,13 @@ export default function SoldierCalculator() {
 
       {/* Resources — 2 columns */}
       <div className="mb-5">
-        <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>Kaynak Sayısı</label>
+        <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_resource_count")}</label>
         <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
           {[
-            { label: "Yemek", value: totalYemek, tid: "res-yemek" },
-            { label: "Çelik", value: totalCelik, tid: "res-celik" },
-            { label: "Odun", value: totalOdun, tid: "res-odun" },
-            { label: "Benzin", value: totalBenzin, tid: "res-benzin" },
+            { label: t("sc_food"), value: totalYemek, tid: "res-yemek" },
+            { label: t("sc_steel"), value: totalCelik, tid: "res-celik" },
+            { label: t("sc_wood"), value: totalOdun, tid: "res-odun" },
+            { label: t("sc_gas"), value: totalBenzin, tid: "res-benzin" },
           ].map((it) => (
             <div key={it.label} style={{ minWidth: 120 }}>
               <div className="text-[10px] mb-1 font-bold uppercase tracking-widest" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
@@ -169,13 +171,13 @@ export default function SoldierCalculator() {
 
       {/* Time — Gün / Saat / Dakika / Saniye */}
       <div className="mb-5">
-        <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>Süre</label>
+        <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_duration")}</label>
         <div className="grid grid-cols-4 gap-2">
           {[
-            { label: "GÜN", value: gun, tid: "sure-gun" },
-            { label: "SAAT", value: saat, tid: "sure-saat" },
-            { label: "DAKİKA", value: dakika, tid: "sure-dakika" },
-            { label: "SANİYE", value: saniye, tid: "sure-saniye" },
+            { label: t("sc_days_u"), value: gun, tid: "sure-gun" },
+            { label: t("sc_hours_u"), value: saat, tid: "sure-saat" },
+            { label: t("sc_minutes_u"), value: dakika, tid: "sure-dakika" },
+            { label: t("sc_seconds_u"), value: saniye, tid: "sure-saniye" },
           ].map((it) => (
             <div key={it.label} className="text-center">
               <div className="text-[10px] mb-1" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
@@ -194,26 +196,26 @@ export default function SoldierCalculator() {
           className="w-full py-3 rounded-lg text-white font-bold flex items-center justify-center gap-2"
           style={{ background: "linear-gradient(135deg,#C0392B,#E74C1A)" }}
         >
-          <Save className="w-4 h-4" /> Hesapla & Kaydet
+          <Save className="w-4 h-4" /> {t("sc_calc_save")}
         </button>
       )}
 
       {calculations.length > 0 && (
         <div className="mt-6 overflow-x-auto card-dark p-3" data-testid="calc-history-table">
-          <h3 className="text-xs font-bold mb-2 uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>Geçmiş Hesaplar</h3>
+          <h3 className="text-xs font-bold mb-2 uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_history")}</h3>
           <table className="w-full text-xs" style={{ color: "#F5F0E8" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid #333" }}>
-                <th className="p-2 text-left">Tier</th>
-                <th className="p-2 text-left">Asker</th>
-                <th className="p-2 text-left">Yemek</th>
-                <th className="p-2 text-left">Odun</th>
-                <th className="p-2 text-left">Çelik</th>
-                <th className="p-2 text-left">Benzin</th>
-                <th className="p-2 text-left">GÜN</th>
-                <th className="p-2 text-left">SAAT</th>
-                <th className="p-2 text-left">DAKİKA</th>
-                <th className="p-2 text-left">SANİYE</th>
+                <th className="p-2 text-left">{t("sc_tier_label")}</th>
+                <th className="p-2 text-left">{t("sc_history_soldier")}</th>
+                <th className="p-2 text-left">{t("sc_food")}</th>
+                <th className="p-2 text-left">{t("sc_wood")}</th>
+                <th className="p-2 text-left">{t("sc_steel")}</th>
+                <th className="p-2 text-left">{t("sc_gas")}</th>
+                <th className="p-2 text-left">{t("sc_days_u")}</th>
+                <th className="p-2 text-left">{t("sc_hours_u")}</th>
+                <th className="p-2 text-left">{t("sc_minutes_u")}</th>
+                <th className="p-2 text-left">{t("sc_seconds_u")}</th>
                 {canEdit && <th className="p-2"></th>}
               </tr>
             </thead>
@@ -257,6 +259,7 @@ export default function SoldierCalculator() {
 }
 
 function UnitCostModal({ tier, current, onClose }) {
+  const { t } = useTranslation();
   const [activeTier, setActiveTier] = useState(tier);
   const [state, setState] = useState({ yemek: 0, odun: 0, celik: 0, benzin: 0, sure_saniye: 0 });
   const [saving, setSaving] = useState(false);
@@ -288,7 +291,7 @@ function UnitCostModal({ tier, current, onClose }) {
         sure_saniye: Number(state.sure_saniye) || 0,
       });
       globalMutate(`/unit-costs/${cat}`);
-      toast.success(`${activeTier} birim maliyeti güncellendi`);
+      toast.success(t("sc_unit_cost_updated", { tier: activeTier }));
       onClose();
     } catch (e2) {
       toast.error(e2?.response?.data?.detail || e2.message);
@@ -296,11 +299,11 @@ function UnitCostModal({ tier, current, onClose }) {
   };
 
   const fields = [
-    { key: "yemek", label: "1 Asker Yemek Maliyeti" },
-    { key: "odun", label: "1 Asker Odun Maliyeti" },
-    { key: "celik", label: "1 Asker Çelik Maliyeti" },
-    { key: "benzin", label: "1 Asker Benzin Maliyeti" },
-    { key: "sure_saniye", label: "1 Asker Eğitim Süresi (saniye)" },
+    { key: "yemek", label: t("sc_unit_food_label") },
+    { key: "odun", label: t("sc_unit_wood_label") },
+    { key: "celik", label: t("sc_unit_steel_label") },
+    { key: "benzin", label: t("sc_unit_gas_label") },
+    { key: "sure_saniye", label: t("sc_unit_time_label") },
   ];
 
   return (
@@ -320,7 +323,7 @@ function UnitCostModal({ tier, current, onClose }) {
           <X className="w-5 h-5" />
         </button>
         <h3 className="text-lg font-bold mb-3 uppercase" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}>
-          Birim Maliyet Ayarları
+          {t("sc_unit_cost_title")}
         </h3>
 
         {/* Tier selector inside modal */}
@@ -366,7 +369,7 @@ function UnitCostModal({ tier, current, onClose }) {
           className="w-full mt-2 py-2.5 rounded-lg text-white font-bold"
           style={{ background: "linear-gradient(135deg,#C0392B,#E74C1A)" }}
         >
-          {saving ? "Kaydediliyor..." : `${activeTier} Kaydet`}
+          {saving ? t("saving") : t("sc_unit_save_tier", { tier: activeTier })}
         </button>
       </form>
     </div>

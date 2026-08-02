@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 // Coin key order: [common, rare, precious, legendary]
 const COLLECTIONS = [
@@ -15,8 +16,8 @@ const COLLECTIONS = [
   { key: "EXOTIC-T3",    color: "#E74C1A", rows: [[165000,1650,350,45],[170000,1700,365,50],[175000,1750,385,50],[180000,1800,410,55]] },
 ];
 
-const ROW_LABELS = ["Base", "1 Star", "2 Star", "3 Star"];
-const COIN_LABELS = ["Common Coin", "Rare Coin", "Precious Coin", "Legendary Coin"];
+const ROW_KEYS = ["tc_base", "tc_1_star", "tc_2_star", "tc_3_star"];
+const COIN_KEYS = ["tc_coin_common", "tc_coin_rare", "tc_coin_precious", "tc_coin_legendary"];
 const COIN_COLORS = ["#F5F0E8", "#3B82F6", "#A855F7", "#FFD700"];
 
 const GRAND_TOTAL = { common: 3158000, rare: 31580, precious: 7325, legendary: 560 };
@@ -24,6 +25,7 @@ const GRAND_TOTAL = { common: 3158000, rare: 31580, precious: 7325, legendary: 5
 const fmt = (n) => (n === 0 ? "-" : Number(n).toLocaleString("tr-TR"));
 
 export default function TroveCollectionTable() {
+  const { t } = useTranslation();
   const [selected, setSelected] = useState("UNCOMMON");
   const current = COLLECTIONS.find((c) => c.key === selected) || COLLECTIONS[0];
 
@@ -71,11 +73,11 @@ export default function TroveCollectionTable() {
         className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4"
         style={{ gap: 12 }}
       >
-        {ROW_LABELS.map((label, ri) => {
+        {ROW_KEYS.map((rowKey, ri) => {
           const row = current.rows[ri];
           return (
             <div
-              key={label}
+              key={rowKey}
               data-testid={`trove-row-${current.key}-${ri}`}
               style={{
                 background: "rgba(26,26,46,0.85)",
@@ -97,17 +99,17 @@ export default function TroveCollectionTable() {
                   paddingBottom: 6,
                 }}
               >
-                {label}
+                {t(rowKey)}
               </div>
               <div className="flex flex-col" style={{ gap: 6 }}>
-                {COIN_LABELS.map((cl, ci) => (
+                {COIN_KEYS.map((coinKey, ci) => (
                   <div
-                    key={cl}
+                    key={coinKey}
                     className="flex items-center justify-between"
                     style={{ fontSize: 12 }}
                   >
                     <span style={{ color: COIN_COLORS[ci], fontWeight: 600 }}>
-                      {cl}
+                      {t(coinKey)}
                     </span>
                     <span
                       data-testid={`trove-cell-${current.key}-${ri}-${ci}`}
@@ -145,14 +147,14 @@ export default function TroveCollectionTable() {
             marginBottom: 8,
           }}
         >
-          Grand Total
+          {t("tc_grand_total")}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4" style={{ gap: 8 }}>
           {[
-            { label: "Common", value: GRAND_TOTAL.common, color: COIN_COLORS[0], key: "common" },
-            { label: "Rare", value: GRAND_TOTAL.rare, color: COIN_COLORS[1], key: "rare" },
-            { label: "Precious", value: GRAND_TOTAL.precious, color: COIN_COLORS[2], key: "precious" },
-            { label: "Legendary", value: GRAND_TOTAL.legendary, color: COIN_COLORS[3], key: "legendary" },
+            { labelKey: "tc_common_short", value: GRAND_TOTAL.common, color: COIN_COLORS[0], key: "common" },
+            { labelKey: "tc_rare_short", value: GRAND_TOTAL.rare, color: COIN_COLORS[1], key: "rare" },
+            { labelKey: "tc_precious_short", value: GRAND_TOTAL.precious, color: COIN_COLORS[2], key: "precious" },
+            { labelKey: "tc_legendary_short", value: GRAND_TOTAL.legendary, color: COIN_COLORS[3], key: "legendary" },
           ].map((it) => (
             <div
               key={it.key}
@@ -166,7 +168,7 @@ export default function TroveCollectionTable() {
               }}
             >
               <span style={{ fontSize: 10, color: it.color, letterSpacing: "0.06em", fontWeight: 700 }}>
-                {it.label}
+                {t(it.labelKey)}
               </span>
               <span style={{ fontSize: 14, color: "#F5F0E8", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
                 {fmt(it.value)}

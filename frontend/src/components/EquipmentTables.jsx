@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 const REFORM_ROWS = [
@@ -80,6 +81,7 @@ const th = { padding: "8px 10px", textAlign: "left", background: "#E74C1A", colo
 const td = { padding: "8px 10px", borderBottom: "1px solid rgba(231,76,26,0.15)", color: "#F5F0E8", fontSize: 12 };
 
 export default function EquipmentTables() {
+  const { t } = useTranslation();
   const [selectedLevel, setSelectedLevel] = useState(1);
   const [selectedHero, setSelectedHero] = useState(0);
 
@@ -106,7 +108,7 @@ export default function EquipmentTables() {
 
   return (
     <div data-testid="equipment-tables" className="flex flex-col mb-6" style={{ gap: 24 }}>
-      <CollapseCard testId="equipment-reformation" title="Equipment Reformation - Seviye Maliyetleri">
+      <CollapseCard testId="equipment-reformation" title={t("et_reformation_title")}>
         <div
           data-testid="reform-level-selector"
           style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginBottom: 12 }}
@@ -127,9 +129,9 @@ export default function EquipmentTables() {
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 240 }}>
           <thead>
             <tr>
-              <th style={th}>Seviye</th>
-              <th style={th}>Dişli</th>
-              <th style={th}>Mıknatıs</th>
+              <th style={th}>{t("et_col_level")}</th>
+              <th style={th}>{t("et_col_gear")}</th>
+              <th style={th}>{t("et_col_magnet")}</th>
             </tr>
           </thead>
           <tbody>
@@ -147,7 +149,7 @@ export default function EquipmentTables() {
         </table>
       </CollapseCard>
 
-      <CollapseCard testId="hero-equipment-guide" title="Hero Equip Level Guide - LV 100-200">
+      <CollapseCard testId="hero-equipment-guide" title={t("et_hero_guide_title")}>
         <div
           data-testid="hero-range-selector"
           style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}
@@ -187,9 +189,9 @@ export default function EquipmentTables() {
                 </div>
                 <div style={{ fontSize: 12, color: "#F5A623", marginBottom: 8, letterSpacing: "0.06em" }}>{r.lv}</div>
                 <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 13, color: "#F5F0E8" }}>
-                  <span data-testid={`hero-row-${i}-bolts`}>Bolts: {r.bolts}</span>
-                  <span data-testid={`hero-row-${i}-magnets`}>Magnets: {r.mag}</span>
-                  <span data-testid={`hero-row-${i}-coils`}>Potential Coils: {r.coils}</span>
+                  <span data-testid={`hero-row-${i}-bolts`}>{t("et_bolts")}: {r.bolts}</span>
+                  <span data-testid={`hero-row-${i}-magnets`}>{t("et_magnets")}: {r.mag}</span>
+                  <span data-testid={`hero-row-${i}-coils`}>{t("et_potential_coils")}: {r.coils}</span>
                 </div>
               </div>
             );
@@ -200,7 +202,7 @@ export default function EquipmentTables() {
           className="mt-2"
           style={{ fontStyle: "italic", fontSize: 11, color: "rgba(245,240,232,0.65)" }}
         >
-          Magnets and potential coils are used as a break through after every 20 levels starting at lv 120.
+          {t("et_hero_note")}
         </p>
       </CollapseCard>
     </div>
