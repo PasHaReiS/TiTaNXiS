@@ -81,10 +81,10 @@ export default function HeroTables() {
           {t("ht_hero_star_title")}
         </h3>
 
-        {/* Star selector */}
+        {/* Star selector — 3 top + 2 bottom */}
         <div
           data-testid="hero-star-selector"
-          style={{ display: "flex", flexWrap: "nowrap", gap: 4, marginBottom: 16, width: "100%" }}
+          style={{ display: "grid", gridTemplateColumns: "repeat(3, 70px)", gap: 6, marginBottom: 16, justifyContent: "start" }}
         >
           {[1, 2, 3, 4, 5].map((n) => {
             const active = n === selectedStar;
@@ -96,10 +96,9 @@ export default function HeroTables() {
                 aria-pressed={active}
                 onClick={() => setSelectedStar(n)}
                 style={{
-                  flex: 1,
-                  minWidth: 0,
+                  width: 70,
                   borderRadius: 6,
-                  padding: "8px 4px",
+                  padding: "6px 12px",
                   fontSize: 13,
                   fontWeight: 700,
                   cursor: "pointer",
