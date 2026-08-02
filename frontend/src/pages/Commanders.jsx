@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import SoldierCalculator from "@/components/SoldierCalculator";
 import EquipmentTables from "@/components/EquipmentTables";
 import TroveCollectionTable from "@/components/TroveCollectionTable";
+import HeroTables from "@/components/HeroTables";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -263,6 +264,7 @@ export default function Commanders() {
             </div>
             {selectedCat === "mh_ekipman" && <EquipmentTables />}
             {selectedCat === "mh_koleksiyon" && <TroveCollectionTable />}
+            {selectedCat === "mh_kahraman" && <HeroTables />}
             {selectedCat === "mh_asker_egitim" ? (
               <SoldierCalculator />
             ) : activeSection ? (

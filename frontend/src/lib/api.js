@@ -55,6 +55,7 @@ export const CATEGORIES = [
   { key: "mh_kitap", label: "Kitap", section: "MALİYET HESAPLAMA" },
   { key: "mh_koleksiyon", label: "Koleksiyon", section: "MALİYET HESAPLAMA" },
   { key: "mh_ekipman", label: "Ekipman", section: "MALİYET HESAPLAMA" },
+  { key: "mh_kahraman", label: "Kahraman", section: "MALİYET HESAPLAMA" },
   { key: "mh_uydu", label: "Uydu", section: "MALİYET HESAPLAMA" },
   { key: "mh_robot", label: "Robot", section: "MALİYET HESAPLAMA" },
   { key: "tetikci", label: "Tetikçi", section: "KOMUTANLAR" },

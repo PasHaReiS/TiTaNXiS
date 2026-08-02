@@ -1,0 +1,36 @@
+{
+  "summary": "Verified (1) global rename Komutan→Kahraman across 8 languages and (2) new HeroTables component under mh_kahraman. HeroTables passes all functional checks: default states (star-1 & weapon-0 aria-pressed=true), correct data for all 5 star cards and 10 weapon transitions, no-deselect on same-click, 2-column card layout, EN/TR i18n titles/labels all render correctly. Found and FIXED multiple visible raw 'Komutan/Commander/Kommandeure/Commandants/Comandantes/Командиры' occurrences that were missed by the initial rename — after fix all 8 locales are CLEAN.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Sidebar section header sb_komutanlar", "issue": "sb_komutanlar value was NOT renamed in tr/en/ru/de/fr/es (only ko/ar were). Rendered as raw 'KOMUTANLAR'/'COMMANDERS'/'КОМАНДИРЫ'/'KOMMANDEURE'/'COMMANDANTS'/'COMANDANTES'. FIXED to KAHRAMANLAR/HEROES/ГЕРОИ/HELDEN/HÉROS/HÉROES.", "selector": "sidebar section headers under [data-testid^='section-toggle-']", "priority": "HIGH"},
+      {"component": "TR empty-state string no_commanders_in_category", "issue": "Still contained 'komutan' (Bu kategoride komutan yok). FIXED to 'Bu kategoride kahraman yok.'", "selector": "n/a", "priority": "MEDIUM"},
+      {"component": "TR kof_commander_help & kof_no_candidates", "issue": "Still referenced 'komutanlarla' / 'komutan' / 'komutanı'. FIXED to kahraman variants.", "selector": "n/a", "priority": "MEDIUM"},
+      {"component": "DE cat_garnizon", "issue": "Still 'Garnison-Kommandeure' (spec required Garnison-Helden). FIXED.", "selector": "[data-testid='category-item-garnizon']", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Commanders.jsx – mh_kahraman view", "issues": ["The generic 'Bu kategoride kahraman yok.' empty-state message still renders BELOW the HeroTables component when mh_kahraman is selected. Likely because Commanders.jsx renders the empty commander-list fallback for every mh_* category. Minor UX issue — HeroTables displays its own data, so the trailing 'no heroes in this category' line is confusing. Consider suppressing the empty state for categories that have a bespoke component (mh_ekipman / mh_koleksiyon / mh_kahraman / mh_asker_egitim)."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Consider hiding the generic empty-commanders message when mh_kahraman (and other mh_* bespoke component categories) are active.",
+    "Confirm the i18n text edits applied by testing agent are acceptable (KAHRAMANLAR / HEROES / ГЕРОИ / HELDEN / HÉROS / HÉROES for sb_komutanlar; Garnison-Helden for DE cat_garnizon; TR empty-state and KoF helper strings)."
+  ],
+  "critical_code_review_comments": [
+    "Rename spec asked for 'no occurrence of the raw word Commander/Commanders in visible UI' — but sb_komutanlar and DE cat_garnizon slipped through in 5 of 8 locales. Suggest adding a lightweight i18n lint (grep for /Komutan|Commander|Kommand|Comand|Командир|Commandant|사령관|قائد/ across the file) to CI to prevent regressions.",
+    "HeroTables.jsx: WEAPON_ROWS.parts values [10,25,25,45,45,65,65,85,85,100] and HERO_STAR_ROWS match the spec exactly. Component is small (~280 LOC), self-contained, has all data-testids. Good.",
+    "Number formatting via toLocaleString('tr-TR') hardcodes Turkish locale in HeroTables regardless of the selected UI language. Values under 1000 look identical but future >1000 values will use Turkish thousand separator in all languages. Minor.",
+    "Commanders.jsx renders the empty-heroes fallback for mh_kahraman even though HeroTables is present (see design_issues)."
+  ],
+  "updated_files": [
+    "/app/frontend/src/i18n/index.js (fixed sb_komutanlar in tr/en/ru/de/fr/es; cat_garnizon in de; no_commanders_in_category, kof_commander_help, kof_no_candidates in tr)"
+  ],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "admin / admin123 (not required for this test — verified anonymously)",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Rename Komutan→Kahraman is now complete across all 8 locales including sidebar section header sb_komutanlar and DE Garnison-Helden. HeroTables data is fully validated (star 1..5 rows, weapon 0..9 transitions). If new visible strings referencing 'komutan/commander/etc.' are added, they should use kahraman/hero equivalents. The generic empty-heroes fallback in Commanders.jsx still renders under mh_kahraman — reported to main agent."
+}
