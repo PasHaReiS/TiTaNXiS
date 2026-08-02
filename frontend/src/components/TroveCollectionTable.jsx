@@ -24,10 +24,19 @@ const GRAND_TOTAL = { common: 3158000, rare: 31580, precious: 7325, legendary: 5
 
 const fmt = (n) => (n === 0 ? "-" : Number(n).toLocaleString("tr-TR"));
 
+const computeTotals = (rows) => {
+  const totals = [0, 0, 0, 0];
+  rows.forEach((row) => {
+    row.forEach((v, i) => { totals[i] += v; });
+  });
+  return { common: totals[0], rare: totals[1], precious: totals[2], legendary: totals[3] };
+};
+
 export default function TroveCollectionTable() {
   const { t } = useTranslation();
   const [selected, setSelected] = useState("UNCOMMON");
   const current = COLLECTIONS.find((c) => c.key === selected) || COLLECTIONS[0];
+  const tierTotals = computeTotals(current.rows);
 
   return (
     <div data-testid="trove-collection-table" className="flex flex-col" style={{ gap: 8 }}>
@@ -154,10 +163,10 @@ export default function TroveCollectionTable() {
           {t("tc_grand_total")}
         </span>
         {[
-          { labelKey: "tc_common_short", value: GRAND_TOTAL.common, color: COIN_COLORS[0], key: "common" },
-          { labelKey: "tc_rare_short", value: GRAND_TOTAL.rare, color: COIN_COLORS[1], key: "rare" },
-          { labelKey: "tc_precious_short", value: GRAND_TOTAL.precious, color: COIN_COLORS[2], key: "precious" },
-          { labelKey: "tc_legendary_short", value: GRAND_TOTAL.legendary, color: COIN_COLORS[3], key: "legendary" },
+          { labelKey: "tc_common_short", value: tierTotals.common, color: COIN_COLORS[0], key: "common" },
+          { labelKey: "tc_rare_short", value: tierTotals.rare, color: COIN_COLORS[1], key: "rare" },
+          { labelKey: "tc_precious_short", value: tierTotals.precious, color: COIN_COLORS[2], key: "precious" },
+          { labelKey: "tc_legendary_short", value: tierTotals.legendary, color: COIN_COLORS[3], key: "legendary" },
         ].map((it) => (
           <span
             key={it.key}
