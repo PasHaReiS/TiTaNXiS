@@ -80,8 +80,8 @@ const th = { padding: "8px 10px", textAlign: "left", background: "#E74C1A", colo
 const td = { padding: "8px 10px", borderBottom: "1px solid rgba(231,76,26,0.15)", color: "#F5F0E8", fontSize: 12 };
 
 export default function EquipmentTables() {
-  const [selectedLevel, setSelectedLevel] = useState(null);
-  const [selectedHero, setSelectedHero] = useState(null);
+  const [selectedLevel, setSelectedLevel] = useState(1);
+  const [selectedHero, setSelectedHero] = useState(0);
 
   const btnBase = {
     borderRadius: 6,
@@ -101,10 +101,8 @@ export default function EquipmentTables() {
     boxShadow: active ? "0 0 8px rgba(245,166,35,0.5)" : "none",
   });
 
-  const reformRows = selectedLevel === null
-    ? REFORM_ROWS
-    : REFORM_ROWS.filter((r) => r.lv === selectedLevel);
-  const heroRows = selectedHero === null ? HERO_ROWS : [HERO_ROWS[selectedHero]];
+  const reformRows = REFORM_ROWS.filter((r) => r.lv === selectedLevel);
+  const heroRows = [HERO_ROWS[selectedHero]];
 
   return (
     <div data-testid="equipment-tables" className="flex flex-col mb-6" style={{ gap: 24 }}>
@@ -119,7 +117,7 @@ export default function EquipmentTables() {
               type="button"
               data-testid={`reform-level-btn-${r.lv}`}
               aria-pressed={selectedLevel === r.lv}
-              onClick={() => setSelectedLevel((v) => (v === r.lv ? null : r.lv))}
+              onClick={() => setSelectedLevel(r.lv)}
               style={btnStyle(selectedLevel === r.lv)}
             >
               {r.lv}
@@ -136,8 +134,7 @@ export default function EquipmentTables() {
           </thead>
           <tbody>
             {reformRows.map((r) => {
-              const big = selectedLevel !== null;
-              const cellStyle = { ...td, fontSize: big ? 22 : 12, padding: big ? "14px 10px" : "8px 10px", textAlign: big ? "center" : "left" };
+              const cellStyle = { ...td, fontSize: 22, padding: "14px 10px", textAlign: "center" };
               return (
                 <tr key={r.lv} className="row-hover" data-testid={`reform-row-${r.lv}`}>
                   <td style={{ ...cellStyle, fontWeight: 700, color: "#F5A623" }}>{r.lv}</td>
@@ -161,7 +158,7 @@ export default function EquipmentTables() {
               type="button"
               data-testid={`hero-range-btn-${i}`}
               aria-pressed={selectedHero === i}
-              onClick={() => setSelectedHero((v) => (v === i ? null : i))}
+              onClick={() => setSelectedHero(i)}
               style={{ ...btnStyle(selectedHero === i), whiteSpace: "nowrap" }}
             >
               {r.lv}

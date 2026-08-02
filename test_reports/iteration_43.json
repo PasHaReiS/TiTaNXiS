@@ -1,0 +1,30 @@
+{
+  "summary": "Frontend-only verification of EquipmentTables defaults + no-deselect behavior on /komutanlar → MALİYET HESAPLAMA → mh_ekipman. All 8 assertions from the review request passed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verified_assertions": [
+    "Navigation to equipment-tables container works via section-toggle-MALİYET HESAPLAMA → category-item-mh_ekipman.",
+    "Default: reform-level-btn-1 aria-pressed='true', bg rgb(245,166,35); all other N=2..20 pressed='false'; only reform-row-1 in DOM.",
+    "Default: hero-range-btn-0 aria-pressed='true'; hero-range-btn-1..4 pressed='false'; only hero-row-0 in DOM.",
+    "reform-row-1 cells = ['1','20','-'] with fontSize 22px, textAlign center.",
+    "Click reform-level-btn-10 → reform-row-10 renders (cells 10,200,220), reform-row-1 removed, btn1 pressed='false', btn10 pressed='true'.",
+    "Click reform-level-btn-10 AGAIN → row-10 still present, btn10 remains aria-pressed='true' (no deselect).",
+    "Click hero-range-btn-2 → hero-row-2 with Bolts:197K, Magnets:1,000, Potential Coils:60, LV 140-160 text present; btn0 pressed='false', btn2 pressed='true'.",
+    "Click hero-range-btn-2 AGAIN → hero-row-2 still present, btn2 remains aria-pressed='true' (no deselect).",
+    "Reformation thead <th>s contain 0 <img> children; text is 'Seviye', 'Dişli', 'Mıknatıs'.",
+    "CollapseCard toggles: equipment-reformation-toggle aria-expanded true→false→true; hero-equipment-guide-toggle true→false→true."
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "EquipmentTables component at /app/frontend/src/components/EquipmentTables.jsx now defaults to selectedLevel=1 and selectedHero=0, with click handlers that only set (no toggle-off). Sidebar section label for 'MALİYET HESAPLAMA' is translated to 'HESAPLA' but the data-testid on the section toggle retains the raw section key."
+}
