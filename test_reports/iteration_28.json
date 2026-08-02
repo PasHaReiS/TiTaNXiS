@@ -1,0 +1,40 @@
+{
+  "summary": "Iteration 28: Tested Sidebar ordering + SoldierCalculator tier redesign + UnitCostModal per-tier. Sidebar order verified (BİLGİLENDİRME → HESAPLA → KOMUTANLAR → KAFES ETKİNLİK → GARNİZON → SAVAŞ → SVS EKİP). Tier selector (T11/T8/T7/T6) renders with correct aria-pressed and default T11. Tier-specific unit costs correctly fetched and used (verified 1000 soldiers computations for T11 and T8 - all match). 2-column grid confirmed (gridTemplateColumns=1fr 1fr, order [Yemek, Çelik, Odun, Benzin] row-major). Exactly 3 time boxes (Gün/Saat/Dakika), no sure-saniye element. UnitCostModal has 4 tier tabs, switching tier reloads inputs from that tier's stored values. Backend accepts tier-suffixed categories (GET/PUT /api/unit-costs/asker_egitim_t{tier} → 200; POST /api/calculations with tier-suffixed category → 200). CRITICAL BUG: history table never appears because frontend SWR key is /calculations?category=asker_egitim (base string), but backend does EXACT match and stored records are asker_egitim_t11 / _t8 / _t7 / _t6 → SWR returns [] → calc-history-table conditional never renders. globalMutate after save also targets the same wrong key.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/calculations", "issue": "Category param uses exact match. Frontend expects to fetch all tier variants via base 'asker_egitim' key. Either (a) support prefix/starts-with query, or (b) frontend must fetch per tier / by tier-suffixed category."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "SoldierCalculator history table", "issue": "calc-history-table never renders. useSWR('/calculations?category=asker_egitim') returns [] because backend exact-matches category and actual records are 'asker_egitim_t11', 'asker_egitim_t8', etc. Confirmed via curl: GET /api/calculations?category=asker_egitim → count 0, but GET /api/calculations?category=asker_egitim_t11 → count 2.", "selector": "[data-testid='calc-history-table']", "priority": "CRITICAL"},
+      {"component": "SoldierCalculator save mutation", "issue": "globalMutate('/calculations?category=asker_egitim') after save/delete is a no-op vs. the per-tier query the user actually needs; even if history query is fixed to per-tier, this mutate key needs to change accordingly.", "selector": "[data-testid='save-calculation-btn']", "priority": "HIGH"}
+    ],
+    "integration_issues": [
+      {"flow": "Save → history refresh", "issue": "POST /api/calculations succeeds (verified 200 with row inserted in DB) but UI history is invisible due to wrong SWR key.", "affected_selectors": ["[data-testid='calc-history-table']", "[data-testid='save-calculation-btn']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/soldier_final.png"],
+  "action_items": [
+    "Fix SoldierCalculator history query: change useSWR key to per-tier `/calculations?category=asker_egitim_${tier.toLowerCase()}` and mutate same key on save/delete. Alternative: change backend to accept category as prefix, e.g. add ?category_prefix param or interpret 'asker_egitim' as prefix match.",
+    "If history should show ALL tiers merged, implement Promise.all fetch across the 4 tier categories and merge in-memory (SWR key like '/calculations/asker_egitim_all')."
+  ],
+  "critical_code_review_comments": [
+    "SoldierCalculator.jsx line 37 & 59 & 67: hardcoded '/calculations?category=asker_egitim' does not match any stored record because POST always writes with tier suffix — dead query. This is the primary bug.",
+    "Verified computations correct against current DB unit-costs: T11 (yemek=18500, odun=12100, celik=3734, benzin=483, sure_saniye=180) × 1000 soldiers = 18.500.000 / 12.100.000 / 3.734.000 / 483.000; time 180000s → 02g 02s 00d. T8 (100/50/30/20/5) × 1000 → 100.000 / 50.000 / 30.000 / 20.000; 5000s → 00g 01s 24d (ceil). All match UI output.",
+    "T11 default selection, aria-pressed toggling, and gradient background all work.",
+    "Modal per-tier switching reloads values via SWR key derived from activeTier — verified (T11:18500, T8:100, T7:50).",
+    "Sidebar section order confirmed via screenshot: BİLGİLENDİRME → HESAPLA → KOMUTANLAR → KAFES ETKİNLİK → GARNİZON → SAVAŞ → SVS EKİP.",
+    "Note: Review request stated T11 preseed {yemek:200,...} but current DB has yemek=18500. Someone/main agent updated T11 costs between spec write and test. Not a defect."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "85% (all UI structure OK; history table broken)"},
+  "test_credentials": "admin / admin123",
+  "seed_data_creation": "Created one asker_egitim_t11 calculation record via UI save (soldier_count=1000). Left in DB.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The single remaining bug is the history table SWR key mismatch. After fix, verify: (1) save creates a row visible in calc-history-table with Tier column showing 'T11' via tierOf() regex parse; (2) Süre column uses formatSureShort 'Xg YYs ZZd'; (3) mutate refresh works; (4) delete-calc-{id} removes row. All other flows already verified.",
+  "rca of the issue": "SoldierCalculator.jsx fetches useSWR('/calculations?category=asker_egitim', ...) — a static string with no tier suffix. But POST /api/calculations writes docs with tier-suffixed category (e.g., 'asker_egitim_t11'). The backend list endpoint at server.py:1108 uses db.calculations.find({'category': category}) — EXACT match. Hence GET /api/calculations?category=asker_egitim returns []. The conditional `calculations.length > 0` at line 186 evaluates false and calc-history-table is never rendered. Mitigation A (frontend): make the SWR key dynamic to current tier (`/calculations?category=${category}`) so each tier shows its own history. Mitigation B (frontend, if merged view desired): fetch all four tier categories in parallel and merge. Mitigation C (backend): add prefix support (e.g., `startswith` filter) or a dedicated /calculations/by-prefix endpoint."
+}
