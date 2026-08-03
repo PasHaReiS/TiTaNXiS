@@ -275,11 +275,8 @@ export default function Leaderboard() {
               >
                 {r.alliance_name || "-"}
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 flex items-center">
                 <div className="font-bold truncate normal-case" style={{ color: "#F5F0E8", fontFamily: "Cinzel, Rajdhani, serif", textTransform: "none" }}>{r.name}</div>
-                <div className="text-[10px] text-muted-foreground tracking-wider truncate">
-                  {r.alliance_name || t("member")}
-                </div>
               </div>
               <div className="text-right">
                 <div className="font-bold mono text-sm" style={{ color: "#E74C1A" }}>{fmt(r.total_points)}</div>
