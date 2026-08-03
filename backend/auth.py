@@ -256,6 +256,30 @@ async def seed_admin(db):
         if updates:
             await db.users.update_one({"id": existing["id"]}, {"$set": updates})
 
+    # Seed the editor account "pasha" (role=user, can_edit=True) idempotently.
+    editor_username = "pasha"
+    editor_password = os.environ.get("EDITOR_PASSWORD") or "pasha123"
+    editor = await db.users.find_one({"username": editor_username})
+    if not editor:
+        u = User(
+            username=editor_username,
+            password_hash=hash_password(editor_password),
+            role="user",
+            can_edit=True,
+            must_change_password=False,
+        )
+        await db.users.insert_one(u.model_dump())
+    else:
+        updates = {}
+        if editor.get("role") != "user":
+            updates["role"] = "user"
+        if not editor.get("can_edit"):
+            updates["can_edit"] = True
+        if not verify_password(editor_password, editor["password_hash"]):
+            updates["password_hash"] = hash_password(editor_password)
+        if updates:
+            await db.users.update_one({"id": editor["id"]}, {"$set": updates})
+
 
 async def ensure_indexes(db):
     await db.users.create_index("username", unique=True)
