@@ -254,18 +254,19 @@ export default function Leaderboard() {
               data-testid={LEADERBOARD.row(r.member_id)}
               onClick={() => setProfileId(r.member_id)}
               className="w-full rank-row flex items-center gap-3 text-left"
+              style={{ padding: "14px 18px", minHeight: 64 }}
             >
               <div className="w-8 text-center">
-                <span className="text-xs font-bold mono" style={{ color: "#D4730A", fontFamily: "Cinzel, Rajdhani, serif" }}>#{r.position}</span>
+                <span className="text-sm font-bold mono" style={{ color: "#D4730A", fontFamily: "Cinzel, Rajdhani, serif" }}>#{r.position}</span>
               </div>
               <div
                 data-testid={`row-alliance-badge-${r.member_id}`}
-                className="text-[10px] font-bold rounded-full flex items-center justify-center flex-shrink-0"
+                className="text-[11px] font-bold rounded-full flex items-center justify-center flex-shrink-0"
                 style={{
                   background: (r.alliance_name && allianceColors[r.alliance_name]) || "#E74C1A",
                   color: "#fff",
-                  minWidth: 48,
-                  padding: "4px 8px",
+                  minWidth: 56,
+                  padding: "5px 10px",
                   border: "1px solid rgba(255,255,255,0.15)",
                   letterSpacing: "0.06em",
                   textTransform: "uppercase",
@@ -276,10 +277,10 @@ export default function Leaderboard() {
                 {r.alliance_name || "-"}
               </div>
               <div className="flex-1 min-w-0 flex items-center">
-                <div className="font-bold truncate normal-case" style={{ color: "#F5F0E8", fontFamily: "Cinzel, Rajdhani, serif", textTransform: "none" }}>{r.name}</div>
+                <div className="font-bold truncate normal-case text-base" style={{ color: "#F5F0E8", fontFamily: "Cinzel, Rajdhani, serif", textTransform: "none" }}>{r.name}</div>
               </div>
               <div className="text-right">
-                <div className="font-bold mono text-sm" style={{ color: "#E74C1A" }}>{fmt(r.total_points)}</div>
+                <div className="font-bold mono text-base" style={{ color: "#E74C1A" }}>{fmt(r.total_points)}</div>
               </div>
             </button>
           ))}
