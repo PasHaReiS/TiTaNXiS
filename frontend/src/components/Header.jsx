@@ -171,14 +171,14 @@ export default function Header() {
       </div>
 
       {user && (
-        <div className="flex items-center gap-1 mt-2 flex-wrap">
+        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
           {isAdmin && <span className="text-[9px] px-1.5 py-0.5 rounded gold-gradient font-bold">{t("admin").toUpperCase()}</span>}
           {!isAdmin && canEdit && <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/25 text-green-300 border border-green-500/40 font-bold">{t("can_edit_badge").toUpperCase()}</span>}
           {!isAdmin && !canEdit && <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold">{t("view_only").toUpperCase()}</span>}
         </div>
       )}
 
-      <div className="divider-glow mt-3" />
+      <div className="divider-glow mt-1" />
     </header>
   );
 }
