@@ -254,7 +254,7 @@ export default function Leaderboard() {
               data-testid={LEADERBOARD.row(r.member_id)}
               onClick={() => setProfileId(r.member_id)}
               className="w-full rank-row flex items-center gap-3 text-left"
-              style={{ padding: "10px 14px", minHeight: 56 }}
+              style={{ padding: "7px 12px", minHeight: 44 }}
             >
               <div className="w-8 text-center">
                 <span className="text-xs font-bold mono" style={{ color: "#D4730A", fontFamily: "Cinzel, Rajdhani, serif" }}>#{r.position}</span>
