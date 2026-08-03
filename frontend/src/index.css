@@ -11,12 +11,11 @@ body {
     background-color: #0A0806;
     color: #F5F0E8;
     letter-spacing: 0.01em;
-    background-image:
-        radial-gradient(1200px 600px at 10% -10%, rgba(231,76,26,0.08), transparent 60%),
-        radial-gradient(900px 500px at 90% 110%, rgba(192,57,43,0.06), transparent 60%),
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='400' height='400' filter='url(%23n)' opacity='0.15'/></svg>");
+    background-image: url('https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/50511d82a1f10a6e54beb325354dc47017fcf918c6b52ad05a1035abf94c9957.jpeg');
+    background-size: cover;
     background-attachment: fixed;
-    background-size: auto, auto, 400px 400px;
+    background-repeat: no-repeat;
+    background-position: center center;
 }
 
 /* Dramatic headings font */
@@ -102,7 +101,7 @@ code, .mono {
     max-width: 430px;
     margin: 0 auto;
     min-height: 100vh;
-    background: linear-gradient(180deg, #0D0B0A 0%, #150C0A 60%, #1A0F0C 100%);
+    background: linear-gradient(180deg, rgba(13,11,10,0.72) 0%, rgba(21,12,10,0.75) 60%, rgba(26,15,12,0.78) 100%);
     position: relative;
     padding-bottom: 84px;
     box-shadow: 0 0 60px rgba(231, 76, 26, 0.18);
