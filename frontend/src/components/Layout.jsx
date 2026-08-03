@@ -1,13 +1,13 @@
 import React from "react";
 import BottomNav from "@/components/BottomNav";
+import SideNav from "@/components/SideNav";
 import MusicButton from "@/components/MusicButton";
-import PashaSignature from "@/components/PashaSignature";
 
 export default function Layout({ children }) {
   return (
     <div className="min-h-screen">
+      <SideNav />
       {children}
-      <PashaSignature />
       <MusicButton />
       <BottomNav />
     </div>
