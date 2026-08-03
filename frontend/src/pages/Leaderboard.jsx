@@ -142,6 +142,7 @@ export default function Leaderboard() {
                   data-testid={`podium-alliance-badge-2`}
                   className="text-[9px] font-bold rounded-full mt-1"
                   style={{
+                    display: "none",
                     background: (top3[1].alliance_name && allianceColors[top3[1].alliance_name]) || "#E74C1A",
                     color: "#fff",
                     padding: "2px 8px",
@@ -178,6 +179,7 @@ export default function Leaderboard() {
                   data-testid={`podium-alliance-badge-1`}
                   className="text-[9px] font-bold rounded-full mt-1"
                   style={{
+                    display: "none",
                     background: (top3[0].alliance_name && allianceColors[top3[0].alliance_name]) || "#E74C1A",
                     color: "#fff",
                     padding: "2px 8px",
@@ -213,6 +215,7 @@ export default function Leaderboard() {
                   data-testid={`podium-alliance-badge-3`}
                   className="text-[9px] font-bold rounded-full mt-1"
                   style={{
+                    display: "none",
                     background: (top3[2].alliance_name && allianceColors[top3[2].alliance_name]) || "#E74C1A",
                     color: "#fff",
                     padding: "2px 8px",
@@ -262,6 +265,7 @@ export default function Leaderboard() {
                 data-testid={`row-alliance-badge-${r.member_id}`}
                 className="text-[10px] font-bold rounded-full flex items-center justify-center flex-shrink-0"
                 style={{
+                  display: "none",
                   background: (r.alliance_name && allianceColors[r.alliance_name]) || "#E74C1A",
                   color: "#fff",
                   minWidth: 48,
@@ -277,9 +281,6 @@ export default function Leaderboard() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold truncate normal-case" style={{ color: "#F5F0E8", fontFamily: "Cinzel, Rajdhani, serif", textTransform: "none" }}>{r.name}</div>
-                <div className="text-[10px] text-muted-foreground tracking-wider truncate">
-                  {r.alliance_name || t("member")}
-                </div>
               </div>
               <div className="text-right">
                 <div className="font-bold mono text-sm" style={{ color: "#E74C1A" }}>{fmt(r.total_points)}</div>

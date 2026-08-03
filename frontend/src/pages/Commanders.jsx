@@ -11,6 +11,7 @@ import SoldierCalculator from "@/components/SoldierCalculator";
 import EquipmentTables from "@/components/EquipmentTables";
 import TroveCollectionTable from "@/components/TroveCollectionTable";
 import HeroTables from "@/components/HeroTables";
+import ImageLightbox from "@/components/ImageLightbox";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -674,6 +675,12 @@ function CommanderGridCard({ commander: c, commanderById, onOpen, onEdit, onDele
 function CommanderLightbox({ commander, commanderById, onClose }) {
   const { t } = useTranslation();
   const matchNames = (commander.kof_pairs || []).map((id) => commanderById[id]).filter(Boolean);
+  const imgs = Array.isArray(commander.images) && commander.images.length > 0
+    ? commander.images
+    : (commander.image_url ? [commander.image_url] : []);
+  const resolvedImgs = imgs.map((u) => resolveImageUrl(u));
+  const [previewIdx, setPreviewIdx] = useState(null);
+  const openPreview = (i) => (e) => { e.stopPropagation(); setPreviewIdx(i); };
   return (
     <div
       className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4 fade-in"
@@ -692,9 +699,6 @@ function CommanderLightbox({ commander, commanderById, onClose }) {
 
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-3xl flex flex-col items-center max-h-[95vh] overflow-y-auto">
         {(() => {
-          const imgs = Array.isArray(commander.images) && commander.images.length > 0
-            ? commander.images
-            : (commander.image_url ? [commander.image_url] : []);
           if (imgs.length === 0) {
             return (
               <div className="w-56 h-56 rounded-lg bg-black/60 border-2 border-primary/40 flex items-center justify-center">
@@ -707,7 +711,7 @@ function CommanderLightbox({ commander, commanderById, onClose }) {
               <img
                 src={resolveImageUrl(imgs[0])}
                 alt={commander.name}
-                onClick={() => window.open(resolveImageUrl(imgs[0]), "_blank")}
+                onClick={openPreview(0)}
                 className="max-w-full max-h-[60vh] rounded-lg object-contain shadow-2xl border-2 border-primary/40 cursor-zoom-in"
                 data-testid="lightbox-img-0"
               />
@@ -732,7 +736,7 @@ function CommanderLightbox({ commander, commanderById, onClose }) {
                     <img
                       src={resolveImageUrl(url)}
                       alt={`${commander.name} ${i + 1}`}
-                      onClick={() => window.open(resolveImageUrl(url), "_blank")}
+                      onClick={openPreview(i)}
                       className="w-full max-h-[42vh] object-contain rounded-lg border-2 border-primary/40 cursor-zoom-in bg-black/40"
                       style={spanBoth ? { maxWidth: "50%" } : undefined}
                       data-testid={`lightbox-img-${i}`}
@@ -773,6 +777,15 @@ function CommanderLightbox({ commander, commanderById, onClose }) {
           )}
         </div>
       </div>
+      {previewIdx !== null && (
+        <ImageLightbox
+          images={resolvedImgs}
+          initialIndex={previewIdx}
+          title={commander.name}
+          description={commander.description}
+          onClose={() => setPreviewIdx(null)}
+        />
+      )}
     </div>
   );
 }
