@@ -62,7 +62,7 @@ export default function Header() {
             alt="Brand"
             data-testid="header-brand-logo"
             className="flex-1 min-w-0 header-brand-logo"
-            style={{ width: "100%", maxWidth: "100%", height: "auto", maxHeight: 80, objectFit: "contain", objectPosition: "left center", borderRadius: 6 }}
+            style={{ width: "100%", maxWidth: "100%", height: "auto", maxHeight: 120, objectFit: "contain", objectPosition: "left center", borderRadius: 6 }}
           />
         </div>
 
