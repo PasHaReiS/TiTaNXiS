@@ -50,9 +50,9 @@ export default function MusicButton() {
       data-testid="floating-music-btn"
       aria-pressed={isPlaying}
       title={isPlaying ? t("music_stop") : t("music_play")}
-      className="floating-music-btn-pos"
       style={{
         position: "fixed",
+        bottom: 80,
         right: 16,
         width: 48,
         height: 48,

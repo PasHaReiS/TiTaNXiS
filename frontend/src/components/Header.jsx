@@ -61,8 +61,8 @@ export default function Header() {
             src={BRAND_LOGO_URL}
             alt="Brand"
             data-testid="header-brand-logo"
-            className="flex-1 min-w-0"
-            style={{ height: 56, width: "100%", maxWidth: 400, objectFit: "cover", objectPosition: "left center", borderRadius: 6 }}
+            className="flex-1 min-w-0 header-brand-logo"
+            style={{ width: "100%", maxWidth: "100%", height: "auto", maxHeight: 80, objectFit: "contain", objectPosition: "left center", borderRadius: 6 }}
           />
         </div>
 
