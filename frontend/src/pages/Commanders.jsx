@@ -303,26 +303,27 @@ export default function Commanders() {
               if (subs.length <= 1) return null;
               const showingAll = !!activeSection;
               return (
-                <div className="flex flex-wrap gap-2 mb-3" data-testid="section-tab-strip">
+                <div className="grid grid-cols-1 gap-2 items-start mb-3" data-testid="section-tab-strip">
                   {!NO_TUMU_SECTIONS.has(currentSection) && (
                     <button
                       type="button"
                       data-testid={`section-tab-all-${currentSection}`}
                       onClick={() => setSelectedCat(SECTION_PREFIX + currentSection)}
                       aria-pressed={showingAll}
-                      className="px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider"
-                      style={{
-                        background: showingAll ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
-                        color: showingAll ? "#0B0704" : "#F5F0E8",
-                        border: `1px solid ${showingAll ? "#F5A623" : "rgba(255,255,255,0.15)"}`,
-                        cursor: "pointer",
-                        fontFamily: "Cinzel, serif",
-                      }}
+                      className={`sidebar-card ${showingAll ? "active" : ""}`}
+                      style={{ animationDelay: "0ms" }}
                     >
-                      <span className="tab-text">{t("all_short")}</span>
+                      <span className="embers" aria-hidden="true">
+                        <span></span><span></span><span></span><span></span><span></span>
+                      </span>
+                      <span className="sidebar-card-icon">
+                        <LayoutGrid className="w-3.5 h-3.5" strokeWidth={2} />
+                      </span>
+                      <span className="sidebar-card-label">{t("all_short")}</span>
+                      <ChevronRight className="w-4 h-4 sidebar-card-chevron" />
                     </button>
                   )}
-                  {subs.map((s) => {
+                  {subs.map((s, sidx) => {
                     const active = s.key === selectedCat;
                     return (
                       <button
@@ -331,18 +332,19 @@ export default function Commanders() {
                         data-testid={COMMANDERS.categoryItem(s.key)}
                         onClick={() => setSelectedCat(s.key)}
                         aria-pressed={active}
-                        className="px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider"
-                        style={{
-                          background: active ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
-                          color: active ? "#0B0704" : "#F5F0E8",
-                          border: `1px solid ${active ? "#F5A623" : "rgba(255,255,255,0.15)"}`,
-                          cursor: "pointer",
-                          fontFamily: "Cinzel, serif",
-                        }}
+                        className={`sidebar-card ${active ? "active" : ""}`}
+                        style={{ animationDelay: `${(sidx + 1) * 80}ms` }}
                       >
-                        <span className="tab-text">
+                        <span className="embers" aria-hidden="true">
+                          <span></span><span></span><span></span><span></span><span></span>
+                        </span>
+                        <span className="sidebar-card-icon">
+                          <Grid3x3 className="w-3.5 h-3.5" strokeWidth={2} />
+                        </span>
+                        <span className="sidebar-card-label">
                           {t(`cat_${s.key}`) !== `cat_${s.key}` ? t(`cat_${s.key}`) : s.label}
                         </span>
+                        <ChevronRight className="w-4 h-4 sidebar-card-chevron" />
                       </button>
                     );
                   })}
@@ -351,24 +353,32 @@ export default function Commanders() {
             })()}
 
             {activeSection === "MALİYET HESAPLAMA" ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2" data-testid="hesapla-category-list">
-                {CATEGORIES.filter((c) => c.section === "MALİYET HESAPLAMA").map((c) => (
-                  <button
-                    key={c.key}
-                    type="button"
-                    data-testid={COMMANDERS.categoryItem(c.key)}
-                    onClick={() => setSelectedCat(c.key)}
-                    className="card-dark hover:border-primary transition-colors text-left"
-                    style={{ padding: "12px 14px", cursor: "pointer" }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Grid3x3 className="w-4 h-4" style={{ color: "#F5A623" }} />
-                      <span className="tab-text text-sm font-bold uppercase tracking-wider" style={{ fontFamily: "Cinzel, serif" }}>
+              <div className="grid grid-cols-1 gap-2 items-start" data-testid="hesapla-category-list">
+                {CATEGORIES.filter((c) => c.section === "MALİYET HESAPLAMA").map((c, cidx) => {
+                  const active = c.key === selectedCat;
+                  return (
+                    <button
+                      key={c.key}
+                      type="button"
+                      data-testid={COMMANDERS.categoryItem(c.key)}
+                      onClick={() => setSelectedCat(c.key)}
+                      aria-pressed={active}
+                      className={`sidebar-card ${active ? "active" : ""}`}
+                      style={{ animationDelay: `${cidx * 80}ms` }}
+                    >
+                      <span className="embers" aria-hidden="true">
+                        <span></span><span></span><span></span><span></span><span></span>
+                      </span>
+                      <span className="sidebar-card-icon">
+                        <Grid3x3 className="w-3.5 h-3.5" strokeWidth={2} />
+                      </span>
+                      <span className="sidebar-card-label">
                         {t(`cat_${c.key}`) !== `cat_${c.key}` ? t(`cat_${c.key}`) : c.label}
                       </span>
-                    </div>
-                  </button>
-                ))}
+                      <ChevronRight className="w-4 h-4 sidebar-card-chevron" />
+                    </button>
+                  );
+                })}
               </div>
             ) : ["mh_ekipman", "mh_koleksiyon", "mh_kahraman"].includes(selectedCat) ? null : selectedCat === "mh_asker_egitim" ? (
               <SoldierCalculator />
