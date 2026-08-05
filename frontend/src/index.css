@@ -715,3 +715,178 @@ select:focus, textarea:focus {
     animation: flameFlicker 0.65s ease-in-out infinite;
 }
 
+
+/* =================================================================
+   PURPLE-BLUE THEME OVERRIDES — Loj Hakkında sub-pages
+   Scoped to the Commanders content area + back button
+   ================================================================= */
+
+/* Back button (outside content area) */
+.commanders-back-btn {
+    background: linear-gradient(135deg, #4A0080 0%, #1A3A8C 100%);
+    border: 1px solid rgba(138,43,226,0.5);
+    color: #E8D5FF;
+    font-family: 'Cinzel', 'Rajdhani', serif;
+    box-shadow: 0 2px 6px rgba(20,10,60,0.5);
+    transition: all 0.2s ease;
+}
+.commanders-back-btn:hover {
+    background: linear-gradient(135deg, #6B00B8 0%, #2E5CD6 100%);
+    border-color: #9B59B6;
+    color: #F5EBFF;
+    box-shadow: 0 0 14px rgba(138,43,226,0.55), 0 0 22px rgba(30,60,180,0.35);
+}
+
+/* Buttons: the "+ Add" gold button becomes purple inside commanders content */
+[data-testid="commanders-content"] .btn-gold,
+[data-testid="commanders-content"] button[data-testid="commanders-add-btn"] {
+    background: linear-gradient(135deg, #4A0080 0%, #1A3A8C 100%) !important;
+    color: #F5EBFF !important;
+    border: 1px solid rgba(138,43,226,0.55) !important;
+    box-shadow: 0 2px 8px rgba(20,10,60,0.55), inset 0 1px 0 rgba(200,160,255,0.2) !important;
+    transition: background 0.2s ease, box-shadow 0.25s ease, transform 0.15s ease;
+}
+[data-testid="commanders-content"] .btn-gold:hover,
+[data-testid="commanders-content"] button[data-testid="commanders-add-btn"]:hover {
+    background: linear-gradient(135deg, #6B00B8 0%, #2E5CD6 100%) !important;
+    box-shadow: 0 0 18px rgba(138,43,226,0.6), 0 0 30px rgba(30,60,180,0.35) !important;
+    transform: translateY(-1px);
+}
+
+/* Card dark containers pick up purple border/hint */
+[data-testid="commanders-content"] .card-dark {
+    border-color: rgba(138,43,226,0.28) !important;
+    box-shadow: inset 0 0 22px rgba(20,10,60,0.35), 0 2px 8px rgba(0,0,0,0.5) !important;
+}
+
+/* Utility color remaps within content */
+[data-testid="commanders-content"] .gold-text {
+    color: #D8B4FE !important;
+    text-shadow: 0 0 8px rgba(138,43,226,0.35);
+}
+[data-testid="commanders-content"] .red-text {
+    color: #C7D9FF !important;
+}
+[data-testid="commanders-content"] .gold-gradient {
+    background: linear-gradient(135deg, #7C3AED, #2E5CD6) !important;
+    color: #F5EBFF !important;
+}
+
+/* Sub-category / tier tab strip buttons (inline-styled → override by data-testid patterns) */
+[data-testid="commanders-content"] [data-testid^="subcat-tab-"],
+[data-testid="commanders-content"] [data-testid^="hesapla-cat-"],
+[data-testid="commanders-content"] [data-testid^="tier-btn-"] {
+    background: linear-gradient(135deg, rgba(45,0,80,0.55) 0%, rgba(10,26,92,0.55) 100%) !important;
+    border: 1px solid rgba(138,43,226,0.35) !important;
+    color: #E8D5FF !important;
+    transition: background 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease, color 0.2s ease;
+}
+[data-testid="commanders-content"] [data-testid^="subcat-tab-"]:hover,
+[data-testid="commanders-content"] [data-testid^="hesapla-cat-"]:hover,
+[data-testid="commanders-content"] [data-testid^="tier-btn-"]:hover {
+    background: linear-gradient(135deg, #6B00B8 0%, #2E5CD6 100%) !important;
+    border-color: #9B59B6 !important;
+    color: #F5EBFF !important;
+    box-shadow: 0 0 12px rgba(138,43,226,0.45) !important;
+}
+[data-testid="commanders-content"] [data-testid^="subcat-tab-"][aria-pressed="true"],
+[data-testid="commanders-content"] [data-testid^="hesapla-cat-"][aria-current="page"],
+[data-testid="commanders-content"] [data-testid^="tier-btn-"][aria-pressed="true"] {
+    background: linear-gradient(135deg, #4A0080 0%, #2D0050 40%, #0A1A5C 70%, #1A3A8C 100%) !important;
+    border-color: #C084FC !important;
+    color: #F5EBFF !important;
+    box-shadow: 0 0 16px rgba(157,110,255,0.55), 0 0 28px rgba(45,90,220,0.35) !important;
+}
+
+/* Form inputs, textareas and selects */
+[data-testid="commanders-content"] input:not([type="checkbox"]):not([type="radio"]),
+[data-testid="commanders-content"] textarea,
+[data-testid="commanders-content"] select {
+    background: rgba(15,10,30,0.7);
+    border: 1px solid rgba(138,43,226,0.3);
+    color: #E8D5FF;
+    transition: border-color 0.2s ease, box-shadow 0.25s ease;
+}
+[data-testid="commanders-content"] input:not([type="checkbox"]):not([type="radio"]):focus,
+[data-testid="commanders-content"] textarea:focus,
+[data-testid="commanders-content"] select:focus {
+    border-color: rgba(138,43,226,0.6);
+    outline: none;
+    box-shadow: 0 0 12px rgba(138,43,226,0.4);
+}
+
+/* Chip / badge / small pill elements */
+[data-testid="commanders-content"] .badge,
+[data-testid="commanders-content"] .chip,
+[data-testid="commanders-content"] [data-testid$="-badge"],
+[data-testid="commanders-content"] [data-testid$="-chip"],
+[data-testid="commanders-content"] [data-testid^="rarity-"] {
+    background: rgba(45,0,80,0.65) !important;
+    border: 1px solid rgba(138,43,226,0.4) !important;
+    color: #E8D5FF !important;
+}
+
+/* Accordion / dropdown headers */
+[data-testid="commanders-content"] .accordion-trigger,
+[data-testid="commanders-content"] [data-radix-collection-item],
+[data-testid="commanders-content"] .dropdown-header {
+    background: linear-gradient(135deg, rgba(74,0,128,0.55) 0%, rgba(10,26,92,0.55) 100%) !important;
+    border: 1px solid rgba(138,43,226,0.32) !important;
+    color: #E8D5FF !important;
+}
+
+/* Commander card list items — purple left rail on hover */
+[data-testid="commanders-content"] [data-testid^="commander-card-"] {
+    border: 1px solid rgba(138,43,226,0.22);
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease;
+}
+[data-testid="commanders-content"] [data-testid^="commander-card-"]:hover {
+    background: rgba(74,0,128,0.1);
+    border-color: rgba(138,43,226,0.5);
+    box-shadow: -3px 0 0 #7C3AED inset, 0 0 12px rgba(138,43,226,0.25);
+}
+
+/* Ensure text on primary buttons remains readable */
+[data-testid="commanders-content"] button {
+    letter-spacing: 0.04em;
+}
+
+
+/* =================================================================
+   PURPLE-BLUE GRADIENT TEXT for global headings & section titles
+   ================================================================= */
+h1, h2, h3,
+.section-title,
+.page-header,
+.card-title,
+.heading-cinzel,
+.dialog-title,
+.modal-title,
+.accordion-title {
+    background: linear-gradient(to right, #9B59B6, #3498DB);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+}
+
+/* Preserve the lavender sidebar card labels (they live inside their own gradient card) */
+.sidebar-card-label,
+.sidebar-card h1,
+.sidebar-card h2,
+.sidebar-card h3 {
+    background: none !important;
+    -webkit-background-clip: border-box !important;
+    -webkit-text-fill-color: currentColor !important;
+    background-clip: border-box !important;
+    color: #E8D5FF !important;
+}
+
+/* Also preserve the leaderboard podium/hero rank names which use custom multi-shadow effects */
+.podium-name,
+.podium-name * {
+    background: none !important;
+    -webkit-text-fill-color: currentColor !important;
+    color: inherit !important;
+}
+

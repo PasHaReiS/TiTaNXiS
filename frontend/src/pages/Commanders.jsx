@@ -231,13 +231,7 @@ export default function Commanders() {
               type="button"
               onClick={backToSidebar}
               data-testid="sidebar-back-btn"
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-bold uppercase tracking-wider"
-              style={{
-                background: "linear-gradient(180deg,#2A1B12,#120A07)",
-                border: "1px solid rgba(231,76,26,0.5)",
-                color: "#F5A623",
-                fontFamily: "Cinzel, Rajdhani, serif",
-              }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-bold uppercase tracking-wider commanders-back-btn"
               aria-label="Back"
             >
               <ArrowLeft className="w-4 h-4" /> {t("back", "Geri")}
