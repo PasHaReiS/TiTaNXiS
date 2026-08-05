@@ -4,7 +4,7 @@ import { api, CATEGORIES, groupCategories } from "@/lib/api";
 import { COMMANDERS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
-import { Plus, Pencil, Trash2, X, Shield, ChevronDown, ChevronRight, Upload, Image as ImageIcon, Sparkles, Link as LinkIcon, Grid3x3, ArrowLeft } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Shield, ChevronDown, ChevronRight, Upload, Image as ImageIcon, Sparkles, Link as LinkIcon, Grid3x3, ArrowLeft, Info, Calculator, Users, LayoutGrid, Home, Swords, Flag } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import SoldierCalculator from "@/components/SoldierCalculator";
@@ -41,7 +41,16 @@ const RARITY = {
 const NO_TUMU_SECTIONS = new Set(["KAFES ETKİNLİK", "SAVAŞ", "SVS EKİP"]);
 
 // Sidebar section header → i18n key map. Section names come from CATEGORIES[i].section (Turkish literal).
-const SIDEBAR_SECTION_I18N = {
+const SECTION_ICON = {
+  "BİLGİLENDİRME": Info,
+  "MALİYET HESAPLAMA": Calculator,
+  "KOMUTANLAR": Users,
+  "KAHRAMANLAR": Users,
+  "KAFES ETKİNLİK": LayoutGrid,
+  "GARNİZON": Home,
+  "SAVAŞ": Swords,
+  "SVS EKİP": Flag,
+};const SIDEBAR_SECTION_I18N = {
   "BİLGİLENDİRME": "sb_bilgilendirme",
   "KOMUTANLAR": "sb_komutanlar",
   "KAFES ETKİNLİK": "sb_kafes",
