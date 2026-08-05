@@ -536,8 +536,8 @@ select:focus, textarea:focus {
     margin-right: auto;
     align-self: flex-start;
     background:
-        radial-gradient(ellipse at 30% 20%, rgba(138,43,226,0.18) 0%, transparent 55%),
-        linear-gradient(135deg, rgba(74,0,128,0.85) 0%, rgba(45,0,80,0.75) 40%, rgba(10,26,92,0.75) 70%, rgba(26,58,140,0.85) 100%);
+        radial-gradient(ellipse at 30% 20%, rgba(168,85,247,0.3) 0%, transparent 55%),
+        linear-gradient(135deg, #7C3AED 0%, #4C1D95 40%, #1E3A8A 70%, #2563EB 100%);
     border: 1px solid rgba(138,43,226,0.5);
     border-radius: 8px;
     color: #E8D5FF;
@@ -1029,8 +1029,8 @@ button[aria-pressed="true"] > .tab-text {
     letter-spacing: 0.04em;
     font-size: 10.5px;
     background:
-        radial-gradient(ellipse at 30% 20%, rgba(138,43,226,0.18) 0%, transparent 55%),
-        linear-gradient(135deg, rgba(74,0,128,0.85) 0%, rgba(45,0,80,0.75) 40%, rgba(10,26,92,0.75) 70%, rgba(26,58,140,0.85) 100%) !important;
+        radial-gradient(ellipse at 30% 20%, rgba(168,85,247,0.3) 0%, transparent 55%),
+        linear-gradient(135deg, #7C3AED 0%, #4C1D95 40%, #1E3A8A 70%, #2563EB 100%) !important;
 }
 .sidebar-card.sidebar-card-compact .sidebar-card-icon {
     width: 24px;
