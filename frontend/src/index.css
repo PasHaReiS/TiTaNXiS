@@ -536,9 +536,9 @@ select:focus, textarea:focus {
     margin-right: auto;
     align-self: flex-start;
     background:
-        radial-gradient(ellipse at 30% 20%, rgba(155,89,182,0.2) 0%, transparent 55%),
-        linear-gradient(135deg, rgba(52,152,219,0.55) 0%, rgba(128,90,213,0.5) 50%, rgba(155,89,182,0.6) 100%);
-    border: 1px solid rgba(155,89,182,0.4);
+        radial-gradient(ellipse at 30% 20%, rgba(168,85,247,0.1) 0%, transparent 55%),
+        linear-gradient(135deg, rgba(52,152,219,0.15) 0%, rgba(139,92,246,0.18) 50%, rgba(168,85,247,0.2) 100%);
+    border: 1px solid rgba(168,85,247,0.25);
     border-radius: 8px;
     color: #E8D5FF;
     font-family: 'Cinzel','Rajdhani',serif;
