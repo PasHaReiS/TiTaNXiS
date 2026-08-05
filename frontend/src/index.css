@@ -890,3 +890,113 @@ h1, h2, h3,
     color: inherit !important;
 }
 
+
+/* =================================================================
+   PURPLE-BLUE GRADIENT for sub-category tab text
+   (Rehber / Savaş / SVS Ekip sub-tab labels)
+   ================================================================= */
+.tab-text {
+    background: linear-gradient(to right, #9B59B6, #3498DB);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+    opacity: 0.7;
+    font-weight: 600;
+    display: inline-block;
+    transition: opacity 0.2s ease, transform 0.15s ease, filter 0.2s ease;
+}
+button:hover > .tab-text {
+    opacity: 1;
+    transform: scale(1.02);
+}
+button[aria-pressed="true"] > .tab-text {
+    background: linear-gradient(to right, #A855F7, #60A5FA);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    opacity: 1;
+    font-weight: 800;
+    filter: drop-shadow(0 0 6px rgba(157,110,255,0.55));
+    border-bottom: 2px solid #9B59B6;
+    padding-bottom: 1px;
+}
+/* Rehber cards (category picker) use the same .tab-text — always bright, no active state */
+[data-testid="hesapla-category-list"] .tab-text {
+    opacity: 1;
+    font-weight: 700;
+}
+
+
+/* =================================================================
+   COMPREHENSIVE PURPLE-BLUE GRADIENT for ALL Commanders sub-tabs
+   ================================================================= */
+
+/* Auto-wrap fallback: any tab-strip button that hasn't been wrapped in <span.tab-text>
+   still gets purple-blue text via direct button styling.
+   Because these buttons carry inline `background: orange gradient`, we override with
+   background-image linear-gradient and background-clip: text — this makes the button
+   background become transparent (its own background becomes the gradient clipped to text).
+   Use ONLY for buttons that don't already have <span.tab-text> children. */
+[data-testid="section-tab-strip"] > button:not(:has(.tab-text)),
+[data-testid="hesapla-category-list"] > button:not(:has(.tab-text)) {
+    background-image: linear-gradient(to right, #9B59B6, #3498DB) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    color: transparent !important;
+    opacity: 0.85;
+}
+
+/* Broad catch-all so ANY sub-tab / tier / category / filter button label glows purple */
+[data-testid="commanders-content"] .tab-text,
+[data-testid="commanders-content"] button[class*="tab"] > *,
+[data-testid="commanders-content"] button[class*="tier"] > *,
+[data-testid="commanders-content"] button[class*="category"] > *,
+[data-testid="commanders-content"] button[class*="filter"] > *,
+[data-testid="commanders-content"] .sub-tab,
+[data-testid="commanders-content"] .tier-btn,
+[data-testid="commanders-content"] .category-chip,
+[data-testid="commanders-content"] [data-testid^="commanders-category-item-"] > span,
+[data-testid="commanders-content"] [data-testid^="section-tab-all-"] > span,
+[data-testid="commanders-content"] [data-testid^="section-tab-"] > span:not(.tab-text),
+[data-testid="commanders-content"] [role="tab"] > span {
+    background: linear-gradient(to right, #9B59B6, #3498DB);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+    opacity: 0.75;
+    font-weight: 600;
+    display: inline-block;
+    transition: opacity 0.2s ease, transform 0.15s ease, filter 0.2s ease;
+}
+
+/* Hover — brighter & slightly scaled */
+[data-testid="commanders-content"] button:hover .tab-text,
+[data-testid="commanders-content"] button:hover > span,
+[data-testid="commanders-content"] .sub-tab:hover,
+[data-testid="commanders-content"] .tier-btn:hover,
+[data-testid="commanders-content"] .category-chip:hover {
+    opacity: 1;
+    transform: scale(1.02);
+}
+
+/* Active / selected — brighter gradient + bold + underline */
+[data-testid="commanders-content"] button[aria-pressed="true"] .tab-text,
+[data-testid="commanders-content"] button[aria-pressed="true"] > span,
+[data-testid="commanders-content"] button[aria-current="page"] > span,
+[data-testid="commanders-content"] .sub-tab.active,
+[data-testid="commanders-content"] .tier-btn.active,
+[data-testid="commanders-content"] .category-chip.active {
+    background: linear-gradient(to right, #A855F7, #60A5FA);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    opacity: 1;
+    font-weight: 800;
+    filter: drop-shadow(0 0 6px rgba(157,110,255,0.55));
+    border-bottom: 2px solid #9B59B6;
+    padding-bottom: 1px;
+}
+

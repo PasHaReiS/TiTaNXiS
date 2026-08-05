@@ -309,6 +309,7 @@ export default function Commanders() {
                       type="button"
                       data-testid={`section-tab-all-${currentSection}`}
                       onClick={() => setSelectedCat(SECTION_PREFIX + currentSection)}
+                      aria-pressed={showingAll}
                       className="px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider"
                       style={{
                         background: showingAll ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
@@ -318,7 +319,7 @@ export default function Commanders() {
                         fontFamily: "Cinzel, serif",
                       }}
                     >
-                      {t("all_short")}
+                      <span className="tab-text">{t("all_short")}</span>
                     </button>
                   )}
                   {subs.map((s) => {
@@ -329,6 +330,7 @@ export default function Commanders() {
                         type="button"
                         data-testid={COMMANDERS.categoryItem(s.key)}
                         onClick={() => setSelectedCat(s.key)}
+                        aria-pressed={active}
                         className="px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider"
                         style={{
                           background: active ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
@@ -338,7 +340,9 @@ export default function Commanders() {
                           fontFamily: "Cinzel, serif",
                         }}
                       >
-                        {t(`cat_${s.key}`) !== `cat_${s.key}` ? t(`cat_${s.key}`) : s.label}
+                        <span className="tab-text">
+                          {t(`cat_${s.key}`) !== `cat_${s.key}` ? t(`cat_${s.key}`) : s.label}
+                        </span>
                       </button>
                     );
                   })}
@@ -359,7 +363,7 @@ export default function Commanders() {
                   >
                     <div className="flex items-center gap-2">
                       <Grid3x3 className="w-4 h-4" style={{ color: "#F5A623" }} />
-                      <span className="text-sm font-bold uppercase tracking-wider" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }}>
+                      <span className="tab-text text-sm font-bold uppercase tracking-wider" style={{ fontFamily: "Cinzel, serif" }}>
                         {t(`cat_${c.key}`) !== `cat_${c.key}` ? t(`cat_${c.key}`) : c.label}
                       </span>
                     </div>
