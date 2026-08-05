@@ -4,7 +4,7 @@ import { api, CATEGORIES, groupCategories } from "@/lib/api";
 import { COMMANDERS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
-import { Plus, Pencil, Trash2, X, Shield, ChevronDown, ChevronRight, Upload, Image as ImageIcon, Sparkles, Link as LinkIcon, Grid3x3 } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Shield, ChevronDown, ChevronRight, Upload, Image as ImageIcon, Sparkles, Link as LinkIcon, Grid3x3, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import SoldierCalculator from "@/components/SoldierCalculator";
@@ -124,6 +124,7 @@ function addButtonLabel(t, category, section) {
 export default function Commanders() {
   const { t } = useTranslation();
   const [selectedCat, setSelectedCat] = useState(CATEGORIES[1].key);
+  const [showSidebar, setShowSidebar] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [lightbox, setLightbox] = useState(null);
@@ -202,7 +203,9 @@ export default function Commanders() {
     } else {
       setSelectedCat(SECTION_PREFIX + section);
     }
+    setShowSidebar(false);
   };
+  const backToSidebar = () => setShowSidebar(true);
 
   const contextLabel = activeSection
     ? (t(SIDEBAR_SECTION_I18N[activeSection] || "") || activeSection)
@@ -213,44 +216,73 @@ export default function Commanders() {
       <Header subtitle={t("commander_guide")} />
 
       <div className="px-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-bold uppercase red-text tracking-wider">{t("commanders_title")}</h2>
-          <CanEdit>
+        <div className="flex items-center justify-between mb-3 gap-2">
+          {!showSidebar && (
             <button
-              data-testid={COMMANDERS.addBtn}
-              onClick={() => { setEditing(null); setShowForm(true); }}
-              className="btn-gold flex items-center gap-1.5 text-xs"
-              title={contextLabel}
+              type="button"
+              onClick={backToSidebar}
+              data-testid="sidebar-back-btn"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-bold uppercase tracking-wider"
+              style={{
+                background: "linear-gradient(180deg,#2A1B12,#120A07)",
+                border: "1px solid rgba(231,76,26,0.5)",
+                color: "#F5A623",
+                fontFamily: "Cinzel, Rajdhani, serif",
+              }}
+              aria-label="Back"
             >
-              <Plus className="w-4 h-4" /> {addButtonLabel(t, currentCategory, activeSection)}
+              <ArrowLeft className="w-4 h-4" /> {t("back", "Geri")}
             </button>
-          </CanEdit>
+          )}
+          <h2 className="text-xl font-bold uppercase red-text tracking-wider flex-1">{t("commanders_title")}</h2>
+          {!showSidebar && (
+            <CanEdit>
+              <button
+                data-testid={COMMANDERS.addBtn}
+                onClick={() => { setEditing(null); setShowForm(true); }}
+                className="btn-gold flex items-center gap-1.5 text-xs"
+                title={contextLabel}
+              >
+                <Plus className="w-4 h-4" /> {addButtonLabel(t, currentCategory, activeSection)}
+              </button>
+            </CanEdit>
+          )}
         </div>
 
-        <div className="grid grid-cols-[130px_1fr] gap-3">
-          {/* Sidebar tree — flat section links, no accordion */}
-          <div className="card-dark p-2 max-h-[calc(100vh-260px)] overflow-y-auto">
-            {Object.entries(sections).map(([section]) => {
-              const isSectionActive = activeSection === section || CATEGORIES.find((c) => c.key === selectedCat)?.section === section;
-              return (
-                <div key={section} className="mb-1">
-                  <button
-                    type="button"
-                    onClick={() => openSectionView(section)}
-                    data-testid={`section-open-${section}`}
-                    className={`w-full flex items-center gap-1 tree-cat hover:text-white ${isSectionActive ? "gold-text" : ""}`}
-                    style={{ background: isSectionActive ? "rgba(245,166,35,0.10)" : "transparent", border: 0, cursor: "pointer", padding: "6px 6px" }}
-                  >
-                    <Grid3x3 className="w-3 h-3 opacity-70" />
-                    <span className="text-left flex-1 truncate">{t(SIDEBAR_SECTION_I18N[section] || "") || section}</span>
-                  </button>
-                </div>
-              );
-            })}
+        {showSidebar ? (
+          /* FULL-WIDTH SIDEBAR (all screen sizes) */
+          <div className="card-dark p-3" data-testid="commanders-sidebar">
+            {Object.entries(sections).map(([section]) => (
+              <div key={section} className="mb-1.5">
+                <button
+                  type="button"
+                  onClick={() => openSectionView(section)}
+                  data-testid={`section-open-${section}`}
+                  className="w-full flex items-center gap-2 hover:text-white transition-colors"
+                  style={{
+                    background: "rgba(30,20,16,0.6)",
+                    border: "1px solid rgba(231,76,26,0.25)",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    padding: "12px 14px",
+                    color: "#F5F0E8",
+                    fontFamily: "Cinzel, Rajdhani, serif",
+                    letterSpacing: "0.08em",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  <Grid3x3 className="w-4 h-4 opacity-80" style={{ color: "#F5A623" }} />
+                  <span className="text-left flex-1 truncate">{t(SIDEBAR_SECTION_I18N[section] || "") || section}</span>
+                  <ChevronRight className="w-4 h-4 opacity-60" />
+                </button>
+              </div>
+            ))}
           </div>
-
-          {/* Content */}
-          <div className="min-w-0">
+        ) : (
+          /* CONTENT ONLY */
+          <div className="min-w-0" data-testid="commanders-content">
             <div className="text-[11px] uppercase gold-text font-bold tracking-widest mb-2 flex items-center gap-2">
               <span>
                 {activeSection
@@ -441,7 +473,7 @@ export default function Commanders() {
               </div>
             )}
           </div>
-        </div>
+        )}
       </div>
 
       {showForm && (
