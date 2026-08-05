@@ -636,11 +636,12 @@ select:focus, textarea:focus {
 .sidebar-card-label {
     flex: 1;
     min-width: 0;
-    background: linear-gradient(to right, #9B59B6, #3498DB);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    color: transparent;
+    background: none;
+    -webkit-background-clip: border-box;
+    -webkit-text-fill-color: #FFFFFF;
+    background-clip: border-box;
+    color: #FFFFFF;
+    text-shadow: 0 1px 0 rgba(0,0,0,0.75), 0 0 10px rgba(138,43,226,0.4);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -649,10 +650,9 @@ select:focus, textarea:focus {
 .sidebar-card:hover .sidebar-card-label,
 .sidebar-card.active .sidebar-card-label,
 .sidebar-card[aria-pressed="true"] .sidebar-card-label {
-    background: linear-gradient(to right, #A855F7, #60A5FA);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    background: none;
+    -webkit-text-fill-color: #FFFFFF;
+    color: #FFFFFF;
     filter: drop-shadow(0 0 6px rgba(157,110,255,0.55));
 }
 .sidebar-card-chevron {

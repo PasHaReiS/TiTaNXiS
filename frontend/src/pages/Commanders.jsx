@@ -323,10 +323,16 @@ export default function Commanders() {
                       <ChevronRight className="w-4 h-4 sidebar-card-chevron" />
                     </button>
                   )}
-                  <div className={currentSection === "KOMUTANLAR" ? "grid grid-cols-4 gap-2" : "flex flex-col gap-2 items-start"}>
+                  <div className={
+                    currentSection === "KOMUTANLAR" ? "grid grid-cols-4 gap-2"
+                    : currentSection === "SAVAŞ" ? "grid grid-cols-2 gap-2"
+                    : currentSection === "SVS EKİP" ? "grid grid-cols-2 gap-2"
+                    : currentSection === "KAFES ETKİNLİK" ? "grid grid-cols-2 gap-2"
+                    : "flex flex-col gap-2 items-start"
+                  }>
                     {subs.map((s, sidx) => {
                       const active = s.key === selectedCat;
-                      const compact = currentSection === "KOMUTANLAR";
+                      const compact = currentSection === "KOMUTANLAR" || currentSection === "SAVAŞ" || currentSection === "SVS EKİP" || currentSection === "KAFES ETKİNLİK";
                       return (
                         <button
                           key={s.key}
@@ -408,7 +414,7 @@ export default function Commanders() {
                       return <div className="card-dark p-6 text-center text-muted-foreground text-xs">{t("no_commanders_in_category")}</div>;
                     }
                     return (
-                      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2" data-testid="grid-group-KOMUTANLAR-all">
+                      <div className="grid grid-cols-3 gap-3" data-testid="grid-group-KOMUTANLAR-all">
                         {searched.map((c) => (
                           <CommanderGridCard
                             key={c.id}
@@ -445,7 +451,7 @@ export default function Commanders() {
                         <div className="text-[10px] uppercase gold-text font-bold tracking-widest mb-1.5">
                           {label} <span className="text-muted-foreground font-normal">• {groups[catKey].length}</span>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2">
+                        <div className="grid grid-cols-3 gap-3">
                           {groups[catKey].map((c) => (
                             <CommanderGridCard
                               key={c.id}
@@ -468,26 +474,47 @@ export default function Commanders() {
                 })()}
               </>
             ) : (
-              <div className="space-y-2">
-                {commanders.map((c) => (
-                  <CommanderCard
-                    key={c.id}
-                    commander={c}
-                    commanderById={commanderById}
-                    onOpen={() => setLightbox(c)}
-                    onEdit={() => { setEditing(c); setShowForm(true); }}
-                    onDelete={async () => {
-                      if (!window.confirm(t("confirm_delete_generic", { name: c.name }))) return;
-                      await api.delete(`/commanders/${c.id}`);
-                      mutate((k) => typeof k === "string" && k.startsWith("/commanders"));
-                      toast.success(t("deleted"));
-                    }}
-                  />
-                ))}
-                {commanders.length === 0 && !String(selectedCat).startsWith("mh_") && !NO_TUMU_SECTIONS.has(currentCategory?.section) && (
-                  <div className="card-dark p-6 text-center text-muted-foreground text-xs">{t("no_commanders_in_category")}</div>
-                )}
-              </div>
+              (() => {
+                const isKomSubCat = currentCategory?.section === "KOMUTANLAR";
+                return (
+                  <div className={isKomSubCat ? "grid grid-cols-3 gap-3" : "space-y-2"}>
+                    {commanders.map((c) => (
+                      isKomSubCat ? (
+                        <CommanderGridCard
+                          key={c.id}
+                          commander={c}
+                          commanderById={commanderById}
+                          onOpen={() => setLightbox(c)}
+                          onEdit={() => { setEditing(c); setShowForm(true); }}
+                          onDelete={async () => {
+                            if (!window.confirm(t("confirm_delete_generic", { name: c.name }))) return;
+                            await api.delete(`/commanders/${c.id}`);
+                            mutate((k) => typeof k === "string" && k.startsWith("/commanders"));
+                            toast.success(t("deleted"));
+                          }}
+                        />
+                      ) : (
+                        <CommanderCard
+                          key={c.id}
+                          commander={c}
+                          commanderById={commanderById}
+                          onOpen={() => setLightbox(c)}
+                          onEdit={() => { setEditing(c); setShowForm(true); }}
+                          onDelete={async () => {
+                            if (!window.confirm(t("confirm_delete_generic", { name: c.name }))) return;
+                            await api.delete(`/commanders/${c.id}`);
+                            mutate((k) => typeof k === "string" && k.startsWith("/commanders"));
+                            toast.success(t("deleted"));
+                          }}
+                        />
+                      )
+                    ))}
+                    {commanders.length === 0 && !String(selectedCat).startsWith("mh_") && !NO_TUMU_SECTIONS.has(currentCategory?.section) && (
+                      <div className="card-dark p-6 text-center text-muted-foreground text-xs col-span-full">{t("no_commanders_in_category")}</div>
+                    )}
+                  </div>
+                );
+              })()
             )}
           </div>
         )}
