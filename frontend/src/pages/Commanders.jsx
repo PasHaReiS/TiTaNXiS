@@ -260,7 +260,7 @@ export default function Commanders() {
 
         {showSidebar ? (
           /* FULL-WIDTH SIDEBAR — themed card grid with staggered slide-in */
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-testid="commanders-sidebar">
+          <div className="grid grid-cols-1 gap-2 items-start" data-testid="commanders-sidebar">
             {Object.entries(sections).map(([section], idx) => {
               const Icon = SECTION_ICON[section] || Grid3x3;
               return (
