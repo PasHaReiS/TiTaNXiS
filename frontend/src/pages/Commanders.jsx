@@ -259,35 +259,29 @@ export default function Commanders() {
         </div>
 
         {showSidebar ? (
-          /* FULL-WIDTH SIDEBAR (all screen sizes) */
-          <div className="card-dark p-3" data-testid="commanders-sidebar">
-            {Object.entries(sections).map(([section]) => (
-              <div key={section} className="mb-1.5">
+          /* FULL-WIDTH SIDEBAR — themed card grid with staggered slide-in */
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="commanders-sidebar">
+            {Object.entries(sections).map(([section], idx) => {
+              const Icon = SECTION_ICON[section] || Grid3x3;
+              return (
                 <button
+                  key={section}
                   type="button"
                   onClick={() => openSectionView(section)}
                   data-testid={`section-open-${section}`}
-                  className="w-full flex items-center gap-2 hover:text-white transition-colors"
-                  style={{
-                    background: "rgba(30,20,16,0.6)",
-                    border: "1px solid rgba(231,76,26,0.25)",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    padding: "12px 14px",
-                    color: "#F5F0E8",
-                    fontFamily: "Cinzel, Rajdhani, serif",
-                    letterSpacing: "0.08em",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    textTransform: "uppercase",
-                  }}
+                  className="sidebar-card"
+                  style={{ animationDelay: `${idx * 100}ms` }}
                 >
-                  <Grid3x3 className="w-4 h-4 opacity-80" style={{ color: "#F5A623" }} />
-                  <span className="text-left flex-1 truncate">{t(SIDEBAR_SECTION_I18N[section] || "") || section}</span>
-                  <ChevronRight className="w-4 h-4 opacity-60" />
+                  <span className="sidebar-card-icon">
+                    <Icon className="w-5 h-5" strokeWidth={2} />
+                  </span>
+                  <span className="sidebar-card-label">
+                    {t(SIDEBAR_SECTION_I18N[section] || "") || section}
+                  </span>
+                  <ChevronRight className="w-4 h-4 sidebar-card-chevron" />
                 </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           /* CONTENT ONLY */

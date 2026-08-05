@@ -490,18 +490,25 @@ select:focus, textarea:focus {
 }
 
 /* =================================================================
-   SIDEBAR CARD BUTTONS — Stone & Fire themed section picker
+   SIDEBAR CARD BUTTONS — Blood Ember themed section picker
    ================================================================= */
+@keyframes sidebarCardSlideDown {
+    0%   { opacity: 0; transform: translateY(-14px) scale(0.98); }
+    60%  { opacity: 1; transform: translateY(2px) scale(1); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .sidebar-card {
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 16px 16px;
     background:
-        linear-gradient(160deg, rgba(45,27,14,0.9) 0%, rgba(26,15,12,0.95) 60%, rgba(15,9,7,0.98) 100%);
-    border: 1px solid rgba(231,76,26,0.3);
+        radial-gradient(ellipse at 30% 20%, rgba(255,120,60,0.22) 0%, transparent 55%),
+        linear-gradient(135deg, #CC0000 0%, #A00000 40%, #6D0000 100%);
+    border: 1px solid rgba(255,90,40,0.45);
     border-radius: 12px;
-    color: #F5A623;
+    color: #FFEBD1;
     font-family: 'Cinzel','Rajdhani',serif;
     font-weight: 700;
     letter-spacing: 0.1em;
@@ -510,70 +517,100 @@ select:focus, textarea:focus {
     text-align: left;
     cursor: pointer;
     box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.04),
-        inset 0 -1px 0 rgba(0,0,0,0.4),
-        0 2px 6px rgba(0,0,0,0.5);
-    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.25s ease, background 0.25s ease;
+        inset 0 1px 0 rgba(255,220,180,0.25),
+        inset 0 -2px 0 rgba(0,0,0,0.4),
+        0 3px 8px rgba(139,0,0,0.55),
+        0 0 12px rgba(231,76,26,0.18);
+    transition:
+        transform 0.18s cubic-bezier(.34,1.56,.64,1),
+        border-color 0.2s ease,
+        box-shadow 0.25s ease,
+        background 0.25s ease;
     position: relative;
     overflow: hidden;
+    opacity: 0;
+    animation: sidebarCardSlideDown 0.55s cubic-bezier(.34,1.56,.64,1) forwards;
+    will-change: transform, box-shadow;
 }
 .sidebar-card::before {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(120deg, transparent 40%, rgba(231,76,26,0.1) 50%, transparent 60%);
+    background: linear-gradient(120deg, transparent 40%, rgba(255,214,140,0.22) 50%, transparent 60%);
     transform: translateX(-100%);
-    transition: transform 0.5s ease;
+    transition: transform 0.55s ease;
     pointer-events: none;
 }
 .sidebar-card:hover {
-    border-color: #E74C1A;
+    border-color: #FFB84D;
     background:
-        linear-gradient(160deg, rgba(60,32,14,0.95) 0%, rgba(35,20,14,0.98) 60%, rgba(18,10,8,1) 100%);
+        radial-gradient(ellipse at 30% 20%, rgba(255,180,90,0.35) 0%, transparent 55%),
+        linear-gradient(135deg, #FF3B1F 0%, #C71010 45%, #7A0000 100%);
     box-shadow:
-        inset 0 1px 0 rgba(255,214,120,0.15),
-        inset 0 -1px 0 rgba(0,0,0,0.5),
-        0 0 12px rgba(231,76,26,0.4),
-        0 4px 14px rgba(231,76,26,0.25);
-    transform: translateY(-1px);
-    color: #FFD68C;
+        inset 0 1px 0 rgba(255,235,200,0.35),
+        inset 0 -2px 0 rgba(0,0,0,0.4),
+        0 0 18px rgba(255,148,60,0.6),
+        0 0 30px rgba(231,76,26,0.4),
+        0 6px 18px rgba(139,0,0,0.55);
+    transform: translateY(-2px) scale(1.03);
+    color: #FFF6E4;
 }
 .sidebar-card:hover::before { transform: translateX(100%); }
-.sidebar-card:active { transform: translateY(0); }
+.sidebar-card:active {
+    transform: scale(0.97);
+    box-shadow:
+        inset 0 2px 8px rgba(0,0,0,0.5),
+        0 0 12px rgba(255,148,60,0.35);
+}
+.sidebar-card.active,
+.sidebar-card[aria-pressed="true"] {
+    border-color: #FFD68C;
+    background:
+        radial-gradient(ellipse at 30% 20%, rgba(255,200,110,0.4) 0%, transparent 55%),
+        linear-gradient(135deg, #FF5A2E 0%, #D31212 45%, #8B0000 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255,235,200,0.4),
+        0 0 22px rgba(255,148,60,0.7),
+        0 0 40px rgba(231,76,26,0.45);
+}
 
 .sidebar-card-icon {
     flex-shrink: 0;
     width: 42px; height: 42px;
     display: flex; align-items: center; justify-content: center;
-    background: linear-gradient(160deg, #2A1408 0%, #0F0805 100%);
-    border: 1px solid rgba(212,115,10,0.45);
+    background: linear-gradient(160deg, #2A0A05 0%, #100403 100%);
+    border: 1px solid rgba(255,180,90,0.45);
     border-radius: 10px;
-    color: #F5A623;
-    box-shadow: inset 0 0 10px rgba(0,0,0,0.6), 0 0 8px rgba(231,76,26,0.15);
-    transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    color: #FFD68C;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.7), 0 0 8px rgba(255,90,40,0.25);
+    transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.25s ease;
 }
 .sidebar-card:hover .sidebar-card-icon {
-    color: #FFD68C;
-    border-color: #E74C1A;
-    box-shadow: inset 0 0 10px rgba(0,0,0,0.6), 0 0 14px rgba(231,76,26,0.55);
+    color: #FFF3D4;
+    border-color: #FFB84D;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.65), 0 0 16px rgba(255,180,80,0.75);
+    transform: rotate(-4deg);
 }
 
 .sidebar-card-label {
     flex: 1;
     min-width: 0;
-    text-shadow: 0 1px 0 rgba(0,0,0,0.7), 0 0 8px rgba(231,76,26,0.15);
+    text-shadow:
+        0 1px 0 rgba(0,0,0,0.75),
+        0 0 10px rgba(255,90,40,0.35);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 .sidebar-card-chevron {
-    opacity: 0.5;
-    color: #F5A623;
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    opacity: 0.65;
+    color: #FFD68C;
+    transition: opacity 0.2s ease, transform 0.25s ease;
     flex-shrink: 0;
 }
 .sidebar-card:hover .sidebar-card-chevron {
     opacity: 1;
-    transform: translateX(2px);
+    transform: translateX(4px);
 }
+
 
