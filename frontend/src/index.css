@@ -536,8 +536,8 @@ select:focus, textarea:focus {
     margin-right: auto;
     align-self: flex-start;
     background:
-        radial-gradient(ellipse at 30% 20%, rgba(138,43,226,0.25) 0%, transparent 55%),
-        linear-gradient(135deg, #4A0080 0%, #2D0050 40%, #0A1A5C 70%, #1A3A8C 100%);
+        radial-gradient(ellipse at 30% 20%, rgba(138,43,226,0.15) 0%, transparent 55%),
+        linear-gradient(135deg, rgba(74,0,128,0.6) 0%, rgba(45,0,80,0.5) 40%, rgba(10,26,92,0.5) 70%, rgba(26,58,140,0.6) 100%);
     border: 1px solid rgba(138,43,226,0.5);
     border-radius: 8px;
     color: #E8D5FF;
@@ -636,12 +636,24 @@ select:focus, textarea:focus {
 .sidebar-card-label {
     flex: 1;
     min-width: 0;
-    text-shadow:
-        0 1px 0 rgba(0,0,0,0.75),
-        0 0 10px rgba(138,43,226,0.4);
+    background: linear-gradient(to right, #9B59B6, #3498DB);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    transition: filter 0.25s ease;
+}
+.sidebar-card:hover .sidebar-card-label,
+.sidebar-card.active .sidebar-card-label,
+.sidebar-card[aria-pressed="true"] .sidebar-card-label {
+    background: linear-gradient(to right, #A855F7, #60A5FA);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 6px rgba(157,110,255,0.55));
 }
 .sidebar-card-chevron {
     opacity: 0.65;
@@ -870,19 +882,7 @@ h1, h2, h3,
     color: transparent;
 }
 
-/* Preserve the lavender sidebar card labels (they live inside their own gradient card) */
-.sidebar-card-label,
-.sidebar-card h1,
-.sidebar-card h2,
-.sidebar-card h3 {
-    background: none !important;
-    -webkit-background-clip: border-box !important;
-    -webkit-text-fill-color: currentColor !important;
-    background-clip: border-box !important;
-    color: #E8D5FF !important;
-}
-
-/* Also preserve the leaderboard podium/hero rank names which use custom multi-shadow effects */
+/* Preserve custom multi-shadow effects on the leaderboard podium hero names */
 .podium-name,
 .podium-name * {
     background: none !important;
