@@ -260,7 +260,7 @@ export default function Commanders() {
 
         {showSidebar ? (
           /* FULL-WIDTH SIDEBAR — themed card grid with staggered slide-in */
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="commanders-sidebar">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-testid="commanders-sidebar">
             {Object.entries(sections).map(([section], idx) => {
               const Icon = SECTION_ICON[section] || Grid3x3;
               return (
@@ -273,7 +273,7 @@ export default function Commanders() {
                   style={{ animationDelay: `${idx * 100}ms` }}
                 >
                   <span className="sidebar-card-icon">
-                    <Icon className="w-5 h-5" strokeWidth={2} />
+                    <Icon className="w-3.5 h-3.5" strokeWidth={2} />
                   </span>
                   <span className="sidebar-card-label">
                     {t(SIDEBAR_SECTION_I18N[section] || "") || section}

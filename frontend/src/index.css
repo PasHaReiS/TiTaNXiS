@@ -501,19 +501,19 @@ select:focus, textarea:focus {
 .sidebar-card {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 16px 16px;
+    gap: 8px;
+    padding: 10px 12px;
     background:
         radial-gradient(ellipse at 30% 20%, rgba(255,120,60,0.22) 0%, transparent 55%),
         linear-gradient(135deg, #CC0000 0%, #A00000 40%, #6D0000 100%);
     border: 1px solid rgba(255,90,40,0.45);
-    border-radius: 12px;
+    border-radius: 8px;
     color: #FFEBD1;
     font-family: 'Cinzel','Rajdhani',serif;
     font-weight: 700;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    font-size: 13px;
+    font-size: 12px;
     text-align: left;
     cursor: pointer;
     box-shadow:
@@ -576,13 +576,13 @@ select:focus, textarea:focus {
 
 .sidebar-card-icon {
     flex-shrink: 0;
-    width: 42px; height: 42px;
+    width: 28px; height: 28px;
     display: flex; align-items: center; justify-content: center;
     background: linear-gradient(160deg, #2A0A05 0%, #100403 100%);
     border: 1px solid rgba(255,180,90,0.45);
-    border-radius: 10px;
+    border-radius: 6px;
     color: #FFD68C;
-    box-shadow: inset 0 0 10px rgba(0,0,0,0.7), 0 0 8px rgba(255,90,40,0.25);
+    box-shadow: inset 0 0 8px rgba(0,0,0,0.7), 0 0 6px rgba(255,90,40,0.25);
     transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.25s ease;
 }
 .sidebar-card:hover .sidebar-card-icon {
