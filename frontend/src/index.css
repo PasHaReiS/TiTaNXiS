@@ -493,9 +493,37 @@ select:focus, textarea:focus {
    SIDEBAR CARD BUTTONS — Blood Ember themed section picker
    ================================================================= */
 @keyframes sidebarCardSlideDown {
-    0%   { opacity: 0; transform: translateY(-14px) scale(0.98); }
-    60%  { opacity: 1; transform: translateY(2px) scale(1); }
-    100% { opacity: 1; transform: translateY(0) scale(1); }
+    0%   { opacity: 0; transform: translate3d(0,-14px,0) scale(0.98); }
+    60%  { opacity: 1; transform: translate3d(0,2px,0) scale(1); }
+    100% { opacity: 1; transform: translate3d(0,0,0) scale(1); }
+}
+@keyframes cardShake {
+    0%,100% { transform: translate3d(0,0,0); }
+    20%     { transform: translate3d(-1.5px,0,0); }
+    40%     { transform: translate3d(1.5px,0,0); }
+    60%     { transform: translate3d(-1px,0,0); }
+    80%     { transform: translate3d(1px,0,0); }
+}
+@keyframes cardPulse {
+    0%,100% { filter: brightness(1) saturate(1); }
+    50%     { filter: brightness(1.15) saturate(1.15); }
+}
+@keyframes emberFloat {
+    0%   { opacity: 0; transform: translate3d(0,0,0) scale(0.4); }
+    18%  { opacity: 1; }
+    60%  { opacity: 0.75; transform: translate3d(0,-16px,0) scale(0.85); }
+    100% { opacity: 0; transform: translate3d(0,-30px,0) scale(0.2); }
+}
+@keyframes flameFlicker {
+    0%,100% { transform: scaleY(1) scaleX(1); opacity: 0.85; }
+    25%     { transform: scaleY(1.28) scaleX(0.94); opacity: 1; }
+    50%     { transform: scaleY(0.88) scaleX(1.06); opacity: 0.7; }
+    75%     { transform: scaleY(1.18) scaleX(0.97); opacity: 0.95; }
+}
+@keyframes hoverShake {
+    0%,100% { transform: translate3d(0,-2px,0) scale(1.03); }
+    30%     { transform: translate3d(-2px,-2px,0) scale(1.03); }
+    70%     { transform: translate3d(2px,-2px,0) scale(1.03); }
 }
 
 .sidebar-card {
@@ -529,8 +557,11 @@ select:focus, textarea:focus {
     position: relative;
     overflow: hidden;
     opacity: 0;
-    animation: sidebarCardSlideDown 0.55s cubic-bezier(.34,1.56,.64,1) forwards;
-    will-change: transform, box-shadow;
+    animation:
+        sidebarCardSlideDown 0.55s cubic-bezier(.34,1.56,.64,1) forwards,
+        cardShake 0.35s 0.62s ease-in-out forwards,
+        cardPulse 4s 0.95s ease-in-out infinite;
+    will-change: transform, box-shadow, filter;
 }
 .sidebar-card::before {
     content: "";
@@ -552,8 +583,12 @@ select:focus, textarea:focus {
         0 0 18px rgba(255,148,60,0.6),
         0 0 30px rgba(231,76,26,0.4),
         0 6px 18px rgba(139,0,0,0.55);
-    transform: translateY(-2px) scale(1.03);
+    transform: translate3d(0,-2px,0) scale(1.03);
+    opacity: 1;
     color: #FFF6E4;
+    animation:
+        cardPulse 4s ease-in-out infinite,
+        hoverShake 0.5s ease-in-out;
 }
 .sidebar-card:hover::before { transform: translateX(100%); }
 .sidebar-card:active {
@@ -613,4 +648,64 @@ select:focus, textarea:focus {
     transform: translateX(4px);
 }
 
+
+
+/* ============ HYBRID FX: ember particles, flame crest ============ */
+.embers {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: visible;
+    z-index: 2;
+}
+.embers span {
+    position: absolute;
+    bottom: 4px;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #FFF3D4 0%, #FFB84D 30%, #FF6B1F 55%, transparent 75%);
+    box-shadow: 0 0 6px rgba(255,148,60,0.7);
+    opacity: 0;
+    filter: blur(0.4px);
+    will-change: transform, opacity;
+}
+.embers span:nth-child(1) { left: 12%; }
+.embers span:nth-child(2) { left: 30%; }
+.embers span:nth-child(3) { left: 50%; }
+.embers span:nth-child(4) { left: 68%; }
+.embers span:nth-child(5) { left: 86%; }
+
+.sidebar-card:hover .embers span {
+    animation: emberFloat 1.6s ease-out infinite;
+}
+.sidebar-card:hover .embers span:nth-child(1) { animation-delay: 0s;    }
+.sidebar-card:hover .embers span:nth-child(2) { animation-delay: 0.25s; }
+.sidebar-card:hover .embers span:nth-child(3) { animation-delay: 0.5s;  }
+.sidebar-card:hover .embers span:nth-child(4) { animation-delay: 0.8s;  }
+.sidebar-card:hover .embers span:nth-child(5) { animation-delay: 1.1s;  }
+
+/* Flame crest on top edge (revealed on hover) */
+.sidebar-card::after {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: 20%;
+    right: 20%;
+    height: 10px;
+    background:
+        radial-gradient(ellipse at 15% 100%, #FFF3D4 0%, #FF6B1F 45%, transparent 75%),
+        radial-gradient(ellipse at 40% 100%, #FFEBB0 0%, #E74C1A 40%, transparent 70%),
+        radial-gradient(ellipse at 65% 100%, #FFF3D4 0%, #FF6B1F 45%, transparent 75%),
+        radial-gradient(ellipse at 88% 100%, #FFEBB0 0%, #E74C1A 40%, transparent 70%);
+    opacity: 0;
+    pointer-events: none;
+    filter: blur(0.6px);
+    transform-origin: bottom center;
+    transition: opacity 0.2s ease;
+    z-index: 3;
+}
+.sidebar-card:hover::after {
+    opacity: 0.9;
+    animation: flameFlicker 0.65s ease-in-out infinite;
+}
 

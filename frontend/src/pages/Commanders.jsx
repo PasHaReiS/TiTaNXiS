@@ -272,6 +272,9 @@ export default function Commanders() {
                   className="sidebar-card"
                   style={{ animationDelay: `${idx * 100}ms` }}
                 >
+                  <span className="embers" aria-hidden="true">
+                    <span></span><span></span><span></span><span></span><span></span>
+                  </span>
                   <span className="sidebar-card-icon">
                     <Icon className="w-3.5 h-3.5" strokeWidth={2} />
                   </span>
