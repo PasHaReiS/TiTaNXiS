@@ -1000,3 +1000,35 @@ button[aria-pressed="true"] > .tab-text {
     padding-bottom: 1px;
 }
 
+
+/* Full-width TÜMÜ header card (row 1 of the KAHRAMANLAR strip) */
+.sidebar-card.sidebar-card-full {
+    width: 100%;
+    max-width: 100%;
+    padding: 12px 14px;
+}
+
+/* Compact 4-column child cards (row 2 of the KAHRAMANLAR strip) */
+.sidebar-card.sidebar-card-compact {
+    width: 100%;
+    max-width: 100%;
+    padding: 8px 6px;
+    gap: 6px;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    justify-content: center;
+    letter-spacing: 0.04em;
+    font-size: 10.5px;
+}
+.sidebar-card.sidebar-card-compact .sidebar-card-icon {
+    width: 24px;
+    height: 24px;
+}
+.sidebar-card.sidebar-card-compact .sidebar-card-label {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.15;
+}
+

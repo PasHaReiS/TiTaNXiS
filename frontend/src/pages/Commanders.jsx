@@ -303,14 +303,14 @@ export default function Commanders() {
               if (subs.length <= 1) return null;
               const showingAll = !!activeSection;
               return (
-                <div className="grid grid-cols-1 gap-2 items-start mb-3" data-testid="section-tab-strip">
+                <div className="flex flex-col gap-2 mb-3" data-testid="section-tab-strip">
                   {!NO_TUMU_SECTIONS.has(currentSection) && (
                     <button
                       type="button"
                       data-testid={`section-tab-all-${currentSection}`}
                       onClick={() => setSelectedCat(SECTION_PREFIX + currentSection)}
                       aria-pressed={showingAll}
-                      className={`sidebar-card ${showingAll ? "active" : ""}`}
+                      className={`sidebar-card sidebar-card-full ${showingAll ? "active" : ""}`}
                       style={{ animationDelay: "0ms" }}
                     >
                       <span className="embers" aria-hidden="true">
@@ -323,31 +323,34 @@ export default function Commanders() {
                       <ChevronRight className="w-4 h-4 sidebar-card-chevron" />
                     </button>
                   )}
-                  {subs.map((s, sidx) => {
-                    const active = s.key === selectedCat;
-                    return (
-                      <button
-                        key={s.key}
-                        type="button"
-                        data-testid={COMMANDERS.categoryItem(s.key)}
-                        onClick={() => setSelectedCat(s.key)}
-                        aria-pressed={active}
-                        className={`sidebar-card ${active ? "active" : ""}`}
-                        style={{ animationDelay: `${(sidx + 1) * 80}ms` }}
-                      >
-                        <span className="embers" aria-hidden="true">
-                          <span></span><span></span><span></span><span></span><span></span>
-                        </span>
-                        <span className="sidebar-card-icon">
-                          <Grid3x3 className="w-3.5 h-3.5" strokeWidth={2} />
-                        </span>
-                        <span className="sidebar-card-label">
-                          {t(`cat_${s.key}`) !== `cat_${s.key}` ? t(`cat_${s.key}`) : s.label}
-                        </span>
-                        <ChevronRight className="w-4 h-4 sidebar-card-chevron" />
-                      </button>
-                    );
-                  })}
+                  <div className={currentSection === "KOMUTANLAR" ? "grid grid-cols-4 gap-2" : "flex flex-col gap-2 items-start"}>
+                    {subs.map((s, sidx) => {
+                      const active = s.key === selectedCat;
+                      const compact = currentSection === "KOMUTANLAR";
+                      return (
+                        <button
+                          key={s.key}
+                          type="button"
+                          data-testid={COMMANDERS.categoryItem(s.key)}
+                          onClick={() => setSelectedCat(s.key)}
+                          aria-pressed={active}
+                          className={`sidebar-card ${compact ? "sidebar-card-compact" : ""} ${active ? "active" : ""}`}
+                          style={{ animationDelay: `${(sidx + 1) * 80}ms` }}
+                        >
+                          <span className="embers" aria-hidden="true">
+                            <span></span><span></span><span></span><span></span><span></span>
+                          </span>
+                          <span className="sidebar-card-icon">
+                            <Grid3x3 className="w-3.5 h-3.5" strokeWidth={2} />
+                          </span>
+                          <span className="sidebar-card-label">
+                            {t(`cat_${s.key}`) !== `cat_${s.key}` ? t(`cat_${s.key}`) : s.label}
+                          </span>
+                          {!compact && <ChevronRight className="w-4 h-4 sidebar-card-chevron" />}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })()}
