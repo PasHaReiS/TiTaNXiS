@@ -55,7 +55,7 @@ export default function Header({ title }) {
 
   return (
     <header
-      className="px-4 pt-2 pb-1 fade-in sticky top-0 z-50"
+      className="px-4 pt-0 pb-1 fade-in sticky top-0 z-50"
       style={{
         background:
           "linear-gradient(180deg, rgba(15,10,10,0.96) 0%, rgba(20,12,12,0.92) 70%, rgba(20,12,12,0.85) 100%)",
@@ -186,7 +186,7 @@ export default function Header({ title }) {
         </div>
       )}
 
-      <div className="relative flex items-center justify-center" style={{ marginTop: title ? 8 : 2, marginBottom: title ? 6 : 0, minHeight: title ? 32 : 0 }}>
+      <div className="relative flex items-center justify-center" style={{ marginTop: title ? 2 : 0, marginBottom: title ? 6 : 0, minHeight: title ? 32 : 0 }}>
         <div className="divider-glow absolute left-0 right-0" style={{ top: "50%", transform: "translateY(-50%)" }} />
         {title && (
           <h2
