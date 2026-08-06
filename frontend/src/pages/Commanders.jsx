@@ -383,7 +383,7 @@ export default function Commanders() {
               const rehberCats = CATEGORIES.filter((c) => c.section === "MALİYET HESAPLAMA");
               const askerCat = rehberCats.find((c) => c.key === "mh_asker_egitim");
               const restCats = rehberCats.filter((c) => c.key !== "mh_asker_egitim");
-              const renderRehberCard = (c, cidx) => {
+              const renderRehberCard = (c, cidx, extraClass = "") => {
                 const active = c.key === selectedCat;
                 return (
                   <button
@@ -392,7 +392,7 @@ export default function Commanders() {
                     data-testid={COMMANDERS.categoryItem(c.key)}
                     onClick={() => setSelectedCat(c.key)}
                     aria-pressed={active}
-                    className={`sidebar-card ${active ? "active" : ""}`}
+                    className={`sidebar-card ${extraClass} ${active ? "active" : ""}`}
                     style={{ animationDelay: `${cidx * 80}ms` }}
                   >
                     <span className="embers" aria-hidden="true">
@@ -409,10 +409,10 @@ export default function Commanders() {
                 );
               };
               return (
-                <div className="flex flex-col gap-2" data-testid="hesapla-category-list">
+                <div className="flex flex-col gap-2 px-4" data-testid="hesapla-category-list">
                   {askerCat && (
                     <div className="w-full">
-                      {renderRehberCard(askerCat, 0)}
+                      {renderRehberCard(askerCat, 0, "sidebar-card-full")}
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-2 items-start">
