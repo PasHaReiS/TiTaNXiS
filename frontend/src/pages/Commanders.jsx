@@ -283,16 +283,16 @@ export default function Commanders() {
               );
             };
             return (
-              <div data-testid="commanders-sidebar" className="flex flex-col gap-3">
+              <div data-testid="commanders-sidebar" className="flex flex-col gap-2">
                 {infoEntry && (
                   <div className="w-full">
                     {renderCard(infoEntry, 0)}
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-3 items-start">
+                <div className="grid grid-cols-2 gap-2 items-start">
                   {restEntries.map((entry, idx) => renderCard(entry, idx + 1))}
                 </div>
-                <div className="mt-4" data-testid="sidebar-soldier-calculator">
+                <div className="mt-1" data-testid="sidebar-soldier-calculator">
                   <SoldierCalculator />
                 </div>
               </div>
