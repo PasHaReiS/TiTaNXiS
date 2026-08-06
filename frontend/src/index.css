@@ -1052,18 +1052,47 @@ button[aria-pressed="true"] > .tab-text {
     border: 1px solid rgba(138,43,226,0.55) !important;
 }
 
-/* Rehber (hesapla-category-list) sub-tab cards — bumped opacity/saturation */
+/* Rehber (hesapla-category-list) sub-tab cards — glass + fire label */
 [data-testid="hesapla-category-list"] .sidebar-card {
-    background-color: #3B1478 !important;
+    background-color: transparent !important;
     background:
-        radial-gradient(ellipse at 30% 20%, rgba(192,132,252,0.55) 0%, transparent 55%),
-        linear-gradient(135deg, #8B3FF0 0%, #5B21B6 40%, #1E3A8A 70%, #2563EB 100%) !important;
-    border: 1px solid rgba(168,85,247,0.85) !important;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.45), inset 0 0 12px rgba(88,28,135,0.35) !important;
+        radial-gradient(ellipse at 30% 20%, rgba(168,85,247,0.12) 0%, transparent 55%),
+        linear-gradient(135deg, rgba(52,152,219,0.15) 0%, rgba(139,92,246,0.18) 50%, rgba(168,85,247,0.2) 100%) !important;
+    border: 1px solid rgba(139,92,246,0.28) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05) !important;
 }
 [data-testid="hesapla-category-list"] .sidebar-card:hover {
-    border-color: rgba(196,140,255,0.95) !important;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.55), inset 0 0 16px rgba(139,92,246,0.5), 0 0 22px rgba(168,85,247,0.35) !important;
+    border-color: rgba(196,140,255,0.55) !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 20px rgba(168,85,247,0.25) !important;
+}
+[data-testid="hesapla-category-list"] .sidebar-card .sidebar-card-label {
+    flex: 1;
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.2;
+    opacity: 1;
+    background: none !important;
+    -webkit-background-clip: border-box !important;
+    -webkit-text-fill-color: unset !important;
+    background-clip: border-box !important;
+    color: #FFD700;
+    text-shadow: none;
+    animation: fireText 2s ease-in-out infinite;
+}
+[data-testid="hesapla-category-list"] .sidebar-card:hover .sidebar-card-label,
+[data-testid="hesapla-category-list"] .sidebar-card.active .sidebar-card-label,
+[data-testid="hesapla-category-list"] .sidebar-card[aria-pressed="true"] .sidebar-card-label {
+    background: none !important;
+    -webkit-text-fill-color: unset !important;
+    filter: drop-shadow(0 0 8px rgba(255,140,0,0.6));
 }
 
 
