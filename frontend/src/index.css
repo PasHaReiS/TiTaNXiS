@@ -1104,13 +1104,140 @@ button[aria-pressed="true"] > .tab-text {
     -webkit-text-fill-color: unset !important;
     filter: drop-shadow(0 0 8px rgba(255,140,0,0.6));
 }
-/* Ensure Asker Eğitim (sidebar-card-full inside Rehber) keeps fireText animation */
+/* =================================================================
+   HOMEPAGE — animated logo + CTA buttons
+   ================================================================= */
+.home-hero {
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: linear-gradient(135deg, #0A0015 0%, #1A0030 40%, #0D0020 100%);
+    overflow: hidden;
+}
+
+.home-radial-bg {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 50% 40%, rgba(155,89,182,0.28) 0%, transparent 45%),
+        radial-gradient(circle at 30% 70%, rgba(255,107,0,0.18) 0%, transparent 55%),
+        radial-gradient(circle at 75% 30%, rgba(52,152,219,0.14) 0%, transparent 55%);
+    animation: heroPulse 6s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 0;
+}
+
+@keyframes heroPulse {
+    0%, 100% { opacity: 0.9; transform: scale(1); }
+    50%      { opacity: 1;   transform: scale(1.08); }
+}
+
+.home-video-wrap {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 480px;
+    width: 100%;
+    margin-bottom: 40px;
+    filter: drop-shadow(0 0 40px rgba(155,89,182,0.5)) drop-shadow(0 0 80px rgba(255,107,0,0.25));
+}
+
+.home-video {
+    width: 100%;
+    height: auto;
+    max-height: 60vh;
+    object-fit: contain;
+    border-radius: 12px;
+}
+
+.home-cta-row {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    visibility: hidden;
+    opacity: 0;
+}
+.home-cta-row.visible {
+    visibility: visible;
+    opacity: 1;
+}
+.home-cta-row.visible .home-cta-left {
+    animation: slideFromLeft 0.8s ease-out both;
+}
+.home-cta-row.visible .home-cta-right {
+    animation: slideFromRight 0.8s ease-out both;
+}
+
+.home-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 48px;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #FFFFFF;
+    font-family: 'Cinzel', 'Rajdhani', sans-serif;
+    background: linear-gradient(135deg, #FF6B00, #9B59B6);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+    box-shadow:
+        0 0 20px rgba(255,107,0,0.5),
+        0 0 40px rgba(155,89,182,0.3);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.home-cta:hover {
+    transform: scale(1.05);
+    box-shadow:
+        0 0 30px rgba(255,107,0,0.7),
+        0 0 60px rgba(155,89,182,0.45);
+}
+.home-cta:active {
+    transform: scale(0.98);
+}
+
+@keyframes slideFromLeft {
+    from { transform: translateX(-100%); opacity: 0; }
+    to   { transform: translateX(0);      opacity: 1; }
+}
+@keyframes slideFromRight {
+    from { transform: translateX(100%);  opacity: 0; }
+    to   { transform: translateX(0);      opacity: 1; }
+}
+
+@media (max-width: 640px) {
+    .home-cta-row {
+        flex-direction: column;
+        width: 100%;
+        max-width: 320px;
+    }
+    .home-cta {
+        width: 100%;
+        padding: 14px 24px;
+        font-size: 16px;
+    }
+}
+
 [data-testid="hesapla-category-list"] .sidebar-card.sidebar-card-full .sidebar-card-label {
     color: #FFD700 !important;
     -webkit-text-fill-color: unset !important;
     filter: none !important;
     animation: fireText 2s ease-in-out infinite !important;
 }
+
 
 
 /* =============================================================
