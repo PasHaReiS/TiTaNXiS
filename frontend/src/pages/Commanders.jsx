@@ -222,7 +222,7 @@ export default function Commanders() {
 
   return (
     <div data-testid={COMMANDERS.container}>
-      <Header subtitle={t("commander_guide")} />
+      <Header title={t("commanders_title")} />
 
       <div className="px-4">
         <div className="flex items-center justify-between mb-3 gap-2">
@@ -237,7 +237,7 @@ export default function Commanders() {
               <ArrowLeft className="w-4 h-4" /> {t("back", "Geri")}
             </button>
           )}
-          <h2 className="text-xl font-bold uppercase red-text tracking-wider flex-1">{t("commanders_title")}</h2>
+          <div className="flex-1" />
           {!showSidebar && (
             <CanEdit>
               <button

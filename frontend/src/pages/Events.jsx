@@ -44,12 +44,11 @@ export default function Events() {
 
   return (
     <div data-testid={EVENTS.container}>
-      <Header subtitle={t("event_mgmt_sub")} />
+      <Header title={t("nav_events")} />
 
       <div className="px-4">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-xl font-bold uppercase red-text tracking-wider">{t("nav_events")}</h2>
             <p className="text-xs text-muted-foreground"><span className="gold-text font-bold mono">{activeCount}</span> {t("active")}</p>
           </div>
           <CanEdit>

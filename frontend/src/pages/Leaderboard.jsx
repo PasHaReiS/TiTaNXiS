@@ -65,7 +65,7 @@ export default function Leaderboard() {
 
   return (
     <div data-testid={LEADERBOARD.container}>
-      <Header />
+      <Header title={t("nav_leaderboard")} />
 
       <div className="px-4">
         <div className="section-title">{t("general_stats")}</div>

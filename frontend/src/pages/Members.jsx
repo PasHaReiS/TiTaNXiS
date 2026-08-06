@@ -147,12 +147,11 @@ export default function Members() {
 
   return (
     <div data-testid={MEMBERS.container}>
-      <Header subtitle={t("member_mgmt_sub")} />
+      <Header title={t("members")} />
 
       <div className="px-4">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-xl font-bold uppercase red-text tracking-wider">{t("members")}</h2>
             <p className="text-xs text-muted-foreground">
               {t("members_total", { count: totalCount })}
               {activeFilterCount > 0 && (

@@ -19,11 +19,10 @@ export default function UserManagement() {
 
   return (
     <div data-testid="user-management-page">
-      <Header subtitle={t("user_mgmt")} />
+      <Header title={t("users_page_title")} />
       <div className="px-4">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-xl font-bold uppercase red-text tracking-wider">{t("users_page_title")}</h2>
             <p className="text-xs text-muted-foreground">{t("users_total", { count: users.length })}</p>
           </div>
           <button

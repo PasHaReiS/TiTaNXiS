@@ -92,10 +92,9 @@ export default function AddPoints() {
 
   return (
     <div data-testid={ADD_POINTS.container}>
-      <Header subtitle={t("add_points_sub")} />
+      <Header title={t("add_points_sub")} />
       <div className="px-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-bold uppercase red-text tracking-wider">{t("add_points_sub")}</h2>
+        <div className="flex items-center justify-end mb-3">
           <button
             data-testid={ADD_POINTS.bulkToggle}
             onClick={() => { setBulk(!bulk); setBulkIds([]); setSelectedMember(null); }}

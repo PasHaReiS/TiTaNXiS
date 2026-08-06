@@ -39,9 +39,8 @@ export default function PointsList() {
 
   return (
     <div data-testid={POINTS.container}>
-      <Header subtitle={t("all_point_records")} />
+      <Header title={t("point_list_title")} />
       <div className="px-4">
-        <h2 className="text-xl font-bold uppercase red-text tracking-wider">{t("point_list_title")}</h2>
         <p className="text-xs text-muted-foreground mb-3">
           {t("points_shown")} <span className="gold-text font-bold mono">{filtered.length}</span> / {points.length}
         </p>

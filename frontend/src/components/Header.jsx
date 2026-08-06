@@ -27,7 +27,7 @@ function MenuItem({ icon: Icon, label, onClick, testId }) {
   );
 }
 
-export default function Header() {
+export default function Header({ title }) {
   const { theme, toggle } = useTheme();
   const { user, isAdmin, canEdit, logout } = useAuth();
   const { t } = useTranslation();
@@ -176,6 +176,15 @@ export default function Header() {
           {!isAdmin && canEdit && <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/25 text-green-300 border border-green-500/40 font-bold">{t("can_edit_badge").toUpperCase()}</span>}
           {!isAdmin && !canEdit && <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold">{t("view_only").toUpperCase()}</span>}
         </div>
+      )}
+
+      {title && (
+        <h2
+          data-testid="page-header-title"
+          className="text-xl font-bold uppercase red-text tracking-wider text-center w-full mt-2"
+        >
+          {title}
+        </h2>
       )}
 
       <div className="divider-glow mt-1" />

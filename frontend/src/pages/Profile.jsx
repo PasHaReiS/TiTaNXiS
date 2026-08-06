@@ -34,7 +34,7 @@ export default function Profile() {
 
   return (
     <div data-testid="profile-page">
-      <Header subtitle={t("my_profile")} />
+      <Header title={t("my_profile")} />
       <div className="px-4">
         <div className="card-red-gold p-4 mb-4">
           <div className="flex items-center gap-3">
