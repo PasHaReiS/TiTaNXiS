@@ -6,7 +6,7 @@ import { NAV } from "@/constants/testIds";
 import { useAuth } from "@/context/AuthContext";
 
 const buildItems = () => [
-  { to: "/siralama", labelKey: "nav_leaderboard", Icon: Trophy, testId: NAV.leaderboard, guest: true },
+  { to: "/", labelKey: "nav_leaderboard", Icon: Trophy, testId: NAV.leaderboard, guest: true },
   { to: "/komutanlar", labelKey: "nav_commanders", Icon: Swords, testId: NAV.commanders, guest: true },
   { to: "/puanlar", labelKey: "nav_points", Icon: BarChart2, testId: NAV.points, guest: false },
   { to: "/puan-ekle", labelKey: "nav_add_points", Icon: PlusCircle, testId: NAV.addPoints, guest: false, requiresEdit: true },
@@ -21,7 +21,7 @@ export default function BottomNav() {
   const { user, canEdit } = useAuth();
   const { t } = useTranslation();
   const location = useLocation();
-  if (location.pathname === "/login" || location.pathname === "/") return null;
+  if (location.pathname === "/login") return null;
 
   const items = buildItems().filter((it) => (it.guest ? true : !!user));
   const cols = items.length;
@@ -34,7 +34,7 @@ export default function BottomNav() {
           <NavLink
             key={it.to}
             to={it.to}
-            end={it.to === "/siralama"}
+            end={it.to === "/"}
             data-testid={it.testId}
             className={({ isActive }) => `bottom-nav-btn flex flex-col items-center justify-center text-center ${isActive ? "active" : ""}`}
             onClick={(e) => { if (disabledEdit) { e.preventDefault(); } }}

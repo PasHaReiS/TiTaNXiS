@@ -10,7 +10,6 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import Layout from "@/components/Layout";
 import Leaderboard from "@/pages/Leaderboard";
 import Commanders from "@/pages/Commanders";
-import HomePage from "@/pages/HomePage";
 import PointsList from "@/pages/PointsList";
 import AddPoints from "@/pages/AddPoints";
 import Members from "@/pages/Members";
@@ -54,8 +53,7 @@ function AppShell() {
       <Layout>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<HomePage />} />
-          <Route path="/siralama" element={<Leaderboard />} />
+          <Route path="/" element={<Leaderboard />} />
           <Route path="/komutanlar" element={<Commanders />} />
           <Route path="/puanlar" element={<RequireAuth><PointsList /></RequireAuth>} />
           <Route path="/puan-ekle" element={<RequireAuth><AddPoints /></RequireAuth>} />
