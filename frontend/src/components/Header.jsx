@@ -54,7 +54,7 @@ export default function Header({ title }) {
   const goto = (path) => { nav(path); setMenuOpen(false); };
 
   return (
-    <header className="px-4 pt-5 pb-3 fade-in">
+    <header className="px-4 pt-5 pb-1 fade-in">
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0 flex items-center gap-3">
           <img
@@ -178,16 +178,34 @@ export default function Header({ title }) {
         </div>
       )}
 
-      {title && (
-        <h2
-          data-testid="page-header-title"
-          className="text-xl font-bold uppercase red-text tracking-wider text-center w-full mt-2"
-        >
-          {title}
-        </h2>
-      )}
-
-      <div className="divider-glow mt-1" />
+      <div className="relative flex items-center justify-center" style={{ marginTop: title ? 22 : 4, marginBottom: title ? 10 : 0, minHeight: title ? 32 : 0 }}>
+        <div className="divider-glow absolute left-0 right-0" style={{ top: "50%", transform: "translateY(-50%)" }} />
+        {title && (
+          <h2
+            data-testid="page-header-title"
+            className="text-xl font-bold uppercase tracking-wider whitespace-nowrap relative"
+            style={{
+              zIndex: 2,
+              padding: "3px 18px",
+              background:
+                "linear-gradient(180deg, rgba(30,15,10,0.96) 0%, rgba(20,10,8,0.98) 50%, rgba(30,15,10,0.96) 100%)",
+              border: "1px solid rgba(231,76,26,0.55)",
+              borderRadius: 6,
+              boxShadow:
+                "0 0 12px rgba(231,76,26,0.35), inset 0 1px 0 rgba(255,200,120,0.15)",
+              fontFamily: "'Cinzel', 'Rajdhani', serif",
+              letterSpacing: "0.14em",
+              color: "#F5A623",
+              WebkitTextFillColor: "#F5A623",
+              WebkitBackgroundClip: "border-box",
+              backgroundClip: "border-box",
+              textShadow: "0 0 8px rgba(231,76,26,0.55), 0 1px 0 rgba(0,0,0,0.6)",
+            }}
+          >
+            {title}
+          </h2>
+        )}
+      </div>
     </header>
   );
 }
