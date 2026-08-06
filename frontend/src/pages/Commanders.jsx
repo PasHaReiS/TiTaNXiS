@@ -423,13 +423,21 @@ export default function Commanders() {
                 );
               };
               return (
-                <div className="flex flex-col gap-2 px-4" data-testid="hesapla-category-list">
+                <div className="flex flex-col gap-3 px-4" data-testid="hesapla-category-list">
                   {askerCat && (
                     <div className="w-full">
                       {renderRehberCard(askerCat, 0, "sidebar-card-full")}
                     </div>
                   )}
-                  <div className="grid grid-cols-2 gap-2 items-start">
+                  <div
+                    className="rehber-grid"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, 1fr)",
+                      gap: 12,
+                      alignItems: "stretch",
+                    }}
+                  >
                     {restCats.map((c, idx) => renderRehberCard(c, idx + 1))}
                   </div>
                 </div>

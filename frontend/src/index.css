@@ -1056,6 +1056,7 @@ button[aria-pressed="true"] > .tab-text {
 [data-testid="hesapla-category-list"] .sidebar-card {
     padding: 12px 16px !important;
     min-height: 48px !important;
+    height: 100% !important;
     width: 100% !important;
     justify-content: center !important;
     align-items: center !important;
@@ -1111,6 +1112,13 @@ button[aria-pressed="true"] > .tab-text {
     -webkit-text-fill-color: unset !important;
     filter: none !important;
     animation: fireText 2s ease-in-out infinite !important;
+}
+
+/* Rehber sub-cards grid: 2-col by default, single column on very narrow screens */
+@media (max-width: 360px) {
+    [data-testid="hesapla-category-list"] .rehber-grid {
+        grid-template-columns: 1fr !important;
+    }
 }
 
 
