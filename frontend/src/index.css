@@ -1061,9 +1061,9 @@ button[aria-pressed="true"] > .tab-text {
     align-items: center !important;
     background-color: transparent !important;
     background:
-        radial-gradient(ellipse at 30% 20%, rgba(168,85,247,0.06) 0%, transparent 55%),
-        linear-gradient(135deg, rgba(52,152,219,0.07) 0%, rgba(139,92,246,0.09) 50%, rgba(168,85,247,0.10) 100%) !important;
-    border: 1px solid rgba(139,92,246,0.15) !important;
+        radial-gradient(ellipse at 30% 20%, rgba(168,85,247,0.02) 0%, transparent 55%),
+        linear-gradient(135deg, rgba(52,152,219,0.03) 0%, rgba(139,92,246,0.04) 50%, rgba(168,85,247,0.04) 100%) !important;
+    border: 1px solid rgba(139,92,246,0.08) !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
     box-shadow: 0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05) !important;
@@ -1080,12 +1080,12 @@ button[aria-pressed="true"] > .tab-text {
     width: 100%;
     text-align: center;
     justify-content: center;
-    white-space: normal;
-    overflow: visible;
-    text-overflow: unset;
-    word-break: break-word;
-    overflow-wrap: break-word;
-    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: normal;
+    overflow-wrap: normal;
+    font-size: clamp(10px, 2vw, 13px);
     letter-spacing: 0.02em;
     line-height: 1.25;
     opacity: 1;

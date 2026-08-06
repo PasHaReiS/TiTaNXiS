@@ -214,7 +214,21 @@ export default function Commanders() {
     }
     setShowSidebar(false);
   };
-  const backToSidebar = () => setShowSidebar(true);
+  const backToSidebar = () => {
+    // Hierarchical back navigation:
+    // - From a section landing (__section:X) → main sidebar
+    // - From a specific category (real key) → its parent section landing
+    if (isSectionKey(selectedCat)) {
+      setShowSidebar(true);
+      return;
+    }
+    const catDef = CATEGORIES.find((c) => c.key === selectedCat);
+    if (catDef && catDef.section) {
+      setSelectedCat(SECTION_PREFIX + catDef.section);
+      return;
+    }
+    setShowSidebar(true);
+  };
 
   const contextLabel = activeSection
     ? (t(SIDEBAR_SECTION_I18N[activeSection] || "") || activeSection)
