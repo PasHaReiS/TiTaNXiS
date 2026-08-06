@@ -1073,11 +1073,11 @@ button[aria-pressed="true"] > .tab-text {
     width: 100%;
     text-align: center;
     justify-content: center;
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 11px;
+    letter-spacing: 0.02em;
     line-height: 1.2;
     background: none !important;
     -webkit-background-clip: border-box !important;
