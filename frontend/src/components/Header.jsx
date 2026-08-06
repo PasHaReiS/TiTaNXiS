@@ -54,7 +54,15 @@ export default function Header({ title }) {
   const goto = (path) => { nav(path); setMenuOpen(false); };
 
   return (
-    <header className="px-4 pt-5 pb-1 fade-in">
+    <header
+      className="px-4 pt-5 pb-1 fade-in sticky top-0 z-50"
+      style={{
+        background:
+          "linear-gradient(180deg, rgba(15,10,10,0.96) 0%, rgba(20,12,12,0.92) 70%, rgba(20,12,12,0.85) 100%)",
+        backdropFilter: "blur(6px)",
+        WebkitBackdropFilter: "blur(6px)",
+      }}
+    >
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0 flex items-center gap-3">
           <img

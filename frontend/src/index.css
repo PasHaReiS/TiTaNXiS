@@ -1044,13 +1044,26 @@ button[aria-pressed="true"] > .tab-text {
 }
 
 
-/* Sub-tab cards inside section-tab-strip and hesapla-category-list KEEP the vivid solid gradient */
-[data-testid="section-tab-strip"] .sidebar-card,
-[data-testid="hesapla-category-list"] .sidebar-card {
+/* Sub-tab cards inside section-tab-strip KEEP the vivid solid gradient */
+[data-testid="section-tab-strip"] .sidebar-card {
     background:
         radial-gradient(ellipse at 30% 20%, rgba(168,85,247,0.3) 0%, transparent 55%),
         linear-gradient(135deg, #7C3AED 0%, #4C1D95 40%, #1E3A8A 70%, #2563EB 100%) !important;
     border: 1px solid rgba(138,43,226,0.55) !important;
+}
+
+/* Rehber (hesapla-category-list) sub-tab cards — bumped opacity/saturation */
+[data-testid="hesapla-category-list"] .sidebar-card {
+    background-color: #3B1478 !important;
+    background:
+        radial-gradient(ellipse at 30% 20%, rgba(192,132,252,0.55) 0%, transparent 55%),
+        linear-gradient(135deg, #8B3FF0 0%, #5B21B6 40%, #1E3A8A 70%, #2563EB 100%) !important;
+    border: 1px solid rgba(168,85,247,0.85) !important;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.45), inset 0 0 12px rgba(88,28,135,0.35) !important;
+}
+[data-testid="hesapla-category-list"] .sidebar-card:hover {
+    border-color: rgba(196,140,255,0.95) !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.55), inset 0 0 16px rgba(139,92,246,0.5), 0 0 22px rgba(168,85,247,0.35) !important;
 }
 
 

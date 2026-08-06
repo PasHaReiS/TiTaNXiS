@@ -379,35 +379,48 @@ export default function Commanders() {
               );
             })()}
 
-            {activeSection === "MALİYET HESAPLAMA" ? (
-              <div className="grid grid-cols-1 gap-2 items-start" data-testid="hesapla-category-list">
-                {CATEGORIES.filter((c) => c.section === "MALİYET HESAPLAMA").map((c, cidx) => {
-                  const active = c.key === selectedCat;
-                  return (
-                    <button
-                      key={c.key}
-                      type="button"
-                      data-testid={COMMANDERS.categoryItem(c.key)}
-                      onClick={() => setSelectedCat(c.key)}
-                      aria-pressed={active}
-                      className={`sidebar-card ${active ? "active" : ""}`}
-                      style={{ animationDelay: `${cidx * 80}ms` }}
-                    >
-                      <span className="embers" aria-hidden="true">
-                        <span></span><span></span><span></span><span></span><span></span>
-                      </span>
-                      <span className="sidebar-card-icon">
-                        <Grid3x3 className="w-3.5 h-3.5" strokeWidth={2} />
-                      </span>
-                      <span className="sidebar-card-label">
-                        {t(`cat_${c.key}`) !== `cat_${c.key}` ? t(`cat_${c.key}`) : c.label}
-                      </span>
-                      <ChevronRight className="w-4 h-4 sidebar-card-chevron" />
-                    </button>
-                  );
-                })}
-              </div>
-            ) : ["mh_ekipman", "mh_koleksiyon", "mh_kahraman"].includes(selectedCat) ? null : selectedCat === "mh_asker_egitim" ? (
+            {activeSection === "MALİYET HESAPLAMA" ? (() => {
+              const rehberCats = CATEGORIES.filter((c) => c.section === "MALİYET HESAPLAMA");
+              const askerCat = rehberCats.find((c) => c.key === "mh_asker_egitim");
+              const restCats = rehberCats.filter((c) => c.key !== "mh_asker_egitim");
+              const renderRehberCard = (c, cidx) => {
+                const active = c.key === selectedCat;
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    data-testid={COMMANDERS.categoryItem(c.key)}
+                    onClick={() => setSelectedCat(c.key)}
+                    aria-pressed={active}
+                    className={`sidebar-card ${active ? "active" : ""}`}
+                    style={{ animationDelay: `${cidx * 80}ms` }}
+                  >
+                    <span className="embers" aria-hidden="true">
+                      <span></span><span></span><span></span><span></span><span></span>
+                    </span>
+                    <span className="sidebar-card-icon">
+                      <Grid3x3 className="w-3.5 h-3.5" strokeWidth={2} />
+                    </span>
+                    <span className="sidebar-card-label">
+                      {t(`cat_${c.key}`) !== `cat_${c.key}` ? t(`cat_${c.key}`) : c.label}
+                    </span>
+                    <ChevronRight className="w-4 h-4 sidebar-card-chevron" />
+                  </button>
+                );
+              };
+              return (
+                <div className="flex flex-col gap-2" data-testid="hesapla-category-list">
+                  {askerCat && (
+                    <div className="w-full">
+                      {renderRehberCard(askerCat, 0)}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2 items-start">
+                    {restCats.map((c, idx) => renderRehberCard(c, idx + 1))}
+                  </div>
+                </div>
+              );
+            })() : ["mh_ekipman", "mh_koleksiyon", "mh_kahraman"].includes(selectedCat) ? null : selectedCat === "mh_asker_egitim" ? (
               <SoldierCalculator />
             ) : activeSection ? (
               <>
