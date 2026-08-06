@@ -253,9 +253,12 @@ export default function Commanders() {
         </div>
 
         {showSidebar ? (
-          /* FULL-WIDTH SIDEBAR — themed card grid with staggered slide-in */
-          <div className="grid grid-cols-1 gap-2 items-start" data-testid="commanders-sidebar">
-            {Object.entries(sections).map(([section], idx) => {
+          /* FULL-WIDTH SIDEBAR — Bilgilendirme full row + 6 cards in 2-col grid + always-visible SoldierCalculator */
+          (() => {
+            const sectionEntries = Object.entries(sections);
+            const infoEntry = sectionEntries.find(([sec]) => sec === "BİLGİLENDİRME");
+            const restEntries = sectionEntries.filter(([sec]) => sec !== "BİLGİLENDİRME");
+            const renderCard = ([section], idx) => {
               const Icon = SECTION_ICON[section] || Grid3x3;
               return (
                 <button
@@ -263,7 +266,7 @@ export default function Commanders() {
                   type="button"
                   onClick={() => openSectionView(section)}
                   data-testid={`section-open-${section}`}
-                  className="sidebar-card"
+                  className="sidebar-card sidebar-card-full"
                   style={{ animationDelay: `${idx * 100}ms` }}
                 >
                   <span className="embers" aria-hidden="true">
@@ -278,8 +281,23 @@ export default function Commanders() {
                   <ChevronRight className="w-4 h-4 sidebar-card-chevron" />
                 </button>
               );
-            })}
-          </div>
+            };
+            return (
+              <div data-testid="commanders-sidebar" className="flex flex-col gap-3">
+                {infoEntry && (
+                  <div className="w-full">
+                    {renderCard(infoEntry, 0)}
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3 items-start">
+                  {restEntries.map((entry, idx) => renderCard(entry, idx + 1))}
+                </div>
+                <div className="mt-4" data-testid="sidebar-soldier-calculator">
+                  <SoldierCalculator />
+                </div>
+              </div>
+            );
+          })()
         ) : (
           /* CONTENT ONLY */
           <div className="min-w-0" data-testid="commanders-content">
