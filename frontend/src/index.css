@@ -1052,19 +1052,25 @@ button[aria-pressed="true"] > .tab-text {
     border: 1px solid rgba(138,43,226,0.55) !important;
 }
 
-/* Rehber (hesapla-category-list) sub-tab cards — glass + fire label */
+/* Rehber (hesapla-category-list) sub-tab cards — glass + fire label
+   Sizing matched exactly to main sidebar cards */
 [data-testid="hesapla-category-list"] .sidebar-card {
+    padding: 6px 10px !important;
+    min-height: 0 !important;
     background-color: transparent !important;
     background:
         radial-gradient(ellipse at 30% 20%, rgba(168,85,247,0.12) 0%, transparent 55%),
         linear-gradient(135deg, rgba(52,152,219,0.15) 0%, rgba(139,92,246,0.18) 50%, rgba(168,85,247,0.2) 100%) !important;
-    border: 1px solid rgba(139,92,246,0.28) !important;
+    border: 1px solid rgba(139,92,246,0.2) !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
     box-shadow: 0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05) !important;
 }
+[data-testid="hesapla-category-list"] .sidebar-card.sidebar-card-full {
+    padding: 6px 10px !important;
+}
 [data-testid="hesapla-category-list"] .sidebar-card:hover {
-    border-color: rgba(196,140,255,0.55) !important;
+    border-color: rgba(168,85,247,0.5) !important;
     box-shadow: 0 4px 14px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 20px rgba(168,85,247,0.25) !important;
 }
 [data-testid="hesapla-category-list"] .sidebar-card .sidebar-card-label {
@@ -1072,11 +1078,11 @@ button[aria-pressed="true"] > .tab-text {
     width: 100%;
     text-align: center;
     justify-content: center;
-    white-space: normal;
-    overflow: visible;
-    text-overflow: unset;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 11px;
+    letter-spacing: 0.02em;
     line-height: 1.2;
     opacity: 1;
     background: none !important;
