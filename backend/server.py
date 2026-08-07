@@ -1144,16 +1144,19 @@ async def export_all(_: dict = Depends(require_edit)):
         m_enriched.setdefault("alliance_color", alliance_color_map.get(m.get("alliance_name") or "", ""))
         m_enriched.setdefault("total_points", int(member_totals.get(m.get("id"), 0)))
         ws1.append([cell(m_enriched.get(c, "")) for c in m_cols])
+    ws1.auto_filter.ref = ws1.dimensions
 
     ws2 = wb.create_sheet("Etkinlikler")
     ws2.append(e_cols)
     for e in events:
         ws2.append([cell(e.get(c, "")) for c in e_cols])
+    ws2.auto_filter.ref = ws2.dimensions
 
     ws3 = wb.create_sheet("Puanlar")
     ws3.append(p_cols)
     for p in points:
         ws3.append([cell(p.get(c, "")) for c in p_cols])
+    ws3.auto_filter.ref = ws3.dimensions
 
     buf = BytesIO()
     wb.save(buf)
