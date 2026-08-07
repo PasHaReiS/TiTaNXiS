@@ -3,7 +3,6 @@ import useSWR, { mutate } from "swr";
 import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
-import LiveDashboard from "@/components/LiveDashboard";
 import { Plus, Trash2, KeyRound, Shield, User, X, ShieldCheck, PencilLine } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
@@ -22,7 +21,6 @@ export default function UserManagement() {
     <div data-testid="user-management-page">
       <Header title={t("users_page_title")} />
       <div className="px-4">
-        <LiveDashboard />
         <div className="flex items-center justify-between mb-3">
           <div>
             <p className="text-xs text-muted-foreground">{t("users_total", { count: users.length })}</p>

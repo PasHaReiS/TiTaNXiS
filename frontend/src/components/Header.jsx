@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound } from "lucide-react";
+import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound, Activity } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { LEADERBOARD } from "@/constants/testIds";
@@ -120,6 +120,12 @@ export default function Header({ title }) {
                     overflow: "visible",
                   }}
                 >
+                  <MenuItem
+                    icon={Activity}
+                    label={t("live_dashboard")}
+                    onClick={() => goto("/gosterge-paneli")}
+                    testId="dropdown-live-dashboard"
+                  />
                   <MenuItem
                     icon={UserIcon}
                     label={t("my_profile")}

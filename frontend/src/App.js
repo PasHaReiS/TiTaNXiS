@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import Layout from "@/components/Layout";
 import Leaderboard from "@/pages/Leaderboard";
 import Commanders from "@/pages/Commanders";
+import LiveDashboardPage from "@/pages/LiveDashboardPage";
 import PointsList from "@/pages/PointsList";
 import AddPoints from "@/pages/AddPoints";
 import Members from "@/pages/Members";
@@ -61,6 +62,7 @@ function AppShell() {
           <Route path="/etkinlikler" element={<RequireAuth><Events /></RequireAuth>} />
           <Route path="/kullanicilar" element={<RequireAdmin><UserManagement /></RequireAdmin>} />
           <Route path="/profil" element={<RequireAuth><Profile /></RequireAuth>} />
+          <Route path="/gosterge-paneli" element={<RequireAuth><LiveDashboardPage /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
