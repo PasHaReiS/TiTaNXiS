@@ -56,6 +56,7 @@ class Member(BaseModel):
     bombaci_t: Optional[str] = None
     kalkanli_f: Optional[str] = None
     kalkanli_t: Optional[str] = None
+    bireysel_guc: Optional[int] = 0
     note: Optional[str] = None
     note_position: Optional[str] = "inline"  # "inline" | "bottom"
     note_color: Optional[str] = "#DC2626"    # hex color for bottom-position notes
@@ -77,6 +78,7 @@ class MemberCreate(BaseModel):
     bombaci_t: Optional[str] = None
     kalkanli_f: Optional[str] = None
     kalkanli_t: Optional[str] = None
+    bireysel_guc: Optional[int] = 0
     note: Optional[str] = None
     note_position: Optional[str] = "inline"
     note_color: Optional[str] = "#DC2626"
@@ -96,6 +98,7 @@ class MemberUpdate(BaseModel):
     bombaci_t: Optional[str] = None
     kalkanli_f: Optional[str] = None
     kalkanli_t: Optional[str] = None
+    bireysel_guc: Optional[int] = None
     note: Optional[str] = None
     note_position: Optional[str] = None
     note_color: Optional[str] = None
@@ -518,11 +521,15 @@ async def get_stats():
     result = await db.points.aggregate(pipeline).to_list(1)
     total = int(result[0]["total"]) if result else 0
     avg = int(total / event_count) if event_count > 0 else 0
+    power_pipe = [{"$group": {"_id": None, "total": {"$sum": {"$ifNull": ["$bireysel_guc", 0]}}}}]
+    power_res = await db.members.aggregate(power_pipe).to_list(1)
+    total_power = int(power_res[0]["total"]) if power_res else 0
     return {
         "member_count": member_count,
         "event_count": event_count,
         "total_points": total,
         "event_avg": avg,
+        "total_power": total_power,
     }
 
 

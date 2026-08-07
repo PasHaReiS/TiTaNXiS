@@ -1114,7 +1114,160 @@ button[aria-pressed="true"] > .tab-text {
     animation: fireText 2s ease-in-out infinite !important;
 }
 
-/* Rehber sub-cards grid: 2-col by default, single column on very narrow screens */
+/* =================================================================
+   LIVE DASHBOARD — Canlı Gösterge Paneli (Profile / UserManagement top widget)
+   ================================================================= */
+.live-dashboard {
+    position: relative;
+    border-radius: 12px;
+    padding: 12px 14px 14px;
+    margin: 4px 0 16px;
+    background:
+        radial-gradient(ellipse at 15% 15%, rgba(255,107,0,0.10) 0%, transparent 55%),
+        linear-gradient(135deg, rgba(30,15,30,0.85) 0%, rgba(20,10,25,0.9) 60%, rgba(30,20,10,0.85) 100%);
+    border: 1px solid rgba(245,166,35,0.35);
+    box-shadow:
+        0 0 20px rgba(155,89,182,0.25),
+        inset 0 1px 0 rgba(255,200,120,0.15);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    overflow: hidden;
+}
+.live-dashboard-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    color: #F5A623;
+}
+.live-dashboard-title {
+    font-family: 'Cinzel', 'Rajdhani', serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #FFD700;
+    text-shadow: 0 0 8px rgba(231,76,26,0.4);
+    flex: 1;
+}
+.live-dashboard-pulse {
+    position: relative;
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #FF3B30;
+    box-shadow: 0 0 8px rgba(255,59,48,0.9);
+    animation: livePulse 1.4s ease-in-out infinite;
+}
+@keyframes livePulse {
+    0%, 100% { transform: scale(1);   opacity: 1; }
+    50%      { transform: scale(1.5); opacity: 0.6; }
+}
+.live-dashboard-live-tag {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: #FF6B00;
+    background: rgba(255,107,0,0.12);
+    border: 1px solid rgba(255,107,0,0.45);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+.live-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+@media (min-width: 768px) {
+    .live-dashboard-grid { grid-template-columns: repeat(4, 1fr); }
+    .live-stat-top3 { grid-column: span 1; }
+}
+@media (max-width: 767px) {
+    .live-stat-top3 { grid-column: span 2; }
+}
+.live-stat {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+}
+.live-stat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #FF6B00, #9B59B6);
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 0 10px rgba(255,107,0,0.35);
+}
+.live-stat-label {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.6);
+    font-weight: 600;
+}
+.live-stat-value {
+    font-family: 'Cinzel', 'Rajdhani', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: #FFD700;
+    line-height: 1.15;
+    letter-spacing: 0.02em;
+}
+.live-top3-list {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.live-top3-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #FFF;
+    min-width: 0;
+}
+.live-top3-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 800;
+    color: #000;
+    flex-shrink: 0;
+}
+.live-top3-badge-1 { background: linear-gradient(135deg, #FFD700, #F5A623); }
+.live-top3-badge-2 { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); }
+.live-top3-badge-3 { background: linear-gradient(135deg, #CD7F32, #8B4513); color: #fff; }
+.live-top3-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.live-top3-points {
+    font-family: 'Cinzel', 'Rajdhani', sans-serif;
+    font-size: 10px;
+    color: #F5A623;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
 @media (max-width: 360px) {
     [data-testid="hesapla-category-list"] .rehber-grid {
         grid-template-columns: 1fr !important;

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { api, apiErr } from "@/lib/api";
 import Header from "@/components/Header";
+import LiveDashboard from "@/components/LiveDashboard";
 import { KeyRound, Shield, User, LogOut, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -36,6 +37,8 @@ export default function Profile() {
     <div data-testid="profile-page">
       <Header title={t("my_profile")} />
       <div className="px-4">
+        <LiveDashboard />
+
         <div className="card-red-gold p-4 mb-4">
           <div className="flex items-center gap-3">
             <div className={`rank-badge ${user.role === "admin" ? "rank-GOW" : user.can_edit ? "rank-R3" : "rank-R2"}`}>

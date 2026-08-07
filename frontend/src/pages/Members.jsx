@@ -338,6 +338,11 @@ export default function Members() {
                                   </div>
                                   <div className="text-[9px] gold-text mono truncate leading-tight">
                                     {m.castle_level ? `F${m.castle_level}` : "-"}
+                                    {m.bireysel_guc ? (
+                                      <span className="ml-2 text-[9px] text-white/80" data-testid={`member-bireysel-guc-${m.id}`}>
+                                        ⚡ {Number(m.bireysel_guc).toLocaleString("tr-TR").replace(/,/g, ".")}
+                                      </span>
+                                    ) : null}
                                   </div>
                                   {m.note && m.note.trim() !== "" && m.note_position === "bottom" && (
                                     <div
@@ -678,6 +683,7 @@ function MemberForm({ initial, onClose }) {
   const [bombaciT, setBombaciT] = useState(digitsOnly(initial?.bombaci_t));
   const [kalkanliF, setKalkanliF] = useState(digitsOnly(initial?.kalkanli_f));
   const [kalkanliT, setKalkanliT] = useState(digitsOnly(initial?.kalkanli_t));
+  const [bireyselGuc, setBireyselGuc] = useState(digitsOnly(initial?.bireysel_guc));
   const [rank, setRank] = useState(initial?.rank && RANKS.includes(initial.rank) ? initial.rank : "R1");
   const [note, setNote] = useState(initial?.note || "");
   const [notePosition, setNotePosition] = useState(initial?.note_position || "inline");
@@ -702,6 +708,7 @@ function MemberForm({ initial, onClose }) {
         bombaci_t: bombaciT || null,
         kalkanli_f: kalkanliF || null,
         kalkanli_t: kalkanliT || null,
+        bireysel_guc: bireyselGuc ? parseInt(bireyselGuc, 10) : 0,
         note: note.trim() || null,
       };
       if (initial) {
@@ -773,6 +780,17 @@ function MemberForm({ initial, onClose }) {
         <input data-testid={MEMBERS.formId} value={memberId} onChange={(e) => setMemberId(e.target.value)}
           placeholder={t("game_id")}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono" />
+
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("bireysel_guc")}</label>
+        <input
+          data-testid="member-form-bireysel-guc"
+          type="text"
+          inputMode="numeric"
+          value={bireyselGuc ? bireyselGuc.replace(/\B(?=(\d{3})+(?!\d))/g, ".") : ""}
+          onChange={(e) => setBireyselGuc(digitsOnly(e.target.value))}
+          placeholder="1.000.000.000"
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono"
+        />
 
         <div className="mt-3 flex items-center gap-3">
           <label className="text-xs uppercase text-muted-foreground font-bold flex-1">{t("castle_level")}</label>
