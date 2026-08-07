@@ -1186,6 +1186,37 @@ def _parse_int(v) -> int:
     return int(s)
 
 
+def _norm_key(s: str) -> str:
+    """Normalize header names for alias matching: lowercase, strip Turkish accents,
+    collapse whitespace/underscores/dashes to a single underscore."""
+    if s is None:
+        return ""
+    tr = str(s).strip().lower()
+    tr = (tr.replace("ı", "i").replace("İ", "i").replace("ç", "c").replace("Ç", "c")
+             .replace("ş", "s").replace("Ş", "s").replace("ğ", "g").replace("Ğ", "g")
+             .replace("ö", "o").replace("Ö", "o").replace("ü", "u").replace("Ü", "u"))
+    import re as _re
+    tr = _re.sub(r"[\s\-]+", "_", tr)
+    tr = _re.sub(r"[^a-z0-9_]", "", tr)
+    tr = _re.sub(r"_+", "_", tr).strip("_")
+    return tr
+
+
+def _normalize_row(row: dict) -> dict:
+    return {_norm_key(k): v for k, v in row.items()}
+
+
+def _pick(nrow: dict, *aliases, default=None):
+    """Return first non-empty value across normalized alias keys."""
+    for a in aliases:
+        na = _norm_key(a)
+        if na in nrow:
+            v = nrow[na]
+            if v is not None and str(v).strip() != "":
+                return v
+    return default
+
+
 @api_router.post("/import/bulk")
 async def import_bulk(
     file: UploadFile = File(...),
@@ -1272,25 +1303,38 @@ async def import_bulk(
 
     for row in member_rows:
         try:
-            name = str(row.get("name") or row.get("İsim") or row.get("Ad") or "").strip()
+            r = _normalize_row(row)
+            name = str(_pick(r, "name", "İsim", "Ad", "Oyuncu İsmi", "Oyuncu", "Player") or "").strip()
             if not name:
                 result["members"]["errors"] += 1
                 continue
             payload = {
                 "name": name,
-                "member_id": (str(row.get("member_id") or "").strip() or None),
-                "alliance_name": (str(row.get("alliance_name") or "").strip() or None),
-                "rank": (str(row.get("rank") or "").strip() or "R1"),
-                "castle_level": (str(row.get("castle_level") or "").strip() or None),
-                "bireysel_guc": _parse_int(row.get("bireysel_guc")),
+                "member_id": (str(_pick(r, "member_id", "id_optional", "game_id", "Oyun ID", "ID") or "").strip() or None),
+                "alliance_name": (str(_pick(r, "alliance_name", "İttifak Adı", "İttifak", "Alliance") or "").strip() or None),
+                "rank": (str(_pick(r, "rank", "rütbe", "rutbe", "Rank") or "").strip() or "R1"),
+                "title": (str(_pick(r, "title", "unvan", "Unvan") or "").strip() or None),
+                "level": _parse_int(_pick(r, "level", "seviye", "Level")) or None,
+                "castle_level": (str(_pick(r, "castle_level", "kale_seviyesi", "Kale Seviyesi", "Castle") or "").strip() or None),
+                "tetikci_f": (str(_pick(r, "tetikci_f", "Tetikçi F", "tetikci f") or "").strip() or None),
+                "tetikci_t": (str(_pick(r, "tetikci_t", "Tetikçi T", "tetikci t") or "").strip() or None),
+                "bombaci_f": (str(_pick(r, "bombaci_f", "Bombacı F", "bombaci f") or "").strip() or None),
+                "bombaci_t": (str(_pick(r, "bombaci_t", "Bombacı T", "bombaci t") or "").strip() or None),
+                "kalkanli_f": (str(_pick(r, "kalkanli_f", "Kalkanlı F", "kalkanli f") or "").strip() or None),
+                "kalkanli_t": (str(_pick(r, "kalkanli_t", "Kalkanlı T", "kalkanli t") or "").strip() or None),
+                "bireysel_guc": _parse_int(_pick(r, "bireysel_guc", "Bireysel Güç", "individual_power", "Bireysel Guc", "Guc", "Power")),
+                "note": (str(_pick(r, "note", "not", "Not", "Note") or "").strip() or None),
             }
             key = name.lower()
             if key in existing_members:
                 if duplicate_mode == "update":
-                    await db.members.update_one(
-                        {"id": existing_members[key]["id"]},
-                        {"$set": {k: v for k, v in payload.items() if v not in (None, "")}},
-                    )
+                    # Only overwrite fields that came in with a real value; keep None fields untouched
+                    set_fields = {k: v for k, v in payload.items() if v not in (None, "")}
+                    if set_fields:
+                        await db.members.update_one(
+                            {"id": existing_members[key]["id"]},
+                            {"$set": set_fields},
+                        )
                     result["members"]["updated"] += 1
                 else:
                     result["members"]["skipped"] += 1
@@ -1305,17 +1349,21 @@ async def import_bulk(
 
     for row in event_rows:
         try:
-            name = str(row.get("name") or "").strip()
+            r = _normalize_row(row)
+            name = str(_pick(r, "name", "İsim", "Ad") or "").strip()
             if not name:
                 result["events"]["errors"] += 1
                 continue
+            mult_v = _pick(r, "multiplier", "carpan", "Çarpan")
+            date_v = _pick(r, "date", "tarih", "Tarih")
+            archived_v = _pick(r, "archived", "Arşiv", "arsiv")
             payload = {
                 "name": name,
-                "group_name": str(row.get("group_name") or "SvS vs 10007").strip(),
-                "multiplier": float(row.get("multiplier") or 1.0),
-                "date": str(row.get("date") or now_iso()),
-                "subtitle": (str(row.get("subtitle") or "").strip() or None),
-                "archived": bool(row.get("archived")) and str(row.get("archived")).lower() not in ("0", "false", ""),
+                "group_name": str(_pick(r, "group_name", "grup", "Grup") or "SvS vs 10007").strip(),
+                "multiplier": float(mult_v or 1.0),
+                "date": str(date_v) if date_v else now_iso(),
+                "subtitle": (str(_pick(r, "subtitle", "alt_baslik", "Alt Başlık") or "").strip() or None),
+                "archived": bool(archived_v) and str(archived_v).lower() not in ("0", "false", ""),
             }
             key = name.lower()
             if key in existing_events:
@@ -1341,22 +1389,27 @@ async def import_bulk(
 
     for row in point_rows:
         try:
-            member_id = str(row.get("member_id") or "").strip()
-            event_id = str(row.get("event_id") or "").strip()
-            if not member_id and row.get("member_name"):
-                m = members_by_name.get(str(row["member_name"]).lower().strip())
-                if m:
-                    member_id = m["id"]
-            if not event_id and row.get("event_name"):
-                e = events_by_name.get(str(row["event_name"]).lower().strip())
-                if e:
-                    event_id = e["id"]
+            r = _normalize_row(row)
+            member_id = str(_pick(r, "member_id") or "").strip()
+            event_id = str(_pick(r, "event_id") or "").strip()
+            if not member_id:
+                mn = _pick(r, "member_name", "üye", "uye", "Oyuncu")
+                if mn:
+                    m = members_by_name.get(str(mn).lower().strip())
+                    if m:
+                        member_id = m["id"]
+            if not event_id:
+                en = _pick(r, "event_name", "etkinlik", "Etkinlik")
+                if en:
+                    e = events_by_name.get(str(en).lower().strip())
+                    if e:
+                        event_id = e["id"]
             if not member_id or not event_id:
                 result["points"]["errors"] += 1
                 continue
-            pts = _parse_int(row.get("points"))
-            mult = float(row.get("multiplier") or 1.0)
-            note = (str(row.get("note") or "").strip() or None)
+            pts = _parse_int(_pick(r, "points", "puan", "score"))
+            mult = float(_pick(r, "multiplier", "carpan", "Çarpan") or 1.0)
+            note = (str(_pick(r, "note", "not", "Not") or "").strip() or None)
             key = (member_id, event_id)
             if key in existing_points:
                 if duplicate_mode == "update":
