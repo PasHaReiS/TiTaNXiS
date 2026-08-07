@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import useSWR, { mutate } from "swr";
 import { api, apiErr } from "@/lib/api";
-import { UserPlus, Zap, Flag, ClipboardEdit, X } from "lucide-react";
+import { UserPlus, Zap, Flag, ClipboardEdit, Download, X } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -437,6 +437,24 @@ const ACTIONS = [
   { key: "points", label: "Etkinlik Puanlarını Güncelle", Icon: ClipboardEdit, testId: "bulk-btn-points" },
 ];
 
+async function exportAllXlsx() {
+  try {
+    const res = await api.get("/export/all", { responseType: "blob" });
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 15);
+    a.href = url;
+    a.download = `gow-export-${stamp}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    toast.success("Export tamamlandı");
+  } catch (err) {
+    toast.error(apiErr(err));
+  }
+}
+
 export default function BulkAdminActions() {
   const [mode, setMode] = useState(null);
 
@@ -468,6 +486,15 @@ export default function BulkAdminActions() {
             </button>
           );
         })}
+        <button
+          data-testid="bulk-btn-export"
+          type="button"
+          onClick={exportAllXlsx}
+          className="bulk-admin-btn"
+        >
+          <span className="bulk-admin-btn-icon"><Download className="w-4 h-4" /></span>
+          <span className="bulk-admin-btn-label">📤 Export Et</span>
+        </button>
       </div>
       {mode && (
         <BulkModal title={titleOf(mode)} onClose={() => setMode(null)}>

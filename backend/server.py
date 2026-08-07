@@ -1072,6 +1072,56 @@ async def upload_image(file: UploadFile = File(...), _: dict = Depends(require_e
     return {"url": f"/api/uploads/{fname}", "filename": fname, "size": len(contents)}
 
 
+# ---------- Full DB export (3-sheet .xlsx) ----------
+@api_router.get("/export/all")
+async def export_all(_: dict = Depends(require_edit)):
+    """Return an .xlsx with 3 sheets: Üyeler, Etkinlikler, Puanlar."""
+    from openpyxl import Workbook
+    from io import BytesIO
+
+    members = await db.members.find({}, {"_id": 0}).to_list(10000)
+    events = await db.events.find({}, {"_id": 0}).to_list(1000)
+    points = await db.points.find({}, {"_id": 0}).to_list(20000)
+    await enrich_points_batch(points)
+
+    wb = Workbook()
+
+    # Sheet 1: Üyeler
+    ws1 = wb.active
+    ws1.title = "Üyeler"
+    m_cols = ["id", "name", "member_id", "alliance_name", "rank", "level", "castle_level",
+              "tetikci_f", "tetikci_t", "bombaci_f", "bombaci_t", "kalkanli_f", "kalkanli_t",
+              "bireysel_guc", "note", "note_position", "note_color", "created_at"]
+    ws1.append(m_cols)
+    for m in members:
+        ws1.append([m.get(c, "") for c in m_cols])
+
+    # Sheet 2: Etkinlikler
+    ws2 = wb.create_sheet("Etkinlikler")
+    e_cols = ["id", "name", "group_name", "multiplier", "date", "subtitle", "archived"]
+    ws2.append(e_cols)
+    for e in events:
+        ws2.append([e.get(c, "") for c in e_cols])
+
+    # Sheet 3: Puanlar
+    ws3 = wb.create_sheet("Puanlar")
+    p_cols = ["id", "member_id", "member_name", "event_id", "event_name", "points", "multiplier", "note", "date"]
+    ws3.append(p_cols)
+    for p in points:
+        ws3.append([p.get(c, "") for c in p_cols])
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    from datetime import datetime as _dt
+    fname = f"gow-export-{_dt.now().strftime('%Y%m%d-%H%M%S')}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
 # ---------- Setup ----------
 # ---------- Unit Costs & Calculations (used by Asker Eğitim calculator) ----------
 class UnitCostBody(BaseModel):
