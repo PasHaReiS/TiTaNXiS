@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import useSWR, { mutate } from "swr";
 import { api, apiErr } from "@/lib/api";
-import { UserPlus, Zap, Flag, ClipboardEdit, Download, X } from "lucide-react";
+import { UserPlus, Zap, Flag, ClipboardEdit, Download, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -455,6 +455,122 @@ async function exportAllXlsx() {
   }
 }
 
+/* ---------------------------------------------------------------
+   IMPORT — pick file, preview, choose duplicate mode, apply
+--------------------------------------------------------------- */
+function ImportPanel({ onClose }) {
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [mode, setMode] = useState("skip");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const upload = async (dryRun) => {
+    if (!file) return toast.error("Dosya seçin");
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("dry_run", dryRun ? "true" : "false");
+      fd.append("duplicate_mode", mode);
+      const res = await api.post("/import/bulk", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      if (dryRun) {
+        setPreview(res.data);
+      } else {
+        setResult(res.data);
+        mutate((k) => typeof k === "string" && (k.startsWith("/members") || k.startsWith("/events") || k.startsWith("/points") || k === "/stats" || k.startsWith("/leaderboard") || k === "/alliances"));
+        toast.success("İçe aktarma tamamlandı");
+      }
+    } catch (err) {
+      toast.error(apiErr(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reset = () => { setFile(null); setPreview(null); setResult(null); };
+
+  return (
+    <div className="space-y-3" data-testid="bulk-import-panel">
+      {!result && (
+        <>
+          <div>
+            <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">Dosya (.xlsx veya .csv)</label>
+            <input
+              data-testid="import-file-input"
+              type="file"
+              accept=".xlsx,.csv"
+              onChange={(e) => { setFile(e.target.files?.[0] || null); setPreview(null); }}
+              className="w-full text-xs text-white bg-background border border-border rounded-md p-2"
+            />
+            {file && (
+              <div className="text-[11px] gold-text mt-1">
+                📄 {file.name} — {(file.size / 1024).toFixed(1)} KB
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">Duplicate Davranışı</label>
+            <div className="flex gap-2">
+              <label className="flex items-center gap-1.5 text-xs text-white cursor-pointer">
+                <input type="radio" name="dup" checked={mode === "skip"} onChange={() => setMode("skip")} data-testid="dup-mode-skip" />
+                Atla
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-white cursor-pointer">
+                <input type="radio" name="dup" checked={mode === "update"} onChange={() => setMode("update")} data-testid="dup-mode-update" />
+                Güncelle
+              </label>
+            </div>
+          </div>
+
+          {!preview && (
+            <button data-testid="import-preview-btn" onClick={() => upload(true)} disabled={busy || !file} className="btn-gold w-full">
+              {busy ? "Analiz ediliyor..." : "Önizle"}
+            </button>
+          )}
+
+          {preview && (
+            <div className="border border-border rounded-md p-3 bg-black/40">
+              <div className="text-sm gold-text font-bold mb-2">Önizleme</div>
+              <ul className="text-xs text-white space-y-1">
+                <li>👥 <span className="gold-text font-bold mono">{preview.members_found}</span> üye bulundu</li>
+                <li>🏁 <span className="gold-text font-bold mono">{preview.events_found}</span> etkinlik bulundu</li>
+                <li>⭐ <span className="gold-text font-bold mono">{preview.points_found}</span> puan kaydı bulundu</li>
+              </ul>
+              <div className="flex gap-2 mt-3">
+                <button onClick={reset} disabled={busy} className="chip flex-1">İptal</button>
+                <button data-testid="import-apply-btn" onClick={() => upload(false)} disabled={busy} className="btn-gold flex-1">
+                  {busy ? "İçe Aktarılıyor..." : "İçe Aktar"}
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {result && (
+        <div className="border border-border rounded-md p-3 bg-black/40" data-testid="import-result">
+          <div className="text-sm gold-text font-bold mb-2">Sonuç</div>
+          {["members", "events", "points"].map((k) => (
+            <div key={k} className="text-xs text-white mb-1">
+              <span className="uppercase gold-text mr-2">{k === "members" ? "Üyeler" : k === "events" ? "Etkinlikler" : "Puanlar"}:</span>
+              <span className="text-green-400">+{result.result[k].added}</span> eklendi,
+              <span className="text-blue-400 ml-1">↺{result.result[k].updated}</span> güncellendi,
+              <span className="text-yellow-400 ml-1">⤼{result.result[k].skipped}</span> atlandı,
+              <span className="text-red-400 ml-1">✗{result.result[k].errors}</span> hata
+            </div>
+          ))}
+          <button onClick={reset} className="btn-gold w-full mt-3">Yeni Dosya İçe Aktar</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function BulkAdminActions() {
   const [mode, setMode] = useState(null);
 
@@ -463,10 +579,14 @@ export default function BulkAdminActions() {
     if (mode === "power") return <PowerBulkPanel onClose={() => setMode(null)} />;
     if (mode === "event") return <EventAddPanel onClose={() => setMode(null)} />;
     if (mode === "points") return <EventPointsPanel onClose={() => setMode(null)} />;
+    if (mode === "import") return <ImportPanel onClose={() => setMode(null)} />;
     return null;
   };
 
-  const titleOf = (m) => ACTIONS.find((a) => a.key === m)?.label || "";
+  const titleOf = (m) => {
+    if (m === "import") return "📥 Import Et";
+    return ACTIONS.find((a) => a.key === m)?.label || "";
+  };
 
   return (
     <>
@@ -494,6 +614,15 @@ export default function BulkAdminActions() {
         >
           <span className="bulk-admin-btn-icon"><Download className="w-4 h-4" /></span>
           <span className="bulk-admin-btn-label">📤 Export Et</span>
+        </button>
+        <button
+          data-testid="bulk-btn-import"
+          type="button"
+          onClick={() => setMode("import")}
+          className="bulk-admin-btn"
+        >
+          <span className="bulk-admin-btn-icon"><Upload className="w-4 h-4" /></span>
+          <span className="bulk-admin-btn-label">📥 Import Et</span>
         </button>
       </div>
       {mode && (

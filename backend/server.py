@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Query, Depends, UploadFile, File
+from fastapi import FastAPI, APIRouter, HTTPException, Query, Depends, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -1120,6 +1120,209 @@ async def export_all(_: dict = Depends(require_edit)):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )
+
+
+# ---------- Full-DB Excel/CSV import (Üyeler / Etkinlikler / Puanlar) ----------
+def _norm_sheet_name(s: str) -> str:
+    tr = str(s or "").lower()
+    tr = tr.replace("ı", "i").replace("ç", "c").replace("ş", "s").replace("ğ", "g").replace("ö", "o").replace("ü", "u")
+    return tr.strip()
+
+
+def _parse_int(v) -> int:
+    if v is None:
+        return 0
+    s = str(v).replace(".", "").replace(",", "").replace(" ", "").strip()
+    if not s or not s.lstrip("-").isdigit():
+        return 0
+    return int(s)
+
+
+@api_router.post("/import/bulk")
+async def import_bulk(
+    file: UploadFile = File(...),
+    dry_run: bool = Form(False),
+    duplicate_mode: str = Form("skip"),
+    _: dict = Depends(require_edit),
+):
+    """Import members/events/points from an .xlsx (3 sheets) or a single-purpose .csv."""
+    from openpyxl import load_workbook
+    from io import BytesIO
+    import csv as csv_mod
+
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(400, "Boş dosya")
+    ext = (file.filename or "").lower().rsplit(".", 1)[-1]
+
+    sheets: Dict[str, List[dict]] = {}
+    if ext == "xlsx":
+        wb = load_workbook(BytesIO(contents), read_only=True, data_only=True)
+        for sn in wb.sheetnames:
+            ws = wb[sn]
+            rows_iter = list(ws.iter_rows(values_only=True))
+            if not rows_iter:
+                continue
+            headers = [str(h).strip() if h is not None else "" for h in rows_iter[0]]
+            data = []
+            for r in rows_iter[1:]:
+                if all(c is None or c == "" for c in r):
+                    continue
+                data.append({headers[i]: r[i] for i in range(min(len(headers), len(r)))})
+            sheets[sn.strip()] = data
+    elif ext == "csv":
+        text = contents.decode("utf-8-sig", errors="ignore")
+        reader = csv_mod.DictReader(text.splitlines())
+        rows = [dict(row) for row in reader]
+        header_norm = {(h or "").lower() for h in (reader.fieldnames or [])}
+        if any(h in header_norm for h in ("points", "puan", "score")):
+            sheets["Puanlar"] = rows
+        elif any(h in header_norm for h in ("multiplier", "çarpan", "carpan")):
+            sheets["Etkinlikler"] = rows
+        else:
+            sheets["Üyeler"] = rows
+    else:
+        raise HTTPException(400, "Yalnızca .xlsx veya .csv desteklenir")
+
+    member_rows, event_rows, point_rows = [], [], []
+    for sn, rows in sheets.items():
+        n = _norm_sheet_name(sn)
+        if n in ("uyeler", "members", "uye"):
+            member_rows = rows
+        elif n in ("etkinlikler", "events", "etkinlik"):
+            event_rows = rows
+        elif n in ("puanlar", "puan ekle", "points", "puan"):
+            point_rows = rows
+
+    summary = {
+        "members_found": len(member_rows),
+        "events_found": len(event_rows),
+        "points_found": len(point_rows),
+    }
+
+    if dry_run:
+        return {"dry_run": True, **summary}
+
+    result = {
+        "members": {"added": 0, "updated": 0, "skipped": 0, "errors": 0},
+        "events": {"added": 0, "updated": 0, "skipped": 0, "errors": 0},
+        "points": {"added": 0, "updated": 0, "skipped": 0, "errors": 0},
+    }
+
+    existing_members = {}
+    for m in await db.members.find({}, {"_id": 0}).to_list(10000):
+        if m.get("name"):
+            existing_members[m["name"].lower()] = m
+    existing_events = {}
+    for e in await db.events.find({}, {"_id": 0}).to_list(2000):
+        if e.get("name"):
+            existing_events[e["name"].lower()] = e
+
+    for row in member_rows:
+        try:
+            name = str(row.get("name") or row.get("İsim") or row.get("Ad") or "").strip()
+            if not name:
+                result["members"]["errors"] += 1
+                continue
+            payload = {
+                "name": name,
+                "member_id": (str(row.get("member_id") or "").strip() or None),
+                "alliance_name": (str(row.get("alliance_name") or "").strip() or None),
+                "rank": (str(row.get("rank") or "").strip() or "R1"),
+                "castle_level": (str(row.get("castle_level") or "").strip() or None),
+                "bireysel_guc": _parse_int(row.get("bireysel_guc")),
+            }
+            key = name.lower()
+            if key in existing_members:
+                if duplicate_mode == "update":
+                    await db.members.update_one(
+                        {"id": existing_members[key]["id"]},
+                        {"$set": {k: v for k, v in payload.items() if v not in (None, "")}},
+                    )
+                    result["members"]["updated"] += 1
+                else:
+                    result["members"]["skipped"] += 1
+            else:
+                new_m = Member(**payload).model_dump()
+                await db.members.insert_one(new_m)
+                existing_members[key] = new_m
+                result["members"]["added"] += 1
+        except Exception:
+            result["members"]["errors"] += 1
+
+    for row in event_rows:
+        try:
+            name = str(row.get("name") or "").strip()
+            if not name:
+                result["events"]["errors"] += 1
+                continue
+            payload = {
+                "name": name,
+                "group_name": str(row.get("group_name") or "SvS vs 10007").strip(),
+                "multiplier": float(row.get("multiplier") or 1.0),
+                "date": str(row.get("date") or now_iso()),
+                "subtitle": (str(row.get("subtitle") or "").strip() or None),
+                "archived": bool(row.get("archived")) and str(row.get("archived")).lower() not in ("0", "false", ""),
+            }
+            key = name.lower()
+            if key in existing_events:
+                if duplicate_mode == "update":
+                    await db.events.update_one({"id": existing_events[key]["id"]}, {"$set": payload})
+                    result["events"]["updated"] += 1
+                else:
+                    result["events"]["skipped"] += 1
+            else:
+                new_e = Event(**payload).model_dump()
+                await db.events.insert_one(new_e)
+                existing_events[key] = new_e
+                result["events"]["added"] += 1
+        except Exception:
+            result["events"]["errors"] += 1
+
+    members_by_name = {m["name"].lower(): m for m in await db.members.find({}, {"_id": 0}).to_list(10000) if m.get("name")}
+    events_by_name = {e["name"].lower(): e for e in await db.events.find({}, {"_id": 0}).to_list(2000) if e.get("name")}
+    existing_points = {}
+    for p in await db.points.find({}, {"_id": 0}).to_list(30000):
+        existing_points[(p.get("member_id"), p.get("event_id"))] = p
+
+    for row in point_rows:
+        try:
+            member_id = str(row.get("member_id") or "").strip()
+            event_id = str(row.get("event_id") or "").strip()
+            if not member_id and row.get("member_name"):
+                m = members_by_name.get(str(row["member_name"]).lower().strip())
+                if m:
+                    member_id = m["id"]
+            if not event_id and row.get("event_name"):
+                e = events_by_name.get(str(row["event_name"]).lower().strip())
+                if e:
+                    event_id = e["id"]
+            if not member_id or not event_id:
+                result["points"]["errors"] += 1
+                continue
+            pts = _parse_int(row.get("points"))
+            mult = float(row.get("multiplier") or 1.0)
+            note = (str(row.get("note") or "").strip() or None)
+            key = (member_id, event_id)
+            if key in existing_points:
+                if duplicate_mode == "update":
+                    await db.points.update_one(
+                        {"id": existing_points[key]["id"]},
+                        {"$set": {"points": pts, "multiplier": mult, "note": note}},
+                    )
+                    result["points"]["updated"] += 1
+                else:
+                    result["points"]["skipped"] += 1
+            else:
+                new_p = Point(member_id=member_id, event_id=event_id, points=pts, multiplier=mult, note=note).model_dump()
+                await enrich_point(new_p)
+                await db.points.insert_one(new_p)
+                existing_points[key] = new_p
+                result["points"]["added"] += 1
+        except Exception:
+            result["points"]["errors"] += 1
+
+    return {"dry_run": False, **summary, "result": result}
 
 
 # ---------- Setup ----------
