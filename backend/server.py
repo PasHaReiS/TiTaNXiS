@@ -1203,6 +1203,10 @@ async def import_bulk(
     if dry_run:
         return {"dry_run": True, **summary}
 
+    # Assign a fresh batch id for this import so we can undo it later
+    batch_id = str(uuid.uuid4())
+    batch_ts = now_iso()
+
     result = {
         "members": {"added": 0, "updated": 0, "skipped": 0, "errors": 0},
         "events": {"added": 0, "updated": 0, "skipped": 0, "errors": 0},
@@ -1244,6 +1248,7 @@ async def import_bulk(
                     result["members"]["skipped"] += 1
             else:
                 new_m = Member(**payload).model_dump()
+                new_m["import_batch_id"] = batch_id
                 await db.members.insert_one(new_m)
                 existing_members[key] = new_m
                 result["members"]["added"] += 1
@@ -1273,6 +1278,7 @@ async def import_bulk(
                     result["events"]["skipped"] += 1
             else:
                 new_e = Event(**payload).model_dump()
+                new_e["import_batch_id"] = batch_id
                 await db.events.insert_one(new_e)
                 existing_events[key] = new_e
                 result["events"]["added"] += 1
@@ -1315,6 +1321,7 @@ async def import_bulk(
                     result["points"]["skipped"] += 1
             else:
                 new_p = Point(member_id=member_id, event_id=event_id, points=pts, multiplier=mult, note=note).model_dump()
+                new_p["import_batch_id"] = batch_id
                 await enrich_point(new_p)
                 await db.points.insert_one(new_p)
                 existing_points[key] = new_p
@@ -1322,7 +1329,47 @@ async def import_bulk(
         except Exception:
             result["points"]["errors"] += 1
 
-    return {"dry_run": False, **summary, "result": result}
+    total_added = result["members"]["added"] + result["events"]["added"] + result["points"]["added"]
+    if total_added > 0:
+        await db.import_logs.insert_one({
+            "id": batch_id,
+            "timestamp": batch_ts,
+            "filename": file.filename or "",
+            "duplicate_mode": duplicate_mode,
+            "result": result,
+            "undone": False,
+        })
+
+    return {"dry_run": False, "batch_id": batch_id if total_added > 0 else None, **summary, "result": result}
+
+
+@api_router.get("/import/logs")
+async def list_import_logs(_: dict = Depends(require_edit)):
+    """List past import batches (newest first)."""
+    docs = await db.import_logs.find({}, {"_id": 0}).sort("timestamp", -1).to_list(50)
+    return docs
+
+
+@api_router.post("/import/undo/{batch_id}")
+async def undo_import(batch_id: str, _: dict = Depends(require_edit)):
+    """Delete ONLY records that were newly inserted by the given import batch.
+    Never touches pre-existing records (they never had the import_batch_id tag)."""
+    log = await db.import_logs.find_one({"id": batch_id})
+    if not log:
+        raise HTTPException(404, "Import log bulunamadı")
+    if log.get("undone"):
+        raise HTTPException(400, "Bu import zaten geri alınmış")
+
+    deleted = {"members": 0, "events": 0, "points": 0}
+    m_res = await db.members.delete_many({"import_batch_id": batch_id})
+    deleted["members"] = m_res.deleted_count
+    e_res = await db.events.delete_many({"import_batch_id": batch_id})
+    deleted["events"] = e_res.deleted_count
+    p_res = await db.points.delete_many({"import_batch_id": batch_id})
+    deleted["points"] = p_res.deleted_count
+
+    await db.import_logs.update_one({"id": batch_id}, {"$set": {"undone": True, "undone_at": now_iso(), "deleted": deleted}})
+    return {"ok": True, "batch_id": batch_id, "deleted": deleted}
 
 
 # ---------- Setup ----------

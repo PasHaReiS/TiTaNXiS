@@ -464,6 +464,9 @@ function ImportPanel({ onClose }) {
   const [mode, setMode] = useState("skip");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
+  const [lastBatchId, setLastBatchId] = useState(null);
+  const [undoing, setUndoing] = useState(false);
+  const [undoResult, setUndoResult] = useState(null);
 
   const upload = async (dryRun) => {
     if (!file) return toast.error("Dosya seçin");
@@ -480,6 +483,7 @@ function ImportPanel({ onClose }) {
         setPreview(res.data);
       } else {
         setResult(res.data);
+        setLastBatchId(res.data.batch_id || null);
         mutate((k) => typeof k === "string" && (k.startsWith("/members") || k.startsWith("/events") || k.startsWith("/points") || k === "/stats" || k.startsWith("/leaderboard") || k === "/alliances"));
         toast.success("İçe aktarma tamamlandı");
       }
@@ -490,7 +494,24 @@ function ImportPanel({ onClose }) {
     }
   };
 
-  const reset = () => { setFile(null); setPreview(null); setResult(null); };
+  const reset = () => { setFile(null); setPreview(null); setResult(null); setLastBatchId(null); setUndoResult(null); };
+
+  const undo = async () => {
+    if (!lastBatchId) return;
+    if (!window.confirm("Bu içe aktarmayla YENİ eklenen kayıtlar silinecek. Önceden var olan kayıtlar KORUNACAK. Onaylıyor musunuz?")) return;
+    setUndoing(true);
+    try {
+      const res = await api.post(`/import/undo/${lastBatchId}`);
+      setUndoResult(res.data);
+      setLastBatchId(null);
+      mutate((k) => typeof k === "string" && (k.startsWith("/members") || k.startsWith("/events") || k.startsWith("/points") || k === "/stats" || k.startsWith("/leaderboard") || k === "/alliances"));
+      toast.success(`Geri alma tamam — ${res.data.deleted.members + res.data.deleted.events + res.data.deleted.points} kayıt silindi`);
+    } catch (err) {
+      toast.error(apiErr(err));
+    } finally {
+      setUndoing(false);
+    }
+  };
 
   return (
     <div className="space-y-3" data-testid="bulk-import-panel">
@@ -563,6 +584,24 @@ function ImportPanel({ onClose }) {
               <span className="text-red-400 ml-1">✗{result.result[k].errors}</span> hata
             </div>
           ))}
+          {lastBatchId && (
+            <button
+              data-testid="import-undo-btn"
+              onClick={undo}
+              disabled={undoing}
+              className="w-full mt-3 px-3 py-2 rounded border border-red-500/60 bg-red-500/10 text-red-400 text-xs font-bold uppercase tracking-wider hover:bg-red-500/20"
+            >
+              {undoing ? "Geri alınıyor..." : "↩️ İçe Aktarmayı Geri Al (sadece yeni eklenenleri sil)"}
+            </button>
+          )}
+          {undoResult && (
+            <div className="mt-3 border border-red-500/40 rounded-md p-2 bg-red-500/5 text-[11px] text-white">
+              <div className="text-red-400 font-bold mb-1">Geri Alındı ✓</div>
+              Üye: <span className="text-red-400 mono">-{undoResult.deleted.members}</span>{" "}
+              Etkinlik: <span className="text-red-400 mono">-{undoResult.deleted.events}</span>{" "}
+              Puan: <span className="text-red-400 mono">-{undoResult.deleted.points}</span>
+            </div>
+          )}
           <button onClick={reset} className="btn-gold w-full mt-3">Yeni Dosya İçe Aktar</button>
         </div>
       )}
