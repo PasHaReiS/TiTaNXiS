@@ -1,6 +1,7 @@
 import React from "react";
 import Header from "@/components/Header";
 import LiveDashboard from "@/components/LiveDashboard";
+import BulkAdminActions from "@/components/BulkAdminActions";
 import { useTranslation } from "react-i18next";
 
 export default function LiveDashboardPage() {
@@ -10,6 +11,7 @@ export default function LiveDashboardPage() {
       <Header title={t("live_dashboard")} />
       <div className="px-4">
         <LiveDashboard />
+        <BulkAdminActions />
       </div>
     </div>
   );
