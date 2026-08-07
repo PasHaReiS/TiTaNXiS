@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import useSWR, { mutate } from "swr";
 import { api, apiErr } from "@/lib/api";
-import { UserPlus, Zap, Flag, ClipboardEdit, Download, Upload, X } from "lucide-react";
+import { UserPlus, Zap, Flag, ClipboardEdit, Download, Upload, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -455,6 +455,24 @@ async function exportAllXlsx() {
   }
 }
 
+async function undoLastImport(setBusy) {
+  if (!window.confirm("Son import işlemi geri alınacak. Bu import ile YENİ eklenen kayıtlar silinecek, önceden var olan kayıtlara dokunulmayacak. Onaylıyor musunuz?")) return;
+  setBusy(true);
+  try {
+    const res = await api.post("/import/undo-last");
+    const d = res.data.deleted || {};
+    const total = (d.members || 0) + (d.events || 0) + (d.points || 0);
+    toast.success(`${total} kayıt silindi — veriler import öncesi haline döndürüldü`);
+    mutate((k) => typeof k === "string" && (k.startsWith("/members") || k.startsWith("/events") || k.startsWith("/points") || k === "/stats" || k.startsWith("/leaderboard") || k === "/alliances"));
+  } catch (err) {
+    const status = err?.response?.status;
+    if (status === 404) toast.warning("Geri alınacak import bulunamadı");
+    else toast.error(apiErr(err));
+  } finally {
+    setBusy(false);
+  }
+}
+
 /* ---------------------------------------------------------------
    IMPORT — pick file, preview, choose duplicate mode, apply
 --------------------------------------------------------------- */
@@ -612,6 +630,7 @@ function ImportPanel({ onClose }) {
 
 export default function BulkAdminActions() {
   const [mode, setMode] = useState(null);
+  const [undoingLast, setUndoingLast] = useState(false);
 
   const renderPanel = () => {
     if (mode === "member") return <MemberAddPanel onClose={() => setMode(null)} />;
@@ -662,6 +681,21 @@ export default function BulkAdminActions() {
         >
           <span className="bulk-admin-btn-icon"><Upload className="w-4 h-4" /></span>
           <span className="bulk-admin-btn-label">📥 Import Et</span>
+        </button>
+        <button
+          data-testid="bulk-btn-undo-last"
+          type="button"
+          onClick={() => undoLastImport(setUndoingLast)}
+          disabled={undoingLast}
+          className="bulk-admin-btn"
+          style={{ borderColor: "rgba(239,68,68,0.55)" }}
+        >
+          <span className="bulk-admin-btn-icon" style={{ background: "linear-gradient(135deg, #EF4444, #7C1D1D)" }}>
+            <RotateCcw className="w-4 h-4" />
+          </span>
+          <span className="bulk-admin-btn-label">
+            {undoingLast ? "Son import geri alınıyor..." : "↩️ Geri Al"}
+          </span>
         </button>
       </div>
       {mode && (

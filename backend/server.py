@@ -1075,40 +1075,85 @@ async def upload_image(file: UploadFile = File(...), _: dict = Depends(require_e
 # ---------- Full DB export (3-sheet .xlsx) ----------
 @api_router.get("/export/all")
 async def export_all(_: dict = Depends(require_edit)):
-    """Return an .xlsx with 3 sheets: Üyeler, Etkinlikler, Puanlar."""
+    """Return an .xlsx with 3 sheets: Üyeler, Etkinlikler, Puanlar. Includes every field on each record."""
     from openpyxl import Workbook
     from io import BytesIO
 
     members = await db.members.find({}, {"_id": 0}).to_list(10000)
-    events = await db.events.find({}, {"_id": 0}).to_list(1000)
-    points = await db.points.find({}, {"_id": 0}).to_list(20000)
+    events = await db.events.find({}, {"_id": 0}).to_list(2000)
+    points = await db.points.find({}, {"_id": 0}).to_list(30000)
+    alliance_colors_docs = await db.alliance_colors.find({}, {"_id": 0}).to_list(1000)
     await enrich_points_batch(points)
+
+    # Compute per-member weighted total for a rollup column
+    member_totals: Dict[str, float] = {}
+    for p in points:
+        mid = p.get("member_id")
+        mult = float(p.get("multiplier") or 1.0)
+        pts = float(p.get("points") or 0)
+        if mid:
+            member_totals[mid] = member_totals.get(mid, 0) + pts * mult
+
+    alliance_color_map: Dict[str, str] = {}
+    for ac in alliance_colors_docs:
+        name = ac.get("name") or ac.get("alliance_name")
+        color = ac.get("color") or ac.get("hex") or ac.get("value")
+        if name and color:
+            alliance_color_map[name] = color
+
+    # Collect every unique key across all member docs so nothing is skipped
+    m_base_cols = [
+        "id", "name", "member_id", "alliance_name", "alliance_color",
+        "rank", "title", "level", "castle_level",
+        "tetikci_f", "tetikci_t", "bombaci_f", "bombaci_t", "kalkanli_f", "kalkanli_t",
+        "bireysel_guc", "total_points",
+        "note", "note_position", "note_color",
+        "import_batch_id", "created_at",
+    ]
+    extra_m = sorted({k for m in members for k in m.keys()} - set(m_base_cols))
+    m_cols = m_base_cols + extra_m
+
+    e_base_cols = ["id", "name", "group_name", "subtitle", "multiplier", "date", "archived", "import_batch_id"]
+    extra_e = sorted({k for e in events for k in e.keys()} - set(e_base_cols))
+    e_cols = e_base_cols + extra_e
+
+    p_base_cols = [
+        "id", "member_id", "member_name", "member_rank",
+        "event_id", "event_name", "event_multiplier",
+        "points", "multiplier", "note", "date",
+        "import_batch_id",
+    ]
+    extra_p = sorted({k for p in points for k in p.keys()} - set(p_base_cols))
+    p_cols = p_base_cols + extra_p
+
+    def cell(v):
+        if v is None:
+            return ""
+        if isinstance(v, (dict, list)):
+            import json as _json
+            return _json.dumps(v, ensure_ascii=False)
+        return v
 
     wb = Workbook()
 
-    # Sheet 1: Üyeler
     ws1 = wb.active
     ws1.title = "Üyeler"
-    m_cols = ["id", "name", "member_id", "alliance_name", "rank", "level", "castle_level",
-              "tetikci_f", "tetikci_t", "bombaci_f", "bombaci_t", "kalkanli_f", "kalkanli_t",
-              "bireysel_guc", "note", "note_position", "note_color", "created_at"]
     ws1.append(m_cols)
     for m in members:
-        ws1.append([m.get(c, "") for c in m_cols])
+        m_enriched = {**m}
+        m_enriched.setdefault("alliance_color", alliance_color_map.get(m.get("alliance_name") or "", ""))
+        m_enriched.setdefault("total_points", int(member_totals.get(m.get("id"), 0)))
+        ws1.append([cell(m_enriched.get(c, "")) for c in m_cols])
 
-    # Sheet 2: Etkinlikler
     ws2 = wb.create_sheet("Etkinlikler")
-    e_cols = ["id", "name", "group_name", "multiplier", "date", "subtitle", "archived"]
     ws2.append(e_cols)
     for e in events:
-        ws2.append([e.get(c, "") for c in e_cols])
+        ws2.append([cell(e.get(c, "")) for c in e_cols])
 
-    # Sheet 3: Puanlar
     ws3 = wb.create_sheet("Puanlar")
-    p_cols = ["id", "member_id", "member_name", "event_id", "event_name", "points", "multiplier", "note", "date"]
     ws3.append(p_cols)
     for p in points:
-        ws3.append([p.get(c, "") for c in p_cols])
+        ws3.append([cell(p.get(c, "")) for c in p_cols])
 
     buf = BytesIO()
     wb.save(buf)
@@ -1341,6 +1386,24 @@ async def import_bulk(
         })
 
     return {"dry_run": False, "batch_id": batch_id if total_added > 0 else None, **summary, "result": result}
+
+
+@api_router.post("/import/undo-last")
+async def undo_last_import(_: dict = Depends(require_edit)):
+    """Convenience: undo the most recent non-undone import batch."""
+    last = await db.import_logs.find_one({"undone": {"$ne": True}}, sort=[("timestamp", -1)])
+    if not last:
+        raise HTTPException(404, "Geri alınacak import bulunamadı")
+    batch_id = last["id"]
+    deleted = {"members": 0, "events": 0, "points": 0}
+    m_res = await db.members.delete_many({"import_batch_id": batch_id})
+    deleted["members"] = m_res.deleted_count
+    e_res = await db.events.delete_many({"import_batch_id": batch_id})
+    deleted["events"] = e_res.deleted_count
+    p_res = await db.points.delete_many({"import_batch_id": batch_id})
+    deleted["points"] = p_res.deleted_count
+    await db.import_logs.update_one({"id": batch_id}, {"$set": {"undone": True, "undone_at": now_iso(), "deleted": deleted}})
+    return {"ok": True, "batch_id": batch_id, "deleted": deleted}
 
 
 @api_router.get("/import/logs")
