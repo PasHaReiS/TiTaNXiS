@@ -1292,10 +1292,13 @@ async def import_bulk(
         "points": {"added": 0, "updated": 0, "skipped": 0, "errors": 0},
     }
 
-    existing_members = {}
+    existing_members_by_name = {}
+    existing_members_by_mid = {}
     for m in await db.members.find({}, {"_id": 0}).to_list(10000):
         if m.get("name"):
-            existing_members[m["name"].lower()] = m
+            existing_members_by_name[m["name"].lower()] = m
+        if m.get("member_id"):
+            existing_members_by_mid[str(m["member_id"]).strip()] = m
     existing_events = {}
     for e in await db.events.find({}, {"_id": 0}).to_list(2000):
         if e.get("name"):
@@ -1308,9 +1311,10 @@ async def import_bulk(
             if not name:
                 result["members"]["errors"] += 1
                 continue
+            excel_member_id = (str(_pick(r, "member_id", "id_optional", "game_id", "Oyun ID", "ID") or "").strip() or None)
             payload = {
                 "name": name,
-                "member_id": (str(_pick(r, "member_id", "id_optional", "game_id", "Oyun ID", "ID") or "").strip() or None),
+                "member_id": excel_member_id,
                 "alliance_name": (str(_pick(r, "alliance_name", "İttifak Adı", "İttifak", "Alliance") or "").strip() or None),
                 "rank": (str(_pick(r, "rank", "rütbe", "rutbe", "Rank") or "").strip() or "R1"),
                 "title": (str(_pick(r, "title", "unvan", "Unvan") or "").strip() or None),
@@ -1325,16 +1329,28 @@ async def import_bulk(
                 "bireysel_guc": _parse_int(_pick(r, "bireysel_guc", "Bireysel Güç", "individual_power", "Bireysel Guc", "Guc", "Power")),
                 "note": (str(_pick(r, "note", "not", "Not", "Note") or "").strip() or None),
             }
-            key = name.lower()
-            if key in existing_members:
+
+            # Prefer matching by member_id, fall back to name (case-insensitive)
+            existing = None
+            if excel_member_id and excel_member_id in existing_members_by_mid:
+                existing = existing_members_by_mid[excel_member_id]
+            elif name.lower() in existing_members_by_name:
+                existing = existing_members_by_name[name.lower()]
+
+            if existing:
                 if duplicate_mode == "update":
-                    # Only overwrite fields that came in with a real value; keep None fields untouched
-                    set_fields = {k: v for k, v in payload.items() if v not in (None, "")}
+                    # bireysel_guc: always write when column was present, even if 0.
+                    # Other fields: only write when non-empty so blanks don't wipe existing data.
+                    set_fields = {}
+                    for k, v in payload.items():
+                        if k == "bireysel_guc":
+                            # bireysel_guc is only set when the column actually exists in the row
+                            if any(nk in r for nk in ("bireysel_guc", "individual_power", "power", "guc")):
+                                set_fields[k] = v
+                        elif v not in (None, ""):
+                            set_fields[k] = v
                     if set_fields:
-                        await db.members.update_one(
-                            {"id": existing_members[key]["id"]},
-                            {"$set": set_fields},
-                        )
+                        await db.members.update_one({"id": existing["id"]}, {"$set": set_fields})
                     result["members"]["updated"] += 1
                 else:
                     result["members"]["skipped"] += 1
@@ -1342,7 +1358,9 @@ async def import_bulk(
                 new_m = Member(**payload).model_dump()
                 new_m["import_batch_id"] = batch_id
                 await db.members.insert_one(new_m)
-                existing_members[key] = new_m
+                existing_members_by_name[name.lower()] = new_m
+                if new_m.get("member_id"):
+                    existing_members_by_mid[str(new_m["member_id"])] = new_m
                 result["members"]["added"] += 1
         except Exception:
             result["members"]["errors"] += 1
