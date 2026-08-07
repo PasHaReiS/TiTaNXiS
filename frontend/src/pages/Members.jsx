@@ -6,6 +6,7 @@ import { MEMBERS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
 import CanEdit from "@/components/CanEdit";
+import CountUp from "@/components/CountUp";
 import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, MapPin, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -338,12 +339,23 @@ export default function Members() {
                                   </div>
                                   <div className="text-[9px] gold-text mono truncate leading-tight">
                                     {m.castle_level ? `F${m.castle_level}` : "-"}
-                                    {m.bireysel_guc ? (
-                                      <span className="ml-2 text-[9px] text-white/80" data-testid={`member-bireysel-guc-${m.id}`}>
-                                        ⚡ {Number(m.bireysel_guc).toLocaleString("tr-TR").replace(/,/g, ".")}
-                                      </span>
-                                    ) : null}
                                   </div>
+                                  {m.bireysel_guc ? (
+                                    <div
+                                      className="text-[10px] mono truncate leading-tight flex items-center gap-1 mt-0.5"
+                                      style={{ color: "#FF6B00", textShadow: "0 0 4px rgba(255,107,0,0.35)" }}
+                                      data-testid={`member-bireysel-guc-${m.id}`}
+                                    >
+                                      <span aria-hidden="true">⚡</span>
+                                      <span className="opacity-80">{t("bireysel_guc")}:</span>
+                                      <CountUp
+                                        value={m.bireysel_guc}
+                                        duration={900}
+                                        className="font-bold"
+                                        testId={`member-bireysel-guc-value-${m.id}`}
+                                      />
+                                    </div>
+                                  ) : null}
                                   {m.note && m.note.trim() !== "" && m.note_position === "bottom" && (
                                     <div
                                       className="text-xs truncate leading-tight mt-0.5"
