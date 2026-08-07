@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import useSWR from "swr";
 import { api, fmt } from "@/lib/api";
+import CountUp from "@/components/CountUp";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { allianceBadgeStyle } from "@/lib/colors";
@@ -121,6 +122,20 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
                 </div>
                 <div className="text-[11px] text-muted-foreground mono truncate">
                   ID: <span className="gold-text">{m.member_id || "-"}</span>
+                </div>
+                <div
+                  className="text-[11px] mono flex items-center gap-1 mt-0.5"
+                  style={{ color: "#FF6B00", textShadow: "0 0 4px rgba(255,107,0,0.35)" }}
+                  data-testid="member-dialog-bireysel-guc"
+                >
+                  <span aria-hidden="true">⚡</span>
+                  <span className="opacity-80">{t("bireysel_guc")}:</span>
+                  <CountUp
+                    value={m.bireysel_guc || 0}
+                    duration={900}
+                    className="font-bold"
+                    testId="member-dialog-bireysel-guc-value"
+                  />
                 </div>
               </div>
             </div>
