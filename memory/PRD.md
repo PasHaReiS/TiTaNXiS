@@ -13,6 +13,15 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] BuildingCalculator refactor (P0)**: `/app/frontend/src/components/BuildingCalculator.jsx` restructured:
+  - F9–F6 seviye toggles retained at top.
+  - Horizontally scrollable Bina selector (`overflow-x-auto`) with 7 buildings: Komuta Merkezi, Kalkan Kışlası, Bombacı Kışlası, Tetikçi Kışlası, Revir, İletişim Merkezi, Forticlad Laboratuarı — orange/red gradient on active.
+  - "✏️ Birim Maliyeti Gir" button next to BİRİM MALİYETİ header (admin-only, `data-testid="open-bina-unit-cost-modal"`).
+  - Modal displays per-building/per-level unit costs; PUT `/api/unit-costs/bina_{slug}_{lvl}` (slug format: `komuta_merkezi`, `kalkan_kislasi`, `bombaci_kislasi`, `tetikci_kislasi`, `revir`, `iletisim_merkezi`, `forticlad_lab`; level lowercase e.g. `f9`).
+  - Forticlad + Gelişmiş Forticlad inputs moved BELOW the Birim Maliyeti section.
+  - TOPLAM MALİYET computed dynamically: `(forticlad + gelismis) * unit_cost`. Süre displayed as Gün/Saat/Dakika/Saniye.
+  - Modal fields: yemek/odun/celik/benzin/sure_saniye (seconds as integer). Time entered in seconds, displayed as D:H:M:S.
+  - Verified end-to-end: modal save → backend persisted (`bina_tetikci_kislasi_f9` = {yemek:500, odun:400, celik:300, benzin:200, sure_saniye:60}) → totals correctly compute 2500/2000/1500/1000 with 05:00 duration for 5 units.
 - Auth: JWT, roles (admin / user + can_edit / view), user management, forced password change
 - Members: grouped by alliance, filter/sort, alliance color picker, castle level, military barracks (tetikçi/bombacı/kalkanlı F+T)
 - **[2026-02] Commander card rarity theming**: `rarityCardStyle` helper — Legendary orange (#F97316), Epic purple (#A855F7), Common blue (#3B82F6) frames + dark tinted bg gradient. Applied to grid + list cards + image thumbnails.

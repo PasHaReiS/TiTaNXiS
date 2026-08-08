@@ -1,13 +1,28 @@
-import React, { useState } from "react";
-import useSWR from "swr";
+import React, { useState, useEffect, useRef } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
 import { api } from "@/lib/api";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "@/context/AuthContext";
+import { Settings, X } from "lucide-react";
+import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 const LEVELS = ["F9", "F8", "F7", "F6"];
-const catFor = (lvl) => `bina_guncelleme_${lvl.toLowerCase()}`;
+
+const BUILDINGS = [
+  { slug: "komuta_merkezi", label: "Komuta Merkezi" },
+  { slug: "kalkan_kislasi", label: "Kalkan Kışlası" },
+  { slug: "bombaci_kislasi", label: "Bombacı Kışlası" },
+  { slug: "tetikci_kislasi", label: "Tetikçi Kışlası" },
+  { slug: "revir", label: "Revir" },
+  { slug: "iletisim_merkezi", label: "İletişim Merkezi" },
+  { slug: "forticlad_lab", label: "Forticlad Laboratuarı" },
+];
+
+const catFor = (slug, lvl) => `bina_${slug}_${lvl.toLowerCase()}`;
 const fmt = (n) => Number(n || 0).toLocaleString("tr-TR");
+const pad2 = (n) => String(Math.max(0, Math.floor(n))).padStart(2, "0");
 
 function secondsToDHMS(total) {
   const s = Math.max(0, Number(total) || 0);
@@ -21,11 +36,15 @@ function secondsToDHMS(total) {
 
 export default function BuildingCalculator() {
   const { t } = useTranslation();
+  const { isAdmin } = useAuth();
   const [level, setLevel] = useState("F9");
+  const [building, setBuilding] = useState(BUILDINGS[0].slug);
   const [forticlad, setForticlad] = useState("");
   const [gelismis, setGelismis] = useState("");
+  const [showUnitModal, setShowUnitModal] = useState(false);
+  const scrollerRef = useRef(null);
 
-  const category = catFor(level);
+  const category = catFor(building, level);
   const { data: unitCosts = { yemek: 0, odun: 0, celik: 0, benzin: 0, sure_saniye: 0 } } =
     useSWR(`/unit-costs/${category}`, fetcher);
 
@@ -72,7 +91,78 @@ export default function BuildingCalculator() {
         </div>
       </div>
 
-      {/* Forticlad + Gelişmiş Forticlad side-by-side */}
+      {/* Building selector — horizontally scrollable */}
+      <div className="mb-4">
+        <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>BİNA</label>
+        <div
+          ref={scrollerRef}
+          className="flex gap-2 overflow-x-auto pb-2"
+          data-testid="bina-scroller"
+          style={{ scrollbarWidth: "thin" }}
+        >
+          {BUILDINGS.map((b) => {
+            const active = building === b.slug;
+            return (
+              <button
+                key={b.slug}
+                onClick={() => setBuilding(b.slug)}
+                data-testid={`bina-btn-${b.slug}`}
+                aria-pressed={active}
+                className="whitespace-nowrap px-4 py-2 rounded font-bold uppercase transition-all flex-shrink-0"
+                style={{
+                  background: active ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
+                  border: `1px solid ${active ? "#F5A623" : "rgba(255,255,255,0.12)"}`,
+                  color: active ? "#0B0704" : "#F5F0E8",
+                  boxShadow: active ? "0 0 10px rgba(231,76,26,0.5)" : "none",
+                  fontFamily: "Cinzel, serif",
+                  letterSpacing: "0.06em",
+                  fontSize: 12,
+                }}
+              >
+                {b.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Birim Maliyeti header + edit button */}
+      <div className="mb-5">
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-xs font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>
+            BİRİM MALİYETİ
+          </label>
+          {isAdmin && (
+            <button
+              onClick={() => setShowUnitModal(true)}
+              data-testid="open-bina-unit-cost-modal"
+              className="px-3 py-1 rounded text-white text-[11px] font-bold flex items-center gap-1"
+              style={{ background: "linear-gradient(135deg,#C0392B,#E74C1A)" }}
+            >
+              <Settings className="w-3 h-3" /> Birim Maliyeti Gir
+            </button>
+          )}
+        </div>
+
+        {/* Unit costs display (per 1 upgrade) */}
+        <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
+          {[
+            { label: "Yemek", value: unitCosts.yemek || 0, tid: "bina-unit-display-yemek" },
+            { label: "Çelik", value: unitCosts.celik || 0, tid: "bina-unit-display-celik" },
+            { label: "Odun", value: unitCosts.odun || 0, tid: "bina-unit-display-odun" },
+            { label: "Benzin", value: unitCosts.benzin || 0, tid: "bina-unit-display-benzin" },
+          ].map((it) => (
+            <div key={it.label} style={{ minWidth: 120 }}>
+              <div className="text-[10px] mb-1 font-bold uppercase tracking-widest" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
+              <div data-testid={it.tid} className="rounded font-bold text-sm" style={{ background: "#1A1210", border: "1px solid #333", color: "#F5F0E8", padding: "10px 8px", textAlign: "center" }}>
+                {fmt(it.value)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Forticlad + Gelişmiş Forticlad — below Birim Maliyeti */}
       <div className="mb-5">
         <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
           <div>
@@ -104,9 +194,9 @@ export default function BuildingCalculator() {
         </div>
       </div>
 
-      {/* Resources — 2 columns */}
+      {/* Total resources */}
       <div className="mb-5">
-        <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>Birim Maliyeti</label>
+        <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>TOPLAM MALİYET</label>
         <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
           {[
             { label: "Yemek", value: totalYemek, tid: "bina-res-yemek" },
@@ -116,7 +206,7 @@ export default function BuildingCalculator() {
           ].map((it) => (
             <div key={it.label} style={{ minWidth: 120 }}>
               <div className="text-[10px] mb-1 font-bold uppercase tracking-widest" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
-              <div data-testid={it.tid} className="rounded font-bold text-sm" style={{ background: "#1A1210", border: "1px solid #333", color: "#F5F0E8", padding: "10px 8px", textAlign: "center" }}>
+              <div data-testid={it.tid} className="rounded font-bold text-sm" style={{ background: "#1A1210", border: "1px solid #333", color: "#F5A623", padding: "10px 8px", textAlign: "center" }}>
                 {fmt(it.value)}
               </div>
             </div>
@@ -126,7 +216,7 @@ export default function BuildingCalculator() {
 
       {/* Duration */}
       <div className="mb-2">
-        <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>Süre</label>
+        <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>SÜRE</label>
         <div className="grid grid-cols-4 gap-2">
           {[
             { label: "Gün", value: dhms.gun, tid: "bina-dhms-gun" },
@@ -134,15 +224,172 @@ export default function BuildingCalculator() {
             { label: "Dakika", value: dhms.dakika, tid: "bina-dhms-dakika" },
             { label: "Saniye", value: dhms.saniye, tid: "bina-dhms-saniye" },
           ].map((it) => (
-            <div key={it.label}>
-              <div className="text-[10px] mb-1 font-bold uppercase tracking-widest text-center" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
-              <div data-testid={it.tid} className="rounded font-bold text-lg text-center" style={{ background: "#1A1210", border: "1px solid #333", color: "#F5A623", padding: "10px 8px" }}>
-                {it.value}
+            <div key={it.label} className="text-center">
+              <div className="text-[10px] mb-1" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
+              <div data-testid={it.tid} className="rounded font-bold text-lg" style={{ background: "#1A1210", border: "1px solid #333", color: "#F5A623", padding: "8px 4px" }}>
+                {pad2(it.value)}
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {showUnitModal && (
+        <BinaUnitCostModal
+          initialBuilding={building}
+          initialLevel={level}
+          onClose={() => setShowUnitModal(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
+  const [activeBuilding, setActiveBuilding] = useState(initialBuilding);
+  const [activeLevel, setActiveLevel] = useState(initialLevel);
+  const [state, setState] = useState({ yemek: 0, odun: 0, celik: 0, benzin: 0, sure_saniye: 0 });
+  const [saving, setSaving] = useState(false);
+
+  const cat = catFor(activeBuilding, activeLevel);
+  const { data: fetched = { yemek: 0, odun: 0, celik: 0, benzin: 0, sure_saniye: 0 } } =
+    useSWR(`/unit-costs/${cat}`, fetcher);
+
+  useEffect(() => {
+    setState({
+      yemek: fetched.yemek || 0,
+      odun: fetched.odun || 0,
+      celik: fetched.celik || 0,
+      benzin: fetched.benzin || 0,
+      sure_saniye: fetched.sure_saniye || 0,
+    });
+  }, [fetched.yemek, fetched.odun, fetched.celik, fetched.benzin, fetched.sure_saniye]);
+
+  const set = (k, v) => setState((s) => ({ ...s, [k]: v }));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.put(`/unit-costs/${cat}`, {
+        yemek: Number(state.yemek) || 0,
+        odun: Number(state.odun) || 0,
+        celik: Number(state.celik) || 0,
+        benzin: Number(state.benzin) || 0,
+        sure_saniye: Number(state.sure_saniye) || 0,
+      });
+      globalMutate(`/unit-costs/${cat}`);
+      const bLabel = BUILDINGS.find((b) => b.slug === activeBuilding)?.label || activeBuilding;
+      toast.success(`${bLabel} • ${activeLevel} birim maliyeti güncellendi`);
+      onClose();
+    } catch (e2) {
+      toast.error(e2?.response?.data?.detail || e2.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fields = [
+    { key: "yemek", label: "Yemek" },
+    { key: "odun", label: "Odun" },
+    { key: "celik", label: "Çelik" },
+    { key: "benzin", label: "Benzin" },
+    { key: "sure_saniye", label: "Süre (saniye)" },
+  ];
+
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex: 99999, background: "rgba(0,0,0,0.7)" }}
+      onClick={onClose}
+      data-testid="bina-unit-cost-modal"
+    >
+      <form
+        onSubmit={submit}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg p-5 rounded-xl relative"
+        style={{ background: "#1E1410", border: "1px solid #E74C1A", boxShadow: "0 8px 32px rgba(0,0,0,0.9)", maxHeight: "88vh", overflowY: "auto" }}
+      >
+        <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white" data-testid="bina-modal-close">
+          <X className="w-5 h-5" />
+        </button>
+        <h3 className="text-lg font-bold mb-3 uppercase" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}>
+          Birim Maliyeti Gir
+        </h3>
+
+        {/* Building selector inside modal */}
+        <div className="mb-3">
+          <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A" }}>BİNA</label>
+          <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: "thin" }}>
+            {BUILDINGS.map((b) => (
+              <button
+                key={b.slug}
+                type="button"
+                onClick={() => setActiveBuilding(b.slug)}
+                data-testid={`modal-bina-${b.slug}`}
+                className="whitespace-nowrap px-3 py-1.5 rounded font-bold text-[11px] uppercase flex-shrink-0"
+                style={{
+                  background: activeBuilding === b.slug ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
+                  border: `1px solid ${activeBuilding === b.slug ? "#F5A623" : "rgba(255,255,255,0.12)"}`,
+                  color: activeBuilding === b.slug ? "#0B0704" : "#F5F0E8",
+                  fontFamily: "Cinzel, serif",
+                }}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Level selector inside modal */}
+        <div className="mb-4">
+          <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A" }}>SEVİYE</label>
+          <div className="grid grid-cols-4 gap-2">
+            {LEVELS.map((lv) => (
+              <button
+                key={lv}
+                type="button"
+                onClick={() => setActiveLevel(lv)}
+                data-testid={`modal-bina-level-${lv}`}
+                className="py-1.5 rounded font-bold text-xs uppercase"
+                style={{
+                  background: activeLevel === lv ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
+                  border: `1px solid ${activeLevel === lv ? "#F5A623" : "rgba(255,255,255,0.12)"}`,
+                  color: activeLevel === lv ? "#0B0704" : "#F5F0E8",
+                  fontFamily: "Cinzel, serif",
+                }}
+              >
+                {lv}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {fields.map((f) => (
+          <div key={f.key} className="mb-3">
+            <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A" }}>{f.label}</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={state[f.key]}
+              onChange={(e) => set(f.key, e.target.value)}
+              data-testid={`bina-unit-${f.key}`}
+              className="w-full rounded"
+              style={{ background: "#1A1210", border: "1px solid #333", color: "#F5F0E8", padding: "8px 10px" }}
+            />
+          </div>
+        ))}
+        <button
+          type="submit"
+          disabled={saving}
+          data-testid="save-bina-unit-costs"
+          className="w-full mt-2 py-2.5 rounded-lg text-white font-bold"
+          style={{ background: "linear-gradient(135deg,#C0392B,#E74C1A)" }}
+        >
+          {saving ? "Kaydediliyor..." : `${BUILDINGS.find((b) => b.slug === activeBuilding)?.label} • ${activeLevel} Kaydet`}
+        </button>
+      </form>
     </div>
   );
 }
