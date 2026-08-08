@@ -8,6 +8,7 @@ import { Plus, Pencil, Trash2, X, Shield, ChevronDown, ChevronRight, Upload, Ima
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import SoldierCalculator from "@/components/SoldierCalculator";
+import BuildingCalculator from "@/components/BuildingCalculator";
 import EquipmentTables from "@/components/EquipmentTables";
 import TroveCollectionTable from "@/components/TroveCollectionTable";
 import HeroTables from "@/components/HeroTables";
@@ -436,6 +437,8 @@ export default function Commanders() {
               );
             })() : ["mh_ekipman", "mh_koleksiyon", "mh_kahraman"].includes(selectedCat) ? null : selectedCat === "mh_asker_egitim" ? (
               <SoldierCalculator />
+            ) : selectedCat === "mh_bina" ? (
+              <BuildingCalculator />
             ) : activeSection ? (
               <>
                 {!NO_TUMU_SECTIONS.has(activeSection) && (
