@@ -129,12 +129,9 @@ export default function BuildingCalculator() {
         </div>
       </div>
 
-      {/* Birim Maliyeti header + edit button */}
-      <div className="mb-4 flex items-center justify-between">
-        <label className="block text-xs font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>
-          BİRİM MALİYETİ
-        </label>
-        {isAdmin && (
+      {/* Edit unit-cost button (admin only) — no label */}
+      {isAdmin && (
+        <div className="mb-4 flex items-center justify-end">
           <button
             onClick={() => setShowUnitModal(true)}
             data-testid="open-bina-unit-cost-modal"
@@ -143,8 +140,8 @@ export default function BuildingCalculator() {
           >
             <Settings className="w-3 h-3" /> Birim Maliyeti Gir
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Total cost — Forticlad/Gelişmiş first row, then resources */}
       <div className="mb-5">
