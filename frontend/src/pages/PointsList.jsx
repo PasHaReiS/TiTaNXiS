@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
-export default function PointsList() {
+export default function PointsList({ hideHeader = false }) {
   const { t } = useTranslation();
   const [rawQ, setRawQ] = useState("");
   const [q, setQ] = useState("");
@@ -39,7 +39,7 @@ export default function PointsList() {
 
   return (
     <div data-testid={POINTS.container}>
-      <Header title={t("point_list_title")} />
+      {!hideHeader && <Header title={t("point_list_title")} />}
       <div className="px-4">
         <p className="text-xs text-muted-foreground mb-3">
           {t("points_shown")} <span className="gold-text font-bold mono">{filtered.length}</span> / {points.length}

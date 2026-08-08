@@ -4,6 +4,7 @@ import { BarChart2, PlusCircle, ChevronRight, Lock } from "lucide-react";
 import AddPoints from "@/pages/AddPoints";
 import PointsList from "@/pages/PointsList";
 import { useAuth } from "@/context/AuthContext";
+import Header from "@/components/Header";
 
 const TABS = [
   { key: "add", labelKey: "nav_add_points", Icon: PlusCircle, requiresEdit: true },
@@ -18,14 +19,9 @@ export default function PointsAbout() {
   return (
     <div className="min-h-screen" data-testid="points-about-page" style={{ paddingBottom: 80 }}>
       <div className="max-w-6xl mx-auto p-4">
-        <h1
-          className="text-2xl font-bold mb-4 heading-cinzel"
-          style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}
-        >
-          {t("nav_points_about")}
-        </h1>
+        <Header title={t("nav_points_about")} />
 
-        <div className="grid gap-4" style={{ gridTemplateColumns: "260px 1fr" }} data-testid="pa-layout">
+        <div className="grid gap-3" style={{ gridTemplateColumns: "170px 1fr" }} data-testid="pa-layout">
           {/* Sidebar (same aesthetic as PointCalcPage) */}
           <aside
             className="rounded-xl p-3 flex flex-col gap-2"
@@ -93,7 +89,7 @@ export default function PointsAbout() {
 
           {/* Content */}
           <div className="min-w-0" data-testid={`points-about-panel-${tab}`}>
-            {tab === "add" ? <AddPoints /> : <PointsList />}
+            {tab === "add" ? <AddPoints hideHeader /> : <PointsList hideHeader />}
           </div>
         </div>
       </div>

@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
-export default function AddPoints() {
+export default function AddPoints({ hideHeader = false }) {
   const { canEdit } = useAuth();
   const { t } = useTranslation();
   const [memberQ, setMemberQ] = useState("");
@@ -76,7 +76,7 @@ export default function AddPoints() {
   if (!canEdit) {
     return (
       <div data-testid={ADD_POINTS.container}>
-        <Header subtitle={t("add_points_sub")} />
+        {!hideHeader && <Header subtitle={t("add_points_sub")} />}
         <div className="px-4">
           <div className="card-red-gold p-6 text-center fade-in">
             <Lock className="w-10 h-10 gold-text mx-auto mb-3" />
@@ -92,7 +92,7 @@ export default function AddPoints() {
 
   return (
     <div data-testid={ADD_POINTS.container}>
-      <Header title={t("add_points_sub")} />
+      {!hideHeader && <Header title={t("add_points_sub")} />}
       <div className="px-4">
         <div className="flex items-center justify-end mb-3">
           <button

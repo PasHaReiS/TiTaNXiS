@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Plus, Trash2, Pencil, Check, X, Settings, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import Header from "@/components/Header";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -24,12 +25,7 @@ export default function PointCalcPage() {
   return (
     <div className="min-h-screen" data-testid="point-calc-page" style={{ paddingBottom: 80 }}>
       <div className="max-w-6xl mx-auto p-4">
-        <h1
-          className="text-2xl font-bold mb-4 heading-cinzel"
-          style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}
-        >
-          {t("nav_point_calc")}
-        </h1>
+        <Header title={t("nav_point_calc")} />
 
         {/* Kind tabs */}
         <div
@@ -138,7 +134,7 @@ function SidebarContent({ kind, selectedId, setSelectedId }) {
   };
 
   return (
-    <div className="grid gap-4" style={{ gridTemplateColumns: "260px 1fr" }} data-testid={`pc-layout-${kind}`}>
+    <div className="grid gap-3" style={{ gridTemplateColumns: "170px 1fr" }} data-testid={`pc-layout-${kind}`}>
       {/* Sidebar */}
       <aside
         className="rounded-xl p-3 flex flex-col gap-2"
