@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BarChart2, PlusCircle } from "lucide-react";
+import { BarChart2, PlusCircle, ChevronRight, Lock } from "lucide-react";
 import AddPoints from "@/pages/AddPoints";
 import PointsList from "@/pages/PointsList";
 import { useAuth } from "@/context/AuthContext";
@@ -25,46 +25,76 @@ export default function PointsAbout() {
           {t("nav_points_about")}
         </h1>
 
-        <div
-          role="tablist"
-          className="flex gap-2 mb-4 border-b"
-          style={{ borderColor: "rgba(231,76,26,0.35)" }}
-          data-testid="points-about-tabs"
-        >
-          {TABS.map(({ key, labelKey, Icon, requiresEdit }) => {
-            const disabled = requiresEdit && !canEdit;
-            const active = tab === key;
-            return (
-              <button
-                key={key}
-                role="tab"
-                aria-selected={active}
-                disabled={disabled}
-                onClick={() => !disabled && setTab(key)}
-                data-testid={`points-about-tab-${key}`}
-                className="px-4 py-2 rounded-t-lg font-bold uppercase transition-all flex items-center gap-2"
-                style={{
-                  background: active ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
-                  border: `1px solid ${active ? "#F5A623" : "rgba(255,255,255,0.12)"}`,
-                  borderBottom: active ? "1px solid #E74C1A" : "1px solid transparent",
-                  color: active ? "#0B0704" : "#F5F0E8",
-                  boxShadow: active ? "0 0 10px rgba(231,76,26,0.5)" : "none",
-                  fontFamily: "Cinzel, serif",
-                  letterSpacing: "0.06em",
-                  fontSize: 13,
-                  opacity: disabled ? 0.4 : 1,
-                  cursor: disabled ? "not-allowed" : "pointer",
-                }}
-              >
-                <Icon className="w-4 h-4" />
-                {t(labelKey)}
-              </button>
-            );
-          })}
-        </div>
+        <div className="grid gap-4" style={{ gridTemplateColumns: "260px 1fr" }} data-testid="pa-layout">
+          {/* Sidebar (same aesthetic as PointCalcPage) */}
+          <aside
+            className="rounded-xl p-3 flex flex-col gap-2"
+            data-testid="pa-sidebar"
+            style={{
+              background: "linear-gradient(180deg, rgba(76,29,149,0.35), rgba(30,58,138,0.35))",
+              border: "1px solid rgba(168,85,247,0.4)",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.5), inset 0 0 24px rgba(139,92,246,0.15)",
+              minHeight: 280,
+              alignSelf: "start",
+            }}
+          >
+            <div className="text-[10px] font-bold uppercase mb-1 px-1" style={{ color: "#C4B5FD", letterSpacing: "0.08em" }}>
+              {t("nav_points_about")}
+            </div>
 
-        <div data-testid={`points-about-panel-${tab}`}>
-          {tab === "add" ? <AddPoints /> : <PointsList />}
+            <div className="flex flex-col gap-1.5" data-testid="pa-sidebar-list">
+              {TABS.map(({ key, labelKey, Icon, requiresEdit }) => {
+                const disabled = requiresEdit && !canEdit;
+                const active = tab === key;
+                return (
+                  <button
+                    key={key}
+                    role="tab"
+                    aria-selected={active}
+                    disabled={disabled}
+                    onClick={() => !disabled && setTab(key)}
+                    data-testid={`points-about-tab-${key}`}
+                    className="group rounded-lg flex items-center gap-2 px-2 py-2 transition-all text-left"
+                    style={{
+                      background: active
+                        ? "linear-gradient(135deg, rgba(139,92,246,0.85), rgba(59,130,246,0.75))"
+                        : "rgba(30,20,35,0.55)",
+                      border: `1px solid ${active ? "#A855F7" : "rgba(255,255,255,0.08)"}`,
+                      boxShadow: active ? "0 0 12px rgba(168,85,247,0.6)" : "none",
+                      cursor: disabled ? "not-allowed" : "pointer",
+                      opacity: disabled ? 0.45 : 1,
+                    }}
+                  >
+                    <Icon
+                      className="w-4 h-4"
+                      style={{
+                        color: active ? "#FFFFFF" : "#F5A623",
+                        filter: active ? "drop-shadow(0 0 6px rgba(255,255,255,0.4))" : "none",
+                      }}
+                    />
+                    <span
+                      className="flex-1 text-sm font-bold truncate"
+                      style={{
+                        color: active ? "#FFFFFF" : "#E0E7FF",
+                        fontFamily: "Cinzel, serif",
+                        letterSpacing: "0.04em",
+                        textShadow: active ? "0 0 8px rgba(255,255,255,0.35)" : "none",
+                      }}
+                    >
+                      {t(labelKey)}
+                    </span>
+                    {disabled && <Lock className="w-3 h-3" style={{ color: "#F5A623", opacity: 0.7 }} />}
+                    {active && !disabled && <ChevronRight className="w-3.5 h-3.5" style={{ color: "#FFFFFF" }} />}
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+
+          {/* Content */}
+          <div className="min-w-0" data-testid={`points-about-panel-${tab}`}>
+            {tab === "add" ? <AddPoints /> : <PointsList />}
+          </div>
         </div>
       </div>
     </div>

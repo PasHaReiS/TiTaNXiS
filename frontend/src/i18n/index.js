@@ -454,6 +454,8 @@ const tr = {
   pc_add_unit: "Yeni Birim",
   pc_add_unit_btn: "Birim Ekle",
   pc_unit_saved: "Kaydedildi",
+  pc_breakdowns: "Kırılımlar",
+  pc_no_selection: "Sol menüden bir kırılım seçin.",
   bc_updated: "{{building}} • {{level}} birim maliyeti güncellendi",
 };
 
@@ -873,6 +875,8 @@ const en = {
   pc_add_unit: "Add Unit",
   pc_add_unit_btn: "Add Unit",
   pc_unit_saved: "Saved",
+  pc_breakdowns: "Breakdowns",
+  pc_no_selection: "Select a breakdown from the sidebar.",
 };
 
 const ru = {

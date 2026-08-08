@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Trash2, Pencil, Check, X, Settings } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, Settings, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -19,10 +19,11 @@ const fmt = (n) => Number(n || 0).toLocaleString("tr-TR");
 export default function PointCalcPage() {
   const { t } = useTranslation();
   const [kind, setKind] = useState("pre");
+  const [selectedId, setSelectedId] = useState(null);
 
   return (
     <div className="min-h-screen" data-testid="point-calc-page" style={{ paddingBottom: 80 }}>
-      <div className="max-w-5xl mx-auto p-4">
+      <div className="max-w-6xl mx-auto p-4">
         <h1
           className="text-2xl font-bold mb-4 heading-cinzel"
           style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}
@@ -30,6 +31,7 @@ export default function PointCalcPage() {
           {t("nav_point_calc")}
         </h1>
 
+        {/* Kind tabs */}
         <div
           role="tablist"
           className="flex gap-2 mb-4 border-b"
@@ -43,7 +45,7 @@ export default function PointCalcPage() {
                 key={k.key}
                 role="tab"
                 aria-selected={active}
-                onClick={() => setKind(k.key)}
+                onClick={() => { setKind(k.key); setSelectedId(null); }}
                 data-testid={`pc-kind-tab-${k.key}`}
                 className="px-4 py-2 rounded-t-lg font-bold uppercase transition-all"
                 style={{
@@ -63,22 +65,34 @@ export default function PointCalcPage() {
           })}
         </div>
 
-        <DayList kind={kind} />
+        <SidebarContent kind={kind} selectedId={selectedId} setSelectedId={setSelectedId} />
       </div>
     </div>
   );
 }
 
-function DayList({ kind }) {
+function SidebarContent({ kind, selectedId, setSelectedId }) {
   const { t } = useTranslation();
   const { canEdit } = useAuth();
   const key = `/point-calc?kind=${kind}`;
   const { data: days = [], mutate } = useSWR(key, fetcher);
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState("");
+
+  // Auto-select first day when list loads or kind changes
+  useEffect(() => {
+    if (days.length > 0 && !days.find((d) => d.id === selectedId)) {
+      setSelectedId(days[0].id);
+    }
+    if (days.length === 0) setSelectedId(null);
+  }, [days, kind]);
+
+  const selectedDay = useMemo(() => days.find((d) => d.id === selectedId), [days, selectedId]);
 
   const addDay = async () => {
     try {
       const next = (days?.length || 0) + 1;
-      await api.post("/point-calc", {
+      const res = await api.post("/point-calc", {
         kind,
         name: `${next}. Gün`,
         order: days.length,
@@ -87,34 +101,194 @@ function DayList({ kind }) {
         multipliers: [],
         materials: [],
       });
-      mutate();
+      await mutate();
+      setSelectedId(res.data.id);
       toast.success(t("pc_day_added"));
     } catch (e) {
       toast.error(e?.response?.data?.detail || e.message);
     }
   };
 
-  return (
-    <div className="flex flex-col gap-4" data-testid={`pc-day-list-${kind}`}>
-      {days.map((d) => (
-        <DayCard key={d.id} day={d} onChanged={() => mutate()} />
-      ))}
+  const saveNameInline = async (id, originalName) => {
+    const trimmed = editName.trim();
+    setEditingId(null);
+    if (trimmed && trimmed !== originalName) {
+      try {
+        await api.patch(`/point-calc/${id}`, { name: trimmed });
+        mutate();
+      } catch (e) {
+        toast.error(e?.response?.data?.detail || e.message);
+      }
+    }
+  };
 
-      {canEdit && (
-        <button
-          onClick={addDay}
-          data-testid={`pc-add-day-${kind}`}
-          className="self-start px-4 py-2 rounded-lg font-bold flex items-center gap-2"
-          style={{
-            background: "linear-gradient(135deg,#C0392B,#E74C1A)",
-            color: "#fff",
-            fontFamily: "Cinzel, serif",
-            letterSpacing: "0.06em",
-          }}
-        >
-          <Plus className="w-4 h-4" /> {t("pc_add_day")}
-        </button>
-      )}
+  const deleteDay = async (id, name) => {
+    if (!window.confirm(t("pc_confirm_delete", { name }))) return;
+    try {
+      await api.delete(`/point-calc/${id}`);
+      if (selectedId === id) {
+        const rest = days.filter((d) => d.id !== id);
+        setSelectedId(rest[0]?.id || null);
+      }
+      await mutate();
+      toast.success(t("pc_deleted"));
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    }
+  };
+
+  return (
+    <div className="grid gap-4" style={{ gridTemplateColumns: "260px 1fr" }} data-testid={`pc-layout-${kind}`}>
+      {/* Sidebar */}
+      <aside
+        className="rounded-xl p-3 flex flex-col gap-2"
+        data-testid={`pc-sidebar-${kind}`}
+        style={{
+          background: "linear-gradient(180deg, rgba(76,29,149,0.35), rgba(30,58,138,0.35))",
+          border: "1px solid rgba(168,85,247,0.4)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.5), inset 0 0 24px rgba(139,92,246,0.15)",
+          minHeight: 380,
+          alignSelf: "start",
+        }}
+      >
+        <div className="text-[10px] font-bold uppercase mb-1 px-1" style={{ color: "#C4B5FD", letterSpacing: "0.08em" }}>
+          {t("pc_breakdowns")}
+        </div>
+
+        <div className="flex flex-col gap-1.5" data-testid={`pc-sidebar-list-${kind}`}>
+          {days.map((d) => {
+            const active = d.id === selectedId;
+            const isEditing = editingId === d.id;
+            return (
+              <div
+                key={d.id}
+                data-testid={`pc-sidebar-item-${d.id}`}
+                className="group rounded-lg flex items-center gap-1 px-2 py-1.5 transition-all"
+                style={{
+                  background: active
+                    ? "linear-gradient(135deg, rgba(139,92,246,0.85), rgba(59,130,246,0.75))"
+                    : "rgba(30,20,35,0.55)",
+                  border: `1px solid ${active ? "#A855F7" : "rgba(255,255,255,0.08)"}`,
+                  boxShadow: active ? "0 0 12px rgba(168,85,247,0.6)" : "none",
+                  cursor: "pointer",
+                }}
+                onClick={() => !isEditing && setSelectedId(d.id)}
+              >
+                {isEditing ? (
+                  <>
+                    <input
+                      autoFocus
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      data-testid={`pc-sidebar-name-input-${d.id}`}
+                      className="flex-1 rounded px-2 py-1 text-sm"
+                      style={{ background: "#1A1210", border: "1px solid #A855F7", color: "#F5F0E8" }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveNameInline(d.id, d.name);
+                        if (e.key === "Escape") { setEditingId(null); setEditName(""); }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); saveNameInline(d.id, d.name); }}
+                      data-testid={`pc-sidebar-name-save-${d.id}`}
+                      className="p-1 rounded"
+                      style={{ color: "#4ade80" }}
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setEditingId(null); setEditName(""); }}
+                      className="p-1 rounded"
+                      style={{ color: "#f87171" }}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span
+                      className="flex-1 text-sm font-bold truncate"
+                      data-testid={`pc-sidebar-name-${d.id}`}
+                      style={{
+                        color: active ? "#FFFFFF" : "#E0E7FF",
+                        fontFamily: "Cinzel, serif",
+                        letterSpacing: "0.04em",
+                        textShadow: active ? "0 0 8px rgba(255,255,255,0.35)" : "none",
+                      }}
+                    >
+                      {d.name}
+                    </span>
+                    {active && <ChevronRight className="w-3.5 h-3.5" style={{ color: "#FFFFFF" }} />}
+                    {canEdit && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setEditingId(d.id); setEditName(d.name); }}
+                          data-testid={`pc-sidebar-edit-${d.id}`}
+                          className="p-1 rounded opacity-70 hover:opacity-100"
+                          style={{ color: active ? "#FFFFFF" : "#F5A623" }}
+                          title={t("edit")}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); deleteDay(d.id, d.name); }}
+                          data-testid={`pc-sidebar-delete-${d.id}`}
+                          className="p-1 rounded opacity-70 hover:opacity-100"
+                          style={{ color: active ? "#FFFFFF" : "#f87171" }}
+                          title={t("delete")}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {canEdit && (
+          <button
+            onClick={addDay}
+            data-testid={`pc-add-day-${kind}`}
+            className="mt-2 px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-2 text-sm"
+            style={{
+              background: "linear-gradient(135deg,#C0392B,#E74C1A)",
+              color: "#fff",
+              fontFamily: "Cinzel, serif",
+              letterSpacing: "0.06em",
+            }}
+          >
+            <Plus className="w-4 h-4" /> {t("pc_add_day")}
+          </button>
+        )}
+      </aside>
+
+      {/* Content */}
+      <div className="min-w-0" data-testid={`pc-content-${kind}`}>
+        {selectedDay ? (
+          <DayCard key={selectedDay.id} day={selectedDay} onChanged={() => mutate()} />
+        ) : (
+          <div
+            className="rounded-xl p-8 text-center text-sm"
+            style={{
+              color: "#F5F0E8",
+              opacity: 0.6,
+              background: "rgba(30,20,16,0.6)",
+              border: "1px dashed rgba(231,76,26,0.3)",
+            }}
+            data-testid="pc-content-empty"
+          >
+            {t("pc_no_selection")}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -122,17 +296,13 @@ function DayList({ kind }) {
 function DayCard({ day, onChanged }) {
   const { t } = useTranslation();
   const { canEdit } = useAuth();
-  const [editingName, setEditingName] = useState(false);
-  const [name, setName] = useState(day.name);
   const [miktar, setMiktar] = useState(day.miktar || 0);
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    setName(day.name);
     setMiktar(day.miktar || 0);
-  }, [day.id, day.name, day.miktar]);
+  }, [day.id, day.miktar]);
 
-  // Only the first multiplier is used
   const mult = (day.multipliers && day.multipliers[0]) || { id: null, name: "", value: 0 };
   const materials = day.materials || [];
   const title = day.title || "";
@@ -150,31 +320,15 @@ function DayCard({ day, onChanged }) {
     }
   };
 
-  const saveName = async () => {
-    setEditingName(false);
-    if (name.trim() && name !== day.name) await patch({ name: name.trim() });
-  };
-
   const saveMiktar = async () => {
     const v = Number(miktar) || 0;
     if (v !== day.miktar) await patch({ miktar: v });
   };
 
-  const deleteDay = async () => {
-    if (!window.confirm(t("pc_confirm_delete", { name: day.name }))) return;
-    try {
-      await api.delete(`/point-calc/${day.id}`);
-      onChanged();
-      toast.success(t("pc_deleted"));
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || e.message);
-    }
-  };
-
   return (
     <div
       data-testid={`pc-day-${day.id}`}
-      className="rounded-xl relative"
+      className="rounded-xl"
       style={{
         background: "linear-gradient(135deg, rgba(30,20,16,0.95), rgba(18,12,10,0.95))",
         border: "1px solid rgba(231,76,26,0.4)",
@@ -182,58 +336,17 @@ function DayCard({ day, onChanged }) {
         padding: "16px",
       }}
     >
-      {/* Header: name (editable) + delete */}
-      <div className="flex items-center justify-between mb-3 pb-2 border-b" style={{ borderColor: "rgba(231,76,26,0.25)" }}>
-        {editingName ? (
-          <div className="flex items-center gap-2 flex-1">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              data-testid={`pc-day-name-input-${day.id}`}
-              autoFocus
-              className="flex-1 rounded px-2 py-1"
-              style={{ background: "#1A1210", border: "1px solid #E74C1A", color: "#F5F0E8", fontFamily: "Cinzel, serif" }}
-              onKeyDown={(e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") { setName(day.name); setEditingName(false); } }}
-            />
-            <button onClick={saveName} data-testid={`pc-day-name-save-${day.id}`} className="p-1 rounded" style={{ color: "#4ade80" }}><Check className="w-4 h-4" /></button>
-            <button onClick={() => { setName(day.name); setEditingName(false); }} className="p-1 rounded" style={{ color: "#f87171" }}><X className="w-4 h-4" /></button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 flex-1">
-            <h3
-              className="text-lg font-bold"
-              style={{ color: "#F5A623", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}
-              data-testid={`pc-day-name-${day.id}`}
-            >
-              {day.name}
-            </h3>
-            {canEdit && (
-              <button
-                onClick={() => setEditingName(true)}
-                data-testid={`pc-day-name-edit-${day.id}`}
-                className="p-1 rounded hover:bg-white/5"
-                style={{ color: "#D4730A" }}
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        )}
-        {canEdit && (
-          <button
-            onClick={deleteDay}
-            data-testid={`pc-day-delete-${day.id}`}
-            className="p-1 rounded hover:bg-red-500/10"
-            style={{ color: "#f87171" }}
-            title={t("delete")}
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        )}
+      {/* Header: name only (edit/delete moved to sidebar) */}
+      <div className="mb-3 pb-2 border-b" style={{ borderColor: "rgba(231,76,26,0.25)" }}>
+        <h3
+          className="text-lg font-bold"
+          style={{ color: "#F5A623", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}
+          data-testid={`pc-day-name-${day.id}`}
+        >
+          {day.name}
+        </h3>
       </div>
 
-      {/* Optional Title display */}
       {title && (
         <div
           className="mb-3 text-sm font-bold"
@@ -313,7 +426,7 @@ function DayCard({ day, onChanged }) {
         </span>
       </div>
 
-      {/* Birimler (readonly with computed totals) */}
+      {/* Birimler */}
       <div>
         <label className="block text-[10px] mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>
           {t("pc_units")}
@@ -328,7 +441,6 @@ function DayCard({ day, onChanged }) {
           </div>
         ) : (
           <div className="flex flex-col gap-1.5" data-testid={`pc-day-units-${day.id}`}>
-            {/* Table header */}
             <div
               className="grid gap-2 text-[10px] font-bold uppercase px-2"
               style={{ gridTemplateColumns: "2fr 1fr 1fr", color: "#D4730A", opacity: 0.8, letterSpacing: "0.06em" }}
@@ -399,11 +511,7 @@ function UnitEditModal({ day, onClose, onSaved }) {
         name: (u.name || "").trim(),
         amount: String(u.amount ?? ""),
       }));
-      await api.patch(`/point-calc/${day.id}`, {
-        title,
-        multipliers,
-        materials,
-      });
+      await api.patch(`/point-calc/${day.id}`, { title, multipliers, materials });
       toast.success(t("pc_unit_saved"));
       onSaved();
     } catch (e2) {
@@ -433,7 +541,6 @@ function UnitEditModal({ day, onClose, onSaved }) {
           {t("pc_add_unit_btn")}
         </h3>
 
-        {/* Table title */}
         <div className="mb-4">
           <label className="block text-[10px] mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>
             {t("pc_table_title")}
@@ -449,7 +556,6 @@ function UnitEditModal({ day, onClose, onSaved }) {
           />
         </div>
 
-        {/* Multiplier (single) */}
         <div className="mb-4">
           <label className="block text-[10px] mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>
             {t("pc_multiplier")}
@@ -476,7 +582,6 @@ function UnitEditModal({ day, onClose, onSaved }) {
           </div>
         </div>
 
-        {/* Units */}
         <div className="mb-4">
           <label className="block text-[10px] mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>
             {t("pc_units")}
