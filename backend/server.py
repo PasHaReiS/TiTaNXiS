@@ -11,7 +11,7 @@ import csv
 import random
 import mimetypes
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import List, Optional, Dict
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -85,6 +85,16 @@ class MemberCreate(BaseModel):
 
 
 class MemberUpdate(BaseModel):
+    @field_validator("bireysel_guc", mode="before")
+    @classmethod
+    def _coerce_guc(cls, v):
+        if v is None or isinstance(v, int):
+            return v
+        s = str(v).replace(".", "").replace(",", "").replace(" ", "").strip()
+        if not s or not s.lstrip("-").isdigit():
+            return None
+        return int(s)
+
     name: Optional[str] = None
     member_id: Optional[str] = None
     alliance_name: Optional[str] = None

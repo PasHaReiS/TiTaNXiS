@@ -21,11 +21,26 @@ import Profile from "@/pages/Profile";
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-12 h-12 rounded-2xl red-gold-gradient mx-auto mb-4 animate-pulse" />
-        <p className="text-xs uppercase tracking-widest gold-text">...</p>
-      </div>
+    <div
+      className="min-h-screen flex items-center justify-center"
+      style={{ background: "#0A0806" }}
+      data-testid="loading-screen"
+    >
+      <video
+        src="https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/f650420e34f040c39be51cc046655cc0_1000074064.mp4"
+        autoPlay
+        muted
+        loop
+        playsInline
+        data-testid="loading-video"
+        style={{
+          maxWidth: "min(480px, 90vw)",
+          width: "100%",
+          height: "auto",
+          borderRadius: 12,
+          filter: "drop-shadow(0 0 40px rgba(155,89,182,0.45)) drop-shadow(0 0 80px rgba(255,107,0,0.25))",
+        }}
+      />
     </div>
   );
 }
