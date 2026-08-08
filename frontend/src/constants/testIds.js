@@ -5,6 +5,8 @@ export const NAV = {
   commanders: "nav-commanders",
   points: "nav-points",
   addPoints: "nav-add-points",
+  pointsAbout: "nav-points-about",
+  pointCalc: "nav-point-calc",
   members: "nav-members",
   events: "nav-events",
 };

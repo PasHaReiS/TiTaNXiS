@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Lock, Trophy, Swords, BarChart2, PlusCircle, Users, Flag } from "lucide-react";
+import { Lock, Trophy, Swords, BarChart2, Calculator, Users, Flag } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NAV } from "@/constants/testIds";
 import { useAuth } from "@/context/AuthContext";
@@ -8,8 +8,8 @@ import { useAuth } from "@/context/AuthContext";
 const buildItems = () => [
   { to: "/", labelKey: "nav_leaderboard", Icon: Trophy, testId: NAV.leaderboard, guest: true },
   { to: "/komutanlar", labelKey: "nav_commanders", Icon: Swords, testId: NAV.commanders, guest: true },
-  { to: "/puanlar", labelKey: "nav_points", Icon: BarChart2, testId: NAV.points, guest: false },
-  { to: "/puan-ekle", labelKey: "nav_add_points", Icon: PlusCircle, testId: NAV.addPoints, guest: false, requiresEdit: true },
+  { to: "/puan-hesaplama", labelKey: "nav_point_calc", Icon: Calculator, testId: NAV.pointCalc, guest: true },
+  { to: "/puanlar-hakkinda", labelKey: "nav_points_about", Icon: BarChart2, testId: NAV.pointsAbout, guest: false },
   { to: "/uyeler", labelKey: "nav_members", Icon: Users, testId: NAV.members, guest: false },
   { to: "/etkinlikler", labelKey: "nav_events", Icon: Flag, testId: NAV.events, guest: false },
 ];

@@ -13,6 +13,8 @@ import Commanders from "@/pages/Commanders";
 import LiveDashboardPage from "@/pages/LiveDashboardPage";
 import PointsList from "@/pages/PointsList";
 import AddPoints from "@/pages/AddPoints";
+import PointsAbout from "@/pages/PointsAbout";
+import PointCalcPage from "@/pages/PointCalcPage";
 import Members from "@/pages/Members";
 import Events from "@/pages/Events";
 import Login from "@/pages/Login";
@@ -73,6 +75,8 @@ function AppShell() {
           <Route path="/komutanlar" element={<Commanders />} />
           <Route path="/puanlar" element={<RequireAuth><PointsList /></RequireAuth>} />
           <Route path="/puan-ekle" element={<RequireAuth><AddPoints /></RequireAuth>} />
+          <Route path="/puanlar-hakkinda" element={<RequireAuth><PointsAbout /></RequireAuth>} />
+          <Route path="/puan-hesaplama" element={<PointCalcPage />} />
           <Route path="/uyeler" element={<RequireAuth><Members /></RequireAuth>} />
           <Route path="/etkinlikler" element={<RequireAuth><Events /></RequireAuth>} />
           <Route path="/kullanicilar" element={<RequireAdmin><UserManagement /></RequireAdmin>} />
