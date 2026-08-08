@@ -34,10 +34,6 @@ export default function PointsAbout() {
               alignSelf: "start",
             }}
           >
-            <div className="text-[10px] font-bold uppercase mb-1 px-1" style={{ color: "#C4B5FD", letterSpacing: "0.08em" }}>
-              {t("nav_points_about")}
-            </div>
-
             <div className="flex flex-col gap-1.5" data-testid="pa-sidebar-list">
               {TABS.map(({ key, labelKey, Icon, requiresEdit }) => {
                 const disabled = requiresEdit && !canEdit;

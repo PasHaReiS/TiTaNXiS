@@ -1613,6 +1613,14 @@ class PCUnitLabels(BaseModel):
     gelismis_forticlad: str = "Gelişmiş Forticlad"
 
 
+class PCTable(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str = ""
+    miktar: float = 0
+    multipliers: List[PCMultiplier] = []
+    materials: List[PCMaterial] = []
+
+
 class PCDayCreate(BaseModel):
     kind: str
     name: str
@@ -1622,6 +1630,7 @@ class PCDayCreate(BaseModel):
     multipliers: List[PCMultiplier] = []
     unit_labels: Optional[PCUnitLabels] = None
     materials: List[PCMaterial] = []
+    tables: List[PCTable] = []
 
 
 class PCDayUpdate(BaseModel):
@@ -1632,6 +1641,7 @@ class PCDayUpdate(BaseModel):
     multipliers: Optional[List[PCMultiplier]] = None
     unit_labels: Optional[PCUnitLabels] = None
     materials: Optional[List[PCMaterial]] = None
+    tables: Optional[List[PCTable]] = None
 
 
 async def _seed_default_pc_days(kind: str):
