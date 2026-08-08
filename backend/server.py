@@ -1527,6 +1527,8 @@ class UnitCostBody(BaseModel):
     celik: float = 0
     benzin: float = 0
     sure_saniye: float = 0
+    forticlad: float = 0
+    gelismis_forticlad: float = 0
 
 
 class CalculationBody(BaseModel):
@@ -1543,7 +1545,7 @@ class CalculationBody(BaseModel):
 async def get_unit_costs(category: str):
     doc = await db.unit_costs.find_one({"category": category})
     if not doc:
-        return {"category": category, "yemek": 0, "odun": 0, "celik": 0, "benzin": 0, "sure_saniye": 0}
+        return {"category": category, "yemek": 0, "odun": 0, "celik": 0, "benzin": 0, "sure_saniye": 0, "forticlad": 0, "gelismis_forticlad": 0}
     return {
         "category": doc.get("category", category),
         "yemek": doc.get("yemek", 0),
@@ -1551,6 +1553,8 @@ async def get_unit_costs(category: str):
         "celik": doc.get("celik", 0),
         "benzin": doc.get("benzin", 0),
         "sure_saniye": doc.get("sure_saniye", 0),
+        "forticlad": doc.get("forticlad", 0),
+        "gelismis_forticlad": doc.get("gelismis_forticlad", 0),
     }
 
 

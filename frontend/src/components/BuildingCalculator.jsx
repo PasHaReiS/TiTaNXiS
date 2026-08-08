@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { api } from "@/lib/api";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
-import { Settings, X } from "lucide-react";
+import { Settings, X, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -19,6 +19,11 @@ const BUILDINGS = [
   { slug: "iletisim_merkezi", label: "İletişim Merkezi" },
   { slug: "forticlad_lab", label: "Forticlad Laboratuarı" },
 ];
+
+const EMPTY_COSTS = {
+  yemek: 0, odun: 0, celik: 0, benzin: 0, sure_saniye: 0,
+  forticlad: 0, gelismis_forticlad: 0,
+};
 
 const catFor = (slug, lvl) => `bina_${slug}_${lvl.toLowerCase()}`;
 const fmt = (n) => Number(n || 0).toLocaleString("tr-TR");
@@ -39,22 +44,25 @@ export default function BuildingCalculator() {
   const { isAdmin } = useAuth();
   const [level, setLevel] = useState("F9");
   const [building, setBuilding] = useState(BUILDINGS[0].slug);
-  const [forticlad, setForticlad] = useState("");
-  const [gelismis, setGelismis] = useState("");
+  const [adet, setAdet] = useState("");
   const [showUnitModal, setShowUnitModal] = useState(false);
-  const scrollerRef = useRef(null);
 
   const category = catFor(building, level);
-  const { data: unitCosts = { yemek: 0, odun: 0, celik: 0, benzin: 0, sure_saniye: 0 } } =
-    useSWR(`/unit-costs/${category}`, fetcher);
+  const { data: unitCosts = EMPTY_COSTS } = useSWR(`/unit-costs/${category}`, fetcher);
 
-  const total = (Number(forticlad) || 0) + (Number(gelismis) || 0);
-  const totalYemek = total * (unitCosts.yemek || 0);
-  const totalOdun = total * (unitCosts.odun || 0);
-  const totalCelik = total * (unitCosts.celik || 0);
-  const totalBenzin = total * (unitCosts.benzin || 0);
-  const totalSure = total * (unitCosts.sure_saniye || 0);
+  const n = Number(adet) || 0;
+  const totals = {
+    yemek: n * (unitCosts.yemek || 0),
+    celik: n * (unitCosts.celik || 0),
+    odun: n * (unitCosts.odun || 0),
+    benzin: n * (unitCosts.benzin || 0),
+    forticlad: n * (unitCosts.forticlad || 0),
+    gelismis_forticlad: n * (unitCosts.gelismis_forticlad || 0),
+  };
+  const totalSure = n * (unitCosts.sure_saniye || 0);
   const dhms = secondsToDHMS(totalSure);
+
+  const currentBuildingLabel = BUILDINGS.find((b) => b.slug === building)?.label || building;
 
   return (
     <div className="p-1" data-testid="building-calculator">
@@ -91,118 +99,79 @@ export default function BuildingCalculator() {
         </div>
       </div>
 
-      {/* Building selector — horizontally scrollable */}
+      {/* Building dropdown */}
       <div className="mb-4">
         <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>BİNA</label>
-        <div
-          ref={scrollerRef}
-          className="flex gap-2 overflow-x-auto pb-2"
-          data-testid="bina-scroller"
-          style={{ scrollbarWidth: "thin" }}
-        >
-          {BUILDINGS.map((b) => {
-            const active = building === b.slug;
-            return (
-              <button
-                key={b.slug}
-                onClick={() => setBuilding(b.slug)}
-                data-testid={`bina-btn-${b.slug}`}
-                aria-pressed={active}
-                className="whitespace-nowrap px-4 py-2 rounded font-bold uppercase transition-all flex-shrink-0"
-                style={{
-                  background: active ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
-                  border: `1px solid ${active ? "#F5A623" : "rgba(255,255,255,0.12)"}`,
-                  color: active ? "#0B0704" : "#F5F0E8",
-                  boxShadow: active ? "0 0 10px rgba(231,76,26,0.5)" : "none",
-                  fontFamily: "Cinzel, serif",
-                  letterSpacing: "0.06em",
-                  fontSize: 12,
-                }}
-              >
+        <div className="relative">
+          <select
+            value={building}
+            onChange={(e) => setBuilding(e.target.value)}
+            data-testid="bina-select"
+            className="w-full rounded appearance-none font-bold uppercase cursor-pointer"
+            style={{
+              background: "#1A1210",
+              border: "1px solid #E74C1A",
+              color: "#F5F0E8",
+              padding: "12px 40px 12px 14px",
+              fontFamily: "Cinzel, serif",
+              letterSpacing: "0.06em",
+              fontSize: 13,
+              boxShadow: "0 0 8px rgba(231,76,26,0.25) inset",
+            }}
+          >
+            {BUILDINGS.map((b) => (
+              <option key={b.slug} value={b.slug} style={{ background: "#1A1210", color: "#F5F0E8" }}>
                 {b.label}
-              </button>
-            );
-          })}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#F5A623" }} />
         </div>
       </div>
 
       {/* Birim Maliyeti header + edit button */}
-      <div className="mb-5">
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-xs font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>
-            BİRİM MALİYETİ
-          </label>
-          {isAdmin && (
-            <button
-              onClick={() => setShowUnitModal(true)}
-              data-testid="open-bina-unit-cost-modal"
-              className="px-3 py-1 rounded text-white text-[11px] font-bold flex items-center gap-1"
-              style={{ background: "linear-gradient(135deg,#C0392B,#E74C1A)" }}
-            >
-              <Settings className="w-3 h-3" /> Birim Maliyeti Gir
-            </button>
-          )}
-        </div>
-
-        {/* Unit costs display (per 1 upgrade) */}
-        <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
-          {[
-            { label: "Yemek", value: unitCosts.yemek || 0, tid: "bina-unit-display-yemek" },
-            { label: "Çelik", value: unitCosts.celik || 0, tid: "bina-unit-display-celik" },
-            { label: "Odun", value: unitCosts.odun || 0, tid: "bina-unit-display-odun" },
-            { label: "Benzin", value: unitCosts.benzin || 0, tid: "bina-unit-display-benzin" },
-          ].map((it) => (
-            <div key={it.label} style={{ minWidth: 120 }}>
-              <div className="text-[10px] mb-1 font-bold uppercase tracking-widest" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
-              <div data-testid={it.tid} className="rounded font-bold text-sm" style={{ background: "#1A1210", border: "1px solid #333", color: "#F5F0E8", padding: "10px 8px", textAlign: "center" }}>
-                {fmt(it.value)}
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="mb-4 flex items-center justify-between">
+        <label className="block text-xs font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>
+          BİRİM MALİYETİ
+        </label>
+        {isAdmin && (
+          <button
+            onClick={() => setShowUnitModal(true)}
+            data-testid="open-bina-unit-cost-modal"
+            className="px-3 py-1 rounded text-white text-[11px] font-bold flex items-center gap-1"
+            style={{ background: "linear-gradient(135deg,#C0392B,#E74C1A)" }}
+          >
+            <Settings className="w-3 h-3" /> Birim Maliyeti Gir
+          </button>
+        )}
       </div>
 
-      {/* Forticlad + Gelişmiş Forticlad — below Birim Maliyeti */}
+      {/* Adet input */}
       <div className="mb-5">
-        <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
-          <div>
-            <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>Forticlad</label>
-            <input
-              type="number"
-              value={forticlad}
-              onChange={(e) => setForticlad(e.target.value)}
-              data-testid="bina-forticlad-input"
-              placeholder="0"
-              min="0"
-              className="w-full text-2xl font-bold text-center rounded-lg"
-              style={{ background: "#1A1210", border: "1px solid #E74C1A", color: "#F5F0E8", padding: "14px 12px" }}
-            />
-          </div>
-          <div>
-            <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>Gelişmiş Forticlad</label>
-            <input
-              type="number"
-              value={gelismis}
-              onChange={(e) => setGelismis(e.target.value)}
-              data-testid="bina-gelismis-input"
-              placeholder="0"
-              min="0"
-              className="w-full text-2xl font-bold text-center rounded-lg"
-              style={{ background: "#1A1210", border: "1px solid #E74C1A", color: "#F5F0E8", padding: "14px 12px" }}
-            />
-          </div>
-        </div>
+        <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>ADET</label>
+        <input
+          type="number"
+          value={adet}
+          onChange={(e) => setAdet(e.target.value)}
+          data-testid="bina-adet-input"
+          placeholder="0"
+          min="0"
+          className="w-full text-2xl font-bold text-center rounded-lg"
+          style={{ background: "#1A1210", border: "1px solid #E74C1A", color: "#F5F0E8", padding: "14px 12px" }}
+        />
       </div>
 
-      {/* Total resources */}
+      {/* Total cost — 6 resources */}
       <div className="mb-5">
         <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>TOPLAM MALİYET</label>
         <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
           {[
-            { label: "Yemek", value: totalYemek, tid: "bina-res-yemek" },
-            { label: "Çelik", value: totalCelik, tid: "bina-res-celik" },
-            { label: "Odun", value: totalOdun, tid: "bina-res-odun" },
-            { label: "Benzin", value: totalBenzin, tid: "bina-res-benzin" },
+            { label: "Yemek", value: totals.yemek, tid: "bina-res-yemek" },
+            { label: "Çelik", value: totals.celik, tid: "bina-res-celik" },
+            { label: "Odun", value: totals.odun, tid: "bina-res-odun" },
+            { label: "Benzin", value: totals.benzin, tid: "bina-res-benzin" },
+            { label: "Forticlad", value: totals.forticlad, tid: "bina-res-forticlad" },
+            { label: "Gelişmiş Forticlad", value: totals.gelismis_forticlad, tid: "bina-res-gelismis" },
           ].map((it) => (
             <div key={it.label} style={{ minWidth: 120 }}>
               <div className="text-[10px] mb-1 font-bold uppercase tracking-widest" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
@@ -216,7 +185,7 @@ export default function BuildingCalculator() {
 
       {/* Duration */}
       <div className="mb-2">
-        <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>SÜRE</label>
+        <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>TAHMİNİ SÜRE</label>
         <div className="grid grid-cols-4 gap-2">
           {[
             { label: "Gün", value: dhms.gun, tid: "bina-dhms-gun" },
@@ -238,6 +207,7 @@ export default function BuildingCalculator() {
         <BinaUnitCostModal
           initialBuilding={building}
           initialLevel={level}
+          currentBuildingLabel={currentBuildingLabel}
           onClose={() => setShowUnitModal(false)}
         />
       )}
@@ -248,12 +218,11 @@ export default function BuildingCalculator() {
 function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
   const [activeBuilding, setActiveBuilding] = useState(initialBuilding);
   const [activeLevel, setActiveLevel] = useState(initialLevel);
-  const [state, setState] = useState({ yemek: 0, odun: 0, celik: 0, benzin: 0, sure_saniye: 0 });
+  const [state, setState] = useState(EMPTY_COSTS);
   const [saving, setSaving] = useState(false);
 
   const cat = catFor(activeBuilding, activeLevel);
-  const { data: fetched = { yemek: 0, odun: 0, celik: 0, benzin: 0, sure_saniye: 0 } } =
-    useSWR(`/unit-costs/${cat}`, fetcher);
+  const { data: fetched = EMPTY_COSTS } = useSWR(`/unit-costs/${cat}`, fetcher);
 
   useEffect(() => {
     setState({
@@ -262,8 +231,10 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
       celik: fetched.celik || 0,
       benzin: fetched.benzin || 0,
       sure_saniye: fetched.sure_saniye || 0,
+      forticlad: fetched.forticlad || 0,
+      gelismis_forticlad: fetched.gelismis_forticlad || 0,
     });
-  }, [fetched.yemek, fetched.odun, fetched.celik, fetched.benzin, fetched.sure_saniye]);
+  }, [fetched.yemek, fetched.odun, fetched.celik, fetched.benzin, fetched.sure_saniye, fetched.forticlad, fetched.gelismis_forticlad]);
 
   const set = (k, v) => setState((s) => ({ ...s, [k]: v }));
 
@@ -277,6 +248,8 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
         celik: Number(state.celik) || 0,
         benzin: Number(state.benzin) || 0,
         sure_saniye: Number(state.sure_saniye) || 0,
+        forticlad: Number(state.forticlad) || 0,
+        gelismis_forticlad: Number(state.gelismis_forticlad) || 0,
       });
       globalMutate(`/unit-costs/${cat}`);
       const bLabel = BUILDINGS.find((b) => b.slug === activeBuilding)?.label || activeBuilding;
@@ -294,6 +267,8 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
     { key: "odun", label: "Odun" },
     { key: "celik", label: "Çelik" },
     { key: "benzin", label: "Benzin" },
+    { key: "forticlad", label: "Forticlad" },
+    { key: "gelismis_forticlad", label: "Gelişmiş Forticlad" },
     { key: "sure_saniye", label: "Süre (saniye)" },
   ];
 
@@ -317,27 +292,31 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
           Birim Maliyeti Gir
         </h3>
 
-        {/* Building selector inside modal */}
+        {/* Building dropdown inside modal */}
         <div className="mb-3">
           <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A" }}>BİNA</label>
-          <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: "thin" }}>
-            {BUILDINGS.map((b) => (
-              <button
-                key={b.slug}
-                type="button"
-                onClick={() => setActiveBuilding(b.slug)}
-                data-testid={`modal-bina-${b.slug}`}
-                className="whitespace-nowrap px-3 py-1.5 rounded font-bold text-[11px] uppercase flex-shrink-0"
-                style={{
-                  background: activeBuilding === b.slug ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
-                  border: `1px solid ${activeBuilding === b.slug ? "#F5A623" : "rgba(255,255,255,0.12)"}`,
-                  color: activeBuilding === b.slug ? "#0B0704" : "#F5F0E8",
-                  fontFamily: "Cinzel, serif",
-                }}
-              >
-                {b.label}
-              </button>
-            ))}
+          <div className="relative">
+            <select
+              value={activeBuilding}
+              onChange={(e) => setActiveBuilding(e.target.value)}
+              data-testid="modal-bina-select"
+              className="w-full rounded appearance-none font-bold uppercase cursor-pointer"
+              style={{
+                background: "#1A1210",
+                border: "1px solid rgba(255,255,255,0.12)",
+                color: "#F5F0E8",
+                padding: "10px 36px 10px 12px",
+                fontFamily: "Cinzel, serif",
+                fontSize: 12,
+              }}
+            >
+              {BUILDINGS.map((b) => (
+                <option key={b.slug} value={b.slug} style={{ background: "#1A1210", color: "#F5F0E8" }}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#F5A623" }} />
           </div>
         </div>
 
