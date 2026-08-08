@@ -1415,3 +1415,136 @@ button[aria-pressed="true"] > .tab-text {
     }
 }
 
+
+/* ==== BuildingCalculator — Purple/Blue Mystic Theme ==== */
+@keyframes purpleFlicker {
+    0%, 100% {
+        text-shadow:
+            0 0 4px rgba(168, 85, 247, 0.7),
+            0 0 8px rgba(99, 102, 241, 0.5),
+            0 0 12px rgba(139, 92, 246, 0.35);
+    }
+    25% {
+        text-shadow:
+            0 0 6px rgba(168, 85, 247, 0.85),
+            0 0 12px rgba(99, 102, 241, 0.6),
+            0 0 18px rgba(139, 92, 246, 0.5);
+    }
+    50% {
+        text-shadow:
+            0 0 3px rgba(168, 85, 247, 0.5),
+            0 0 6px rgba(99, 102, 241, 0.35);
+    }
+    75% {
+        text-shadow:
+            0 0 5px rgba(168, 85, 247, 0.75),
+            0 0 10px rgba(99, 102, 241, 0.55),
+            0 0 16px rgba(139, 92, 246, 0.4);
+    }
+}
+
+@keyframes purpleFlickerActive {
+    0%, 100% {
+        text-shadow:
+            0 0 6px rgba(224, 231, 255, 0.9),
+            0 0 12px rgba(168, 85, 247, 0.85),
+            0 0 20px rgba(99, 102, 241, 0.7);
+        box-shadow:
+            0 0 12px rgba(139, 92, 246, 0.6),
+            0 0 24px rgba(99, 102, 241, 0.35),
+            inset 0 0 8px rgba(168, 85, 247, 0.25);
+    }
+    50% {
+        text-shadow:
+            0 0 10px rgba(255, 255, 255, 1),
+            0 0 18px rgba(168, 85, 247, 1),
+            0 0 28px rgba(99, 102, 241, 0.9);
+        box-shadow:
+            0 0 18px rgba(139, 92, 246, 0.85),
+            0 0 32px rgba(99, 102, 241, 0.55),
+            inset 0 0 12px rgba(168, 85, 247, 0.4);
+    }
+}
+
+@keyframes subtleShake {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    10%      { transform: translate(-0.3px, 0.2px) rotate(-0.05deg); }
+    20%      { transform: translate(0.3px, -0.2px) rotate(0.05deg); }
+    30%      { transform: translate(-0.2px, -0.3px) rotate(0deg); }
+    40%      { transform: translate(0.2px, 0.3px) rotate(0.05deg); }
+    50%      { transform: translate(-0.3px, 0.1px) rotate(-0.05deg); }
+    60%      { transform: translate(0.3px, -0.1px) rotate(0deg); }
+    70%      { transform: translate(-0.1px, 0.3px) rotate(0.05deg); }
+    80%      { transform: translate(0.1px, -0.3px) rotate(-0.05deg); }
+    90%      { transform: translate(-0.2px, 0.2px) rotate(0deg); }
+}
+
+@keyframes orangeFlicker {
+    0%, 100% {
+        text-shadow:
+            0 0 4px rgba(245, 166, 35, 0.8),
+            0 0 8px rgba(231, 76, 26, 0.6),
+            0 0 14px rgba(212, 115, 10, 0.4);
+    }
+    50% {
+        text-shadow:
+            0 0 6px rgba(245, 166, 35, 1),
+            0 0 14px rgba(231, 76, 26, 0.85),
+            0 0 22px rgba(212, 115, 10, 0.6);
+    }
+}
+
+.bina-level-btn {
+    background: linear-gradient(135deg, rgba(76, 29, 149, 0.5), rgba(30, 58, 138, 0.5)) !important;
+    border: 1px solid rgba(139, 92, 246, 0.4) !important;
+    color: #E0E7FF !important;
+    animation: purpleFlicker 3s ease-in-out infinite, subtleShake 6s ease-in-out infinite;
+    transition: transform 0.2s ease, box-shadow 0.25s ease;
+}
+.bina-level-btn:hover {
+    box-shadow:
+        0 0 14px rgba(168, 85, 247, 0.8),
+        0 0 28px rgba(99, 102, 241, 0.45),
+        inset 0 0 10px rgba(139, 92, 246, 0.3);
+    transform: translateY(-1px);
+}
+.bina-level-btn.active {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.85), rgba(59, 130, 246, 0.85)) !important;
+    border: 1px solid #A855F7 !important;
+    color: #FFFFFF !important;
+    animation: purpleFlickerActive 2s ease-in-out infinite, subtleShake 6s ease-in-out infinite;
+}
+
+.bina-select {
+    background: linear-gradient(135deg, rgba(76, 29, 149, 0.5), rgba(30, 58, 138, 0.5)) !important;
+    border: 1px solid rgba(168, 85, 247, 0.6) !important;
+    color: #F5F0E8 !important;
+    animation: subtleShake 7s ease-in-out infinite;
+    box-shadow:
+        0 0 10px rgba(139, 92, 246, 0.35),
+        inset 0 0 8px rgba(99, 102, 241, 0.25) !important;
+    transition: box-shadow 0.25s ease;
+}
+.bina-select:hover,
+.bina-select:focus {
+    box-shadow:
+        0 0 18px rgba(168, 85, 247, 0.7),
+        inset 0 0 12px rgba(139, 92, 246, 0.4) !important;
+    outline: none;
+}
+.bina-select option {
+    background: #1A1210 !important;
+    color: #F5A623 !important;
+    text-shadow: 0 0 6px rgba(245, 166, 35, 0.7), 0 0 12px rgba(231, 76, 26, 0.5) !important;
+    padding: 8px !important;
+}
+
+.bina-shake-btn {
+    animation: subtleShake 5s ease-in-out infinite;
+    transition: transform 0.2s ease, box-shadow 0.25s ease;
+}
+.bina-shake-btn:hover {
+    box-shadow: 0 0 12px rgba(231, 76, 26, 0.7);
+    transform: translateY(-1px);
+}
+

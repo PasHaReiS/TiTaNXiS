@@ -82,12 +82,8 @@ export default function BuildingCalculator() {
               onClick={() => setLevel(lv)}
               data-testid={`bina-level-btn-${lv}`}
               aria-pressed={level === lv}
-              className="py-2 rounded font-bold uppercase transition-all"
+              className={`py-2 rounded font-bold uppercase bina-level-btn ${level === lv ? "active" : ""}`}
               style={{
-                background: level === lv ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
-                border: `1px solid ${level === lv ? "#F5A623" : "rgba(255,255,255,0.12)"}`,
-                color: level === lv ? "#0B0704" : "#F5F0E8",
-                boxShadow: level === lv ? "0 0 10px rgba(231,76,26,0.5)" : "none",
                 fontFamily: "Cinzel, serif",
                 letterSpacing: "0.08em",
                 fontSize: 13,
@@ -107,25 +103,21 @@ export default function BuildingCalculator() {
             value={building}
             onChange={(e) => setBuilding(e.target.value)}
             data-testid="bina-select"
-            className="w-full rounded appearance-none font-bold uppercase cursor-pointer"
+            className="w-full rounded appearance-none font-bold uppercase cursor-pointer bina-select"
             style={{
-              background: "#1A1210",
-              border: "1px solid #E74C1A",
-              color: "#F5F0E8",
               padding: "12px 40px 12px 14px",
               fontFamily: "Cinzel, serif",
               letterSpacing: "0.06em",
               fontSize: 13,
-              boxShadow: "0 0 8px rgba(231,76,26,0.25) inset",
             }}
           >
             {BUILDINGS.map((b) => (
-              <option key={b.slug} value={b.slug} style={{ background: "#1A1210", color: "#F5F0E8" }}>
+              <option key={b.slug} value={b.slug}>
                 {b.label}
               </option>
             ))}
           </select>
-          <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#F5A623" }} />
+          <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#A855F7" }} />
         </div>
       </div>
 
@@ -135,7 +127,7 @@ export default function BuildingCalculator() {
           <button
             onClick={() => setShowUnitModal(true)}
             data-testid="open-bina-unit-cost-modal"
-            className="px-3 py-1 rounded text-white text-[11px] font-bold flex items-center gap-1"
+            className="px-3 py-1 rounded text-white text-[11px] font-bold flex items-center gap-1 bina-shake-btn"
             style={{ background: "linear-gradient(135deg,#C0392B,#E74C1A)" }}
           >
             <Settings className="w-3 h-3" /> Birim Maliyeti Gir
@@ -345,7 +337,7 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
           type="submit"
           disabled={saving}
           data-testid="save-bina-unit-costs"
-          className="w-full mt-2 py-2.5 rounded-lg text-white font-bold"
+          className="w-full mt-2 py-2.5 rounded-lg text-white font-bold bina-shake-btn"
           style={{ background: "linear-gradient(135deg,#C0392B,#E74C1A)" }}
         >
           {saving ? "Kaydediliyor..." : `${BUILDINGS.find((b) => b.slug === activeBuilding)?.label} • ${activeLevel} Kaydet`}
