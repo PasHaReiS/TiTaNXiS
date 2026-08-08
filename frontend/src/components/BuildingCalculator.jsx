@@ -12,7 +12,7 @@ const LEVELS = ["F9", "F8", "F7", "F6"];
 
 const BUILDINGS = [
   { slug: "komuta_merkezi", label: "Komuta Merkezi" },
-  { slug: "kalkan_kislasi", label: "Kalkan Kışlası" },
+  { slug: "kalkan_kislasi", label: "Kalkanlı Kışlası" },
   { slug: "bombaci_kislasi", label: "Bombacı Kışlası" },
   { slug: "tetikci_kislasi", label: "Tetikçi Kışlası" },
   { slug: "revir", label: "Revir" },
@@ -157,7 +157,7 @@ export default function BuildingCalculator() {
           ].map((it) => (
             <div key={it.label} style={{ minWidth: 120 }}>
               <div className="text-[10px] mb-1 font-bold uppercase tracking-widest" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
-              <div data-testid={it.tid} className="rounded font-bold text-sm" style={{ background: "#1A1210", border: "1px solid #333", color: "#F5A623", padding: "10px 8px", textAlign: "center" }}>
+              <div data-testid={it.tid} className="rounded font-bold text-sm" style={{ background: "#1A1210", border: "1px solid #333", color: "#F5A623", padding: "4px 8px", textAlign: "center" }}>
                 {fmt(it.value)}
               </div>
             </div>
@@ -177,7 +177,7 @@ export default function BuildingCalculator() {
           ].map((it) => (
             <div key={it.label} className="text-center">
               <div className="text-[10px] mb-1" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
-              <div data-testid={it.tid} className="rounded font-bold text-lg" style={{ background: "#1A1210", border: "1px solid #333", color: "#F5A623", padding: "8px 4px" }}>
+              <div data-testid={it.tid} className="rounded font-bold text-lg" style={{ background: "#1A1210", border: "1px solid #333", color: "#F5A623", padding: "3px 4px" }}>
                 {pad2(it.value)}
               </div>
             </div>
