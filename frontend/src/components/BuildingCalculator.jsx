@@ -10,14 +10,14 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
 
 const LEVELS = ["F9", "F8", "F7", "F6"];
 
-const BUILDINGS = [
-  { slug: "komuta_merkezi", label: "Komuta Merkezi" },
-  { slug: "kalkan_kislasi", label: "Kalkanlı Kışlası" },
-  { slug: "bombaci_kislasi", label: "Bombacı Kışlası" },
-  { slug: "tetikci_kislasi", label: "Tetikçi Kışlası" },
-  { slug: "revir", label: "Revir" },
-  { slug: "iletisim_merkezi", label: "İletişim Merkezi" },
-  { slug: "forticlad_lab", label: "Forticlad Laboratuarı" },
+const BUILDING_SLUGS = [
+  "komuta_merkezi",
+  "kalkan_kislasi",
+  "bombaci_kislasi",
+  "tetikci_kislasi",
+  "revir",
+  "iletisim_merkezi",
+  "forticlad_lab",
 ];
 
 const EMPTY_COSTS = {
@@ -43,7 +43,7 @@ export default function BuildingCalculator() {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const [level, setLevel] = useState("F9");
-  const [building, setBuilding] = useState(BUILDINGS[0].slug);
+  const [building, setBuilding] = useState(BUILDING_SLUGS[0]);
   const [showUnitModal, setShowUnitModal] = useState(false);
 
   const category = catFor(building, level);
@@ -62,19 +62,17 @@ export default function BuildingCalculator() {
   const totalSure = n * (unitCosts.sure_saniye || 0);
   const dhms = secondsToDHMS(totalSure);
 
-  const currentBuildingLabel = BUILDINGS.find((b) => b.slug === building)?.label || building;
-
   return (
     <div className="p-1" data-testid="building-calculator">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-bold" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}>
-          Bina Güncelleme
+          {t("bc_title")}
         </h2>
       </div>
 
       {/* Level selector */}
       <div className="mb-4">
-        <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>SEVİYE</label>
+        <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("bc_level")}</label>
         <div className="grid grid-cols-4 gap-2">
           {LEVELS.map((lv) => (
             <button
@@ -97,7 +95,7 @@ export default function BuildingCalculator() {
 
       {/* Building dropdown */}
       <div className="mb-4">
-        <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>BİNA</label>
+        <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("bc_building")}</label>
         <div className="relative">
           <select
             value={building}
@@ -111,9 +109,9 @@ export default function BuildingCalculator() {
               fontSize: 13,
             }}
           >
-            {BUILDINGS.map((b) => (
-              <option key={b.slug} value={b.slug}>
-                {b.label}
+            {BUILDING_SLUGS.map((slug) => (
+              <option key={slug} value={slug}>
+                {t(`bc_b_${slug}`)}
               </option>
             ))}
           </select>
@@ -130,22 +128,22 @@ export default function BuildingCalculator() {
             className="px-3 py-1 rounded text-white text-[11px] font-bold flex items-center gap-1 bina-shake-btn"
             style={{ background: "linear-gradient(135deg,#C0392B,#E74C1A)" }}
           >
-            <Settings className="w-3 h-3" /> Birim Maliyeti Gir
+            <Settings className="w-3 h-3" /> {t("bc_unit_cost_btn")}
           </button>
         </div>
       )}
 
       {/* Total cost — Forticlad/Gelişmiş first row, then resources */}
       <div className="mb-5">
-        <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>TOPLAM MALİYET</label>
+        <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("bc_total_cost")}</label>
         <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
           {[
-            { label: "Forticlad", value: totals.forticlad, tid: "bina-res-forticlad" },
-            { label: "Gelişmiş Forticlad", value: totals.gelismis_forticlad, tid: "bina-res-gelismis" },
-            { label: "Yemek", value: totals.yemek, tid: "bina-res-yemek" },
-            { label: "Çelik", value: totals.celik, tid: "bina-res-celik" },
-            { label: "Odun", value: totals.odun, tid: "bina-res-odun" },
-            { label: "Benzin", value: totals.benzin, tid: "bina-res-benzin" },
+            { label: t("bc_forticlad"), value: totals.forticlad, tid: "bina-res-forticlad" },
+            { label: t("bc_gelismis_forticlad"), value: totals.gelismis_forticlad, tid: "bina-res-gelismis" },
+            { label: t("bc_food"), value: totals.yemek, tid: "bina-res-yemek" },
+            { label: t("bc_steel"), value: totals.celik, tid: "bina-res-celik" },
+            { label: t("bc_wood"), value: totals.odun, tid: "bina-res-odun" },
+            { label: t("bc_gas"), value: totals.benzin, tid: "bina-res-benzin" },
           ].map((it) => (
             <div key={it.label} style={{ minWidth: 120 }}>
               <div className="text-[10px] mb-1 font-bold uppercase tracking-widest" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
@@ -159,13 +157,13 @@ export default function BuildingCalculator() {
 
       {/* Duration */}
       <div className="mb-2">
-        <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>TAHMİNİ SÜRE</label>
+        <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("bc_estimated_time")}</label>
         <div className="grid grid-cols-4 gap-2">
           {[
-            { label: "Gün", value: dhms.gun, tid: "bina-dhms-gun" },
-            { label: "Saat", value: dhms.saat, tid: "bina-dhms-saat" },
-            { label: "Dakika", value: dhms.dakika, tid: "bina-dhms-dakika" },
-            { label: "Saniye", value: dhms.saniye, tid: "bina-dhms-saniye" },
+            { label: t("bc_days"), value: dhms.gun, tid: "bina-dhms-gun" },
+            { label: t("bc_hours"), value: dhms.saat, tid: "bina-dhms-saat" },
+            { label: t("bc_minutes"), value: dhms.dakika, tid: "bina-dhms-dakika" },
+            { label: t("bc_seconds"), value: dhms.saniye, tid: "bina-dhms-saniye" },
           ].map((it) => (
             <div key={it.label} className="text-center">
               <div className="text-[10px] mb-1" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
@@ -181,7 +179,6 @@ export default function BuildingCalculator() {
         <BinaUnitCostModal
           initialBuilding={building}
           initialLevel={level}
-          currentBuildingLabel={currentBuildingLabel}
           onClose={() => setShowUnitModal(false)}
         />
       )}
@@ -190,6 +187,7 @@ export default function BuildingCalculator() {
 }
 
 function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
+  const { t } = useTranslation();
   const [activeBuilding, setActiveBuilding] = useState(initialBuilding);
   const [activeLevel, setActiveLevel] = useState(initialLevel);
   const [state, setState] = useState(EMPTY_COSTS);
@@ -226,8 +224,8 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
         gelismis_forticlad: Number(state.gelismis_forticlad) || 0,
       });
       globalMutate(`/unit-costs/${cat}`);
-      const bLabel = BUILDINGS.find((b) => b.slug === activeBuilding)?.label || activeBuilding;
-      toast.success(`${bLabel} • ${activeLevel} birim maliyeti güncellendi`);
+      const bLabel = t(`bc_b_${activeBuilding}`);
+      toast.success(t("bc_updated", { building: bLabel, level: activeLevel }));
       onClose();
     } catch (e2) {
       toast.error(e2?.response?.data?.detail || e2.message);
@@ -237,13 +235,13 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
   };
 
   const fields = [
-    { key: "yemek", label: "Yemek" },
-    { key: "odun", label: "Odun" },
-    { key: "celik", label: "Çelik" },
-    { key: "benzin", label: "Benzin" },
-    { key: "forticlad", label: "Forticlad" },
-    { key: "gelismis_forticlad", label: "Gelişmiş Forticlad" },
-    { key: "sure_saniye", label: "Süre (saniye)" },
+    { key: "yemek", label: t("bc_food") },
+    { key: "odun", label: t("bc_wood") },
+    { key: "celik", label: t("bc_steel") },
+    { key: "benzin", label: t("bc_gas") },
+    { key: "forticlad", label: t("bc_forticlad") },
+    { key: "gelismis_forticlad", label: t("bc_gelismis_forticlad") },
+    { key: "sure_saniye", label: t("bc_time_seconds") },
   ];
 
   return (
@@ -263,12 +261,12 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
           <X className="w-5 h-5" />
         </button>
         <h3 className="text-lg font-bold mb-3 uppercase" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}>
-          Birim Maliyeti Gir
+          {t("bc_unit_cost_title")}
         </h3>
 
         {/* Building dropdown inside modal */}
         <div className="mb-3">
-          <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A" }}>BİNA</label>
+          <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A" }}>{t("bc_building")}</label>
           <div className="relative">
             <select
               value={activeBuilding}
@@ -284,9 +282,9 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
                 fontSize: 12,
               }}
             >
-              {BUILDINGS.map((b) => (
-                <option key={b.slug} value={b.slug} style={{ background: "#1A1210", color: "#F5F0E8" }}>
-                  {b.label}
+              {BUILDING_SLUGS.map((slug) => (
+                <option key={slug} value={slug} style={{ background: "#1A1210", color: "#F5F0E8" }}>
+                  {t(`bc_b_${slug}`)}
                 </option>
               ))}
             </select>
@@ -296,7 +294,7 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
 
         {/* Level selector inside modal */}
         <div className="mb-4">
-          <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A" }}>SEVİYE</label>
+          <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A" }}>{t("bc_level")}</label>
           <div className="grid grid-cols-4 gap-2">
             {LEVELS.map((lv) => (
               <button
@@ -340,7 +338,7 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
           className="w-full mt-2 py-2.5 rounded-lg text-white font-bold bina-shake-btn"
           style={{ background: "linear-gradient(135deg,#C0392B,#E74C1A)" }}
         >
-          {saving ? "Kaydediliyor..." : `${BUILDINGS.find((b) => b.slug === activeBuilding)?.label} • ${activeLevel} Kaydet`}
+          {saving ? t("bc_saving") : t("bc_save_pattern", { building: t(`bc_b_${activeBuilding}`), level: activeLevel })}
         </button>
       </form>
     </div>
