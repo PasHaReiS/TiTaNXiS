@@ -6,6 +6,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound, Activity } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import LogoVideoModal from "@/components/LogoVideoModal";
 import { LEADERBOARD } from "@/constants/testIds";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -34,6 +35,7 @@ export default function Header({ title }) {
   const nav = useNavigate();
   const loc = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [logoVideoOpen, setLogoVideoOpen] = useState(false);
   const menuRef = useRef(null);
 
   const downloadXlsx = () => {
@@ -69,7 +71,8 @@ export default function Header({ title }) {
             src={BRAND_LOGO_URL}
             alt="Brand"
             data-testid="header-brand-logo"
-            className="flex-1 min-w-0 header-brand-logo"
+            onClick={() => setLogoVideoOpen(true)}
+            className="flex-1 min-w-0 header-brand-logo cursor-pointer"
             style={{ width: "100%", maxWidth: "100%", height: "auto", maxHeight: 120, objectFit: "contain", objectPosition: "left center", borderRadius: 6 }}
           />
         </div>
@@ -220,6 +223,8 @@ export default function Header({ title }) {
           </h2>
         )}
       </div>
+
+      {logoVideoOpen && <LogoVideoModal onClose={() => setLogoVideoOpen(false)} />}
     </header>
   );
 }
