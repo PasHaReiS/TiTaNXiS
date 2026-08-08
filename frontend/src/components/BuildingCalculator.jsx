@@ -44,13 +44,13 @@ export default function BuildingCalculator() {
   const { isAdmin } = useAuth();
   const [level, setLevel] = useState("F9");
   const [building, setBuilding] = useState(BUILDINGS[0].slug);
-  const [adet, setAdet] = useState("");
   const [showUnitModal, setShowUnitModal] = useState(false);
 
   const category = catFor(building, level);
   const { data: unitCosts = EMPTY_COSTS } = useSWR(`/unit-costs/${category}`, fetcher);
 
-  const n = Number(adet) || 0;
+  // Always compute for 1 upgrade → totals equal the unit cost
+  const n = 1;
   const totals = {
     yemek: n * (unitCosts.yemek || 0),
     celik: n * (unitCosts.celik || 0),
@@ -146,32 +146,17 @@ export default function BuildingCalculator() {
         )}
       </div>
 
-      {/* Adet input */}
-      <div className="mb-5">
-        <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>ADET</label>
-        <input
-          type="number"
-          value={adet}
-          onChange={(e) => setAdet(e.target.value)}
-          data-testid="bina-adet-input"
-          placeholder="0"
-          min="0"
-          className="w-full text-2xl font-bold text-center rounded-lg"
-          style={{ background: "#1A1210", border: "1px solid #E74C1A", color: "#F5F0E8", padding: "14px 12px" }}
-        />
-      </div>
-
-      {/* Total cost — 6 resources */}
+      {/* Total cost — Forticlad/Gelişmiş first row, then resources */}
       <div className="mb-5">
         <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>TOPLAM MALİYET</label>
         <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
           {[
+            { label: "Forticlad", value: totals.forticlad, tid: "bina-res-forticlad" },
+            { label: "Gelişmiş Forticlad", value: totals.gelismis_forticlad, tid: "bina-res-gelismis" },
             { label: "Yemek", value: totals.yemek, tid: "bina-res-yemek" },
             { label: "Çelik", value: totals.celik, tid: "bina-res-celik" },
             { label: "Odun", value: totals.odun, tid: "bina-res-odun" },
             { label: "Benzin", value: totals.benzin, tid: "bina-res-benzin" },
-            { label: "Forticlad", value: totals.forticlad, tid: "bina-res-forticlad" },
-            { label: "Gelişmiş Forticlad", value: totals.gelismis_forticlad, tid: "bina-res-gelismis" },
           ].map((it) => (
             <div key={it.label} style={{ minWidth: 120 }}>
               <div className="text-[10px] mb-1 font-bold uppercase tracking-widest" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>

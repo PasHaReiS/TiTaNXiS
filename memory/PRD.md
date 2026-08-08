@@ -18,7 +18,8 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
   - Bina selector switched from horizontal scroll → **dropdown/select** (Stone & Fire styled, ChevronDown affordance).
   - "✏️ Birim Maliyeti Gir" button next to BİRİM MALİYETİ header (admin-only, `data-testid="open-bina-unit-cost-modal"`).
   - Removed the intermediate "Birim Maliyeti display" grid entirely; single **TOPLAM MALİYET** grid with 6 rows: Yemek, Çelik, Odun, Benzin, **Forticlad**, **Gelişmiş Forticlad**.
-  - Removed separate Forticlad + Gelişmiş Forticlad inputs. Single **ADET** input (number of building upgrades) drives all 6 totals: `total_res = adet * unit_cost[res]`.
+  - Removed separate Forticlad + Gelişmiş Forticlad inputs. **ADET input also removed** — totals auto-computed for 1 upgrade (`total = 1 × unit_cost`).
+  - TOPLAM MALİYET row order: (1) Forticlad + Gelişmiş Forticlad side-by-side, (2) Yemek + Çelik, (3) Odun + Benzin.
   - Modal fields: yemek/odun/celik/benzin/**forticlad**/**gelismis_forticlad**/sure_saniye.
   - Backend `UnitCostBody` + GET response extended with `forticlad` + `gelismis_forticlad` (float, default 0). PUT `/api/unit-costs/bina_{slug}_{lvl}` persists all 7 fields.
   - Slug format: `komuta_merkezi`, `kalkan_kislasi`, `bombaci_kislasi`, `tetikci_kislasi`, `revir`, `iletisim_merkezi`, `forticlad_lab`; level lowercase e.g. `f9`.
