@@ -135,16 +135,13 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 See `/app/memory/test_credentials.md`
 
 ## Notes for Next Agent
-- **[2026-02] Widget Reorder (P4 done)**: `WidgetGrid.jsx` her karta HTML5 native drag&drop (`draggable`, `onDragStart/Over/Drop`) eklendi + sol üstte `GripVertical` handle. Bırakıldığında `enabled` array'inde yeni pozisyona splice, `titanxis_widgets_v1` otomatik güncelenir. Dragging kart opacity 0.45. Playwright doğrulama: `[top_member, active_events, ...]` → `[active_events, top_member, ...]` başarılı.
-- **[2026-02] Custom Push Templates (P4 done)**: Yeni `PushBroadcastPanel.jsx` (admin-only, `LiveDashboardPage`'de) 3 input (başlık, açıklama, hedef URL — default `/`) + `Send` butonu → `POST /api/push/broadcast`. Toast `{{sent}} kişiye gönderildi ({{removed}} eski)`. curl doğrulandı: admin 200, pasha 403.
-- **[2026-02] Rally Sayacı Widget (P4 done)**: `WidgetGrid.jsx` yeni 7. widget `rally_countdown` (Timer ikon, kırmızı `#EF4444`). SWR `/events?archived=false` → en yakın gelecek etkinliği bulur; yoksa en son etkinliğe fallback. `useCountdown` hook 1s aralıkla now'ı günceller, `Xg HH:MM:SS` formatında; geçmiş etkinlik `-` prefix. Screenshot'ta `-14G 16:28:11` (Pre 5. Gün) doğrulandı.
-- **[2026-02] Push Notifications (P4 done)**: pywebpush + py-vapid, VAPID mongo'da; `/api/push/{vapid-public-key, subscribe, unsubscribe, broadcast}`.
-- **[2026-02] Offline Mode / SW (P4 done)**: `/public/sw.js` + `index.js` register.
-- **[2026-02] Dashboard Widgets (P4 done)**: `WidgetGrid.jsx` (7 widget, drag-drop, picker, localStorage).
-- **[2026-02] Expand/Collapse All + Persist (P3 done)**: Members grup listesi.
-- **[2026-02] PWA Install Prompt (P4 done)**: `PwaInstallPrompt.jsx` + full manifest.
+- **[2026-02] Push History (P4 done)**: Backend `_broadcast_push` her yayında `db.push_history` içine `{id, title, body, url, tag, sent, removed, created_at}` yazar. `GET /api/push/history` (admin, son 50). Frontend `PushBroadcastPanel` alt kısmına History list + her satırda `RotateCw Tekrar` butonu (aynı payload'la yeniden yayın) eklendi. curl 2 yayın → history 2 satır; pasha 403.
+- **[2026-02] Kişisel İlerleme Widget (P4 done)**: `WidgetGrid` 8. widget `personal_progress` (TrendingUp, `#38BDF8`). SWR `/members/{id}/history` çeker, kullanıcının son 7 günlük puanlarını (points × multiplier) günlük bucket'lara böler; `Sparkline` inline SVG (polyline + noktalar) renderlar. Widget value = 7g toplam (fmtBig), subtitle "Son 7 gün".
+- **[2026-02] Rally Ses Uyarısı (P4 done)**: `WidgetGrid` içinde `useEffect` her nextEvent değişince alertRef yeniden armlanır. Countdown (0, 5min] penceresine girince tek seferlik `playRallyAlert`: `navigator.vibrate([200,100,200,100,400])` + Web Audio 3-nota beep (880→1100→880 Hz, sine, 0.35s aralık). Widget aktif değilse tetiklenmez.
+- **[2026-02] Widget Reorder, Custom Push Templates, Rally Sayacı Widget — önceki turlarda tamamlandı.**
+- **[2026-02] Push Notifications, Offline Mode / SW, Dashboard Widgets, Expand/Collapse All + Persist, PWA Install Prompt — hepsi tamamlandı.**
 - **[2026-02] Ekip Kopyala, Kümülatif Star Maliyeti, Excel Grafik, Rarity Filtresi, Hesap Karşılaştır, Puan Hesaplama Excel Import, Public Share Link, Content History — hepsi tamamlandı.**
-- **YENI ENV**: `backend/requirements.txt` içine `pywebpush`, `py-vapid`, `http-ece` eklendi. VAPID keypair MongoDB `push_config` (id="vapid") auto-generated.
+- **YENI ENV**: `backend/requirements.txt` içine `pywebpush`, `py-vapid`, `http-ece` eklendi. VAPID keypair MongoDB `push_config` (id="vapid") auto-generated. Yeni koleksiyon: `push_history`.
 - Do NOT create random files under `/app/backend/` that trigger uvicorn watchfiles reload cascade (502 crash).
 - Router prefixes: `auth_router` mounted so `/api/auth/login` resolves.
 - REACT_APP_BACKEND_URL is the only correct external URL — never hardcode.

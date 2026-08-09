@@ -3,7 +3,7 @@ import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Crown, Users, Zap, Trophy, Award, Target, Timer, Plus, X, Settings2, GripVertical } from "lucide-react";
+import { Crown, Users, Zap, Trophy, Award, Target, Timer, TrendingUp, Plus, X, Settings2, GripVertical } from "lucide-react";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 const STORAGE_KEY = "titanxis_widgets_v1";
@@ -26,6 +26,7 @@ const WIDGETS = [
   { key: "personal_points", labelKey: "wg_personal_points", icon: Award, color: "#22C55E" },
   { key: "personal_rank", labelKey: "wg_personal_rank", icon: Target, color: "#F97316" },
   { key: "rally_countdown", labelKey: "wg_rally_countdown", icon: Timer, color: "#EF4444" },
+  { key: "personal_progress", labelKey: "wg_personal_progress", icon: TrendingUp, color: "#38BDF8" },
 ];
 
 function useEnabledWidgets() {
@@ -42,7 +43,7 @@ function useEnabledWidgets() {
   return [enabled, setEnabled];
 }
 
-function WidgetCard({ widgetKey, value, subtitle, onRemove, onDragStart, onDragOver, onDrop, dragging, t }) {
+function WidgetCard({ widgetKey, value, subtitle, extra, onRemove, onDragStart, onDragOver, onDrop, dragging, t }) {
   const meta = WIDGETS.find((w) => w.key === widgetKey);
   if (!meta) return null;
   const Icon = meta.icon;
@@ -98,6 +99,7 @@ function WidgetCard({ widgetKey, value, subtitle, onRemove, onDragStart, onDragO
           {subtitle}
         </div>
       )}
+      {extra && <div className="pl-4">{extra}</div>}
     </div>
   );
 }
@@ -128,6 +130,49 @@ function fmtCountdown(diffMs) {
   return past ? `-${core}` : core;
 }
 
+// Play a short beep via WebAudio API + vibrate. Fire only once per event.
+function playRallyAlert() {
+  try {
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+  } catch {}
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const now = ctx.currentTime;
+    [880, 1100, 880].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, now + i * 0.35);
+      gain.gain.exponentialRampToValueAtTime(0.25, now + i * 0.35 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.35 + 0.28);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now + i * 0.35);
+      osc.stop(now + i * 0.35 + 0.3);
+    });
+    setTimeout(() => ctx.close(), 1500);
+  } catch {}
+}
+
+// Sparkline SVG for last-7-days personal points
+function Sparkline({ series, color }) {
+  const vals = series.map((v) => Number(v) || 0);
+  const max = Math.max(1, ...vals);
+  const w = 120, h = 32;
+  const step = vals.length > 1 ? w / (vals.length - 1) : w;
+  const points = vals.map((v, i) => `${(i * step).toFixed(1)},${(h - (v / max) * (h - 4) - 2).toFixed(1)}`).join(" ");
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} data-testid="widget-sparkline" style={{ display: "block", marginTop: 2 }}>
+      <polyline points={points} fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      {vals.map((v, i) => (
+        <circle key={i} cx={(i * step).toFixed(1)} cy={(h - (v / max) * (h - 4) - 2).toFixed(1)} r="1.6" fill={color} />
+      ))}
+    </svg>
+  );
+}
+
 export default function WidgetGrid() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -142,6 +187,29 @@ export default function WidgetGrid() {
     user?.username ? `/members?search=${encodeURIComponent(user.username)}` : null,
     fetcher
   );
+  // Personal progress — daily points for the last 7 days (from /members/{id}/history)
+  const me = Array.isArray(myMember) ? myMember.find((m) => (m.name || "").toLowerCase() === user?.username?.toLowerCase()) : null;
+  const { data: myHistory = [] } = useSWR(me ? `/members/${me.id}/history` : null, fetcher, { refreshInterval: 60000 });
+  const dailySeries = useMemo(() => {
+    const buckets = Array(7).fill(0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startMs = today.getTime() - 6 * 86400000;
+    (myHistory || []).forEach((p) => {
+      const d = p.date ? new Date(p.date) : null;
+      if (!d) return;
+      const dayMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      if (dayMs < startMs || dayMs > today.getTime()) return;
+      const idx = Math.round((dayMs - startMs) / 86400000);
+      const val = (Number(p.points) || 0) * (Number(p.multiplier) || 1);
+      buckets[idx] += val;
+    });
+    return buckets;
+  }, [myHistory]);
+  const progressSum = dailySeries.reduce((a, b) => a + b, 0);
+
+  // Rally sound alert — fire once when countdown enters (0, 5min] window
+  const alertRef = React.useRef({ armed: false, firedFor: null });
 
   // Find the next upcoming event (date in future, closest)
   const nextEvent = useMemo(() => {
@@ -158,9 +226,31 @@ export default function WidgetGrid() {
   }, [events]);
   const countdownMs = useCountdown(nextEvent?.date);
 
+  // Arm alert every time nextEvent changes; fire once when countdown ≤ 5min & > 0.
+  useEffect(() => {
+    if (!nextEvent) return;
+    if (alertRef.current.firedFor !== nextEvent.id) {
+      alertRef.current = { armed: true, firedFor: null };
+    }
+  }, [nextEvent?.id]);
+  useEffect(() => {
+    if (!nextEvent || countdownMs === null) return;
+    const FIVE_MIN = 5 * 60 * 1000;
+    if (
+      alertRef.current.armed &&
+      alertRef.current.firedFor !== nextEvent.id &&
+      countdownMs > 0 &&
+      countdownMs <= FIVE_MIN &&
+      enabled.includes("rally_countdown")
+    ) {
+      playRallyAlert();
+      alertRef.current.firedFor = nextEvent.id;
+      alertRef.current.armed = false;
+    }
+  }, [countdownMs, nextEvent, enabled]);
+
   const values = useMemo(() => {
     const top = lb[0];
-    const me = Array.isArray(myMember) ? myMember.find((m) => (m.name || "").toLowerCase() === user?.username?.toLowerCase()) : null;
     const myRow = me ? lb.find((r) => r.member_id === me.id) : null;
     const myRank = me ? lb.findIndex((r) => r.member_id === me.id) : -1;
     return {
@@ -180,8 +270,13 @@ export default function WidgetGrid() {
         value: fmtCountdown(countdownMs),
         subtitle: nextEvent ? nextEvent.name : t("wg_no_event"),
       },
+      personal_progress: {
+        value: me ? fmtBig(progressSum) : "—",
+        subtitle: me ? t("wg_progress_7d") : t("wg_personal_hint"),
+        extra: me ? <Sparkline series={dailySeries} color="#38BDF8" /> : null,
+      },
     };
-  }, [stats, lb, myMember, user, t, nextEvent, countdownMs]);
+  }, [stats, lb, me, t, nextEvent, countdownMs, progressSum, dailySeries]);
 
   const available = WIDGETS.filter((w) => !enabled.includes(w.key));
 
@@ -253,6 +348,7 @@ export default function WidgetGrid() {
             widgetKey={key}
             value={values[key]?.value ?? "—"}
             subtitle={values[key]?.subtitle}
+            extra={values[key]?.extra}
             onRemove={() => setEnabled(enabled.filter((k) => k !== key))}
             onDragStart={setDragging}
             onDragOver={setDragOver}

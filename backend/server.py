@@ -2237,6 +2237,13 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
     private_pem, _ = await _get_or_create_vapid()
     subs = await db.push_subscriptions.find({}, {"_id": 0}).to_list(1000)
     if not subs:
+        # Still record empty broadcast in history so admins can re-send
+        await db.push_history.insert_one({
+            "id": str(uuid.uuid4()),
+            "title": title, "body": body, "url": url, "tag": tag,
+            "sent": 0, "removed": 0,
+            "created_at": now_iso(),
+        })
         return {"sent": 0, "removed": 0}
     payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag}, ensure_ascii=False)
     sent = 0
@@ -2257,7 +2264,20 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
                 removed += 1
         except Exception:
             pass
+    # Persist history
+    await db.push_history.insert_one({
+        "id": str(uuid.uuid4()),
+        "title": title, "body": body, "url": url, "tag": tag,
+        "sent": sent, "removed": removed,
+        "created_at": now_iso(),
+    })
     return {"sent": sent, "removed": removed}
+
+
+@api_router.get("/push/history")
+async def push_history(_: dict = Depends(require_admin)):
+    cursor = db.push_history.find({}, {"_id": 0}).sort("created_at", -1).limit(50)
+    return await cursor.to_list(50)
 
 
 class PushBroadcastBody(BaseModel):

@@ -530,6 +530,8 @@ const tr = {
   wg_personal_hint: "Kullanıcı adın üye listesinde eşleşmeli",
   wg_rally_countdown: "Ralli Sayacı",
   wg_no_event: "Aktif etkinlik yok",
+  wg_personal_progress: "Kişisel İlerleme",
+  wg_progress_7d: "Son 7 gün",
   push_bc_title: "Duyuru Gönder",
   push_bc_title_placeholder: "Bildirim başlığı",
   push_bc_body_placeholder: "Kısa açıklama...",
@@ -538,6 +540,9 @@ const tr = {
   push_bc_sending: "Gönderiliyor...",
   push_bc_required: "Başlık ve açıklama gerekli",
   push_bc_sent: "{{sent}} kişiye gönderildi ({{removed}} eski)",
+  push_bc_sent_short: "{{sent}} gönderim",
+  push_bc_history: "Gönderim Geçmişi",
+  push_bc_resend: "Tekrar",
   bc_updated: "{{building}} • {{level}} birim maliyeti güncellendi",
 };
 
@@ -1033,6 +1038,8 @@ const en = {
   wg_personal_hint: "Username must match a member",
   wg_rally_countdown: "Rally Countdown",
   wg_no_event: "No active event",
+  wg_personal_progress: "Personal Progress",
+  wg_progress_7d: "Last 7 days",
   push_bc_title: "Send Announcement",
   push_bc_title_placeholder: "Notification title",
   push_bc_body_placeholder: "Short description...",
@@ -1041,6 +1048,9 @@ const en = {
   push_bc_sending: "Sending...",
   push_bc_required: "Title and body required",
   push_bc_sent: "Sent to {{sent}} ({{removed}} stale)",
+  push_bc_sent_short: "{{sent}} sent",
+  push_bc_history: "Broadcast History",
+  push_bc_resend: "Resend",
 };
 
 const ru = {
