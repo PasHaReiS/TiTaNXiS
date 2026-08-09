@@ -135,14 +135,12 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 See `/app/memory/test_credentials.md`
 
 ## Notes for Next Agent
-- **[2026-02] Push Şablonları (P4 done)**: Backend `db.push_templates` + `GET/POST /api/push/templates`, `DELETE /api/push/templates/{id}` (admin). Frontend `PushBroadcastPanel` üstünde mor chip strip `push-templates-strip` — tıklayınca `title/body/url` inputlarına yükler, yanında `Trash2` delete. Alt tarafta `Şablon Olarak Kaydet` toggle → şablon adı input + Save. curl E2E doğrulandı (CRUD + non-admin 403).
-- **[2026-02] Sparkline Detay Popup (P4 done)**: `WidgetCard`'a `onClick` prop; personal_progress widget clickable (cursor:pointer). `ProgressDetailModal` — max-w-xl mor 7-day bar chart (SVG bars + günlük değer etiketleri + tarih), altta 7 kart daily breakdown. Ana Card'a `onClick` içinde `e.target.closest("button")` guard var (X/drag butonları modalı açmasın diye).
-- **[2026-02] Alliance Snapshot Widget (P4 done)**: 9. widget `alliance_snapshot` (Shield ikon, altın `#EAB308`). SWR `/leaderboard` alliance_name'e göre client-side aggregate; kullanıcının alliance'ında sıralama, toplam puan (fmtBig), üye sayısı — value `#N`, subtitle `Alliance · TotalBig · Count üye`.
-- **[2026-02] Push History (P4 done)**: `db.push_history` + resend buton.
-- **[2026-02] Kişisel İlerleme Widget (P4 done)**: Sparkline SVG.
-- **[2026-02] Rally Ses Uyarısı (P4 done)**: Web Audio 3-nota beep + vibrate.
-- **[2026-02] Push Notifications, Offline Mode / SW, Dashboard Widgets, Widget Reorder, Custom Push Templates, Rally Sayacı Widget — hepsi tamamlandı.**
-- **[2026-02] Ekip Kopyala, Kümülatif Star Maliyeti, Excel Grafik, Rarity Filtresi, Hesap Karşılaştır, Puan Hesaplama Excel Import, Public Share Link, Content History, PWA Install, Expand/Collapse All + Persist — hepsi tamamlandı.**
+- **[2026-02] Zamanlanmış Push (P4 done)**: Backend `PushScheduledBody` model + `GET/POST /api/push/scheduled` + `DELETE /api/push/scheduled/{id}` (admin). `db.push_scheduled` collection'a `{id, title, body, url, scheduled_at, sent, created_at}`. Server startup'ta `asyncio.create_task(_push_scheduler_loop())` başlatılır — her 60s'de `sent:false && scheduled_at<=now` doc'ları bulup `_broadcast_push` çağırır ve `sent:true, sent_at` işaretler. Frontend `PushBroadcastPanel` içine `datetime-local` input + Gönder butonu şart olduğunda "Zamanla" gradientine döner. Alt panelde "Zamanlanmış Duyurular" listesi + iptal butonu. curl E2E: past schedule 65s sonra `history` yazdı, non-admin 403.
+- **[2026-02] Günün Etkinliği Widget (P4 done)**: `todays_event` widget (Flame, kırmızı). Bugünkü tarihe düşen event'lere göre `value=name, subtitle=HH:MM · group`. `striped:true` flag ile `WidgetCard`'a 45° kırmızı repeating-linear-gradient uygulanır — vurgulu görsel imza.
+- **[2026-02] Alliance Top 3 Widget (P4 done)**: `alliance_top3` (Medal, amber). Kullanıcının ittifak_name'inde leaderboard filter → ilk 3 üye. Extra JSX renderı: her satır medallion renkli (altın/gümüş/bronz) rounded chip + isim initial + puan (fmtBig). Empty state graceful.
+- **[2026-02] Push Şablonları, Sparkline Detay Popup, Alliance Snapshot, Push History, Kişisel İlerleme, Rally Ses Uyarısı, Widget Reorder, Custom Push Templates, Rally Sayacı Widget — hepsi önceki turlarda tamamlandı.**
+- **[2026-02] Push Notifications, Offline Mode / SW, Dashboard Widgets (şu an 11), PWA Install, Expand/Collapse All + Persist, Ekip Kopyala, Kümülatif Star Maliyeti, Excel Grafik, Rarity Filtresi, Hesap Karşılaştır, Puan Hesaplama Excel Import, Public Share Link, Content History — hepsi tamamlandı.**
+- **YENI ENV**: `backend/requirements.txt` → pywebpush, py-vapid, http-ece. VAPID keypair MongoDB `push_config` (id="vapid"). Koleksiyonlar: `push_config`, `push_subscriptions`, `push_history`, `push_templates`, `push_scheduled`.
 - Do NOT create random files under `/app/backend/` that trigger uvicorn watchfiles reload cascade (502 crash).
 - Router prefixes: `auth_router` mounted so `/api/auth/login` resolves.
 - REACT_APP_BACKEND_URL is the only correct external URL — never hardcode.

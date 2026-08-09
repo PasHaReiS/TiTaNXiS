@@ -3,7 +3,7 @@ import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
-import { Send, BellRing, RotateCw, History, Bookmark, Trash2, Plus } from "lucide-react";
+import { Send, BellRing, RotateCw, History, Bookmark, Trash2, Plus, Clock, Calendar } from "lucide-react";
 import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -17,8 +17,10 @@ export default function PushBroadcastPanel() {
   const [busy, setBusy] = useState(false);
   const [tplName, setTplName] = useState("");
   const [showSave, setShowSave] = useState(false);
+  const [scheduleAt, setScheduleAt] = useState("");
   const { data: history = [], mutate: refreshHistory } = useSWR(isAdmin ? "/push/history" : null, fetcher, { refreshInterval: 20000 });
   const { data: templates = [], mutate: refreshTpl } = useSWR(isAdmin ? "/push/templates" : null, fetcher);
+  const { data: scheduled = [], mutate: refreshScheduled } = useSWR(isAdmin ? "/push/scheduled" : null, fetcher, { refreshInterval: 30000 });
   if (!isAdmin) return null;
 
   const doSend = async (payload) => {
@@ -36,8 +38,26 @@ export default function PushBroadcastPanel() {
 
   const send = async () => {
     if (!title.trim() || !body.trim()) { toast.error(t("push_bc_required")); return; }
+    if (scheduleAt) {
+      try {
+        const iso = new Date(scheduleAt).toISOString();
+        await api.post("/push/scheduled", { title: title.trim(), body: body.trim(), url: url.trim() || "/", scheduled_at: iso });
+        toast.success(t("push_sched_created", { at: new Date(scheduleAt).toLocaleString() }));
+        setTitle(""); setBody(""); setScheduleAt("");
+        refreshScheduled();
+      } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
+      return;
+    }
     const ok = await doSend({ title: title.trim(), body: body.trim(), url: url.trim() || "/", tag: "manual-broadcast" });
     if (ok) { setTitle(""); setBody(""); }
+  };
+
+  const cancelScheduled = async (id) => {
+    try {
+      await api.delete(`/push/scheduled/${id}`);
+      toast.success(t("push_sched_cancelled"));
+      refreshScheduled();
+    } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
   };
 
   const resend = (h) => doSend({ title: h.title, body: h.body, url: h.url || "/", tag: h.tag || "manual-broadcast" });
@@ -139,6 +159,31 @@ export default function PushBroadcastPanel() {
           className="w-full rounded px-3 py-2 text-xs mono"
           style={{ background: "#1A1210", border: "1px solid rgba(255,255,255,0.12)", color: "#F5F0E8" }}
         />
+        <div className="flex items-center gap-1.5">
+          <label className="text-[10px] uppercase tracking-widest flex items-center gap-1" style={{ color: "#A855F7" }}>
+            <Clock className="w-3 h-3" /> {t("push_sched_when")}:
+          </label>
+          <input
+            type="datetime-local"
+            value={scheduleAt}
+            onChange={(e) => setScheduleAt(e.target.value)}
+            data-testid="push-sched-at"
+            className="flex-1 rounded px-2 py-1.5 text-xs mono"
+            style={{ background: "#1A1210", border: "1px solid rgba(168,85,247,0.4)", color: "#F5F0E8", colorScheme: "dark" }}
+          />
+          {scheduleAt && (
+            <button
+              type="button"
+              onClick={() => setScheduleAt("")}
+              data-testid="push-sched-clear"
+              className="px-2 py-1.5 rounded text-[10px]"
+              style={{ background: "#1A1210", color: "#F5F0E8", opacity: 0.6 }}
+              title={t("cancel")}
+            >
+              ×
+            </button>
+          )}
+        </div>
         <div className="flex items-center justify-end gap-2 flex-wrap">
           {showSave ? (
             <div className="flex items-center gap-1.5 flex-1 min-w-0" data-testid="push-tpl-save-row">
@@ -192,12 +237,54 @@ export default function PushBroadcastPanel() {
             disabled={busy}
             data-testid="push-bc-send"
             className="px-4 py-2 rounded-lg text-white text-xs font-bold flex items-center gap-1.5"
-            style={{ background: "linear-gradient(135deg,#7C3AED,#3B82F6)", opacity: busy ? 0.6 : 1 }}
+            style={{ background: scheduleAt ? "linear-gradient(135deg,#A855F7,#EC4899)" : "linear-gradient(135deg,#7C3AED,#3B82F6)", opacity: busy ? 0.6 : 1 }}
           >
-            <Send className="w-3 h-3" /> {busy ? t("push_bc_sending") : t("push_bc_send")}
+            {scheduleAt ? <Calendar className="w-3 h-3" /> : <Send className="w-3 h-3" />}
+            {busy ? t("push_bc_sending") : (scheduleAt ? t("push_sched_submit") : t("push_bc_send"))}
           </button>
         </div>
       </div>
+
+      {scheduled.length > 0 && (
+        <div className="mt-4 pt-3" style={{ borderTop: "1px solid rgba(236,72,153,0.25)" }} data-testid="push-scheduled-list">
+          <div className="flex items-center gap-2 mb-2">
+            <Calendar className="w-3.5 h-3.5" style={{ color: "#EC4899" }} />
+            <div className="text-[10px] font-bold uppercase" style={{ color: "#EC4899", letterSpacing: "0.08em" }}>
+              {t("push_sched_pending")} ({scheduled.length})
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
+            {scheduled.map((s) => (
+              <div
+                key={s.id}
+                data-testid={`push-sched-${s.id}`}
+                className="flex items-center justify-between gap-2 p-2 rounded"
+                style={{ background: "rgba(20,12,10,0.6)", border: "1px solid rgba(236,72,153,0.2)" }}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold truncate" style={{ color: "#F5F0E8" }}>{s.title}</div>
+                  <div className="text-[10px] truncate" style={{ color: "#F5F0E8", opacity: 0.6 }}>{s.body}</div>
+                  <div className="text-[10px] mt-0.5 flex items-center gap-2" style={{ color: "#EC4899" }}>
+                    <Clock className="w-3 h-3" />
+                    <span>{new Date(s.scheduled_at).toLocaleString()}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => cancelScheduled(s.id)}
+                  data-testid={`push-sched-cancel-${s.id}`}
+                  className="p-1 rounded flex-shrink-0"
+                  style={{ background: "#3B1F1B", color: "#f87171", border: "1px solid rgba(220,38,38,0.35)" }}
+                  aria-label={t("cancel")}
+                  title={t("cancel")}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {history.length > 0 && (
         <div className="mt-4 pt-3" style={{ borderTop: "1px solid rgba(168,85,247,0.25)" }} data-testid="push-history-list">

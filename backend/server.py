@@ -2314,6 +2314,73 @@ async def push_template_delete(tpl_id: str, _: dict = Depends(require_admin)):
     return {"deleted": r.deleted_count}
 
 
+class PushScheduledBody(BaseModel):
+    title: str
+    body: str
+    url: Optional[str] = "/"
+    scheduled_at: str  # ISO8601 with tz
+
+
+@api_router.get("/push/scheduled")
+async def push_scheduled_list(_: dict = Depends(require_admin)):
+    cursor = db.push_scheduled.find({"sent": False}, {"_id": 0}).sort("scheduled_at", 1).limit(100)
+    return await cursor.to_list(100)
+
+
+@api_router.post("/push/scheduled")
+async def push_scheduled_create(body: PushScheduledBody, _: dict = Depends(require_admin)):
+    from datetime import datetime as _dt
+    try:
+        _dt.fromisoformat(body.scheduled_at.replace("Z", "+00:00"))
+    except Exception:
+        raise HTTPException(400, "invalid scheduled_at (must be ISO8601)")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "title": body.title.strip(),
+        "body": body.body.strip(),
+        "url": (body.url or "/").strip(),
+        "scheduled_at": body.scheduled_at,
+        "sent": False,
+        "created_at": now_iso(),
+    }
+    await db.push_scheduled.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.delete("/push/scheduled/{sch_id}")
+async def push_scheduled_delete(sch_id: str, _: dict = Depends(require_admin)):
+    r = await db.push_scheduled.delete_one({"id": sch_id})
+    return {"deleted": r.deleted_count}
+
+
+async def _push_scheduler_loop():
+    """Background loop: every 60s, dispatch any due scheduled push broadcasts."""
+    import asyncio
+    from datetime import datetime as _dt, timezone as _tz
+    while True:
+        try:
+            now = _dt.now(_tz.utc)
+            cursor = db.push_scheduled.find({"sent": False})
+            async for doc in cursor:
+                try:
+                    when = _dt.fromisoformat(doc["scheduled_at"].replace("Z", "+00:00"))
+                except Exception:
+                    continue
+                if when <= now:
+                    await _broadcast_push(doc["title"], doc["body"], doc.get("url", "/"), tag=f"scheduled-{doc['id']}")
+                    await db.push_scheduled.update_one({"id": doc["id"]}, {"$set": {"sent": True, "sent_at": now_iso()}})
+        except Exception as ex:
+            logger.warning(f"scheduler loop error: {ex}")
+        await asyncio.sleep(60)
+
+
+@app.on_event("startup")
+async def _start_push_scheduler():
+    import asyncio
+    asyncio.create_task(_push_scheduler_loop())
+
+
 class PushBroadcastBody(BaseModel):
     title: str
     body: str

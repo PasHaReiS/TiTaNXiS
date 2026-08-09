@@ -3,7 +3,7 @@ import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Crown, Users, Zap, Trophy, Award, Target, Timer, TrendingUp, Shield, Plus, X, Settings2, GripVertical } from "lucide-react";
+import { Crown, Users, Zap, Trophy, Award, Target, Timer, TrendingUp, Shield, Flame, Medal, Plus, X, Settings2, GripVertical } from "lucide-react";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 const STORAGE_KEY = "titanxis_widgets_v1";
@@ -28,6 +28,8 @@ const WIDGETS = [
   { key: "rally_countdown", labelKey: "wg_rally_countdown", icon: Timer, color: "#EF4444" },
   { key: "personal_progress", labelKey: "wg_personal_progress", icon: TrendingUp, color: "#38BDF8" },
   { key: "alliance_snapshot", labelKey: "wg_alliance_snapshot", icon: Shield, color: "#EAB308" },
+  { key: "todays_event", labelKey: "wg_todays_event", icon: Flame, color: "#DC2626" },
+  { key: "alliance_top3", labelKey: "wg_alliance_top3", icon: Medal, color: "#F59E0B" },
 ];
 
 function useEnabledWidgets() {
@@ -305,8 +307,54 @@ export default function WidgetGrid() {
           subtitle: my ? `${aName} · ${fmtBig(my.total)} · ${my.count} ${t("wg_members_short")}` : aName,
         };
       })(),
+      todays_event: (() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const endOfToday = today.getTime() + 86400000;
+        const active = (events || []).filter((e) => {
+          if (!e.date) return false;
+          const ts = new Date(e.date).getTime();
+          return ts >= today.getTime() && ts < endOfToday;
+        });
+        if (active.length === 0) return { value: t("wg_todays_none"), subtitle: t("wg_todays_none_hint"), striped: true };
+        const ev = active[0];
+        const t2 = new Date(ev.date);
+        const timeStr = `${String(t2.getHours()).padStart(2, "0")}:${String(t2.getMinutes()).padStart(2, "0")}`;
+        return { value: ev.name, subtitle: `${timeStr} · ${ev.group_name || "—"}`, striped: true };
+      })(),
+      alliance_top3: (() => {
+        const aName = me?.alliance_name;
+        if (!aName) return { value: "—", subtitle: t("wg_personal_hint") };
+        const top = (lb || []).filter((r) => r.alliance_name === aName).slice(0, 3);
+        if (top.length === 0) return { value: aName, subtitle: t("wg_no_data") };
+        return {
+          value: aName,
+          subtitle: t("wg_top3_subtitle"),
+          extra: (
+            <div className="flex flex-col gap-1 mt-1" data-testid="widget-alliance-top3-list">
+              {top.map((m, i) => {
+                const medal = ["#F5A623", "#C0C0C0", "#CD7F32"][i] || "#F5A623";
+                const initials = (m.name || "?").slice(0, 2).toUpperCase();
+                return (
+                  <div key={m.member_id} className="flex items-center gap-1.5 rounded px-1.5 py-0.5"
+                    style={{ background: `${medal}18`, border: `1px solid ${medal}55` }}>
+                    <span className="flex items-center justify-center rounded-full font-bold flex-shrink-0"
+                      style={{ width: 18, height: 18, background: medal, color: "#0B0704", fontSize: 9 }}>
+                      {initials}
+                    </span>
+                    <span className="text-[10px] font-bold truncate flex-1" style={{ color: "#F5F0E8" }}>{m.name}</span>
+                    <span className="text-[10px] font-bold" style={{ color: medal, fontVariantNumeric: "tabular-nums" }}>
+                      {fmtBig(m.total_points)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ),
+        };
+      })(),
     };
-  }, [stats, lb, me, t, nextEvent, countdownMs, progressSum, dailySeries]);
+  }, [stats, lb, me, t, nextEvent, countdownMs, progressSum, dailySeries, events]);
 
   const available = WIDGETS.filter((w) => !enabled.includes(w.key));
 
@@ -379,6 +427,7 @@ export default function WidgetGrid() {
             value={values[key]?.value ?? "—"}
             subtitle={values[key]?.subtitle}
             extra={values[key]?.extra}
+            striped={values[key]?.striped}
             onClick={values[key]?.onClick}
             onRemove={() => setEnabled(enabled.filter((k) => k !== key))}
             onDragStart={setDragging}
