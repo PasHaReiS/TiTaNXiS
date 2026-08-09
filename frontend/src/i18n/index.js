@@ -671,6 +671,8 @@ const tr = {
   push_test_sound_victory: "Zafer",
   push_test_sound_dungeon: "Zindan",
   push_test_sound_alarm: "Alarm",
+  push_tpl_change_sound: "Sesi Değiştir",
+  push_tpl_sound_updated: "Şablon sesi güncellendi",
   push_test_user_search_placeholder: "Üye ara…",
   push_test_user_no_match: "Eşleşen üye yok",
   push_test_user_more_hint: "+{{n}} daha · yazarak filtrele",

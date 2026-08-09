@@ -66,6 +66,28 @@ export default function PushBroadcastPanel() {
   useEffect(() => {
     try { localStorage.setItem(SOUND_PREF_KEY, testSoundKey); } catch {}
   }, [testSoundKey]);
+  const [tplSoundFilter, setTplSoundFilter] = useState("all");
+  const [chipCtx, setChipCtx] = useState(null); // { id, x, y }
+  useEffect(() => {
+    if (!chipCtx) return;
+    const close = () => setChipCtx(null);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+    return () => { document.removeEventListener("mousedown", close); };
+  }, [chipCtx]);
+  const changeTplSound = async (tplId, newSound) => {
+    try {
+      await api.patch(`/push/templates/${tplId}/sound`, { sound: newSound });
+      toast.success(t("push_tpl_sound_updated"));
+      setChipCtx(null);
+      refreshTpl();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    }
+  };
+  const visibleTemplates = (tplSoundFilter === "all")
+    ? templates
+    : templates.filter((tt) => ((tt.sound && SOUND_COLORS[tt.sound]) ? tt.sound : "rally") === tplSoundFilter);
   const testUserRef = React.useRef(null);
   const testAudioRef = React.useRef(null);
   const [audioBusy, setAudioBusy] = useState(false);
@@ -340,11 +362,42 @@ export default function PushBroadcastPanel() {
             <span className="text-[10px] uppercase tracking-widest opacity-70" style={{ color: "#A855F7" }}>
               <Bookmark className="w-3 h-3 inline" /> {t("push_tpl_favorites")}:
             </span>
-            {templates.map((tpl) => {
+            <div className="flex gap-0.5 items-center" data-testid="push-tpl-filter-strip">
+              {["all", "rally", "victory", "dungeon", "alarm"].map((k) => {
+                const active = tplSoundFilter === k;
+                const color = k === "all" ? "#A855F7" : SOUND_COLORS[k];
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setTplSoundFilter(k)}
+                    data-testid={`push-tpl-filter-${k}`}
+                    aria-pressed={active}
+                    title={k === "all" ? t("push_tpl_cat_all") : t(`push_test_sound_${k}`)}
+                    className="rounded-full flex items-center justify-center transition-opacity"
+                    style={{
+                      width: active ? 18 : 14, height: active ? 18 : 14,
+                      background: active ? color : `${color}40`,
+                      border: `1px solid ${color}`,
+                      boxShadow: active ? `0 0 6px ${color}` : "none",
+                      opacity: active ? 1 : 0.75,
+                    }}
+                  >
+                    {k === "all" && <span className="text-[8px] font-bold" style={{ color: active ? "#0B0704" : color }}>·</span>}
+                  </button>
+                );
+              })}
+            </div>
+            {visibleTemplates.map((tpl) => {
               const soundKey = (tpl.sound && SOUND_COLORS[tpl.sound]) ? tpl.sound : "rally";
               const soundColor = SOUND_COLORS[soundKey];
               return (
-              <div key={tpl.id} className="flex items-center gap-0.5" data-testid={`push-tpl-${tpl.id}`}>
+              <div
+                key={tpl.id}
+                className="flex items-center gap-0.5 relative"
+                data-testid={`push-tpl-${tpl.id}`}
+                onContextMenu={(e) => { e.preventDefault(); setChipCtx({ id: tpl.id, currentSound: soundKey }); }}
+              >
                 <button
                   type="button"
                   onClick={() => applyTemplate(tpl)}
@@ -381,6 +434,48 @@ export default function PushBroadcastPanel() {
                 >
                   <Trash2 className="w-2.5 h-2.5" />
                 </button>
+                {chipCtx?.id === tpl.id && (
+                  <div
+                    data-testid={`push-tpl-ctx-${tpl.id}`}
+                    className="absolute z-30 rounded-lg p-1.5 flex flex-col gap-0.5"
+                    style={{
+                      top: "100%",
+                      left: 0,
+                      marginTop: 4,
+                      minWidth: 140,
+                      background: "rgba(15,10,8,0.98)",
+                      border: "1px solid rgba(168,85,247,0.4)",
+                      boxShadow: "0 6px 20px rgba(0,0,0,0.65)",
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <div className="text-[9px] uppercase font-bold px-1 py-0.5" style={{ color: "#A855F7", letterSpacing: "0.08em" }}>
+                      {t("push_tpl_change_sound")}
+                    </div>
+                    {["rally", "victory", "dungeon", "alarm"].map((k) => {
+                      const c = SOUND_COLORS[k];
+                      const cur = soundKey === k;
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => changeTplSound(tpl.id, k)}
+                          data-testid={`push-tpl-ctx-${tpl.id}-${k}`}
+                          className="text-[10px] font-bold uppercase flex items-center gap-1.5 px-1.5 py-1 rounded hover:opacity-90"
+                          style={{
+                            background: cur ? `${c}30` : "transparent",
+                            color: cur ? c : "#F5F0E8",
+                            letterSpacing: "0.05em",
+                          }}
+                        >
+                          <span className="rounded-full" style={{ width: 8, height: 8, background: c, boxShadow: `0 0 4px ${c}` }} />
+                          {t(`push_test_sound_${k}`)}
+                          {cur && <span className="ml-auto text-[9px]">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );})}
           </div>

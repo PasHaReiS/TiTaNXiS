@@ -13,6 +13,11 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Kart Ses Değiştir + Kart Rozet Filtresi — DONE**:
+  - **Backend**: New `PATCH /api/push/templates/{id}/sound` endpoint (admin-only) — accepts `{sound}`, validates against the same 4-key whitelist, returns 400 on invalid input. E2E via curl: `dungeon` accepted, `bogus` rejected.
+  - **Kart Ses Değiştir**: Right-click / long-press context menu on any saved-template chip. Menu (`push-tpl-ctx-{id}`) shows the 4 sound options with color dots; the current sound is highlighted with a `✓`. Clicking calls the PATCH endpoint, refreshes the strip, and toasts "Şablon sesi güncellendi". Outside-click / Escape closes the menu.
+  - **Kart Rozet Filtresi**: Added a compact color-chip strip (`push-tpl-filter-strip`) between the "ŞABLONLAR:" label and the template chips. 5 chips: All (purple), Rally, Victory, Dungeon, Alarm. Active chip gets an outer glow + larger size; inactive chips render as small tinted circles. `visibleTemplates` filters `templates` by the selected sound.
+
 - **[2026-02] Kart Ses Rozeti + Şablondan Otomatik Ses Preview — DONE**:
   - **Kart Ses Rozeti**: Each saved template card in the `push-templates-strip` now renders a 7×7 colored glow dot to the left of its name — **rally** = `#E74C1A` (orange), **victory** = `#22C55E` (green), **dungeon** = `#A855F7` (purple), **alarm** = `#F5A623` (amber). Missing/unknown sound falls back to `rally`. Testid `push-tpl-sound-dot-{id}`; hover title translates to the sound label. `SOUND_COLORS` constant centralizes the mapping.
   - **Şablondan Otomatik Ses Preview**: `applyTemplate(tpl)` now also calls `setTestSoundKey(tpl.sound)` when the incoming template carries a valid saved sound. Because the picker is a controlled `<select>` bound to `testSoundKey`, opening the detail modal (or firing "Ses Dene") immediately reflects the template's saved cue. Combined with `titanxis_push_test_sound_v1` persistence, admins always land on the right sound.

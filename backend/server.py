@@ -2345,6 +2345,21 @@ async def push_template_delete(tpl_id: str, _: dict = Depends(require_admin)):
     return {"deleted": r.deleted_count}
 
 
+class PushTemplateSoundBody(BaseModel):
+    sound: str
+
+
+@api_router.patch("/push/templates/{tpl_id}/sound")
+async def push_template_update_sound(tpl_id: str, body: PushTemplateSoundBody, _: dict = Depends(require_admin)):
+    sound = (body.sound or "").strip().lower()
+    if sound not in {"rally", "victory", "dungeon", "alarm"}:
+        raise HTTPException(status_code=400, detail="invalid sound")
+    r = await db.push_templates.update_one({"id": tpl_id}, {"$set": {"sound": sound}})
+    if r.matched_count == 0:
+        raise HTTPException(status_code=404, detail="template not found")
+    return {"id": tpl_id, "sound": sound}
+
+
 class PushScheduledBody(BaseModel):
     title: str
     body: str
