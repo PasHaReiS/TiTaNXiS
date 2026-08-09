@@ -553,6 +553,16 @@ export default function WidgetGrid() {
   const [selected, setSelected] = useState([]);
   const [draggingGroup, setDraggingGroup] = useState(null);
   const [chipMenuOpen, setChipMenuOpen] = useState(null);
+  const chipStripRef = React.useRef(null);
+  useEffect(() => {
+    if (!chipMenuOpen) return;
+    const onDocClick = (e) => {
+      const strip = chipStripRef.current;
+      if (strip && !strip.contains(e.target)) setChipMenuOpen(null);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [chipMenuOpen]);
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 8000 });
   const { data: lb = [] } = useSWR("/leaderboard", fetcher, { refreshInterval: 8000 });
   const { data: events = [] } = useSWR("/events?archived=false", fetcher, { refreshInterval: 30000 });
@@ -1044,6 +1054,7 @@ export default function WidgetGrid() {
         <div
           className="flex flex-wrap gap-1.5 mb-2 px-0.5"
           data-testid="widget-group-nav"
+          ref={chipStripRef}
         >
           <div className="text-[9px] font-bold uppercase self-center mr-1" style={{ color: "#8B7355", letterSpacing: "0.1em" }}>
             {t("wg_group_nav")}:

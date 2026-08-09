@@ -8,6 +8,19 @@ import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
+const CURATED_TEMPLATES = [
+  { key: "rally_15",   name: "Rally 15dk",         title: "⚔️ Rally 15 dakika sonra!",       body: "Kaleye toplan, buff'ları hazırla.",                       url: "/etkinlikler" },
+  { key: "rally_now",  name: "Rally Başladı",       title: "⚔️ Rally başladı!",                body: "Hemen katıl — kilit anındayız.",                          url: "/etkinlikler" },
+  { key: "new_event",  name: "Yeni Etkinlik",       title: "🏆 Yeni etkinlik başladı",         body: "Puan kaçırma — hemen katıl.",                             url: "/etkinlikler" },
+  { key: "duel_start", name: "Duello Başladı",      title: "🥊 Duello başladı!",               body: "Rakibi seç ve hasar yapmaya başla.",                      url: "/etkinlikler" },
+  { key: "svs_final",  name: "SvS Finali",          title: "🏰 SvS finali sonuna 2 saat",     body: "Son puanları topla, sıralamada üste tırman.",             url: "/etkinlikler" },
+  { key: "new_season", name: "Yeni Sezon",          title: "🌟 Yeni sezon açıldı",             body: "Yeni ödüller ve haritalar seni bekliyor.",                url: "/" },
+  { key: "boss_spawn", name: "Boss Doğdu",          title: "🐉 Dünya bossu doğdu",             body: "İttifak, buluşma noktasına — hasar yarışı başlasın!",     url: "/" },
+  { key: "reward",     name: "Ödül Dağıtıldı",       title: "🎁 Ödüller postana düştü",         body: "Postaneyi kontrol et ve ödülleri topla.",                 url: "/" },
+  { key: "signup_end", name: "Kayıt Sonu",           title: "⏰ Kayıt süresi bitiyor",          body: "Son 30 dakika — hemen kaydını tamamla.",                  url: "/etkinlikler" },
+  { key: "maint",      name: "Bakım Duyurusu",      title: "🛠️ Kısa bakım duyurusu",         body: "Panel 5 dakika bakıma girecek. Kaydettiğinden emin ol.",  url: "/" },
+];
+
 export default function PushBroadcastPanel() {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
@@ -22,6 +35,24 @@ export default function PushBroadcastPanel() {
   const [tplModal, setTplModal] = useState(null);
   const [tplModalAt, setTplModalAt] = useState("");
   const [tplModalRepeat, setTplModalRepeat] = useState("");
+  const [seedModalOpen, setSeedModalOpen] = useState(false);
+  const [seedSelected, setSeedSelected] = useState(() => new Set(CURATED_TEMPLATES.slice(0, 3).map((t) => t.key)));
+  const installSelectedTemplates = async () => {
+    const chosen = CURATED_TEMPLATES.filter((c) => seedSelected.has(c.key));
+    if (chosen.length === 0) { toast.error(t("push_tpl_seed_pick_one")); return; }
+    setBusy(true);
+    try {
+      for (const c of chosen) {
+        await api.post("/push/templates", { name: c.name, title: c.title, body: c.body, url: c.url });
+      }
+      toast.success(t("push_tpl_seeded_n", { n: chosen.length }));
+      setSeedModalOpen(false);
+      refreshTpl();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally { setBusy(false); }
+  };
+  const toggleSeed = (key) => setSeedSelected((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   const { data: history = [], mutate: refreshHistory } = useSWR(isAdmin ? "/push/history" : null, fetcher, { refreshInterval: 20000 });
   const { data: templates = [], mutate: refreshTpl } = useSWR(isAdmin ? "/push/templates" : null, fetcher);
   const { data: scheduled = [], mutate: refreshScheduled } = useSWR(isAdmin ? "/push/scheduled" : null, fetcher, { refreshInterval: 30000 });
@@ -135,24 +166,7 @@ export default function PushBroadcastPanel() {
             <button
               type="button"
               data-testid="push-tpl-seed-btn"
-              onClick={async () => {
-                const defaults = [
-                  { name: t("push_tpl_default_rally_name"), title: t("push_tpl_default_rally_title"), body: t("push_tpl_default_rally_body"), url: "/etkinlikler" },
-                  { name: t("push_tpl_default_event_name"), title: t("push_tpl_default_event_title"), body: t("push_tpl_default_event_body"), url: "/etkinlikler" },
-                  { name: t("push_tpl_default_maint_name"), title: t("push_tpl_default_maint_title"), body: t("push_tpl_default_maint_body"), url: "/" },
-                ];
-                setBusy(true);
-                try {
-                  for (const d of defaults) {
-                    await api.post("/push/templates", d);
-                  }
-                  toast.success(t("push_tpl_seeded"));
-                  refreshTpl();
-                } catch (e) {
-                  toast.error(e?.response?.data?.detail || e.message);
-                } finally { setBusy(false); }
-              }}
-              disabled={busy}
+              onClick={() => setSeedModalOpen(true)}
               className="px-2.5 py-1 rounded text-[10px] font-bold uppercase flex-shrink-0"
               style={{ background: "linear-gradient(135deg,#A855F7,#7C3AED)", color: "#fff", letterSpacing: "0.06em" }}
             >
@@ -503,6 +517,109 @@ export default function PushBroadcastPanel() {
             >
               <Clock className="w-4 h-4" /> {t("push_sched_submit")}
             </button>
+          </div>
+        </div>
+      )}
+      {seedModalOpen && (
+        <div
+          data-testid="push-tpl-seed-overlay"
+          className="fixed inset-0 z-[95] flex items-center justify-center p-4"
+          style={{ background: "rgba(5,3,2,0.85)", backdropFilter: "blur(6px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setSeedModalOpen(false); }}
+        >
+          <div
+            data-testid="push-tpl-seed-modal"
+            className="relative w-full max-w-lg rounded-2xl overflow-hidden max-h-[85vh] flex flex-col"
+            style={{
+              background: "linear-gradient(180deg, rgba(30,20,16,0.98), rgba(15,10,8,0.98))",
+              border: "1px solid rgba(168,85,247,0.5)",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
+            }}
+          >
+            <div className="flex items-center justify-between p-4" style={{ borderBottom: "1px solid rgba(168,85,247,0.25)" }}>
+              <div className="flex items-center gap-2">
+                <Bookmark className="w-4 h-4" style={{ color: "#A855F7" }} />
+                <h3 className="text-sm font-bold uppercase" style={{ color: "#A855F7", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}>
+                  {t("push_tpl_library_title")}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSeedModalOpen(false)}
+                data-testid="push-tpl-seed-close"
+                className="rounded-full p-1 hover:bg-white/10"
+                style={{ color: "#F5F0E8", opacity: 0.7 }}
+                aria-label="Close"
+              >
+                <Trash2 className="w-3.5 h-3.5" style={{ transform: "rotate(0deg)", visibility: "hidden" }} />
+                <span style={{ position: "absolute", top: 12, right: 12, fontSize: 18, lineHeight: 1 }}>×</span>
+              </button>
+            </div>
+            <div className="px-4 py-3 flex items-center justify-between gap-2" style={{ background: "rgba(168,85,247,0.06)" }}>
+              <span className="text-[11px]" style={{ color: "#E0E7FF" }}>
+                {t("push_tpl_library_hint", { n: seedSelected.size })}
+              </span>
+              <div className="flex gap-1">
+                <button type="button" onClick={() => setSeedSelected(new Set(CURATED_TEMPLATES.map(c => c.key)))} data-testid="push-tpl-seed-selectall" className="text-[10px] uppercase font-bold px-2 py-1 rounded" style={{ background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#E0E7FF", letterSpacing: "0.06em" }}>
+                  {t("push_tpl_select_all")}
+                </button>
+                <button type="button" onClick={() => setSeedSelected(new Set())} data-testid="push-tpl-seed-clear" className="text-[10px] uppercase font-bold px-2 py-1 rounded" style={{ background: "rgba(20,12,10,0.6)", border: "1px solid rgba(255,255,255,0.15)", color: "#F5F0E8", letterSpacing: "0.06em" }}>
+                  {t("push_tpl_clear_all")}
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+              {CURATED_TEMPLATES.map((c) => {
+                const checked = seedSelected.has(c.key);
+                return (
+                  <label
+                    key={c.key}
+                    data-testid={`push-tpl-seed-row-${c.key}`}
+                    className="flex items-start gap-2 p-2.5 rounded-lg cursor-pointer transition-colors"
+                    style={{
+                      background: checked ? "rgba(168,85,247,0.15)" : "rgba(20,12,10,0.4)",
+                      border: `1px solid ${checked ? "rgba(168,85,247,0.5)" : "rgba(255,255,255,0.08)"}`,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleSeed(c.key)}
+                      data-testid={`push-tpl-seed-check-${c.key}`}
+                      className="mt-0.5 flex-shrink-0"
+                      style={{ accentColor: "#A855F7", width: 14, height: 14 }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[12px] font-bold" style={{ color: "#E0E7FF" }}>{c.title}</div>
+                      <div className="text-[11px] mt-0.5" style={{ color: "#F5F0E8", opacity: 0.75 }}>{c.body}</div>
+                      <div className="text-[9px] uppercase mt-1" style={{ color: "#A855F7", letterSpacing: "0.06em" }}>
+                        {c.name} · → {c.url}
+                      </div>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-between gap-2 p-4" style={{ borderTop: "1px solid rgba(168,85,247,0.25)", background: "rgba(10,7,5,0.5)" }}>
+              <button type="button" onClick={() => setSeedModalOpen(false)} data-testid="push-tpl-seed-cancel" className="text-[11px] uppercase font-bold hover:opacity-80" style={{ color: "#F5F0E8", opacity: 0.6, letterSpacing: "0.06em" }}>
+                {t("cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={installSelectedTemplates}
+                disabled={busy || seedSelected.size === 0}
+                data-testid="push-tpl-seed-install"
+                className="px-4 py-2 rounded-lg text-[12px] font-bold flex items-center gap-1.5"
+                style={{
+                  background: seedSelected.size === 0 ? "rgba(255,255,255,0.08)" : "linear-gradient(135deg,#A855F7,#7C3AED)",
+                  color: seedSelected.size === 0 ? "#666" : "#fff",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {busy ? t("push_tpl_installing") : t("push_tpl_install_n", { n: seedSelected.size })}
+              </button>
+            </div>
           </div>
         </div>
       )}
