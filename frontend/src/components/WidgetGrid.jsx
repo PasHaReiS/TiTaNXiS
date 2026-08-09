@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Crown, Users, Zap, Trophy, Award, Target, Timer, TrendingUp, Shield, Flame, Medal, Plus, X, Settings2, GripVertical, Maximize2, Minimize2, Square, Layers, Check, Link2Off, Palette, Pencil } from "lucide-react";
+import { Crown, Users, Zap, Trophy, Award, Target, Timer, TrendingUp, Shield, Flame, Medal, Plus, X, Settings2, GripVertical, Maximize2, Minimize2, Square, Layers, Check, Link2Off, Palette, Pencil, ChevronDown, ChevronRight } from "lucide-react";
 import { groupColor } from "@/lib/groupColors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -304,7 +304,7 @@ function Sparkline({ series, color }) {
   );
 }
 
-function GroupContainer({ group: g, members, values, sizes, setSizes, removeWidget, setDragging, setDragOver, handleDrop, dragging, theme, groupMode, selected, toggleSelect, ungroup, setGroupName, setGroupColor, setGroupIcon, draggingGroup, setDraggingGroup, handleGroupDrop, t }) {
+function GroupContainer({ group: g, members, values, sizes, setSizes, removeWidget, setDragging, setDragOver, handleDrop, dragging, theme, groupMode, selected, toggleSelect, ungroup, setGroupName, setGroupColor, setGroupIcon, toggleGroupCollapsed, draggingGroup, setDraggingGroup, handleGroupDrop, t }) {
   const [editingName, setEditingName] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [showIconPicker, setShowIconPicker] = useState(false);
@@ -435,6 +435,18 @@ function GroupContainer({ group: g, members, values, sizes, setSizes, removeWidg
         <div className="flex items-center gap-1 flex-shrink-0 relative">
           <button
             type="button"
+            onClick={() => toggleGroupCollapsed(g.id)}
+            data-testid={`widget-group-collapse-${g.id}`}
+            aria-pressed={!!g.collapsed}
+            aria-label={g.collapsed ? t("wg_group_expand") : t("wg_group_collapse")}
+            title={g.collapsed ? t("wg_group_expand") : t("wg_group_collapse")}
+            className="rounded-full p-1 flex items-center justify-center"
+            style={{ background: `${g.color}22`, border: `1px solid ${g.color}66` }}
+          >
+            {g.collapsed ? <ChevronRight className="w-2.5 h-2.5" style={{ color: g.color }} /> : <ChevronDown className="w-2.5 h-2.5" style={{ color: g.color }} />}
+          </button>
+          <button
+            type="button"
             onClick={() => setShowPalette((v) => !v)}
             data-testid={`widget-group-color-btn-${g.id}`}
             aria-label={t("wg_group_pick_color")}
@@ -479,6 +491,15 @@ function GroupContainer({ group: g, members, values, sizes, setSizes, removeWidg
           </button>
         </div>
       </div>
+      {g.collapsed ? (
+        <div
+          data-testid={`widget-group-collapsed-body-${g.id}`}
+          className="text-[10px] uppercase font-bold px-2 py-1.5 rounded"
+          style={{ background: `${g.color}0F`, color: g.color, letterSpacing: "0.08em" }}
+        >
+          {t("wg_group_hidden_count", { n: members.length })}
+        </div>
+      ) : (
       <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))" }}>
         {members.map((k, mi) => (
           <WidgetCard
@@ -511,6 +532,7 @@ function GroupContainer({ group: g, members, values, sizes, setSizes, removeWidg
           />
         ))}
       </div>
+      )}
     </div>
   );
 }
@@ -828,6 +850,10 @@ export default function WidgetGrid() {
     setGroups(groups.map((g) => g.id === gid ? { ...g, icon } : g));
   };
 
+  const toggleGroupCollapsed = (gid) => {
+    setGroups(groups.map((g) => g.id === gid ? { ...g, collapsed: !g.collapsed } : g));
+  };
+
   const handleGroupDrop = (targetGid) => {
     if (!draggingGroup || draggingGroup === targetGid) { setDraggingGroup(null); return; }
     const srcIdx = groups.findIndex((g) => g.id === draggingGroup);
@@ -997,13 +1023,24 @@ export default function WidgetGrid() {
               key={g.id}
               type="button"
               onClick={() => scrollToGroup(g.id)}
+              draggable
+              onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", g.id); setDraggingGroup(g.id); }}
+              onDragEnd={() => setDraggingGroup(null)}
+              onDragOver={(e) => { if (draggingGroup && draggingGroup !== g.id) e.preventDefault(); }}
+              onDrop={(e) => {
+                if (draggingGroup && draggingGroup !== g.id) {
+                  e.preventDefault();
+                  handleGroupDrop(g.id);
+                }
+              }}
               data-testid={`widget-group-chip-${g.id}`}
-              className="text-[10px] font-bold uppercase flex items-center gap-1 px-2 py-0.5 rounded-full hover:opacity-80 transition-opacity"
+              className="text-[10px] font-bold uppercase flex items-center gap-1 px-2 py-0.5 rounded-full hover:opacity-80 transition-opacity cursor-grab active:cursor-grabbing"
               style={{
-                background: `${g.color}22`,
+                background: draggingGroup === g.id ? `${g.color}44` : `${g.color}22`,
                 border: `1px solid ${g.color}66`,
                 color: g.color,
                 letterSpacing: "0.06em",
+                opacity: draggingGroup === g.id ? 0.5 : 1,
               }}
               title={g.name?.trim() ? g.name : `${t("wg_group_label")} · ${g.widgets.length}`}
             >
@@ -1051,6 +1088,7 @@ export default function WidgetGrid() {
                   setGroupName={setGroupName}
                   setGroupColor={setGroupColor}
                   setGroupIcon={setGroupIcon}
+                  toggleGroupCollapsed={toggleGroupCollapsed}
                   draggingGroup={draggingGroup}
                   setDraggingGroup={setDraggingGroup}
                   handleGroupDrop={handleGroupDrop}

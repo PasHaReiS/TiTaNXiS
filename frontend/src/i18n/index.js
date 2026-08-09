@@ -612,10 +612,15 @@ const tr = {
   wg_group_name_placeholder: "Grup adı…",
   wg_group_pick_color: "Renk seç",
   wg_group_color_changed: "Grup rengi güncellendi",
-  wg_group_reordered: "Grup taşındı",
+  wg_group_reordered: "Gruplar yer değiştirdi",
   wg_group_drag_hint: "Grubu sürükleyerek başka grupla yer değiştir",
   wg_group_nav: "Gruplar",
-  wg_group_reordered: "Gruplar yer değiştirdi",
+  wg_group_pick_icon: "Grup simgesi seç",
+  wg_group_icon_changed: "Grup simgesi güncellendi",
+  wg_group_index_hint: "Grup içi sıra: {{i}}/{{n}}",
+  wg_group_collapse: "Grubu katla",
+  wg_group_expand: "Grubu aç",
+  wg_group_hidden_count: "{{n}} widget gizli · aç için sağdaki oka bas",
 
 
 
@@ -1206,6 +1211,9 @@ const en = {
   wg_group_pick_icon: "Pick group icon",
   wg_group_icon_changed: "Group icon updated",
   wg_group_index_hint: "Position in group: {{i}}/{{n}}",
+  wg_group_collapse: "Collapse group",
+  wg_group_expand: "Expand group",
+  wg_group_hidden_count: "{{n}} widgets hidden · press the arrow on the right to expand",
 
   wg_size_normal: "Normal",
   wg_size_wide: "Wide",
