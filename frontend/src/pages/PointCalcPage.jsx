@@ -3,7 +3,7 @@ import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Trash2, Pencil, Check, X, Settings, ChevronRight, Globe } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, Settings, ChevronRight, Globe, Download, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import { translateUserText } from "@/lib/deeplTranslate";
@@ -17,6 +17,70 @@ const KINDS = [
 
 const rid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const fmt = (n) => Number(n || 0).toLocaleString("tr-TR");
+
+function PCAdminActions({ kind }) {
+  const { isAdmin } = useAuth();
+  const [busy, setBusy] = useState(false);
+  if (!isAdmin) return null;
+
+  const download = async () => {
+    setBusy(true);
+    try {
+      const token = localStorage.getItem("ol_token");
+      const res = await fetch(
+        `${process.env.REACT_APP_BACKEND_URL}/api/point-calc/export?kind=${kind}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `puan_hesaplama_${kind}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Excel indirildi");
+    } catch (e) {
+      toast.error(`Excel indirilemedi: ${e.message}`);
+    } finally { setBusy(false); }
+  };
+
+  const translateAll = async () => {
+    if (!window.confirm("Tüm etkinlik/tablo isimleri 29 dile çevrilsin mi? Bu işlem 1-2 dakika sürebilir.")) return;
+    setBusy(true);
+    try {
+      const res = await api.post(`/point-calc/translate-all?kind=${kind}`);
+      toast.success(`${res.data.strings_translated} metin çevrildi, ${res.data.days_processed} etkinlik güncellendi`);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <>
+      <button
+        onClick={download}
+        disabled={busy}
+        data-testid={`pc-export-${kind}`}
+        className="h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1"
+        style={{ background: "linear-gradient(135deg,#059669,#10B981)", color: "#fff" }}
+        title="Excel indir"
+      >
+        <Download className="w-3 h-3" /> Excel
+      </button>
+      <button
+        onClick={translateAll}
+        disabled={busy}
+        data-testid={`pc-translate-all-${kind}`}
+        className="h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1"
+        style={{ background: "linear-gradient(135deg,#7C3AED,#3B82F6)", color: "#fff" }}
+        title="Boş çevirileri toplu doldur"
+      >
+        <Sparkles className="w-3 h-3" /> Tümünü Çevir
+      </button>
+    </>
+  );
+}
 
 function normalizeTables(day) {
   if (day.tables && day.tables.length > 0) return day.tables;
@@ -96,6 +160,9 @@ export default function PointCalcPage() {
               </button>
             );
           })}
+          <div className="ml-auto flex items-center gap-2">
+            <PCAdminActions kind={kind} />
+          </div>
         </div>
 
         <SidebarContent kind={kind} selectedId={selectedId} setSelectedId={setSelectedId} />

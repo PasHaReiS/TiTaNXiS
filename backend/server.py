@@ -1790,6 +1790,147 @@ async def deepl_usage():
         return {"configured": True, "error": str(e)[:200], "character_count": 0, "character_limit": 0}
 
 
+ENABLED_LANGS = ["en", "ru", "de", "fr", "es", "ko", "ar", "bg", "cs", "da", "el", "et", "fi",
+                 "hu", "id", "it", "ja", "lt", "lv", "nb", "nl", "pl", "pt", "ro", "sk", "sl", "sv", "uk", "zh"]
+
+
+async def _deepl_translate_one(text: str, target_langs=None):
+    if not DEEPL_API_KEY or not text:
+        return {}
+    base = "https://api-free.deepl.com/v2" if DEEPL_API_KEY.endswith(":fx") else "https://api.deepl.com/v2"
+    headers = {"Authorization": f"DeepL-Auth-Key {DEEPL_API_KEY}", "Content-Type": "application/json"}
+    langs = target_langs or ENABLED_LANGS
+    out: dict = {}
+    async with httpx.AsyncClient(timeout=25) as client:
+        for lang in langs:
+            deepl_lang = DEEPL_LANG_MAP.get(lang, lang.upper())
+            try:
+                r = await client.post(f"{base}/translate", headers=headers,
+                                      json={"text": [text], "target_lang": deepl_lang, "source_lang": "TR"})
+                r.raise_for_status()
+                tr_list = r.json().get("translations", [])
+                if tr_list:
+                    out[lang] = tr_list[0].get("text", "")
+            except Exception:
+                pass
+    return out
+
+
+@api_router.post("/point-calc/translate-all")
+async def translate_all_pc(kind: str = Query(...), _: dict = Depends(require_admin)):
+    if kind not in ("pre", "diger"):
+        raise HTTPException(400, "invalid kind")
+    if not DEEPL_API_KEY:
+        raise HTTPException(503, "DEEPL_API_KEY not configured")
+    days = []
+    async for d in db.point_calc_days.find({"kind": kind}):
+        d.pop("_id", None)
+        days.append(d)
+
+    translated_strings = 0
+    for day in days:
+        current = day.get("translations") or {}
+        strings = set()
+        if day.get("name"): strings.add(day["name"])
+        for tb in day.get("tables") or []:
+            if tb.get("title"): strings.add(tb["title"])
+            for m in tb.get("multipliers") or []:
+                if m.get("name"): strings.add(m["name"])
+            for mat in tb.get("materials") or []:
+                if mat.get("name"): strings.add(mat["name"])
+        # Skip strings that already have full translations.
+        missing = [s for s in strings if not current.get(s) or len(current.get(s, {})) < len(ENABLED_LANGS)]
+        if not missing:
+            continue
+        for src in missing:
+            tr_map = await _deepl_translate_one(src)
+            if tr_map:
+                current[src] = {**(current.get(src) or {}), **tr_map}
+                translated_strings += 1
+        await db.point_calc_days.update_one(
+            {"id": day["id"]},
+            {"$set": {"translations": current, "updated_at": now_iso()}},
+        )
+    return {"days_processed": len(days), "strings_translated": translated_strings}
+
+
+@api_router.get("/point-calc/export")
+async def export_point_calc(kind: str = Query(...), _: dict = Depends(require_auth)):
+    if kind not in ("pre", "diger"):
+        raise HTTPException(400, "invalid kind")
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from fastapi.responses import StreamingResponse
+    import io
+
+    wb = Workbook()
+    wb.remove(wb.active)
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="E74C1A", end_color="E74C1A", fill_type="solid")
+
+    def apply_header(ws, cols):
+        for i, col in enumerate(cols, 1):
+            c = ws.cell(row=1, column=i, value=col)
+            c.font = header_font
+            c.fill = header_fill
+            c.alignment = Alignment(horizontal="center", vertical="center")
+            ws.column_dimensions[c.column_letter].width = max(16, min(40, len(str(col)) + 4))
+
+    days_cursor = db.point_calc_days.find({"kind": kind}).sort([("order", 1), ("created_at", 1)])
+    async for day in days_cursor:
+        day.pop("_id", None)
+        sheet_name = (day.get("name") or "Etkinlik")[:28].replace("/", "-").replace("\\", "-").replace(":", "-").replace("*", "-").replace("?", "-").replace("[", "").replace("]", "")
+        ws = wb.create_sheet(title=sheet_name or "Etkinlik")
+        apply_header(ws, ["Tablo Başlığı", "Çarpan Adı", "Çarpan Miktarı", "Miktar", "Toplam Puan", "Birim İsmi", "Birim Miktarı", "Birim Toplam"])
+        row = 2
+        for tb in day.get("tables") or []:
+            title = tb.get("title", "")
+            miktar = float(tb.get("miktar") or 0)
+            mults = tb.get("multipliers") or []
+            mult_name = mults[0].get("name", "") if mults else ""
+            mult_val = float(mults[0].get("value") or 0) if mults else 0
+            total_points = miktar * mult_val
+            mats = tb.get("materials") or []
+            if not mats:
+                ws.append([title, mult_name, mult_val, miktar, total_points, "", "", ""])
+                row += 1
+                continue
+            for mat in mats:
+                amt = 0
+                try: amt = float(mat.get("amount") or 0)
+                except Exception: amt = 0
+                ws.append([title, mult_name, mult_val, miktar, total_points, mat.get("name", ""), amt, miktar * amt])
+                row += 1
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = ws.dimensions
+
+    # Translations sheet
+    trs = wb.create_sheet(title="_Ceviriler")
+    apply_header(trs, ["Etkinlik", "Kaynak (TR)"] + [l.upper() for l in ENABLED_LANGS])
+    days_cursor2 = db.point_calc_days.find({"kind": kind}).sort([("order", 1)])
+    async for day in days_cursor2:
+        day.pop("_id", None)
+        for src, tr_map in (day.get("translations") or {}).items():
+            row_vals = [day.get("name", ""), src] + [tr_map.get(l, "") for l in ENABLED_LANGS]
+            trs.append(row_vals)
+    trs.freeze_panes = "A2"
+    if trs.max_row > 1:
+        trs.auto_filter.ref = trs.dimensions
+
+    if len(wb.worksheets) == 0:
+        wb.create_sheet(title="Bos")
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    fname = f"puan_hesaplama_{kind}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M')}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
 app.include_router(api_router)
 app.include_router(make_auth_router(db))
 app.mount("/api/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
