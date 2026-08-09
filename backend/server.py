@@ -1169,6 +1169,44 @@ async def export_all(_: dict = Depends(require_edit)):
         ws3.append([cell(p.get(c, "")) for c in p_cols])
     ws3.auto_filter.ref = ws3.dimensions
 
+    # Sheet 4 (chart): Top 10 ittifaklar bar chart
+    from openpyxl.chart import BarChart, Reference
+    from openpyxl.chart.label import DataLabelList
+    from openpyxl.styles import Font as _Font, PatternFill as _PatternFill, Alignment as _Alignment
+    alliance_agg: Dict[str, float] = {}
+    for m in members:
+        a = m.get("alliance_name") or "-"
+        tp = float(member_totals.get(m.get("id"), 0))
+        alliance_agg[a] = alliance_agg.get(a, 0) + tp
+    top10 = sorted(alliance_agg.items(), key=lambda x: x[1], reverse=True)[:10]
+    ws4 = wb.create_sheet("İttifak Grafiği")
+    ws4.append(["İttifak", "Toplam Puan"])
+    ws4.cell(row=1, column=1).font = _Font(bold=True, color="FFFFFF")
+    ws4.cell(row=1, column=2).font = _Font(bold=True, color="FFFFFF")
+    header_fill = _PatternFill("solid", fgColor="E74C1A")
+    ws4.cell(row=1, column=1).fill = header_fill
+    ws4.cell(row=1, column=2).fill = header_fill
+    for i, (a, pts) in enumerate(top10, start=2):
+        ws4.cell(row=i, column=1, value=a)
+        ws4.cell(row=i, column=2, value=int(pts))
+    if top10:
+        chart = BarChart()
+        chart.type = "bar"
+        chart.style = 11
+        chart.title = "Top 10 İttifak — Toplam Puan"
+        chart.y_axis.title = "İttifak"
+        chart.x_axis.title = "Puan"
+        data = Reference(ws4, min_col=2, min_row=1, max_row=1 + len(top10), max_col=2)
+        cats = Reference(ws4, min_col=1, min_row=2, max_row=1 + len(top10))
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(cats)
+        chart.height = max(10, len(top10) * 1.2)
+        chart.width = 22
+        chart.dataLabels = DataLabelList(showVal=True)
+        ws4.add_chart(chart, "D2")
+    ws4.column_dimensions["A"].width = 24
+    ws4.column_dimensions["B"].width = 16
+
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)

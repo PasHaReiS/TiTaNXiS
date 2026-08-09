@@ -1380,6 +1380,33 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
     } finally { setSaving(false); }
   };
 
+  const duplicate = async () => {
+    if (!name.trim()) { toast.error(t("name_required")); return; }
+    if (!category.trim()) { toast.error(t("type_required")); return; }
+    setSaving(true);
+    try {
+      const body = {
+        name: `${name.trim()} ${t("duplicate_suffix")}`,
+        category: category.trim(),
+        rank: hideRankAndRarity ? null : (rank.trim() || null),
+        rarity: hideRankAndRarity ? null : (rarity || null),
+        image_url: isMultiImage ? (images[0] || null) : (imageUrl.trim() || null),
+        images: isMultiImage ? images : (imageUrl.trim() ? [imageUrl.trim()] : []),
+        description: description.trim() || null,
+        characters: characters.map((s) => s.trim()).filter(Boolean),
+        is_kof: isTeamMode ? false : !!isKof,
+        kof_pairs: isTeamMode || isKof ? [] : kofPairs,
+        team_slots: isTeamMode ? teamSlots : null,
+      };
+      await api.post("/commanders", body);
+      mutate((k) => typeof k === "string" && k.startsWith("/commanders"));
+      toast.success(t("duplicated"));
+      onClose();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || err.message);
+    } finally { setSaving(false); }
+  };
+
   const pairingPool = kofCommanders.filter((c) => c.id !== initial?.id);
 
   return (
@@ -1675,9 +1702,24 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
           </>
         )}
 
-        <button type="submit" disabled={saving} className="btn-gold w-full mt-5" data-testid="commander-form-submit">
-          {saving ? t("saving") : editing ? t("update") : t("add_short")}
-        </button>
+        <div className="flex gap-2 mt-5">
+          <button type="submit" disabled={saving} className="btn-gold flex-1" data-testid="commander-form-submit">
+            {saving ? t("saving") : editing ? t("update") : t("add_short")}
+          </button>
+          {editing && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={duplicate}
+              data-testid="commander-form-duplicate"
+              className="px-4 py-2 rounded-lg font-bold text-white flex items-center gap-1.5 text-sm"
+              style={{ background: "linear-gradient(135deg,#7C3AED,#3B82F6)" }}
+              title={t("duplicate")}
+            >
+              <LinkIcon className="w-3.5 h-3.5" /> {t("duplicate")}
+            </button>
+          )}
+        </div>
       </form>
     </div>
   );

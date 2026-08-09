@@ -11,6 +11,16 @@ const HERO_STAR_ROWS = [
   { star: 5, values: [null, 100, 100, 100, 100, 100, 100, 600] },
 ];
 
+// Cumulative helper: sum column-wise from star 1 → target star.
+function cumulativeThrough(star) {
+  const cum = [0, 0, 0, 0, 0, 0, 0, 0];
+  for (const row of HERO_STAR_ROWS) {
+    if (row.star > star) break;
+    row.values.forEach((v, i) => { cum[i] += Number(v) || 0; });
+  }
+  return cum;
+}
+
 const WEAPON_ROWS = [
   { from: 0, to: 1, parts: 10 },
   { from: 1, to: 2, parts: 25 },
@@ -181,6 +191,53 @@ export default function HeroTables() {
               </div>
             );
           })}
+        </div>
+        {/* Cumulative 1→N cost panel */}
+        <div
+          data-testid={`hero-star-cumulative-${currentStar.star}`}
+          style={{
+            marginTop: 6,
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            columnGap: 8,
+            rowGap: 2,
+            background: "linear-gradient(180deg, rgba(76,29,149,0.35), rgba(30,58,138,0.35))",
+            border: "1px solid rgba(168,85,247,0.4)",
+            borderRadius: 4,
+            padding: "6px 8px",
+          }}
+        >
+          <div style={{ gridColumn: "1 / -1", fontSize: 10, fontWeight: 700, color: "#E0E7FF", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>
+            {t("ht_cumulative_title", { star: currentStar.star })}
+          </div>
+          {(() => {
+            const cum = cumulativeThrough(currentStar.star);
+            return [0, 1, 2, 3, 4, 5, 6, 7].map((idx) => {
+              const isTotal = idx === 7;
+              return (
+                <div
+                  key={`cum-${idx}`}
+                  data-testid={`hero-star-cumulative-${currentStar.star}-row-${idx}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "2px 4px",
+                    background: isTotal ? "rgba(168,85,247,0.25)" : "transparent",
+                    borderRadius: 3,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <span style={{ fontSize: 11, fontWeight: isTotal ? 700 : 500, color: isTotal ? "#F5A623" : "#C7BFB4", letterSpacing: isTotal ? "0.06em" : "normal", textTransform: isTotal ? "uppercase" : "none" }}>
+                    {partLabels[idx]}
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: isTotal ? "#F5A623" : "#E0E7FF", fontVariantNumeric: "tabular-nums" }}>
+                    {fmt(cum[idx])}
+                  </span>
+                </div>
+              );
+            });
+          })()}
         </div>
       </div>
 

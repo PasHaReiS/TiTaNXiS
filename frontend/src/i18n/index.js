@@ -493,6 +493,10 @@ const tr = {
   rarity_legendary: "Efsanevi",
   rarity_epic: "Epik",
   rarity_common: "Yaygın",
+  duplicate: "Kopyala",
+  duplicate_suffix: "(Kopya)",
+  duplicated: "Kopyalandı",
+  ht_cumulative_title: "1★→{{star}}★ Kümülatif Maliyet",
   bc_updated: "{{building}} • {{level}} birim maliyeti güncellendi",
 };
 
@@ -951,6 +955,10 @@ const en = {
   rarity_legendary: "Legendary",
   rarity_epic: "Epic",
   rarity_common: "Common",
+  duplicate: "Duplicate",
+  duplicate_suffix: "(Copy)",
+  duplicated: "Duplicated",
+  ht_cumulative_title: "1★→{{star}}★ Cumulative Cost",
 };
 
 const ru = {
