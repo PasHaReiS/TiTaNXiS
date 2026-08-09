@@ -13,6 +13,12 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Custom Snooze Picker + Snoozed Badge — DONE**:
+  - **Custom Snooze**: Short-clicking the `+15dk` chip still snoozes by 15 minutes. Long-pressing (~500ms), right-clicking, or touch-holding it now opens a compact `push-sched-snooze-picker-{id}` dropdown with four choices: `+5dk`, `+30dk`, `+1s`, and `Özel…`. Custom option raises a native prompt (`push_sched_snooze_custom_prompt`) with client-side validation (1–1440 min → invalid raises `push_sched_snooze_custom_error` toast). Outside-click / Escape closes the picker. Each option testid'd `push-sched-snooze-opt-{5|30|60|custom}-{id}`.
+  - **Snoozed Badge**: When a scheduled doc carries `snoozed_by_minutes`, the card renders an extra purple pill `push-sched-snoozed-badge-{id}` next to the existing repeat/group/alliance badges. Tooltip shows the exact snooze duration.
+  - **i18n**: 8 new keys (TR + EN) — `push_sched_snooze_hint`, `push_sched_snooze_5/30/60/custom`, `push_sched_snooze_custom_prompt/error`, `push_sched_snoozed_badge`, `push_sched_snoozed_badge_title`.
+  - **E2E**: Backend `POST /api/push/scheduled/{id}/snooze` already whitelist-validates 1–1440. Curl-verified: `+5` → `snoozed_by=5`, `+45` (custom) → `snoozed_by=45`.
+
 - **[2026-02] Play On Receive + Snooze Scheduled — DONE**:
   - **Play On Receive**: Extracted `previewSound` into a shared module `/app/frontend/src/lib/pushSound.js` (`playPushSound(key)` — accepts `rally|victory|dungeon|alarm`, uses `/audio/epic_battle.mp3` for rally and Web Audio API synthesis for the rest). New `PushSoundListener.jsx` component (mounted once inside `App.js` alongside `<Toaster>`) subscribes to `navigator.serviceWorker.addEventListener("message")` and auto-plays the cue whenever the SW forwards `{type:"push-sound", sound}`. Silent no-op when SW isn't registered or the browser blocks autoplay.
   - **Snooze Scheduled**: New backend endpoint `POST /api/push/scheduled/{id}/snooze` (`PushSnoozeBody: {minutes: int}`) validates `1 ≤ minutes ≤ 1440`, snoozes from `max(scheduled_at, now)` so overdue items always land in the future, and persists `snoozed_at` + `snoozed_by_minutes` on the doc. Bug-fix during ship: replaced `int(body.minutes or 15)` with an explicit `is not None` check so `minutes=0` correctly returns HTTP 400 instead of falling back to 15.

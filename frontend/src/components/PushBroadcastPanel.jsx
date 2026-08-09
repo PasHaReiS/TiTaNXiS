@@ -80,6 +80,22 @@ export default function PushBroadcastPanel() {
   const [testBusy, setTestBusy] = useState(false);
   const [testUserSearch, setTestUserSearch] = useState("");
   const [testUserOpen, setTestUserOpen] = useState(false);
+  const [snoozePickerId, setSnoozePickerId] = useState(null);
+  const snoozeTimerRef = React.useRef(null);
+  useEffect(() => {
+    if (!snoozePickerId) return;
+    const close = (e) => {
+      if (e.target && e.target.closest && e.target.closest(`[data-testid="push-sched-snooze-picker-${snoozePickerId}"]`)) return;
+      setSnoozePickerId(null);
+    };
+    const onKey = (e) => { if (e.key === "Escape") setSnoozePickerId(null); };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [snoozePickerId]);
   const [nowTick, setNowTick] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNowTick(Date.now()), 30_000);
@@ -320,6 +336,23 @@ export default function PushBroadcastPanel() {
       toast.success(t("push_sched_snoozed", { min: minutes, at }));
       refreshScheduled();
     } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
+  };
+
+  const openSnoozePicker = (id) => setSnoozePickerId(id);
+  const startSnoozeLongPress = (id) => {
+    if (snoozeTimerRef.current) clearTimeout(snoozeTimerRef.current);
+    snoozeTimerRef.current = setTimeout(() => openSnoozePicker(id), 500);
+  };
+  const cancelSnoozeLongPress = () => {
+    if (snoozeTimerRef.current) { clearTimeout(snoozeTimerRef.current); snoozeTimerRef.current = null; }
+  };
+  const snoozeCustom = async (id) => {
+    setSnoozePickerId(null);
+    const raw = window.prompt(t("push_sched_snooze_custom_prompt"), "45");
+    if (!raw) return;
+    const mins = parseInt(raw, 10);
+    if (!Number.isFinite(mins) || mins < 1 || mins > 1440) { toast.error(t("push_sched_snooze_custom_error")); return; }
+    await snoozeScheduled(id, mins);
   };
 
   const resend = (h) => doSend({ title: h.title, body: h.body, url: h.url || "/", tag: h.tag || "manual-broadcast" });
@@ -810,6 +843,16 @@ export default function PushBroadcastPanel() {
                         {s.alliance_name}
                       </span>
                     )}
+                    {s.snoozed_by_minutes && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase inline-flex items-center gap-0.5" style={{
+                        background: "rgba(168,85,247,0.2)", color: "#C4B5FD",
+                        border: "1px solid rgba(168,85,247,0.55)", letterSpacing: "0.06em",
+                      }} data-testid={`push-sched-snoozed-badge-${s.id}`}
+                        title={t("push_sched_snoozed_badge_title", { min: s.snoozed_by_minutes })}
+                      >
+                        {t("push_sched_snoozed_badge")}
+                      </span>
+                    )}
                   </div>
                   <div className="text-[10px] truncate" style={{ color: "#F5F0E8", opacity: 0.6 }}>{s.body}</div>
                   <div className="text-[10px] mt-0.5 flex items-center gap-2 flex-wrap" style={{ color: "#EC4899" }}>
@@ -837,17 +880,62 @@ export default function PushBroadcastPanel() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => snoozeScheduled(s.id, 15)}
-                    data-testid={`push-sched-snooze-${s.id}`}
-                    className="px-2 py-1 rounded text-[10px] font-bold uppercase"
-                    style={{ background: "rgba(168,85,247,0.15)", color: "#A855F7", border: "1px solid rgba(168,85,247,0.4)", letterSpacing: "0.04em" }}
-                    aria-label={t("push_sched_snooze_15")}
-                    title={t("push_sched_snooze_15")}
-                  >
-                    {t("push_sched_snooze_15")}
-                  </button>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => { if (!snoozePickerId) snoozeScheduled(s.id, 15); }}
+                      onMouseDown={() => startSnoozeLongPress(s.id)}
+                      onMouseUp={cancelSnoozeLongPress}
+                      onMouseLeave={cancelSnoozeLongPress}
+                      onTouchStart={() => startSnoozeLongPress(s.id)}
+                      onTouchEnd={cancelSnoozeLongPress}
+                      onContextMenu={(e) => { e.preventDefault(); openSnoozePicker(s.id); }}
+                      data-testid={`push-sched-snooze-${s.id}`}
+                      className="px-2 py-1 rounded text-[10px] font-bold uppercase"
+                      style={{ background: "rgba(168,85,247,0.15)", color: "#A855F7", border: "1px solid rgba(168,85,247,0.4)", letterSpacing: "0.04em" }}
+                      aria-label={t("push_sched_snooze_15")}
+                      title={t("push_sched_snooze_hint")}
+                    >
+                      {t("push_sched_snooze_15")}
+                    </button>
+                    {snoozePickerId === s.id && (
+                      <div
+                        data-testid={`push-sched-snooze-picker-${s.id}`}
+                        className="absolute right-0 mt-1 z-40 flex flex-col rounded-lg overflow-hidden"
+                        style={{ background: "#140C0A", border: "1px solid rgba(168,85,247,0.5)", boxShadow: "0 12px 24px rgba(0,0,0,0.5)", minWidth: 120 }}
+                      >
+                        {[
+                          { key: "5",   label: t("push_sched_snooze_5"),      min: 5 },
+                          { key: "30",  label: t("push_sched_snooze_30"),     min: 30 },
+                          { key: "60",  label: t("push_sched_snooze_60"),     min: 60 },
+                        ].map((o) => (
+                          <button
+                            key={o.key}
+                            type="button"
+                            onClick={() => { setSnoozePickerId(null); snoozeScheduled(s.id, o.min); }}
+                            data-testid={`push-sched-snooze-opt-${o.key}-${s.id}`}
+                            className="px-3 py-1.5 text-left text-[10px] font-bold uppercase"
+                            style={{ color: "#F5F0E8", letterSpacing: "0.04em", background: "transparent" }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = "rgba(168,85,247,0.2)"}
+                            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                          >
+                            {o.label}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => snoozeCustom(s.id)}
+                          data-testid={`push-sched-snooze-opt-custom-${s.id}`}
+                          className="px-3 py-1.5 text-left text-[10px] font-bold uppercase"
+                          style={{ color: "#EC4899", letterSpacing: "0.04em", background: "transparent", borderTop: "1px solid rgba(168,85,247,0.25)" }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = "rgba(236,72,153,0.15)"}
+                          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                        >
+                          {t("push_sched_snooze_custom")}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => cancelScheduled(s.id)}
