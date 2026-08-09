@@ -1081,6 +1081,21 @@ export default function WidgetGrid() {
               <span className="truncate max-w-[140px]">
                 {g.name?.trim() ? g.name : `${t("wg_group_label")} · ${g.widgets.length}`}
               </span>
+              <span
+                data-testid={`widget-group-chip-count-${g.id}`}
+                className="text-[9px] font-bold rounded px-1 flex-shrink-0"
+                style={{
+                  background: `${g.color}44`,
+                  color: g.color,
+                  fontVariantNumeric: "tabular-nums",
+                  letterSpacing: "0.04em",
+                  minWidth: 22,
+                  textAlign: "center",
+                }}
+                title={t("wg_group_chip_count_hint", { n: g.widgets.length })}
+              >
+                {g.widgets.length}
+              </span>
             </button>
           ))}
         </div>

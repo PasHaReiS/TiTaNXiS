@@ -6,6 +6,7 @@ import BulkAdminActions from "@/components/BulkAdminActions";
 import PushSubscribeCard from "@/components/PushSubscribeCard";
 import PushPrefsCard from "@/components/PushPrefsCard";
 import PushBroadcastPanel from "@/components/PushBroadcastPanel";
+import NotificationSetupWizard from "@/components/NotificationSetupWizard";
 import { useTranslation } from "react-i18next";
 
 export default function LiveDashboardPage() {
@@ -21,6 +22,7 @@ export default function LiveDashboardPage() {
         <LiveDashboard />
         <BulkAdminActions />
       </div>
+      <NotificationSetupWizard />
     </div>
   );
 }
