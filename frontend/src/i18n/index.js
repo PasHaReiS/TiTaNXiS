@@ -612,6 +612,10 @@ const tr = {
   wg_group_name_placeholder: "Grup adı…",
   wg_group_pick_color: "Renk seç",
   wg_group_color_changed: "Grup rengi güncellendi",
+  wg_group_reordered: "Grup taşındı",
+  wg_group_drag_hint: "Grubu sürükleyerek başka grupla yer değiştir",
+  wg_group_nav: "Gruplar",
+  wg_group_reordered: "Gruplar yer değiştirdi",
 
 
 
@@ -1196,6 +1200,9 @@ const en = {
   wg_group_name_placeholder: "Group name…",
   wg_group_pick_color: "Pick color",
   wg_group_color_changed: "Group color updated",
+  wg_group_reordered: "Group moved",
+  wg_group_drag_hint: "Drag the group to swap with another",
+  wg_group_nav: "Groups",
 
   wg_size_normal: "Normal",
   wg_size_wide: "Wide",

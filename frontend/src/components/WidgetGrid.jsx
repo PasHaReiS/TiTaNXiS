@@ -287,28 +287,56 @@ function Sparkline({ series, color }) {
   );
 }
 
-function GroupContainer({ group: g, members, values, sizes, setSizes, removeWidget, setDragging, setDragOver, handleDrop, dragging, theme, groupMode, selected, toggleSelect, ungroup, setGroupName, setGroupColor, t }) {
+function GroupContainer({ group: g, members, values, sizes, setSizes, removeWidget, setDragging, setDragOver, handleDrop, dragging, theme, groupMode, selected, toggleSelect, ungroup, setGroupName, setGroupColor, draggingGroup, setDraggingGroup, handleGroupDrop, t }) {
   const [editingName, setEditingName] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [nameDraft, setNameDraft] = useState(g.name || "");
+  const [dragOverGroup, setDragOverGroup] = useState(false);
   useEffect(() => { setNameDraft(g.name || ""); }, [g.name]);
   const commitName = () => {
     setEditingName(false);
     if ((nameDraft || "") !== (g.name || "")) setGroupName(g.id, nameDraft.trim());
   };
+  const isBeingDragged = draggingGroup === g.id;
+  const isDropTarget = draggingGroup && draggingGroup !== g.id && dragOverGroup;
   return (
     <div
       data-testid={`widget-group-${g.id}`}
-      className="rounded-xl p-2"
+      className="rounded-xl p-2 transition-opacity"
       style={{
         gridColumn: "1 / -1",
-        background: `linear-gradient(135deg, ${g.color}0F, ${g.color}05)`,
-        border: `2px dashed ${g.color}80`,
+        background: isDropTarget
+          ? `linear-gradient(135deg, ${g.color}22, ${g.color}0F)`
+          : `linear-gradient(135deg, ${g.color}0F, ${g.color}05)`,
+        border: `${isDropTarget ? "3px" : "2px"} dashed ${g.color}${isDropTarget ? "" : "80"}`,
         boxShadow: `inset 0 0 20px ${g.color}12`,
+        opacity: isBeingDragged ? 0.5 : 1,
+      }}
+      onDragOver={(e) => { if (draggingGroup && draggingGroup !== g.id) { e.preventDefault(); setDragOverGroup(true); } }}
+      onDragLeave={() => setDragOverGroup(false)}
+      onDrop={(e) => {
+        if (draggingGroup && draggingGroup !== g.id) {
+          e.preventDefault();
+          setDragOverGroup(false);
+          handleGroupDrop(g.id);
+        }
       }}
     >
       <div className="flex items-center justify-between mb-1.5 px-1 gap-2">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <button
+            type="button"
+            draggable
+            onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", g.id); setDraggingGroup(g.id); }}
+            onDragEnd={() => { setDraggingGroup(null); setDragOverGroup(false); }}
+            data-testid={`widget-group-drag-${g.id}`}
+            className="cursor-grab flex-shrink-0 opacity-70 hover:opacity-100 p-0.5"
+            style={{ color: g.color }}
+            aria-label={t("wg_group_drag_hint")}
+            title={t("wg_group_drag_hint")}
+          >
+            <GripVertical className="w-3 h-3" />
+          </button>
           <Layers className="w-3 h-3 flex-shrink-0" style={{ color: g.color }} />
           {editingName ? (
             <input
@@ -434,6 +462,7 @@ export default function WidgetGrid() {
   const [progressModal, setProgressModal] = useState(false);
   const [groupMode, setGroupMode] = useState(false);
   const [selected, setSelected] = useState([]);
+  const [draggingGroup, setDraggingGroup] = useState(null);
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 8000 });
   const { data: lb = [] } = useSWR("/leaderboard", fetcher, { refreshInterval: 8000 });
   const { data: events = [] } = useSWR("/events?archived=false", fetcher, { refreshInterval: 30000 });
@@ -727,6 +756,42 @@ export default function WidgetGrid() {
     setGroups(groups.map((g) => g.id === gid ? { ...g, color } : g));
   };
 
+  const handleGroupDrop = (targetGid) => {
+    if (!draggingGroup || draggingGroup === targetGid) { setDraggingGroup(null); return; }
+    const srcIdx = groups.findIndex((g) => g.id === draggingGroup);
+    const tgtIdx = groups.findIndex((g) => g.id === targetGid);
+    if (srcIdx < 0 || tgtIdx < 0) { setDraggingGroup(null); return; }
+    // Swap semantics: swap the two groups' positions in the groups array
+    const newGroups = [...groups];
+    [newGroups[srcIdx], newGroups[tgtIdx]] = [newGroups[tgtIdx], newGroups[srcIdx]];
+    setGroups(newGroups);
+    // Mirror in enabled: swap the two blocks of widgets
+    const src = groups[srcIdx];
+    const tgt = groups[tgtIdx];
+    const srcMembers = src.widgets.filter((k) => enabled.includes(k));
+    const tgtMembers = tgt.widgets.filter((k) => enabled.includes(k));
+    const rebuilt = [];
+    let emittedForSrc = false;
+    let emittedForTgt = false;
+    enabled.forEach((k) => {
+      if (srcMembers.includes(k)) {
+        if (!emittedForSrc) { rebuilt.push(...tgtMembers); emittedForSrc = true; }
+      } else if (tgtMembers.includes(k)) {
+        if (!emittedForTgt) { rebuilt.push(...srcMembers); emittedForTgt = true; }
+      } else {
+        rebuilt.push(k);
+      }
+    });
+    setEnabled(rebuilt);
+    setDraggingGroup(null);
+    toast.success(t("wg_group_reordered"));
+  };
+
+  const scrollToGroup = (gid) => {
+    const el = document.querySelector(`[data-testid="widget-group-${gid}"]`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const removeWidget = (key) => {
     setEnabled(enabled.filter((k) => k !== key));
     // Update groups
@@ -847,6 +912,41 @@ export default function WidgetGrid() {
         </div>
       )}
 
+      {groups.length > 0 && (
+        <div
+          className="flex flex-wrap gap-1.5 mb-2 px-0.5"
+          data-testid="widget-group-nav"
+        >
+          <div className="text-[9px] font-bold uppercase self-center mr-1" style={{ color: "#8B7355", letterSpacing: "0.1em" }}>
+            {t("wg_group_nav")}:
+          </div>
+          {groups.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              onClick={() => scrollToGroup(g.id)}
+              data-testid={`widget-group-chip-${g.id}`}
+              className="text-[10px] font-bold uppercase flex items-center gap-1 px-2 py-0.5 rounded-full hover:opacity-80 transition-opacity"
+              style={{
+                background: `${g.color}22`,
+                border: `1px solid ${g.color}66`,
+                color: g.color,
+                letterSpacing: "0.06em",
+              }}
+              title={g.name?.trim() ? g.name : `${t("wg_group_label")} · ${g.widgets.length}`}
+            >
+              <span
+                className="rounded-full flex-shrink-0"
+                style={{ width: 8, height: 8, background: g.color, boxShadow: `0 0 4px ${g.color}` }}
+              />
+              <span className="truncate max-w-[140px]">
+                {g.name?.trim() ? g.name : `${t("wg_group_label")} · ${g.widgets.length}`}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}>
         {(() => {
           const rendered = new Set();
@@ -877,6 +977,9 @@ export default function WidgetGrid() {
                   ungroup={ungroup}
                   setGroupName={setGroupName}
                   setGroupColor={setGroupColor}
+                  draggingGroup={draggingGroup}
+                  setDraggingGroup={setDraggingGroup}
+                  handleGroupDrop={handleGroupDrop}
                   t={t}
                 />
               );

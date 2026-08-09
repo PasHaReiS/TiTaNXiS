@@ -13,6 +13,13 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Widget Grubu — Sürükle-Bırak Swap + Grup Panosu (P1) — DONE**: Two more grouping polish features in `WidgetGrid.jsx`:
+  - **Group-to-group drag swap**: `GripVertical` icon at the left of every group header, `draggable={true}`. New `draggingGroup` state in main component. Each group container acts as a drop-zone: when another group is being dragged, `onDragOver` highlights the target with a thicker border + brighter background gradient. On drop, `handleGroupDrop(tgtGid)` **swaps** the two groups' positions in both the `groups` array AND mirrors the swap in `enabled` (blocks of widgets rebuilt via a two-pointer walk). Toast `wg_group_reordered` ("Gruplar yer değiştirdi") fires. Testids: `widget-group-drag-{id}`. Widget-level drag inside groups still works (group's `onDragOver` only fires when `draggingGroup` is set — no collision).
+  - **Grup Panosu nav strip**: Above the main widget grid, a horizontal chip strip `[data-testid="widget-group-nav"]` renders one chip per group `[data-testid="widget-group-chip-{id}"]` showing a color dot + name (falls back to `GRUP · N`). Clicking a chip smooth-scrolls the viewport to that group via `scrollIntoView`. Only visible when `groups.length > 0`.
+  - New i18n keys: `wg_group_reordered`, `wg_group_drag_hint`, `wg_group_nav` (TR + EN).
+  - E2E playwright verified: 2 groups (Alpha + Beta) with 2 widgets each, `drag_and_drop('widget-group-drag-g_A', 'widget-group-g_B')` swapped `[Alpha,Beta]→[Beta,Alpha]` and mirrored `enabled` widget block order; chip strip re-renders reflecting the new order; clicking Beta chip smooth-scrolls to Beta group.
+
+
 - **[2026-02] Widget Grubu — Sıralama + İsim + Renk Seçici (P1) — DONE**: Extended widget grouping in `WidgetGrid.jsx`:
   - **Intra-group reorder**: `handleDrop` now reorders widgets *within* a group when src and target share the same `group.id`. Both `groups[i].widgets` and mirror `enabled` are updated so localStorage persists the visual order.
   - **Editable group name**: Group schema extended with `name` (default `""`). New `<GroupContainer>` sub-component renders a click-to-edit name button (Pencil icon). Enter/blur commits, Esc reverts. Falls back to `GRUP · N` label when empty. Testids: `widget-group-name-{id}`, `widget-group-name-input-{id}`.
