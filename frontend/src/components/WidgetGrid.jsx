@@ -3,7 +3,7 @@ import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Crown, Users, Zap, Trophy, Award, Target, Timer, TrendingUp, Plus, X, Settings2, GripVertical } from "lucide-react";
+import { Crown, Users, Zap, Trophy, Award, Target, Timer, TrendingUp, Shield, Plus, X, Settings2, GripVertical } from "lucide-react";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 const STORAGE_KEY = "titanxis_widgets_v1";
@@ -27,6 +27,7 @@ const WIDGETS = [
   { key: "personal_rank", labelKey: "wg_personal_rank", icon: Target, color: "#F97316" },
   { key: "rally_countdown", labelKey: "wg_rally_countdown", icon: Timer, color: "#EF4444" },
   { key: "personal_progress", labelKey: "wg_personal_progress", icon: TrendingUp, color: "#38BDF8" },
+  { key: "alliance_snapshot", labelKey: "wg_alliance_snapshot", icon: Shield, color: "#EAB308" },
 ];
 
 function useEnabledWidgets() {
@@ -43,10 +44,11 @@ function useEnabledWidgets() {
   return [enabled, setEnabled];
 }
 
-function WidgetCard({ widgetKey, value, subtitle, extra, onRemove, onDragStart, onDragOver, onDrop, dragging, t }) {
+function WidgetCard({ widgetKey, value, subtitle, extra, onRemove, onClick, onDragStart, onDragOver, onDrop, dragging, t }) {
   const meta = WIDGETS.find((w) => w.key === widgetKey);
   if (!meta) return null;
   const Icon = meta.icon;
+  const clickable = !!onClick;
   return (
     <div
       data-testid={`widget-${widgetKey}`}
@@ -54,12 +56,18 @@ function WidgetCard({ widgetKey, value, subtitle, extra, onRemove, onDragStart, 
       onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(widgetKey); }}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; onDragOver(widgetKey); }}
       onDrop={(e) => { e.preventDefault(); onDrop(widgetKey); }}
+      onClick={(e) => {
+        // Ignore clicks on drag handle / remove button
+        if (!clickable) return;
+        if (e.target.closest("button")) return;
+        onClick();
+      }}
       className="relative rounded-xl p-3 transition-opacity"
       style={{
         background: "linear-gradient(135deg, rgba(30,20,16,0.95), rgba(18,12,10,0.95))",
         border: `1px solid ${meta.color}55`,
         boxShadow: `0 4px 14px rgba(0,0,0,0.5), inset 0 0 12px ${meta.color}15`,
-        cursor: "grab",
+        cursor: clickable ? "pointer" : "grab",
         opacity: dragging === widgetKey ? 0.45 : 1,
       }}
     >
@@ -180,6 +188,7 @@ export default function WidgetGrid() {
   const [picker, setPicker] = useState(false);
   const [dragging, setDragging] = useState(null);
   const [dragOver, setDragOver] = useState(null);
+  const [progressModal, setProgressModal] = useState(false);
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 8000 });
   const { data: lb = [] } = useSWR("/leaderboard", fetcher, { refreshInterval: 8000 });
   const { data: events = [] } = useSWR("/events?archived=false", fetcher, { refreshInterval: 30000 });
@@ -189,13 +198,14 @@ export default function WidgetGrid() {
   );
   // Personal progress — daily points for the last 7 days (from /members/{id}/history)
   const me = Array.isArray(myMember) ? myMember.find((m) => (m.name || "").toLowerCase() === user?.username?.toLowerCase()) : null;
-  const { data: myHistory = [] } = useSWR(me ? `/members/${me.id}/history` : null, fetcher, { refreshInterval: 60000 });
+  const { data: myHistory } = useSWR(me ? `/members/${me.id}/history` : null, fetcher, { refreshInterval: 60000 });
   const dailySeries = useMemo(() => {
     const buckets = Array(7).fill(0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const startMs = today.getTime() - 6 * 86400000;
-    (myHistory || []).forEach((p) => {
+    const points = Array.isArray(myHistory) ? myHistory : (myHistory?.points || []);
+    points.forEach((p) => {
       const d = p.date ? new Date(p.date) : null;
       if (!d) return;
       const dayMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -274,7 +284,27 @@ export default function WidgetGrid() {
         value: me ? fmtBig(progressSum) : "—",
         subtitle: me ? t("wg_progress_7d") : t("wg_personal_hint"),
         extra: me ? <Sparkline series={dailySeries} color="#38BDF8" /> : null,
+        onClick: me ? () => setProgressModal(true) : null,
       },
+      alliance_snapshot: (() => {
+        const aName = me?.alliance_name;
+        if (!aName) return { value: "—", subtitle: t("wg_personal_hint") };
+        // Aggregate points per alliance from leaderboard (uses alliance_name field per row)
+        const perAlliance = {};
+        (lb || []).forEach((r) => {
+          const a = r.alliance_name || "-";
+          if (!perAlliance[a]) perAlliance[a] = { name: a, total: 0, count: 0 };
+          perAlliance[a].total += Number(r.total_points) || 0;
+          perAlliance[a].count += 1;
+        });
+        const sorted = Object.values(perAlliance).sort((a, b) => b.total - a.total);
+        const idx = sorted.findIndex((a) => a.name === aName);
+        const my = idx >= 0 ? sorted[idx] : null;
+        return {
+          value: my ? `#${idx + 1}` : "—",
+          subtitle: my ? `${aName} · ${fmtBig(my.total)} · ${my.count} ${t("wg_members_short")}` : aName,
+        };
+      })(),
     };
   }, [stats, lb, me, t, nextEvent, countdownMs, progressSum, dailySeries]);
 
@@ -349,6 +379,7 @@ export default function WidgetGrid() {
             value={values[key]?.value ?? "—"}
             subtitle={values[key]?.subtitle}
             extra={values[key]?.extra}
+            onClick={values[key]?.onClick}
             onRemove={() => setEnabled(enabled.filter((k) => k !== key))}
             onDragStart={setDragging}
             onDragOver={setDragOver}
@@ -367,6 +398,84 @@ export default function WidgetGrid() {
           </div>
         )}
       </div>
+
+      {progressModal && me && (
+        <ProgressDetailModal
+          series={dailySeries}
+          total={progressSum}
+          memberName={me.name}
+          onClose={() => setProgressModal(false)}
+        />
+      )}
     </section>
+  );
+}
+
+function ProgressDetailModal({ series, total, memberName, onClose }) {
+  const { t } = useTranslation();
+  const days = 7;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const labels = Array.from({ length: days }, (_, i) => {
+    const d = new Date(today.getTime() - (days - 1 - i) * 86400000);
+    return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const max = Math.max(1, ...series);
+  const width = 480, height = 200, pad = 28;
+  const chartW = width - pad * 2;
+  const chartH = height - pad * 2;
+  const barW = chartW / days;
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex: 99999, background: "rgba(0,0,0,0.75)" }}
+      onClick={onClose}
+      data-testid="progress-detail-modal"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-xl p-5 rounded-xl relative"
+        style={{ background: "#1E1410", border: "1px solid #38BDF8", boxShadow: "0 8px 32px rgba(0,0,0,0.9)" }}
+      >
+        <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white" data-testid="progress-detail-close">
+          <X className="w-5 h-5" />
+        </button>
+        <h3 className="text-lg font-bold mb-1 uppercase flex items-center gap-2"
+          style={{ color: "#E0E7FF", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}>
+          <TrendingUp className="w-4 h-4" style={{ color: "#38BDF8" }} />
+          {t("wg_progress_detail_title")}
+        </h3>
+        <div className="text-xs mb-3" style={{ color: "#F5F0E8", opacity: 0.7 }}>
+          {memberName} · {t("wg_progress_total", { total: fmtBig(total) })}
+        </div>
+        <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="200" style={{ display: "block" }} data-testid="progress-detail-chart">
+          {[0.25, 0.5, 0.75, 1].map((f, i) => (
+            <line key={i} x1={pad} x2={width - pad} y1={height - pad - chartH * f} y2={height - pad - chartH * f}
+              stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
+          ))}
+          {series.map((v, i) => {
+            const h = (Number(v) / max) * chartH;
+            const x = pad + i * barW + barW * 0.15;
+            const y = height - pad - h;
+            const w = barW * 0.7;
+            return (
+              <g key={i}>
+                <rect x={x} y={y} width={w} height={h} rx="2" fill="#38BDF8" opacity="0.85" />
+                <text x={x + w / 2} y={y - 4} textAnchor="middle" fill="#E0E7FF" fontSize="10">{v > 0 ? fmtBig(v) : ""}</text>
+                <text x={x + w / 2} y={height - pad + 14} textAnchor="middle" fill="#F5F0E8" fontSize="10" opacity="0.7">{labels[i]}</text>
+              </g>
+            );
+          })}
+        </svg>
+        <div className="mt-3 grid gap-1.5" style={{ gridTemplateColumns: "repeat(7, 1fr)" }} data-testid="progress-detail-days">
+          {series.map((v, i) => (
+            <div key={i} className="text-center rounded p-1" style={{ background: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.25)" }}>
+              <div className="text-[10px]" style={{ color: "#F5F0E8", opacity: 0.6 }}>{labels[i]}</div>
+              <div className="text-xs font-bold" style={{ color: "#38BDF8" }}>{fmtBig(v)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }

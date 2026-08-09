@@ -3,7 +3,7 @@ import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
-import { Send, BellRing, RotateCw, History } from "lucide-react";
+import { Send, BellRing, RotateCw, History, Bookmark, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -15,7 +15,10 @@ export default function PushBroadcastPanel() {
   const [body, setBody] = useState("");
   const [url, setUrl] = useState("/");
   const [busy, setBusy] = useState(false);
+  const [tplName, setTplName] = useState("");
+  const [showSave, setShowSave] = useState(false);
   const { data: history = [], mutate: refreshHistory } = useSWR(isAdmin ? "/push/history" : null, fetcher, { refreshInterval: 20000 });
+  const { data: templates = [], mutate: refreshTpl } = useSWR(isAdmin ? "/push/templates" : null, fetcher);
   if (!isAdmin) return null;
 
   const doSend = async (payload) => {
@@ -39,6 +42,32 @@ export default function PushBroadcastPanel() {
 
   const resend = (h) => doSend({ title: h.title, body: h.body, url: h.url || "/", tag: h.tag || "manual-broadcast" });
 
+  const applyTemplate = (tpl) => {
+    setTitle(tpl.title || "");
+    setBody(tpl.body || "");
+    setUrl(tpl.url || "/");
+    toast.success(t("push_tpl_applied", { name: tpl.name }));
+  };
+
+  const saveTemplate = async () => {
+    if (!tplName.trim() || !title.trim() || !body.trim()) { toast.error(t("push_tpl_required")); return; }
+    try {
+      await api.post("/push/templates", { name: tplName.trim(), title: title.trim(), body: body.trim(), url: url.trim() || "/" });
+      toast.success(t("push_tpl_saved"));
+      setTplName(""); setShowSave(false);
+      refreshTpl();
+    } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
+  };
+
+  const deleteTemplate = async (id, name) => {
+    if (!window.confirm(t("push_tpl_delete_confirm", { name }))) return;
+    try {
+      await api.delete(`/push/templates/${id}`);
+      toast.success(t("deleted"));
+      refreshTpl();
+    } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
+  };
+
   return (
     <div
       data-testid="push-broadcast-panel"
@@ -55,6 +84,36 @@ export default function PushBroadcastPanel() {
         </h3>
       </div>
       <div className="flex flex-col gap-2">
+        {templates.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 items-center" data-testid="push-templates-strip">
+            <span className="text-[10px] uppercase tracking-widest opacity-70" style={{ color: "#A855F7" }}>
+              <Bookmark className="w-3 h-3 inline" /> {t("push_tpl_favorites")}:
+            </span>
+            {templates.map((tpl) => (
+              <div key={tpl.id} className="flex items-center gap-0.5" data-testid={`push-tpl-${tpl.id}`}>
+                <button
+                  type="button"
+                  onClick={() => applyTemplate(tpl)}
+                  data-testid={`push-tpl-apply-${tpl.id}`}
+                  className="px-2 py-1 rounded-full text-[10px] font-bold uppercase"
+                  style={{ background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#E0E7FF", letterSpacing: "0.06em" }}
+                >
+                  {tpl.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteTemplate(tpl.id, tpl.name)}
+                  data-testid={`push-tpl-del-${tpl.id}`}
+                  className="p-0.5 opacity-50 hover:opacity-100"
+                  style={{ color: "#f87171" }}
+                  title={t("delete")}
+                >
+                  <Trash2 className="w-2.5 h-2.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -80,16 +139,64 @@ export default function PushBroadcastPanel() {
           className="w-full rounded px-3 py-2 text-xs mono"
           style={{ background: "#1A1210", border: "1px solid rgba(255,255,255,0.12)", color: "#F5F0E8" }}
         />
-        <button
-          type="button"
-          onClick={send}
-          disabled={busy}
-          data-testid="push-bc-send"
-          className="self-end px-4 py-2 rounded-lg text-white text-xs font-bold flex items-center gap-1.5"
-          style={{ background: "linear-gradient(135deg,#7C3AED,#3B82F6)", opacity: busy ? 0.6 : 1 }}
-        >
-          <Send className="w-3 h-3" /> {busy ? t("push_bc_sending") : t("push_bc_send")}
-        </button>
+        <div className="flex items-center justify-end gap-2 flex-wrap">
+          {showSave ? (
+            <div className="flex items-center gap-1.5 flex-1 min-w-0" data-testid="push-tpl-save-row">
+              <input
+                value={tplName}
+                onChange={(e) => setTplName(e.target.value)}
+                data-testid="push-tpl-name-input"
+                placeholder={t("push_tpl_name_placeholder")}
+                className="flex-1 rounded px-2 py-1.5 text-xs"
+                style={{ background: "#1A1210", border: "1px solid rgba(168,85,247,0.4)", color: "#F5F0E8" }}
+              />
+              <button
+                type="button"
+                onClick={saveTemplate}
+                data-testid="push-tpl-save-btn"
+                className="px-2 py-1.5 rounded text-white text-[11px] font-bold"
+                style={{ background: "linear-gradient(135deg,#A855F7,#7C3AED)" }}
+              >
+                {t("save")}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowSave(false); setTplName(""); }}
+                data-testid="push-tpl-save-cancel"
+                className="px-2 py-1.5 rounded text-[11px]"
+                style={{ background: "#1A1210", color: "#F5F0E8", opacity: 0.7 }}
+              >
+                {t("cancel")}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowSave(true)}
+              disabled={!title.trim() || !body.trim()}
+              data-testid="push-tpl-save-toggle"
+              className="px-3 py-2 rounded-lg text-[11px] font-bold flex items-center gap-1"
+              style={{
+                background: "transparent",
+                border: "1px dashed rgba(168,85,247,0.6)",
+                color: "#A855F7",
+                opacity: (!title.trim() || !body.trim()) ? 0.4 : 1,
+              }}
+            >
+              <Bookmark className="w-3 h-3" /> {t("push_tpl_save_as")}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={send}
+            disabled={busy}
+            data-testid="push-bc-send"
+            className="px-4 py-2 rounded-lg text-white text-xs font-bold flex items-center gap-1.5"
+            style={{ background: "linear-gradient(135deg,#7C3AED,#3B82F6)", opacity: busy ? 0.6 : 1 }}
+          >
+            <Send className="w-3 h-3" /> {busy ? t("push_bc_sending") : t("push_bc_send")}
+          </button>
+        </div>
       </div>
 
       {history.length > 0 && (

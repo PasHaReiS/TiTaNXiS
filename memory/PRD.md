@@ -135,13 +135,14 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 See `/app/memory/test_credentials.md`
 
 ## Notes for Next Agent
-- **[2026-02] Push History (P4 done)**: Backend `_broadcast_push` her yayında `db.push_history` içine `{id, title, body, url, tag, sent, removed, created_at}` yazar. `GET /api/push/history` (admin, son 50). Frontend `PushBroadcastPanel` alt kısmına History list + her satırda `RotateCw Tekrar` butonu (aynı payload'la yeniden yayın) eklendi. curl 2 yayın → history 2 satır; pasha 403.
-- **[2026-02] Kişisel İlerleme Widget (P4 done)**: `WidgetGrid` 8. widget `personal_progress` (TrendingUp, `#38BDF8`). SWR `/members/{id}/history` çeker, kullanıcının son 7 günlük puanlarını (points × multiplier) günlük bucket'lara böler; `Sparkline` inline SVG (polyline + noktalar) renderlar. Widget value = 7g toplam (fmtBig), subtitle "Son 7 gün".
-- **[2026-02] Rally Ses Uyarısı (P4 done)**: `WidgetGrid` içinde `useEffect` her nextEvent değişince alertRef yeniden armlanır. Countdown (0, 5min] penceresine girince tek seferlik `playRallyAlert`: `navigator.vibrate([200,100,200,100,400])` + Web Audio 3-nota beep (880→1100→880 Hz, sine, 0.35s aralık). Widget aktif değilse tetiklenmez.
-- **[2026-02] Widget Reorder, Custom Push Templates, Rally Sayacı Widget — önceki turlarda tamamlandı.**
-- **[2026-02] Push Notifications, Offline Mode / SW, Dashboard Widgets, Expand/Collapse All + Persist, PWA Install Prompt — hepsi tamamlandı.**
-- **[2026-02] Ekip Kopyala, Kümülatif Star Maliyeti, Excel Grafik, Rarity Filtresi, Hesap Karşılaştır, Puan Hesaplama Excel Import, Public Share Link, Content History — hepsi tamamlandı.**
-- **YENI ENV**: `backend/requirements.txt` içine `pywebpush`, `py-vapid`, `http-ece` eklendi. VAPID keypair MongoDB `push_config` (id="vapid") auto-generated. Yeni koleksiyon: `push_history`.
+- **[2026-02] Push Şablonları (P4 done)**: Backend `db.push_templates` + `GET/POST /api/push/templates`, `DELETE /api/push/templates/{id}` (admin). Frontend `PushBroadcastPanel` üstünde mor chip strip `push-templates-strip` — tıklayınca `title/body/url` inputlarına yükler, yanında `Trash2` delete. Alt tarafta `Şablon Olarak Kaydet` toggle → şablon adı input + Save. curl E2E doğrulandı (CRUD + non-admin 403).
+- **[2026-02] Sparkline Detay Popup (P4 done)**: `WidgetCard`'a `onClick` prop; personal_progress widget clickable (cursor:pointer). `ProgressDetailModal` — max-w-xl mor 7-day bar chart (SVG bars + günlük değer etiketleri + tarih), altta 7 kart daily breakdown. Ana Card'a `onClick` içinde `e.target.closest("button")` guard var (X/drag butonları modalı açmasın diye).
+- **[2026-02] Alliance Snapshot Widget (P4 done)**: 9. widget `alliance_snapshot` (Shield ikon, altın `#EAB308`). SWR `/leaderboard` alliance_name'e göre client-side aggregate; kullanıcının alliance'ında sıralama, toplam puan (fmtBig), üye sayısı — value `#N`, subtitle `Alliance · TotalBig · Count üye`.
+- **[2026-02] Push History (P4 done)**: `db.push_history` + resend buton.
+- **[2026-02] Kişisel İlerleme Widget (P4 done)**: Sparkline SVG.
+- **[2026-02] Rally Ses Uyarısı (P4 done)**: Web Audio 3-nota beep + vibrate.
+- **[2026-02] Push Notifications, Offline Mode / SW, Dashboard Widgets, Widget Reorder, Custom Push Templates, Rally Sayacı Widget — hepsi tamamlandı.**
+- **[2026-02] Ekip Kopyala, Kümülatif Star Maliyeti, Excel Grafik, Rarity Filtresi, Hesap Karşılaştır, Puan Hesaplama Excel Import, Public Share Link, Content History, PWA Install, Expand/Collapse All + Persist — hepsi tamamlandı.**
 - Do NOT create random files under `/app/backend/` that trigger uvicorn watchfiles reload cascade (502 crash).
 - Router prefixes: `auth_router` mounted so `/api/auth/login` resolves.
 - REACT_APP_BACKEND_URL is the only correct external URL — never hardcode.

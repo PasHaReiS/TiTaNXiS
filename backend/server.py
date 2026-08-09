@@ -2280,6 +2280,40 @@ async def push_history(_: dict = Depends(require_admin)):
     return await cursor.to_list(50)
 
 
+class PushTemplateBody(BaseModel):
+    name: str
+    title: str
+    body: str
+    url: Optional[str] = "/"
+
+
+@api_router.get("/push/templates")
+async def push_templates_list(_: dict = Depends(require_admin)):
+    cursor = db.push_templates.find({}, {"_id": 0}).sort("created_at", -1).limit(50)
+    return await cursor.to_list(50)
+
+
+@api_router.post("/push/templates")
+async def push_template_create(body: PushTemplateBody, _: dict = Depends(require_admin)):
+    doc = {
+        "id": str(uuid.uuid4()),
+        "name": body.name.strip(),
+        "title": body.title.strip(),
+        "body": body.body.strip(),
+        "url": (body.url or "/").strip(),
+        "created_at": now_iso(),
+    }
+    await db.push_templates.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.delete("/push/templates/{tpl_id}")
+async def push_template_delete(tpl_id: str, _: dict = Depends(require_admin)):
+    r = await db.push_templates.delete_one({"id": tpl_id})
+    return {"deleted": r.deleted_count}
+
+
 class PushBroadcastBody(BaseModel):
     title: str
     body: str
