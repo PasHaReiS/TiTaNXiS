@@ -1704,6 +1704,18 @@ async def update_point_calc(day_id: str, body: PCDayUpdate, _: dict = Depends(re
     upd = {k: v for k, v in body.model_dump(exclude_none=True).items()}
     if not upd:
         raise HTTPException(400, "no fields")
+    # Snapshot the current doc BEFORE mutation, so admins can revert.
+    current = await db.point_calc_days.find_one({"id": day_id})
+    if not current:
+        raise HTTPException(404, "not found")
+    current.pop("_id", None)
+    await db.point_calc_history.insert_one({
+        "version_id": str(uuid.uuid4()),
+        "day_id": day_id,
+        "saved_at": now_iso(),
+        "changed_fields": list(upd.keys()),
+        "snapshot": current,
+    })
     upd["updated_at"] = now_iso()
     r = await db.point_calc_days.update_one({"id": day_id}, {"$set": upd})
     if r.matched_count == 0:
@@ -1719,6 +1731,75 @@ async def delete_point_calc(day_id: str, _: dict = Depends(require_edit)):
     if r.deleted_count == 0:
         raise HTTPException(404, "not found")
     return {"deleted": True}
+
+
+# ---------- Public share link (HMAC-signed, read-only) ----------
+import hmac as _hmac
+import hashlib as _hashlib
+
+def _pc_sign(day_id: str) -> str:
+    secret = os.environ.get("JWT_SECRET", "dev-secret").encode()
+    return _hmac.new(secret, day_id.encode(), _hashlib.sha256).hexdigest()[:32]
+
+
+@api_router.get("/point-calc/{day_id}/share")
+async def make_share_link(day_id: str, _: dict = Depends(require_edit)):
+    doc = await db.point_calc_days.find_one({"id": day_id})
+    if not doc:
+        raise HTTPException(404, "not found")
+    return {"id": day_id, "sig": _pc_sign(day_id)}
+
+
+@api_router.get("/public/point-calc/{day_id}")
+async def public_point_calc(day_id: str, sig: str = Query(...)):
+    expected = _pc_sign(day_id)
+    if not _hmac.compare_digest(expected, sig):
+        raise HTTPException(403, "invalid signature")
+    doc = await db.point_calc_days.find_one({"id": day_id})
+    if not doc:
+        raise HTTPException(404, "not found")
+    doc.pop("_id", None)
+    return doc
+
+
+# ---------- Version history ----------
+@api_router.get("/point-calc/{day_id}/history")
+async def list_history(day_id: str, _: dict = Depends(require_auth)):
+    cursor = db.point_calc_history.find({"day_id": day_id}).sort("saved_at", -1).limit(20)
+    out = []
+    async for h in cursor:
+        h.pop("_id", None)
+        out.append({
+            "version_id": h.get("version_id"),
+            "saved_at": h.get("saved_at"),
+            "changed_fields": h.get("changed_fields", []),
+        })
+    return out
+
+
+@api_router.post("/point-calc/{day_id}/revert/{version_id}")
+async def revert_history(day_id: str, version_id: str, _: dict = Depends(require_edit)):
+    snap = await db.point_calc_history.find_one({"day_id": day_id, "version_id": version_id})
+    if not snap:
+        raise HTTPException(404, "version not found")
+    prev = snap.get("snapshot") or {}
+    # Save current as new snapshot before reverting.
+    current = await db.point_calc_days.find_one({"id": day_id})
+    if current:
+        current.pop("_id", None)
+        await db.point_calc_history.insert_one({
+            "version_id": str(uuid.uuid4()),
+            "day_id": day_id,
+            "saved_at": now_iso(),
+            "changed_fields": ["revert"],
+            "snapshot": current,
+        })
+    prev.pop("id", None)
+    prev["updated_at"] = now_iso()
+    await db.point_calc_days.update_one({"id": day_id}, {"$set": prev})
+    doc = await db.point_calc_days.find_one({"id": day_id})
+    doc.pop("_id", None)
+    return doc
 
 
 # ---------- DeepL Translation ----------
