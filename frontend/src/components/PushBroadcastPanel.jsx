@@ -359,6 +359,7 @@ export default function PushBroadcastPanel() {
               {t("push_bc_history")}
             </div>
           </div>
+          <PushAnalyticsChart history={history} />
           <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto">
             {history.map((h) => (
               <div
@@ -472,6 +473,62 @@ export default function PushBroadcastPanel() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function PushAnalyticsChart({ history }) {
+  const { t } = useTranslation();
+  // Bucket by hour-of-day (0-23), sum sent/opened/clicked → hourly open %
+  const buckets = Array.from({ length: 24 }, () => ({ sent: 0, opened: 0, clicked: 0 }));
+  (history || []).forEach((h) => {
+    const d = h.created_at ? new Date(h.created_at) : null;
+    if (!d) return;
+    const hr = d.getHours();
+    buckets[hr].sent += Number(h.sent || 0);
+    buckets[hr].opened += Number(h.opened || 0);
+    buckets[hr].clicked += Number(h.clicked || 0);
+  });
+  const maxSent = Math.max(1, ...buckets.map((b) => b.sent));
+  const hasData = buckets.some((b) => b.sent > 0);
+  if (!hasData) return null;
+  return (
+    <div
+      data-testid="push-analytics-chart"
+      className="mb-3 p-3 rounded-lg"
+      style={{ background: "rgba(20,12,10,0.6)", border: "1px solid rgba(56,189,248,0.3)" }}
+    >
+      <div className="text-[10px] font-bold uppercase mb-2" style={{ color: "#38BDF8", letterSpacing: "0.08em" }}>
+        {t("push_analytics_title")}
+      </div>
+      <div className="flex items-end gap-0.5" style={{ height: 60 }}>
+        {buckets.map((b, i) => {
+          const rate = b.sent > 0 ? b.opened / b.sent : 0;
+          const h = b.sent > 0 ? Math.max(4, (b.sent / maxSent) * 56) : 2;
+          const hue = 200 + Math.round(rate * 60); // higher rate = warmer
+          return (
+            <div
+              key={i}
+              data-testid={`push-analytics-bar-${i}`}
+              className="flex-1 flex flex-col items-center justify-end"
+              title={`${i}:00 — ${b.sent} sent, ${b.opened} opened (${Math.round(rate * 100)}%)`}
+            >
+              <div style={{
+                width: "100%",
+                height: `${h}px`,
+                background: b.sent > 0 ? `linear-gradient(180deg, hsl(${hue},80%,55%), hsl(${hue},70%,40%))` : "rgba(255,255,255,0.05)",
+                borderRadius: 2,
+              }} />
+              {(i % 3 === 0) && (
+                <div className="text-[8px] mt-0.5" style={{ color: "#F5F0E8", opacity: 0.55 }}>{i}</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="text-[9px] mt-1" style={{ color: "#F5F0E8", opacity: 0.55 }}>
+        {t("push_analytics_hint")}
+      </div>
     </div>
   );
 }

@@ -583,6 +583,16 @@ const tr = {
   wg_personal_progress_desc: "Son 7 günlük puan artışın sparkline; tıkla → detay.",
   wg_alliance_snapshot_desc: "İttifakının sıralaması, toplam puanı ve üye sayısı.",
   wg_todays_event_desc: "Bugün başlayan etkinliği çizgili kırmızı temayla vurgular.",
+  wglib_search_placeholder: "Widget ara...",
+  wglib_results: "widget",
+  wglib_no_match: "Eşleşen widget yok",
+  wglib_cat_all: "Tümü",
+  wglib_cat_guild: "Lonca",
+  wglib_cat_personal: "Kişisel",
+  wglib_cat_event: "Etkinlik",
+  push_analytics_title: "Saatlik Açılma Trendi",
+  push_analytics_hint: "Yükseklik = gönderim sayısı · Sıcak renk = daha yüksek açılma oranı",
+
   wg_alliance_top3_desc: "İttifakının en yüksek puanlı 3 üyesi altın/gümüş/bronz.",
   wg_alliance_duel_desc: "İttifakın vs rakip: canlı bar chart.",
 
@@ -1143,6 +1153,16 @@ const en = {
   push_tpl_saved: "Template saved",
   push_tpl_applied: "\"{{name}}\" loaded",
   push_tpl_required: "Template name, title and body required",
+  wglib_search_placeholder: "Search widgets...",
+  wglib_results: "widgets",
+  wglib_no_match: "No matching widget",
+  wglib_cat_all: "All",
+  wglib_cat_guild: "Guild",
+  wglib_cat_personal: "Personal",
+  wglib_cat_event: "Event",
+  push_analytics_title: "Hourly Open Trend",
+  push_analytics_hint: "Height = sent count · Warm color = higher open rate",
+
   push_tpl_delete_confirm: "Delete template \"{{name}}\"?",
 };
 

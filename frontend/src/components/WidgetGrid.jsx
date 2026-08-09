@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Crown, Users, Zap, Trophy, Award, Target, Timer, TrendingUp, Shield, Flame, Medal, Plus, X, Settings2, GripVertical } from "lucide-react";
+import { groupColor } from "@/lib/groupColors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 const STORAGE_KEY = "titanxis_widgets_v1";
@@ -269,7 +270,29 @@ export default function WidgetGrid() {
     const myRank = me ? lb.findIndex((r) => r.member_id === me.id) : -1;
     return {
       top_member: { value: top?.name || "—", subtitle: top ? `${fmtBig(top.total_points)} ${t("wg_points_short")}` : "" },
-      active_events: { value: stats?.event_count ?? "—", subtitle: t("wg_events_subtitle") },
+      active_events: (() => {
+        // Count active + attach a color legend of unique groups (top 4)
+        const now = Date.now();
+        const active = (events || []).filter((e) => !e.archived);
+        const groups = Array.from(new Set(active.map((e) => e.group_name).filter(Boolean))).slice(0, 4);
+        return {
+          value: stats?.event_count ?? active.length,
+          subtitle: t("wg_events_subtitle"),
+          extra: groups.length > 0 ? (
+            <div className="flex flex-wrap gap-1 mt-1.5" data-testid="widget-active-events-legend">
+              {groups.map((g) => {
+                const c = groupColor(g);
+                return (
+                  <span key={g} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase"
+                    style={{ background: `${c}22`, border: `1px solid ${c}66`, color: c, letterSpacing: "0.04em" }}>
+                    <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: 3, background: c }} /> {g}
+                  </span>
+                );
+              })}
+            </div>
+          ) : null,
+        };
+      })(),
       total_power: { value: fmtBig(stats?.total_power || 0), subtitle: fmt(stats?.total_power || 0) },
       member_count: { value: stats?.member_count ?? "—", subtitle: t("wg_members_subtitle") },
       personal_points: {
@@ -322,7 +345,17 @@ export default function WidgetGrid() {
         const ev = active[0];
         const t2 = new Date(ev.date);
         const timeStr = `${String(t2.getHours()).padStart(2, "0")}:${String(t2.getMinutes()).padStart(2, "0")}`;
-        return { value: ev.name, subtitle: `${timeStr} · ${ev.group_name || "—"}`, striped: true };
+        const gc = groupColor(ev.group_name);
+        return {
+          value: ev.name,
+          subtitle: (
+            <span className="inline-flex items-center gap-1">
+              <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 3, background: gc, boxShadow: `0 0 4px ${gc}` }} />
+              {timeStr} · <span style={{ color: gc, fontWeight: 700 }}>{ev.group_name || "—"}</span>
+            </span>
+          ),
+          striped: true,
+        };
       })(),
       alliance_top3: (() => {
         const aName = me?.alliance_name;
