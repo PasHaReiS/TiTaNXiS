@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound, Activity } from "lucide-react";
+import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound, Activity, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import LogoVideoModal from "@/components/LogoVideoModal";
@@ -157,6 +157,18 @@ export default function Header({ title }) {
                       label={t("detailed_report")}
                       onClick={downloadXlsx}
                       testId="dropdown-export"
+                    />
+                  )}
+                  {isAdmin && (
+                    <MenuItem
+                      icon={Sparkles}
+                      label={t("wiz_reopen")}
+                      onClick={() => {
+                        try { localStorage.removeItem("titanxis_notif_wizard_seen_v1"); } catch {}
+                        window.dispatchEvent(new CustomEvent("titanxis:open-wizard"));
+                        setMenuOpen(false);
+                      }}
+                      testId="dropdown-reopen-wizard"
                     />
                   )}
                   <div style={{ height: 1, background: "rgba(231,76,26,0.3)" }} />

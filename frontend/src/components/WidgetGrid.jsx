@@ -1083,17 +1083,24 @@ export default function WidgetGrid() {
               </span>
               <span
                 data-testid={`widget-group-chip-count-${g.id}`}
-                className="text-[9px] font-bold rounded px-1 flex-shrink-0"
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); toggleGroupCollapsed(g.id); }}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); toggleGroupCollapsed(g.id); } }}
+                className="text-[9px] font-bold rounded px-1 flex-shrink-0 flex items-center gap-0.5 cursor-pointer hover:opacity-80"
                 style={{
                   background: `${g.color}44`,
                   color: g.color,
                   fontVariantNumeric: "tabular-nums",
                   letterSpacing: "0.04em",
-                  minWidth: 22,
-                  textAlign: "center",
+                  minWidth: 30,
+                  justifyContent: "center",
                 }}
-                title={t("wg_group_chip_count_hint", { n: g.widgets.length })}
+                title={g.collapsed
+                  ? t("wg_group_chip_count_expand_hint", { n: g.widgets.length })
+                  : t("wg_group_chip_count_collapse_hint", { n: g.widgets.length })}
               >
+                {g.collapsed ? <ChevronRight className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
                 {g.widgets.length}
               </span>
             </button>

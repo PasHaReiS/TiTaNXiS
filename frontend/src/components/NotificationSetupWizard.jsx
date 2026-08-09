@@ -51,6 +51,13 @@ export default function NotificationSetupWizard() {
     return () => clearTimeout(id);
   }, [isAdmin]);
 
+  // Allow external re-open via a custom event (from admin menu).
+  useEffect(() => {
+    const onOpen = () => { setStep(0); setOpen(true); };
+    window.addEventListener("titanxis:open-wizard", onOpen);
+    return () => window.removeEventListener("titanxis:open-wizard", onOpen);
+  }, []);
+
   useEffect(() => {
     const onBeforeInstall = (e) => { e.preventDefault(); setDeferredPrompt(e); };
     const onInstalled = () => { setInstalled(true); toast.success(t("wiz_installed_ok")); };
