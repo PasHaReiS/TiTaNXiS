@@ -621,6 +621,10 @@ const tr = {
   wg_group_collapse: "Grubu katla",
   wg_group_expand: "Grubu aç",
   wg_group_hidden_count: "{{n}} widget gizli · aç için sağdaki oka bas",
+  wg_group_collapse_all: "Hepsini katla",
+  wg_group_expand_all: "Hepsini aç",
+  wg_group_all_collapsed: "Tüm gruplar katlandı",
+  wg_group_all_expanded: "Tüm gruplar açıldı",
 
 
 

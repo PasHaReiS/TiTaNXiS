@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Crown, Users, Zap, Trophy, Award, Target, Timer, TrendingUp, Shield, Flame, Medal, Plus, X, Settings2, GripVertical, Maximize2, Minimize2, Square, Layers, Check, Link2Off, Palette, Pencil, ChevronDown, ChevronRight } from "lucide-react";
+import { Crown, Users, Zap, Trophy, Award, Target, Timer, TrendingUp, Shield, Flame, Medal, Plus, X, Settings2, GripVertical, Maximize2, Minimize2, Square, Layers, Check, Link2Off, Palette, Pencil, ChevronDown, ChevronRight, ChevronsUpDown, ChevronsDownUp } from "lucide-react";
 import { groupColor } from "@/lib/groupColors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -854,6 +854,13 @@ export default function WidgetGrid() {
     setGroups(groups.map((g) => g.id === gid ? { ...g, collapsed: !g.collapsed } : g));
   };
 
+  const toggleAllCollapsed = () => {
+    // If any group is expanded, collapse all. Otherwise expand all.
+    const anyExpanded = groups.some((g) => !g.collapsed);
+    setGroups(groups.map((g) => ({ ...g, collapsed: anyExpanded })));
+    toast.success(anyExpanded ? t("wg_group_all_collapsed") : t("wg_group_all_expanded"));
+  };
+
   const handleGroupDrop = (targetGid) => {
     if (!draggingGroup || draggingGroup === targetGid) { setDraggingGroup(null); return; }
     const srcIdx = groups.findIndex((g) => g.id === draggingGroup);
@@ -968,6 +975,28 @@ export default function WidgetGrid() {
               {t("wg_group_create")} ({selected.length})
             </button>
           )}
+          {groups.length > 0 && (() => {
+            const anyExpanded = groups.some((g) => !g.collapsed);
+            const Icon = anyExpanded ? ChevronsDownUp : ChevronsUpDown;
+            return (
+              <button
+                type="button"
+                onClick={toggleAllCollapsed}
+                data-testid="widget-group-toggle-all"
+                aria-label={anyExpanded ? t("wg_group_collapse_all") : t("wg_group_expand_all")}
+                title={anyExpanded ? t("wg_group_collapse_all") : t("wg_group_expand_all")}
+                className="px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 ml-1"
+                style={{
+                  background: "rgba(30,20,16,0.6)",
+                  border: "1px solid rgba(245,166,35,0.4)",
+                  color: "#F5A623",
+                }}
+              >
+                <Icon className="w-3 h-3" />
+                {anyExpanded ? t("wg_group_collapse_all") : t("wg_group_expand_all")}
+              </button>
+            );
+          })()}
         </div>
       </div>
 
