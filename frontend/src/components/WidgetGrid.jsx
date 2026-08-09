@@ -1,16 +1,21 @@
 import React, { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Crown, Users, Zap, Trophy, Award, Target, Timer, TrendingUp, Shield, Flame, Medal, Plus, X, Settings2, GripVertical, Maximize2, Minimize2, Square } from "lucide-react";
+import { Crown, Users, Zap, Trophy, Award, Target, Timer, TrendingUp, Shield, Flame, Medal, Plus, X, Settings2, GripVertical, Maximize2, Minimize2, Square, Layers, Check, Link2Off } from "lucide-react";
 import { groupColor } from "@/lib/groupColors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 const STORAGE_KEY = "titanxis_widgets_v1";
 const SIZE_KEY = "titanxis_widget_sizes_v1";
+const THEME_KEY = "titanxis_widget_theme_v1";
+const GROUPS_KEY = "titanxis_widget_groups_v1";
 const DEFAULT_WIDGETS = ["top_member", "active_events", "total_power", "personal_points"];
 const SIZE_ORDER = ["compact", "normal", "wide"];
+const THEMES = ["vivid", "minimal", "mono"];
+const GROUP_PALETTE = ["#F5A623", "#22C55E", "#38BDF8", "#A855F7", "#EF4444", "#EAB308", "#F97316"];
 
 const fmt = (n) => Number(n || 0).toLocaleString("tr-TR");
 const fmtBig = (n) => {
@@ -65,42 +70,100 @@ function useWidgetSizes() {
   return [sizes, setSizes];
 }
 
-function WidgetCard({ widgetKey, value, subtitle, extra, striped, size, onCycleSize, onRemove, onClick, onDragStart, onDragOver, onDrop, dragging, t }) {
+function useWidgetTheme() {
+  const [theme, setTheme] = useState(() => {
+    try {
+      const raw = localStorage.getItem(THEME_KEY);
+      if (raw && THEMES.includes(raw)) return raw;
+    } catch {}
+    return "vivid";
+  });
+  useEffect(() => {
+    try { localStorage.setItem(THEME_KEY, theme); } catch {}
+  }, [theme]);
+  return [theme, setTheme];
+}
+
+function useWidgetGroups() {
+  const [groups, setGroups] = useState(() => {
+    try {
+      const raw = localStorage.getItem(GROUPS_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return [];
+  });
+  useEffect(() => {
+    try { localStorage.setItem(GROUPS_KEY, JSON.stringify(groups)); } catch {}
+  }, [groups]);
+  return [groups, setGroups];
+}
+
+
+function WidgetCard({ widgetKey, value, subtitle, extra, striped, size, theme, onCycleSize, onRemove, onClick, onDragStart, onDragOver, onDrop, dragging, t, selectMode, isSelected, onSelectToggle, groupAccent }) {
   const meta = WIDGETS.find((w) => w.key === widgetKey);
   if (!meta) return null;
   const Icon = meta.icon;
-  const clickable = !!onClick;
+  const clickable = selectMode ? true : !!onClick;
   const isCompact = size === "compact";
   const isWide = size === "wide";
+  // Theme: vivid (default), minimal (muted), mono (grayscale)
+  const accent = groupAccent || (theme === "mono" ? "#F5F0E8" : meta.color);
+  const bgOpacity = theme === "minimal" ? 0.7 : 0.95;
   const stripeBg = striped
-    ? `repeating-linear-gradient(45deg, ${meta.color}18, ${meta.color}18 6px, rgba(30,20,16,0.95) 6px, rgba(30,20,16,0.95) 14px)`
-    : "linear-gradient(135deg, rgba(30,20,16,0.95), rgba(18,12,10,0.95))";
+    ? `repeating-linear-gradient(45deg, ${accent}18, ${accent}18 6px, rgba(30,20,16,${bgOpacity}) 6px, rgba(30,20,16,${bgOpacity}) 14px)`
+    : theme === "minimal"
+      ? "linear-gradient(135deg, rgba(30,20,16,0.7), rgba(18,12,10,0.7))"
+      : theme === "mono"
+        ? "linear-gradient(135deg, rgba(24,18,14,0.95), rgba(14,10,8,0.95))"
+        : "linear-gradient(135deg, rgba(30,20,16,0.95), rgba(18,12,10,0.95))";
+  const shadow = theme === "minimal" ? "none" : `0 4px 14px rgba(0,0,0,0.5), inset 0 0 12px ${accent}${theme === "mono" ? "0A" : "15"}`;
   const SizeIcon = size === "compact" ? Minimize2 : size === "wide" ? Maximize2 : Square;
   return (
     <div
       data-testid={`widget-${widgetKey}`}
-      draggable
-      onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(widgetKey); }}
+      draggable={!selectMode}
+      onDragStart={(e) => { if (selectMode) return; e.dataTransfer.effectAllowed = "move"; onDragStart(widgetKey); }}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; onDragOver(widgetKey); }}
       onDrop={(e) => { e.preventDefault(); onDrop(widgetKey); }}
       onClick={(e) => {
+        // In select mode: any click on the card toggles selection
+        if (selectMode) {
+          if (e.target.closest("button[data-widget-action]")) return;
+          onSelectToggle?.(widgetKey);
+          return;
+        }
         // Ignore clicks on drag handle / remove button
-        if (!clickable) return;
+        if (!onClick) return;
         if (e.target.closest("button")) return;
         onClick();
       }}
       className="relative rounded-xl transition-opacity"
       style={{
         background: stripeBg,
-        border: `1px solid ${meta.color}55`,
-        boxShadow: `0 4px 14px rgba(0,0,0,0.5), inset 0 0 12px ${meta.color}15`,
-        cursor: clickable ? "pointer" : "grab",
+        border: `${isSelected ? "2px" : "1px"} solid ${isSelected ? "#F5A623" : `${accent}${theme === "minimal" ? "33" : "55"}`}`,
+        boxShadow: isSelected ? `0 0 0 2px rgba(245,166,35,0.35), ${shadow}` : shadow,
+        cursor: selectMode ? "pointer" : (clickable ? "pointer" : "grab"),
         opacity: dragging === widgetKey ? 0.45 : 1,
         gridColumn: isWide ? "span 2" : "auto",
         padding: isCompact ? 8 : 12,
       }}
       data-size={size || "normal"}
+      data-theme={theme || "vivid"}
+      data-selected={isSelected ? "true" : "false"}
     >
+      {selectMode && (
+        <div
+          data-testid={`widget-select-${widgetKey}`}
+          className="absolute top-1 left-1 z-10 rounded-full flex items-center justify-center"
+          style={{
+            width: 16, height: 16,
+            background: isSelected ? "#F5A623" : "rgba(20,12,10,0.85)",
+            border: `1.5px solid ${isSelected ? "#F5A623" : "#F5F0E8"}`,
+          }}
+        >
+          {isSelected && <Check className="w-2.5 h-2.5" style={{ color: "#0B0704" }} />}
+        </div>
+      )}
       <div
         data-testid={`widget-drag-${widgetKey}`}
         style={{ position: "absolute", top: 6, left: 4, opacity: 0.4, cursor: "grab", color: "#F5F0E8" }}
@@ -110,8 +173,9 @@ function WidgetCard({ widgetKey, value, subtitle, extra, striped, size, onCycleS
       </div>
       <button
         type="button"
-        onClick={onRemove}
+        onClick={(e) => { e.stopPropagation(); onRemove(); }}
         data-testid={`widget-remove-${widgetKey}`}
+        data-widget-action="remove"
         className="absolute top-2 right-2 rounded p-0.5 opacity-50 hover:opacity-100"
         style={{ color: "#F5F0E8" }}
         aria-label={t("wg_remove")}
@@ -120,8 +184,9 @@ function WidgetCard({ widgetKey, value, subtitle, extra, striped, size, onCycleS
       </button>
       <button
         type="button"
-        onClick={onCycleSize}
+        onClick={(e) => { e.stopPropagation(); onCycleSize(); }}
         data-testid={`widget-size-${widgetKey}`}
+        data-widget-action="size"
         className="absolute top-2 right-7 rounded p-0.5 opacity-50 hover:opacity-100"
         style={{ color: meta.color }}
         aria-label={t("wg_size_cycle")}
@@ -132,11 +197,11 @@ function WidgetCard({ widgetKey, value, subtitle, extra, striped, size, onCycleS
       <div className="flex items-center gap-2 mb-1.5 pl-4">
         <div
           className="flex items-center justify-center rounded-md flex-shrink-0"
-          style={{ width: isCompact ? 20 : 26, height: isCompact ? 20 : 26, background: `${meta.color}22`, border: `1px solid ${meta.color}80` }}
+          style={{ width: isCompact ? 20 : 26, height: isCompact ? 20 : 26, background: `${accent}22`, border: `1px solid ${accent}80` }}
         >
-          <Icon className={isCompact ? "w-3 h-3" : "w-3.5 h-3.5"} style={{ color: meta.color }} />
+          <Icon className={isCompact ? "w-3 h-3" : "w-3.5 h-3.5"} style={{ color: accent }} />
         </div>
-        <div className="text-[10px] font-bold uppercase truncate" style={{ color: meta.color, letterSpacing: "0.06em" }}>
+        <div className="text-[10px] font-bold uppercase truncate" style={{ color: accent, letterSpacing: "0.06em" }}>
           {t(meta.labelKey)}
         </div>
       </div>
@@ -227,10 +292,14 @@ export default function WidgetGrid() {
   const { user } = useAuth();
   const [enabled, setEnabled] = useEnabledWidgets();
   const [sizes, setSizes] = useWidgetSizes();
+  const [theme, setTheme] = useWidgetTheme();
+  const [groups, setGroups] = useWidgetGroups();
   const [picker, setPicker] = useState(false);
   const [dragging, setDragging] = useState(null);
   const [dragOver, setDragOver] = useState(null);
   const [progressModal, setProgressModal] = useState(false);
+  const [groupMode, setGroupMode] = useState(false);
+  const [selected, setSelected] = useState([]);
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 8000 });
   const { data: lb = [] } = useSWR("/leaderboard", fetcher, { refreshInterval: 8000 });
   const { data: events = [] } = useSWR("/events?archived=false", fetcher, { refreshInterval: 30000 });
@@ -430,16 +499,78 @@ export default function WidgetGrid() {
 
   const available = WIDGETS.filter((w) => !enabled.includes(w.key));
 
+  const groupOf = (key) => groups.find((g) => g.widgets.includes(key)) || null;
+
   const handleDrop = (targetKey) => {
     if (!dragging || dragging === targetKey) {
       setDragging(null); setDragOver(null); return;
     }
-    const next = enabled.filter((k) => k !== dragging);
-    const idx = next.indexOf(targetKey);
-    next.splice(idx, 0, dragging);
+    const srcGroup = groupOf(dragging);
+    const tgtGroup = groupOf(targetKey);
+    // If dragging within same group, disallow (no reorder inside a group in this pass)
+    if (srcGroup && tgtGroup && srcGroup.id === tgtGroup.id) {
+      setDragging(null); setDragOver(null); return;
+    }
+    const srcKeys = srcGroup ? srcGroup.widgets.filter((k) => enabled.includes(k)) : [dragging];
+    let next = enabled.filter((k) => !srcKeys.includes(k));
+    let anchor = targetKey;
+    if (tgtGroup) {
+      anchor = tgtGroup.widgets.find((k) => next.includes(k)) || targetKey;
+    }
+    const idx = next.indexOf(anchor);
+    const safeIdx = idx < 0 ? next.length : idx;
+    next = [...next.slice(0, safeIdx), ...srcKeys, ...next.slice(safeIdx)];
     setEnabled(next);
     setDragging(null);
     setDragOver(null);
+  };
+
+  const toggleSelect = (key) => {
+    setSelected((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);
+  };
+
+  const createGroup = () => {
+    if (selected.length < 2) { toast.error(t("wg_group_min_two")); return; }
+    // Remove selected keys from any existing groups; dissolve groups that fall below 2
+    const cleaned = groups
+      .map((g) => ({ ...g, widgets: g.widgets.filter((k) => !selected.includes(k)) }))
+      .filter((g) => g.widgets.length >= 2);
+    const usedColors = new Set(cleaned.map((g) => g.color));
+    const color = GROUP_PALETTE.find((c) => !usedColors.has(c)) || GROUP_PALETTE[cleaned.length % GROUP_PALETTE.length];
+    const newGroup = {
+      id: `g_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      color,
+      widgets: [...selected],
+    };
+    setGroups([...cleaned, newGroup]);
+    // Reorder enabled so the selected widgets are contiguous at the position of the first selected
+    const finalNext = [];
+    let inserted = false;
+    enabled.forEach((k) => {
+      if (selected.includes(k)) {
+        if (!inserted) { finalNext.push(...selected); inserted = true; }
+      } else {
+        finalNext.push(k);
+      }
+    });
+    setEnabled(finalNext);
+    setSelected([]);
+    setGroupMode(false);
+    toast.success(t("wg_group_created"));
+  };
+
+  const ungroup = (gid) => {
+    setGroups(groups.filter((g) => g.id !== gid));
+    toast.success(t("wg_group_ungrouped"));
+  };
+
+  const removeWidget = (key) => {
+    setEnabled(enabled.filter((k) => k !== key));
+    // Update groups
+    const g2 = groups
+      .map((g) => ({ ...g, widgets: g.widgets.filter((k) => k !== key) }))
+      .filter((g) => g.widgets.length >= 2);
+    if (JSON.stringify(g2) !== JSON.stringify(groups)) setGroups(g2);
   };
 
   return (
@@ -451,20 +582,82 @@ export default function WidgetGrid() {
         >
           {t("wg_title")}
         </h3>
-        {available.length > 0 && (
+        <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5" data-testid="widget-theme-strip">
+            {THEMES.map((th) => (
+              <button
+                key={th}
+                type="button"
+                onClick={() => setTheme(th)}
+                data-testid={`widget-theme-${th}`}
+                aria-pressed={theme === th}
+                className="px-2 py-1 rounded-full text-[9px] font-bold uppercase"
+                style={{
+                  background: theme === th ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "rgba(30,20,16,0.6)",
+                  border: `1px solid ${theme === th ? "#F5A623" : "rgba(255,255,255,0.12)"}`,
+                  color: theme === th ? "#0B0704" : "#F5F0E8",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {t(`wg_theme_${th}`)}
+              </button>
+            ))}
+          </div>
+          {available.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setPicker((v) => !v)}
+              data-testid="widget-add-btn"
+              className="px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 ml-1"
+              style={{ background: "linear-gradient(135deg,#7C3AED,#3B82F6)", color: "#fff" }}
+            >
+              {picker ? <Settings2 className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+              {picker ? t("close") : t("wg_add")}
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => setPicker((v) => !v)}
-            data-testid="widget-add-btn"
-            className="px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1"
-            style={{ background: "linear-gradient(135deg,#7C3AED,#3B82F6)", color: "#fff" }}
+            onClick={() => { setGroupMode((v) => !v); setSelected([]); }}
+            data-testid="widget-group-mode-toggle"
+            aria-pressed={groupMode}
+            className="px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 ml-1"
+            style={{
+              background: groupMode ? "linear-gradient(135deg,#F5A623,#E74C1A)" : "rgba(30,20,16,0.6)",
+              border: `1px solid ${groupMode ? "#F5A623" : "rgba(255,255,255,0.15)"}`,
+              color: groupMode ? "#0B0704" : "#F5F0E8",
+            }}
           >
-            {picker ? <Settings2 className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-            {picker ? t("close") : t("wg_add")}
+            <Layers className="w-3 h-3" />
+            {t("wg_group_mode")}
           </button>
-        )}
+          {groupMode && selected.length >= 2 && (
+            <button
+              type="button"
+              onClick={createGroup}
+              data-testid="widget-group-create-btn"
+              className="px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 ml-1"
+              style={{ background: "linear-gradient(135deg,#22C55E,#16A34A)", color: "#0B0704" }}
+            >
+              <Layers className="w-3 h-3" />
+              {t("wg_group_create")} ({selected.length})
+            </button>
+          )}
+        </div>
       </div>
 
+      {groupMode && (
+        <div
+          className="mb-2 p-2 rounded-lg text-[10px]"
+          data-testid="widget-group-hint"
+          style={{ background: "rgba(245,166,35,0.08)", border: "1px dashed #F5A623", color: "#F5F0E8" }}
+        >
+          {selected.length === 0
+            ? t("wg_group_hint_start")
+            : selected.length === 1
+              ? t("wg_group_hint_one_more")
+              : t("wg_group_hint_ready", { count: selected.length })}
+        </div>
+      )}
       {picker && (
         <div
           className="flex flex-wrap gap-1.5 mb-3 p-2 rounded-lg"
@@ -492,29 +685,105 @@ export default function WidgetGrid() {
       )}
 
       <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}>
-        {enabled.map((key) => (
-          <WidgetCard
-            key={key}
-            widgetKey={key}
-            value={values[key]?.value ?? "—"}
-            subtitle={values[key]?.subtitle}
-            extra={values[key]?.extra}
-            striped={values[key]?.striped}
-            size={sizes[key] || "normal"}
-            onCycleSize={() => {
-              const cur = sizes[key] || "normal";
-              const next = SIZE_ORDER[(SIZE_ORDER.indexOf(cur) + 1) % SIZE_ORDER.length];
-              setSizes({ ...sizes, [key]: next });
-            }}
-            onClick={values[key]?.onClick}
-            onRemove={() => setEnabled(enabled.filter((k) => k !== key))}
-            onDragStart={setDragging}
-            onDragOver={setDragOver}
-            onDrop={handleDrop}
-            dragging={dragging}
-            t={t}
-          />
-        ))}
+        {(() => {
+          const rendered = new Set();
+          const nodes = [];
+          enabled.forEach((key) => {
+            const g = groupOf(key);
+            if (g) {
+              if (rendered.has(g.id)) return;
+              rendered.add(g.id);
+              const members = g.widgets.filter((k) => enabled.includes(k));
+              nodes.push(
+                <div
+                  key={g.id}
+                  data-testid={`widget-group-${g.id}`}
+                  className="rounded-xl p-2"
+                  style={{
+                    gridColumn: "1 / -1",
+                    background: `linear-gradient(135deg, ${g.color}0F, ${g.color}05)`,
+                    border: `2px dashed ${g.color}80`,
+                    boxShadow: `inset 0 0 20px ${g.color}12`,
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-1.5 px-1">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase" style={{ color: g.color, letterSpacing: "0.08em" }}>
+                      <Layers className="w-3 h-3" /> {t("wg_group_label")} · {members.length}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => ungroup(g.id)}
+                      data-testid={`widget-group-ungroup-${g.id}`}
+                      className="text-[9px] font-bold uppercase flex items-center gap-1 px-1.5 py-0.5 rounded"
+                      style={{ background: `${g.color}22`, border: `1px solid ${g.color}66`, color: g.color, letterSpacing: "0.06em" }}
+                    >
+                      <Link2Off className="w-2.5 h-2.5" /> {t("wg_group_ungroup")}
+                    </button>
+                  </div>
+                  <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))" }}>
+                    {members.map((k) => (
+                      <WidgetCard
+                        key={k}
+                        widgetKey={k}
+                        value={values[k]?.value ?? "—"}
+                        subtitle={values[k]?.subtitle}
+                        extra={values[k]?.extra}
+                        striped={values[k]?.striped}
+                        size={sizes[k] || "normal"}
+                        theme={theme}
+                        groupAccent={g.color}
+                        onCycleSize={() => {
+                          const cur = sizes[k] || "normal";
+                          const next = SIZE_ORDER[(SIZE_ORDER.indexOf(cur) + 1) % SIZE_ORDER.length];
+                          setSizes({ ...sizes, [k]: next });
+                        }}
+                        onClick={values[k]?.onClick}
+                        onRemove={() => removeWidget(k)}
+                        onDragStart={setDragging}
+                        onDragOver={setDragOver}
+                        onDrop={handleDrop}
+                        dragging={dragging}
+                        t={t}
+                        selectMode={groupMode}
+                        isSelected={selected.includes(k)}
+                        onSelectToggle={toggleSelect}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            } else {
+              nodes.push(
+                <WidgetCard
+                  key={key}
+                  widgetKey={key}
+                  value={values[key]?.value ?? "—"}
+                  subtitle={values[key]?.subtitle}
+                  extra={values[key]?.extra}
+                  striped={values[key]?.striped}
+                  size={sizes[key] || "normal"}
+                  theme={theme}
+                  onCycleSize={() => {
+                    const cur = sizes[key] || "normal";
+                    const next = SIZE_ORDER[(SIZE_ORDER.indexOf(cur) + 1) % SIZE_ORDER.length];
+                    setSizes({ ...sizes, [key]: next });
+                  }}
+                  onClick={values[key]?.onClick}
+                  onRemove={() => removeWidget(key)}
+                  onDragStart={setDragging}
+                  onDragOver={setDragOver}
+                  onDrop={handleDrop}
+                  dragging={dragging}
+                  t={t}
+                  selectMode={groupMode}
+                  isSelected={selected.includes(key)}
+                  onSelectToggle={toggleSelect}
+                />
+              );
+            }
+          });
+          return nodes;
+        })()}
         {enabled.length === 0 && (
           <div
             className="col-span-full text-center p-4 rounded-lg text-xs"

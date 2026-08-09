@@ -2,10 +2,16 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import Header from "@/components/Header";
 import { WIDGETS_META } from "@/components/WidgetGrid";
-import { Plus, Check, Search, X } from "lucide-react";
+import { Plus, Check, Search, X, Minimize2, Square, Maximize2 } from "lucide-react";
 import { toast } from "sonner";
 
 const STORAGE_KEY = "titanxis_widgets_v1";
+const SIZE_KEY = "titanxis_widget_sizes_v1";
+const SIZES = [
+  { key: "compact", Icon: Minimize2 },
+  { key: "normal", Icon: Square },
+  { key: "wide", Icon: Maximize2 },
+];
 
 // Category grouping (soft) — used only for filtering chips
 const CATEGORIES = [
@@ -21,12 +27,19 @@ export default function WidgetLibrary() {
     try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) return JSON.parse(raw); } catch {}
     return [];
   });
+  const [sizes, setSizes] = useState(() => {
+    try { const raw = localStorage.getItem(SIZE_KEY); if (raw) return JSON.parse(raw); } catch {}
+    return {};
+  });
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
 
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(enabled)); } catch {}
   }, [enabled]);
+  useEffect(() => {
+    try { localStorage.setItem(SIZE_KEY, JSON.stringify(sizes)); } catch {}
+  }, [sizes]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -138,9 +151,34 @@ export default function WidgetLibrary() {
                     )}
                   </div>
                 </div>
-                <p className="text-[11px] mb-3 min-h-[42px]" style={{ color: "#F5F0E8", opacity: 0.75 }}>
+                <p className="text-[11px] mb-2 min-h-[42px]" style={{ color: "#F5F0E8", opacity: 0.75 }}>
                   {t(w.descKey || w.labelKey + "_desc") || ""}
                 </p>
+                <div className="flex items-center gap-0.5 mb-2" data-testid={`wglib-size-${w.key}`}>
+                  {SIZES.map((s) => {
+                    const active = (sizes[w.key] || "normal") === s.key;
+                    const SIcon = s.Icon;
+                    return (
+                      <button
+                        key={s.key}
+                        type="button"
+                        onClick={() => setSizes({ ...sizes, [w.key]: s.key })}
+                        data-testid={`wglib-size-${w.key}-${s.key}`}
+                        aria-pressed={active}
+                        className="flex-1 py-1 rounded flex items-center justify-center gap-1 text-[9px] font-bold uppercase"
+                        style={{
+                          background: active ? `${w.color}33` : "rgba(20,12,10,0.6)",
+                          border: `1px solid ${active ? w.color : "rgba(255,255,255,0.1)"}`,
+                          color: active ? w.color : "#F5F0E8",
+                          opacity: active ? 1 : 0.7,
+                        }}
+                        title={t(`wg_size_${s.key}`)}
+                      >
+                        <SIcon className="w-2.5 h-2.5" />
+                      </button>
+                    );
+                  })}
+                </div>
                 <button
                   type="button"
                   onClick={() => toggle(w.key)}
