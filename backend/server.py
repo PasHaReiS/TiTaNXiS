@@ -365,11 +365,11 @@ async def list_events(archived: Optional[bool] = None):
 async def create_event(body: EventCreate, _: dict = Depends(require_edit)):
     e = Event(**body.model_dump())
     await db.events.insert_one(e.model_dump())
-    # Fire-and-forget push notification to all subscribers (function is defined later in file)
+    # Fire-and-forget push notification (respects per-user subscriptions via group filter)
     try:
         fn = globals().get("_broadcast_push")
         if fn:
-            await fn(title="Yeni Etkinlik", body=e.name, url="/etkinlikler", tag=f"event-{e.id}")
+            await fn(title="Yeni Etkinlik", body=e.name, url="/etkinlikler", tag=f"event-{e.id}", group_name=e.group_name)
     except Exception as ex:
         logger.warning(f"Push broadcast failed: {ex}")
     return e.model_dump()
@@ -2233,11 +2233,22 @@ async def push_unsubscribe(body: PushSubscribeBody, _: dict = Depends(require_au
     return {"ok": True}
 
 
-async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "titanxis"):
+async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "titanxis", group_name: Optional[str] = None):
+    """Broadcast a push. When group_name is provided, only send to users whose prefs include this group
+    (users without any saved prefs receive everything by default)."""
     private_pem, _ = await _get_or_create_vapid()
     subs = await db.push_subscriptions.find({}, {"_id": 0}).to_list(1000)
+    # Build a user_id -> allowed set based on push_prefs
+    allowed_users: Optional[set] = None
+    if group_name:
+        prefs = await db.push_prefs.find({}, {"_id": 0}).to_list(2000)
+        prefs_by_user = {p["user_id"]: (p.get("groups") or []) for p in prefs}
+        allowed_users = set()
+        for uid, grps in prefs_by_user.items():
+            if not grps or group_name in grps:
+                allowed_users.add(uid)
+        # Users without a prefs doc → also allowed (default: receive all)
     if not subs:
-        # Still record empty broadcast in history so admins can re-send
         await db.push_history.insert_one({
             "id": str(uuid.uuid4()),
             "title": title, "body": body, "url": url, "tag": tag,
@@ -2249,6 +2260,14 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
     sent = 0
     removed = 0
     for s in subs:
+        # Apply user-level filter if a group filter is active
+        if allowed_users is not None:
+            uid = s.get("user_id")
+            if uid and uid not in allowed_users:
+                # user has explicit prefs excluding this group
+                pref_doc = await db.push_prefs.find_one({"user_id": uid}, {"_id": 0})
+                if pref_doc and pref_doc.get("groups") and group_name not in pref_doc["groups"]:
+                    continue
         try:
             webpush(
                 subscription_info={"endpoint": s["endpoint"], "keys": s["keys"]},
@@ -2264,7 +2283,6 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
                 removed += 1
         except Exception:
             pass
-    # Persist history
     await db.push_history.insert_one({
         "id": str(uuid.uuid4()),
         "title": title, "body": body, "url": url, "tag": tag,
@@ -2318,7 +2336,9 @@ class PushScheduledBody(BaseModel):
     title: str
     body: str
     url: Optional[str] = "/"
-    scheduled_at: str  # ISO8601 with tz
+    scheduled_at: str
+    repeat: Optional[str] = None  # 'daily' | 'weekly' | None
+    group_name: Optional[str] = None  # optional event group tag for filtering
 
 
 @api_router.get("/push/scheduled")
@@ -2340,6 +2360,7 @@ async def push_scheduled_create(body: PushScheduledBody, _: dict = Depends(requi
         "body": body.body.strip(),
         "url": (body.url or "/").strip(),
         "scheduled_at": body.scheduled_at,
+        "repeat": (body.repeat or None),
         "sent": False,
         "created_at": now_iso(),
     }
@@ -2355,9 +2376,11 @@ async def push_scheduled_delete(sch_id: str, _: dict = Depends(require_admin)):
 
 
 async def _push_scheduler_loop():
-    """Background loop: every 60s, dispatch any due scheduled push broadcasts."""
+    """Background loop: every 60s, dispatch any due scheduled push broadcasts.
+    Recurring items (repeat='daily'/'weekly') are re-armed with a new scheduled_at instead of marked sent.
+    """
     import asyncio
-    from datetime import datetime as _dt, timezone as _tz
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
     while True:
         try:
             now = _dt.now(_tz.utc)
@@ -2369,7 +2392,19 @@ async def _push_scheduler_loop():
                     continue
                 if when <= now:
                     await _broadcast_push(doc["title"], doc["body"], doc.get("url", "/"), tag=f"scheduled-{doc['id']}")
-                    await db.push_scheduled.update_one({"id": doc["id"]}, {"$set": {"sent": True, "sent_at": now_iso()}})
+                    repeat = doc.get("repeat")
+                    if repeat == "daily":
+                        next_at = when + _td(days=1)
+                        while next_at <= now:
+                            next_at += _td(days=1)
+                        await db.push_scheduled.update_one({"id": doc["id"]}, {"$set": {"scheduled_at": next_at.isoformat(), "last_sent_at": now_iso()}})
+                    elif repeat == "weekly":
+                        next_at = when + _td(days=7)
+                        while next_at <= now:
+                            next_at += _td(days=7)
+                        await db.push_scheduled.update_one({"id": doc["id"]}, {"$set": {"scheduled_at": next_at.isoformat(), "last_sent_at": now_iso()}})
+                    else:
+                        await db.push_scheduled.update_one({"id": doc["id"]}, {"$set": {"sent": True, "sent_at": now_iso()}})
         except Exception as ex:
             logger.warning(f"scheduler loop error: {ex}")
         await asyncio.sleep(60)
@@ -2386,6 +2421,30 @@ class PushBroadcastBody(BaseModel):
     body: str
     url: Optional[str] = "/"
     tag: Optional[str] = "titanxis"
+
+
+class PushPrefsBody(BaseModel):
+    groups: List[str] = Field(default_factory=list)
+
+
+@api_router.get("/push/prefs")
+async def push_prefs_get(user: dict = Depends(require_auth)):
+    doc = await db.push_prefs.find_one({"user_id": user["id"]}, {"_id": 0})
+    return doc or {"user_id": user["id"], "groups": []}
+
+
+@api_router.post("/push/prefs")
+async def push_prefs_set(body: PushPrefsBody, user: dict = Depends(require_auth)):
+    doc = {"user_id": user["id"], "username": user.get("username"), "groups": body.groups, "updated_at": now_iso()}
+    await db.push_prefs.update_one({"user_id": user["id"]}, {"$set": doc}, upsert=True)
+    return doc
+
+
+@api_router.get("/push/event-groups")
+async def push_event_groups(_: dict = Depends(require_auth)):
+    """Distinct event group names (used by Push Preferences UI)."""
+    groups = await db.events.distinct("group_name")
+    return sorted([g for g in groups if g])
 
 
 @api_router.post("/push/broadcast")

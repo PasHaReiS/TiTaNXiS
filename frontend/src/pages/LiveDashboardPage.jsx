@@ -4,6 +4,7 @@ import LiveDashboard from "@/components/LiveDashboard";
 import WidgetGrid from "@/components/WidgetGrid";
 import BulkAdminActions from "@/components/BulkAdminActions";
 import PushSubscribeCard from "@/components/PushSubscribeCard";
+import PushPrefsCard from "@/components/PushPrefsCard";
 import PushBroadcastPanel from "@/components/PushBroadcastPanel";
 import { useTranslation } from "react-i18next";
 
@@ -14,6 +15,7 @@ export default function LiveDashboardPage() {
       <Header title={t("live_dashboard")} />
       <div className="px-4">
         <PushSubscribeCard />
+        <PushPrefsCard />
         <PushBroadcastPanel />
         <WidgetGrid />
         <LiveDashboard />

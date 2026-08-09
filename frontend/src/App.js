@@ -16,6 +16,7 @@ import AddPoints from "@/pages/AddPoints";
 import PointsAbout from "@/pages/PointsAbout";
 import PointCalcPage from "@/pages/PointCalcPage";
 import PublicPointCalcPage from "@/pages/PublicPointCalcPage";
+import WidgetLibrary from "@/pages/WidgetLibrary";
 import Members from "@/pages/Members";
 import Events from "@/pages/Events";
 import Login from "@/pages/Login";
@@ -83,6 +84,7 @@ function AppShell() {
           <Route path="/kullanicilar" element={<RequireAdmin><UserManagement /></RequireAdmin>} />
           <Route path="/profil" element={<RequireAuth><Profile /></RequireAuth>} />
           <Route path="/gosterge-paneli" element={<RequireAuth><LiveDashboardPage /></RequireAuth>} />
+          <Route path="/widget-kitapligi" element={<RequireAuth><WidgetLibrary /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

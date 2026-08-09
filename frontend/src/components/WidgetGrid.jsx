@@ -19,19 +19,20 @@ const fmtBig = (n) => {
 };
 
 const WIDGETS = [
-  { key: "top_member", labelKey: "wg_top_member", icon: Crown, color: "#F5A623" },
-  { key: "active_events", labelKey: "wg_active_events", icon: Trophy, color: "#E74C1A" },
-  { key: "total_power", labelKey: "wg_total_power", icon: Zap, color: "#A855F7" },
-  { key: "member_count", labelKey: "wg_member_count", icon: Users, color: "#3B82F6" },
-  { key: "personal_points", labelKey: "wg_personal_points", icon: Award, color: "#22C55E" },
-  { key: "personal_rank", labelKey: "wg_personal_rank", icon: Target, color: "#F97316" },
-  { key: "rally_countdown", labelKey: "wg_rally_countdown", icon: Timer, color: "#EF4444" },
-  { key: "personal_progress", labelKey: "wg_personal_progress", icon: TrendingUp, color: "#38BDF8" },
-  { key: "alliance_snapshot", labelKey: "wg_alliance_snapshot", icon: Shield, color: "#EAB308" },
-  { key: "todays_event", labelKey: "wg_todays_event", icon: Flame, color: "#DC2626" },
-  { key: "alliance_top3", labelKey: "wg_alliance_top3", icon: Medal, color: "#F59E0B" },
-  { key: "alliance_duel", labelKey: "wg_alliance_duel", icon: Trophy, color: "#EF4444" },
+  { key: "top_member", labelKey: "wg_top_member", descKey: "wg_top_member_desc", icon: Crown, color: "#F5A623" },
+  { key: "active_events", labelKey: "wg_active_events", descKey: "wg_active_events_desc", icon: Trophy, color: "#E74C1A" },
+  { key: "total_power", labelKey: "wg_total_power", descKey: "wg_total_power_desc", icon: Zap, color: "#A855F7" },
+  { key: "member_count", labelKey: "wg_member_count", descKey: "wg_member_count_desc", icon: Users, color: "#3B82F6" },
+  { key: "personal_points", labelKey: "wg_personal_points", descKey: "wg_personal_points_desc", icon: Award, color: "#22C55E" },
+  { key: "personal_rank", labelKey: "wg_personal_rank", descKey: "wg_personal_rank_desc", icon: Target, color: "#F97316" },
+  { key: "rally_countdown", labelKey: "wg_rally_countdown", descKey: "wg_rally_countdown_desc", icon: Timer, color: "#EF4444" },
+  { key: "personal_progress", labelKey: "wg_personal_progress", descKey: "wg_personal_progress_desc", icon: TrendingUp, color: "#38BDF8" },
+  { key: "alliance_snapshot", labelKey: "wg_alliance_snapshot", descKey: "wg_alliance_snapshot_desc", icon: Shield, color: "#EAB308" },
+  { key: "todays_event", labelKey: "wg_todays_event", descKey: "wg_todays_event_desc", icon: Flame, color: "#DC2626" },
+  { key: "alliance_top3", labelKey: "wg_alliance_top3", descKey: "wg_alliance_top3_desc", icon: Medal, color: "#F59E0B" },
+  { key: "alliance_duel", labelKey: "wg_alliance_duel", descKey: "wg_alliance_duel_desc", icon: Trophy, color: "#EF4444" },
 ];
+export const WIDGETS_META = WIDGETS;
 
 function useEnabledWidgets() {
   const [enabled, setEnabled] = useState(() => {

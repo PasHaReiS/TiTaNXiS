@@ -18,8 +18,10 @@ export default function PushBroadcastPanel() {
   const [tplName, setTplName] = useState("");
   const [showSave, setShowSave] = useState(false);
   const [scheduleAt, setScheduleAt] = useState("");
-  const [tplModal, setTplModal] = useState(null); // {tpl} for "schedule from template" modal
+  const [scheduleRepeat, setScheduleRepeat] = useState("");
+  const [tplModal, setTplModal] = useState(null);
   const [tplModalAt, setTplModalAt] = useState("");
+  const [tplModalRepeat, setTplModalRepeat] = useState("");
   const { data: history = [], mutate: refreshHistory } = useSWR(isAdmin ? "/push/history" : null, fetcher, { refreshInterval: 20000 });
   const { data: templates = [], mutate: refreshTpl } = useSWR(isAdmin ? "/push/templates" : null, fetcher);
   const { data: scheduled = [], mutate: refreshScheduled } = useSWR(isAdmin ? "/push/scheduled" : null, fetcher, { refreshInterval: 30000 });
@@ -43,9 +45,9 @@ export default function PushBroadcastPanel() {
     if (scheduleAt) {
       try {
         const iso = new Date(scheduleAt).toISOString();
-        await api.post("/push/scheduled", { title: title.trim(), body: body.trim(), url: url.trim() || "/", scheduled_at: iso });
+        await api.post("/push/scheduled", { title: title.trim(), body: body.trim(), url: url.trim() || "/", scheduled_at: iso, repeat: scheduleRepeat || null });
         toast.success(t("push_sched_created", { at: new Date(scheduleAt).toLocaleString() }));
-        setTitle(""); setBody(""); setScheduleAt("");
+        setTitle(""); setBody(""); setScheduleAt(""); setScheduleRepeat("");
         refreshScheduled();
       } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
       return;
@@ -80,10 +82,12 @@ export default function PushBroadcastPanel() {
         body: tplModal.body,
         url: tplModal.url || "/",
         scheduled_at: iso,
+        repeat: tplModalRepeat || null,
       });
       toast.success(t("push_sched_created", { at: new Date(tplModalAt).toLocaleString() }));
       setTplModal(null);
       setTplModalAt("");
+      setTplModalRepeat("");
       refreshScheduled();
     } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
   };
@@ -213,6 +217,28 @@ export default function PushBroadcastPanel() {
             </button>
           )}
         </div>
+        {scheduleAt && (
+          <div className="flex items-center gap-1.5" data-testid="push-sched-repeat-row">
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: "#A855F7" }}>{t("push_sched_repeat")}:</label>
+            {["", "daily", "weekly"].map((r) => (
+              <button
+                key={r || "once"}
+                type="button"
+                onClick={() => setScheduleRepeat(r)}
+                data-testid={`push-sched-repeat-${r || "once"}`}
+                className="px-2 py-1 rounded-full text-[10px] font-bold uppercase"
+                style={{
+                  background: scheduleRepeat === r ? "linear-gradient(135deg,#A855F7,#EC4899)" : "rgba(20,12,10,0.6)",
+                  color: scheduleRepeat === r ? "#fff" : "#A855F7",
+                  border: `1px solid ${scheduleRepeat === r ? "#EC4899" : "rgba(168,85,247,0.4)"}`,
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {r === "" ? t("push_sched_once") : r === "daily" ? t("push_sched_daily") : t("push_sched_weekly")}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex items-center justify-end gap-2 flex-wrap">
           {showSave ? (
             <div className="flex items-center gap-1.5 flex-1 min-w-0" data-testid="push-tpl-save-row">
@@ -291,7 +317,17 @@ export default function PushBroadcastPanel() {
                 style={{ background: "rgba(20,12,10,0.6)", border: "1px solid rgba(236,72,153,0.2)" }}
               >
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold truncate" style={{ color: "#F5F0E8" }}>{s.title}</div>
+                  <div className="text-xs font-bold truncate flex items-center gap-1.5" style={{ color: "#F5F0E8" }}>
+                    {s.title}
+                    {s.repeat && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase" style={{
+                        background: "linear-gradient(135deg,#A855F7,#EC4899)",
+                        color: "#fff", letterSpacing: "0.06em",
+                      }} data-testid={`push-sched-repeat-badge-${s.id}`}>
+                        {s.repeat === "daily" ? t("push_sched_daily") : t("push_sched_weekly")}
+                      </span>
+                    )}
+                  </div>
                   <div className="text-[10px] truncate" style={{ color: "#F5F0E8", opacity: 0.6 }}>{s.body}</div>
                   <div className="text-[10px] mt-0.5 flex items-center gap-2" style={{ color: "#EC4899" }}>
                     <Clock className="w-3 h-3" />
@@ -393,6 +429,26 @@ export default function PushBroadcastPanel() {
               className="w-full rounded px-2 py-2 text-xs mono mb-3"
               style={{ background: "#1A1210", border: "1px solid rgba(236,72,153,0.4)", color: "#F5F0E8", colorScheme: "dark" }}
             />
+            <div className="flex items-center gap-1.5 mb-3">
+              <label className="text-[10px] uppercase tracking-widest" style={{ color: "#EC4899" }}>{t("push_sched_repeat")}:</label>
+              {["", "daily", "weekly"].map((r) => (
+                <button
+                  key={r || "once"}
+                  type="button"
+                  onClick={() => setTplModalRepeat(r)}
+                  data-testid={`push-tpl-repeat-${r || "once"}`}
+                  className="px-2 py-1 rounded-full text-[10px] font-bold uppercase"
+                  style={{
+                    background: tplModalRepeat === r ? "linear-gradient(135deg,#A855F7,#EC4899)" : "rgba(20,12,10,0.6)",
+                    color: tplModalRepeat === r ? "#fff" : "#EC4899",
+                    border: `1px solid ${tplModalRepeat === r ? "#EC4899" : "rgba(236,72,153,0.4)"}`,
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  {r === "" ? t("push_sched_once") : r === "daily" ? t("push_sched_daily") : t("push_sched_weekly")}
+                </button>
+              ))}
+            </div>
             <button
               type="button"
               onClick={scheduleFromTemplate}
