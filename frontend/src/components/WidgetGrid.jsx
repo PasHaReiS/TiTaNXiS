@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Crown, Users, Zap, Trophy, Award, Target, Timer, TrendingUp, Shield, Flame, Medal, Plus, X, Settings2, GripVertical, Maximize2, Minimize2, Square, Layers, Check, Link2Off } from "lucide-react";
+import { Crown, Users, Zap, Trophy, Award, Target, Timer, TrendingUp, Shield, Flame, Medal, Plus, X, Settings2, GripVertical, Maximize2, Minimize2, Square, Layers, Check, Link2Off, Palette, Pencil } from "lucide-react";
 import { groupColor } from "@/lib/groupColors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -287,6 +287,140 @@ function Sparkline({ series, color }) {
   );
 }
 
+function GroupContainer({ group: g, members, values, sizes, setSizes, removeWidget, setDragging, setDragOver, handleDrop, dragging, theme, groupMode, selected, toggleSelect, ungroup, setGroupName, setGroupColor, t }) {
+  const [editingName, setEditingName] = useState(false);
+  const [showPalette, setShowPalette] = useState(false);
+  const [nameDraft, setNameDraft] = useState(g.name || "");
+  useEffect(() => { setNameDraft(g.name || ""); }, [g.name]);
+  const commitName = () => {
+    setEditingName(false);
+    if ((nameDraft || "") !== (g.name || "")) setGroupName(g.id, nameDraft.trim());
+  };
+  return (
+    <div
+      data-testid={`widget-group-${g.id}`}
+      className="rounded-xl p-2"
+      style={{
+        gridColumn: "1 / -1",
+        background: `linear-gradient(135deg, ${g.color}0F, ${g.color}05)`,
+        border: `2px dashed ${g.color}80`,
+        boxShadow: `inset 0 0 20px ${g.color}12`,
+      }}
+    >
+      <div className="flex items-center justify-between mb-1.5 px-1 gap-2">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <Layers className="w-3 h-3 flex-shrink-0" style={{ color: g.color }} />
+          {editingName ? (
+            <input
+              autoFocus
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={commitName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitName();
+                if (e.key === "Escape") { setNameDraft(g.name || ""); setEditingName(false); }
+              }}
+              data-testid={`widget-group-name-input-${g.id}`}
+              placeholder={t("wg_group_name_placeholder")}
+              className="text-[10px] font-bold uppercase bg-transparent outline-none border-b flex-1 min-w-0 max-w-[240px] pb-0.5"
+              style={{ color: g.color, borderColor: `${g.color}66`, letterSpacing: "0.08em" }}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditingName(true)}
+              data-testid={`widget-group-name-${g.id}`}
+              className="text-[10px] font-bold uppercase truncate flex items-center gap-1 hover:opacity-80"
+              style={{ color: g.color, letterSpacing: "0.08em" }}
+              title={t("wg_group_name_placeholder")}
+            >
+              <span className="truncate">{g.name?.trim() ? g.name : `${t("wg_group_label")} · ${members.length}`}</span>
+              <Pencil className="w-2.5 h-2.5 opacity-60 flex-shrink-0" />
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0 relative">
+          <button
+            type="button"
+            onClick={() => setShowPalette((v) => !v)}
+            data-testid={`widget-group-color-btn-${g.id}`}
+            aria-label={t("wg_group_pick_color")}
+            title={t("wg_group_pick_color")}
+            className="rounded-full p-1 flex items-center justify-center"
+            style={{ background: `${g.color}22`, border: `1px solid ${g.color}66` }}
+          >
+            <Palette className="w-2.5 h-2.5" style={{ color: g.color }} />
+          </button>
+          {showPalette && (
+            <div
+              data-testid={`widget-group-palette-${g.id}`}
+              className="absolute right-0 top-full mt-1 z-20 flex gap-1 p-1.5 rounded-lg"
+              style={{ background: "rgba(20,12,10,0.98)", border: "1px solid rgba(255,255,255,0.15)", boxShadow: "0 4px 14px rgba(0,0,0,0.6)" }}
+            >
+              {GROUP_PALETTE.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => { setGroupColor(g.id, c); setShowPalette(false); toast.success(t("wg_group_color_changed")); }}
+                  data-testid={`widget-group-palette-swatch-${g.id}-${c.replace("#","")}`}
+                  aria-label={c}
+                  className="rounded-full"
+                  style={{
+                    width: 16, height: 16,
+                    background: c,
+                    border: g.color === c ? "2px solid #F5F0E8" : "1px solid rgba(255,255,255,0.2)",
+                    boxShadow: g.color === c ? `0 0 6px ${c}` : "none",
+                  }}
+                />
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => ungroup(g.id)}
+            data-testid={`widget-group-ungroup-${g.id}`}
+            className="text-[9px] font-bold uppercase flex items-center gap-1 px-1.5 py-0.5 rounded"
+            style={{ background: `${g.color}22`, border: `1px solid ${g.color}66`, color: g.color, letterSpacing: "0.06em" }}
+          >
+            <Link2Off className="w-2.5 h-2.5" /> {t("wg_group_ungroup")}
+          </button>
+        </div>
+      </div>
+      <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))" }}>
+        {members.map((k) => (
+          <WidgetCard
+            key={k}
+            widgetKey={k}
+            value={values[k]?.value ?? "—"}
+            subtitle={values[k]?.subtitle}
+            extra={values[k]?.extra}
+            striped={values[k]?.striped}
+            size={sizes[k] || "normal"}
+            theme={theme}
+            groupAccent={g.color}
+            onCycleSize={() => {
+              const cur = sizes[k] || "normal";
+              const next = SIZE_ORDER[(SIZE_ORDER.indexOf(cur) + 1) % SIZE_ORDER.length];
+              setSizes({ ...sizes, [k]: next });
+            }}
+            onClick={values[k]?.onClick}
+            onRemove={() => removeWidget(k)}
+            onDragStart={setDragging}
+            onDragOver={setDragOver}
+            onDrop={handleDrop}
+            dragging={dragging}
+            t={t}
+            selectMode={groupMode}
+            isSelected={selected.includes(k)}
+            onSelectToggle={toggleSelect}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
 export default function WidgetGrid() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -507,9 +641,29 @@ export default function WidgetGrid() {
     }
     const srcGroup = groupOf(dragging);
     const tgtGroup = groupOf(targetKey);
-    // If dragging within same group, disallow (no reorder inside a group in this pass)
+    // Intra-group reorder: reorder within the same group
     if (srcGroup && tgtGroup && srcGroup.id === tgtGroup.id) {
-      setDragging(null); setDragOver(null); return;
+      const reorderedWidgets = (() => {
+        const arr = srcGroup.widgets.filter((k) => k !== dragging);
+        const idx = arr.indexOf(targetKey);
+        const safeIdx = idx < 0 ? arr.length : idx;
+        return [...arr.slice(0, safeIdx), dragging, ...arr.slice(safeIdx)];
+      })();
+      const gs = groups.map((g) => g.id === srcGroup.id ? { ...g, widgets: reorderedWidgets } : g);
+      setGroups(gs);
+      // Mirror in enabled so the visual order matches localStorage
+      const finalNext = [];
+      let inserted = false;
+      enabled.forEach((k) => {
+        if (reorderedWidgets.includes(k)) {
+          if (!inserted) { finalNext.push(...reorderedWidgets); inserted = true; }
+        } else {
+          finalNext.push(k);
+        }
+      });
+      setEnabled(finalNext);
+      setDragging(null); setDragOver(null);
+      return;
     }
     const srcKeys = srcGroup ? srcGroup.widgets.filter((k) => enabled.includes(k)) : [dragging];
     let next = enabled.filter((k) => !srcKeys.includes(k));
@@ -540,6 +694,7 @@ export default function WidgetGrid() {
     const newGroup = {
       id: `g_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       color,
+      name: "",
       widgets: [...selected],
     };
     setGroups([...cleaned, newGroup]);
@@ -562,6 +717,14 @@ export default function WidgetGrid() {
   const ungroup = (gid) => {
     setGroups(groups.filter((g) => g.id !== gid));
     toast.success(t("wg_group_ungrouped"));
+  };
+
+  const setGroupName = (gid, name) => {
+    setGroups(groups.map((g) => g.id === gid ? { ...g, name } : g));
+  };
+
+  const setGroupColor = (gid, color) => {
+    setGroups(groups.map((g) => g.id === gid ? { ...g, color } : g));
   };
 
   const removeWidget = (key) => {
@@ -695,62 +858,27 @@ export default function WidgetGrid() {
               rendered.add(g.id);
               const members = g.widgets.filter((k) => enabled.includes(k));
               nodes.push(
-                <div
+                <GroupContainer
                   key={g.id}
-                  data-testid={`widget-group-${g.id}`}
-                  className="rounded-xl p-2"
-                  style={{
-                    gridColumn: "1 / -1",
-                    background: `linear-gradient(135deg, ${g.color}0F, ${g.color}05)`,
-                    border: `2px dashed ${g.color}80`,
-                    boxShadow: `inset 0 0 20px ${g.color}12`,
-                  }}
-                >
-                  <div className="flex items-center justify-between mb-1.5 px-1">
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase" style={{ color: g.color, letterSpacing: "0.08em" }}>
-                      <Layers className="w-3 h-3" /> {t("wg_group_label")} · {members.length}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => ungroup(g.id)}
-                      data-testid={`widget-group-ungroup-${g.id}`}
-                      className="text-[9px] font-bold uppercase flex items-center gap-1 px-1.5 py-0.5 rounded"
-                      style={{ background: `${g.color}22`, border: `1px solid ${g.color}66`, color: g.color, letterSpacing: "0.06em" }}
-                    >
-                      <Link2Off className="w-2.5 h-2.5" /> {t("wg_group_ungroup")}
-                    </button>
-                  </div>
-                  <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))" }}>
-                    {members.map((k) => (
-                      <WidgetCard
-                        key={k}
-                        widgetKey={k}
-                        value={values[k]?.value ?? "—"}
-                        subtitle={values[k]?.subtitle}
-                        extra={values[k]?.extra}
-                        striped={values[k]?.striped}
-                        size={sizes[k] || "normal"}
-                        theme={theme}
-                        groupAccent={g.color}
-                        onCycleSize={() => {
-                          const cur = sizes[k] || "normal";
-                          const next = SIZE_ORDER[(SIZE_ORDER.indexOf(cur) + 1) % SIZE_ORDER.length];
-                          setSizes({ ...sizes, [k]: next });
-                        }}
-                        onClick={values[k]?.onClick}
-                        onRemove={() => removeWidget(k)}
-                        onDragStart={setDragging}
-                        onDragOver={setDragOver}
-                        onDrop={handleDrop}
-                        dragging={dragging}
-                        t={t}
-                        selectMode={groupMode}
-                        isSelected={selected.includes(k)}
-                        onSelectToggle={toggleSelect}
-                      />
-                    ))}
-                  </div>
-                </div>
+                  group={g}
+                  members={members}
+                  values={values}
+                  sizes={sizes}
+                  setSizes={setSizes}
+                  removeWidget={removeWidget}
+                  setDragging={setDragging}
+                  setDragOver={setDragOver}
+                  handleDrop={handleDrop}
+                  dragging={dragging}
+                  theme={theme}
+                  groupMode={groupMode}
+                  selected={selected}
+                  toggleSelect={toggleSelect}
+                  ungroup={ungroup}
+                  setGroupName={setGroupName}
+                  setGroupColor={setGroupColor}
+                  t={t}
+                />
               );
             } else {
               nodes.push(

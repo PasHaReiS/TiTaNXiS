@@ -1,0 +1,31 @@
+{
+  "summary": "Iteration 47 regression: (1) Backend — auth/login, /api/auth/me, /api/stats, /api/leaderboard, /api/events?archived=false, /api/members?search=admin, push (vapid-public-key/history/templates/broadcast), point-calc (list/create/get/delete/export). All 13 tests PASSED. (2) Frontend — full Widget Grubu (widget grouping) flow on /gosterge-paneli verified: 4 default widgets render, group-mode toggle → hint, 2-widget selection → overlays, 'Grupla (2)' creates group container with orange dashed border, localStorage titanxis_widget_groups_v1 persists {id,color,name,widgets}. Rename to 'Kritik KPI' via Enter works and persists. Color picker opens with 7 swatches; blue #38BDF8 applied and persists. 'Grubu Çöz' ungroups (widgets remain, groups=[]). Theme strip vivid/minimal/mono all switch and persist to titanxis_widget_theme_v1. Widget size cycle normal→wide→compact→normal persists to titanxis_widget_sizes_v1. Widget Library at /widget-kitapligi (NOT /widgetler) shows all 12 widget cards, search filter narrows to 5 for query 'Top', 'Etkinlik' category filter narrows to 2 cards, all 12 wglib-toggle-* buttons and 48 wglib-size-* buttons present.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter47.py",
+    "/app/test_reports/pytest/iter47.xml"
+  ],
+  "action_items": [
+    "Review request referred to Widget Library route as /widgetler, but the actual route is /widget-kitapligi (defined in /app/frontend/src/App.js:87). Either update the review request/docs, or add /widgetler as an alias if the shorter route is desired for UX consistency with /gosterge-paneli.",
+    "Review request referred to point-calc endpoints as GET/POST /api/point-calc (no query) and GET /api/point-calc/export/all — actual API requires ?kind=pre|diger query param and export path is /api/point-calc/export?kind=... . Tests updated to match implementation; docs should be aligned."
+  ],
+  "critical_code_review_comments": [
+    "WidgetGrid.jsx is 1005 lines — consider splitting into subcomponents (GroupHeader, GroupPalette, WidgetCard, ThemeStrip) to bring below the ~700 LOC guideline. Grouping logic could live in a small useWidgetGroups hook.",
+    "Group IDs use Date.now()+random suffix client-side (g_<ms>_<rnd>) — fine for local persistence but if groups ever sync to backend a UUID would be safer.",
+    "widget-group-name click-to-edit UX is good and IDs are stable, but the color-picker palette closes only on outside click (verified) — consider Esc key to close for a11y."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter47.py (new regression test)"
+  ],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100% for widget grouping + theme + size + library"},
+  "test_credentials": "admin / Admin123 (NOT admin123 — /app/memory/test_credentials.md is out of date, seed uses Admin123).",
+  "seed_data_creation": "One TEST_iter47_day point-calc row created and deleted during test_create_get_delete. One TEST_iter47 push broadcast sent (0 subscribers).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend endpoints for this app: point-calc REQUIRES ?kind=pre|diger; export path is /api/point-calc/export?kind=... (there is no /export/all). Widget Library route is /widget-kitapligi. Auth token localStorage key is 'ol_token'. Admin password is Admin123 (capital A, not admin123 as in old memory file). pytest.ini uses xdist -n 2 --dist loadscope — parallel-safe, keep tests idempotent. Widget grouping fully functional with data-testids exactly as documented in review request. All 12 widgets registered in library."
+}

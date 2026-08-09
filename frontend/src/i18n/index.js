@@ -609,6 +609,9 @@ const tr = {
   wg_group_hint_start: "Grupla mak için widget'lara dokun (en az 2). Grup içi widget'lar tek blok olarak taşınır.",
   wg_group_hint_one_more: "Bir tane daha widget seç…",
   wg_group_hint_ready: "{{count}} widget seçildi — 'Grupla' düğmesine bas.",
+  wg_group_name_placeholder: "Grup adı…",
+  wg_group_pick_color: "Renk seç",
+  wg_group_color_changed: "Grup rengi güncellendi",
 
 
 
@@ -1190,6 +1193,9 @@ const en = {
   wg_group_hint_start: "Tap widgets to group them (min 2). Grouped widgets move together as a block.",
   wg_group_hint_one_more: "Select one more widget…",
   wg_group_hint_ready: "{{count}} widgets selected — press 'Group'.",
+  wg_group_name_placeholder: "Group name…",
+  wg_group_pick_color: "Pick color",
+  wg_group_color_changed: "Group color updated",
 
   wg_size_normal: "Normal",
   wg_size_wide: "Wide",
