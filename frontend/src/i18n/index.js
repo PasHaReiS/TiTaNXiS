@@ -15,6 +15,10 @@ const tr = {
 
   // Nav
   nav_leaderboard: "Sıralama",
+  nav_live_dashboard: "Panel",
+  lang_switching: "{{name}} yükleniyor…",
+  lang_switched: "{{name}} ({{count}} çeviri)",
+  lang_switched_cached: "{{name}} etkinleştirildi",
   nav_commanders: "LoJ Hakkında",
   illuminate: "Işıklandır",
   event_detail: "Etkinlik Detayı",
@@ -777,6 +781,10 @@ const en = {
   brand_bottom: "OF WAR",
   loading: "Loading...",
   nav_leaderboard: "Leaderboard",
+  nav_live_dashboard: "Panel",
+  lang_switching: "Loading {{name}}…",
+  lang_switched: "{{name}} ({{count}} translated)",
+  lang_switched_cached: "{{name}} activated",
   nav_commanders: "About LoJ",
   illuminate: "Illuminate",
   event_detail: "Event Detail",

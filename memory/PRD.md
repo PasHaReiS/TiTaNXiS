@@ -13,6 +13,14 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Overflow Fix + Widget Nav Reorder + Language Switch Fix — DONE**:
+  - **Overflow**: Added `html, body { overflow-x: hidden; max-width: 100vw; }` at the top of `index.css` and `overflow-x: hidden` on `.app-shell`. Prevents any horizontal scroll or content bleed on mobile.
+  - **Widget Nav Reorder**: `BottomNav` now includes a new `nav-live-dashboard` tab (`/gosterge-paneli`, `Activity` icon, `nav_live_dashboard: "Panel"`) right before `nav-widget-library`. Mobile screenshot confirms 8 tabs render in the exact requested order. Both new tabs are auth-only.
+  - **Language Switching — Full Bundle DeepL Translation**: Rewrote `/app/frontend/src/lib/deeplTranslate.js#ensureLanguageTranslated` to translate **the entire TR resource bundle** (not just ~40 curated UI keys) for the picked target language. Chunked into batches of 60, cached in localStorage under `ol_deepl_cache_v1`, merges into i18next via `addResourceBundle` after each chunk so partial progress survives network hiccups. Emits `languageChanged` when done to force any consumer to re-render with the freshly added keys. E2E verified with Bulgarian (`bg`): 720 keys translated + cached, `nav_leaderboard` → `Класиране`.
+  - **LanguageSwitcher UX**: Picker is now async — `setLang` awaits `i18n.changeLanguage` first (immediate visible switch of any already-loaded keys), then shows a `sonner` `loading` toast (`Bulgar yükleniyor…`), swaps a `Loader2` spinner in place of the check on the active row, and finishes with a success toast reporting the number of newly-translated keys. Cached languages resolve instantly and show `{{name}} etkinleştirildi`.
+  - **i18n**: 3 new keys (TR + EN) — `nav_live_dashboard`, `lang_switching`, `lang_switched`, `lang_switched_cached`.
+  - **Frontend compiled clean** (only pre-existing WidgetGrid warning). Preview live at `https://oyun-loncasi.preview.emergentagent.com/`.
+
 - **[2026-02] Custom Snooze Picker + Snoozed Badge — DONE**:
   - **Custom Snooze**: Short-clicking the `+15dk` chip still snoozes by 15 minutes. Long-pressing (~500ms), right-clicking, or touch-holding it now opens a compact `push-sched-snooze-picker-{id}` dropdown with four choices: `+5dk`, `+30dk`, `+1s`, and `Özel…`. Custom option raises a native prompt (`push_sched_snooze_custom_prompt`) with client-side validation (1–1440 min → invalid raises `push_sched_snooze_custom_error` toast). Outside-click / Escape closes the picker. Each option testid'd `push-sched-snooze-opt-{5|30|60|custom}-{id}`.
   - **Snoozed Badge**: When a scheduled doc carries `snoozed_by_minutes`, the card renders an extra purple pill `push-sched-snoozed-badge-{id}` next to the existing repeat/group/alliance badges. Tooltip shows the exact snooze duration.

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Check, Globe, ChevronDown } from "lucide-react";
+import { Check, Globe, ChevronDown, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { LANGUAGES } from "@/i18n";
 import { ensureLanguageTranslated } from "@/lib/deeplTranslate";
 
@@ -9,6 +10,7 @@ export default function LanguageSwitcher() {
   const { i18n, t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, right: 0 });
+  const [switching, setSwitching] = useState(null); // code being switched to
   const btnRef = useRef(null);
 
   const active = LANGUAGES.find((l) => l.code === i18n.language) || LANGUAGES[0];
@@ -22,11 +24,29 @@ export default function LanguageSwitcher() {
     return () => window.removeEventListener("scroll", onScroll, true);
   }, [open]);
 
-  const setLang = (code) => {
+  const setLang = async (code) => {
+    if (code === i18n.language) { setOpen(false); return; }
     localStorage.setItem("ol_lang", code);
-    i18n.changeLanguage(code);
-    ensureLanguageTranslated(code);
+    // Switch immediately so the UI reflects the user's choice — whatever keys
+    // already exist show through, missing ones fall back to TR while DeepL
+    // hydrates the rest in the background.
+    await i18n.changeLanguage(code);
     setOpen(false);
+    const label = LANGUAGES.find((l) => l.code === code)?.name || code;
+    const tid = toast.loading(t("lang_switching", { name: label }));
+    setSwitching(code);
+    try {
+      const added = await ensureLanguageTranslated(code);
+      if (added > 0) {
+        toast.success(t("lang_switched", { name: label, count: added }), { id: tid });
+      } else {
+        toast.success(t("lang_switched_cached", { name: label }), { id: tid });
+      }
+    } catch {
+      toast.dismiss(tid);
+    } finally {
+      setSwitching(null);
+    }
   };
 
   // Hydrate cached translations for the initially selected language on mount.
@@ -118,7 +138,11 @@ export default function LanguageSwitcher() {
                         {l.name}
                       </span>
                       <span className="text-[9px] font-bold tracking-wider text-muted-foreground">{l.label}</span>
-                      {isActive && <Check className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#F5A623" }} />}
+                      {switching === l.code ? (
+                        <Loader2 className="w-3.5 h-3.5 flex-shrink-0 animate-spin" style={{ color: "#F5A623" }} />
+                      ) : isActive ? (
+                        <Check className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#F5A623" }} />
+                      ) : null}
                     </button>
                   </li>
                 );

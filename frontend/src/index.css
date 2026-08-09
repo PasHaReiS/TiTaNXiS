@@ -3,6 +3,11 @@
 @tailwind components;
 @tailwind utilities;
 
+html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+}
+
 body {
     margin: 0;
     font-family: 'Rajdhani', ui-sans-serif, system-ui, sans-serif;
@@ -107,6 +112,7 @@ code, .mono {
     box-shadow: 0 0 60px rgba(231, 76, 26, 0.18);
     border-left: 1px solid rgba(231,76,26,0.12);
     border-right: 1px solid rgba(231,76,26,0.12);
+    overflow-x: hidden;
 }
 @media (min-width: 768px)  { .app-shell { max-width: 100%; } }
 @media (min-width: 1280px) { .app-shell { max-width: 1280px; } }
