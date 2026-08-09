@@ -12,7 +12,7 @@ import { LEADERBOARD } from "@/constants/testIds";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
-const BRAND_LOGO_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/4e1d325e85084ea69c28857dabe96728_1000073434.jpg";
+const BRAND_LOGO_URL = "/brand/titanxis-logo.jpg";
 
 function MenuItem({ icon: Icon, label, onClick, testId }) {
   return (
@@ -70,11 +70,11 @@ export default function Header({ title }) {
         <div className="flex-1 min-w-0 flex items-center gap-3">
           <img
             src={BRAND_LOGO_URL}
-            alt="Brand"
+            alt="TiTaNXiS Game Guide"
             data-testid="header-brand-logo"
             onClick={() => setLogoVideoOpen(true)}
-            className="flex-1 min-w-0 header-brand-logo cursor-pointer"
-            style={{ width: "100%", maxWidth: "100%", height: "auto", maxHeight: 120, objectFit: "contain", objectPosition: "left center", borderRadius: 6 }}
+            className="header-brand-logo cursor-pointer flex-shrink-0"
+            style={{ height: "auto", maxHeight: 72, width: "auto", maxWidth: "min(60vw, 320px)", objectFit: "contain", objectPosition: "left center", borderRadius: 6 }}
           />
         </div>
 

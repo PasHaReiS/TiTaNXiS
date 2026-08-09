@@ -13,6 +13,13 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Header Logo + PWA/Favicon Refresh — DONE**: Rebranded the sticky header logo and the whole PWA/favicon icon set to the new TiTaNXiS Game Guide artwork.
+  - **Header logo** (`Header.jsx`): Replaced remote `BRAND_LOGO_URL` with local `/brand/titanxis-logo.jpg` (downloaded 951KB, 1264×848 JPG). Sized down from `maxHeight: 120` to `maxHeight: 72` with `maxWidth: min(60vw, 320px)` and `width: auto` to keep proportional. `alt` updated to `"TiTaNXiS Game Guide"`.
+  - **Favicons & PWA icons**: Downloaded the second asset (1254×1254) and generated a full icon set with Pillow into `/app/frontend/public/icons/`: `favicon-16.png`, `favicon-32.png`, `pwa-192.png`, `pwa-512.png`, `apple-touch-180.png`, plus a multi-size `favicon.ico` (16/32/48).
+  - **`manifest.json`** rewritten to reference all local PNGs with proper sizes and `purpose: any` + `purpose: maskable` entries for 192 and 512.
+  - **`index.html`** now uses the local `%PUBLIC_URL%/favicon.ico`, 16×16, 32×32 PNGs and a 180×180 apple-touch-icon; removed the remote-URL `apple-touch-icon` link.
+  - All assets serve HTTP 200 through the preview ingress (verified via curl and `fetch()` inside Playwright). Header logo, PWA 192/512 and favicons all decode with correct natural dimensions.
+
 - **[2026-02] DeeplUsageBadge → Icon-Only Cache Temizle Button — DONE**: Simplified the admin header cache-bust control in `/app/frontend/src/components/DeeplUsageBadge.jsx`. Removed the visible "Languages icon + `997k/1000k` character-count text" chip and reduced the whole component to a **single 32×32 circular icon button** containing only the `RotateCcw` refresh icon. Tooltip and `aria-label` both set to **"Cache Temizle"**. Kept all existing behaviour: 60-second background polling of `/translate/usage`, the once-per-session 90% quota warning toast, admin-only visibility, and the cache-clear flow (confirm → `clearTranslationCache()` → force i18n reload → success toast). Border/icon color still reflects quota state (green/amber/red) for at-a-glance status. Testid `deepl-clear-cache` unchanged.
 
 - **[2026-02] Widget Grubu — Grup Katla + Grup Panosu Sürükle (P2) — DONE**: Final grouping polish in `WidgetGrid.jsx`:
