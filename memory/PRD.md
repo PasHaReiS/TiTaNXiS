@@ -13,6 +13,11 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Ses Kütüphanesi + Combobox Klavye Navigasyonu — DONE**:
+  - **Ses Kütüphanesi**: Detail modal footer now has a sound `<select>` (`push-tpl-detail-sound-select`) with 4 options: **Rally** (`/audio/epic_battle.mp3` file, 3s), **Zafer** (Web Audio 3-note ascending chord C5→E5→G5), **Zindan** (deep sawtooth A2 + D3 for a dungeon horn feel), **Alarm** (4 rapid square-wave 880Hz beeps). Rally still plays the MP3 file; the other three are synthesized live via `AudioContext` (no additional binary assets). Existing "Ses Dene" button routes through `previewSound` which dispatches to the chosen library entry. `push_test_sound_{rally,victory,dungeon,alarm}` i18n keys added (TR + EN).
+  - **Combobox Klavye Navigasyonu**: Added `testUserActive` index state and hooked `ArrowDown / ArrowUp / Enter / Home / End` on the combobox search input. Active option shows a highlighted background + outline via `aria-selected` on `push-tpl-detail-target-user-opt-{id}`. `Enter` picks the active option, updates toggle label, closes popup. `onMouseEnter` keeps active index in sync so keyboard and mouse users share the same highlight.
+  - E2E verified: sound select renders 4 options, changing to "Victory" triggers the synthesized 3-note pattern (label flips to "Çalıyor…"); ArrowDown ×3 + ArrowUp moves highlight through 3 members then back one, Enter picks the highlighted member and closes the popup.
+
 - **[2026-02] Test Ses Denemesi + Alıcı Combobox — DONE**:
   - **Test Ses Denemesi**: Purple "Ses Dene" button (`push-tpl-detail-sound-preview`, Volume2 icon) in the detail modal footer plays `/audio/epic_battle.mp3` at 60% volume for ~3s. Label flips to "Çalıyor…" during playback. Catches autoplay-block errors and toasts a permission hint. Reuses a single `Audio` instance via ref.
   - **Alıcı Hızlı Ara**: Replaced the static `<select>` with a searchable combobox. Toggle button (`push-tpl-detail-target-user-toggle`) opens a popup with an autofocused search input; filters members case-insensitively by name; shows top 50 results plus a "+N daha" hint when truncated. Outside-click and Escape close the popup. Each option testid'd `push-tpl-detail-target-user-opt-{id}`.

@@ -56,6 +56,8 @@ export default function PushBroadcastPanel() {
   const [testBusy, setTestBusy] = useState(false);
   const [testUserSearch, setTestUserSearch] = useState("");
   const [testUserOpen, setTestUserOpen] = useState(false);
+  const [testUserActive, setTestUserActive] = useState(0);
+  const [testSoundKey, setTestSoundKey] = useState("rally");
   const testUserRef = React.useRef(null);
   const testAudioRef = React.useRef(null);
   const [audioBusy, setAudioBusy] = useState(false);
@@ -78,21 +80,53 @@ export default function PushBroadcastPanel() {
   const previewSound = () => {
     if (audioBusy) return;
     setAudioBusy(true);
+    const done = () => setAudioBusy(false);
     try {
-      if (!testAudioRef.current) {
-        testAudioRef.current = new Audio("/audio/epic_battle.mp3");
-        testAudioRef.current.volume = 0.6;
+      if (testSoundKey === "rally") {
+        if (!testAudioRef.current) {
+          testAudioRef.current = new Audio("/audio/epic_battle.mp3");
+          testAudioRef.current.volume = 0.6;
+        }
+        testAudioRef.current.currentTime = 0;
+        const p = testAudioRef.current.play();
+        if (p && p.catch) p.catch(() => { toast.error(t("push_test_sound_blocked")); done(); return; });
+        setTimeout(() => { try { testAudioRef.current.pause(); } catch {} done(); }, 3000);
+        return;
       }
-      testAudioRef.current.currentTime = 0;
-      const p = testAudioRef.current.play();
-      if (p && p.catch) p.catch(() => toast.error(t("push_test_sound_blocked")));
-      setTimeout(() => {
-        try { testAudioRef.current.pause(); } catch {}
-        setAudioBusy(false);
-      }, 3000);
-    } catch (e) {
-      setAudioBusy(false);
+      // Synthesized sounds via Web Audio API for distinct cues
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) { toast.error(t("push_test_sound_blocked")); done(); return; }
+      const ctx = new AC();
+      const gain = ctx.createGain();
+      gain.gain.value = 0.15;
+      gain.connect(ctx.destination);
+      const beep = (freq, start, dur, type = "sine") => {
+        const osc = ctx.createOscillator();
+        osc.type = type;
+        osc.frequency.value = freq;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, ctx.currentTime + start);
+        g.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + start + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
+        osc.connect(g); g.connect(gain);
+        osc.start(ctx.currentTime + start);
+        osc.stop(ctx.currentTime + start + dur);
+      };
+      let total = 0;
+      if (testSoundKey === "victory") {
+        beep(523.25, 0.0, 0.18); beep(659.25, 0.18, 0.18); beep(783.99, 0.36, 0.35);
+        total = 0.75;
+      } else if (testSoundKey === "dungeon") {
+        beep(110, 0.0, 0.7, "sawtooth"); beep(146.83, 0.35, 0.6, "sawtooth");
+        total = 1.1;
+      } else if (testSoundKey === "alarm") {
+        beep(880, 0.0, 0.12, "square"); beep(880, 0.2, 0.12, "square"); beep(880, 0.4, 0.12, "square"); beep(880, 0.6, 0.12, "square");
+        total = 0.85;
+      }
+      setTimeout(() => { try { ctx.close(); } catch {} done(); }, total * 1000 + 100);
+    } catch {
       toast.error(t("push_test_sound_blocked"));
+      done();
     }
   };
   const openDetail = (c) => {
@@ -967,7 +1001,17 @@ export default function PushBroadcastPanel() {
                           autoFocus
                           type="text"
                           value={testUserSearch}
-                          onChange={(e) => setTestUserSearch(e.target.value)}
+                          onChange={(e) => { setTestUserSearch(e.target.value); setTestUserActive(0); }}
+                          onKeyDown={(e) => {
+                            if (e.key === "ArrowDown") { e.preventDefault(); setTestUserActive((i) => Math.min(filteredMembers.length - 1, i + 1)); }
+                            else if (e.key === "ArrowUp") { e.preventDefault(); setTestUserActive((i) => Math.max(0, i - 1)); }
+                            else if (e.key === "Enter") {
+                              e.preventDefault();
+                              const pick = filteredMembers[testUserActive];
+                              if (pick) { setTestUserId(pick.id); setTestUserSearch(""); setTestUserOpen(false); }
+                            } else if (e.key === "Home") { e.preventDefault(); setTestUserActive(0); }
+                            else if (e.key === "End") { e.preventDefault(); setTestUserActive(filteredMembers.length - 1); }
+                          }}
                           data-testid="push-tpl-detail-target-user-search"
                           placeholder={t("push_test_user_search_placeholder")}
                           className="w-full px-2 py-1.5 text-[11px] outline-none"
@@ -979,17 +1023,20 @@ export default function PushBroadcastPanel() {
                               {t("push_test_user_no_match")}
                             </div>
                           )}
-                          {filteredMembers.map((m) => (
+                          {filteredMembers.map((m, idx) => (
                             <button
                               key={m.id}
                               type="button"
+                              onMouseEnter={() => setTestUserActive(idx)}
                               onClick={() => { setTestUserId(m.id); setTestUserSearch(""); setTestUserOpen(false); }}
                               data-testid={`push-tpl-detail-target-user-opt-${m.id}`}
+                              aria-selected={testUserActive === idx}
                               className="w-full text-left text-[11px] px-2 py-1.5 hover:opacity-90"
                               style={{
-                                background: testUserId === m.id ? "rgba(56,189,248,0.2)" : "transparent",
+                                background: testUserActive === idx ? "rgba(56,189,248,0.28)" : (testUserId === m.id ? "rgba(56,189,248,0.15)" : "transparent"),
                                 color: testUserId === m.id ? "#38BDF8" : "#F5F0E8",
                                 fontWeight: testUserId === m.id ? 700 : 400,
+                                outline: testUserActive === idx ? "1px solid rgba(56,189,248,0.5)" : "none",
                               }}
                             >
                               {m.name}
@@ -1022,6 +1069,18 @@ export default function PushBroadcastPanel() {
                   <Volume2 className="w-3 h-3" />
                   {audioBusy ? t("push_test_sound_playing") : t("push_test_sound_btn")}
                 </button>
+                <select
+                  value={testSoundKey}
+                  onChange={(e) => setTestSoundKey(e.target.value)}
+                  data-testid="push-tpl-detail-sound-select"
+                  className="text-[11px] rounded px-2 py-1.5"
+                  style={{ background: "rgba(20,12,10,0.6)", border: "1px solid rgba(168,85,247,0.35)", color: "#F5F0E8" }}
+                  title={t("push_test_sound_pick")}
+                >
+                  {["rally", "victory", "dungeon", "alarm"].map((k) => (
+                    <option key={k} value={k}>{t(`push_test_sound_${k}`)}</option>
+                  ))}
+                </select>
                 <button
                   type="button"
                   onClick={sendTest}
