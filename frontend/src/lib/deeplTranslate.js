@@ -94,6 +94,11 @@ export async function ensureLanguageTranslated(targetLang) {
   return promise;
 }
 
+// Wipe the entire cache — used by the "Yeniden Çevir" admin action.
+export function clearTranslationCache() {
+  try { localStorage.removeItem(CACHE_KEY); } catch {}
+}
+
 // Translate arbitrary user-supplied text (e.g. Puan Hesaplama event/table names)
 // into every enabled language. Returns { EN: "...", DE: "...", ... }.
 export async function translateUserText(text, targetLangs) {

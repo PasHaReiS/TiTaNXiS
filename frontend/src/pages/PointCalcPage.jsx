@@ -3,9 +3,10 @@ import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Trash2, Pencil, Check, X, Settings, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, Settings, ChevronRight, Globe } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
+import { translateUserText } from "@/lib/deeplTranslate";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -30,6 +31,28 @@ function normalizeTables(day) {
     }];
   }
   return [];
+}
+
+// Look up a translation for a user-supplied string; render with a small globe
+// icon so viewers know it's auto-translated. Falls back to source text.
+function TranslatedText({ source, translations, testId }) {
+  const { i18n } = useTranslation();
+  const lang = (i18n.language || "tr").toLowerCase();
+  const bucket = source && translations ? translations[source] : null;
+  const translated = bucket && bucket[lang];
+  const showTranslated = translated && translated !== source && lang !== "tr";
+  return (
+    <span data-testid={testId} className="inline-flex items-center gap-1">
+      <span>{showTranslated ? translated : source}</span>
+      {showTranslated && (
+        <Globe
+          className="w-3 h-3 inline-block opacity-60"
+          style={{ color: "#A855F7" }}
+          data-testid={testId ? `${testId}-globe` : undefined}
+        />
+      )}
+    </span>
+  );
 }
 
 export default function PointCalcPage() {
@@ -300,10 +323,11 @@ function DayCard({ day, onChanged }) {
   const { t } = useTranslation();
   const { canEdit } = useAuth();
   const tables = normalizeTables(day);
+  const translations = day.translations || {};
 
-  const patchTables = async (nextTables) => {
+  const patchTables = async (nextTables, extra = {}) => {
     try {
-      await api.patch(`/point-calc/${day.id}`, { tables: nextTables });
+      await api.patch(`/point-calc/${day.id}`, { tables: nextTables, ...extra });
       onChanged();
     } catch (e) {
       toast.error(e?.response?.data?.detail || e.message);
@@ -317,8 +341,10 @@ function DayCard({ day, onChanged }) {
   };
 
   const updateTable = async (tableId, patch) => {
-    const next = tables.map((tb) => (tb.id === tableId ? { ...tb, ...patch } : tb));
-    await patchTables(next);
+    const { translations: patchTranslations, ...rest } = patch || {};
+    const next = tables.map((tb) => (tb.id === tableId ? { ...tb, ...rest } : tb));
+    const extra = patchTranslations ? { translations: patchTranslations } : {};
+    await patchTables(next, extra);
   };
 
   const deleteTable = async (tableId) => {
@@ -345,7 +371,7 @@ function DayCard({ day, onChanged }) {
           style={{ color: "#F5A623", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}
           data-testid={`pc-day-name-${day.id}`}
         >
-          {day.name}
+          <TranslatedText source={day.name} translations={translations} />
         </h3>
       </div>
 
@@ -366,6 +392,7 @@ function DayCard({ day, onChanged }) {
             table={tb}
             index={idx}
             canEdit={canEdit}
+            translations={translations}
             onUpdate={(p) => updateTable(tb.id, p)}
             onDelete={() => deleteTable(tb.id)}
           />
@@ -392,7 +419,7 @@ function DayCard({ day, onChanged }) {
   );
 }
 
-function TableCard({ table, index, canEdit, onUpdate, onDelete }) {
+function TableCard({ table, index, canEdit, translations, onUpdate, onDelete }) {
   const { t } = useTranslation();
   const [miktar, setMiktar] = useState(table.miktar || 0);
   const [showModal, setShowModal] = useState(false);
@@ -427,7 +454,7 @@ function TableCard({ table, index, canEdit, onUpdate, onDelete }) {
       {/* Table header */}
       <div className="flex items-center justify-between mb-2">
         <div className="text-xs font-bold" style={{ color: "#F5A623", fontFamily: "Cinzel, serif", letterSpacing: "0.06em" }}>
-          {title ? title : `${t("pc_table")} #${index + 1}`}
+          {title ? <TranslatedText source={title} translations={translations} testId={`pc-table-title-${table.id}`} /> : `${t("pc_table")} #${index + 1}`}
         </div>
         {canEdit && (
           <button
@@ -482,7 +509,9 @@ function TableCard({ table, index, canEdit, onUpdate, onDelete }) {
           style={{ background: "#1A1210", border: "1px solid rgba(255,255,255,0.12)" }}
         >
           <span data-testid={`pc-table-mult-name-${table.id}`} style={{ color: "#F5F0E8" }}>
-            {mult.name || <span style={{ opacity: 0.4 }}>{t("pc_no_multiplier")}</span>}
+            {mult.name
+              ? <TranslatedText source={mult.name} translations={translations} />
+              : <span style={{ opacity: 0.4 }}>{t("pc_no_multiplier")}</span>}
           </span>
           <span data-testid={`pc-table-mult-value-${table.id}`} className="font-bold" style={{ color: "#F5A623" }}>
             {fmt(multValue)}
@@ -549,7 +578,9 @@ function TableCard({ table, index, canEdit, onUpdate, onDelete }) {
                   }}
                 >
                   <span data-testid={`pc-unit-name-${u.id}`} style={{ color: "#F5F0E8" }}>
-                    {u.name || <span style={{ opacity: 0.4 }}>—</span>}
+                    {u.name
+                      ? <TranslatedText source={u.name} translations={translations} />
+                      : <span style={{ opacity: 0.4 }}>—</span>}
                   </span>
                   <span data-testid={`pc-unit-amount-${u.id}`} className="text-center" style={{ color: "#F5F0E8", opacity: 0.85 }}>
                     {fmt(amt)}
@@ -567,6 +598,7 @@ function TableCard({ table, index, canEdit, onUpdate, onDelete }) {
       {showModal && (
         <UnitEditModal
           table={table}
+          existingTranslations={translations || {}}
           onClose={() => setShowModal(false)}
           onSaved={async (patch) => { await onUpdate(patch); setShowModal(false); }}
         />
@@ -575,7 +607,7 @@ function TableCard({ table, index, canEdit, onUpdate, onDelete }) {
   );
 }
 
-function UnitEditModal({ table, onClose, onSaved }) {
+function UnitEditModal({ table, existingTranslations, onClose, onSaved }) {
   const { t } = useTranslation();
   const firstMult = (table.multipliers && table.multipliers[0]) || null;
   const [title, setTitle] = useState(table.title || "");
@@ -596,7 +628,26 @@ function UnitEditModal({ table, onClose, onSaved }) {
         name: (u.name || "").trim(),
         amount: String(u.amount ?? ""),
       }));
-      await onSaved({ title, multipliers, materials });
+
+      // Collect every user-supplied string on this table (deduped) and translate
+      // in parallel. Store the results in `day.translations` so the DayCard
+      // render can show them per current i18n language.
+      const strings = new Set();
+      if (title.trim()) strings.add(title.trim());
+      if (multName.trim()) strings.add(multName.trim());
+      materials.forEach((m) => { if (m.name) strings.add(m.name); });
+
+      const translations = { ...(existingTranslations || {}) };
+      if (strings.size > 0) {
+        const pairs = await Promise.all(
+          [...strings].map(async (s) => [s, await translateUserText(s)])
+        );
+        pairs.forEach(([src, map]) => {
+          if (src && map && Object.keys(map).length > 0) translations[src] = map;
+        });
+      }
+
+      await onSaved({ title, multipliers, materials, translations });
       toast.success(t("pc_unit_saved"));
     } catch (e2) {
       toast.error(e2?.response?.data?.detail || e2.message);

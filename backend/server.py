@@ -1643,6 +1643,7 @@ class PCDayUpdate(BaseModel):
     unit_labels: Optional[PCUnitLabels] = None
     materials: Optional[List[PCMaterial]] = None
     tables: Optional[List[PCTable]] = None
+    translations: Optional[Dict[str, Dict[str, str]]] = None
 
 
 async def _seed_default_pc_days(kind: str):
