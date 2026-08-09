@@ -1203,6 +1203,9 @@ const en = {
   wg_group_reordered: "Group moved",
   wg_group_drag_hint: "Drag the group to swap with another",
   wg_group_nav: "Groups",
+  wg_group_pick_icon: "Pick group icon",
+  wg_group_icon_changed: "Group icon updated",
+  wg_group_index_hint: "Position in group: {{i}}/{{n}}",
 
   wg_size_normal: "Normal",
   wg_size_wide: "Wide",

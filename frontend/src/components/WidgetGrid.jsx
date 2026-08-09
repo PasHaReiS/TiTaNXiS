@@ -16,6 +16,7 @@ const DEFAULT_WIDGETS = ["top_member", "active_events", "total_power", "personal
 const SIZE_ORDER = ["compact", "normal", "wide"];
 const THEMES = ["vivid", "minimal", "mono"];
 const GROUP_PALETTE = ["#F5A623", "#22C55E", "#38BDF8", "#A855F7", "#EF4444", "#EAB308", "#F97316"];
+const GROUP_ICONS = ["⭐", "🔥", "⚔️", "🛡️", "🏆", "👑", "💎", "⚡", "🎯", "🎮", "🌟", "💰", "🚀", "🎨", "📊", "🔔"];
 
 const fmt = (n) => Number(n || 0).toLocaleString("tr-TR");
 const fmtBig = (n) => {
@@ -99,7 +100,7 @@ function useWidgetGroups() {
 }
 
 
-function WidgetCard({ widgetKey, value, subtitle, extra, striped, size, theme, onCycleSize, onRemove, onClick, onDragStart, onDragOver, onDrop, dragging, t, selectMode, isSelected, onSelectToggle, groupAccent }) {
+function WidgetCard({ widgetKey, value, subtitle, extra, striped, size, theme, onCycleSize, onRemove, onClick, onDragStart, onDragOver, onDrop, dragging, t, selectMode, isSelected, onSelectToggle, groupAccent, groupIndex, groupSize }) {
   const meta = WIDGETS.find((w) => w.key === widgetKey);
   if (!meta) return null;
   const Icon = meta.icon;
@@ -162,6 +163,22 @@ function WidgetCard({ widgetKey, value, subtitle, extra, striped, size, theme, o
           }}
         >
           {isSelected && <Check className="w-2.5 h-2.5" style={{ color: "#0B0704" }} />}
+        </div>
+      )}
+      {typeof groupIndex === "number" && groupSize > 1 && !selectMode && (
+        <div
+          data-testid={`widget-group-index-${widgetKey}`}
+          className="absolute bottom-1 left-1 z-10 text-[9px] font-bold rounded px-1 leading-none py-0.5"
+          style={{
+            background: `${accent}33`,
+            border: `1px solid ${accent}88`,
+            color: accent,
+            fontVariantNumeric: "tabular-nums",
+            letterSpacing: "0.04em",
+          }}
+          title={t("wg_group_index_hint", { i: groupIndex, n: groupSize })}
+        >
+          {groupIndex}/{groupSize}
         </div>
       )}
       <div
@@ -287,9 +304,10 @@ function Sparkline({ series, color }) {
   );
 }
 
-function GroupContainer({ group: g, members, values, sizes, setSizes, removeWidget, setDragging, setDragOver, handleDrop, dragging, theme, groupMode, selected, toggleSelect, ungroup, setGroupName, setGroupColor, draggingGroup, setDraggingGroup, handleGroupDrop, t }) {
+function GroupContainer({ group: g, members, values, sizes, setSizes, removeWidget, setDragging, setDragOver, handleDrop, dragging, theme, groupMode, selected, toggleSelect, ungroup, setGroupName, setGroupColor, setGroupIcon, draggingGroup, setDraggingGroup, handleGroupDrop, t }) {
   const [editingName, setEditingName] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
+  const [showIconPicker, setShowIconPicker] = useState(false);
   const [nameDraft, setNameDraft] = useState(g.name || "");
   const [dragOverGroup, setDragOverGroup] = useState(false);
   useEffect(() => { setNameDraft(g.name || ""); }, [g.name]);
@@ -338,6 +356,53 @@ function GroupContainer({ group: g, members, values, sizes, setSizes, removeWidg
             <GripVertical className="w-3 h-3" />
           </button>
           <Layers className="w-3 h-3 flex-shrink-0" style={{ color: g.color }} />
+          <button
+            type="button"
+            onClick={() => setShowIconPicker((v) => !v)}
+            data-testid={`widget-group-icon-btn-${g.id}`}
+            className="text-[13px] leading-none flex-shrink-0 rounded px-1 py-0.5 hover:opacity-80"
+            style={{ background: g.icon ? "transparent" : `${g.color}22`, border: `1px solid ${g.color}66`, color: g.color, minWidth: 20, minHeight: 20 }}
+            aria-label={t("wg_group_pick_icon")}
+            title={t("wg_group_pick_icon")}
+          >
+            {g.icon || "＋"}
+          </button>
+          {showIconPicker && (
+            <div
+              data-testid={`widget-group-icon-palette-${g.id}`}
+              className="absolute left-0 top-full mt-1 z-20 flex flex-wrap gap-1 p-1.5 rounded-lg"
+              style={{ background: "rgba(20,12,10,0.98)", border: "1px solid rgba(255,255,255,0.15)", boxShadow: "0 4px 14px rgba(0,0,0,0.6)", maxWidth: 200 }}
+            >
+              {GROUP_ICONS.map((ic) => (
+                <button
+                  key={ic}
+                  type="button"
+                  onClick={() => { setGroupIcon(g.id, ic); setShowIconPicker(false); toast.success(t("wg_group_icon_changed")); }}
+                  data-testid={`widget-group-icon-swatch-${g.id}-${ic}`}
+                  aria-label={ic}
+                  className="rounded text-[15px] leading-none flex items-center justify-center hover:opacity-80"
+                  style={{
+                    width: 22, height: 22,
+                    background: g.icon === ic ? `${g.color}44` : "transparent",
+                    border: g.icon === ic ? `1.5px solid ${g.color}` : "1px solid rgba(255,255,255,0.1)",
+                  }}
+                >
+                  {ic}
+                </button>
+              ))}
+              {g.icon && (
+                <button
+                  type="button"
+                  onClick={() => { setGroupIcon(g.id, ""); setShowIconPicker(false); }}
+                  data-testid={`widget-group-icon-clear-${g.id}`}
+                  className="rounded text-[10px] font-bold px-1.5 leading-none flex items-center justify-center hover:opacity-80"
+                  style={{ height: 22, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.4)", color: "#EF4444" }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          )}
           {editingName ? (
             <input
               autoFocus
@@ -415,7 +480,7 @@ function GroupContainer({ group: g, members, values, sizes, setSizes, removeWidg
         </div>
       </div>
       <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))" }}>
-        {members.map((k) => (
+        {members.map((k, mi) => (
           <WidgetCard
             key={k}
             widgetKey={k}
@@ -426,6 +491,8 @@ function GroupContainer({ group: g, members, values, sizes, setSizes, removeWidg
             size={sizes[k] || "normal"}
             theme={theme}
             groupAccent={g.color}
+            groupIndex={mi + 1}
+            groupSize={members.length}
             onCycleSize={() => {
               const cur = sizes[k] || "normal";
               const next = SIZE_ORDER[(SIZE_ORDER.indexOf(cur) + 1) % SIZE_ORDER.length];
@@ -724,6 +791,7 @@ export default function WidgetGrid() {
       id: `g_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       color,
       name: "",
+      icon: "",
       widgets: [...selected],
     };
     setGroups([...cleaned, newGroup]);
@@ -754,6 +822,10 @@ export default function WidgetGrid() {
 
   const setGroupColor = (gid, color) => {
     setGroups(groups.map((g) => g.id === gid ? { ...g, color } : g));
+  };
+
+  const setGroupIcon = (gid, icon) => {
+    setGroups(groups.map((g) => g.id === gid ? { ...g, icon } : g));
   };
 
   const handleGroupDrop = (targetGid) => {
@@ -939,6 +1011,7 @@ export default function WidgetGrid() {
                 className="rounded-full flex-shrink-0"
                 style={{ width: 8, height: 8, background: g.color, boxShadow: `0 0 4px ${g.color}` }}
               />
+              {g.icon && <span className="text-[11px] leading-none flex-shrink-0">{g.icon}</span>}
               <span className="truncate max-w-[140px]">
                 {g.name?.trim() ? g.name : `${t("wg_group_label")} · ${g.widgets.length}`}
               </span>
@@ -977,6 +1050,7 @@ export default function WidgetGrid() {
                   ungroup={ungroup}
                   setGroupName={setGroupName}
                   setGroupColor={setGroupColor}
+                  setGroupIcon={setGroupIcon}
                   draggingGroup={draggingGroup}
                   setDraggingGroup={setDraggingGroup}
                   handleGroupDrop={handleGroupDrop}
