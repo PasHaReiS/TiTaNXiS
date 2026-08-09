@@ -66,11 +66,20 @@ self.addEventListener("push", (event) => {
         await fetch(`/api/push/history/${data.hid}/opened`, { method: "POST", credentials: "omit" }).catch(() => null);
       }
     } catch (e) {}
+    // Broadcast the sound key to any open clients so the main app can play the cue.
+    if (data.sound) {
+      try {
+        const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+        for (const c of clients) {
+          c.postMessage({ type: "push-sound", sound: data.sound, tag: data.tag || "titanxis" });
+        }
+      } catch (e) {}
+    }
     await self.registration.showNotification(data.title, {
       body: data.body,
       icon: data.icon || "/favicon.ico",
       badge: data.badge || "/favicon.ico",
-      data: { url: data.url || "/", hid: data.hid || null },
+      data: { url: data.url || "/", hid: data.hid || null, sound: data.sound || null },
       tag: data.tag || "titanxis",
       renotify: true,
     });

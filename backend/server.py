@@ -2233,9 +2233,10 @@ async def push_unsubscribe(body: PushSubscribeBody, _: dict = Depends(require_au
     return {"ok": True}
 
 
-async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "titanxis", group_name: Optional[str] = None):
+async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "titanxis", group_name: Optional[str] = None, alliance_name: Optional[str] = None, sound: Optional[str] = None):
     """Broadcast a push. When group_name is provided, only send to users whose prefs include this group
-    (users without any saved prefs receive everything by default)."""
+    (users without any saved prefs receive everything by default). When alliance_name is provided,
+    only send to subscribers whose linked member document has the matching alliance."""
     private_pem, _ = await _get_or_create_vapid()
     subs = await db.push_subscriptions.find({}, {"_id": 0}).to_list(1000)
     allowed_users: Optional[set] = None
@@ -2246,6 +2247,20 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
         for uid, grps in prefs_by_user.items():
             if not grps or group_name in grps:
                 allowed_users.add(uid)
+    if alliance_name:
+        # Build the set of user_ids whose linked member has this alliance.
+        member_docs = await db.members.find({"alliance_name": alliance_name}, {"_id": 0, "id": 1, "user_id": 1}).to_list(5000)
+        member_ids = {m["id"] for m in member_docs if m.get("id")}
+        alliance_user_ids: set = set()
+        # A user may be linked to a member either via users.member_id or member.user_id
+        user_docs = await db.users.find({}, {"_id": 0, "id": 1, "member_id": 1}).to_list(5000)
+        for u in user_docs:
+            if u.get("member_id") and u["member_id"] in member_ids:
+                alliance_user_ids.add(u["id"])
+        for m in member_docs:
+            if m.get("user_id"):
+                alliance_user_ids.add(m["user_id"])
+        allowed_users = alliance_user_ids if allowed_users is None else (allowed_users & alliance_user_ids)
     # Reserve history id up-front so notifications can ping open-tracking with it
     hid = str(uuid.uuid4())
     if not subs:
@@ -2255,7 +2270,10 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
             "created_at": now_iso(),
         })
         return {"sent": 0, "removed": 0}
-    payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag, "hid": hid}, ensure_ascii=False)
+    payload_obj = {"title": title, "body": body, "url": url, "tag": tag, "hid": hid}
+    if sound:
+        payload_obj["sound"] = sound
+    payload = json.dumps(payload_obj, ensure_ascii=False)
     sent = 0
     removed = 0
     for s in subs:
@@ -2367,6 +2385,8 @@ class PushScheduledBody(BaseModel):
     scheduled_at: str
     repeat: Optional[str] = None  # 'daily' | 'weekly' | None
     group_name: Optional[str] = None  # optional event group tag for filtering
+    alliance_name: Optional[str] = None  # optional alliance filter
+    sound: Optional[str] = "rally"  # rally | victory | dungeon | alarm
 
 
 @api_router.get("/push/scheduled")
@@ -2386,6 +2406,10 @@ async def push_scheduled_create(body: PushScheduledBody, _: dict = Depends(requi
     now = _dt.now(_tz.utc)
     if when < now - _td(seconds=60):
         raise HTTPException(400, "scheduled_at is in the past")
+    valid_sounds = {"rally", "victory", "dungeon", "alarm"}
+    sound = (body.sound or "rally").lower()
+    if sound not in valid_sounds:
+        sound = "rally"
     doc = {
         "id": str(uuid.uuid4()),
         "title": body.title.strip(),
@@ -2393,6 +2417,9 @@ async def push_scheduled_create(body: PushScheduledBody, _: dict = Depends(requi
         "url": (body.url or "/").strip(),
         "scheduled_at": body.scheduled_at,
         "repeat": (body.repeat or None),
+        "group_name": (body.group_name or None),
+        "alliance_name": (body.alliance_name or None),
+        "sound": sound,
         "sent": False,
         "created_at": now_iso(),
     }
@@ -2423,7 +2450,13 @@ async def _push_scheduler_loop():
                 except Exception:
                     continue
                 if when <= now:
-                    await _broadcast_push(doc["title"], doc["body"], doc.get("url", "/"), tag=f"scheduled-{doc['id']}")
+                    await _broadcast_push(
+                        doc["title"], doc["body"], doc.get("url", "/"),
+                        tag=f"scheduled-{doc['id']}",
+                        group_name=doc.get("group_name"),
+                        alliance_name=doc.get("alliance_name"),
+                        sound=doc.get("sound") or "rally",
+                    )
                     repeat = doc.get("repeat")
                     if repeat == "daily":
                         next_at = when + _td(days=1)

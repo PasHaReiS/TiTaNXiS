@@ -13,6 +13,17 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Sound On Schedule + Target Group Filter — DONE**:
+  - **Backend `PushScheduledBody`**: Added `sound` (whitelist: `rally|victory|dungeon|alarm`, invalid → clamped to `rally`) and `alliance_name` fields. `group_name` already existed. All three persist on the scheduled doc.
+  - **Backend `_push_scheduler_loop`**: Now passes `sound`, `group_name`, and `alliance_name` into `_broadcast_push` so recurring/one-off pushes fire with the right cue and audience.
+  - **Backend `_broadcast_push`**: New `alliance_name` and `sound` parameters. `alliance_name` resolves subscribers via `members.alliance_name` + `users.member_id` linkage; combined with `group_name` filter it becomes an intersection. `sound` is injected into the push JSON payload.
+  - **Service Worker**: On `push` event, extracts `data.sound` and `postMessage`'s `{type:"push-sound", sound, tag}` to every open window so the main app can play the cue in real-time. Sound is also stored in notification `data` for click-time playback.
+  - **Frontend UI (main form)**: New `push-sched-target-row` renders below the datetime picker with two selects — `push-sched-group-select` (populated from `/api/push/event-groups`), `push-sched-alliance-select` (populated from `/api/alliances`) — and a live color-dot + label showing the current `testSoundKey`. All three values are POSTed on schedule.
+  - **Frontend UI (template modal)**: Same picker set (`push-tpl-group-select`, `push-tpl-alliance-select`, `push-tpl-target-sound-dot`) inside the "Bu Şablonu Zamanla" modal. Template's own `sound` (if any) is used; else falls back to picker preference.
+  - **Frontend UI (scheduled list)**: Each card gets a colored sound dot (`push-sched-sound-dot-{id}`), plus optional pink group badge and blue alliance badge when set.
+  - **i18n**: 5 new keys (TR + EN) — `push_sched_target`, `push_sched_group`, `push_sched_group_all`, `push_sched_alliance`, `push_sched_alliance_all`.
+  - **E2E verified via curl**: `sound=victory + alliance_name="TitanX" + group_name="Rally"` persisted and returned correctly; `sound="garbage"` clamped to `rally`.
+
 - **[2026-02] Scheduled Broadcast Enhancements — DONE**:
   - **Backend past-date guard**: `POST /api/push/scheduled` now returns HTTP 400 `"scheduled_at is in the past"` when the requested time is more than 60 seconds behind server clock. Confirmed via curl (`2020-01-01T00:00:00Z` → 400, `+2h` → 200).
   - **Frontend past-date guard**: Both the main broadcast form (`send()`) and template-schedule modal (`scheduleFromTemplate()`) now toast `push_sched_past_error` and abort before hitting the API when the picked local time is >60s in the past.

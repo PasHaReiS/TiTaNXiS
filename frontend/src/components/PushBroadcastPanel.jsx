@@ -58,9 +58,13 @@ export default function PushBroadcastPanel() {
   const [showSave, setShowSave] = useState(false);
   const [scheduleAt, setScheduleAt] = useState("");
   const [scheduleRepeat, setScheduleRepeat] = useState("");
+  const [scheduleGroup, setScheduleGroup] = useState(""); // event group filter
+  const [scheduleAlliance, setScheduleAlliance] = useState(""); // alliance filter
   const [tplModal, setTplModal] = useState(null);
   const [tplModalAt, setTplModalAt] = useState("");
   const [tplModalRepeat, setTplModalRepeat] = useState("");
+  const [tplModalGroup, setTplModalGroup] = useState("");
+  const [tplModalAlliance, setTplModalAlliance] = useState("");
   const [seedModalOpen, setSeedModalOpen] = useState(false);
   const [seedSelected, setSeedSelected] = useState(() => new Set(CURATED_TEMPLATES.slice(0, 3).map((t) => t.key)));
   const [seedCat, setSeedCat] = useState("all");
@@ -260,6 +264,8 @@ export default function PushBroadcastPanel() {
   const { data: history = [], mutate: refreshHistory } = useSWR(isAdmin ? "/push/history" : null, fetcher, { refreshInterval: 20000 });
   const { data: templates = [], mutate: refreshTpl } = useSWR(isAdmin ? "/push/templates" : null, fetcher);
   const { data: scheduled = [], mutate: refreshScheduled } = useSWR(isAdmin ? "/push/scheduled" : null, fetcher, { refreshInterval: 30000 });
+  const { data: alliances = [] } = useSWR(isAdmin ? "/alliances" : null, fetcher);
+  const { data: eventGroups = [] } = useSWR(isAdmin ? "/push/event-groups" : null, fetcher);
   if (!isAdmin) return null;
 
   const doSend = async (payload) => {
@@ -282,9 +288,15 @@ export default function PushBroadcastPanel() {
       if (when.getTime() < Date.now() - 60_000) { toast.error(t("push_sched_past_error")); return; }
       try {
         const iso = when.toISOString();
-        await api.post("/push/scheduled", { title: title.trim(), body: body.trim(), url: url.trim() || "/", scheduled_at: iso, repeat: scheduleRepeat || null });
+        await api.post("/push/scheduled", {
+          title: title.trim(), body: body.trim(), url: url.trim() || "/",
+          scheduled_at: iso, repeat: scheduleRepeat || null,
+          group_name: scheduleGroup || null,
+          alliance_name: scheduleAlliance || null,
+          sound: testSoundKey,
+        });
         toast.success(t("push_sched_created", { at: new Date(scheduleAt).toLocaleString() }));
-        setTitle(""); setBody(""); setScheduleAt(""); setScheduleRepeat("");
+        setTitle(""); setBody(""); setScheduleAt(""); setScheduleRepeat(""); setScheduleGroup(""); setScheduleAlliance("");
         refreshScheduled();
       } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
       return;
@@ -323,11 +335,16 @@ export default function PushBroadcastPanel() {
         url: tplModal.url || "/",
         scheduled_at: iso,
         repeat: tplModalRepeat || null,
+        group_name: tplModalGroup || null,
+        alliance_name: tplModalAlliance || null,
+        sound: tplModal.sound || testSoundKey,
       });
       toast.success(t("push_sched_created", { at: new Date(tplModalAt).toLocaleString() }));
       setTplModal(null);
       setTplModalAt("");
       setTplModalRepeat("");
+      setTplModalGroup("");
+      setTplModalAlliance("");
       refreshScheduled();
     } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
   };
@@ -617,6 +634,42 @@ export default function PushBroadcastPanel() {
           ))}
         </div>
         {scheduleAt && (
+          <div className="flex items-center gap-1.5 flex-wrap" data-testid="push-sched-target-row">
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: "#EC4899" }}>{t("push_sched_target")}:</label>
+            <select
+              value={scheduleGroup}
+              onChange={(e) => setScheduleGroup(e.target.value)}
+              data-testid="push-sched-group-select"
+              className="rounded px-2 py-1 text-[10px]"
+              style={{ background: "#1A1210", color: "#F5F0E8", border: "1px solid rgba(236,72,153,0.4)", minWidth: 120 }}
+              title={t("push_sched_group")}
+            >
+              <option value="">{t("push_sched_group_all")}</option>
+              {(eventGroups || []).map((g) => (<option key={g} value={g}>{g}</option>))}
+            </select>
+            <select
+              value={scheduleAlliance}
+              onChange={(e) => setScheduleAlliance(e.target.value)}
+              data-testid="push-sched-alliance-select"
+              className="rounded px-2 py-1 text-[10px]"
+              style={{ background: "#1A1210", color: "#F5F0E8", border: "1px solid rgba(236,72,153,0.4)", minWidth: 120 }}
+              title={t("push_sched_alliance")}
+            >
+              <option value="">{t("push_sched_alliance_all")}</option>
+              {(alliances || []).map((a) => (<option key={a} value={a}>{a}</option>))}
+            </select>
+            <span
+              data-testid="push-sched-sound-dot"
+              className="rounded-full flex-shrink-0"
+              style={{ width: 8, height: 8, background: SOUND_COLORS[testSoundKey] || "#E74C1A", boxShadow: `0 0 4px ${SOUND_COLORS[testSoundKey] || "#E74C1A"}` }}
+              title={t(`push_test_sound_${testSoundKey}`)}
+            />
+            <span className="text-[10px] uppercase" style={{ color: "#A855F7", opacity: 0.8 }}>
+              {t(`push_test_sound_${testSoundKey}`)}
+            </span>
+          </div>
+        )}
+        {scheduleAt && (
           <div className="flex items-center gap-1.5" data-testid="push-sched-repeat-row">
             <label className="text-[10px] uppercase tracking-widest" style={{ color: "#A855F7" }}>{t("push_sched_repeat")}:</label>
             {["", "daily", "weekly"].map((r) => (
@@ -717,6 +770,12 @@ export default function PushBroadcastPanel() {
               >
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-bold truncate flex items-center gap-1.5" style={{ color: "#F5F0E8" }}>
+                    <span
+                      data-testid={`push-sched-sound-dot-${s.id}`}
+                      className="rounded-full flex-shrink-0"
+                      style={{ width: 7, height: 7, background: SOUND_COLORS[s.sound] || SOUND_COLORS.rally, boxShadow: `0 0 3px ${SOUND_COLORS[s.sound] || SOUND_COLORS.rally}` }}
+                      title={t(`push_test_sound_${s.sound || "rally"}`)}
+                    />
                     {s.title}
                     {s.repeat && (
                       <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase" style={{
@@ -724,6 +783,22 @@ export default function PushBroadcastPanel() {
                         color: "#fff", letterSpacing: "0.06em",
                       }} data-testid={`push-sched-repeat-badge-${s.id}`}>
                         {s.repeat === "daily" ? t("push_sched_daily") : t("push_sched_weekly")}
+                      </span>
+                    )}
+                    {s.group_name && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase" style={{
+                        background: "rgba(236,72,153,0.2)", color: "#EC4899",
+                        border: "1px solid rgba(236,72,153,0.5)", letterSpacing: "0.06em",
+                      }} data-testid={`push-sched-group-badge-${s.id}`}>
+                        {s.group_name}
+                      </span>
+                    )}
+                    {s.alliance_name && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase" style={{
+                        background: "rgba(56,189,248,0.15)", color: "#38BDF8",
+                        border: "1px solid rgba(56,189,248,0.5)", letterSpacing: "0.06em",
+                      }} data-testid={`push-sched-alliance-badge-${s.id}`}>
+                        {s.alliance_name}
                       </span>
                     )}
                   </div>
@@ -877,6 +952,35 @@ export default function PushBroadcastPanel() {
                   {r === "" ? t("push_sched_once") : r === "daily" ? t("push_sched_daily") : t("push_sched_weekly")}
                 </button>
               ))}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap" data-testid="push-tpl-target-row">
+              <label className="text-[10px] uppercase tracking-widest" style={{ color: "#EC4899" }}>{t("push_sched_target")}:</label>
+              <select
+                value={tplModalGroup}
+                onChange={(e) => setTplModalGroup(e.target.value)}
+                data-testid="push-tpl-group-select"
+                className="rounded px-2 py-1 text-[10px]"
+                style={{ background: "#1A1210", color: "#F5F0E8", border: "1px solid rgba(236,72,153,0.4)", minWidth: 120 }}
+              >
+                <option value="">{t("push_sched_group_all")}</option>
+                {(eventGroups || []).map((g) => (<option key={g} value={g}>{g}</option>))}
+              </select>
+              <select
+                value={tplModalAlliance}
+                onChange={(e) => setTplModalAlliance(e.target.value)}
+                data-testid="push-tpl-alliance-select"
+                className="rounded px-2 py-1 text-[10px]"
+                style={{ background: "#1A1210", color: "#F5F0E8", border: "1px solid rgba(236,72,153,0.4)", minWidth: 120 }}
+              >
+                <option value="">{t("push_sched_alliance_all")}</option>
+                {(alliances || []).map((a) => (<option key={a} value={a}>{a}</option>))}
+              </select>
+              <span
+                className="rounded-full flex-shrink-0"
+                style={{ width: 8, height: 8, background: SOUND_COLORS[tplModal.sound || testSoundKey] || "#E74C1A", boxShadow: `0 0 4px ${SOUND_COLORS[tplModal.sound || testSoundKey] || "#E74C1A"}` }}
+                title={t(`push_test_sound_${tplModal.sound || testSoundKey}`)}
+                data-testid="push-tpl-target-sound-dot"
+              />
             </div>
             <button
               type="button"
