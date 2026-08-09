@@ -560,8 +560,15 @@ export default function WidgetGrid() {
       const strip = chipStripRef.current;
       if (strip && !strip.contains(e.target)) setChipMenuOpen(null);
     };
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") { e.preventDefault(); setChipMenuOpen(null); }
+    };
     document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [chipMenuOpen]);
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 8000 });
   const { data: lb = [] } = useSWR("/leaderboard", fetcher, { refreshInterval: 8000 });

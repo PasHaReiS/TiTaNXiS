@@ -9,16 +9,22 @@ import { toast } from "sonner";
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 const CURATED_TEMPLATES = [
-  { key: "rally_15",   name: "Rally 15dk",         title: "⚔️ Rally 15 dakika sonra!",       body: "Kaleye toplan, buff'ları hazırla.",                       url: "/etkinlikler" },
-  { key: "rally_now",  name: "Rally Başladı",       title: "⚔️ Rally başladı!",                body: "Hemen katıl — kilit anındayız.",                          url: "/etkinlikler" },
-  { key: "new_event",  name: "Yeni Etkinlik",       title: "🏆 Yeni etkinlik başladı",         body: "Puan kaçırma — hemen katıl.",                             url: "/etkinlikler" },
-  { key: "duel_start", name: "Duello Başladı",      title: "🥊 Duello başladı!",               body: "Rakibi seç ve hasar yapmaya başla.",                      url: "/etkinlikler" },
-  { key: "svs_final",  name: "SvS Finali",          title: "🏰 SvS finali sonuna 2 saat",     body: "Son puanları topla, sıralamada üste tırman.",             url: "/etkinlikler" },
-  { key: "new_season", name: "Yeni Sezon",          title: "🌟 Yeni sezon açıldı",             body: "Yeni ödüller ve haritalar seni bekliyor.",                url: "/" },
-  { key: "boss_spawn", name: "Boss Doğdu",          title: "🐉 Dünya bossu doğdu",             body: "İttifak, buluşma noktasına — hasar yarışı başlasın!",     url: "/" },
-  { key: "reward",     name: "Ödül Dağıtıldı",       title: "🎁 Ödüller postana düştü",         body: "Postaneyi kontrol et ve ödülleri topla.",                 url: "/" },
-  { key: "signup_end", name: "Kayıt Sonu",           title: "⏰ Kayıt süresi bitiyor",          body: "Son 30 dakika — hemen kaydını tamamla.",                  url: "/etkinlikler" },
-  { key: "maint",      name: "Bakım Duyurusu",      title: "🛠️ Kısa bakım duyurusu",         body: "Panel 5 dakika bakıma girecek. Kaydettiğinden emin ol.",  url: "/" },
+  { key: "rally_15",   category: "rally",  name: "Rally 15dk",         title: "⚔️ Rally 15 dakika sonra!",       body: "Kaleye toplan, buff'ları hazırla.",                       url: "/etkinlikler" },
+  { key: "rally_now",  category: "rally",  name: "Rally Başladı",       title: "⚔️ Rally başladı!",                body: "Hemen katıl — kilit anındayız.",                          url: "/etkinlikler" },
+  { key: "boss_spawn", category: "rally",  name: "Boss Doğdu",          title: "🐉 Dünya bossu doğdu",             body: "İttifak, buluşma noktasına — hasar yarışı başlasın!",     url: "/" },
+  { key: "new_event",  category: "event",  name: "Yeni Etkinlik",       title: "🏆 Yeni etkinlik başladı",         body: "Puan kaçırma — hemen katıl.",                             url: "/etkinlikler" },
+  { key: "duel_start", category: "event",  name: "Duello Başladı",      title: "🥊 Duello başladı!",               body: "Rakibi seç ve hasar yapmaya başla.",                      url: "/etkinlikler" },
+  { key: "svs_final",  category: "event",  name: "SvS Finali",          title: "🏰 SvS finali sonuna 2 saat",     body: "Son puanları topla, sıralamada üste tırman.",             url: "/etkinlikler" },
+  { key: "new_season", category: "event",  name: "Yeni Sezon",          title: "🌟 Yeni sezon açıldı",             body: "Yeni ödüller ve haritalar seni bekliyor.",                url: "/" },
+  { key: "signup_end", category: "event",  name: "Kayıt Sonu",           title: "⏰ Kayıt süresi bitiyor",          body: "Son 30 dakika — hemen kaydını tamamla.",                  url: "/etkinlikler" },
+  { key: "reward",     category: "system", name: "Ödül Dağıtıldı",       title: "🎁 Ödüller postana düştü",         body: "Postaneyi kontrol et ve ödülleri topla.",                 url: "/" },
+  { key: "maint",      category: "system", name: "Bakım Duyurusu",      title: "🛠️ Kısa bakım duyurusu",         body: "Panel 5 dakika bakıma girecek. Kaydettiğinden emin ol.",  url: "/" },
+];
+const TEMPLATE_CATEGORIES = [
+  { key: "all",    color: "#A855F7" },
+  { key: "rally",  color: "#E74C1A" },
+  { key: "event",  color: "#F5A623" },
+  { key: "system", color: "#38BDF8" },
 ];
 
 export default function PushBroadcastPanel() {
@@ -37,6 +43,8 @@ export default function PushBroadcastPanel() {
   const [tplModalRepeat, setTplModalRepeat] = useState("");
   const [seedModalOpen, setSeedModalOpen] = useState(false);
   const [seedSelected, setSeedSelected] = useState(() => new Set(CURATED_TEMPLATES.slice(0, 3).map((t) => t.key)));
+  const [seedCat, setSeedCat] = useState("all");
+  const seedVisible = seedCat === "all" ? CURATED_TEMPLATES : CURATED_TEMPLATES.filter((c) => c.category === seedCat);
   const installSelectedTemplates = async () => {
     const chosen = CURATED_TEMPLATES.filter((c) => seedSelected.has(c.key));
     if (chosen.length === 0) { toast.error(t("push_tpl_seed_pick_one")); return; }
@@ -560,7 +568,7 @@ export default function PushBroadcastPanel() {
                 {t("push_tpl_library_hint", { n: seedSelected.size })}
               </span>
               <div className="flex gap-1">
-                <button type="button" onClick={() => setSeedSelected(new Set(CURATED_TEMPLATES.map(c => c.key)))} data-testid="push-tpl-seed-selectall" className="text-[10px] uppercase font-bold px-2 py-1 rounded" style={{ background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#E0E7FF", letterSpacing: "0.06em" }}>
+                <button type="button" onClick={() => setSeedSelected(new Set(seedVisible.map(c => c.key)))} data-testid="push-tpl-seed-selectall" className="text-[10px] uppercase font-bold px-2 py-1 rounded" style={{ background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#E0E7FF", letterSpacing: "0.06em" }}>
                   {t("push_tpl_select_all")}
                 </button>
                 <button type="button" onClick={() => setSeedSelected(new Set())} data-testid="push-tpl-seed-clear" className="text-[10px] uppercase font-bold px-2 py-1 rounded" style={{ background: "rgba(20,12,10,0.6)", border: "1px solid rgba(255,255,255,0.15)", color: "#F5F0E8", letterSpacing: "0.06em" }}>
@@ -568,8 +576,33 @@ export default function PushBroadcastPanel() {
                 </button>
               </div>
             </div>
+            <div className="flex gap-1 px-4 pt-2 pb-1" data-testid="push-tpl-seed-tabs">
+              {TEMPLATE_CATEGORIES.map((cat) => {
+                const count = cat.key === "all" ? CURATED_TEMPLATES.length : CURATED_TEMPLATES.filter((c) => c.category === cat.key).length;
+                const active = seedCat === cat.key;
+                return (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    onClick={() => setSeedCat(cat.key)}
+                    data-testid={`push-tpl-seed-tab-${cat.key}`}
+                    aria-pressed={active}
+                    className="text-[10px] uppercase font-bold px-2.5 py-1 rounded-full flex items-center gap-1"
+                    style={{
+                      background: active ? `${cat.color}30` : "rgba(20,12,10,0.5)",
+                      border: `1px solid ${active ? cat.color : "rgba(255,255,255,0.1)"}`,
+                      color: active ? cat.color : "#F5F0E8",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    {t(`push_tpl_cat_${cat.key}`)}
+                    <span className="text-[9px] opacity-80" style={{ fontVariantNumeric: "tabular-nums" }}>({count})</span>
+                  </button>
+                );
+              })}
+            </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-              {CURATED_TEMPLATES.map((c) => {
+              {seedVisible.map((c) => {
                 const checked = seedSelected.has(c.key);
                 return (
                   <label
