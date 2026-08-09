@@ -3,12 +3,14 @@ import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Crown, Users, Zap, Trophy, Award, Target, Timer, TrendingUp, Shield, Flame, Medal, Plus, X, Settings2, GripVertical } from "lucide-react";
+import { Crown, Users, Zap, Trophy, Award, Target, Timer, TrendingUp, Shield, Flame, Medal, Plus, X, Settings2, GripVertical, Maximize2, Minimize2, Square } from "lucide-react";
 import { groupColor } from "@/lib/groupColors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 const STORAGE_KEY = "titanxis_widgets_v1";
+const SIZE_KEY = "titanxis_widget_sizes_v1";
 const DEFAULT_WIDGETS = ["top_member", "active_events", "total_power", "personal_points"];
+const SIZE_ORDER = ["compact", "normal", "wide"];
 
 const fmt = (n) => Number(n || 0).toLocaleString("tr-TR");
 const fmtBig = (n) => {
@@ -49,11 +51,31 @@ function useEnabledWidgets() {
   return [enabled, setEnabled];
 }
 
-function WidgetCard({ widgetKey, value, subtitle, extra, onRemove, onClick, onDragStart, onDragOver, onDrop, dragging, t }) {
+function useWidgetSizes() {
+  const [sizes, setSizes] = useState(() => {
+    try {
+      const raw = localStorage.getItem(SIZE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return {};
+  });
+  useEffect(() => {
+    try { localStorage.setItem(SIZE_KEY, JSON.stringify(sizes)); } catch {}
+  }, [sizes]);
+  return [sizes, setSizes];
+}
+
+function WidgetCard({ widgetKey, value, subtitle, extra, striped, size, onCycleSize, onRemove, onClick, onDragStart, onDragOver, onDrop, dragging, t }) {
   const meta = WIDGETS.find((w) => w.key === widgetKey);
   if (!meta) return null;
   const Icon = meta.icon;
   const clickable = !!onClick;
+  const isCompact = size === "compact";
+  const isWide = size === "wide";
+  const stripeBg = striped
+    ? `repeating-linear-gradient(45deg, ${meta.color}18, ${meta.color}18 6px, rgba(30,20,16,0.95) 6px, rgba(30,20,16,0.95) 14px)`
+    : "linear-gradient(135deg, rgba(30,20,16,0.95), rgba(18,12,10,0.95))";
+  const SizeIcon = size === "compact" ? Minimize2 : size === "wide" ? Maximize2 : Square;
   return (
     <div
       data-testid={`widget-${widgetKey}`}
@@ -67,14 +89,17 @@ function WidgetCard({ widgetKey, value, subtitle, extra, onRemove, onClick, onDr
         if (e.target.closest("button")) return;
         onClick();
       }}
-      className="relative rounded-xl p-3 transition-opacity"
+      className="relative rounded-xl transition-opacity"
       style={{
-        background: "linear-gradient(135deg, rgba(30,20,16,0.95), rgba(18,12,10,0.95))",
+        background: stripeBg,
         border: `1px solid ${meta.color}55`,
         boxShadow: `0 4px 14px rgba(0,0,0,0.5), inset 0 0 12px ${meta.color}15`,
         cursor: clickable ? "pointer" : "grab",
         opacity: dragging === widgetKey ? 0.45 : 1,
+        gridColumn: isWide ? "span 2" : "auto",
+        padding: isCompact ? 8 : 12,
       }}
+      data-size={size || "normal"}
     >
       <div
         data-testid={`widget-drag-${widgetKey}`}
@@ -93,26 +118,37 @@ function WidgetCard({ widgetKey, value, subtitle, extra, onRemove, onClick, onDr
       >
         <X className="w-3 h-3" />
       </button>
+      <button
+        type="button"
+        onClick={onCycleSize}
+        data-testid={`widget-size-${widgetKey}`}
+        className="absolute top-2 right-7 rounded p-0.5 opacity-50 hover:opacity-100"
+        style={{ color: meta.color }}
+        aria-label={t("wg_size_cycle")}
+        title={t(`wg_size_${size || "normal"}`)}
+      >
+        <SizeIcon className="w-3 h-3" />
+      </button>
       <div className="flex items-center gap-2 mb-1.5 pl-4">
         <div
           className="flex items-center justify-center rounded-md flex-shrink-0"
-          style={{ width: 26, height: 26, background: `${meta.color}22`, border: `1px solid ${meta.color}80` }}
+          style={{ width: isCompact ? 20 : 26, height: isCompact ? 20 : 26, background: `${meta.color}22`, border: `1px solid ${meta.color}80` }}
         >
-          <Icon className="w-3.5 h-3.5" style={{ color: meta.color }} />
+          <Icon className={isCompact ? "w-3 h-3" : "w-3.5 h-3.5"} style={{ color: meta.color }} />
         </div>
         <div className="text-[10px] font-bold uppercase truncate" style={{ color: meta.color, letterSpacing: "0.06em" }}>
           {t(meta.labelKey)}
         </div>
       </div>
-      <div className="text-xl font-bold pl-4" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", fontVariantNumeric: "tabular-nums" }}>
+      <div className={`${isCompact ? "text-sm" : "text-xl"} font-bold pl-4`} style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", fontVariantNumeric: "tabular-nums" }}>
         {value}
       </div>
-      {subtitle && (
+      {!isCompact && subtitle && (
         <div className="text-[10px] mt-0.5 pl-4" style={{ color: "#F5F0E8", opacity: 0.6 }}>
           {subtitle}
         </div>
       )}
-      {extra && <div className="pl-4">{extra}</div>}
+      {!isCompact && extra && <div className="pl-4">{extra}</div>}
     </div>
   );
 }
@@ -190,6 +226,7 @@ export default function WidgetGrid() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [enabled, setEnabled] = useEnabledWidgets();
+  const [sizes, setSizes] = useWidgetSizes();
   const [picker, setPicker] = useState(false);
   const [dragging, setDragging] = useState(null);
   const [dragOver, setDragOver] = useState(null);
@@ -463,6 +500,12 @@ export default function WidgetGrid() {
             subtitle={values[key]?.subtitle}
             extra={values[key]?.extra}
             striped={values[key]?.striped}
+            size={sizes[key] || "normal"}
+            onCycleSize={() => {
+              const cur = sizes[key] || "normal";
+              const next = SIZE_ORDER[(SIZE_ORDER.indexOf(cur) + 1) % SIZE_ORDER.length];
+              setSizes({ ...sizes, [key]: next });
+            }}
             onClick={values[key]?.onClick}
             onRemove={() => setEnabled(enabled.filter((k) => k !== key))}
             onDragStart={setDragging}

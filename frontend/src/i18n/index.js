@@ -592,6 +592,11 @@ const tr = {
   wglib_cat_event: "Etkinlik",
   push_analytics_title: "Saatlik Açılma Trendi",
   push_analytics_hint: "Yükseklik = gönderim sayısı · Sıcak renk = daha yüksek açılma oranı",
+  wg_size_cycle: "Boyutu Değiştir",
+  wg_size_compact: "Kompakt",
+  wg_size_normal: "Normal",
+  wg_size_wide: "Geniş",
+
 
   wg_alliance_top3_desc: "İttifakının en yüksek puanlı 3 üyesi altın/gümüş/bronz.",
   wg_alliance_duel_desc: "İttifakın vs rakip: canlı bar chart.",
@@ -1156,6 +1161,11 @@ const en = {
   wglib_search_placeholder: "Search widgets...",
   wglib_results: "widgets",
   wglib_no_match: "No matching widget",
+  wg_size_cycle: "Change Size",
+  wg_size_compact: "Compact",
+  wg_size_normal: "Normal",
+  wg_size_wide: "Wide",
+
   wglib_cat_all: "All",
   wglib_cat_guild: "Guild",
   wglib_cat_personal: "Personal",
