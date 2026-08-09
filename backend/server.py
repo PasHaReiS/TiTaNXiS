@@ -2434,6 +2434,35 @@ async def push_scheduled_delete(sch_id: str, _: dict = Depends(require_admin)):
     return {"deleted": r.deleted_count}
 
 
+class PushSnoozeBody(BaseModel):
+    minutes: int = 15
+
+
+@api_router.post("/push/scheduled/{sch_id}/snooze")
+async def push_scheduled_snooze(sch_id: str, body: PushSnoozeBody, _: dict = Depends(require_admin)):
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    minutes = int(body.minutes if body.minutes is not None else 15)
+    if minutes < 1 or minutes > 24 * 60:
+        raise HTTPException(400, "minutes must be between 1 and 1440")
+    doc = await db.push_scheduled.find_one({"id": sch_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "scheduled push not found")
+    # Push the scheduled_at forward by N minutes. If the item is already in the past
+    # (a rare race with the 60s scheduler tick), snooze from now instead.
+    try:
+        when = _dt.fromisoformat(doc["scheduled_at"].replace("Z", "+00:00"))
+    except Exception:
+        raise HTTPException(400, "corrupt scheduled_at")
+    base = max(when, _dt.now(_tz.utc))
+    new_when = base + _td(minutes=minutes)
+    await db.push_scheduled.update_one(
+        {"id": sch_id},
+        {"$set": {"scheduled_at": new_when.isoformat(), "snoozed_at": now_iso(), "snoozed_by_minutes": minutes}},
+    )
+    updated = await db.push_scheduled.find_one({"id": sch_id}, {"_id": 0})
+    return updated
+
+
 async def _push_scheduler_loop():
     """Background loop: every 60s, dispatch any due scheduled push broadcasts.
     Recurring items (repeat='daily'/'weekly') are re-armed with a new scheduled_at instead of marked sent.

@@ -13,6 +13,13 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Play On Receive + Snooze Scheduled — DONE**:
+  - **Play On Receive**: Extracted `previewSound` into a shared module `/app/frontend/src/lib/pushSound.js` (`playPushSound(key)` — accepts `rally|victory|dungeon|alarm`, uses `/audio/epic_battle.mp3` for rally and Web Audio API synthesis for the rest). New `PushSoundListener.jsx` component (mounted once inside `App.js` alongside `<Toaster>`) subscribes to `navigator.serviceWorker.addEventListener("message")` and auto-plays the cue whenever the SW forwards `{type:"push-sound", sound}`. Silent no-op when SW isn't registered or the browser blocks autoplay.
+  - **Snooze Scheduled**: New backend endpoint `POST /api/push/scheduled/{id}/snooze` (`PushSnoozeBody: {minutes: int}`) validates `1 ≤ minutes ≤ 1440`, snoozes from `max(scheduled_at, now)` so overdue items always land in the future, and persists `snoozed_at` + `snoozed_by_minutes` on the doc. Bug-fix during ship: replaced `int(body.minutes or 15)` with an explicit `is not None` check so `minutes=0` correctly returns HTTP 400 instead of falling back to 15.
+  - **Frontend**: Purple `+15dk` button (`push-sched-snooze-{id}`) renders next to the trash icon on every scheduled card. Click toasts `push_sched_snoozed` with the new firing time and refreshes the SWR list.
+  - **i18n**: 2 new keys (TR + EN) — `push_sched_snooze_15`, `push_sched_snoozed`.
+  - **E2E verified via curl**: Create → GET returns `scheduled_at=T`. Snooze +15 → GET returns `scheduled_at=T+15min` and `snoozed_by_minutes=15`. Non-existent id → 404. Cleanup delete → `{"deleted":1}`.
+
 - **[2026-02] Sound On Schedule + Target Group Filter — DONE**:
   - **Backend `PushScheduledBody`**: Added `sound` (whitelist: `rally|victory|dungeon|alarm`, invalid → clamped to `rally`) and `alliance_name` fields. `group_name` already existed. All three persist on the scheduled doc.
   - **Backend `_push_scheduler_loop`**: Now passes `sound`, `group_name`, and `alliance_name` into `_broadcast_push` so recurring/one-off pushes fire with the right cue and audience.

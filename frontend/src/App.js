@@ -22,6 +22,7 @@ import Events from "@/pages/Events";
 import Login from "@/pages/Login";
 import UserManagement from "@/pages/UserManagement";
 import Profile from "@/pages/Profile";
+import PushSoundListener from "@/components/PushSoundListener";
 
 function LoadingScreen() {
   return (
@@ -111,6 +112,7 @@ export default function App() {
             <Route path="/public/puan-hesaplama/:id" element={<PublicPointCalcPage />} />
             <Route path="*" element={<AppShell />} />
           </Routes>
+          <PushSoundListener />
           <Toaster theme="dark" position="top-center" richColors closeButton /></BrowserRouter>
       </ThemeProvider>
     </AuthProvider>

@@ -313,6 +313,15 @@ export default function PushBroadcastPanel() {
     } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
   };
 
+  const snoozeScheduled = async (id, minutes = 15) => {
+    try {
+      const res = await api.post(`/push/scheduled/${id}/snooze`, { minutes });
+      const at = new Date(res.data.scheduled_at).toLocaleString();
+      toast.success(t("push_sched_snoozed", { min: minutes, at }));
+      refreshScheduled();
+    } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
+  };
+
   const resend = (h) => doSend({ title: h.title, body: h.body, url: h.url || "/", tag: h.tag || "manual-broadcast" });
 
   const applyTemplate = (tpl) => {
@@ -827,17 +836,30 @@ export default function PushBroadcastPanel() {
                     </span>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => cancelScheduled(s.id)}
-                  data-testid={`push-sched-cancel-${s.id}`}
-                  className="p-1 rounded flex-shrink-0"
-                  style={{ background: "#3B1F1B", color: "#f87171", border: "1px solid rgba(220,38,38,0.35)" }}
-                  aria-label={t("cancel")}
-                  title={t("cancel")}
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => snoozeScheduled(s.id, 15)}
+                    data-testid={`push-sched-snooze-${s.id}`}
+                    className="px-2 py-1 rounded text-[10px] font-bold uppercase"
+                    style={{ background: "rgba(168,85,247,0.15)", color: "#A855F7", border: "1px solid rgba(168,85,247,0.4)", letterSpacing: "0.04em" }}
+                    aria-label={t("push_sched_snooze_15")}
+                    title={t("push_sched_snooze_15")}
+                  >
+                    {t("push_sched_snooze_15")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => cancelScheduled(s.id)}
+                    data-testid={`push-sched-cancel-${s.id}`}
+                    className="p-1 rounded"
+                    style={{ background: "#3B1F1B", color: "#f87171", border: "1px solid rgba(220,38,38,0.35)" }}
+                    aria-label={t("cancel")}
+                    title={t("cancel")}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
