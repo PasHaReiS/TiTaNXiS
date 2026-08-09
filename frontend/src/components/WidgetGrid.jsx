@@ -3,7 +3,7 @@ import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Crown, Users, Zap, Trophy, Award, Target, Plus, X, Settings2 } from "lucide-react";
+import { Crown, Users, Zap, Trophy, Award, Target, Timer, Plus, X, Settings2, GripVertical } from "lucide-react";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 const STORAGE_KEY = "titanxis_widgets_v1";
@@ -25,6 +25,7 @@ const WIDGETS = [
   { key: "member_count", labelKey: "wg_member_count", icon: Users, color: "#3B82F6" },
   { key: "personal_points", labelKey: "wg_personal_points", icon: Award, color: "#22C55E" },
   { key: "personal_rank", labelKey: "wg_personal_rank", icon: Target, color: "#F97316" },
+  { key: "rally_countdown", labelKey: "wg_rally_countdown", icon: Timer, color: "#EF4444" },
 ];
 
 function useEnabledWidgets() {
@@ -41,20 +42,33 @@ function useEnabledWidgets() {
   return [enabled, setEnabled];
 }
 
-function WidgetCard({ widgetKey, value, subtitle, onRemove, t }) {
+function WidgetCard({ widgetKey, value, subtitle, onRemove, onDragStart, onDragOver, onDrop, dragging, t }) {
   const meta = WIDGETS.find((w) => w.key === widgetKey);
   if (!meta) return null;
   const Icon = meta.icon;
   return (
     <div
       data-testid={`widget-${widgetKey}`}
-      className="relative rounded-xl p-3"
+      draggable
+      onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(widgetKey); }}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; onDragOver(widgetKey); }}
+      onDrop={(e) => { e.preventDefault(); onDrop(widgetKey); }}
+      className="relative rounded-xl p-3 transition-opacity"
       style={{
         background: "linear-gradient(135deg, rgba(30,20,16,0.95), rgba(18,12,10,0.95))",
         border: `1px solid ${meta.color}55`,
         boxShadow: `0 4px 14px rgba(0,0,0,0.5), inset 0 0 12px ${meta.color}15`,
+        cursor: "grab",
+        opacity: dragging === widgetKey ? 0.45 : 1,
       }}
     >
+      <div
+        data-testid={`widget-drag-${widgetKey}`}
+        style={{ position: "absolute", top: 6, left: 4, opacity: 0.4, cursor: "grab", color: "#F5F0E8" }}
+        aria-hidden
+      >
+        <GripVertical className="w-3 h-3" />
+      </div>
       <button
         type="button"
         onClick={onRemove}
@@ -65,7 +79,7 @@ function WidgetCard({ widgetKey, value, subtitle, onRemove, t }) {
       >
         <X className="w-3 h-3" />
       </button>
-      <div className="flex items-center gap-2 mb-1.5">
+      <div className="flex items-center gap-2 mb-1.5 pl-4">
         <div
           className="flex items-center justify-center rounded-md flex-shrink-0"
           style={{ width: 26, height: 26, background: `${meta.color}22`, border: `1px solid ${meta.color}80` }}
@@ -76,11 +90,11 @@ function WidgetCard({ widgetKey, value, subtitle, onRemove, t }) {
           {t(meta.labelKey)}
         </div>
       </div>
-      <div className="text-xl font-bold" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", fontVariantNumeric: "tabular-nums" }}>
+      <div className="text-xl font-bold pl-4" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", fontVariantNumeric: "tabular-nums" }}>
         {value}
       </div>
       {subtitle && (
-        <div className="text-[10px] mt-0.5" style={{ color: "#F5F0E8", opacity: 0.6 }}>
+        <div className="text-[10px] mt-0.5 pl-4" style={{ color: "#F5F0E8", opacity: 0.6 }}>
           {subtitle}
         </div>
       )}
@@ -88,17 +102,61 @@ function WidgetCard({ widgetKey, value, subtitle, onRemove, t }) {
   );
 }
 
+function useCountdown(targetIso) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!targetIso) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [targetIso]);
+  if (!targetIso) return null;
+  const target = new Date(targetIso).getTime();
+  const diff = target - now;
+  return diff;
+}
+
+function fmtCountdown(diffMs) {
+  if (diffMs === null || Number.isNaN(diffMs)) return "—";
+  const past = diffMs < 0;
+  const abs = Math.abs(diffMs);
+  const d = Math.floor(abs / 86400000);
+  const h = Math.floor((abs % 86400000) / 3600000);
+  const m = Math.floor((abs % 3600000) / 60000);
+  const s = Math.floor((abs % 60000) / 1000);
+  const pad = (n) => String(n).padStart(2, "0");
+  const core = d > 0 ? `${d}g ${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(h)}:${pad(m)}:${pad(s)}`;
+  return past ? `-${core}` : core;
+}
+
 export default function WidgetGrid() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [enabled, setEnabled] = useEnabledWidgets();
   const [picker, setPicker] = useState(false);
+  const [dragging, setDragging] = useState(null);
+  const [dragOver, setDragOver] = useState(null);
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 8000 });
   const { data: lb = [] } = useSWR("/leaderboard", fetcher, { refreshInterval: 8000 });
+  const { data: events = [] } = useSWR("/events?archived=false", fetcher, { refreshInterval: 30000 });
   const { data: myMember } = useSWR(
     user?.username ? `/members?search=${encodeURIComponent(user.username)}` : null,
     fetcher
   );
+
+  // Find the next upcoming event (date in future, closest)
+  const nextEvent = useMemo(() => {
+    const nowMs = Date.now();
+    const upcoming = (events || [])
+      .filter((e) => e.date && new Date(e.date).getTime() > nowMs)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    if (upcoming.length > 0) return upcoming[0];
+    // Fallback: most recent event (may be past)
+    const past = (events || [])
+      .filter((e) => e.date)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return past[0] || null;
+  }, [events]);
+  const countdownMs = useCountdown(nextEvent?.date);
 
   const values = useMemo(() => {
     const top = lb[0];
@@ -118,10 +176,26 @@ export default function WidgetGrid() {
         value: myRank >= 0 ? `#${myRank + 1}` : "—",
         subtitle: me ? me.alliance_name || "" : t("wg_personal_hint"),
       },
+      rally_countdown: {
+        value: fmtCountdown(countdownMs),
+        subtitle: nextEvent ? nextEvent.name : t("wg_no_event"),
+      },
     };
-  }, [stats, lb, myMember, user, t]);
+  }, [stats, lb, myMember, user, t, nextEvent, countdownMs]);
 
   const available = WIDGETS.filter((w) => !enabled.includes(w.key));
+
+  const handleDrop = (targetKey) => {
+    if (!dragging || dragging === targetKey) {
+      setDragging(null); setDragOver(null); return;
+    }
+    const next = enabled.filter((k) => k !== dragging);
+    const idx = next.indexOf(targetKey);
+    next.splice(idx, 0, dragging);
+    setEnabled(next);
+    setDragging(null);
+    setDragOver(null);
+  };
 
   return (
     <section data-testid="widget-grid" className="mb-4">
@@ -180,6 +254,10 @@ export default function WidgetGrid() {
             value={values[key]?.value ?? "—"}
             subtitle={values[key]?.subtitle}
             onRemove={() => setEnabled(enabled.filter((k) => k !== key))}
+            onDragStart={setDragging}
+            onDragOver={setDragOver}
+            onDrop={handleDrop}
+            dragging={dragging}
             t={t}
           />
         ))}
