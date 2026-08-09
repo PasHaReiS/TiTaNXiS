@@ -12,10 +12,14 @@ export default function DeeplUsageBadge() {
   useEffect(() => {
     if (!isAdmin) return;
     let cancelled = false;
-    api.get("/translate/usage")
-      .then((r) => { if (!cancelled) setUsage(r.data); })
-      .catch(() => { if (!cancelled) setUsage({ configured: false }); });
-    return () => { cancelled = true; };
+    const fetchUsage = () => {
+      api.get("/translate/usage")
+        .then((r) => { if (!cancelled) setUsage(r.data); })
+        .catch(() => { if (!cancelled) setUsage({ configured: false }); });
+    };
+    fetchUsage();
+    const id = setInterval(fetchUsage, 60000);
+    return () => { cancelled = true; clearInterval(id); };
   }, [isAdmin]);
 
   if (!isAdmin || !usage || !usage.configured) return null;
