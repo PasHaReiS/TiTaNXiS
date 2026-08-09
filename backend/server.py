@@ -2431,6 +2431,14 @@ class PushBroadcastBody(BaseModel):
     tag: Optional[str] = "titanxis"
 
 
+class PushTestBody(BaseModel):
+    title: str
+    body: str
+    url: Optional[str] = "/"
+    target: str = "me"  # "me" | "admins" | "user"
+    user_id: Optional[str] = None
+
+
 class PushPrefsBody(BaseModel):
     groups: List[str] = Field(default_factory=list)
 
@@ -2458,6 +2466,57 @@ async def push_event_groups(_: dict = Depends(require_auth)):
 @api_router.post("/push/broadcast")
 async def push_broadcast(body: PushBroadcastBody, _: dict = Depends(require_admin)):
     return await _broadcast_push(body.title, body.body, body.url or "/", body.tag or "titanxis")
+
+
+@api_router.post("/push/broadcast/test")
+async def push_broadcast_test(body: PushTestBody, user: dict = Depends(require_admin)):
+    """Send a targeted test push to a small audience so admins can preview a template
+    without spamming the whole guild. `target` selects the audience:
+      - "me"      → only the calling admin's own subscriptions
+      - "admins"  → every subscription whose user is an admin
+      - "user"    → a single member (body.user_id)
+    """
+    target = (body.target or "me").lower()
+    user_ids: list[str] = []
+    if target == "me":
+        user_ids = [user["id"]]
+    elif target == "admins":
+        admins = await db.users.find({"role": "admin"}, {"_id": 0, "id": 1}).to_list(200)
+        user_ids = [a["id"] for a in admins if a.get("id")]
+    elif target == "user":
+        if not body.user_id:
+            raise HTTPException(status_code=400, detail="user_id required for target=user")
+        user_ids = [body.user_id]
+    else:
+        raise HTTPException(status_code=400, detail="invalid target")
+    if not user_ids:
+        return {"sent": 0, "removed": 0, "target": target, "matched_users": 0}
+    subs = await db.push_subscriptions.find({"user_id": {"$in": user_ids}}, {"_id": 0}).to_list(500)
+    if not subs:
+        return {"sent": 0, "removed": 0, "target": target, "matched_users": len(user_ids), "note": "no subscriptions for target users"}
+    private_pem, _pub = await _get_or_create_vapid()
+    hid = str(uuid.uuid4())
+    payload = json.dumps({
+        "title": body.title, "body": body.body, "url": body.url or "/",
+        "tag": f"test-{hid[:8]}", "hid": hid,
+    }, ensure_ascii=False)
+    sent = 0
+    removed = 0
+    for s in subs:
+        try:
+            webpush(
+                subscription_info={"endpoint": s["endpoint"], "keys": s["keys"]},
+                data=payload,
+                vapid_private_key=private_pem,
+                vapid_claims={"sub": os.environ.get("VAPID_SUB", "mailto:admin@titanxis.local")},
+            )
+            sent += 1
+        except WebPushException as ex:
+            code = getattr(ex.response, "status_code", None)
+            if code in (404, 410):
+                await db.push_subscriptions.delete_one({"endpoint": s["endpoint"]})
+                removed += 1
+    return {"sent": sent, "removed": removed, "target": target, "matched_users": len(user_ids)}
 
 
 import json  # used by push payload

@@ -51,6 +51,10 @@ export default function PushBroadcastPanel() {
   const [detailTitle, setDetailTitle] = useState("");
   const [detailBody, setDetailBody] = useState("");
   const [detailUrl, setDetailUrl] = useState("");
+  const [testTarget, setTestTarget] = useState("me");
+  const [testUserId, setTestUserId] = useState("");
+  const [testBusy, setTestBusy] = useState(false);
+  const { data: memberList = [] } = useSWR(isAdmin ? "/members" : null, fetcher);
   const openDetail = (c) => {
     setDetailTpl(c);
     setDetailTitle(c.title);
@@ -69,6 +73,23 @@ export default function PushBroadcastPanel() {
     } catch (e) {
       toast.error(e?.response?.data?.detail || e.message);
     } finally { setBusy(false); }
+  };
+  const sendTest = async () => {
+    if (!detailTitle.trim() || !detailBody.trim()) { toast.error(t("push_bc_required")); return; }
+    if (testTarget === "user" && !testUserId) { toast.error(t("push_test_pick_user")); return; }
+    setTestBusy(true);
+    try {
+      const res = await api.post("/push/broadcast/test", {
+        title: detailTitle.trim(),
+        body: detailBody.trim(),
+        url: detailUrl.trim() || "/",
+        target: testTarget,
+        user_id: testTarget === "user" ? testUserId : null,
+      });
+      toast.success(t("push_test_sent", { sent: res.data.sent, removed: res.data.removed }));
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally { setTestBusy(false); }
   };
   // Keyboard shortcut: `/` focuses the search input while the seed modal is open
   useEffect(() => {
@@ -851,21 +872,68 @@ export default function PushBroadcastPanel() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-between gap-2 p-4" style={{ borderTop: "1px solid rgba(245,166,35,0.25)", background: "rgba(10,7,5,0.5)" }}>
+            <div className="flex items-center justify-between gap-2 p-4 flex-wrap" style={{ borderTop: "1px solid rgba(245,166,35,0.25)", background: "rgba(10,7,5,0.5)" }}>
               <button type="button" onClick={() => setDetailTpl(null)} data-testid="push-tpl-detail-cancel" className="text-[11px] uppercase font-bold hover:opacity-80" style={{ color: "#F5F0E8", opacity: 0.6, letterSpacing: "0.06em" }}>
                 {t("cancel")}
               </button>
-              <button
-                type="button"
-                onClick={installOne}
-                disabled={busy}
-                data-testid="push-tpl-detail-install"
-                className="px-4 py-2 rounded-lg text-[12px] font-bold flex items-center gap-1.5"
-                style={{ background: "linear-gradient(135deg,#F5A623,#E74C1A)", color: "#0B0704", letterSpacing: "0.06em" }}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                {busy ? t("push_tpl_installing") : t("push_tpl_detail_install_btn")}
-              </button>
+              <div className="flex items-center gap-2 flex-wrap" data-testid="push-tpl-detail-test-strip">
+                <div className="flex items-center gap-1" role="radiogroup" aria-label={t("push_test_target_label")}>
+                  {["me", "admins", "user"].map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setTestTarget(k)}
+                      data-testid={`push-tpl-detail-target-${k}`}
+                      aria-pressed={testTarget === k}
+                      className="text-[10px] uppercase font-bold px-2 py-1 rounded-full"
+                      style={{
+                        background: testTarget === k ? "rgba(56,189,248,0.25)" : "rgba(20,12,10,0.6)",
+                        border: `1px solid ${testTarget === k ? "#38BDF8" : "rgba(255,255,255,0.12)"}`,
+                        color: testTarget === k ? "#38BDF8" : "#F5F0E8",
+                        letterSpacing: "0.06em",
+                      }}
+                    >
+                      {t(`push_test_target_${k}`)}
+                    </button>
+                  ))}
+                </div>
+                {testTarget === "user" && (
+                  <select
+                    value={testUserId}
+                    onChange={(e) => setTestUserId(e.target.value)}
+                    data-testid="push-tpl-detail-target-user-select"
+                    className="text-[11px] rounded px-2 py-1"
+                    style={{ background: "rgba(20,12,10,0.6)", border: "1px solid rgba(56,189,248,0.35)", color: "#F5F0E8" }}
+                  >
+                    <option value="">{t("push_test_pick_user")}</option>
+                    {(memberList || []).map((m) => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  type="button"
+                  onClick={sendTest}
+                  disabled={testBusy}
+                  data-testid="push-tpl-detail-test-send"
+                  className="px-3 py-2 rounded-lg text-[11px] font-bold flex items-center gap-1"
+                  style={{ background: "linear-gradient(135deg,#38BDF8,#0EA5E9)", color: "#0B0704", letterSpacing: "0.06em" }}
+                >
+                  <Send className="w-3 h-3" />
+                  {testBusy ? t("push_tpl_installing") : t("push_test_send_btn")}
+                </button>
+                <button
+                  type="button"
+                  onClick={installOne}
+                  disabled={busy}
+                  data-testid="push-tpl-detail-install"
+                  className="px-4 py-2 rounded-lg text-[12px] font-bold flex items-center gap-1.5"
+                  style={{ background: "linear-gradient(135deg,#F5A623,#E74C1A)", color: "#0B0704", letterSpacing: "0.06em" }}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {busy ? t("push_tpl_installing") : t("push_tpl_detail_install_btn")}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -13,6 +13,11 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Detaydan Test Gönder + Alıcı Seçici — DONE**:
+  - **Backend**: New `POST /api/push/broadcast/test` endpoint (`PushTestBody`: `title, body, url, target, user_id?`). Target filter: `me` → caller's subscriptions only; `admins` → all users with `role=admin`; `user` → single `user_id`. Reuses VAPID keys + webpush; auto-deletes 404/410 subs. Returns `{sent, removed, target, matched_users}`. Admin-only via `require_admin`.
+  - **Frontend Detail Modal**: Added a segmented control (`push-tpl-detail-target-me/admins/user`), a member `<select>` (`push-tpl-detail-target-user-select`) fed by `/api/members`, and a **Test Gönder** button (`push-tpl-detail-test-send`) next to Install. Send calls `/push/broadcast/test` with the currently-edited title/body/url and selected target. Toast confirms `{sent}` count. Install button unchanged. New i18n keys `push_test_*` in TR + EN.
+  - E2E verified (curl): `target=me` → HTTP 200 `{"sent":0,"removed":0,"matched_users":1}`, `target=admins` → matched all admins, `target=user` without id → HTTP 400 "user_id required". UI: 3 target pills render, switching to "Tek Üye" reveals the member dropdown, Test Gönder fires the endpoint successfully.
+
 - **[2026-02] Kütüphane Klavye + Detay Modal — DONE**:
   - **Klavye Kısayolu**: Modal-scoped keydown handler focuses the search input on `/` press (unless the user is already typing in another input/textarea/contenteditable). Placeholder now hints at the shortcut. Listener only mounted while `seedModalOpen`, cleaned up on close.
   - **Detay Modal**: Each row gets a **"Detay"** pill button (`push-tpl-seed-detail-{key}`). Clicking opens a wider `push-tpl-detail-modal` (max-w-2xl) at `z-[110]` with a 2-column layout: editable title / body / URL on the left, live push preview on the right (uses same TiTaNXiS icon + native-style layout, updates as you type). "Bu Şablonu Kur" installs the customized copy via `POST /api/push/templates`. Cancel + click-outside close. E2E verified: edit title/body/URL → preview updates → install → template persists in the DB with customized copy.
