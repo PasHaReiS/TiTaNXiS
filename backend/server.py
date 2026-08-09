@@ -365,6 +365,13 @@ async def list_events(archived: Optional[bool] = None):
 async def create_event(body: EventCreate, _: dict = Depends(require_edit)):
     e = Event(**body.model_dump())
     await db.events.insert_one(e.model_dump())
+    # Fire-and-forget push notification to all subscribers (function is defined later in file)
+    try:
+        fn = globals().get("_broadcast_push")
+        if fn:
+            await fn(title="Yeni Etkinlik", body=e.name, url="/etkinlikler", tag=f"event-{e.id}")
+    except Exception as ex:
+        logger.warning(f"Push broadcast failed: {ex}")
     return e.model_dump()
 
 
@@ -2165,6 +2172,107 @@ async def import_point_calc(
 
     return {"updated": updated, "skipped": skipped, "errors": errors}
 
+
+# ---------- Web Push (VAPID) ----------
+from py_vapid import Vapid
+from pywebpush import webpush, WebPushException
+from cryptography.hazmat.primitives.serialization import load_pem_private_key, Encoding, PublicFormat, PrivateFormat, NoEncryption
+from cryptography.hazmat.primitives.asymmetric import ec
+import base64 as _base64
+
+
+async def _get_or_create_vapid():
+    doc = await db.push_config.find_one({"id": "vapid"})
+    if doc and doc.get("private_pem") and doc.get("public_b64"):
+        return doc["private_pem"], doc["public_b64"]
+    # Generate a fresh P-256 keypair
+    priv = ec.generate_private_key(ec.SECP256R1())
+    private_pem = priv.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
+    pub_bytes = priv.public_key().public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
+    public_b64 = _base64.urlsafe_b64encode(pub_bytes).decode().rstrip("=")
+    await db.push_config.update_one(
+        {"id": "vapid"},
+        {"$set": {"id": "vapid", "private_pem": private_pem, "public_b64": public_b64}},
+        upsert=True,
+    )
+    return private_pem, public_b64
+
+
+@api_router.get("/push/vapid-public-key")
+async def push_vapid_public_key():
+    _, public_b64 = await _get_or_create_vapid()
+    return {"key": public_b64}
+
+
+class PushSubscribeBody(BaseModel):
+    endpoint: str
+    keys: Dict[str, str]
+
+
+@api_router.post("/push/subscribe")
+async def push_subscribe(body: PushSubscribeBody, user: dict = Depends(require_auth)):
+    doc = {
+        "id": str(uuid.uuid4()),
+        "endpoint": body.endpoint,
+        "keys": body.keys,
+        "user_id": user.get("id"),
+        "username": user.get("username"),
+        "created_at": now_iso(),
+    }
+    await db.push_subscriptions.update_one(
+        {"endpoint": body.endpoint},
+        {"$set": doc},
+        upsert=True,
+    )
+    return {"ok": True}
+
+
+@api_router.post("/push/unsubscribe")
+async def push_unsubscribe(body: PushSubscribeBody, _: dict = Depends(require_auth)):
+    await db.push_subscriptions.delete_one({"endpoint": body.endpoint})
+    return {"ok": True}
+
+
+async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "titanxis"):
+    private_pem, _ = await _get_or_create_vapid()
+    subs = await db.push_subscriptions.find({}, {"_id": 0}).to_list(1000)
+    if not subs:
+        return {"sent": 0, "removed": 0}
+    payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag}, ensure_ascii=False)
+    sent = 0
+    removed = 0
+    for s in subs:
+        try:
+            webpush(
+                subscription_info={"endpoint": s["endpoint"], "keys": s["keys"]},
+                data=payload,
+                vapid_private_key=private_pem,
+                vapid_claims={"sub": "mailto:admin@titanxis.local"},
+            )
+            sent += 1
+        except WebPushException as ex:
+            code = getattr(ex.response, "status_code", None) if hasattr(ex, "response") else None
+            if code in (404, 410):
+                await db.push_subscriptions.delete_one({"endpoint": s["endpoint"]})
+                removed += 1
+        except Exception:
+            pass
+    return {"sent": sent, "removed": removed}
+
+
+class PushBroadcastBody(BaseModel):
+    title: str
+    body: str
+    url: Optional[str] = "/"
+    tag: Optional[str] = "titanxis"
+
+
+@api_router.post("/push/broadcast")
+async def push_broadcast(body: PushBroadcastBody, _: dict = Depends(require_admin)):
+    return await _broadcast_push(body.title, body.body, body.url or "/", body.tag or "titanxis")
+
+
+import json  # used by push payload
 
 app.include_router(api_router)
 app.include_router(make_auth_router(db))
