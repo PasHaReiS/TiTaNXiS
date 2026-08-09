@@ -3370,6 +3370,30 @@ const ar = {
   bc_updated: "تم تحديث تكلفة {{building}} • {{level}}",
 };
 
+// Empty translation stubs for additional languages — i18next fallbackLng: "tr"
+// automatically falls back to Turkish for any missing keys.
+const bg = {};
+const cs = {};
+const da = {};
+const el = {};
+const et = {};
+const fi = {};
+const hu = {};
+const id_ = {};
+const it = {};
+const ja = {};
+const lt = {};
+const lv = {};
+const nb = {};
+const nl = {};
+const pl = {};
+const pt = {};
+const ro = {};
+const sk = {};
+const sl = {};
+const sv = {};
+const uk = {};
+
 const resources = {
   tr: { translation: tr },
   en: { translation: en },
@@ -3379,6 +3403,27 @@ const resources = {
   es: { translation: es },
   ko: { translation: ko },
   ar: { translation: ar },
+  bg: { translation: bg },
+  cs: { translation: cs },
+  da: { translation: da },
+  el: { translation: el },
+  et: { translation: et },
+  fi: { translation: fi },
+  hu: { translation: hu },
+  id: { translation: id_ },
+  it: { translation: it },
+  ja: { translation: ja },
+  lt: { translation: lt },
+  lv: { translation: lv },
+  nb: { translation: nb },
+  nl: { translation: nl },
+  pl: { translation: pl },
+  pt: { translation: pt },
+  ro: { translation: ro },
+  sk: { translation: sk },
+  sl: { translation: sl },
+  sv: { translation: sv },
+  uk: { translation: uk },
 };
 
 export const LANGUAGES = [
@@ -3390,6 +3435,27 @@ export const LANGUAGES = [
   { code: "es", flag: "🇪🇸", label: "ES", name: "Español" },
   { code: "ko", flag: "🇰🇷", label: "KO", name: "한국어" },
   { code: "ar", flag: "🇸🇦", label: "AR", name: "العربية" },
+  { code: "bg", flag: "🇧🇬", label: "BG", name: "Български" },
+  { code: "cs", flag: "🇨🇿", label: "CS", name: "Čeština" },
+  { code: "da", flag: "🇩🇰", label: "DA", name: "Dansk" },
+  { code: "el", flag: "🇬🇷", label: "EL", name: "Ελληνικά" },
+  { code: "et", flag: "🇪🇪", label: "ET", name: "Eesti" },
+  { code: "fi", flag: "🇫🇮", label: "FI", name: "Suomi" },
+  { code: "hu", flag: "🇭🇺", label: "HU", name: "Magyar" },
+  { code: "id", flag: "🇮🇩", label: "ID", name: "Bahasa Indonesia" },
+  { code: "it", flag: "🇮🇹", label: "IT", name: "Italiano" },
+  { code: "ja", flag: "🇯🇵", label: "JA", name: "日本語" },
+  { code: "lt", flag: "🇱🇹", label: "LT", name: "Lietuvių" },
+  { code: "lv", flag: "🇱🇻", label: "LV", name: "Latviešu" },
+  { code: "nb", flag: "🇳🇴", label: "NB", name: "Norsk" },
+  { code: "nl", flag: "🇳🇱", label: "NL", name: "Nederlands" },
+  { code: "pl", flag: "🇵🇱", label: "PL", name: "Polski" },
+  { code: "pt", flag: "🇵🇹", label: "PT", name: "Português" },
+  { code: "ro", flag: "🇷🇴", label: "RO", name: "Română" },
+  { code: "sk", flag: "🇸🇰", label: "SK", name: "Slovenčina" },
+  { code: "sl", flag: "🇸🇮", label: "SL", name: "Slovenščina" },
+  { code: "sv", flag: "🇸🇪", label: "SV", name: "Svenska" },
+  { code: "uk", flag: "🇺🇦", label: "UK", name: "Українська" },
 ];
 
 i18n
