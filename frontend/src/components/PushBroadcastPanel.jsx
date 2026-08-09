@@ -18,6 +18,8 @@ export default function PushBroadcastPanel() {
   const [tplName, setTplName] = useState("");
   const [showSave, setShowSave] = useState(false);
   const [scheduleAt, setScheduleAt] = useState("");
+  const [tplModal, setTplModal] = useState(null); // {tpl} for "schedule from template" modal
+  const [tplModalAt, setTplModalAt] = useState("");
   const { data: history = [], mutate: refreshHistory } = useSWR(isAdmin ? "/push/history" : null, fetcher, { refreshInterval: 20000 });
   const { data: templates = [], mutate: refreshTpl } = useSWR(isAdmin ? "/push/templates" : null, fetcher);
   const { data: scheduled = [], mutate: refreshScheduled } = useSWR(isAdmin ? "/push/scheduled" : null, fetcher, { refreshInterval: 30000 });
@@ -67,6 +69,23 @@ export default function PushBroadcastPanel() {
     setBody(tpl.body || "");
     setUrl(tpl.url || "/");
     toast.success(t("push_tpl_applied", { name: tpl.name }));
+  };
+
+  const scheduleFromTemplate = async () => {
+    if (!tplModal || !tplModalAt) return;
+    try {
+      const iso = new Date(tplModalAt).toISOString();
+      await api.post("/push/scheduled", {
+        title: tplModal.title,
+        body: tplModal.body,
+        url: tplModal.url || "/",
+        scheduled_at: iso,
+      });
+      toast.success(t("push_sched_created", { at: new Date(tplModalAt).toLocaleString() }));
+      setTplModal(null);
+      setTplModalAt("");
+      refreshScheduled();
+    } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
   };
 
   const saveTemplate = async () => {
@@ -119,6 +138,16 @@ export default function PushBroadcastPanel() {
                   style={{ background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#E0E7FF", letterSpacing: "0.06em" }}
                 >
                   {tpl.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setTplModal(tpl); setTplModalAt(""); }}
+                  data-testid={`push-tpl-schedule-${tpl.id}`}
+                  className="p-0.5 opacity-60 hover:opacity-100"
+                  style={{ color: "#EC4899" }}
+                  title={t("push_tpl_schedule_this")}
+                >
+                  <Clock className="w-2.5 h-2.5" />
                 </button>
                 <button
                   type="button"
@@ -324,6 +353,56 @@ export default function PushBroadcastPanel() {
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {tplModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{ zIndex: 99999, background: "rgba(0,0,0,0.75)" }}
+          onClick={() => setTplModal(null)}
+          data-testid="push-tpl-schedule-modal"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md p-5 rounded-xl relative"
+            style={{ background: "#1E1410", border: "1px solid #EC4899", boxShadow: "0 8px 32px rgba(0,0,0,0.9)" }}
+          >
+            <button type="button" onClick={() => setTplModal(null)} className="absolute top-3 right-3 opacity-70 hover:opacity-100" data-testid="push-tpl-schedule-close">
+              <Trash2 className="w-4 h-4" style={{ color: "#f87171" }} />
+            </button>
+            <h3 className="text-lg font-bold mb-3 uppercase flex items-center gap-2"
+              style={{ color: "#EC4899", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}>
+              <Clock className="w-4 h-4" /> {t("push_tpl_schedule_title")}
+            </h3>
+            <div className="mb-3 p-3 rounded-lg" style={{ background: "rgba(20,12,10,0.7)", border: "1px solid rgba(168,85,247,0.3)" }}>
+              <div className="text-[10px] uppercase mb-1" style={{ color: "#A855F7", letterSpacing: "0.08em" }}>{tplModal.name}</div>
+              <div className="text-sm font-bold" style={{ color: "#F5F0E8" }}>{tplModal.title}</div>
+              <div className="text-xs mt-1" style={{ color: "#F5F0E8", opacity: 0.7 }}>{tplModal.body}</div>
+              <div className="text-[10px] mt-1 mono" style={{ color: "#F5F0E8", opacity: 0.5 }}>{tplModal.url}</div>
+            </div>
+            <label className="text-[10px] uppercase tracking-widest flex items-center gap-1 mb-1" style={{ color: "#EC4899" }}>
+              <Clock className="w-3 h-3" /> {t("push_sched_when")}
+            </label>
+            <input
+              type="datetime-local"
+              value={tplModalAt}
+              onChange={(e) => setTplModalAt(e.target.value)}
+              data-testid="push-tpl-schedule-at"
+              className="w-full rounded px-2 py-2 text-xs mono mb-3"
+              style={{ background: "#1A1210", border: "1px solid rgba(236,72,153,0.4)", color: "#F5F0E8", colorScheme: "dark" }}
+            />
+            <button
+              type="button"
+              onClick={scheduleFromTemplate}
+              disabled={!tplModalAt}
+              data-testid="push-tpl-schedule-submit"
+              className="w-full py-2.5 rounded-lg font-bold text-white flex items-center justify-center gap-2"
+              style={{ background: "linear-gradient(135deg,#A855F7,#EC4899)", opacity: !tplModalAt ? 0.5 : 1 }}
+            >
+              <Clock className="w-4 h-4" /> {t("push_sched_submit")}
+            </button>
           </div>
         </div>
       )}

@@ -30,6 +30,7 @@ const WIDGETS = [
   { key: "alliance_snapshot", labelKey: "wg_alliance_snapshot", icon: Shield, color: "#EAB308" },
   { key: "todays_event", labelKey: "wg_todays_event", icon: Flame, color: "#DC2626" },
   { key: "alliance_top3", labelKey: "wg_alliance_top3", icon: Medal, color: "#F59E0B" },
+  { key: "alliance_duel", labelKey: "wg_alliance_duel", icon: Trophy, color: "#EF4444" },
 ];
 
 function useEnabledWidgets() {

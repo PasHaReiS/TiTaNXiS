@@ -93,11 +93,44 @@ export default function Events() {
             </div>
 
             <div className="space-y-1.5">
-              {list.map((e) => (
-                <div key={e.id} data-testid={EVENTS.card(e.id)} className="card-dark p-3 flex items-center gap-3 row-hover">
+              {list.map((e) => {
+                const evMs = new Date(e.date).getTime();
+                const nowMs = Date.now();
+                const startOfToday = new Date(); startOfToday.setHours(0,0,0,0);
+                const endOfToday = startOfToday.getTime() + 86400000;
+                const isTodayEvent = !e.archived && evMs >= startOfToday.getTime() && evMs < endOfToday;
+                const isPastActive = !e.archived && evMs <= nowMs && (nowMs - evMs) < 6 * 3600 * 1000; // within 6h
+                const highlight = isTodayEvent || isPastActive;
+                return (
+                <div
+                  key={e.id}
+                  data-testid={EVENTS.card(e.id)}
+                  className="card-dark p-3 flex items-center gap-3 row-hover"
+                  style={highlight ? {
+                    backgroundImage: "repeating-linear-gradient(45deg, rgba(220,38,38,0.14), rgba(220,38,38,0.14) 6px, transparent 6px, transparent 14px)",
+                    borderColor: "rgba(220,38,38,0.55)",
+                    boxShadow: "0 0 12px rgba(220,38,38,0.25), inset 0 0 12px rgba(220,38,38,0.1)",
+                  } : undefined}
+                >
                   <div className="tr-flag" />
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold text-white truncate">{e.name}</div>
+                    <div className="font-bold text-white truncate flex items-center gap-1.5">
+                      {e.name}
+                      {highlight && (
+                        <span
+                          data-testid={`event-today-badge-${e.id}`}
+                          className="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase"
+                          style={{
+                            background: "linear-gradient(135deg,#DC2626,#F97316)",
+                            color: "#fff",
+                            letterSpacing: "0.08em",
+                            animation: "pulse 2s ease-in-out infinite",
+                          }}
+                        >
+                          {isTodayEvent ? t("event_today_badge") : t("event_active_badge")}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[10px] text-muted-foreground truncate">
                       Çarpan: <span className="gold-text mono">{e.multiplier}x</span> • {new Date(e.date).toLocaleDateString("tr-TR")} • {e.subtitle}
                     </div>
@@ -139,7 +172,8 @@ export default function Events() {
                     </button>
                   </CanEdit>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}
