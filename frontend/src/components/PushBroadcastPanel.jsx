@@ -44,7 +44,18 @@ export default function PushBroadcastPanel() {
   const [seedModalOpen, setSeedModalOpen] = useState(false);
   const [seedSelected, setSeedSelected] = useState(() => new Set(CURATED_TEMPLATES.slice(0, 3).map((t) => t.key)));
   const [seedCat, setSeedCat] = useState("all");
-  const seedVisible = seedCat === "all" ? CURATED_TEMPLATES : CURATED_TEMPLATES.filter((c) => c.category === seedCat);
+  const [seedSearch, setSeedSearch] = useState("");
+  const [seedHover, setSeedHover] = useState(null);
+  const seedVisible = (() => {
+    const q = seedSearch.trim().toLowerCase();
+    const byCat = seedCat === "all" ? CURATED_TEMPLATES : CURATED_TEMPLATES.filter((c) => c.category === seedCat);
+    if (!q) return byCat;
+    return byCat.filter((c) =>
+      c.name.toLowerCase().includes(q) ||
+      c.title.toLowerCase().includes(q) ||
+      c.body.toLowerCase().includes(q)
+    );
+  })();
   const installSelectedTemplates = async () => {
     const chosen = CURATED_TEMPLATES.filter((c) => seedSelected.has(c.key));
     if (chosen.length === 0) { toast.error(t("push_tpl_seed_pick_one")); return; }
@@ -576,6 +587,17 @@ export default function PushBroadcastPanel() {
                 </button>
               </div>
             </div>
+            <div className="px-4 pt-2">
+              <input
+                type="text"
+                value={seedSearch}
+                onChange={(e) => setSeedSearch(e.target.value)}
+                data-testid="push-tpl-seed-search"
+                placeholder={t("push_tpl_search_placeholder")}
+                className="w-full rounded px-2.5 py-1.5 text-[12px]"
+                style={{ background: "rgba(20,12,10,0.6)", border: "1px solid rgba(168,85,247,0.35)", color: "#F5F0E8" }}
+              />
+            </div>
             <div className="flex gap-1 px-4 pt-2 pb-1" data-testid="push-tpl-seed-tabs">
               {TEMPLATE_CATEGORIES.map((cat) => {
                 const count = cat.key === "all" ? CURATED_TEMPLATES.length : CURATED_TEMPLATES.filter((c) => c.category === cat.key).length;
@@ -601,19 +623,60 @@ export default function PushBroadcastPanel() {
                 );
               })}
             </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+            <div className="flex-1 overflow-y-auto p-3 space-y-1.5 relative">
+              {seedVisible.length === 0 && (
+                <div
+                  data-testid="push-tpl-seed-empty"
+                  className="text-center py-6 text-[12px] rounded-lg"
+                  style={{ background: "rgba(20,12,10,0.5)", border: "1px dashed rgba(255,255,255,0.15)", color: "#F5F0E8", opacity: 0.7 }}
+                >
+                  {t("push_tpl_no_match")}
+                </div>
+              )}
               {seedVisible.map((c) => {
                 const checked = seedSelected.has(c.key);
                 return (
                   <label
                     key={c.key}
                     data-testid={`push-tpl-seed-row-${c.key}`}
-                    className="flex items-start gap-2 p-2.5 rounded-lg cursor-pointer transition-colors"
+                    onMouseEnter={() => setSeedHover(c.key)}
+                    onMouseLeave={() => setSeedHover((cur) => cur === c.key ? null : cur)}
+                    onFocus={() => setSeedHover(c.key)}
+                    onBlur={() => setSeedHover((cur) => cur === c.key ? null : cur)}
+                    className="relative flex items-start gap-2 p-2.5 rounded-lg cursor-pointer transition-colors"
                     style={{
                       background: checked ? "rgba(168,85,247,0.15)" : "rgba(20,12,10,0.4)",
                       border: `1px solid ${checked ? "rgba(168,85,247,0.5)" : "rgba(255,255,255,0.08)"}`,
                     }}
                   >
+                    {seedHover === c.key && (
+                      <div
+                        data-testid={`push-tpl-seed-preview-${c.key}`}
+                        className="absolute z-10 rounded-lg overflow-hidden pointer-events-none"
+                        style={{
+                          right: 6,
+                          top: "100%",
+                          marginTop: 6,
+                          minWidth: 260,
+                          maxWidth: 320,
+                          background: "linear-gradient(180deg,#2a1e1a,#1a110d)",
+                          border: "1px solid rgba(245,166,35,0.5)",
+                          boxShadow: "0 12px 32px rgba(0,0,0,0.75)",
+                        }}
+                      >
+                        <div className="px-2 py-1 text-[9px] font-bold uppercase" style={{ background: "rgba(245,166,35,0.15)", color: "#F5A623", letterSpacing: "0.08em" }}>
+                          {t("push_tpl_preview_title")}
+                        </div>
+                        <div className="flex items-start gap-2 p-2.5" style={{ background: "rgba(255,255,255,0.02)" }}>
+                          <img src="/icons/pwa-192.png" alt="" className="rounded flex-shrink-0" style={{ width: 32, height: 32 }} />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[11px] font-bold" style={{ color: "#F5F0E8" }}>{c.title}</div>
+                            <div className="text-[10px] mt-0.5" style={{ color: "#F5F0E8", opacity: 0.7 }}>{c.body}</div>
+                            <div className="text-[9px] mt-1 uppercase" style={{ color: "#A855F7", opacity: 0.7, letterSpacing: "0.04em" }}>TiTaNXiS · şimdi</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <input
                       type="checkbox"
                       checked={checked}
