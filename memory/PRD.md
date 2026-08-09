@@ -13,6 +13,11 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Toplu Ses Ataması + Filtre Sayaç Rozeti — DONE**:
+  - **Bug-fix**: The earlier chip-filter block referenced `templates` before its `useSWR` declaration. Moved `tplSoundFilter/chipCtx/changeTplSound/visibleTemplates` to below the `templates`/`refreshTpl` line, eliminating the "Cannot access 'templates' before initialization" runtime crash.
+  - **Filtre Sayaç Rozeti**: Each filter chip in `push-tpl-filter-strip` now shows a live count next to its color dot (`push-tpl-filter-count-{k}`). Empty filters render at 40% opacity so admins avoid dead clicks. Title tooltip includes the count.
+  - **Toplu Ses Ataması**: When `tplSoundFilter !== "all"` AND at least one template matches, a "Tümüne {sound} uygula" button appears at the end of the filter strip (`push-tpl-bulk-apply`). Clicking prompts a confirm dialog, then PATCHes every visible template's sound to the currently-picked `testSoundKey` in parallel, refreshes, and toasts the result count. Button color matches the picked sound.
+
 - **[2026-02] Kart Ses Değiştir + Kart Rozet Filtresi — DONE**:
   - **Backend**: New `PATCH /api/push/templates/{id}/sound` endpoint (admin-only) — accepts `{sound}`, validates against the same 4-key whitelist, returns 400 on invalid input. E2E via curl: `dungeon` accepted, `bogus` rejected.
   - **Kart Ses Değiştir**: Right-click / long-press context menu on any saved-template chip. Menu (`push-tpl-ctx-{id}`) shows the 4 sound options with color dots; the current sound is highlighted with a `✓`. Clicking calls the PATCH endpoint, refreshes the strip, and toasts "Şablon sesi güncellendi". Outside-click / Escape closes the menu.

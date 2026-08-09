@@ -66,7 +66,6 @@ export default function PushBroadcastPanel() {
   useEffect(() => {
     try { localStorage.setItem(SOUND_PREF_KEY, testSoundKey); } catch {}
   }, [testSoundKey]);
-  const [tplSoundFilter, setTplSoundFilter] = useState("all");
   const [chipCtx, setChipCtx] = useState(null); // { id, x, y }
   useEffect(() => {
     if (!chipCtx) return;
@@ -366,6 +365,7 @@ export default function PushBroadcastPanel() {
               {["all", "rally", "victory", "dungeon", "alarm"].map((k) => {
                 const active = tplSoundFilter === k;
                 const color = k === "all" ? "#A855F7" : SOUND_COLORS[k];
+                const count = k === "all" ? templates.length : templates.filter((tt) => ((tt.sound && SOUND_COLORS[tt.sound]) ? tt.sound : "rally") === k).length;
                 return (
                   <button
                     key={k}
@@ -373,20 +373,53 @@ export default function PushBroadcastPanel() {
                     onClick={() => setTplSoundFilter(k)}
                     data-testid={`push-tpl-filter-${k}`}
                     aria-pressed={active}
-                    title={k === "all" ? t("push_tpl_cat_all") : t(`push_test_sound_${k}`)}
-                    className="rounded-full flex items-center justify-center transition-opacity"
+                    title={`${k === "all" ? t("push_tpl_cat_all") : t(`push_test_sound_${k}`)} · ${count}`}
+                    className="flex items-center gap-1 rounded-full transition-opacity px-1.5 py-0.5"
                     style={{
-                      width: active ? 18 : 14, height: active ? 18 : 14,
-                      background: active ? color : `${color}40`,
-                      border: `1px solid ${color}`,
-                      boxShadow: active ? `0 0 6px ${color}` : "none",
-                      opacity: active ? 1 : 0.75,
+                      background: active ? `${color}30` : "rgba(20,12,10,0.5)",
+                      border: `1px solid ${active ? color : "rgba(255,255,255,0.1)"}`,
+                      opacity: count === 0 && k !== "all" ? 0.4 : 1,
                     }}
                   >
-                    {k === "all" && <span className="text-[8px] font-bold" style={{ color: active ? "#0B0704" : color }}>·</span>}
+                    <span
+                      className="rounded-full"
+                      style={{
+                        width: 8, height: 8,
+                        background: color,
+                        boxShadow: active ? `0 0 6px ${color}` : "none",
+                      }}
+                    />
+                    <span
+                      data-testid={`push-tpl-filter-count-${k}`}
+                      className="text-[9px] font-bold"
+                      style={{ color: active ? color : "#F5F0E8", fontVariantNumeric: "tabular-nums", letterSpacing: "0.04em" }}
+                    >
+                      {count}
+                    </span>
                   </button>
                 );
               })}
+              {tplSoundFilter !== "all" && visibleTemplates.length > 0 && (
+                <button
+                  type="button"
+                  data-testid="push-tpl-bulk-apply"
+                  onClick={async () => {
+                    if (!window.confirm(t("push_tpl_bulk_confirm", { n: visibleTemplates.length, sound: t(`push_test_sound_${testSoundKey}`) }))) return;
+                    let done = 0;
+                    for (const tt of visibleTemplates) {
+                      try { await api.patch(`/push/templates/${tt.id}/sound`, { sound: testSoundKey }); done += 1; }
+                      catch {}
+                    }
+                    toast.success(t("push_tpl_bulk_done", { n: done }));
+                    refreshTpl();
+                  }}
+                  className="text-[9px] uppercase font-bold px-1.5 py-1 rounded ml-1"
+                  style={{ background: `${SOUND_COLORS[testSoundKey]}22`, border: `1px solid ${SOUND_COLORS[testSoundKey]}66`, color: SOUND_COLORS[testSoundKey], letterSpacing: "0.06em" }}
+                  title={t("push_tpl_bulk_hint", { sound: t(`push_test_sound_${testSoundKey}`) })}
+                >
+                  {t("push_tpl_bulk_apply", { sound: t(`push_test_sound_${testSoundKey}`) })}
+                </button>
+              )}
             </div>
             {visibleTemplates.map((tpl) => {
               const soundKey = (tpl.sound && SOUND_COLORS[tpl.sound]) ? tpl.sound : "rally";
