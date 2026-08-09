@@ -1768,6 +1768,27 @@ async def translate(body: TranslateBody):
     return {"translations": results}
 
 
+@api_router.get("/translate/usage")
+async def deepl_usage():
+    if not DEEPL_API_KEY:
+        return {"configured": False, "character_count": 0, "character_limit": 0}
+    base = "https://api-free.deepl.com/v2" if DEEPL_API_KEY.endswith(":fx") else "https://api.deepl.com/v2"
+    headers = {"Authorization": f"DeepL-Auth-Key {DEEPL_API_KEY}"}
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(f"{base}/usage", headers=headers)
+            r.raise_for_status()
+            data = r.json()
+        return {
+            "configured": True,
+            "character_count": data.get("character_count", 0),
+            "character_limit": data.get("character_limit", 0),
+            "plan": "free" if DEEPL_API_KEY.endswith(":fx") else "pro",
+        }
+    except Exception as e:
+        return {"configured": True, "error": str(e)[:200], "character_count": 0, "character_limit": 0}
+
+
 app.include_router(api_router)
 app.include_router(make_auth_router(db))
 app.mount("/api/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")

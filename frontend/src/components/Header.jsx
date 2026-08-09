@@ -7,6 +7,7 @@ import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download,
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import LogoVideoModal from "@/components/LogoVideoModal";
+import DeeplUsageBadge from "@/components/DeeplUsageBadge";
 import { LEADERBOARD } from "@/constants/testIds";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -78,6 +79,7 @@ export default function Header({ title }) {
         </div>
 
         <LanguageSwitcher />
+        <DeeplUsageBadge />
 
         <button
           data-testid={LEADERBOARD.themeToggle}
