@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Trash2, Pencil, Check, X, Settings, ChevronRight, Globe, Download, Sparkles, Share2, History as HistoryIcon, RotateCcw } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, Settings, ChevronRight, Globe, Download, Upload, Sparkles, Share2, History as HistoryIcon, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import { translateUserText } from "@/lib/deeplTranslate";
@@ -21,6 +21,7 @@ const fmt = (n) => Number(n || 0).toLocaleString("tr-TR");
 function PCAdminActions({ kind }) {
   const { isAdmin } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   if (!isAdmin) return null;
 
   const download = async () => {
@@ -78,7 +79,104 @@ function PCAdminActions({ kind }) {
       >
         <Sparkles className="w-3 h-3" /> Tümünü Çevir
       </button>
+      <button
+        onClick={() => setShowImport(true)}
+        disabled={busy}
+        data-testid={`pc-import-${kind}`}
+        className="h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1"
+        style={{ background: "linear-gradient(135deg,#B45309,#F59E0B)", color: "#0B0704" }}
+        title="Excel geri yükle"
+      >
+        <Upload className="w-3 h-3" /> İçe Aktar
+      </button>
+      {showImport && (
+        <ImportModal
+          kind={kind}
+          onClose={() => setShowImport(false)}
+        />
+      )}
     </>
+  );
+}
+
+function ImportModal({ kind, onClose }) {
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const submit = async () => {
+    if (!file) return;
+    setBusy(true);
+    setResult(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await api.post(`/point-calc/import?kind=${kind}`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setResult(res.data);
+      toast.success(`${res.data.updated} etkinlik güncellendi`);
+      globalMutate(`/point-calc?kind=${kind}`);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex: 99999, background: "rgba(0,0,0,0.7)" }}
+      onClick={onClose}
+      data-testid="pc-import-modal"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md p-5 rounded-xl relative"
+        style={{ background: "#1E1410", border: "1px solid #F59E0B", boxShadow: "0 8px 32px rgba(0,0,0,0.9)" }}
+      >
+        <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white" data-testid="pc-import-modal-close">
+          <X className="w-5 h-5" />
+        </button>
+        <h3 className="text-lg font-bold mb-3 uppercase flex items-center gap-2"
+          style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}>
+          <Upload className="w-4 h-4" style={{ color: "#F59E0B" }} /> Excel İçe Aktar
+        </h3>
+        <p className="text-[11px] mb-3" style={{ color: "#F5F0E8", opacity: 0.7 }}>
+          Dışa aktardığınız Excel'i düzenleyip aynı şablonla yükleyin. Her sayfa (etkinlik) mevcut isimle eşleşir; tablolar sıfırdan yeniden yazılır. Yedek otomatik alınır (Geçmiş'ten geri yüklenebilir).
+        </p>
+        <input
+          type="file"
+          accept=".xlsx"
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          data-testid="pc-import-file"
+          className="w-full mb-3 text-xs"
+          style={{ color: "#F5F0E8" }}
+        />
+        {result && (
+          <div className="mb-3 p-2 rounded text-[11px]"
+            style={{ background: "rgba(20,12,10,0.7)", border: "1px solid rgba(245,158,11,0.4)", color: "#F5F0E8" }}
+            data-testid="pc-import-result">
+            <div><b>Güncellenen:</b> {result.updated}</div>
+            <div><b>Atlanan:</b> {result.skipped}</div>
+            {result.errors && result.errors.length > 0 && (
+              <ul className="mt-1 list-disc pl-4 opacity-80">
+                {result.errors.slice(0, 5).map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={submit}
+          disabled={busy || !file}
+          data-testid="pc-import-submit"
+          className="w-full py-2.5 rounded-lg font-bold flex items-center justify-center gap-2"
+          style={{ background: "linear-gradient(135deg,#B45309,#F59E0B)", color: "#0B0704", opacity: (busy || !file) ? 0.6 : 1 }}
+        >
+          <Upload className="w-4 h-4" /> {busy ? "Yükleniyor..." : "Yükle"}
+        </button>
+      </div>
+    </div>
   );
 }
 

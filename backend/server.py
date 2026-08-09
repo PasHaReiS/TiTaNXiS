@@ -2012,6 +2012,122 @@ async def export_point_calc(kind: str = Query(...), _: dict = Depends(require_au
     )
 
 
+@api_router.post("/point-calc/import")
+async def import_point_calc(
+    kind: str = Query(...),
+    file: UploadFile = File(...),
+    _: dict = Depends(require_admin),
+):
+    """Round-trip import of an edited Puan Hesaplama Excel export.
+    Each sheet (except _Ceviriler / Bos) is a day; sheet name must match an
+    existing day's name (truncated to 28 chars). Rows are grouped into tables
+    by (title, mult_name, mult_val, miktar). Existing day is updated (a snapshot
+    is written to point_calc_history before the mutation for undo).
+    """
+    if kind not in ("pre", "diger"):
+        raise HTTPException(400, "invalid kind")
+    from openpyxl import load_workbook
+    import io as _io
+
+    raw = await file.read()
+    try:
+        wb = load_workbook(filename=_io.BytesIO(raw), data_only=True)
+    except Exception as e:
+        raise HTTPException(400, f"Excel açılamadı: {e}")
+
+    days_cursor = db.point_calc_days.find({"kind": kind}).sort([("order", 1), ("created_at", 1)])
+    all_days = []
+    async for d in days_cursor:
+        d.pop("_id", None)
+        all_days.append(d)
+
+    def _norm(s: str) -> str:
+        return (s or "").strip().lower()
+
+    # Build lookup by truncated name (matches export sheet-name rule)
+    name_to_day = {}
+    for d in all_days:
+        n = (d.get("name") or "")[:28]
+        name_to_day[_norm(n)] = d
+
+    updated, skipped, errors = 0, 0, []
+
+    for sheet_name in wb.sheetnames:
+        if sheet_name in ("_Ceviriler", "Bos"):
+            continue
+        day = name_to_day.get(_norm(sheet_name))
+        if not day:
+            skipped += 1
+            errors.append(f"Sayfa '{sheet_name}' için eşleşen etkinlik bulunamadı")
+            continue
+        ws = wb[sheet_name]
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+        # Group rows by (title, mult_name, mult_val, miktar) — preserves order of appearance
+        groups = []
+        group_index = {}
+        for row in rows:
+            if not row or all((c is None or str(c).strip() == "") for c in row):
+                continue
+            title = (str(row[0]) if row[0] is not None else "").strip()
+            mult_name = (str(row[1]) if len(row) > 1 and row[1] is not None else "").strip()
+            try:
+                mult_val = float(row[2]) if len(row) > 2 and row[2] is not None and str(row[2]).strip() != "" else 0.0
+            except Exception:
+                mult_val = 0.0
+            try:
+                miktar = float(row[3]) if len(row) > 3 and row[3] is not None and str(row[3]).strip() != "" else 0.0
+            except Exception:
+                miktar = 0.0
+            mat_name = (str(row[5]) if len(row) > 5 and row[5] is not None else "").strip()
+            try:
+                mat_amt = row[6] if len(row) > 6 and row[6] is not None and str(row[6]).strip() != "" else ""
+            except Exception:
+                mat_amt = ""
+
+            key = (title, mult_name, mult_val, miktar)
+            if key not in group_index:
+                group_index[key] = len(groups)
+                groups.append({"title": title, "mult_name": mult_name, "mult_val": mult_val, "miktar": miktar, "mats": []})
+            if mat_name or (mat_amt not in ("", None)):
+                groups[group_index[key]]["mats"].append({"name": mat_name, "amount": str(mat_amt) if mat_amt != "" else ""})
+
+        tables = []
+        for g in groups:
+            tables.append({
+                "id": str(uuid.uuid4()),
+                "title": g["title"],
+                "miktar": g["miktar"],
+                "multipliers": (
+                    [{"id": str(uuid.uuid4()), "name": g["mult_name"], "value": g["mult_val"]}]
+                    if (g["mult_name"] or g["mult_val"]) else []
+                ),
+                "materials": [
+                    {"id": str(uuid.uuid4()), "name": m["name"], "amount": m["amount"]}
+                    for m in g["mats"]
+                ],
+            })
+
+        # Snapshot before mutating
+        current = await db.point_calc_days.find_one({"id": day["id"]})
+        if current:
+            current.pop("_id", None)
+            await db.point_calc_history.insert_one({
+                "version_id": str(uuid.uuid4()),
+                "day_id": day["id"],
+                "saved_at": now_iso(),
+                "changed_fields": ["tables"],
+                "snapshot": current,
+                "source": "excel_import",
+            })
+        await db.point_calc_days.update_one(
+            {"id": day["id"]},
+            {"$set": {"tables": tables, "updated_at": now_iso()}},
+        )
+        updated += 1
+
+    return {"updated": updated, "skipped": skipped, "errors": errors}
+
+
 app.include_router(api_router)
 app.include_router(make_auth_router(db))
 app.mount("/api/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")

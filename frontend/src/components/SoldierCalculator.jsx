@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import useSWR, { mutate as globalMutate } from "swr";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Settings, Save, X, Trash2 } from "lucide-react";
+import { Settings, Save, X, Trash2, GitCompare } from "lucide-react";
 import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -28,6 +28,8 @@ export default function SoldierCalculator() {
   const [tier, setTier] = useState("T11");
   const [soldierCount, setSoldierCount] = useState("");
   const [showUnitModal, setShowUnitModal] = useState(false);
+  const [selectedForCompare, setSelectedForCompare] = useState([]);
+  const [showCompareModal, setShowCompareModal] = useState(false);
 
   const category = catFor(tier);
   const { data: unitCosts = { yemek: 0, odun: 0, celik: 0, benzin: 0, sure_saniye: 0 } } =
@@ -88,6 +90,18 @@ export default function SoldierCalculator() {
     const m = /^asker_egitim_(t\d+)$/i.exec(cat || "");
     return m ? m[1].toUpperCase() : "-";
   };
+
+  const toggleCompareSel = (id) => {
+    setSelectedForCompare((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 2) return [prev[1], id];
+      return [...prev, id];
+    });
+  };
+  const compareRows = useMemo(
+    () => selectedForCompare.map((id) => calculations.find((c) => c.id === id)).filter(Boolean),
+    [selectedForCompare, calculations]
+  );
 
   return (
     <div className="p-1" data-testid="soldier-calculator">
@@ -202,10 +216,24 @@ export default function SoldierCalculator() {
 
       {calculations.length > 0 && (
         <div className="mt-6 overflow-x-auto card-dark p-3" data-testid="calc-history-table">
-          <h3 className="text-xs font-bold mb-2 uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_history")}</h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_history")}</h3>
+            {compareRows.length === 2 && (
+              <button
+                type="button"
+                onClick={() => setShowCompareModal(true)}
+                data-testid="compare-btn"
+                className="px-3 py-1 rounded text-white text-[11px] font-bold flex items-center gap-1"
+                style={{ background: "linear-gradient(135deg,#7C3AED,#3B82F6)" }}
+              >
+                <GitCompare className="w-3 h-3" /> {t("sc_compare_btn")}
+              </button>
+            )}
+          </div>
           <table className="w-full text-xs" style={{ color: "#F5F0E8" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid #333" }}>
+                <th className="p-2 w-6"></th>
                 <th className="p-2 text-left">{t("sc_tier_label")}</th>
                 <th className="p-2 text-left">{t("sc_history_soldier")}</th>
                 <th className="p-2 text-left">{t("sc_food")}</th>
@@ -222,8 +250,19 @@ export default function SoldierCalculator() {
             <tbody>
               {calculations.map((c) => {
                 const d = secondsToDHMS(c.sure_saniye);
+                const checked = selectedForCompare.includes(c.id);
                 return (
-                  <tr key={c.id} style={{ borderBottom: "1px solid #222" }}>
+                  <tr key={c.id} style={{ borderBottom: "1px solid #222", background: checked ? "rgba(124,58,237,0.12)" : "transparent" }}>
+                    <td className="p-2">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleCompareSel(c.id)}
+                        data-testid={`compare-check-${c.id}`}
+                        aria-label={t("sc_compare_select")}
+                        style={{ accentColor: "#7C3AED", cursor: "pointer" }}
+                      />
+                    </td>
                     <td className="p-2 mono font-bold" style={{ color: "#F5A623" }}>{tierOf(c.category)}</td>
                     <td className="p-2">{fmt(c.soldier_count)}</td>
                     <td className="p-2">{fmt(c.yemek)}</td>
@@ -254,6 +293,149 @@ export default function SoldierCalculator() {
       )}
 
       {showUnitModal && <UnitCostModal tier={tier} current={unitCosts} onClose={() => setShowUnitModal(false)} />}
+      {showCompareModal && compareRows.length === 2 && (
+        <CompareModal rows={compareRows} tierOf={tierOf} onClose={() => setShowCompareModal(false)} />
+      )}
+    </div>
+  );
+}
+
+function CompareModal({ rows, tierOf, onClose }) {
+  const { t } = useTranslation();
+  const [a, b] = rows;
+  const fields = [
+    { key: "soldier_count", label: t("sc_history_soldier") },
+    { key: "yemek", label: t("sc_food") },
+    { key: "odun", label: t("sc_wood") },
+    { key: "celik", label: t("sc_steel") },
+    { key: "benzin", label: t("sc_gas") },
+    { key: "sure_saniye", label: t("sc_duration") },
+  ];
+  // Winner = lower cost wins for every numeric field (less resource/time = better)
+  const winnerOf = (k) => {
+    const av = Number(a[k] || 0);
+    const bv = Number(b[k] || 0);
+    if (av === bv) return null;
+    return av < bv ? "a" : "b";
+  };
+  const savingsPct = (k) => {
+    const av = Number(a[k] || 0);
+    const bv = Number(b[k] || 0);
+    const hi = Math.max(av, bv);
+    if (!hi) return 0;
+    return Math.round((Math.abs(av - bv) / hi) * 100);
+  };
+  // Overall winner = tier with more field-wins
+  const aWins = fields.filter((f) => winnerOf(f.key) === "a").length;
+  const bWins = fields.filter((f) => winnerOf(f.key) === "b").length;
+  const overallWinner = aWins === bWins ? null : aWins > bWins ? "a" : "b";
+
+  const renderVal = (k, v) => {
+    if (k !== "sure_saniye") return fmt(v);
+    const d = secondsToDHMS(v);
+    return `${d.gun}g ${pad2(d.saat)}s ${pad2(d.dakika)}d ${pad2(d.saniye)}sn`;
+  };
+
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex: 99999, background: "rgba(0,0,0,0.75)" }}
+      onClick={onClose}
+      data-testid="compare-modal"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-2xl p-5 rounded-xl relative"
+        style={{ background: "#1E1410", border: "1px solid #7C3AED", boxShadow: "0 8px 32px rgba(0,0,0,0.9)", maxHeight: "88vh", overflowY: "auto" }}
+      >
+        <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white" data-testid="compare-modal-close">
+          <X className="w-5 h-5" />
+        </button>
+        <h3 className="text-lg font-bold mb-4 uppercase flex items-center gap-2"
+          style={{ color: "#E0E7FF", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}>
+          <GitCompare className="w-4 h-4" style={{ color: "#A855F7" }} />
+          {t("sc_compare_title")}
+        </h3>
+
+        <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: "1fr 1fr" }}>
+          {[a, b].map((r, idx) => {
+            const label = idx === 0 ? "A" : "B";
+            const isWinner = overallWinner === (idx === 0 ? "a" : "b");
+            return (
+              <div key={r.id}
+                data-testid={`compare-header-${label}`}
+                className="rounded-lg p-3 text-center"
+                style={{
+                  background: isWinner ? "linear-gradient(135deg, rgba(34,197,94,0.25), rgba(16,185,129,0.15))" : "rgba(20,12,10,0.7)",
+                  border: `1px solid ${isWinner ? "rgba(34,197,94,0.6)" : "rgba(168,85,247,0.3)"}`,
+                }}
+              >
+                <div className="text-[10px] uppercase tracking-widest" style={{ color: "#D4730A", opacity: 0.85 }}>
+                  {label} · {tierOf(r.category)}
+                </div>
+                <div className="text-[11px] mt-1" style={{ color: "#F5F0E8", opacity: 0.6 }}>
+                  {r.created_at ? new Date(r.created_at).toLocaleString() : ""}
+                </div>
+                {isWinner && (
+                  <div className="mt-2 text-[10px] font-bold uppercase" style={{ color: "#22C55E", letterSpacing: "0.08em" }}>
+                    {t("sc_compare_winner")}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          {fields.map((f) => {
+            const w = winnerOf(f.key);
+            const av = a[f.key];
+            const bv = b[f.key];
+            const pct = savingsPct(f.key);
+            return (
+              <div
+                key={f.key}
+                data-testid={`compare-row-${f.key}`}
+                className="rounded p-2"
+                style={{ background: "rgba(20,12,10,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                <div className="text-[10px] font-bold uppercase mb-1" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>
+                  {f.label}
+                </div>
+                <div className="grid gap-2" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                  <div
+                    data-testid={`compare-val-a-${f.key}`}
+                    className="rounded px-2 py-1.5 text-sm font-bold text-center"
+                    style={{
+                      background: w === "a" ? "rgba(34,197,94,0.18)" : "#1A1210",
+                      border: `1px solid ${w === "a" ? "rgba(34,197,94,0.6)" : "rgba(255,255,255,0.08)"}`,
+                      color: w === "a" ? "#4ADE80" : "#F5F0E8",
+                    }}
+                  >
+                    {renderVal(f.key, av)}
+                  </div>
+                  <div
+                    data-testid={`compare-val-b-${f.key}`}
+                    className="rounded px-2 py-1.5 text-sm font-bold text-center"
+                    style={{
+                      background: w === "b" ? "rgba(34,197,94,0.18)" : "#1A1210",
+                      border: `1px solid ${w === "b" ? "rgba(34,197,94,0.6)" : "rgba(255,255,255,0.08)"}`,
+                      color: w === "b" ? "#4ADE80" : "#F5F0E8",
+                    }}
+                  >
+                    {renderVal(f.key, bv)}
+                  </div>
+                </div>
+                {w && pct > 0 && (
+                  <div className="text-[10px] mt-1 text-center" style={{ color: "#4ADE80" }} data-testid={`compare-savings-${f.key}`}>
+                    {t("sc_compare_savings", { pct })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

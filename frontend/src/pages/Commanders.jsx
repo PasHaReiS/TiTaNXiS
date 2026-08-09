@@ -139,6 +139,7 @@ export default function Commanders() {
   const [editing, setEditing] = useState(null);
   const [lightbox, setLightbox] = useState(null);
   const [gridSearch, setGridSearch] = useState("");
+  const [rarityFilter, setRarityFilter] = useState(null); // null | 'legendary' | 'epic' | 'common'
   const sections = groupCategories();
   const [expanded, setExpanded] = useState(() => {
     const initial = {};
@@ -452,9 +453,11 @@ export default function Commanders() {
                     />
                   </div>
                 )}
+                <RarityChipStrip value={rarityFilter} onChange={setRarityFilter} t={t} />
                 {(() => {
                   const q = gridSearch.trim().toLowerCase();
-                  const searched = q ? commanders.filter((c) => (c.name || "").toLowerCase().includes(q)) : commanders;
+                  let searched = q ? commanders.filter((c) => (c.name || "").toLowerCase().includes(q)) : commanders;
+                  if (rarityFilter) searched = searched.filter((c) => c.rarity === rarityFilter);
 
                   // KOMUTANLAR "Tümü" view: single flat list mixing Tetikçi/Bombacı/Kalkanlı (Robotlar excluded upstream).
                   if (activeSection === "KOMUTANLAR") {
@@ -524,9 +527,14 @@ export default function Commanders() {
             ) : (
               (() => {
                 const isKomSubCat = currentCategory?.section === "KOMUTANLAR";
+                const filteredForRarity = (isKomSubCat && rarityFilter)
+                  ? commanders.filter((c) => c.rarity === rarityFilter)
+                  : commanders;
                 return (
-                  <div className={isKomSubCat ? "grid grid-cols-3 gap-3" : "space-y-2"}>
-                    {commanders.map((c) => (
+                  <div>
+                    {isKomSubCat && <RarityChipStrip value={rarityFilter} onChange={setRarityFilter} t={t} />}
+                    <div className={isKomSubCat ? "grid grid-cols-3 gap-3" : "space-y-2"}>
+                    {filteredForRarity.map((c) => (
                       isKomSubCat ? (
                         <CommanderGridCard
                           key={c.id}
@@ -560,6 +568,7 @@ export default function Commanders() {
                     {commanders.length === 0 && !String(selectedCat).startsWith("mh_") && !NO_TUMU_SECTIONS.has(currentCategory?.section) && (
                       <div className="card-dark p-6 text-center text-muted-foreground text-xs col-span-full">{t("no_commanders_in_category")}</div>
                     )}
+                  </div>
                   </div>
                 );
               })()
@@ -596,6 +605,58 @@ function KofBadge({ id, small = false }) {
     >
       <Sparkles className={small ? "w-2.5 h-2.5" : "w-3 h-3"} /> KoF
     </span>
+  );
+}
+
+function RarityChipStrip({ value, onChange, t }) {
+  const chips = [
+    { key: "legendary", labelKey: "rarity_legendary" },
+    { key: "epic", labelKey: "rarity_epic" },
+    { key: "common", labelKey: "rarity_common" },
+  ];
+  return (
+    <div className="flex items-center gap-1.5 mb-2 flex-wrap" data-testid="rarity-filter-strip">
+      <button
+        type="button"
+        onClick={() => onChange(null)}
+        aria-pressed={value === null}
+        data-testid="rarity-filter-all"
+        className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all"
+        style={{
+          background: value === null ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "rgba(30,20,16,0.6)",
+          border: `1px solid ${value === null ? "#F5A623" : "rgba(255,255,255,0.15)"}`,
+          color: value === null ? "#0B0704" : "#F5F0E8",
+        }}
+      >
+        {t("rarity_all", "Tümü")}
+      </button>
+      {chips.map((r) => {
+        const active = value === r.key;
+        const color = RARITY[r.key].color;
+        return (
+          <button
+            key={r.key}
+            type="button"
+            onClick={() => onChange(active ? null : r.key)}
+            aria-pressed={active}
+            data-testid={`rarity-filter-${r.key}`}
+            className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-1"
+            style={{
+              background: active ? `${color}` : "rgba(30,20,16,0.6)",
+              border: `1px solid ${active ? color : `${color}55`}`,
+              color: active ? "#0B0704" : color,
+              boxShadow: active ? `0 0 10px ${color}80` : "none",
+            }}
+          >
+            <span
+              className="inline-block w-2 h-2 rounded-full"
+              style={{ background: color, boxShadow: `0 0 4px ${color}` }}
+            />
+            {t(r.labelKey)}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

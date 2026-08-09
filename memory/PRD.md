@@ -85,11 +85,12 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - `/app/frontend/src/i18n/index.js` — 8-language dict
 
 ## Backlog (Prioritized)
-- **P1** — Rarity filter chips (Legendary/Epic/Common) above Commander grid
-- **P2** — Duplicate button in Commander team composition form
+- **P1** — Discord webhook: post to a channel when a new Puan Hesaplama event is created/updated
+- **P2** — Ekip Kopyala: Duplicate button in Commander team composition form
 - **P3** — Chart sheet in Excel export (top 10 alliances by points)
-- **P3** — Members: "Expand all" / "Collapse all" quick buttons for the rank sections
-- **P3** — Persist collapse state in localStorage per alliance
+- **P4** — Kümülatif Star Maliyeti: 1→N total panel in HeroTables
+- **P5** — Members: "Expand all" / "Collapse all" quick buttons for the rank sections
+- **P5** — Persist collapse state in localStorage per alliance
 
 - **[2026-02] EquipmentTables interactive filters**: `/app/frontend/src/components/EquipmentTables.jsx` now stateful (`selectedLevel` 1..20, `selectedHero` 0..4). Added `[data-testid=reform-level-selector]` 5×4 grid with 20 buttons (`reform-level-btn-1..20`) and `[data-testid=hero-range-selector]` flex-wrap row with 5 buttons (`hero-range-btn-0..4`). Exactly one row/card visible at any time — always 22px centered font. Removed unused `ICON_GEAR`/`ICON_MAGNET` constants and `<img>` from reformation `<th>`s (headers plain "Seviye"/"Dişli"/"Mıknatıs"). Active btn `#F5A623` bg / `#0B0704` text, aria-pressed reflects state. Verified 100% in iteration_42.
 - **[2026-02] EquipmentTables defaults + no-deselect**: Defaults now `selectedLevel=1`, `selectedHero=0`. Click handlers simplified to `setSelected(x)` (no toggle-off) so a row is always visible. Verified 100% in iteration_43. Deployment check: PASS.
@@ -139,6 +140,9 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 See `/app/memory/test_credentials.md`
 
 ## Notes for Next Agent
+- **[2026-02] Rarity Filtresi (P4 done)**: Yeni `RarityChipStrip` bileşeni `Commanders.jsx`'te KOMUTANLAR "Tümü" ve alt kategori (tetikci/bombaci/kalkanli/robotlar) grid'lerinin üstünde renderlanıyor. Chips: Tümü (turuncu/altın), Efsanevi (`#F97316`), Epik (`#A855F7`), Yaygın (`#3B82F6`). `rarityFilter` state (null/'legendary'/'epic'/'common') hem "Tümü" hem alt kategori grid'ini `c.rarity === rarityFilter` ile filtreliyor. Active chip solid renk + glow; kapalı outline. data-testid: `rarity-filter-strip`, `rarity-filter-{all|legendary|epic|common}`. i18n TR/EN.
+- **[2026-02] Hesap Karşılaştır (P3 done)**: `SoldierCalculator` history tablosuna checkbox kolonu eklendi (`compare-check-{id}`). 2 satır seçildiğinde başlıkta `Karşılaştır` butonu (`compare-btn`, GitCompare ikon, mor gradient) belirir. Modal (`compare-modal`) 6 alanı (asker/yemek/odun/çelik/benzin/süre) yan yana gösterir; her alanda daha düşük değer yeşil vurgulanır + `%X daha az` etiketi. Kazanan tier (daha çok alan kazanan) üstte "Daha Kârlı" rozetiyle belirtilir. Süre `Xg SSs DDd SSsn` biçiminde renderlanır. i18n TR/EN.
+- **[2026-02] Puan Hesaplama Excel Import (P2 done)**: Backend `POST /api/point-calc/import?kind=pre|diger` (admin) `.xlsx` alır → `_Ceviriler`/`Bos` sayfalarını atlar → kalan her sayfayı isim eşleşmesiyle (28 char trunc) mevcut day'e maplar → satırları (title, mult_name, mult_val, miktar) key'iyle table gruplarına böler → materials array oluşturur → PATCH öncesi `point_calc_history`'ye snapshot atıp (source:excel_import) `tables` alanını `$set` eder. curl round-trip verified: export 6 sayfa → import 6 updated / 0 skipped / 0 errors. Frontend: `PCAdminActions` içine `pc-import-{kind}` amber butonu + `ImportModal` (file picker, preview counts, error listesi, `pc-import-submit`). i18n TR/EN.
 - **[2026-02] Public Read-Only Share Link (P0 done)**: Admin/editor tıklar `pc-sidebar-share-{dayId}` → `GET /api/point-calc/{id}/share` HMAC-SHA256 (secret=JWT_SECRET, 32 char hex) `sig` üretir → link `${origin}/public/puan-hesaplama/{id}?sig={sig}` clipboard'a kopyalanır. Yeni `PublicPointCalcPage.jsx` route `/public/puan-hesaplama/:id` (Layout dışında, RequireAuth yok) `GET /api/public/point-calc/{id}?sig=...` fetch eder — geçersiz sig → 403 + `pub-pc-error` toast/kart, geçerli → salt-okunur DayCard renderı (TranslatedText ile aktif i18n dilini gözetir) + LanguageSwitcher + "SALT OKUNUR PAYLAŞIM" badge + TiTaNXiS başlık. curl E2E ile doğrulandı: valid=200, invalid=403.
 - **[2026-02] Content Editor History (P0 done)**: Backend `update_point_calc` her PATCH öncesi mevcut doc'u `point_calc_history` koleksiyonuna `{version_id, day_id, saved_at, changed_fields, snapshot}` olarak yazar. `GET /api/point-calc/{id}/history` son 20 sürümü döner (auth). `POST /api/point-calc/{id}/revert/{version_id}` seçilen snapshot'a döner, önce mevcut durumu ayrıca snapshot alır (undo-of-undo). Frontend `pc-day-history-btn-{dayId}` (admin/editor) `HistoryModal`'ı açar → sürüm listesi tarih + değişen alanlar + `Bu Sürüme Dön` butonu (RotateCcw) → confirm → `POST revert` → SWR mutate. i18n TR/EN eklendi.
 - Do NOT create random files under `/app/backend/` that trigger uvicorn watchfiles reload cascade (502 crash).
