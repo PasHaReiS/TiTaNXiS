@@ -46,6 +46,44 @@ export default function PushBroadcastPanel() {
   const [seedCat, setSeedCat] = useState("all");
   const [seedSearch, setSeedSearch] = useState("");
   const [seedHover, setSeedHover] = useState(null);
+  const seedSearchRef = React.useRef(null);
+  const [detailTpl, setDetailTpl] = useState(null);
+  const [detailTitle, setDetailTitle] = useState("");
+  const [detailBody, setDetailBody] = useState("");
+  const [detailUrl, setDetailUrl] = useState("");
+  const openDetail = (c) => {
+    setDetailTpl(c);
+    setDetailTitle(c.title);
+    setDetailBody(c.body);
+    setDetailUrl(c.url);
+  };
+  const installOne = async () => {
+    if (!detailTpl) return;
+    if (!detailTitle.trim() || !detailBody.trim()) { toast.error(t("push_bc_required")); return; }
+    setBusy(true);
+    try {
+      await api.post("/push/templates", { name: detailTpl.name, title: detailTitle.trim(), body: detailBody.trim(), url: detailUrl.trim() || "/" });
+      toast.success(t("push_tpl_seeded_n", { n: 1 }));
+      setDetailTpl(null);
+      refreshTpl();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally { setBusy(false); }
+  };
+  // Keyboard shortcut: `/` focuses the search input while the seed modal is open
+  useEffect(() => {
+    if (!seedModalOpen) return;
+    const onKey = (e) => {
+      if (e.key !== "/") return;
+      const active = document.activeElement;
+      const tag = active?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || active?.isContentEditable) return;
+      e.preventDefault();
+      seedSearchRef.current?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [seedModalOpen]);
   const seedVisible = (() => {
     const q = seedSearch.trim().toLowerCase();
     const byCat = seedCat === "all" ? CURATED_TEMPLATES : CURATED_TEMPLATES.filter((c) => c.category === seedCat);
@@ -592,8 +630,9 @@ export default function PushBroadcastPanel() {
                 type="text"
                 value={seedSearch}
                 onChange={(e) => setSeedSearch(e.target.value)}
+                ref={seedSearchRef}
                 data-testid="push-tpl-seed-search"
-                placeholder={t("push_tpl_search_placeholder")}
+                placeholder={t("push_tpl_search_placeholder_shortcut")}
                 className="w-full rounded px-2.5 py-1.5 text-[12px]"
                 style={{ background: "rgba(20,12,10,0.6)", border: "1px solid rgba(168,85,247,0.35)", color: "#F5F0E8" }}
               />
@@ -692,6 +731,16 @@ export default function PushBroadcastPanel() {
                         {c.name} · → {c.url}
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); openDetail(c); }}
+                      data-testid={`push-tpl-seed-detail-${c.key}`}
+                      className="flex-shrink-0 text-[9px] uppercase font-bold px-1.5 py-1 rounded self-start mt-0.5"
+                      style={{ background: "rgba(168,85,247,0.15)", border: "1px solid rgba(168,85,247,0.4)", color: "#A855F7", letterSpacing: "0.06em" }}
+                      title={t("push_tpl_detail_open")}
+                    >
+                      {t("push_tpl_detail_btn")}
+                    </button>
                   </label>
                 );
               })}
@@ -714,6 +763,108 @@ export default function PushBroadcastPanel() {
               >
                 <Plus className="w-3.5 h-3.5" />
                 {busy ? t("push_tpl_installing") : t("push_tpl_install_n", { n: seedSelected.size })}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {detailTpl && (
+        <div
+          data-testid="push-tpl-detail-overlay"
+          className="fixed inset-0 z-[110] flex items-center justify-center p-4"
+          style={{ background: "rgba(5,3,2,0.92)", backdropFilter: "blur(8px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setDetailTpl(null); }}
+        >
+          <div
+            data-testid="push-tpl-detail-modal"
+            className="relative w-full max-w-2xl rounded-2xl overflow-hidden max-h-[90vh] flex flex-col"
+            style={{
+              background: "linear-gradient(180deg, rgba(30,20,16,0.98), rgba(15,10,8,0.98))",
+              border: "1px solid rgba(245,166,35,0.5)",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.7)",
+            }}
+          >
+            <div className="flex items-center justify-between p-4" style={{ borderBottom: "1px solid rgba(245,166,35,0.25)" }}>
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4" style={{ color: "#F5A623" }} />
+                <h3 className="text-sm font-bold uppercase" style={{ color: "#F5A623", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}>
+                  {t("push_tpl_detail_title")} — {detailTpl.name}
+                </h3>
+              </div>
+              <button type="button" onClick={() => setDetailTpl(null)} data-testid="push-tpl-detail-close" className="rounded-full px-2 hover:bg-white/10" style={{ color: "#F5F0E8", opacity: 0.7, fontSize: 20, lineHeight: 1 }} aria-label="Close">×</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[10px] uppercase font-bold block mb-1" style={{ color: "#A855F7", letterSpacing: "0.08em" }}>{t("push_bc_title_placeholder")}</label>
+                  <input
+                    value={detailTitle}
+                    onChange={(e) => setDetailTitle(e.target.value)}
+                    data-testid="push-tpl-detail-title-input"
+                    className="w-full rounded px-2.5 py-1.5 text-[13px] font-bold"
+                    style={{ background: "rgba(20,12,10,0.6)", border: "1px solid rgba(245,166,35,0.35)", color: "#F5F0E8" }}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold block mb-1" style={{ color: "#A855F7", letterSpacing: "0.08em" }}>{t("push_bc_body_placeholder")}</label>
+                  <textarea
+                    value={detailBody}
+                    onChange={(e) => setDetailBody(e.target.value)}
+                    rows={3}
+                    data-testid="push-tpl-detail-body-input"
+                    className="w-full rounded px-2.5 py-1.5 text-[12px] resize-none"
+                    style={{ background: "rgba(20,12,10,0.6)", border: "1px solid rgba(245,166,35,0.35)", color: "#F5F0E8" }}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold block mb-1" style={{ color: "#A855F7", letterSpacing: "0.08em" }}>{t("push_tpl_detail_url")}</label>
+                  <input
+                    value={detailUrl}
+                    onChange={(e) => setDetailUrl(e.target.value)}
+                    data-testid="push-tpl-detail-url-input"
+                    placeholder="/etkinlikler"
+                    className="w-full rounded px-2.5 py-1.5 text-[12px] font-mono"
+                    style={{ background: "rgba(20,12,10,0.6)", border: "1px solid rgba(245,166,35,0.35)", color: "#F5F0E8" }}
+                  />
+                  <div className="text-[10px] mt-1" style={{ color: "#F5F0E8", opacity: 0.5 }}>{t("push_tpl_detail_url_hint")}</div>
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase font-bold mb-2" style={{ color: "#F5A623", letterSpacing: "0.08em" }}>{t("push_tpl_preview_title")}</div>
+                <div
+                  data-testid="push-tpl-detail-preview"
+                  className="rounded-lg overflow-hidden"
+                  style={{
+                    background: "linear-gradient(180deg,#2a1e1a,#1a110d)",
+                    border: "1px solid rgba(245,166,35,0.5)",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                  }}
+                >
+                  <div className="flex items-start gap-2.5 p-3">
+                    <img src="/icons/pwa-192.png" alt="" className="rounded flex-shrink-0" style={{ width: 40, height: 40 }} />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-bold" style={{ color: "#F5F0E8" }}>{detailTitle || t("push_bc_title_placeholder")}</div>
+                      <div className="text-[11px] mt-0.5" style={{ color: "#F5F0E8", opacity: 0.75, whiteSpace: "pre-wrap" }}>{detailBody || t("push_bc_body_placeholder")}</div>
+                      <div className="text-[9px] mt-1.5 uppercase" style={{ color: "#A855F7", opacity: 0.7, letterSpacing: "0.04em" }}>TiTaNXiS · şimdi · {detailUrl || "/"}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2 p-4" style={{ borderTop: "1px solid rgba(245,166,35,0.25)", background: "rgba(10,7,5,0.5)" }}>
+              <button type="button" onClick={() => setDetailTpl(null)} data-testid="push-tpl-detail-cancel" className="text-[11px] uppercase font-bold hover:opacity-80" style={{ color: "#F5F0E8", opacity: 0.6, letterSpacing: "0.06em" }}>
+                {t("cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={installOne}
+                disabled={busy}
+                data-testid="push-tpl-detail-install"
+                className="px-4 py-2 rounded-lg text-[12px] font-bold flex items-center gap-1.5"
+                style={{ background: "linear-gradient(135deg,#F5A623,#E74C1A)", color: "#0B0704", letterSpacing: "0.06em" }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {busy ? t("push_tpl_installing") : t("push_tpl_detail_install_btn")}
               </button>
             </div>
           </div>

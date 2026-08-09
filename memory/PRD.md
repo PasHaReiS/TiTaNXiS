@@ -13,6 +13,10 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Kütüphane Klavye + Detay Modal — DONE**:
+  - **Klavye Kısayolu**: Modal-scoped keydown handler focuses the search input on `/` press (unless the user is already typing in another input/textarea/contenteditable). Placeholder now hints at the shortcut. Listener only mounted while `seedModalOpen`, cleaned up on close.
+  - **Detay Modal**: Each row gets a **"Detay"** pill button (`push-tpl-seed-detail-{key}`). Clicking opens a wider `push-tpl-detail-modal` (max-w-2xl) at `z-[110]` with a 2-column layout: editable title / body / URL on the left, live push preview on the right (uses same TiTaNXiS icon + native-style layout, updates as you type). "Bu Şablonu Kur" installs the customized copy via `POST /api/push/templates`. Cancel + click-outside close. E2E verified: edit title/body/URL → preview updates → install → template persists in the DB with customized copy.
+
 - **[2026-02] Kütüphane Arama + Önizleme — DONE**:
   - **Arama (search box)**: Added a `seedSearch` text input `[data-testid="push-tpl-seed-search"]` at the top of the Şablon Kütüphanesi modal. `seedVisible` now composes tab-filter + case-insensitive text-filter against each template's `name`, `title` and `body`. Empty state `[data-testid="push-tpl-seed-empty"]` renders "Aramaya uyan şablon yok." when nothing matches. E2E verified: `"rally"` → 2 rows (rally_15, rally_now), `"sezon"` → 1 row (new_season), `"xyz123"` → empty state.
   - **Hover önizleme**: Each row tracks a `seedHover` state via `onMouseEnter/Leave` (plus focus/blur for keyboard). While hovered, a floating preview bubble `[data-testid="push-tpl-seed-preview-{key}"]` positions itself just below the row and renders a native-style push mock: TiTaNXiS PWA icon (192px), bold title, body, "TiTaNXiS · şimdi" footer — orange-bordered card with dark gradient background. Rendered inside the scrollable row list so it clips cleanly. New i18n keys `push_tpl_search_placeholder`, `push_tpl_no_match`, `push_tpl_preview_title` (TR + EN).
