@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import useSWR, { mutate } from "swr";
 import { api, apiErr, RANKS } from "@/lib/api";
 import { allianceBadgeStyle } from "@/lib/colors";
@@ -7,7 +7,7 @@ import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
 import CanEdit from "@/components/CanEdit";
 import CountUp from "@/components/CountUp";
-import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, MapPin, ClipboardList } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -57,8 +57,29 @@ export default function Members() {
   const [filterRanks, setFilterRanks] = useState([]);
   const [sortMode, setSortMode] = useState("default");
   const [colorPickerAlliance, setColorPickerAlliance] = useState(null);
-  const [collapsedAlliances, setCollapsedAlliances] = useState(() => new Set());
-  const [collapsedRankSections, setCollapsedRankSections] = useState(() => new Set());
+  // Hydrate collapse state from localStorage so alliance expand/collapse
+  // persists across reloads. Ranks stored per "alliance::rank" key.
+  const [collapsedAlliances, setCollapsedAlliances] = useState(() => {
+    try {
+      const raw = localStorage.getItem("titanxis_members_collapsed_alliances_v1");
+      if (raw) return new Set(JSON.parse(raw));
+    } catch {}
+    return new Set();
+  });
+  const [collapsedRankSections, setCollapsedRankSections] = useState(() => {
+    try {
+      const raw = localStorage.getItem("titanxis_members_collapsed_ranks_v1");
+      if (raw) return new Set(JSON.parse(raw));
+    } catch {}
+    return new Set();
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem("titanxis_members_collapsed_alliances_v1", JSON.stringify([...collapsedAlliances])); } catch {}
+  }, [collapsedAlliances]);
+  useEffect(() => {
+    try { localStorage.setItem("titanxis_members_collapsed_ranks_v1", JSON.stringify([...collapsedRankSections])); } catch {}
+  }, [collapsedRankSections]);
 
   const toggleAlliance = (name) =>
     setCollapsedAlliances((s) => {
@@ -213,6 +234,31 @@ export default function Members() {
             onClear={clearFilters}
             onClose={() => setShowFilterPanel(false)}
           />
+        )}
+
+        {grouped.length > 0 && (
+          <div className="flex items-center gap-2 mb-3" data-testid="members-collapse-controls">
+            <button
+              type="button"
+              onClick={() => setCollapsedAlliances(new Set())}
+              data-testid="members-expand-all"
+              className="chip text-[10px] flex items-center gap-1"
+              style={{ padding: "5px 10px" }}
+              title={t("expand_all")}
+            >
+              <ChevronsDown className="w-3 h-3" /> {t("expand_all")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setCollapsedAlliances(new Set(grouped.map((g) => g.name)))}
+              data-testid="members-collapse-all"
+              className="chip text-[10px] flex items-center gap-1"
+              style={{ padding: "5px 10px" }}
+              title={t("collapse_all")}
+            >
+              <ChevronsUp className="w-3 h-3" /> {t("collapse_all")}
+            </button>
+          </div>
         )}
 
         {grouped.map((grp, gi) => (

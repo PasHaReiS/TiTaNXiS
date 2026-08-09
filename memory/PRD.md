@@ -86,8 +86,6 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 
 ## Backlog (Prioritized)
 - **P1** — Discord webhook: post to a channel when a new Puan Hesaplama event is created/updated
-- **P3** — Members: "Expand all" / "Collapse all" quick buttons for the rank sections
-- **P3** — Persist collapse state in localStorage per alliance
 
 - **[2026-02] EquipmentTables interactive filters**: `/app/frontend/src/components/EquipmentTables.jsx` now stateful (`selectedLevel` 1..20, `selectedHero` 0..4). Added `[data-testid=reform-level-selector]` 5×4 grid with 20 buttons (`reform-level-btn-1..20`) and `[data-testid=hero-range-selector]` flex-wrap row with 5 buttons (`hero-range-btn-0..4`). Exactly one row/card visible at any time — always 22px centered font. Removed unused `ICON_GEAR`/`ICON_MAGNET` constants and `<img>` from reformation `<th>`s (headers plain "Seviye"/"Dişli"/"Mıknatıs"). Active btn `#F5A623` bg / `#0B0704` text, aria-pressed reflects state. Verified 100% in iteration_42.
 - **[2026-02] EquipmentTables defaults + no-deselect**: Defaults now `selectedLevel=1`, `selectedHero=0`. Click handlers simplified to `setSelected(x)` (no toggle-off) so a row is always visible. Verified 100% in iteration_43. Deployment check: PASS.
@@ -137,13 +135,15 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 See `/app/memory/test_credentials.md`
 
 ## Notes for Next Agent
-- **[2026-02] Ekip Kopyala (P2 done)**: `CommanderForm` düzenleme modunda submit satırının yanına mor "Kopyala" butonu (`commander-form-duplicate`) eklendi. Butona basılınca mevcut form değerleriyle yeni bir kayıt POST edilir, isim `{original} (Kopya)` şeklinde suffix'lenir; id, image, description, team_slots, kof pairs — hepsi orijinalden kopyalanır. Ekle modunda buton gizli. i18n TR/EN: `duplicate`, `duplicate_suffix`, `duplicated`.
-- **[2026-02] Kümülatif Star Maliyeti (P4 done)**: `HeroTables.jsx` içine `cumulativeThrough(star)` helper'ı eklendi (1★→N★ boyunca kolon-bazlı toplama). Star Table'ın altında yeni mor panel (`hero-star-cumulative-{star}`, `hero-star-cumulative-{star}-row-{idx}`) her part başlığı için birikimli değeri gösterir; TOPLAM satırı vurgulanmış. Örn 1★→3★ TOPLAM = 20+45+115 = 180. Panel `⭐` seçimine tepki verir.
-- **[2026-02] Excel Grafik Sayfası (P3 done)**: `/api/export/all` şimdi 4. sayfa `İttifak Grafiği` ekler — Top 10 ittifakı (üye toplam puanlarına göre) tabloya yazar (`İttifak`, `Toplam Puan`) ve openpyxl `BarChart` (horizontal, style=11, dataLabels showVal=True) `D2` hücresine gömer. curl doğrulandı: 4 sayfa, 4 satır (GOW 8.12B önde), 1 chart.
-- **[2026-02] Rarity Filtresi (P4 done)**: Yeni `RarityChipStrip` bileşeni `Commanders.jsx`'te KOMUTANLAR "Tümü" ve alt kategori (tetikci/bombaci/kalkanli/robotlar) grid'lerinin üstünde renderlanıyor. Chips: Tümü (turuncu/altın), Efsanevi (`#F97316`), Epik (`#A855F7`), Yaygın (`#3B82F6`).
-- **[2026-02] Hesap Karşılaştır (P3 done)**: `SoldierCalculator` history tablosuna checkbox kolonu; 2 seçildiğinde `Karşılaştır` butonu belirir → 6 alan yan yana + `DAHA KÂRLI` rozet.
-- **[2026-02] Puan Hesaplama Excel Import (P2 done)**: `POST /api/point-calc/import?kind=pre|diger` (admin) `.xlsx` alıp round-trip yapar, PATCH öncesi snapshot alır.
-- **[2026-02] Public Read-Only Share Link (P0 done)**: HMAC-SHA256 imzalı guest URL `/public/puan-hesaplama/:id?sig=...`.
+- **[2026-02] Expand/Collapse All + Persist (P3 done)**: `Members.jsx` collapse state artık `titanxis_members_collapsed_alliances_v1` (Set→JSON array) ve `titanxis_members_collapsed_ranks_v1` localStorage anahtarlarından hidrasyon + `useEffect` ile senkron. Grup listesinin üstünde `members-expand-all` (ChevronsDown, boş Set) ve `members-collapse-all` (ChevronsUp, tüm grup adları Set'e) chip butonları. Reload sonrası 4/4 grup `aria-expanded=false` doğrulandı.
+- **[2026-02] PWA Install Prompt (P4 done)**: Yeni `PwaInstallPrompt.jsx` global (Layout içinde MusicButton yanında) — `beforeinstallprompt` yakalar, custom `Ana Ekrana Ekle` toast/kart olarak `bottom:90, zIndex:9500` göster; iOS Safari için ayrı hint metni (`pwa_ios_hint`). Dismiss butonu `titanxis_pwa_dismissed_v1` timestamp yazar, 72 saat susar. `manifest.json` full PWA (id, scope, orientation portrait, categories, 3 icons dahil 192/512 maskable). `index.html` apple-touch-icon + apple-mobile-web-app-* meta tag'leri. Standalone modda hiç görünmez.
+- **[2026-02] Ekip Kopyala (P2 done)**: `CommanderForm` düzenleme modunda "Güncelle" yanına mor "Kopyala" (`commander-form-duplicate`) → POST new commander with `(Kopya)` suffix.
+- **[2026-02] Kümülatif Star Maliyeti (P4 done)**: `HeroTables` `cumulativeThrough(star)` + mor `hero-star-cumulative-{star}` paneli 1★→N★ birikimli değeri gösterir; TOPLAM vurgulu.
+- **[2026-02] Excel Grafik Sayfası (P3 done)**: `/api/export/all` yanıtına 4. sayfa `İttifak Grafiği` (Top 10 + openpyxl BarChart D2).
+- **[2026-02] Rarity Filtresi (P4 done)**: `RarityChipStrip` KAHRAMANLAR ve alt kategori grid'lerinin üstünde (Tümü/Efsanevi/Epik/Yaygın).
+- **[2026-02] Hesap Karşılaştır (P3 done)**: `SoldierCalculator` history checkbox + `Karşılaştır` modal (6 alan yan yana).
+- **[2026-02] Puan Hesaplama Excel Import (P2 done)**: `POST /api/point-calc/import?kind=pre|diger` (admin) round-trip.
+- **[2026-02] Public Read-Only Share Link (P0 done)**: HMAC-SHA256 imzalı guest URL.
 - **[2026-02] Content Editor History (P0 done)**: Otomatik snapshot + admin revert modal.
 - Do NOT create random files under `/app/backend/` that trigger uvicorn watchfiles reload cascade (502 crash).
 - Router prefixes: `auth_router` mounted so `/api/auth/login` resolves.

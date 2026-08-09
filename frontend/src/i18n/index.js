@@ -497,6 +497,12 @@ const tr = {
   duplicate_suffix: "(Kopya)",
   duplicated: "Kopyalandı",
   ht_cumulative_title: "1★→{{star}}★ Kümülatif Maliyet",
+  expand_all: "Tümünü Aç",
+  collapse_all: "Tümünü Kapat",
+  pwa_install_title: "TiTaNXiS'i Yükle",
+  pwa_install_desc: "Ana ekrana ekle, hesaplayıcılara tek dokunuşla eriş",
+  pwa_install_action: "Yükle",
+  pwa_ios_hint: "Safari Paylaş menüsünden \"Ana Ekrana Ekle\" seçin",
   bc_updated: "{{building}} • {{level}} birim maliyeti güncellendi",
 };
 
@@ -959,6 +965,12 @@ const en = {
   duplicate_suffix: "(Copy)",
   duplicated: "Duplicated",
   ht_cumulative_title: "1★→{{star}}★ Cumulative Cost",
+  expand_all: "Expand All",
+  collapse_all: "Collapse All",
+  pwa_install_title: "Install TiTaNXiS",
+  pwa_install_desc: "Add to home screen for one-tap access",
+  pwa_install_action: "Install",
+  pwa_ios_hint: "Use Safari Share → \"Add to Home Screen\"",
 };
 
 const ru = {
