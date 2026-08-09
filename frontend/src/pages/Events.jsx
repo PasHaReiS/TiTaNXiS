@@ -7,6 +7,7 @@ import CanEdit from "@/components/CanEdit";
 import { Plus, Pencil, Trash2, Archive, X, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { groupColor, groupBgTint } from "@/lib/groupColors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -75,13 +76,18 @@ export default function Events() {
           >{t("archive_upper")} ({archivedCount})</button>
         </div>
 
-        {Object.entries(grouped).map(([group, list]) => (
+        {Object.entries(grouped).map(([group, list]) => {
+          const gc = groupColor(group);
+          return (
           <div key={group} className="mb-5">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <div className="tr-flag" />
-                <h3 className="text-sm font-bold uppercase gold-text tracking-wider">{group}</h3>
-                <span className="chip">{list.length}</span>
+                <span
+                  data-testid={`event-group-dot-${group}`}
+                  style={{ display: "inline-block", width: 10, height: 10, borderRadius: 5, background: gc, boxShadow: `0 0 6px ${gc}80` }}
+                />
+                <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: gc, textShadow: `0 0 6px ${gc}55` }}>{group}</h3>
+                <span className="chip" style={{ borderColor: `${gc}55`, color: gc }}>{list.length}</span>
               </div>
               {tab === "active" && (
                 <CanEdit>
@@ -110,7 +116,7 @@ export default function Events() {
                     backgroundImage: "repeating-linear-gradient(45deg, rgba(220,38,38,0.14), rgba(220,38,38,0.14) 6px, transparent 6px, transparent 14px)",
                     borderColor: "rgba(220,38,38,0.55)",
                     boxShadow: "0 0 12px rgba(220,38,38,0.25), inset 0 0 12px rgba(220,38,38,0.1)",
-                  } : undefined}
+                  } : { borderLeft: `3px solid ${gc}`, background: groupBgTint(group, 0.06) }}
                 >
                   <div className="tr-flag" />
                   <div className="flex-1 min-w-0">
@@ -176,7 +182,8 @@ export default function Events() {
               })}
             </div>
           </div>
-        ))}
+          );
+        })}
 
         {events.length === 0 && (
           <div className="card-dark p-6 text-center text-muted-foreground">{t("no_events")}</div>

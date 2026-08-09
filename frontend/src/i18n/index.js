@@ -574,6 +574,8 @@ const tr = {
   wg_top_member_desc: "Loncanın en yüksek puanlı üyesi tek bakışta.",
   wg_active_events_desc: "Şu anda açık etkinlik sayısı.",
   wg_total_power_desc: "Tüm üyelerin gücünün toplamı.",
+  nav_widget_library: "Widget'lar",
+
   wg_member_count_desc: "Kayıtlı üye sayısı.",
   wg_personal_points_desc: "Sıralamadaki kendi toplam puanın.",
   wg_personal_rank_desc: "Sıralamada kaçıncı olduğun.",
@@ -967,6 +969,8 @@ const en = {
   search_commander: "Search hero by name...",
   language: "Language",
   choose_language: "Choose Language",
+  nav_widget_library: "Widgets",
+
   // BuildingCalculator
   bc_title: "Building Upgrade",
   bc_level: "Level",

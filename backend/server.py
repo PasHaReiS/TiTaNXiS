@@ -2238,7 +2238,6 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
     (users without any saved prefs receive everything by default)."""
     private_pem, _ = await _get_or_create_vapid()
     subs = await db.push_subscriptions.find({}, {"_id": 0}).to_list(1000)
-    # Build a user_id -> allowed set based on push_prefs
     allowed_users: Optional[set] = None
     if group_name:
         prefs = await db.push_prefs.find({}, {"_id": 0}).to_list(2000)
@@ -2247,24 +2246,22 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
         for uid, grps in prefs_by_user.items():
             if not grps or group_name in grps:
                 allowed_users.add(uid)
-        # Users without a prefs doc → also allowed (default: receive all)
+    # Reserve history id up-front so notifications can ping open-tracking with it
+    hid = str(uuid.uuid4())
     if not subs:
         await db.push_history.insert_one({
-            "id": str(uuid.uuid4()),
-            "title": title, "body": body, "url": url, "tag": tag,
-            "sent": 0, "removed": 0,
+            "id": hid, "title": title, "body": body, "url": url, "tag": tag,
+            "sent": 0, "removed": 0, "opened": 0, "clicked": 0,
             "created_at": now_iso(),
         })
         return {"sent": 0, "removed": 0}
-    payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag}, ensure_ascii=False)
+    payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag, "hid": hid}, ensure_ascii=False)
     sent = 0
     removed = 0
     for s in subs:
-        # Apply user-level filter if a group filter is active
         if allowed_users is not None:
             uid = s.get("user_id")
             if uid and uid not in allowed_users:
-                # user has explicit prefs excluding this group
                 pref_doc = await db.push_prefs.find_one({"user_id": uid}, {"_id": 0})
                 if pref_doc and pref_doc.get("groups") and group_name not in pref_doc["groups"]:
                     continue
@@ -2284,12 +2281,23 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
         except Exception:
             pass
     await db.push_history.insert_one({
-        "id": str(uuid.uuid4()),
-        "title": title, "body": body, "url": url, "tag": tag,
-        "sent": sent, "removed": removed,
+        "id": hid, "title": title, "body": body, "url": url, "tag": tag,
+        "sent": sent, "removed": removed, "opened": 0, "clicked": 0,
         "created_at": now_iso(),
     })
     return {"sent": sent, "removed": removed}
+
+
+@api_router.post("/push/history/{hid}/opened")
+async def push_history_opened(hid: str):
+    await db.push_history.update_one({"id": hid}, {"$inc": {"opened": 1}})
+    return {"ok": True}
+
+
+@api_router.post("/push/history/{hid}/clicked")
+async def push_history_clicked(hid: str):
+    await db.push_history.update_one({"id": hid}, {"$inc": {"clicked": 1}})
+    return {"ok": True}
 
 
 @api_router.get("/push/history")

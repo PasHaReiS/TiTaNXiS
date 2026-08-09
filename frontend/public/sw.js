@@ -60,30 +60,38 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("push", (event) => {
   let data = { title: "TiTaNXiS", body: "Yeni bildirim", url: "/" };
   try { if (event.data) data = { ...data, ...event.data.json() }; } catch (e) {}
-  event.waitUntil(
-    self.registration.showNotification(data.title, {
+  event.waitUntil((async () => {
+    try {
+      if (data.hid) {
+        await fetch(`/api/push/history/${data.hid}/opened`, { method: "POST", credentials: "omit" }).catch(() => null);
+      }
+    } catch (e) {}
+    await self.registration.showNotification(data.title, {
       body: data.body,
       icon: data.icon || "/favicon.ico",
       badge: data.badge || "/favicon.ico",
-      data: { url: data.url || "/" },
+      data: { url: data.url || "/", hid: data.hid || null },
       tag: data.tag || "titanxis",
       renotify: true,
-    })
-  );
+    });
+  })());
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const target = event.notification.data?.url || "/";
-  event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      for (const c of clients) {
-        if (c.url.includes(self.location.origin) && "focus" in c) {
-          c.navigate(target);
-          return c.focus();
-        }
+  const hid = event.notification.data?.hid;
+  event.waitUntil((async () => {
+    if (hid) {
+      try { await fetch(`/api/push/history/${hid}/clicked`, { method: "POST", credentials: "omit" }); } catch (e) {}
+    }
+    const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of clients) {
+      if (c.url.includes(self.location.origin) && "focus" in c) {
+        c.navigate(target);
+        return c.focus();
       }
-      return self.clients.openWindow(target);
-    })
-  );
+    }
+    return self.clients.openWindow(target);
+  })());
 });

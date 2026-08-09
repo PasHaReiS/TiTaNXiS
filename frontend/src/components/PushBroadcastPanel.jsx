@@ -3,7 +3,7 @@ import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
-import { Send, BellRing, RotateCw, History, Bookmark, Trash2, Plus, Clock, Calendar } from "lucide-react";
+import { Send, BellRing, RotateCw, History, Bookmark, Trash2, Plus, Clock, Calendar, Eye, MousePointerClick } from "lucide-react";
 import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -370,10 +370,20 @@ export default function PushBroadcastPanel() {
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-bold truncate" style={{ color: "#F5F0E8" }}>{h.title}</div>
                   <div className="text-[10px] truncate" style={{ color: "#F5F0E8", opacity: 0.6 }}>{h.body}</div>
-                  <div className="text-[9px] mt-0.5 flex items-center gap-2" style={{ color: "#F5F0E8", opacity: 0.5 }}>
+                  <div className="text-[9px] mt-0.5 flex items-center gap-2 flex-wrap" style={{ color: "#F5F0E8", opacity: 0.5 }}>
                     <span>{new Date(h.created_at).toLocaleString()}</span>
                     <span>·</span>
                     <span>{t("push_bc_sent_short", { sent: h.sent })}</span>
+                    {h.sent >= 0 && (
+                      <>
+                        <span className="inline-flex items-center gap-0.5" style={{ color: "#38BDF8" }} data-testid={`push-history-opened-${h.id}`}>
+                          <Eye className="w-3 h-3" /> {h.opened || 0}{h.sent > 0 ? ` · %${Math.round(((h.opened || 0) / h.sent) * 100)}` : ""}
+                        </span>
+                        <span className="inline-flex items-center gap-0.5" style={{ color: "#22C55E" }} data-testid={`push-history-clicked-${h.id}`}>
+                          <MousePointerClick className="w-3 h-3" /> {h.clicked || 0}{h.sent > 0 ? ` · %${Math.round(((h.clicked || 0) / h.sent) * 100)}` : ""}
+                        </span>
+                      </>
+                    )}
                     <span className="mono opacity-70">{h.url}</span>
                   </div>
                 </div>
