@@ -127,6 +127,39 @@ export default function PushBroadcastPanel() {
         </h3>
       </div>
       <div className="flex flex-col gap-2">
+        {templates.length === 0 && (
+          <div className="flex items-center justify-between gap-2 p-2 rounded-lg" style={{ background: "rgba(168,85,247,0.08)", border: "1px dashed rgba(168,85,247,0.4)" }} data-testid="push-tpl-seed-hint">
+            <span className="text-[11px]" style={{ color: "#E0E7FF" }}>
+              {t("push_tpl_seed_hint")}
+            </span>
+            <button
+              type="button"
+              data-testid="push-tpl-seed-btn"
+              onClick={async () => {
+                const defaults = [
+                  { name: t("push_tpl_default_rally_name"), title: t("push_tpl_default_rally_title"), body: t("push_tpl_default_rally_body"), url: "/etkinlikler" },
+                  { name: t("push_tpl_default_event_name"), title: t("push_tpl_default_event_title"), body: t("push_tpl_default_event_body"), url: "/etkinlikler" },
+                  { name: t("push_tpl_default_maint_name"), title: t("push_tpl_default_maint_title"), body: t("push_tpl_default_maint_body"), url: "/" },
+                ];
+                setBusy(true);
+                try {
+                  for (const d of defaults) {
+                    await api.post("/push/templates", d);
+                  }
+                  toast.success(t("push_tpl_seeded"));
+                  refreshTpl();
+                } catch (e) {
+                  toast.error(e?.response?.data?.detail || e.message);
+                } finally { setBusy(false); }
+              }}
+              disabled={busy}
+              className="px-2.5 py-1 rounded text-[10px] font-bold uppercase flex-shrink-0"
+              style={{ background: "linear-gradient(135deg,#A855F7,#7C3AED)", color: "#fff", letterSpacing: "0.06em" }}
+            >
+              <Plus className="w-3 h-3 inline mr-0.5" /> {t("push_tpl_seed_btn")}
+            </button>
+          </div>
+        )}
         {templates.length > 0 && (
           <div className="flex flex-wrap gap-1.5 items-center" data-testid="push-templates-strip">
             <span className="text-[10px] uppercase tracking-widest opacity-70" style={{ color: "#A855F7" }}>

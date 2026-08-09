@@ -552,6 +552,7 @@ export default function WidgetGrid() {
   const [groupMode, setGroupMode] = useState(false);
   const [selected, setSelected] = useState([]);
   const [draggingGroup, setDraggingGroup] = useState(null);
+  const [chipMenuOpen, setChipMenuOpen] = useState(null);
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 8000 });
   const { data: lb = [] } = useSWR("/leaderboard", fetcher, { refreshInterval: 8000 });
   const { data: events = [] } = useSWR("/events?archived=false", fetcher, { refreshInterval: 30000 });
@@ -1048,8 +1049,8 @@ export default function WidgetGrid() {
             {t("wg_group_nav")}:
           </div>
           {groups.map((g) => (
+            <div key={g.id} className="relative flex items-center gap-0.5" data-testid={`widget-group-chip-wrap-${g.id}`}>
             <button
-              key={g.id}
               type="button"
               onClick={() => scrollToGroup(g.id)}
               draggable
@@ -1104,6 +1105,114 @@ export default function WidgetGrid() {
                 {g.widgets.length}
               </span>
             </button>
+            <button
+              type="button"
+              data-testid={`widget-group-chip-settings-${g.id}`}
+              onClick={(e) => { e.stopPropagation(); setChipMenuOpen((cur) => cur === g.id ? null : g.id); }}
+              aria-label={t("wg_group_chip_settings")}
+              title={t("wg_group_chip_settings")}
+              className="rounded-full p-1 hover:opacity-90 flex-shrink-0"
+              style={{ background: `${g.color}22`, border: `1px solid ${g.color}55`, color: g.color }}
+            >
+              <Settings2 className="w-2.5 h-2.5" />
+            </button>
+            {chipMenuOpen === g.id && (
+              <div
+                data-testid={`widget-group-chip-menu-${g.id}`}
+                className="absolute z-30 rounded-lg p-2 flex flex-col gap-2"
+                style={{
+                  top: "100%",
+                  right: 0,
+                  marginTop: 4,
+                  minWidth: 240,
+                  background: "rgba(15,10,8,0.98)",
+                  border: `1px solid ${g.color}66`,
+                  boxShadow: "0 6px 20px rgba(0,0,0,0.7)",
+                }}
+              >
+                <input
+                  data-testid={`widget-group-chip-menu-name-${g.id}`}
+                  defaultValue={g.name || ""}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { setGroupName(g.id, e.target.value.trim()); setChipMenuOpen(null); }
+                    if (e.key === "Escape") setChipMenuOpen(null);
+                  }}
+                  onBlur={(e) => { if (e.target.value.trim() !== (g.name || "")) setGroupName(g.id, e.target.value.trim()); }}
+                  placeholder={t("wg_group_name_placeholder")}
+                  className="text-[11px] font-bold uppercase bg-transparent outline-none border rounded px-1.5 py-1"
+                  style={{ color: g.color, borderColor: `${g.color}66`, letterSpacing: "0.06em" }}
+                />
+                <div>
+                  <div className="text-[9px] font-bold uppercase mb-1 opacity-70" style={{ color: g.color, letterSpacing: "0.08em" }}>{t("wg_group_pick_color")}</div>
+                  <div className="flex gap-1 flex-wrap">
+                    {GROUP_PALETTE.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => { setGroupColor(g.id, c); toast.success(t("wg_group_color_changed")); }}
+                        data-testid={`widget-group-chip-menu-color-${g.id}-${c.replace("#","")}`}
+                        aria-label={c}
+                        className="rounded-full"
+                        style={{
+                          width: 16, height: 16,
+                          background: c,
+                          border: g.color === c ? "2px solid #F5F0E8" : "1px solid rgba(255,255,255,0.15)",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[9px] font-bold uppercase mb-1 opacity-70" style={{ color: g.color, letterSpacing: "0.08em" }}>{t("wg_group_pick_icon")}</div>
+                  <div className="flex gap-1 flex-wrap">
+                    {GROUP_ICONS.map((ic) => (
+                      <button
+                        key={ic}
+                        type="button"
+                        onClick={() => { setGroupIcon(g.id, ic); toast.success(t("wg_group_icon_changed")); }}
+                        data-testid={`widget-group-chip-menu-icon-${g.id}-${ic}`}
+                        className="rounded text-[13px] leading-none flex items-center justify-center hover:opacity-80"
+                        style={{
+                          width: 20, height: 20,
+                          background: g.icon === ic ? `${g.color}44` : "transparent",
+                          border: g.icon === ic ? `1.5px solid ${g.color}` : "1px solid rgba(255,255,255,0.1)",
+                        }}
+                      >{ic}</button>
+                    ))}
+                    {g.icon && (
+                      <button
+                        type="button"
+                        onClick={() => setGroupIcon(g.id, "")}
+                        data-testid={`widget-group-chip-menu-icon-clear-${g.id}`}
+                        className="rounded text-[10px] px-1.5 font-bold"
+                        style={{ height: 20, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.4)", color: "#EF4444" }}
+                      >×</button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2 pt-1" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                  <button
+                    type="button"
+                    onClick={() => { ungroup(g.id); setChipMenuOpen(null); }}
+                    data-testid={`widget-group-chip-menu-ungroup-${g.id}`}
+                    className="text-[9px] font-bold uppercase px-1.5 py-1 rounded flex items-center gap-1"
+                    style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.4)", color: "#EF4444", letterSpacing: "0.06em" }}
+                  >
+                    <Link2Off className="w-2.5 h-2.5" /> {t("wg_group_ungroup")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChipMenuOpen(null)}
+                    data-testid={`widget-group-chip-menu-close-${g.id}`}
+                    className="text-[9px] font-bold uppercase px-1.5 py-1 rounded"
+                    style={{ background: `${g.color}22`, border: `1px solid ${g.color}55`, color: g.color, letterSpacing: "0.06em" }}
+                  >
+                    {t("close")}
+                  </button>
+                </div>
+              </div>
+            )}
+            </div>
           ))}
         </div>
       )}
