@@ -8,6 +8,8 @@ const VIDEOS = [
   "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/1b570bfd882a442daa4853148e12cdba_1000074062.mp4",
   "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/0c9b57fa0a394c74b9643c1ce0312379_1000044256.mp4",
   "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/d15f1fb1e315490baedf6f57188a1f45_8c7af15c-9c2e-40cf-9dbb-0cc91f601ffe-1_all_15266.mp4",
+  "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/808c5f77848145508cd20dd637df8c55_1000044298.mp4",
+  "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/952276512fed42bfb8b100f3a6a6e73b_1000044299.mp4",
 ];
 
 export default function LogoVideoModal({ onClose }) {
