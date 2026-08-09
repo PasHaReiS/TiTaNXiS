@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import httpx
 import logging
 import io
 import csv
@@ -12,7 +13,7 @@ import random
 import mimetypes
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, field_validator
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union
 import uuid
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
@@ -1717,6 +1718,54 @@ async def delete_point_calc(day_id: str, _: dict = Depends(require_edit)):
     if r.deleted_count == 0:
         raise HTTPException(404, "not found")
     return {"deleted": True}
+
+
+# ---------- DeepL Translation ----------
+DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY", "").strip()
+DEEPL_LANG_MAP = {
+    # i18n code -> DeepL code
+    "en": "EN-GB", "ru": "RU", "de": "DE", "fr": "FR", "es": "ES", "ko": "KO", "ar": "AR",
+    "bg": "BG", "cs": "CS", "da": "DA", "el": "EL", "et": "ET", "fi": "FI", "hu": "HU",
+    "id": "ID", "it": "IT", "ja": "JA", "lt": "LT", "lv": "LV", "nb": "NB", "nl": "NL",
+    "pl": "PL", "pt": "PT-PT", "ro": "RO", "sk": "SK", "sl": "SL", "sv": "SV", "uk": "UK",
+    "zh": "ZH",
+}
+
+
+class TranslateBody(BaseModel):
+    text: Union[str, List[str]]
+    targetLangs: List[str]
+    sourceLang: Optional[str] = "TR"
+
+
+@api_router.post("/translate")
+async def translate(body: TranslateBody):
+    if not DEEPL_API_KEY:
+        raise HTTPException(503, "DEEPL_API_KEY not configured on server")
+    base = "https://api-free.deepl.com/v2" if DEEPL_API_KEY.endswith(":fx") else "https://api.deepl.com/v2"
+    texts = body.text if isinstance(body.text, list) else [body.text]
+    if not texts:
+        return {"translations": {}}
+    src = (body.sourceLang or "TR").upper()
+    results: dict = {}
+    headers = {"Authorization": f"DeepL-Auth-Key {DEEPL_API_KEY}", "Content-Type": "application/json"}
+    async with httpx.AsyncClient(timeout=25) as client:
+        for lang in body.targetLangs:
+            deepl_lang = DEEPL_LANG_MAP.get(lang.lower(), lang.upper())
+            payload = {"text": texts, "target_lang": deepl_lang}
+            if src:
+                payload["source_lang"] = src
+            try:
+                r = await client.post(f"{base}/translate", headers=headers, json=payload)
+                r.raise_for_status()
+                data = r.json()
+                translated = [t.get("text", "") for t in data.get("translations", [])]
+                results[lang] = translated if isinstance(body.text, list) else (translated[0] if translated else "")
+            except httpx.HTTPStatusError as e:
+                results[lang] = {"error": f"DeepL {e.response.status_code}: {e.response.text[:200]}"}
+            except Exception as e:
+                results[lang] = {"error": str(e)[:200]}
+    return {"translations": results}
 
 
 app.include_router(api_router)

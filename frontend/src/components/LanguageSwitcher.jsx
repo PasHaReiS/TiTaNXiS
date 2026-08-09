@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Check, Globe, ChevronDown } from "lucide-react";
 import { LANGUAGES } from "@/i18n";
+import { ensureLanguageTranslated } from "@/lib/deeplTranslate";
 
 export default function LanguageSwitcher() {
   const { i18n, t } = useTranslation();
@@ -24,8 +25,15 @@ export default function LanguageSwitcher() {
   const setLang = (code) => {
     localStorage.setItem("ol_lang", code);
     i18n.changeLanguage(code);
+    ensureLanguageTranslated(code);
     setOpen(false);
   };
+
+  // Hydrate cached translations for the initially selected language on mount.
+  useEffect(() => {
+    ensureLanguageTranslated(i18n.language);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>

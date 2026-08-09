@@ -3393,6 +3393,7 @@ const sk = {};
 const sl = {};
 const sv = {};
 const uk = {};
+const zh = {};
 
 const resources = {
   tr: { translation: tr },
@@ -3424,6 +3425,7 @@ const resources = {
   sl: { translation: sl },
   sv: { translation: sv },
   uk: { translation: uk },
+  zh: { translation: zh },
 };
 
 export const LANGUAGES = [
@@ -3456,6 +3458,7 @@ export const LANGUAGES = [
   { code: "sl", flag: "🇸🇮", label: "SL", name: "Slovenščina" },
   { code: "sv", flag: "🇸🇪", label: "SV", name: "Svenska" },
   { code: "uk", flag: "🇺🇦", label: "UK", name: "Українська" },
+  { code: "zh", flag: "🇨🇳", label: "ZH", name: "中文" },
 ];
 
 i18n
