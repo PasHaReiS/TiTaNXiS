@@ -13,6 +13,17 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Test Ses Denemesi + Alıcı Combobox — DONE**:
+  - **Test Ses Denemesi**: Purple "Ses Dene" button (`push-tpl-detail-sound-preview`, Volume2 icon) in the detail modal footer plays `/audio/epic_battle.mp3` at 60% volume for ~3s. Label flips to "Çalıyor…" during playback. Catches autoplay-block errors and toasts a permission hint. Reuses a single `Audio` instance via ref.
+  - **Alıcı Hızlı Ara**: Replaced the static `<select>` with a searchable combobox. Toggle button (`push-tpl-detail-target-user-toggle`) opens a popup with an autofocused search input; filters members case-insensitively by name; shows top 50 results plus a "+N daha" hint when truncated. Outside-click and Escape close the popup. Each option testid'd `push-tpl-detail-target-user-opt-{id}`.
+  - Bug-fix during ship: `memberList` `useSWR` had been placed after its consumer `filteredMembers` — hoisted it above and removed the duplicate declaration.
+  - E2E verified: combobox opened, `"adm"` filtered to 1 match, selecting `admin` set the toggle label + closed the popup; sound button label became "Çalıyor…" with tab audio indicator visible.
+
+- **[2026-02] Ses Denemesi + Alıcı Combobox — DONE**:
+  - **Test Ses Denemesi**: Purple "Ses Dene" button (`push-tpl-detail-sound-preview`, `Volume2` icon) in the detail modal footer. Plays `/audio/epic_battle.mp3` at 60% volume for ~3s; label flips to "Çalıyor…" during playback. Catches autoplay-block errors and toasts a permission hint. Reuses a single `Audio` instance via ref.
+  - **Alıcı Hızlı Ara**: Replaced the static `<select>` (166 members) with a searchable combobox — toggle button (`push-tpl-detail-target-user-toggle`) opens a popup (`push-tpl-detail-target-user-popup`) with an autofocused search input, filters members case-insensitively by name, shows top 50 results + "+N daha" hint when the list is truncated. Outside-click and Escape close it. Options are testid'd `push-tpl-detail-target-user-opt-{id}`.
+  - E2E verified: combobox opens, `"adm"` filters to matching members, selecting one updates the toggle label and closes the popup; sound button label flips to "Çalıyor…" during ~3s playback (or toasts autoplay-blocked if the browser prevents it).
+
 - **[2026-02] Detaydan Test Gönder + Alıcı Seçici — DONE**:
   - **Backend**: New `POST /api/push/broadcast/test` endpoint (`PushTestBody`: `title, body, url, target, user_id?`). Target filter: `me` → caller's subscriptions only; `admins` → all users with `role=admin`; `user` → single `user_id`. Reuses VAPID keys + webpush; auto-deletes 404/410 subs. Returns `{sent, removed, target, matched_users}`. Admin-only via `require_admin`.
   - **Frontend Detail Modal**: Added a segmented control (`push-tpl-detail-target-me/admins/user`), a member `<select>` (`push-tpl-detail-target-user-select`) fed by `/api/members`, and a **Test Gönder** button (`push-tpl-detail-test-send`) next to Install. Send calls `/push/broadcast/test` with the currently-edited title/body/url and selected target. Toast confirms `{sent}` count. Install button unchanged. New i18n keys `push_test_*` in TR + EN.

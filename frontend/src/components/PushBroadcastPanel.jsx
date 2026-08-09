@@ -3,7 +3,7 @@ import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
-import { Send, BellRing, RotateCw, History, Bookmark, Trash2, Plus, Clock, Calendar, Eye, MousePointerClick } from "lucide-react";
+import { Send, BellRing, RotateCw, History, Bookmark, Trash2, Plus, Clock, Calendar, Eye, MousePointerClick, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -54,7 +54,47 @@ export default function PushBroadcastPanel() {
   const [testTarget, setTestTarget] = useState("me");
   const [testUserId, setTestUserId] = useState("");
   const [testBusy, setTestBusy] = useState(false);
+  const [testUserSearch, setTestUserSearch] = useState("");
+  const [testUserOpen, setTestUserOpen] = useState(false);
+  const testUserRef = React.useRef(null);
+  const testAudioRef = React.useRef(null);
+  const [audioBusy, setAudioBusy] = useState(false);
   const { data: memberList = [] } = useSWR(isAdmin ? "/members" : null, fetcher);
+  useEffect(() => {
+    if (!testUserOpen) return;
+    const onDoc = (e) => { if (testUserRef.current && !testUserRef.current.contains(e.target)) setTestUserOpen(false); };
+    const onKey = (e) => { if (e.key === "Escape") setTestUserOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [testUserOpen]);
+  const filteredMembers = (() => {
+    const q = (testUserSearch || "").trim().toLowerCase();
+    const list = memberList || [];
+    if (!q) return list.slice(0, 50);
+    return list.filter((m) => (m.name || "").toLowerCase().includes(q)).slice(0, 50);
+  })();
+  const selectedMemberName = (memberList || []).find((m) => m.id === testUserId)?.name || "";
+  const previewSound = () => {
+    if (audioBusy) return;
+    setAudioBusy(true);
+    try {
+      if (!testAudioRef.current) {
+        testAudioRef.current = new Audio("/audio/epic_battle.mp3");
+        testAudioRef.current.volume = 0.6;
+      }
+      testAudioRef.current.currentTime = 0;
+      const p = testAudioRef.current.play();
+      if (p && p.catch) p.catch(() => toast.error(t("push_test_sound_blocked")));
+      setTimeout(() => {
+        try { testAudioRef.current.pause(); } catch {}
+        setAudioBusy(false);
+      }, 3000);
+    } catch (e) {
+      setAudioBusy(false);
+      toast.error(t("push_test_sound_blocked"));
+    }
+  };
   const openDetail = (c) => {
     setDetailTpl(c);
     setDetailTitle(c.title);
@@ -898,19 +938,90 @@ export default function PushBroadcastPanel() {
                   ))}
                 </div>
                 {testTarget === "user" && (
-                  <select
-                    value={testUserId}
-                    onChange={(e) => setTestUserId(e.target.value)}
-                    data-testid="push-tpl-detail-target-user-select"
-                    className="text-[11px] rounded px-2 py-1"
-                    style={{ background: "rgba(20,12,10,0.6)", border: "1px solid rgba(56,189,248,0.35)", color: "#F5F0E8" }}
-                  >
-                    <option value="">{t("push_test_pick_user")}</option>
-                    {(memberList || []).map((m) => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
-                    ))}
-                  </select>
+                  <div className="relative" ref={testUserRef} data-testid="push-tpl-detail-target-user-combo">
+                    <button
+                      type="button"
+                      onClick={() => setTestUserOpen((v) => !v)}
+                      data-testid="push-tpl-detail-target-user-toggle"
+                      aria-expanded={testUserOpen}
+                      className="text-[11px] rounded px-2 py-1 min-w-[160px] text-left truncate"
+                      style={{ background: "rgba(20,12,10,0.6)", border: "1px solid rgba(56,189,248,0.35)", color: selectedMemberName ? "#F5F0E8" : "#8B7355" }}
+                    >
+                      {selectedMemberName || t("push_test_pick_user")}
+                    </button>
+                    {testUserOpen && (
+                      <div
+                        data-testid="push-tpl-detail-target-user-popup"
+                        className="absolute z-30 mt-1 rounded-lg overflow-hidden"
+                        style={{
+                          minWidth: 240,
+                          right: 0,
+                          bottom: "100%",
+                          marginBottom: 4,
+                          background: "rgba(15,10,8,0.98)",
+                          border: "1px solid rgba(56,189,248,0.4)",
+                          boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+                        }}
+                      >
+                        <input
+                          autoFocus
+                          type="text"
+                          value={testUserSearch}
+                          onChange={(e) => setTestUserSearch(e.target.value)}
+                          data-testid="push-tpl-detail-target-user-search"
+                          placeholder={t("push_test_user_search_placeholder")}
+                          className="w-full px-2 py-1.5 text-[11px] outline-none"
+                          style={{ background: "rgba(20,12,10,0.9)", border: 0, borderBottom: "1px solid rgba(56,189,248,0.25)", color: "#F5F0E8" }}
+                        />
+                        <div className="max-h-[220px] overflow-y-auto">
+                          {filteredMembers.length === 0 && (
+                            <div className="px-2 py-2 text-[10px]" style={{ color: "#F5F0E8", opacity: 0.6 }}>
+                              {t("push_test_user_no_match")}
+                            </div>
+                          )}
+                          {filteredMembers.map((m) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => { setTestUserId(m.id); setTestUserSearch(""); setTestUserOpen(false); }}
+                              data-testid={`push-tpl-detail-target-user-opt-${m.id}`}
+                              className="w-full text-left text-[11px] px-2 py-1.5 hover:opacity-90"
+                              style={{
+                                background: testUserId === m.id ? "rgba(56,189,248,0.2)" : "transparent",
+                                color: testUserId === m.id ? "#38BDF8" : "#F5F0E8",
+                                fontWeight: testUserId === m.id ? 700 : 400,
+                              }}
+                            >
+                              {m.name}
+                            </button>
+                          ))}
+                          {(memberList || []).length > filteredMembers.length && !testUserSearch && (
+                            <div className="px-2 py-1.5 text-[9px]" style={{ color: "#F5F0E8", opacity: 0.4 }}>
+                              {t("push_test_user_more_hint", { n: (memberList || []).length - filteredMembers.length })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
+                <button
+                  type="button"
+                  onClick={previewSound}
+                  disabled={audioBusy}
+                  data-testid="push-tpl-detail-sound-preview"
+                  className="px-2.5 py-2 rounded-lg text-[11px] font-bold flex items-center gap-1"
+                  style={{
+                    background: audioBusy ? "rgba(168,85,247,0.35)" : "rgba(168,85,247,0.15)",
+                    border: `1px solid ${audioBusy ? "#A855F7" : "rgba(168,85,247,0.5)"}`,
+                    color: "#A855F7",
+                    letterSpacing: "0.06em",
+                  }}
+                  title={t("push_test_sound_title")}
+                >
+                  <Volume2 className="w-3 h-3" />
+                  {audioBusy ? t("push_test_sound_playing") : t("push_test_sound_btn")}
+                </button>
                 <button
                   type="button"
                   onClick={sendTest}
