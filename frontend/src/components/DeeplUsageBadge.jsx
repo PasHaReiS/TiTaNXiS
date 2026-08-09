@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Languages, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useTranslation } from "react-i18next";
 import { clearTranslationCache } from "@/lib/deeplTranslate";
 import { toast } from "sonner";
 
-// Small badge that fetches DeepL usage and shows remaining characters.
-// Only rendered for admins; silent if key not configured.
+// Admin-only icon button to bust the DeepL translation cache.
+// Also polls DeepL usage in the background to fire a one-shot quota alarm.
 export default function DeeplUsageBadge() {
   const { isAdmin } = useAuth();
   const { i18n: i18nRef } = useTranslation();
@@ -46,10 +46,10 @@ export default function DeeplUsageBadge() {
   if (!isAdmin || !usage || !usage.configured) return null;
   if (usage.error) return null;
 
-  const remaining = Math.max(0, limit - used);
   const critical = pct >= 90;
   const warn = pct >= 70;
-  const fmt = (n) => n >= 1000 ? `${(n / 1000).toFixed(0)}k` : `${n}`;
+  const color = critical ? "#f87171" : warn ? "#F5A623" : "#C4B5FD";
+  const borderColor = critical ? "#f87171" : warn ? "#F5A623" : "rgba(139,92,246,0.5)";
 
   const clearCache = (e) => {
     e.stopPropagation();
@@ -63,29 +63,20 @@ export default function DeeplUsageBadge() {
   };
 
   return (
-    <div
-      data-testid="deepl-usage-badge"
-      title={`DeepL ${usage.plan?.toUpperCase() || ""} • ${used.toLocaleString()} / ${limit.toLocaleString()} karakter`}
-      className="flex items-center gap-1 h-8 px-2 rounded-full border flex-shrink-0"
+    <button
+      type="button"
+      onClick={clearCache}
+      data-testid="deepl-clear-cache"
+      title="Cache Temizle"
+      aria-label="Cache Temizle"
+      className="flex items-center justify-center h-8 w-8 rounded-full border flex-shrink-0 transition-opacity hover:opacity-80"
       style={{
         background: "rgba(26,26,26,0.9)",
-        borderColor: critical ? "#f87171" : warn ? "#F5A623" : "rgba(139,92,246,0.5)",
-        color: critical ? "#f87171" : warn ? "#F5A623" : "#C4B5FD",
+        borderColor,
+        color,
       }}
     >
-      <Languages className="w-3.5 h-3.5" />
-      <span className="text-[10px] font-bold tracking-wider">
-        {fmt(remaining)}<span className="opacity-60">/{fmt(limit)}</span>
-      </span>
-      <button
-        onClick={clearCache}
-        data-testid="deepl-clear-cache"
-        title="Çeviri cache'ini temizle (Yeniden Çevir)"
-        className="ml-1 p-0.5 rounded hover:bg-white/10"
-        style={{ color: "inherit", opacity: 0.75 }}
-      >
-        <RotateCcw className="w-3 h-3" />
-      </button>
-    </div>
+      <RotateCcw className="w-3.5 h-3.5" />
+    </button>
   );
 }
