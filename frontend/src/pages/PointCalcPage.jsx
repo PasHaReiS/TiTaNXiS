@@ -3,7 +3,7 @@ import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Trash2, Pencil, Check, X, Settings, ChevronRight, Globe, Download, Sparkles } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, Settings, ChevronRight, Globe, Download, Sparkles, Share2, History as HistoryIcon, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import { translateUserText } from "@/lib/deeplTranslate";
@@ -329,6 +329,26 @@ function SidebarContent({ kind, selectedId, setSelectedId }) {
                         </button>
                         <button
                           type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              const res = await api.get(`/point-calc/${d.id}/share`);
+                              const url = `${window.location.origin}/public/puan-hesaplama/${res.data.id}?sig=${res.data.sig}`;
+                              await navigator.clipboard.writeText(url);
+                              toast.success(t("pc_share_copied"));
+                            } catch (e2) {
+                              toast.error(t("pc_share_error"));
+                            }
+                          }}
+                          data-testid={`pc-sidebar-share-${d.id}`}
+                          className="p-0.5 rounded opacity-70 hover:opacity-100"
+                          style={{ color: active ? "#FFFFFF" : "#60A5FA" }}
+                          title={t("pc_share_link")}
+                        >
+                          <Share2 className="w-2.5 h-2.5" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={(e) => { e.stopPropagation(); deleteDay(d.id, d.name); }}
                           data-testid={`pc-sidebar-delete-${d.id}`}
                           className="p-0.5 rounded opacity-70 hover:opacity-100"
@@ -391,6 +411,7 @@ function DayCard({ day, onChanged }) {
   const { canEdit } = useAuth();
   const tables = normalizeTables(day);
   const translations = day.translations || {};
+  const [showHistory, setShowHistory] = useState(false);
 
   const patchTables = async (nextTables, extra = {}) => {
     try {
@@ -432,7 +453,7 @@ function DayCard({ day, onChanged }) {
         padding: "16px",
       }}
     >
-      <div className="mb-3 pb-2 border-b" style={{ borderColor: "rgba(231,76,26,0.25)" }}>
+      <div className="mb-3 pb-2 border-b flex items-center justify-between gap-2" style={{ borderColor: "rgba(231,76,26,0.25)" }}>
         <h3
           className="text-lg font-bold"
           style={{ color: "#F5A623", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}
@@ -440,6 +461,22 @@ function DayCard({ day, onChanged }) {
         >
           <TranslatedText source={day.name} translations={translations} />
         </h3>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => setShowHistory(true)}
+            data-testid={`pc-day-history-btn-${day.id}`}
+            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold"
+            style={{
+              background: "linear-gradient(135deg,#7C3AED,#3B82F6)",
+              color: "#fff",
+              letterSpacing: "0.04em",
+            }}
+            title={t("pc_history")}
+          >
+            <HistoryIcon className="w-3 h-3" /> {t("pc_history")}
+          </button>
+        )}
       </div>
 
       <div className="flex flex-col gap-4" data-testid={`pc-tables-${day.id}`}>
@@ -482,6 +519,140 @@ function DayCard({ day, onChanged }) {
           <Plus className="w-3.5 h-3.5" /> {t("pc_add_table")}
         </button>
       )}
+
+      {showHistory && (
+        <HistoryModal
+          dayId={day.id}
+          onClose={() => setShowHistory(false)}
+          onReverted={() => { setShowHistory(false); onChanged(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function HistoryModal({ dayId, onClose, onReverted }) {
+  const { t } = useTranslation();
+  const [versions, setVersions] = useState(null);
+  const [reverting, setReverting] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get(`/point-calc/${dayId}/history`);
+        if (!cancelled) setVersions(res.data || []);
+      } catch (e) {
+        if (!cancelled) {
+          setVersions([]);
+          toast.error(e?.response?.data?.detail || e.message);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [dayId]);
+
+  const revert = async (versionId) => {
+    if (!window.confirm(t("pc_history_confirm_revert"))) return;
+    setReverting(versionId);
+    try {
+      await api.post(`/point-calc/${dayId}/revert/${versionId}`);
+      toast.success(t("pc_history_reverted"));
+      onReverted();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally {
+      setReverting(null);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex: 99999, background: "rgba(0,0,0,0.7)" }}
+      onClick={onClose}
+      data-testid="pc-history-modal"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg p-5 rounded-xl relative"
+        style={{
+          background: "#1E1410",
+          border: "1px solid #A855F7",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.9)",
+          maxHeight: "80vh",
+          overflowY: "auto",
+        }}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 text-muted-foreground hover:text-white"
+          data-testid="pc-history-modal-close"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        <h3 className="text-lg font-bold mb-4 uppercase flex items-center gap-2"
+          style={{ color: "#E0E7FF", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}>
+          <HistoryIcon className="w-4 h-4" style={{ color: "#A855F7" }} />
+          {t("pc_history_title")}
+        </h3>
+
+        {versions === null && (
+          <div className="text-center py-4 text-sm" style={{ color: "#F5F0E8", opacity: 0.6 }} data-testid="pc-history-loading">
+            {t("loading")}
+          </div>
+        )}
+
+        {versions && versions.length === 0 && (
+          <div className="rounded p-4 text-center text-[12px]"
+            style={{ background: "#1A1210", border: "1px dashed rgba(255,255,255,0.1)", color: "#F5F0E8", opacity: 0.6 }}
+            data-testid="pc-history-empty">
+            {t("pc_history_empty")}
+          </div>
+        )}
+
+        {versions && versions.length > 0 && (
+          <div className="flex flex-col gap-2" data-testid="pc-history-list">
+            {versions.map((v) => (
+              <div
+                key={v.version_id}
+                data-testid={`pc-history-item-${v.version_id}`}
+                className="rounded-lg p-3 flex items-center justify-between gap-2"
+                style={{
+                  background: "rgba(20,12,10,0.7)",
+                  border: "1px solid rgba(168,85,247,0.3)",
+                }}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold" style={{ color: "#E0E7FF" }}>
+                    {v.saved_at ? new Date(v.saved_at).toLocaleString() : v.version_id.slice(0, 8)}
+                  </div>
+                  {v.changed_fields && v.changed_fields.length > 0 && (
+                    <div className="text-[10px] mt-1" style={{ color: "#F5F0E8", opacity: 0.7 }}>
+                      {t("pc_history_changed_fields")}: {v.changed_fields.join(", ")}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => revert(v.version_id)}
+                  disabled={reverting === v.version_id}
+                  data-testid={`pc-history-revert-${v.version_id}`}
+                  className="px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 flex-shrink-0"
+                  style={{
+                    background: "linear-gradient(135deg,#C0392B,#E74C1A)",
+                    color: "#fff",
+                    opacity: reverting === v.version_id ? 0.6 : 1,
+                  }}
+                >
+                  <RotateCcw className="w-3 h-3" /> {t("pc_history_revert")}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

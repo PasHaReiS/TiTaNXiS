@@ -15,6 +15,7 @@ import PointsList from "@/pages/PointsList";
 import AddPoints from "@/pages/AddPoints";
 import PointsAbout from "@/pages/PointsAbout";
 import PointCalcPage from "@/pages/PointCalcPage";
+import PublicPointCalcPage from "@/pages/PublicPointCalcPage";
 import Members from "@/pages/Members";
 import Events from "@/pages/Events";
 import Login from "@/pages/Login";
@@ -104,9 +105,11 @@ export default function App() {
     <AuthProvider>
       <ThemeProvider>
         <BrowserRouter>
-          <AppShell />
-          <Toaster theme="dark" position="top-center" richColors closeButton />
-        </BrowserRouter>
+          <Routes>
+            <Route path="/public/puan-hesaplama/:id" element={<PublicPointCalcPage />} />
+            <Route path="*" element={<AppShell />} />
+          </Routes>
+          <Toaster theme="dark" position="top-center" richColors closeButton /></BrowserRouter>
       </ThemeProvider>
     </AuthProvider>
   );

@@ -139,6 +139,8 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 See `/app/memory/test_credentials.md`
 
 ## Notes for Next Agent
+- **[2026-02] Public Read-Only Share Link (P0 done)**: Admin/editor tıklar `pc-sidebar-share-{dayId}` → `GET /api/point-calc/{id}/share` HMAC-SHA256 (secret=JWT_SECRET, 32 char hex) `sig` üretir → link `${origin}/public/puan-hesaplama/{id}?sig={sig}` clipboard'a kopyalanır. Yeni `PublicPointCalcPage.jsx` route `/public/puan-hesaplama/:id` (Layout dışında, RequireAuth yok) `GET /api/public/point-calc/{id}?sig=...` fetch eder — geçersiz sig → 403 + `pub-pc-error` toast/kart, geçerli → salt-okunur DayCard renderı (TranslatedText ile aktif i18n dilini gözetir) + LanguageSwitcher + "SALT OKUNUR PAYLAŞIM" badge + TiTaNXiS başlık. curl E2E ile doğrulandı: valid=200, invalid=403.
+- **[2026-02] Content Editor History (P0 done)**: Backend `update_point_calc` her PATCH öncesi mevcut doc'u `point_calc_history` koleksiyonuna `{version_id, day_id, saved_at, changed_fields, snapshot}` olarak yazar. `GET /api/point-calc/{id}/history` son 20 sürümü döner (auth). `POST /api/point-calc/{id}/revert/{version_id}` seçilen snapshot'a döner, önce mevcut durumu ayrıca snapshot alır (undo-of-undo). Frontend `pc-day-history-btn-{dayId}` (admin/editor) `HistoryModal`'ı açar → sürüm listesi tarih + değişen alanlar + `Bu Sürüme Dön` butonu (RotateCcw) → confirm → `POST revert` → SWR mutate. i18n TR/EN eklendi.
 - Do NOT create random files under `/app/backend/` that trigger uvicorn watchfiles reload cascade (502 crash).
 - Router prefixes: `auth_router` mounted so `/api/auth/login` resolves.
 - REACT_APP_BACKEND_URL is the only correct external URL — never hardcode.
