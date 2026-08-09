@@ -28,6 +28,7 @@ const TEMPLATE_CATEGORIES = [
 ];
 
 const SOUND_PREF_KEY = "titanxis_push_test_sound_v1";
+const SOUND_COLORS = { rally: "#E74C1A", victory: "#22C55E", dungeon: "#A855F7", alarm: "#F5A623" };
 export default function PushBroadcastPanel() {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
@@ -260,6 +261,7 @@ export default function PushBroadcastPanel() {
     setTitle(tpl.title || "");
     setBody(tpl.body || "");
     setUrl(tpl.url || "/");
+    if (tpl.sound && SOUND_COLORS[tpl.sound]) setTestSoundKey(tpl.sound);
     toast.success(t("push_tpl_applied", { name: tpl.name }));
   };
 
@@ -338,15 +340,25 @@ export default function PushBroadcastPanel() {
             <span className="text-[10px] uppercase tracking-widest opacity-70" style={{ color: "#A855F7" }}>
               <Bookmark className="w-3 h-3 inline" /> {t("push_tpl_favorites")}:
             </span>
-            {templates.map((tpl) => (
+            {templates.map((tpl) => {
+              const soundKey = (tpl.sound && SOUND_COLORS[tpl.sound]) ? tpl.sound : "rally";
+              const soundColor = SOUND_COLORS[soundKey];
+              return (
               <div key={tpl.id} className="flex items-center gap-0.5" data-testid={`push-tpl-${tpl.id}`}>
                 <button
                   type="button"
                   onClick={() => applyTemplate(tpl)}
                   data-testid={`push-tpl-apply-${tpl.id}`}
-                  className="px-2 py-1 rounded-full text-[10px] font-bold uppercase"
+                  className="px-2 py-1 rounded-full text-[10px] font-bold uppercase flex items-center gap-1"
                   style={{ background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#E0E7FF", letterSpacing: "0.06em" }}
                 >
+                  <span
+                    data-testid={`push-tpl-sound-dot-${tpl.id}`}
+                    aria-label={t(`push_test_sound_${soundKey}`)}
+                    title={t(`push_test_sound_${soundKey}`)}
+                    className="rounded-full flex-shrink-0"
+                    style={{ width: 7, height: 7, background: soundColor, boxShadow: `0 0 4px ${soundColor}` }}
+                  />
                   {tpl.name}
                 </button>
                 <button
@@ -370,7 +382,7 @@ export default function PushBroadcastPanel() {
                   <Trash2 className="w-2.5 h-2.5" />
                 </button>
               </div>
-            ))}
+            );})}
           </div>
         )}
         <input

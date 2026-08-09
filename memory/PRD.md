@@ -13,6 +13,11 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Kart Ses Rozeti + Şablondan Otomatik Ses Preview — DONE**:
+  - **Kart Ses Rozeti**: Each saved template card in the `push-templates-strip` now renders a 7×7 colored glow dot to the left of its name — **rally** = `#E74C1A` (orange), **victory** = `#22C55E` (green), **dungeon** = `#A855F7` (purple), **alarm** = `#F5A623` (amber). Missing/unknown sound falls back to `rally`. Testid `push-tpl-sound-dot-{id}`; hover title translates to the sound label. `SOUND_COLORS` constant centralizes the mapping.
+  - **Şablondan Otomatik Ses Preview**: `applyTemplate(tpl)` now also calls `setTestSoundKey(tpl.sound)` when the incoming template carries a valid saved sound. Because the picker is a controlled `<select>` bound to `testSoundKey`, opening the detail modal (or firing "Ses Dene") immediately reflects the template's saved cue. Combined with `titanxis_push_test_sound_v1` persistence, admins always land on the right sound.
+  - E2E verified: templates with `sound: victory` render green dots, `sound: rally` render orange; clicking Apply on a Victory template updates `localStorage.titanxis_push_test_sound_v1` from `rally` → `victory`, so any subsequent detail modal open pre-selects Victory in the picker.
+
 - **[2026-02] Şablon Ses Kaydı + Ses Tercih Kaydı — DONE**:
   - **Backend**: Extended `PushTemplateBody` with `sound: Optional[str] = "rally"`. `POST /api/push/templates` validates against the whitelist `{rally, victory, dungeon, alarm}` (falls back to `rally` on invalid values) and persists `sound` on each doc. `GET /api/push/templates` returns it alongside the existing fields.
   - **Frontend**: `installOne` (single-template Detay install) and the bulk seeder both pass `sound: testSoundKey` when posting. Each installed template now remembers which alert cue it was configured with.
