@@ -13,6 +13,13 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Scheduled Broadcast Enhancements — DONE**:
+  - **Backend past-date guard**: `POST /api/push/scheduled` now returns HTTP 400 `"scheduled_at is in the past"` when the requested time is more than 60 seconds behind server clock. Confirmed via curl (`2020-01-01T00:00:00Z` → 400, `+2h` → 200).
+  - **Frontend past-date guard**: Both the main broadcast form (`send()`) and template-schedule modal (`scheduleFromTemplate()`) now toast `push_sched_past_error` and abort before hitting the API when the picked local time is >60s in the past.
+  - **Quick Preset Chips**: New `push-sched-quick-row` renders four dashed pill buttons — `+1sa`, `+6sa`, `Yarın 09:00`, `Cumartesi 20:00` — each fills the `datetime-local` input with a proper local-TZ formatted value via `toLocalInputValue()`. Tooltips show the resolved absolute time.
+  - **Relative Countdown Badge**: Each scheduled card now renders a purple `push-sched-relative-{id}` chip next to the absolute timestamp, updated every 30s via a `nowTick` interval. Shows `Yg`/`sa`/`dk` for the largest two units, or `Şimdi ateşleniyor` when the item is within 60s of firing.
+  - **i18n**: Added 12 keys (TR + EN) — `push_sched_quick`, `push_sched_in_1h`, `push_sched_in_6h`, `push_sched_tomorrow_9`, `push_sched_saturday_20`, `push_sched_past_error`, `push_sched_fires_in`, `push_sched_fires_now`, `push_sched_time_d/h/m`.
+
 - **[2026-02] Toplu Ses Ataması + Filtre Sayaç Rozeti — DONE**:
   - **Bug-fix**: The earlier chip-filter block referenced `templates` before its `useSWR` declaration. Moved `tplSoundFilter/chipCtx/changeTplSound/visibleTemplates` to below the `templates`/`refreshTpl` line, eliminating the "Cannot access 'templates' before initialization" runtime crash.
   - **Filtre Sayaç Rozeti**: Each filter chip in `push-tpl-filter-strip` now shows a live count next to its color dot (`push-tpl-filter-count-{k}`). Empty filters render at 40% opacity so admins avoid dead clicks. Title tooltip includes the count.

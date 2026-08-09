@@ -29,6 +29,24 @@ const TEMPLATE_CATEGORIES = [
 
 const SOUND_PREF_KEY = "titanxis_push_test_sound_v1";
 const SOUND_COLORS = { rally: "#E74C1A", victory: "#22C55E", dungeon: "#A855F7", alarm: "#F5A623" };
+
+// Local datetime-local string (yyyy-MM-ddTHH:mm) for a given Date, respecting local TZ.
+const toLocalInputValue = (d) => {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+// Quick-preset resolvers → return a local Date object.
+const presetIn1h = () => { const d = new Date(); d.setHours(d.getHours() + 1); d.setSeconds(0, 0); return d; };
+const presetIn6h = () => { const d = new Date(); d.setHours(d.getHours() + 6); d.setSeconds(0, 0); return d; };
+const presetTomorrow9 = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); return d; };
+const presetNextSaturday20 = () => {
+  const d = new Date();
+  const day = d.getDay(); // 0=Sun ... 6=Sat
+  const add = (6 - day + 7) % 7 || 7; // next Saturday, at least +1 day
+  d.setDate(d.getDate() + add);
+  d.setHours(20, 0, 0, 0);
+  return d;
+};
 export default function PushBroadcastPanel() {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
@@ -58,6 +76,11 @@ export default function PushBroadcastPanel() {
   const [testBusy, setTestBusy] = useState(false);
   const [testUserSearch, setTestUserSearch] = useState("");
   const [testUserOpen, setTestUserOpen] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
   const [testUserActive, setTestUserActive] = useState(0);
   const [testSoundKey, setTestSoundKey] = useState(() => {
     try { const v = localStorage.getItem(SOUND_PREF_KEY); if (v && ["rally","victory","dungeon","alarm"].includes(v)) return v; } catch {}
@@ -255,8 +278,10 @@ export default function PushBroadcastPanel() {
   const send = async () => {
     if (!title.trim() || !body.trim()) { toast.error(t("push_bc_required")); return; }
     if (scheduleAt) {
+      const when = new Date(scheduleAt);
+      if (when.getTime() < Date.now() - 60_000) { toast.error(t("push_sched_past_error")); return; }
       try {
-        const iso = new Date(scheduleAt).toISOString();
+        const iso = when.toISOString();
         await api.post("/push/scheduled", { title: title.trim(), body: body.trim(), url: url.trim() || "/", scheduled_at: iso, repeat: scheduleRepeat || null });
         toast.success(t("push_sched_created", { at: new Date(scheduleAt).toLocaleString() }));
         setTitle(""); setBody(""); setScheduleAt(""); setScheduleRepeat("");
@@ -288,8 +313,10 @@ export default function PushBroadcastPanel() {
 
   const scheduleFromTemplate = async () => {
     if (!tplModal || !tplModalAt) return;
+    const when = new Date(tplModalAt);
+    if (when.getTime() < Date.now() - 60_000) { toast.error(t("push_sched_past_error")); return; }
     try {
-      const iso = new Date(tplModalAt).toISOString();
+      const iso = when.toISOString();
       await api.post("/push/scheduled", {
         title: tplModal.title,
         body: tplModal.body,
@@ -563,6 +590,32 @@ export default function PushBroadcastPanel() {
             </button>
           )}
         </div>
+        <div className="flex items-center gap-1.5 flex-wrap" data-testid="push-sched-quick-row">
+          <label className="text-[10px] uppercase tracking-widest" style={{ color: "#A855F7" }}>{t("push_sched_quick")}:</label>
+          {[
+            { key: "in_1h", label: t("push_sched_in_1h"), get: presetIn1h },
+            { key: "in_6h", label: t("push_sched_in_6h"), get: presetIn6h },
+            { key: "tomorrow_9", label: t("push_sched_tomorrow_9"), get: presetTomorrow9 },
+            { key: "sat_20", label: t("push_sched_saturday_20"), get: presetNextSaturday20 },
+          ].map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              onClick={() => setScheduleAt(toLocalInputValue(p.get()))}
+              data-testid={`push-sched-quick-${p.key}`}
+              className="px-2 py-1 rounded-full text-[10px] font-bold uppercase"
+              style={{
+                background: "rgba(20,12,10,0.6)",
+                color: "#A855F7",
+                border: "1px dashed rgba(168,85,247,0.5)",
+                letterSpacing: "0.06em",
+              }}
+              title={p.get().toLocaleString()}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
         {scheduleAt && (
           <div className="flex items-center gap-1.5" data-testid="push-sched-repeat-row">
             <label className="text-[10px] uppercase tracking-widest" style={{ color: "#A855F7" }}>{t("push_sched_repeat")}:</label>
@@ -675,9 +728,28 @@ export default function PushBroadcastPanel() {
                     )}
                   </div>
                   <div className="text-[10px] truncate" style={{ color: "#F5F0E8", opacity: 0.6 }}>{s.body}</div>
-                  <div className="text-[10px] mt-0.5 flex items-center gap-2" style={{ color: "#EC4899" }}>
+                  <div className="text-[10px] mt-0.5 flex items-center gap-2 flex-wrap" style={{ color: "#EC4899" }}>
                     <Clock className="w-3 h-3" />
                     <span>{new Date(s.scheduled_at).toLocaleString()}</span>
+                    <span
+                      data-testid={`push-sched-relative-${s.id}`}
+                      className="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase"
+                      style={{ background: "rgba(168,85,247,0.15)", color: "#A855F7", border: "1px solid rgba(168,85,247,0.35)", letterSpacing: "0.06em" }}
+                    >
+                      {(() => {
+                        const diffMs = new Date(s.scheduled_at).getTime() - nowTick;
+                        if (diffMs <= 60_000) return t("push_sched_fires_now");
+                        const totalMin = Math.floor(diffMs / 60_000);
+                        const d = Math.floor(totalMin / 1440);
+                        const h = Math.floor((totalMin % 1440) / 60);
+                        const m = totalMin % 60;
+                        const parts = [];
+                        if (d > 0) parts.push(t("push_sched_time_d", { d }));
+                        if (h > 0) parts.push(t("push_sched_time_h", { h }));
+                        if (d === 0 && m > 0) parts.push(t("push_sched_time_m", { m }));
+                        return t("push_sched_fires_in", { in: parts.join(" ") || t("push_sched_time_m", { m: 1 }) });
+                      })()}
+                    </span>
                   </div>
                 </div>
                 <button

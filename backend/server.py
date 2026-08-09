@@ -2377,11 +2377,15 @@ async def push_scheduled_list(_: dict = Depends(require_admin)):
 
 @api_router.post("/push/scheduled")
 async def push_scheduled_create(body: PushScheduledBody, _: dict = Depends(require_admin)):
-    from datetime import datetime as _dt
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
     try:
-        _dt.fromisoformat(body.scheduled_at.replace("Z", "+00:00"))
+        when = _dt.fromisoformat(body.scheduled_at.replace("Z", "+00:00"))
     except Exception:
         raise HTTPException(400, "invalid scheduled_at (must be ISO8601)")
+    # Guard: no scheduling in the past (allow a 60s grace window for clock drift).
+    now = _dt.now(_tz.utc)
+    if when < now - _td(seconds=60):
+        raise HTTPException(400, "scheduled_at is in the past")
     doc = {
         "id": str(uuid.uuid4()),
         "title": body.title.strip(),
