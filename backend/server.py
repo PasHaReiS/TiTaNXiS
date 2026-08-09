@@ -2311,6 +2311,7 @@ class PushTemplateBody(BaseModel):
     title: str
     body: str
     url: Optional[str] = "/"
+    sound: Optional[str] = "rally"
 
 
 @api_router.get("/push/templates")
@@ -2321,12 +2322,16 @@ async def push_templates_list(_: dict = Depends(require_admin)):
 
 @api_router.post("/push/templates")
 async def push_template_create(body: PushTemplateBody, _: dict = Depends(require_admin)):
+    sound = (body.sound or "rally").strip().lower()
+    if sound not in {"rally", "victory", "dungeon", "alarm"}:
+        sound = "rally"
     doc = {
         "id": str(uuid.uuid4()),
         "name": body.name.strip(),
         "title": body.title.strip(),
         "body": body.body.strip(),
         "url": (body.url or "/").strip(),
+        "sound": sound,
         "created_at": now_iso(),
     }
     await db.push_templates.insert_one(doc)

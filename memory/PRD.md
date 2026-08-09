@@ -13,6 +13,12 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Şablon Ses Kaydı + Ses Tercih Kaydı — DONE**:
+  - **Backend**: Extended `PushTemplateBody` with `sound: Optional[str] = "rally"`. `POST /api/push/templates` validates against the whitelist `{rally, victory, dungeon, alarm}` (falls back to `rally` on invalid values) and persists `sound` on each doc. `GET /api/push/templates` returns it alongside the existing fields.
+  - **Frontend**: `installOne` (single-template Detay install) and the bulk seeder both pass `sound: testSoundKey` when posting. Each installed template now remembers which alert cue it was configured with.
+  - **Ses Tercih Kaydı**: New localStorage key `titanxis_push_test_sound_v1` — `testSoundKey` initializes lazily from localStorage (with whitelist validation), and a `useEffect` writes any change back. So an admin's last-picked sound sticks across sessions and page reloads.
+  - E2E verified via curl: posted with `sound: "victory"` → persisted as `victory`; posted with `sound: "garbage"` → clamped to `rally`; GET returns both templates with their correct sound field.
+
 - **[2026-02] Ses Kütüphanesi + Combobox Klavye Navigasyonu — DONE**:
   - **Ses Kütüphanesi**: Detail modal footer now has a sound `<select>` (`push-tpl-detail-sound-select`) with 4 options: **Rally** (`/audio/epic_battle.mp3` file, 3s), **Zafer** (Web Audio 3-note ascending chord C5→E5→G5), **Zindan** (deep sawtooth A2 + D3 for a dungeon horn feel), **Alarm** (4 rapid square-wave 880Hz beeps). Rally still plays the MP3 file; the other three are synthesized live via `AudioContext` (no additional binary assets). Existing "Ses Dene" button routes through `previewSound` which dispatches to the chosen library entry. `push_test_sound_{rally,victory,dungeon,alarm}` i18n keys added (TR + EN).
   - **Combobox Klavye Navigasyonu**: Added `testUserActive` index state and hooked `ArrowDown / ArrowUp / Enter / Home / End` on the combobox search input. Active option shows a highlighted background + outline via `aria-selected` on `push-tpl-detail-target-user-opt-{id}`. `Enter` picks the active option, updates toggle label, closes popup. `onMouseEnter` keeps active index in sync so keyboard and mouse users share the same highlight.

@@ -27,6 +27,7 @@ const TEMPLATE_CATEGORIES = [
   { key: "system", color: "#38BDF8" },
 ];
 
+const SOUND_PREF_KEY = "titanxis_push_test_sound_v1";
 export default function PushBroadcastPanel() {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
@@ -57,7 +58,13 @@ export default function PushBroadcastPanel() {
   const [testUserSearch, setTestUserSearch] = useState("");
   const [testUserOpen, setTestUserOpen] = useState(false);
   const [testUserActive, setTestUserActive] = useState(0);
-  const [testSoundKey, setTestSoundKey] = useState("rally");
+  const [testSoundKey, setTestSoundKey] = useState(() => {
+    try { const v = localStorage.getItem(SOUND_PREF_KEY); if (v && ["rally","victory","dungeon","alarm"].includes(v)) return v; } catch {}
+    return "rally";
+  });
+  useEffect(() => {
+    try { localStorage.setItem(SOUND_PREF_KEY, testSoundKey); } catch {}
+  }, [testSoundKey]);
   const testUserRef = React.useRef(null);
   const testAudioRef = React.useRef(null);
   const [audioBusy, setAudioBusy] = useState(false);
@@ -140,7 +147,7 @@ export default function PushBroadcastPanel() {
     if (!detailTitle.trim() || !detailBody.trim()) { toast.error(t("push_bc_required")); return; }
     setBusy(true);
     try {
-      await api.post("/push/templates", { name: detailTpl.name, title: detailTitle.trim(), body: detailBody.trim(), url: detailUrl.trim() || "/" });
+      await api.post("/push/templates", { name: detailTpl.name, title: detailTitle.trim(), body: detailBody.trim(), url: detailUrl.trim() || "/", sound: testSoundKey });
       toast.success(t("push_tpl_seeded_n", { n: 1 }));
       setDetailTpl(null);
       refreshTpl();
@@ -195,7 +202,7 @@ export default function PushBroadcastPanel() {
     setBusy(true);
     try {
       for (const c of chosen) {
-        await api.post("/push/templates", { name: c.name, title: c.title, body: c.body, url: c.url });
+        await api.post("/push/templates", { name: c.name, title: c.title, body: c.body, url: c.url, sound: testSoundKey });
       }
       toast.success(t("push_tpl_seeded_n", { n: chosen.length }));
       setSeedModalOpen(false);
