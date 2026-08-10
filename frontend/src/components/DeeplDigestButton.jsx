@@ -174,13 +174,18 @@ export default function DeeplDigestButton() {
                     const full = data.daily || [];
                     const half = Math.min(7, Math.floor(full.length / 2));
                     let trend = null;
+                    let recentSum = 0;
+                    let prevSum = 0;
                     if (half >= 3) {
-                      const recent = full.slice(-half).reduce((s, d) => s + (d.chars || 0), 0);
-                      const prev = full.slice(-half * 2, -half).reduce((s, d) => s + (d.chars || 0), 0);
-                      if (prev > 0) trend = Math.round(((recent - prev) / prev) * 100);
-                      else if (recent > 0) trend = 100;
+                      recentSum = full.slice(-half).reduce((s, d) => s + (d.chars || 0), 0);
+                      prevSum = full.slice(-half * 2, -half).reduce((s, d) => s + (d.chars || 0), 0);
+                      if (prevSum > 0) trend = Math.round(((recentSum - prevSum) / prevSum) * 100);
+                      else if (recentSum > 0) trend = 100;
                       else trend = 0;
                     }
+                    const trendTip = trend != null
+                      ? t("deepl_trend_tip", { recent: recentSum.toLocaleString(), prev: prevSum.toLocaleString(), n: half })
+                      : "";
                     return (
                       <div data-testid="digest-bar-chart">
                         <div className="flex items-center justify-between mb-2">
@@ -189,7 +194,8 @@ export default function DeeplDigestButton() {
                             {trend != null && (
                               <span
                                 data-testid="digest-trend"
-                                className="ml-2 inline-flex items-center gap-0.5 text-[10px] font-bold"
+                                title={trendTip}
+                                className="ml-2 inline-flex items-center gap-0.5 text-[10px] font-bold cursor-help"
                                 style={{ color: trend > 0 ? "#22C55E" : trend < 0 ? "#f87171" : "#A88060", letterSpacing: 0 }}
                               >
                                 {trend > 0 ? "▲" : trend < 0 ? "▼" : "•"}%{Math.abs(trend)}

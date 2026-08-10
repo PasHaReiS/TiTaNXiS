@@ -2081,6 +2081,65 @@ async def cron_prune_deepl_log(request: Request):
     return {"accepted": True}
 
 
+async def _weekly_digest_task():
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    resend_key = os.environ.get("RESEND_API_KEY", "").strip()
+    admin_email = os.environ.get("DIGEST_ADMIN_EMAIL", "").strip()
+    sender = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev").strip()
+    if not resend_key or not admin_email:
+        return
+    try:
+        import resend as _resend
+        _resend.api_key = resend_key
+        cutoff = (_dt.now(_tz.utc) - _td(days=7)).isoformat()
+        logs = await db.deepl_translate_log.find({"ts": {"$gte": cutoff}}, {"_id": 0}).to_list(20000)
+        chars = sum(int(r.get("chars", 0) or 0) for r in logs)
+        reqs = len(logs)
+        lang_counts: dict = {}
+        text_counts: dict = {}
+        for r in logs:
+            for l in r.get("targets", []) or []:
+                lang_counts[l] = lang_counts.get(l, 0) + 1
+            for tx in r.get("texts", []) or []:
+                if tx: text_counts[tx] = text_counts.get(tx, 0) + 1
+        top_langs = sorted(lang_counts.items(), key=lambda x: -x[1])[:5]
+        top_keys = sorted(text_counts.items(), key=lambda x: -x[1])[:10]
+        lang_rows = "".join(f"<tr><td style='padding:4px 8px;color:#F5A623'>{l}</td><td style='padding:4px 8px;color:#F5F0E8;text-align:right'>{c}</td></tr>" for l, c in top_langs) or "<tr><td colspan='2' style='padding:8px;color:#888'>—</td></tr>"
+        key_rows = "".join(f"<tr><td style='padding:4px 8px;color:#E74C1A;font-family:monospace'>×{c}</td><td style='padding:4px 8px;color:#F5F0E8'>{(tx[:80]).replace('<','&lt;')}</td></tr>" for tx, c in top_keys) or "<tr><td colspan='2' style='padding:8px;color:#888'>—</td></tr>"
+        html = (
+            "<div style='background:#0F0806;color:#F5F0E8;font-family:Arial,sans-serif;padding:24px'>"
+            "<h2 style='color:#C4B5FD;margin:0 0 4px 0;font-family:Georgia,serif'>TiTaNXiS · Haftalık DeepL Raporu</h2>"
+            f"<div style='color:#888;font-size:12px;margin-bottom:20px'>Son 7 gün · {_dt.now(_tz.utc).strftime('%Y-%m-%d')}</div>"
+            "<table style='width:100%;margin-bottom:20px'><tr>"
+            f"<td style='background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.3);padding:12px;border-radius:8px'><div style='color:#888;font-size:10px;text-transform:uppercase;letter-spacing:.14em'>Karakter</div><div style='color:#C4B5FD;font-size:20px;font-weight:bold;font-family:monospace'>{chars:,}</div></td>"
+            f"<td style='width:12px'></td>"
+            f"<td style='background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.3);padding:12px;border-radius:8px'><div style='color:#888;font-size:10px;text-transform:uppercase;letter-spacing:.14em'>İstek</div><div style='color:#C4B5FD;font-size:20px;font-weight:bold;font-family:monospace'>{reqs}</div></td>"
+            "</tr></table>"
+            "<div style='color:#F5A623;font-size:11px;text-transform:uppercase;letter-spacing:.14em;margin:8px 0'>Hedef Diller</div>"
+            f"<table style='width:100%;border-collapse:collapse'>{lang_rows}</table>"
+            "<div style='color:#E74C1A;font-size:11px;text-transform:uppercase;letter-spacing:.14em;margin:20px 0 8px'>En Çok Çevrilenler</div>"
+            f"<table style='width:100%;border-collapse:collapse'>{key_rows}</table>"
+            "</div>"
+        )
+        params = {"from": sender, "to": [admin_email], "subject": f"TiTaNXiS Haftalık DeepL Raporu · {chars:,} char / {reqs} req", "html": html}
+        result = await _asyncio_cron.to_thread(_resend.Emails.send, params)
+        logger.info(f"[weekly-digest] Resend send OK id={result.get('id') if isinstance(result, dict) else result}")
+    except Exception as e:
+        logger.error(f"[weekly-digest] send failed: {e}")
+
+
+@api_router.post("/cron/weekly-digest-email")
+async def cron_weekly_digest_email(request: Request):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    auth = request.headers.get("authorization", "")
+    expected = f"Bearer {WEBHOOK_CRON_SECRET}"
+    if not WEBHOOK_CRON_SECRET or not _hmac_cron.compare_digest(auth, expected):
+        raise HTTPException(401, "unauthorized")
+    _asyncio_cron.create_task(_weekly_digest_task())
+    return {"accepted": True}
+
+
 @api_router.get("/translate/usage")
 async def deepl_usage():
     from datetime import datetime as _dt, timezone as _tz
