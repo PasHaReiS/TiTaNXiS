@@ -2889,8 +2889,13 @@ async def push_broadcast_test(body: PushTestBody, user: dict = Depends(require_a
 
 import json  # used by push payload
 
+# VIP Destek routes (kept in /app/backend/routes/vip.py — self-contained)
+from routes.vip import register_vip  # noqa: E402
+register_vip(api_router, db, require_auth, require_admin, logging.getLogger("vip"))
+
 app.include_router(api_router)
 app.include_router(make_auth_router(db))
+
 app.mount("/api/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
 app.add_middleware(

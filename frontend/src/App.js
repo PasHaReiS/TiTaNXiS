@@ -17,6 +17,7 @@ import PointsAbout from "@/pages/PointsAbout";
 import PointCalcPage from "@/pages/PointCalcPage";
 import PublicPointCalcPage from "@/pages/PublicPointCalcPage";
 import WidgetLibrary from "@/pages/WidgetLibrary";
+import VipSupport from "@/pages/VipSupport";
 import Members from "@/pages/Members";
 import Events from "@/pages/Events";
 import Login from "@/pages/Login";
@@ -86,6 +87,7 @@ function AppShell() {
           <Route path="/profil" element={<RequireAuth><Profile /></RequireAuth>} />
           <Route path="/gosterge-paneli" element={<RequireAuth><LiveDashboardPage /></RequireAuth>} />
           <Route path="/widget-kitapligi" element={<RequireAuth><WidgetLibrary /></RequireAuth>} />
+          <Route path="/vip-destek" element={<VipSupport />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
