@@ -21,7 +21,12 @@ export default function LanguageSwitcher() {
     if (!open || !btnRef.current) return;
     const r = btnRef.current.getBoundingClientRect();
     setPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
-    const onScroll = () => setOpen(false);
+    const onScroll = (e) => {
+      // Only close on page scroll — ignore scrolls inside the language panel itself.
+      const panel = document.querySelector('[data-testid="lang-panel"]');
+      if (panel && e.target && panel.contains(e.target)) return;
+      setOpen(false);
+    };
     window.addEventListener("scroll", onScroll, true);
     return () => window.removeEventListener("scroll", onScroll, true);
   }, [open]);
@@ -100,17 +105,20 @@ export default function LanguageSwitcher() {
           <div
             role="listbox"
             data-testid="lang-panel"
-            className="fade-in overflow-hidden"
+            className="fade-in"
             style={{
               position: "fixed",
               top: pos.top,
               right: pos.right,
-              width: 200,
-              zIndex: 99999,
+              width: 220,
+              zIndex: 999999,
               background: "linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%)",
               border: "1px solid rgba(220,38,38,0.6)",
               borderRadius: 10,
               boxShadow: "0 12px 30px rgba(0,0,0,0.55), 0 0 20px rgba(220,38,38,0.15)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "visible",
             }}
           >
             <div
@@ -145,7 +153,21 @@ export default function LanguageSwitcher() {
                 />
               </div>
             </div>
-            <ul className="py-1 overflow-y-auto lang-scroll" data-testid="lang-list" style={{ maxHeight: 5 * 40 }}>
+            <ul
+              className="py-1 lang-scroll"
+              data-testid="lang-list"
+              style={{
+                maxHeight: 220,
+                overflowY: "scroll",
+                overflowX: "hidden",
+                WebkitOverflowScrolling: "touch",
+                touchAction: "pan-y",
+                overscrollBehavior: "contain",
+                display: "block",
+              }}
+              onWheel={(e) => e.stopPropagation()}
+              onTouchMove={(e) => e.stopPropagation()}
+            >
               {filtered.length === 0 && (
                 <li
                   data-testid="lang-empty"

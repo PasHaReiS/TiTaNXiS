@@ -13,6 +13,9 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] Language Switcher — Scroll Bug Fix — DONE**: Kullanıcı "scroll çalışmıyor" diye rapor etti. Kök neden: `useEffect` içindeki `window.addEventListener("scroll", ..., true)` liste içindeki her scroll olayında paneli kapatıyordu (capture phase). Fix: onScroll callback artık event target'ı kontrol edip panel içindeki scroll'ları yok sayıyor. Ek olarak liste ul'ına `overflowY: scroll`, `WebkitOverflowScrolling: touch`, `touchAction: pan-y`, `overscrollBehavior: contain`, `maxHeight: 220px` eklendi; panel wrapper'ından `overflow-hidden` sınıfı kaldırıldı, z-index 99999 → 999999 yükseltildi. Playwright: `scrollTop: 250` after wheel, ZH (中文) tab-flip sonrası görünür, panel açık kalıyor. Deployment agent: PASS.
+
+
 - **[2026-02] Language Switcher — Arama + 5-öğe scroll — DONE**: `LanguageSwitcher.jsx` panelinin üstüne canlı filtre kutusu (`data-testid="lang-search"`, `Search` ikonu, otofokus) eklendi; `useMemo` ile dil listesi `name`/`label`/`code` üzerinden filtreleniyor. Liste yüksekliği tam olarak 5 öğe (`maxHeight: 200px`) yapıldı; kalan 24 dil aynı panelde scroll ile ulaşılıyor. Panel kapanınca query resetleniyor. Playwright doğrulaması: 29/29 items render, list height 200, "port" filtresi → yalnız Português. Deployment agent: PASS.
 
 
