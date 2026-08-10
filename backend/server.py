@@ -1888,7 +1888,7 @@ async def revert_history(day_id: str, version_id: str, _: dict = Depends(require
 DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY", "").strip()
 DEEPL_LANG_MAP = {
     # i18n code -> DeepL code
-    "en": "EN-GB", "ru": "RU", "de": "DE", "fr": "FR", "es": "ES", "ko": "KO", "ar": "AR",
+    "en": "EN-GB", "ru": "RU", "de": "DE", "fr": "FR", "es": "ES", "ko": "KO",
     "bg": "BG", "cs": "CS", "da": "DA", "el": "EL", "et": "ET", "fi": "FI", "hu": "HU",
     "id": "ID", "it": "IT", "ja": "JA", "lt": "LT", "lv": "LV", "nb": "NB", "nl": "NL",
     "pl": "PL", "pt": "PT-PT", "ro": "RO", "sk": "SK", "sl": "SL", "sv": "SV", "uk": "UK",
@@ -1953,7 +1953,7 @@ async def deepl_usage():
         return {"configured": True, "error": str(e)[:200], "character_count": 0, "character_limit": 0}
 
 
-ENABLED_LANGS = ["en", "ru", "de", "fr", "es", "ko", "ar", "bg", "cs", "da", "el", "et", "fi",
+ENABLED_LANGS = ["en", "ru", "de", "fr", "es", "ko", "bg", "cs", "da", "el", "et", "fi",
                  "hu", "id", "it", "ja", "lt", "lv", "nb", "nl", "pl", "pt", "ro", "sk", "sl", "sv", "uk", "zh"]
 
 
