@@ -98,7 +98,7 @@ function StatCard({ Icon, label, value, trend, format = fmt, testId }) {
   const TrendIcon = up ? TrendingUp : TrendingDown;
   return (
     <div
-      className="rounded-xl p-4 transition-transform hover:translate-y-[-2px]"
+      className="rounded-xl p-3 sm:p-4 transition-transform hover:translate-y-[-2px] overflow-hidden"
       data-testid={testId}
       style={{
         background: CARD,
@@ -124,10 +124,10 @@ function StatCard({ Icon, label, value, trend, format = fmt, testId }) {
           {Math.abs(trend ?? 0).toFixed(1)}%
         </div>
       </div>
-      <div className="text-[11px] uppercase tracking-widest mb-1" style={{ color: "#9CA3AF" }}>
+      <div className="text-[11px] uppercase tracking-widest mb-1 truncate" style={{ color: "#9CA3AF" }} title={label}>
         {label}
       </div>
-      <div className="text-3xl font-black mono" style={{ color: "#fff", fontFamily: "'JetBrains Mono', monospace" }}>
+      <div className="text-xl sm:text-2xl font-black mono truncate" style={{ color: "#fff", fontFamily: "'JetBrains Mono', monospace" }} title={String(value)}>
         <CountUp value={value} format={format} />
       </div>
     </div>
@@ -173,14 +173,14 @@ function TopMembers({ items }) {
       </div>
       <div className="space-y-2.5">
         {(items || []).map((m) => (
-          <div key={m.id} className="flex items-center gap-3">
-            <span className="w-5 text-center text-xs font-black" style={{ color: AMBER }}>
+          <div key={m.id} className="flex items-center gap-3 min-w-0">
+            <span className="w-5 text-center text-xs font-black flex-shrink-0" style={{ color: AMBER }}>
               #{m.rank}
             </span>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold truncate" style={{ color: "#fff" }}>{m.name}</span>
-                <span className="text-[10px] mono" style={{ color: "#9CA3AF" }}>{fmt(m.power)}</span>
+              <div className="flex items-center justify-between gap-2 mb-1 min-w-0">
+                <span className="text-xs font-bold truncate min-w-0" title={m.name} style={{ color: "#fff" }}>{m.name}</span>
+                <span className="text-[10px] mono whitespace-nowrap flex-shrink-0" style={{ color: "#9CA3AF" }}>{fmt(m.power)}</span>
               </div>
               <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
                 <div
@@ -314,8 +314,9 @@ const DEVICE_ICON = { mobile: Smartphone, desktop: Monitor, tablet: Tablet };
 
 function ActivityLog() {
   const [filter, setFilter] = useState("all");
+  const [visible, setVisible] = useState(false);
   const { data: rows = [] } = useSWR(
-    `/dashboard/activity-log?filter=${filter}`,
+    visible ? `/dashboard/activity-log?filter=${filter}` : null,
     fetcher,
     { refreshInterval: 30000 },
   );
@@ -325,81 +326,127 @@ function ActivityLog() {
     { key: "scores", label: "Puanlar" },
     { key: "events", label: "Etkinlikler" },
   ];
+  const reset = () => { setFilter("all"); setVisible(false); };
   return (
-    <div className="rounded-xl p-4"
+    <div className="rounded-xl p-3 sm:p-4 overflow-hidden"
          style={{ background: CARD, border: "1px solid rgba(255,255,255,0.06)" }}
          data-testid="activity-log-card">
-      <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <div className="text-xs uppercase tracking-widest font-black" style={{ color: "#fff" }}>
-          Kullanıcı İşlemleri
-        </div>
-        <div className="ml-auto flex items-center gap-1" data-testid="activity-filter-pills">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setFilter(t.key)}
-              data-testid={`activity-filter-${t.key}`}
-              className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full transition-all"
-              style={{
-                background: filter === t.key ? VIOLET : "rgba(139,92,246,0.1)",
-                color: filter === t.key ? "#fff" : VIOLET,
-                border: `1px solid ${VIOLET}55`,
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+      <div className="flex items-center gap-2 flex-wrap mb-2">
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          data-testid="activity-log-toggle"
+          className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full"
+          style={{
+            background: visible ? `${VIOLET}22` : "rgba(255,255,255,0.04)",
+            color: visible ? "#fff" : "#9CA3AF",
+            border: `1px solid ${visible ? VIOLET : "rgba(255,255,255,0.08)"}`,
+          }}
+        >
+          <span aria-hidden>{visible ? "🙈" : "👁"}</span>
+          <span>Son İşlemleri {visible ? "Gizle" : "Göster"}</span>
+        </button>
+        <button
+          type="button"
+          onClick={reset}
+          data-testid="activity-log-reset"
+          className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full"
+          style={{
+            background: "rgba(245,158,11,0.1)",
+            color: AMBER,
+            border: `1px solid ${AMBER}55`,
+          }}
+        >
+          <span aria-hidden>🔄</span>
+          <span>Sıfırla</span>
+        </button>
+        {visible && (
+          <div className="ml-auto flex items-center gap-1 flex-wrap" data-testid="activity-filter-pills">
+            {tabs.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setFilter(t.key)}
+                data-testid={`activity-filter-${t.key}`}
+                className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full transition-all"
+                style={{
+                  background: filter === t.key ? VIOLET : "rgba(139,92,246,0.1)",
+                  color: filter === t.key ? "#fff" : VIOLET,
+                  border: `1px solid ${VIOLET}55`,
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs" data-testid="activity-log-table">
-          <thead>
-            <tr className="text-left uppercase text-[10px] tracking-widest" style={{ color: "#9CA3AF" }}>
-              <th className="pb-2 pr-2">Üye</th>
-              <th className="pb-2 pr-2">İşlem</th>
-              <th className="pb-2 pr-2 hidden sm:table-cell">Detay</th>
-              <th className="pb-2 pr-2">Zaman</th>
-              <th className="pb-2 pr-2 hidden sm:table-cell">Cihaz</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr><td colSpan={5} className="py-4 text-center" style={{ color: "#9CA3AF" }}>Kayıt yok</td></tr>
-            )}
-            {rows.map((r, i) => {
-              const meta = ACTION_META[r.action_type] || { label: r.action_type, bg: "rgba(255,255,255,0.05)", color: "#9CA3AF" };
-              const DevIcon = DEVICE_ICON[r.device] || Monitor;
-              return (
-                <tr key={r.id || i} className="border-t" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-                  <td className="py-2 pr-2">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0"
-                        style={{ background: `${VIOLET}22`, color: VIOLET, border: `1px solid ${VIOLET}55` }}
-                      >
-                        {initial(r.member_name)}
+      {visible && (
+        <div className="overflow-x-auto">
+          <table
+            className="w-full text-[11px]"
+            style={{ tableLayout: "fixed", borderCollapse: "collapse" }}
+            data-testid="activity-log-table"
+          >
+            <colgroup>
+              <col style={{ width: "28%" }} />
+              <col style={{ width: "22%" }} />
+              <col style={{ width: "26%" }} className="hidden sm:table-column" />
+              <col style={{ width: "16%" }} />
+              <col style={{ width: "8%" }} className="hidden sm:table-column" />
+            </colgroup>
+            <thead>
+              <tr className="text-left uppercase text-[9px] tracking-widest" style={{ color: "#9CA3AF" }}>
+                <th className="pb-2 pr-2">Kullanıcı</th>
+                <th className="pb-2 pr-2">İşlem</th>
+                <th className="pb-2 pr-2 hidden sm:table-cell">Detay</th>
+                <th className="pb-2 pr-2">Zaman</th>
+                <th className="pb-2 pr-2 hidden sm:table-cell">Cihaz</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 && (
+                <tr><td colSpan={5} className="py-4 text-center" style={{ color: "#9CA3AF" }}>Kayıt yok</td></tr>
+              )}
+              {rows.map((r, i) => {
+                const meta = ACTION_META[r.action_type] || { label: r.action_type, bg: "rgba(255,255,255,0.05)", color: "#9CA3AF" };
+                const DevIcon = DEVICE_ICON[r.device] || Monitor;
+                return (
+                  <tr key={r.id || i} className="border-t" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+                    <td className="py-2 pr-2 overflow-hidden">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black flex-shrink-0"
+                          style={{ background: `${VIOLET}22`, color: VIOLET, border: `1px solid ${VIOLET}55` }}
+                        >
+                          {initial(r.member_name)}
+                        </div>
+                        <span className="truncate min-w-0" title={r.member_name} style={{ color: "#fff" }}>
+                          {r.member_name}
+                        </span>
                       </div>
-                      <span className="truncate max-w-[140px]" style={{ color: "#fff" }}>{r.member_name}</span>
-                    </div>
-                  </td>
-                  <td className="py-2 pr-2">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
-                          style={{ background: meta.bg, color: meta.color }}>{meta.label}</span>
-                  </td>
-                  <td className="py-2 pr-2 hidden sm:table-cell" style={{ color: "#9CA3AF" }}>
-                    <span className="truncate">{r.details}</span>
-                  </td>
-                  <td className="py-2 pr-2 whitespace-nowrap" style={{ color: "#9CA3AF" }}>{relTime(r.timestamp)}</td>
-                  <td className="py-2 pr-2 hidden sm:table-cell">
-                    <DevIcon className="w-3.5 h-3.5" style={{ color: "#9CA3AF" }} />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                    </td>
+                    <td className="py-2 pr-2 overflow-hidden">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full inline-block max-w-full truncate"
+                            title={meta.label}
+                            style={{ background: meta.bg, color: meta.color }}>{meta.label}</span>
+                    </td>
+                    <td className="py-2 pr-2 hidden sm:table-cell overflow-hidden" style={{ color: "#9CA3AF" }}>
+                      <span className="block truncate" title={r.details}>{r.details}</span>
+                    </td>
+                    <td className="py-2 pr-2 overflow-hidden" style={{ color: "#9CA3AF" }}>
+                      <span className="block truncate" title={r.timestamp}>{relTime(r.timestamp)}</span>
+                    </td>
+                    <td className="py-2 pr-2 hidden sm:table-cell">
+                      <DevIcon className="w-3.5 h-3.5" style={{ color: "#9CA3AF" }} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

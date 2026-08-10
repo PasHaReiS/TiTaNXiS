@@ -13,6 +13,14 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] Dashboard Aktivite Log + Taşma Düzeltmeleri — DONE**:
+  - **Toggle**: ActivityLog varsayılan gizli. "👁 Son İşlemleri Göster / 🙈 Gizle" toggle butonu ile aç/kapa. Tablo gizliyken SWR fetch de duraklıyor (koşullu key).
+  - **Sıfırla**: 🔄 Sıfırla butonu → filter='all' + visible=false, tabloyu sıfırdan başlatır.
+  - **Kullanıcı adı**: `activity-log-table` sütun başlığı "Üye" → "Kullanıcı", satırda `member_name` avatar + ellipsis ile net gösteriliyor.
+  - **Taşma**: `tableLayout: fixed` + `colgroup` (28/22/26/16/8%) + her `<td>`'de `overflow-hidden` + `truncate` + `title` tooltip. Stat card font-size `text-3xl` → `text-xl sm:text-2xl` + truncate; TopMembers isim/rakam whitespace-nowrap + shrink-0.
+  - **Doğrulama**: Playwright — toggle görünür, tablo default gizli, "Göster"e tıklayınca filter pills + tablo çıkıyor, "Sıfırla"ya tıklayınca kapanıyor. Compile OK, `deployment_agent`: PASS.
+
+
 - **[2026-02] Dashboard Erişim Kısıtlama (admin + editor) — DONE**:
   - **Frontend guard** (`App.js`): Yeni `RequireAdminOrEditor` bileşeni eklendi (role=admin veya user.can_edit=true). `/dashboard` route bu guard'a bağlandı. Kimliksiz → `/login`, yetkisiz → `/` yönlendirme.
   - **Header nav**: Dropdown'daki Dashboard `MenuItem` `{canEdit && ...}` conditional ile sarıldı — normal kullanıcı linki artık göremiyor.
