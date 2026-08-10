@@ -1968,6 +1968,8 @@ async def deepl_digest(days: int = 7, _: dict = Depends(require_admin)):
     lang_counts: dict = {}
     src_counts: dict = {}
     text_counts: dict = {}
+    # Build a per-day bucket keyed by YYYY-MM-DD so the frontend can render a bar chart.
+    daily_map: dict = {}
     for row in logs:
         total_chars += int(row.get("chars", 0) or 0)
         for l in row.get("targets", []) or []:
@@ -1977,6 +1979,18 @@ async def deepl_digest(days: int = 7, _: dict = Depends(require_admin)):
         for tx in row.get("texts", []) or []:
             if tx:
                 text_counts[tx] = text_counts.get(tx, 0) + 1
+        day_key = (row.get("ts") or "")[:10]
+        if day_key:
+            entry = daily_map.setdefault(day_key, {"date": day_key, "chars": 0, "requests": 0})
+            entry["chars"] += int(row.get("chars", 0) or 0)
+            entry["requests"] += 1
+    # Emit a zero-filled window so the chart always has `days` bars in chronological order.
+    today = _dt.now(_tz.utc).date()
+    daily: list = []
+    for i in range(days - 1, -1, -1):
+        d = today - _td(days=i)
+        k = d.isoformat()
+        daily.append(daily_map.get(k) or {"date": k, "chars": 0, "requests": 0})
     langs = sorted(
         [{"code": k, "count": v} for k, v in lang_counts.items()],
         key=lambda x: -x["count"],
@@ -1996,6 +2010,7 @@ async def deepl_digest(days: int = 7, _: dict = Depends(require_admin)):
         "langs": langs,
         "sources": sources,
         "top_keys": top_keys,
+        "daily": daily,
     }
 
 

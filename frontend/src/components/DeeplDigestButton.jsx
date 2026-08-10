@@ -6,6 +6,13 @@ import { useTranslation } from "react-i18next";
 import { BarChart3, Download, X } from "lucide-react";
 
 const RANGES = [1, 7, 30, 90];
+const RANGE_KEY = "digest_days";
+const readRange = () => {
+  try {
+    const v = parseInt(localStorage.getItem(RANGE_KEY) || "7", 10);
+    return RANGES.includes(v) ? v : 7;
+  } catch { return 7; }
+};
 
 // Convert a top_keys list into a CSV blob and trigger a browser download.
 const downloadCsv = (topKeys, days) => {
@@ -31,9 +38,14 @@ export default function DeeplDigestButton() {
   const { isAdmin } = useAuth();
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [days, setDays] = useState(7);
+  const [days, setDays] = useState(readRange());
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const pickRange = (d) => {
+    setDays(d);
+    try { localStorage.setItem(RANGE_KEY, String(d)); } catch { /* ignore quota errors */ }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -103,7 +115,7 @@ export default function DeeplDigestButton() {
                 <button
                   key={d}
                   type="button"
-                  onClick={() => setDays(d)}
+                  onClick={() => pickRange(d)}
                   data-testid={`digest-range-${d}`}
                   className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase transition"
                   style={{
@@ -135,6 +147,44 @@ export default function DeeplDigestButton() {
                       </div>
                     </div>
                   </div>
+                  {(data.daily || []).length > 0 && (() => {
+                    const daily = data.daily || [];
+                    const maxChars = Math.max(1, ...daily.map((d) => d.chars || 0));
+                    return (
+                      <div data-testid="digest-bar-chart">
+                        <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#8B5CF6", letterSpacing: "0.14em" }}>
+                          {t("deepl_digest_daily")}
+                        </div>
+                        <div
+                          className="flex items-end gap-[2px] rounded p-2"
+                          style={{ height: 72, background: "rgba(20,12,10,0.55)", border: "1px solid rgba(139,92,246,0.2)" }}
+                        >
+                          {daily.map((d) => {
+                            const h = Math.round(((d.chars || 0) / maxChars) * 56);
+                            return (
+                              <div
+                                key={d.date}
+                                data-testid={`digest-bar-${d.date}`}
+                                className="flex-1 rounded-t"
+                                title={`${d.date} · ${(d.chars || 0).toLocaleString()} char · ${d.requests || 0} req`}
+                                style={{
+                                  height: `${Math.max(2, h)}px`,
+                                  background: (d.chars || 0) > 0
+                                    ? "linear-gradient(180deg,#C4B5FD,#8B5CF6)"
+                                    : "rgba(139,92,246,0.12)",
+                                  minWidth: 3,
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                        <div className="flex justify-between text-[9px] mono mt-1 opacity-70" style={{ color: "#C4B5FD" }}>
+                          <span>{daily[0]?.date}</span>
+                          <span>{daily[daily.length - 1]?.date}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <div>
                     <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#F5A623", letterSpacing: "0.14em" }}>
                       {t("deepl_digest_langs")} ({(data.langs || []).length})
