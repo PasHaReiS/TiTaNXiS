@@ -37,6 +37,11 @@ export default function Leaderboard() {
   const { data: allianceColors = {} } = useSWR("/alliance-colors", fetcher, { refreshInterval: 15000 });
   const { data: allMembers = [] } = useSWR("/members", fetcher, { refreshInterval: 10000 });
   const { data: archivedEvents = [] } = useSWR(filter === "archive" ? "/events?archived=true" : null, fetcher, { refreshInterval: 15000 });
+  const { data: groupTotalLb = [] } = useSWR(
+    filter === "archive" && group ? `/leaderboard?scope=archived&group_name=${encodeURIComponent(group)}` : null,
+    fetcher,
+    { refreshInterval: 15000 },
+  );
   const visibleArchivedEvents = useMemo(
     () => (group ? archivedEvents.filter((e) => e.group_name === group) : archivedEvents),
     [group, archivedEvents],
@@ -259,6 +264,60 @@ export default function Leaderboard() {
                   {top3[2].alliance_name || "-"}
                 </div>
                 <div style={{ marginTop: 6, fontWeight: 600, fontSize: 11, color: '#E74C1A', fontFamily: "'JetBrains Mono', monospace" }}>{fmt(top3[2].total_points)}</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {filter === "archive" && group && (
+          <div className="mb-6" data-testid="archive-group-total">
+            <div className="section-title heading-cinzel">{t("archive_group_total_title", { group })}</div>
+            {groupTotalLb.length === 0 ? (
+              <div className="card-dark p-6 text-center text-muted-foreground text-sm">{t("no_points_yet")}</div>
+            ) : (
+              <div className="space-y-1"
+                style={{
+                  border: "1px solid rgba(212,115,10,0.35)",
+                  borderRadius: 12,
+                  padding: 6,
+                  background: "linear-gradient(180deg, rgba(60,30,10,0.35) 0%, rgba(20,12,10,0.55) 100%)",
+                }}
+              >
+                {groupTotalLb.map((r) => (
+                  <button
+                    key={r.member_id}
+                    data-testid={`archive-group-total-row-${r.member_id}`}
+                    onClick={() => setProfileId(r.member_id)}
+                    className="w-full flex items-center gap-3 rank-row text-left"
+                    style={{ padding: "6px 10px", minHeight: 40 }}
+                  >
+                    <div className="w-7 text-center">
+                      <span className="text-xs font-bold mono" style={{ color: "#D4730A", fontFamily: "Cinzel, Rajdhani, serif" }}>#{r.position}</span>
+                    </div>
+                    <div
+                      className="text-[9px] font-bold rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{
+                        background: (r.alliance_name && allianceColors[r.alliance_name]) || "#E74C1A",
+                        color: "#fff",
+                        minWidth: 44,
+                        padding: "3px 7px",
+                        border: "1px solid rgba(255,255,255,0.15)",
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        fontFamily: "Cinzel, Rajdhani, serif",
+                      }}
+                      title={r.alliance_name || ""}
+                    >
+                      {r.alliance_name || "-"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold truncate text-sm" style={{ color: "#F5F0E8", fontFamily: "Cinzel, Rajdhani, serif" }}>{r.name}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold mono text-sm" style={{ color: "#E74C1A" }}>{fmt(r.total_points)}</div>
+                    </div>
+                  </button>
+                ))}
               </div>
             )}
           </div>

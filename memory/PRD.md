@@ -13,6 +13,12 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Archive Group Total Summary — DONE**:
+  - **Frontend** (`Leaderboard.jsx`): Archive tab now renders a new `archive-group-total` section between the group chip strip and the event cards. Visible only when a specific group chip is selected (Tümü ➜ hidden). Uses the existing `/api/leaderboard?scope=archived&group_name=X` endpoint (which already aggregates points across every event in the group with multiplier weighting). Rows are ranked, clickable (opens MemberProfileDialog), and testid'd `archive-group-total-row-{id}`.
+  - **UX**: Distinct card container (dashed orange border + gradient tint) sets it apart from individual event cards. Individual archived event cards remain visible below, satisfying "bireysel etkinlik puanlarıyla birlikte görünsün".
+  - **i18n**: `archive_group_total_title` (TR: "{{group}} Grup Toplam", EN: "{{group}} Group Total").
+  - **E2E verified**: `Pre` group returns 82 ranked rows (Selenay 511M top, oOoHavan4oOo 380M, Grumpy Deanerys 263M). `Kontrol` returns 0 rows (test event has no points). Screenshot confirms mobile layout renders correctly, section hides when no group is picked, and event cards show below when scrolling.
+
 - **[2026-02] Events Page — Group Management (Rename / Archive / Unarchive / Delete) — DONE**:
   - **Backend** (`server.py`): 3 new endpoints alongside the existing `/events/archive-group`:
     - `POST /api/events/unarchive-group?group_name=` → flips all archived events in the group back to active.
