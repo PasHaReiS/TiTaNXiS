@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Check, Globe, ChevronDown, Loader2 } from "lucide-react";
+import { Check, Globe, ChevronDown, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { LANGUAGES } from "@/i18n";
 import { ensureLanguageTranslated } from "@/lib/deeplTranslate";
@@ -11,11 +11,13 @@ export default function LanguageSwitcher() {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, right: 0 });
   const [switching, setSwitching] = useState(null); // code being switched to
+  const [query, setQuery] = useState("");
   const btnRef = useRef(null);
 
   const active = LANGUAGES.find((l) => l.code === i18n.language) || LANGUAGES[0];
 
   useEffect(() => {
+    if (!open) setQuery("");
     if (!open || !btnRef.current) return;
     const r = btnRef.current.getBoundingClientRect();
     setPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
@@ -23,6 +25,17 @@ export default function LanguageSwitcher() {
     window.addEventListener("scroll", onScroll, true);
     return () => window.removeEventListener("scroll", onScroll, true);
   }, [open]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return LANGUAGES;
+    return LANGUAGES.filter(
+      (l) =>
+        l.name.toLowerCase().includes(q) ||
+        l.label.toLowerCase().includes(q) ||
+        l.code.toLowerCase().includes(q)
+    );
+  }, [query]);
 
   const setLang = async (code) => {
     if (code === i18n.language) { setOpen(false); return; }
@@ -111,8 +124,37 @@ export default function LanguageSwitcher() {
               <Globe className="w-3 h-3" />
               {t("choose_language")}
             </div>
-            <ul className="py-1 overflow-y-auto lang-scroll" style={{ maxHeight: "min(80vh, 560px)" }}>
-              {LANGUAGES.map((l) => {
+            <div
+              className="px-2 py-1.5"
+              style={{ borderBottom: "1px solid rgba(220,38,38,0.25)", background: "rgba(0,0,0,0.25)" }}
+            >
+              <div
+                className="flex items-center gap-1.5 px-2 py-1 rounded"
+                style={{ background: "rgba(20,12,10,0.9)", border: "1px solid rgba(245,166,35,0.35)" }}
+              >
+                <Search className="w-3 h-3" style={{ color: "#F5A623" }} />
+                <input
+                  autoFocus
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={t("search")}
+                  data-testid="lang-search"
+                  className="flex-1 bg-transparent outline-none text-xs"
+                  style={{ color: "#F5F0E8" }}
+                />
+              </div>
+            </div>
+            <ul className="py-1 overflow-y-auto lang-scroll" data-testid="lang-list" style={{ maxHeight: 5 * 40 }}>
+              {filtered.length === 0 && (
+                <li
+                  data-testid="lang-empty"
+                  className="px-3 py-2 text-xs text-center text-muted-foreground"
+                >
+                  —
+                </li>
+              )}
+              {filtered.map((l) => {
                 const isActive = l.code === i18n.language;
                 return (
                   <li key={l.code}>

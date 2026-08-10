@@ -13,6 +13,9 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] Language Switcher — Arama + 5-öğe scroll — DONE**: `LanguageSwitcher.jsx` panelinin üstüne canlı filtre kutusu (`data-testid="lang-search"`, `Search` ikonu, otofokus) eklendi; `useMemo` ile dil listesi `name`/`label`/`code` üzerinden filtreleniyor. Liste yüksekliği tam olarak 5 öğe (`maxHeight: 200px`) yapıldı; kalan 24 dil aynı panelde scroll ile ulaşılıyor. Panel kapanınca query resetleniyor. Playwright doğrulaması: 29/29 items render, list height 200, "port" filtresi → yalnız Português. Deployment agent: PASS.
+
+
 - **[2026-02] Language Switcher — 29 dil görünürlüğü — DONE**: `LanguageSwitcher.jsx` dropdown listesindeki `max-h-72` (288px) sınırı `maxHeight: min(80vh, 560px)` yapıldı. Kod düzeyinde LANGUAGES array + resources zaten 29 dili barındırıyordu; kullanıcının "sadece 8 dil görünüyor" hissi UX kaynaklıydı (scroll fark edilmiyordu). Panel şimdi ~14-16 dili tek bakışta gösteriyor, kalanlar aynı panelde scroll ile ulaşılabilir. Localhost testinde 29/29 doğrulandı (`missing: []`). Deployment agent: PASS.
 
 
