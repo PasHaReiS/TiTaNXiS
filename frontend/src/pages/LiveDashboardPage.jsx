@@ -1,6 +1,5 @@
 import React from "react";
 import Header from "@/components/Header";
-import LiveDashboard from "@/components/LiveDashboard";
 import WidgetGrid from "@/components/WidgetGrid";
 import BulkAdminActions from "@/components/BulkAdminActions";
 import PushSubscribeCard from "@/components/PushSubscribeCard";
@@ -19,7 +18,6 @@ export default function LiveDashboardPage() {
         <PushPrefsCard />
         <PushBroadcastPanel />
         <WidgetGrid />
-        <LiveDashboard />
         <BulkAdminActions />
       </div>
       <NotificationSetupWizard />
