@@ -1,256 +1,231 @@
 import React, { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { NavLink, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, Trophy, Swords, Calculator, Users, Flag, BarChart2,
-  Sparkles, Radio, Activity as ActivityIcon, TrendingUp, TrendingDown, Minus,
-  Zap, CheckCircle2, Clock, Crown,
+  Users, Wifi, Calendar, Zap, TrendingUp, TrendingDown,
+  Smartphone, Monitor, Tablet, Trophy, Clock, ChevronRight,
 } from "lucide-react";
 import {
-  ResponsiveContainer, ComposedChart, XAxis, YAxis, Tooltip, Legend,
-  Bar, Line, CartesianGrid,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
 } from "recharts";
 import { api, fmt } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
+const BG = "#111111";
+const VIOLET = "#8B5CF6";
+const AMBER = "#F59E0B";
+const CARD = "#1F1F1F";
 
-const BASE = "#040008";
-const VIOLET = "#7C3AED";
-const AMBER = "#D97706";
-const CYAN = "#67E8F9";
-
-// ---------- helpers ----------
-function CountUp({ value, duration = 1500 }) {
+/* ---------------- helpers ---------------- */
+function CountUp({ value, duration = 1200, format = fmt }) {
   const [v, setV] = useState(0);
   useEffect(() => {
     let raf;
     const start = performance.now();
-    const from = 0;
     const to = Number(value) || 0;
-    const tick = (now) => {
-      const p = Math.min(1, (now - start) / duration);
+    const tick = (t) => {
+      const p = Math.min(1, (t - start) / duration);
       const eased = 1 - Math.pow(1 - p, 3);
-      setV(Math.round(from + (to - from) * eased));
+      setV(Math.round(to * eased));
       if (p < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [value, duration]);
-  return <>{fmt(v)}</>;
+  return <>{format(v)}</>;
 }
 
-function relTime(dateStr) {
-  if (!dateStr) return "";
-  const then = new Date(dateStr).getTime();
+function relTime(ts) {
+  if (!ts) return "";
+  const then = new Date(ts).getTime();
   if (!Number.isFinite(then)) return "";
-  const diffSec = Math.round((Date.now() - then) / 1000);
-  if (diffSec < 60) return `${diffSec} sn önce`;
-  if (diffSec < 3600) return `${Math.round(diffSec / 60)} dk önce`;
-  if (diffSec < 86400) return `${Math.round(diffSec / 3600)} sa önce`;
-  return `${Math.round(diffSec / 86400)} gün önce`;
+  const s = Math.round((Date.now() - then) / 1000);
+  if (s < 60) return `${s} sn önce`;
+  if (s < 3600) return `${Math.round(s / 60)} dk önce`;
+  if (s < 86400) return `${Math.round(s / 3600)} sa önce`;
+  return `${Math.round(s / 86400)} gün önce`;
 }
 
-const NAV_ITEMS = [
-  { to: "/dashboard", Icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/",          Icon: Trophy,          label: "Sıralama" },
-  { to: "/komutanlar", Icon: Swords,         label: "Komutanlar" },
-  { to: "/puan-hesaplama", Icon: Calculator, label: "Hesaplama" },
-  { to: "/uyeler",    Icon: Users,           label: "Üyeler" },
-  { to: "/etkinlikler", Icon: Flag,          label: "Etkinlikler" },
-  { to: "/puanlar-hakkinda", Icon: BarChart2, label: "Puanlar" },
-];
+const initial = (name) => (name || "?").trim().charAt(0).toUpperCase();
 
-function IconRail() {
+/* ---------------- header ---------------- */
+function DashboardHeader() {
+  const { user } = useAuth();
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const dateStr = useMemo(() => {
+    try {
+      const d = new Intl.DateTimeFormat("tr-TR", {
+        day: "numeric", month: "long", year: "numeric", weekday: "long",
+      }).format(now);
+      const time = now.toTimeString().slice(0, 5);
+      return `${d} · ${time}`;
+    } catch { return ""; }
+  }, [now]);
   return (
-    <aside
-      className="hidden lg:flex flex-col items-center gap-2 py-4 flex-shrink-0"
-      data-testid="dashboard-sidebar"
-      style={{
-        width: 56, position: "sticky", top: 60, height: "calc(100vh - 60px)",
-        background: "rgba(4,0,8,0.65)", borderRight: `1px solid ${VIOLET}33`,
-      }}
-    >
-      {NAV_ITEMS.map((it) => (
-        <NavLink
-          key={it.to}
-          to={it.to}
-          end={it.to === "/dashboard"}
-          data-testid={`dash-nav-${it.to.replace("/", "root")}`}
-          title={it.label}
-        >
-          {({ isActive }) => (
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center transition-all"
-              style={{
-                background: isActive ? `linear-gradient(135deg, ${VIOLET}, ${VIOLET}88)` : "transparent",
-                boxShadow: isActive ? `0 0 20px ${VIOLET}88, inset 0 0 8px ${VIOLET}44` : "none",
-                border: isActive ? `1px solid ${VIOLET}` : "1px solid transparent",
-              }}
-            >
-              <it.Icon
-                className="w-5 h-5"
-                style={{ color: isActive ? "#fff" : "rgba(196,181,253,0.7)" }}
-              />
-            </div>
-          )}
-        </NavLink>
-      ))}
-    </aside>
-  );
-}
-
-function StatChip({ Icon, label, value, tone = "violet", suffix = "" }) {
-  const c = tone === "amber" ? AMBER : tone === "cyan" ? CYAN : VIOLET;
-  return (
-    <div
-      className="rounded-xl p-3 sm:p-4 transition-all hover:translate-y-[-2px]"
-      data-testid={`stat-${label.toLowerCase().replace(/\s+/g, "-")}`}
-      style={{
-        background: `linear-gradient(135deg, ${c}18, rgba(4,0,8,0.7))`,
-        border: `1px solid ${c}44`,
-        boxShadow: `0 0 24px ${c}22, inset 0 1px 0 ${c}22`,
-      }}
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <Icon className="w-4 h-4" style={{ color: c }} />
-        <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: "rgba(196,181,253,0.7)" }}>
-          {label}
-        </span>
-      </div>
-      <div className="text-2xl sm:text-3xl font-black mono" style={{ color: "#fff", fontFamily: "'JetBrains Mono', monospace" }}>
-        <CountUp value={value} />{suffix}
+    <div className="pb-4" data-testid="dashboard-header"
+         style={{ borderBottom: `1px solid ${AMBER}66`, boxShadow: `0 1px 0 ${AMBER}22` }}>
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+        <h1 className="text-2xl sm:text-3xl font-black"
+            style={{ color: "#fff", fontFamily: "Cinzel, serif", letterSpacing: "0.04em" }}>
+          Merhaba {user?.username || "Komutan"} <span style={{ color: AMBER }}>👑</span>
+        </h1>
+        <div className="text-xs sm:text-sm mono" style={{ color: "#9CA3AF" }}>{dateStr}</div>
       </div>
     </div>
   );
 }
 
-function ActivityChart({ rows }) {
+/* ---------------- section title ---------------- */
+function SectionTitle({ children }) {
   return (
-    <div className="rounded-xl p-4 h-[320px]"
-         style={{ background: "rgba(124,58,237,0.06)", border: `1px solid ${VIOLET}44` }}>
-      <h3 className="text-xs uppercase tracking-widest font-black mb-3"
-          style={{ color: "#fff", fontFamily: "Cinzel, serif" }}>
-        Lonca Aktivite &amp; Güç Trendi
-      </h3>
-      <ResponsiveContainer width="100%" height="88%">
-        <ComposedChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-          <defs>
-            <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={AMBER} stopOpacity={0.95} />
-              <stop offset="100%" stopColor={AMBER} stopOpacity={0.3} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid stroke="rgba(124,58,237,0.15)" strokeDasharray="3 3" />
-          <XAxis dataKey="date" tick={{ fill: "#9CA3AF", fontSize: 9 }} tickFormatter={(d) => d.slice(5)} />
-          <YAxis yAxisId="left" tick={{ fill: "#9CA3AF", fontSize: 9 }} />
-          <YAxis yAxisId="right" orientation="right" tick={{ fill: "#9CA3AF", fontSize: 9 }}
-                 tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : v} />
+    <h2
+      className="text-[11px] uppercase tracking-[.2em] font-black mt-6 mb-3 flex items-center gap-2"
+      style={{ color: AMBER, fontFamily: "Cinzel, serif" }}
+    >
+      <span aria-hidden style={{ width: 24, height: 1, background: AMBER }} />
+      {children}
+    </h2>
+  );
+}
+
+/* ---------------- stat card ---------------- */
+function StatCard({ Icon, label, value, trend, format = fmt, testId }) {
+  const up = (trend ?? 0) >= 0;
+  const TrendIcon = up ? TrendingUp : TrendingDown;
+  return (
+    <div
+      className="rounded-xl p-4 transition-transform hover:translate-y-[-2px]"
+      data-testid={testId}
+      style={{
+        background: CARD,
+        border: "1px solid rgba(255,255,255,0.06)",
+        boxShadow: "0 6px 16px rgba(0,0,0,0.35)",
+      }}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div
+          className="w-11 h-11 rounded-full flex items-center justify-center"
+          style={{ background: `${VIOLET}22`, boxShadow: `inset 0 0 12px ${VIOLET}55` }}
+        >
+          <Icon className="w-5 h-5" style={{ color: VIOLET }} />
+        </div>
+        <div
+          className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full"
+          style={{
+            background: up ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.12)",
+            color: up ? "#10B981" : "#EF4444",
+          }}
+        >
+          <TrendIcon className="w-3 h-3" />
+          {Math.abs(trend ?? 0).toFixed(1)}%
+        </div>
+      </div>
+      <div className="text-[11px] uppercase tracking-widest mb-1" style={{ color: "#9CA3AF" }}>
+        {label}
+      </div>
+      <div className="text-3xl font-black mono" style={{ color: "#fff", fontFamily: "'JetBrains Mono', monospace" }}>
+        <CountUp value={value} format={format} />
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- weekly chart ---------------- */
+function WeeklyChart({ rows }) {
+  return (
+    <div
+      className="rounded-xl p-4 h-[320px]"
+      style={{ background: CARD, border: "1px solid rgba(255,255,255,0.06)" }}
+      data-testid="weekly-chart"
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.05)" />
+          <XAxis dataKey="metric" tick={{ fill: "#9CA3AF", fontSize: 11 }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fill: "#9CA3AF", fontSize: 10 }} axisLine={false} tickLine={false} />
           <Tooltip
-            contentStyle={{ background: BASE, border: `1px solid ${VIOLET}`, borderRadius: 6, fontSize: 11 }}
+            contentStyle={{ background: BG, border: `1px solid ${VIOLET}`, borderRadius: 8, fontSize: 12 }}
             labelStyle={{ color: AMBER }}
-            formatter={(val, name) => [fmt(val), name === "logins" ? "Giriş" : "Güç"]}
+            cursor={{ fill: "rgba(139,92,246,0.08)" }}
           />
-          <Legend wrapperStyle={{ fontSize: 10 }} />
-          <Bar yAxisId="left" dataKey="logins" fill="url(#barGrad)" name="Giriş" animationDuration={1200} />
-          <Line yAxisId="right" type="monotone" dataKey="power" stroke={VIOLET} strokeWidth={2.5}
-                dot={{ r: 3, fill: VIOLET }} name="Güç" animationDuration={1200} />
-        </ComposedChart>
+          <Legend wrapperStyle={{ fontSize: 11, paddingBottom: 8 }} verticalAlign="top" />
+          <Bar dataKey="thisWeek" name="Bu Hafta" fill={VIOLET} radius={[6, 6, 0, 0]} animationDuration={900} />
+          <Bar dataKey="lastWeek" name="Geçen Hafta" fill={AMBER} radius={[6, 6, 0, 0]} animationDuration={900} />
+        </BarChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-function WorldMap({ locations }) {
-  // Convert lat/lng to SVG viewport coordinates.
-  const w = 800, h = 400;
-  const project = (lat, lng) => ({
-    x: ((lng + 180) / 360) * w,
-    y: ((90 - lat) / 180) * h,
-  });
-  const maxCount = Math.max(1, ...(locations || []).map((l) => l.count || 1));
+/* ---------------- top members ---------------- */
+function TopMembers({ items }) {
   return (
     <div className="rounded-xl p-4"
-         style={{ background: "rgba(124,58,237,0.06)", border: `1px solid ${VIOLET}44` }}>
-      <h3 className="text-xs uppercase tracking-widest font-black mb-3"
-          style={{ color: "#fff", fontFamily: "Cinzel, serif" }}>
-        Üye Dağılımı
-      </h3>
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-[220px]" data-testid="world-map">
-        <defs>
-          <radialGradient id="dotGrad">
-            <stop offset="0%" stopColor={AMBER} stopOpacity={1} />
-            <stop offset="100%" stopColor={AMBER} stopOpacity={0} />
-          </radialGradient>
-          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke={`${VIOLET}22`} strokeWidth="0.5" />
-          </pattern>
-        </defs>
-        <rect width={w} height={h} fill={BASE} />
-        <rect width={w} height={h} fill="url(#grid)" />
-        {/* Stylised continents blobs (decorative). */}
-        {[
-          { cx: 220, cy: 130, rx: 90, ry: 55 },
-          { cx: 380, cy: 150, rx: 60, ry: 40 },
-          { cx: 460, cy: 210, rx: 55, ry: 90 },
-          { cx: 610, cy: 220, rx: 80, ry: 60 },
-          { cx: 660, cy: 320, rx: 45, ry: 30 },
-          { cx: 170, cy: 280, rx: 55, ry: 70 },
-        ].map((c, i) => (
-          <ellipse key={i} cx={c.cx} cy={c.cy} rx={c.rx} ry={c.ry}
-                   fill={`${VIOLET}18`} stroke={`${VIOLET}44`} strokeWidth="0.6" />
+         style={{ background: CARD, border: "1px solid rgba(255,255,255,0.06)" }}
+         data-testid="top-members-card">
+      <div className="text-xs uppercase tracking-widest font-black mb-3 flex items-center gap-2"
+           style={{ color: "#fff" }}>
+        <Trophy className="w-3.5 h-3.5" style={{ color: AMBER }} /> En Güçlü 5
+      </div>
+      <div className="space-y-2.5">
+        {(items || []).map((m) => (
+          <div key={m.id} className="flex items-center gap-3">
+            <span className="w-5 text-center text-xs font-black" style={{ color: AMBER }}>
+              #{m.rank}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold truncate" style={{ color: "#fff" }}>{m.name}</span>
+                <span className="text-[10px] mono" style={{ color: "#9CA3AF" }}>{fmt(m.power)}</span>
+              </div>
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.round((m.ratio || 0) * 100)}%`,
+                    background: `linear-gradient(90deg, ${VIOLET}, ${VIOLET}88)`,
+                    boxShadow: `0 0 10px ${VIOLET}55`,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
         ))}
-        {(locations || []).map((loc, i) => {
-          const p = project(loc.lat, loc.lng);
-          const r = 4 + (loc.count / maxCount) * 12;
-          return (
-            <g key={i}>
-              <circle cx={p.x} cy={p.y} r={r + 6} fill="url(#dotGrad)" opacity="0.6" />
-              <circle cx={p.x} cy={p.y} r={r} fill={AMBER} stroke="#fff" strokeWidth="0.6" opacity="0.9">
-                <animate attributeName="r" values={`${r};${r + 2};${r}`} dur="2s" repeatCount="indefinite" />
-              </circle>
-            </g>
-          );
-        })}
-      </svg>
+      </div>
     </div>
   );
 }
 
-const STATUS_META = {
-  active:    { color: "#10B981", bg: "rgba(16,185,129,0.15)", label: "AKTİF" },
-  upcoming:  { color: AMBER,      bg: `${AMBER}22`,            label: "YAKLAŞAN" },
-  completed: { color: "#9CA3AF", bg: "rgba(156,163,175,0.15)", label: "TAMAMLANDI" },
+/* ---------------- recent events ---------------- */
+const STATUS_PILL = {
+  active:    { label: "Aktif",       bg: "rgba(16,185,129,0.15)", color: "#10B981" },
+  upcoming:  { label: "Yaklaşan",    bg: `${AMBER}22`,             color: AMBER },
+  completed: { label: "Tamamlandı",  bg: "rgba(156,163,175,0.15)", color: "#9CA3AF" },
 };
-
-function RecentEvents({ events }) {
+function RecentEvents({ items }) {
   return (
     <div className="rounded-xl p-4"
-         style={{ background: "rgba(124,58,237,0.06)", border: `1px solid ${VIOLET}44` }}>
-      <h3 className="text-xs uppercase tracking-widest font-black mb-3"
-          style={{ color: "#fff", fontFamily: "Cinzel, serif" }}>
+         style={{ background: CARD, border: "1px solid rgba(255,255,255,0.06)" }}
+         data-testid="recent-events-card">
+      <div className="text-xs uppercase tracking-widest font-black mb-3" style={{ color: "#fff" }}>
         Son Etkinlikler
-      </h3>
-      <div className="space-y-2" data-testid="recent-events">
-        {(events || []).length === 0 && (
-          <div className="text-xs" style={{ color: "rgba(196,181,253,0.5)" }}>Kayıt yok</div>
-        )}
-        {(events || []).map((e) => {
-          const s = STATUS_META[e.status] || STATUS_META.completed;
+      </div>
+      <div className="space-y-2">
+        {(items || []).length === 0 && <div className="text-xs" style={{ color: "#9CA3AF" }}>Kayıt yok</div>}
+        {(items || []).map((e) => {
+          const s = STATUS_PILL[e.status] || STATUS_PILL.completed;
           return (
-            <div key={e.id} className="flex items-center gap-3 p-2 rounded-lg"
-                 style={{ background: "rgba(4,0,8,0.5)", border: `1px solid ${VIOLET}22` }}>
-              <Flag className="w-4 h-4" style={{ color: VIOLET }} />
+            <div key={e.id} className="flex items-center gap-3 py-1.5">
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-bold truncate" style={{ color: "#fff" }}>{e.name}</div>
-                <div className="text-[10px]" style={{ color: "rgba(196,181,253,0.6)" }}>
-                  {(e.date || "").slice(0, 10)} · {e.participants || 0} katılımcı
-                </div>
+                <div className="text-[10px] mono" style={{ color: "#9CA3AF" }}>{(e.date || "").slice(0, 10)}</div>
               </div>
-              <span className="text-[9px] font-black px-2 py-0.5 rounded-full"
-                    style={{ background: s.bg, color: s.color, border: `1px solid ${s.color}55` }}>
-                {s.label}
-              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    style={{ background: s.bg, color: s.color }}>{s.label}</span>
             </div>
           );
         })}
@@ -259,29 +234,66 @@ function RecentEvents({ events }) {
   );
 }
 
-const MEDALS = ["🥇", "🥈", "🥉"];
-function TopMembersPodium({ members }) {
+/* ---------------- recent logins ---------------- */
+function RecentLogins({ items }) {
   return (
     <div className="rounded-xl p-4"
-         style={{ background: "rgba(124,58,237,0.06)", border: `1px solid ${VIOLET}44` }}>
-      <h3 className="text-xs uppercase tracking-widest font-black mb-3 flex items-center gap-2"
-          style={{ color: "#fff", fontFamily: "Cinzel, serif" }}>
-        <Crown className="w-4 h-4" style={{ color: AMBER }} /> Güç Sıralaması
-      </h3>
-      <div className="space-y-1.5" data-testid="top-members">
-        {(members || []).map((m) => {
-          const medal = MEDALS[m.rank - 1];
-          const Trend = m.trend === "up" ? TrendingUp : m.trend === "down" ? TrendingDown : Minus;
-          const trendColor = m.trend === "up" ? "#10B981" : m.trend === "down" ? "#EF4444" : "#9CA3AF";
+         style={{ background: CARD, border: "1px solid rgba(255,255,255,0.06)" }}
+         data-testid="recent-logins-card">
+      <div className="text-xs uppercase tracking-widest font-black mb-3" style={{ color: "#fff" }}>
+        Son Giriş Yapanlar
+      </div>
+      <div className="space-y-2">
+        {(items || []).length === 0 && <div className="text-xs" style={{ color: "#9CA3AF" }}>Kayıt yok</div>}
+        {(items || []).map((u) => (
+          <div key={u.username + u.created_at} className="flex items-center gap-3">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black"
+              style={{ background: `${VIOLET}22`, color: VIOLET, border: `1px solid ${VIOLET}55` }}
+            >
+              {initial(u.username)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-bold truncate" style={{ color: "#fff" }}>{u.username}</div>
+              <div className="text-[10px]" style={{ color: "#9CA3AF" }}>{relTime(u.created_at)}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- upcoming events (calendar-style) ---------------- */
+const MONTHS_TR = ["Oca","Şub","Mar","Nis","May","Haz","Tem","Ağu","Eyl","Eki","Kas","Ara"];
+function Upcoming({ items }) {
+  return (
+    <div className="rounded-xl p-4"
+         style={{ background: CARD, border: "1px solid rgba(255,255,255,0.06)" }}
+         data-testid="upcoming-events-card">
+      <div className="text-xs uppercase tracking-widest font-black mb-3" style={{ color: "#fff" }}>
+        Yaklaşan
+      </div>
+      <div className="space-y-2.5">
+        {(items || []).length === 0 && <div className="text-xs" style={{ color: "#9CA3AF" }}>Yok</div>}
+        {(items || []).map((e) => {
+          const d = e.date ? new Date(e.date) : null;
+          const day = d ? d.getDate() : "?";
+          const mon = d ? MONTHS_TR[d.getMonth()] : "";
           return (
-            <div key={m.id} className="flex items-center gap-2 p-2 rounded-lg"
-                 style={{ background: "rgba(4,0,8,0.5)", border: `1px solid ${VIOLET}22` }}>
-              <span className="text-lg w-8 text-center">{medal || `#${m.rank}`}</span>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold truncate" style={{ color: "#fff" }}>{m.name}</div>
-                <div className="text-[10px] mono" style={{ color: AMBER }}>{fmt(m.bireysel_guc || 0)}</div>
+            <div key={e.id} className="flex items-center gap-3">
+              <div
+                className="w-11 h-11 rounded-lg flex flex-col items-center justify-center flex-shrink-0"
+                style={{ background: `${AMBER}18`, border: `1px solid ${AMBER}55` }}
+              >
+                <span className="text-sm font-black" style={{ color: AMBER }}>{day}</span>
+                <span className="text-[8px] uppercase" style={{ color: AMBER }}>{mon}</span>
               </div>
-              <Trend className="w-3.5 h-3.5" style={{ color: trendColor }} />
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold truncate" style={{ color: "#fff" }}>{e.name}</div>
+                {e.subtitle && <div className="text-[10px] truncate" style={{ color: "#9CA3AF" }}>{e.subtitle}</div>}
+              </div>
+              <ChevronRight className="w-3 h-3" style={{ color: "#9CA3AF" }} />
             </div>
           );
         })}
@@ -290,131 +302,160 @@ function TopMembersPodium({ members }) {
   );
 }
 
-const KIND_ICON = { login: Radio, member_join: Users, score_update: Zap };
-function ActivityFeed({ feed }) {
-  return (
-    <div className="rounded-xl p-4 h-full"
-         style={{ background: "rgba(124,58,237,0.06)", border: `1px solid ${VIOLET}44` }}>
-      <h3 className="text-xs uppercase tracking-widest font-black mb-3 flex items-center gap-2"
-          style={{ color: "#fff", fontFamily: "Cinzel, serif" }}>
-        <ActivityIcon className="w-4 h-4" style={{ color: CYAN }} /> Canlı Aktivite
-      </h3>
-      <div className="space-y-1.5 overflow-y-auto max-h-[280px] pr-1 lang-scroll" data-testid="activity-feed">
-        {(feed || []).length === 0 && (
-          <div className="text-xs" style={{ color: "rgba(196,181,253,0.5)" }}>Kayıt yok</div>
-        )}
-        {(feed || []).map((f, i) => {
-          const Icon = KIND_ICON[f.kind] || ActivityIcon;
-          const tone = f.kind === "login" ? CYAN : f.kind === "score_update" ? AMBER : VIOLET;
-          return (
-            <div key={`${f.kind}-${i}`} className="flex items-center gap-2 p-1.5 rounded"
-                 style={{
-                   background: "rgba(4,0,8,0.5)", borderLeft: `2px solid ${tone}`,
-                   animation: `slideInRight 0.3s ease ${i * 0.05}s both`,
-                 }}>
-              <Icon className="w-3 h-3 flex-shrink-0" style={{ color: tone }} />
-              <div className="flex-1 min-w-0">
-                <div className="text-[11px] truncate" style={{ color: "#fff" }}>{f.text}</div>
-                <div className="text-[9px]" style={{ color: "rgba(196,181,253,0.5)" }}>{relTime(f.at)}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+/* ---------------- activity log ---------------- */
+const ACTION_META = {
+  login:         { label: "Giriş",              bg: "rgba(16,185,129,0.15)", color: "#10B981" },
+  score_update:  { label: "Puan Güncelleme",    bg: `${VIOLET}22`,           color: VIOLET },
+  event_join:    { label: "Etkinlik Katılım",   bg: `${AMBER}22`,            color: AMBER },
+  member_added:  { label: "Üye Eklendi",        bg: "rgba(103,232,249,0.15)", color: "#67E8F9" },
+  rank_change:   { label: "Sıralama Değişimi",  bg: "rgba(236,72,153,0.15)", color: "#EC4899" },
+};
+const DEVICE_ICON = { mobile: Smartphone, desktop: Monitor, tablet: Tablet };
 
-function TopBanner({ stats }) {
-  const { user } = useAuth();
-  const dateStr = useMemo(() => {
-    try {
-      return new Intl.DateTimeFormat("tr-TR", {
-        day: "numeric", month: "long", year: "numeric", weekday: "long",
-      }).format(new Date());
-    } catch { return ""; }
-  }, []);
-  const total = stats?.total_members || 0;
-  const online = stats?.online_now || 0;
-  const growthPct = total > 0 ? Math.round((online / total) * 100) : 0;
+function ActivityLog() {
+  const [filter, setFilter] = useState("all");
+  const { data: rows = [] } = useSWR(
+    `/dashboard/activity-log?filter=${filter}`,
+    fetcher,
+    { refreshInterval: 30000 },
+  );
+  const tabs = [
+    { key: "all", label: "Tümü" },
+    { key: "logins", label: "Girişler" },
+    { key: "scores", label: "Puanlar" },
+    { key: "events", label: "Etkinlikler" },
+  ];
   return (
-    <div
-      className="rounded-xl p-4 sm:p-6 mb-4 overflow-hidden relative"
-      data-testid="dashboard-banner"
-      style={{
-        background: `linear-gradient(135deg, ${VIOLET}33 0%, ${BASE} 60%, ${AMBER}22 100%)`,
-        border: `1px solid ${VIOLET}66`,
-        boxShadow: `0 0 40px ${VIOLET}33, inset 0 0 60px ${VIOLET}18`,
-      }}
-    >
-      <div
-        aria-hidden
-        className="absolute inset-0 opacity-30"
-        style={{
-          background: `radial-gradient(600px 200px at 10% 20%, ${VIOLET}44, transparent), radial-gradient(400px 160px at 90% 80%, ${AMBER}33, transparent)`,
-          pointerEvents: "none",
-        }}
-      />
-      <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black mb-1"
-              style={{ color: "#fff", fontFamily: "Cinzel, serif", letterSpacing: "0.05em" }}>
-            Merhaba {user?.username || "Komutan"} <span style={{ color: AMBER }}>👑</span>
-          </h1>
-          <div className="text-xs mb-2" style={{ color: "rgba(196,181,253,0.7)" }}>{dateStr}</div>
-          <p className="text-sm max-w-2xl leading-relaxed" style={{ color: "rgba(245,240,232,0.85)" }}>
-            Gücümüz her geçen gün artıyor! Bugün <b style={{ color: AMBER }}>{online}</b> üye çevrimiçi
-            ve loncamız <b style={{ color: AMBER }}>{fmt(total)}</b> savaşçıdan oluşuyor
-            {growthPct > 0 && <> — aktiflik oranı <b style={{ color: AMBER }}>%{growthPct}</b></>}.
-          </p>
+    <div className="rounded-xl p-4"
+         style={{ background: CARD, border: "1px solid rgba(255,255,255,0.06)" }}
+         data-testid="activity-log-card">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <div className="text-xs uppercase tracking-widest font-black" style={{ color: "#fff" }}>
+          Kullanıcı İşlemleri
         </div>
-        <Sparkles className="w-16 h-16 opacity-30 hidden sm:block" style={{ color: AMBER }} />
+        <div className="ml-auto flex items-center gap-1" data-testid="activity-filter-pills">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setFilter(t.key)}
+              data-testid={`activity-filter-${t.key}`}
+              className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full transition-all"
+              style={{
+                background: filter === t.key ? VIOLET : "rgba(139,92,246,0.1)",
+                color: filter === t.key ? "#fff" : VIOLET,
+                border: `1px solid ${VIOLET}55`,
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs" data-testid="activity-log-table">
+          <thead>
+            <tr className="text-left uppercase text-[10px] tracking-widest" style={{ color: "#9CA3AF" }}>
+              <th className="pb-2 pr-2">Üye</th>
+              <th className="pb-2 pr-2">İşlem</th>
+              <th className="pb-2 pr-2 hidden sm:table-cell">Detay</th>
+              <th className="pb-2 pr-2">Zaman</th>
+              <th className="pb-2 pr-2 hidden sm:table-cell">Cihaz</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr><td colSpan={5} className="py-4 text-center" style={{ color: "#9CA3AF" }}>Kayıt yok</td></tr>
+            )}
+            {rows.map((r, i) => {
+              const meta = ACTION_META[r.action_type] || { label: r.action_type, bg: "rgba(255,255,255,0.05)", color: "#9CA3AF" };
+              const DevIcon = DEVICE_ICON[r.device] || Monitor;
+              return (
+                <tr key={r.id || i} className="border-t" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+                  <td className="py-2 pr-2">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0"
+                        style={{ background: `${VIOLET}22`, color: VIOLET, border: `1px solid ${VIOLET}55` }}
+                      >
+                        {initial(r.member_name)}
+                      </div>
+                      <span className="truncate max-w-[140px]" style={{ color: "#fff" }}>{r.member_name}</span>
+                    </div>
+                  </td>
+                  <td className="py-2 pr-2">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
+                          style={{ background: meta.bg, color: meta.color }}>{meta.label}</span>
+                  </td>
+                  <td className="py-2 pr-2 hidden sm:table-cell" style={{ color: "#9CA3AF" }}>
+                    <span className="truncate">{r.details}</span>
+                  </td>
+                  <td className="py-2 pr-2 whitespace-nowrap" style={{ color: "#9CA3AF" }}>{relTime(r.timestamp)}</td>
+                  <td className="py-2 pr-2 hidden sm:table-cell">
+                    <DevIcon className="w-3.5 h-3.5" style={{ color: "#9CA3AF" }} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
-// ---------- page ----------
+/* ---------------- skeleton ---------------- */
+function Skeleton({ height = 80 }) {
+  return (
+    <div className="rounded-xl animate-pulse"
+         style={{ height, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }} />
+  );
+}
+
+/* ---------------- page ---------------- */
 export default function Dashboard() {
-  const nav = useNavigate();
-  const { data: stats } = useSWR("/dashboard/stats", fetcher, { refreshInterval: 30000 });
-  const { data: chartData = [] } = useSWR("/dashboard/activity-chart", fetcher, { refreshInterval: 60000 });
-  const { data: events = [] } = useSWR("/dashboard/recent-events", fetcher);
-  const { data: topMembers = [] } = useSWR("/dashboard/top-members", fetcher);
-  const { data: feed = [] } = useSWR("/dashboard/activity-feed", fetcher, { refreshInterval: 15000 });
-  const { data: locations = [] } = useSWR("/dashboard/member-locations", fetcher);
+  const opts = { refreshInterval: 60000 };
+  const { data: stats } = useSWR("/dashboard/stats", fetcher, opts);
+  const { data: weekly = [] } = useSWR("/dashboard/weekly", fetcher, opts);
+  const { data: topMembers = [] } = useSWR("/dashboard/top-members", fetcher, opts);
+  const { data: recentEvents = [] } = useSWR("/dashboard/recent-events", fetcher, opts);
+  const { data: recentLogins = [] } = useSWR("/dashboard/recent-logins", fetcher, opts);
+  const { data: upcoming = [] } = useSWR("/dashboard/upcoming-events", fetcher, opts);
 
-  // Silence unused-var warning for `nav`; kept for future links.
-  void nav;
+  const trends = stats?.trends || {};
 
   return (
-    <div className="flex" style={{ background: BASE, color: "#F5F0E8", minHeight: "calc(100vh - 120px)" }}>
-      <style>{`
-        @keyframes slideInRight { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
-      `}</style>
-      <IconRail />
-      <div className="flex-1 min-w-0 p-3 sm:p-5" data-testid="dashboard-page">
-        <TopBanner stats={stats} />
+    <div className="min-h-[calc(100vh-120px)] p-3 sm:p-5" style={{ background: BG, color: "#fff" }}
+         data-testid="dashboard-page">
+      <DashboardHeader />
 
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4" data-testid="stat-chips">
-          <StatChip Icon={Users}         label="Toplam Üye"    value={stats?.total_members || 0} tone="violet" />
-          <StatChip Icon={Radio}         label="Çevrimiçi"     value={stats?.online_now || 0}    tone="cyan" />
-          <StatChip Icon={Flag}          label="Aktif Etkinlik" value={stats?.active_events || 0} tone="amber" />
-          <StatChip Icon={Crown}         label="En Yüksek Güç"  value={stats?.max_power || 0}     tone="amber" />
-          <StatChip Icon={BarChart2}     label="Ortalama Güç"   value={stats?.avg_power || 0}     tone="violet" />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
-          <div className="lg:col-span-2"><ActivityChart rows={chartData} /></div>
-          <WorldMap locations={locations} />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-          <RecentEvents events={events} />
-          <TopMembersPodium members={topMembers} />
-          <ActivityFeed feed={feed} />
-        </div>
+      <SectionTitle>Bugün</SectionTitle>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {!stats && Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height={128} />)}
+        {stats && (
+          <>
+            <StatCard Icon={Users}    label="Toplam Üye"     value={stats.total_members} trend={trends.members} testId="stat-total-members" />
+            <StatCard Icon={Wifi}     label="Çevrimiçi"      value={stats.online_count}  trend={trends.online}  testId="stat-online" />
+            <StatCard Icon={Calendar} label="Aktif Etkinlik" value={stats.active_events} trend={trends.events}  testId="stat-active-events" />
+            <StatCard Icon={Zap}      label="Toplam Güç"     value={stats.total_power}   trend={trends.power}   testId="stat-total-power" />
+          </>
+        )}
       </div>
+
+      <SectionTitle>Haftalık Görünüm</SectionTitle>
+      {weekly.length === 0 ? <Skeleton height={320} /> : <WeeklyChart rows={weekly} />}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+        <TopMembers items={topMembers} />
+        <RecentEvents items={recentEvents} />
+        <RecentLogins items={recentLogins} />
+        <Upcoming items={upcoming} />
+      </div>
+
+      <SectionTitle>Kullanıcı İşlemleri</SectionTitle>
+      <ActivityLog />
+
+      <div className="h-8" />
     </div>
   );
 }

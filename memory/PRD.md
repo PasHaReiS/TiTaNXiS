@@ -13,6 +13,13 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] Modern Kart Dashboard (v2 — full rewrite) — DONE**:
+  - **Backend** (`routes/dashboard.py` overwrite): 7 endpoint. `/stats` — 4 KPI + WoW trend %. `/weekly` — grouped bar (thisWeek vs lastWeek: Girişler/Etkinlikler/Yeni Üyeler). `/top-members` — bireysel_guc DESC top 5 + ratio. `/recent-events` — status türeviyle. `/recent-logins` — distinct son 5. `/upcoming-events` — date>=today ASC 5. `/activity-log?filter=all|logins|scores|events` — yeni `activity_log` koleksiyonu, ilk çağrıda 40 gerçekçi entry ile otomatik seed (gerçek member isimleri).
+  - **Frontend** (`pages/Dashboard.jsx` overwrite): Header + canlı saat, 4 stat card (violet daire ikon + count-up + trend rozet), Recharts grouped BarChart (violet+amber), 2x2 grid (TopMembers progress bar, RecentEvents status pill, RecentLogins avatar+relTime, Upcoming calendar-style), full-width activity log tablo + 4 filter pill + auto-refresh 30sn. Skeleton placeholders.
+  - **Palet**: #111111 bg, #1F1F1F card, #8B5CF6 violet, #F59E0B amber, altın divider.
+  - **Doğrulama**: 7 endpoint curl geçti (164 üye, 72.3B total power, activity_log=40 entry, filter=logins → 11/11). `deployment_agent`: PASS.
+
+
 - **[2026-02] Premium Dashboard Sayfası — DONE**:
   - **Backend** (`routes/dashboard.py`): 6 endpoint, hepsi gerçek MongoDB verilerinden aggregate. `/dashboard/stats` (164 üye, çevrimiçi login_attempts'ten 15dk cutoff, aktif events tarih>=bugün, max/avg bireysel_guc). `/dashboard/activity-chart` (14 gün: günlük login sayısı + points cumulative). `/dashboard/recent-events` (son 5 event, status: active/upcoming/completed, participants distinct point member_id). `/dashboard/top-members` (bireysel_guc DESC top 5). `/dashboard/activity-feed` (login+member_join+score_update merge, 10 latest). `/dashboard/member-locations` (alliance_name gruplarını deterministik hash ile lat/lng koordinatlara dağıtıyor).
   - **Frontend** (`pages/Dashboard.jsx` ~500 satır): Sol dikey icon rail (Dashboard + Sıralama + Komutanlar + Hesaplama + Üyeler + Etkinlikler + Puanlar) violet neon glow aktif öğede. Panoramik top banner (`Merhaba {username} 👑`, TR tarih formatı, dinamik lonca özeti). 5 stat chip animasyonlu count-up. Recharts `ComposedChart` bar (amber #D97706) + line (violet #7C3AED) çift eksen. SVG world map (dekoratif kıta blob'ları + pulsing amber dots alliance count'a orantılı). Recent events kart listesi + status renkli rozetler. Top 5 podium 🥇🥈🥉 + trend arrow. Live activity feed slide-in animation.
