@@ -32,9 +32,9 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
   const { data: allEvents = [] } = useSWR(open ? "/events?archived=false" : null, fetcher);
   const { data: archivedEvents = [] } = useSWR(open ? "/events?archived=true" : null, fetcher);
 
-  const eventDateMap = useMemo(() => {
+  const eventInfoMap = useMemo(() => {
     const map = {};
-    [...allEvents, ...archivedEvents].forEach((e) => { map[e.id] = e.date; });
+    [...allEvents, ...archivedEvents].forEach((e) => { map[e.id] = { date: e.date, group_name: e.group_name || null }; });
     return map;
   }, [allEvents, archivedEvents]);
 
@@ -42,24 +42,30 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
     const list = history?.points || [];
     const groups = {};
     list.forEach((p) => {
+      const info = eventInfoMap[p.event_id] || {};
       const key = p.event_name || t("event");
-      if (!groups[key]) groups[key] = { rows: [], total: 0, eventDate: null };
+      if (!groups[key]) groups[key] = { rows: [], total: 0, eventDate: null, groupName: info.group_name || null };
       const mult = Number(p.multiplier || 1);
       const effective = Number(p.points || 0) * mult;
       groups[key].rows.push({ ...p, effective, mult });
       groups[key].total += effective;
-      const evDate = eventDateMap[p.event_id] || p.date;
-      if (evDate && (!groups[key].eventDate || evDate < groups[key].eventDate)) {
+      const evDate = info.date || p.date;
+      // Track the newest date for this event-name so it sorts by its most recent occurrence.
+      if (evDate && (!groups[key].eventDate || evDate > groups[key].eventDate)) {
         groups[key].eventDate = evDate;
       }
     });
-    // Ascending by event date (oldest first, newest last)
+    // Sort newest-first by event date. If two entries share the same group_name,
+    // sort them alphabetically (A-Z) as the secondary ordering.
     return Object.entries(groups).sort((a, b) => {
+      if (a[1].groupName && b[1].groupName && a[1].groupName === b[1].groupName) {
+        return a[0].localeCompare(b[0], "tr");
+      }
       const da = a[1].eventDate ? new Date(a[1].eventDate).getTime() : 0;
       const db = b[1].eventDate ? new Date(b[1].eventDate).getTime() : 0;
-      return da - db;
+      return db - da;
     });
-  }, [history, t, eventDateMap]);
+  }, [history, t, eventInfoMap]);
 
   if (!open) return null;
 
