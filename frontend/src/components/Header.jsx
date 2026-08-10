@@ -127,12 +127,14 @@ export default function Header({ title }) {
                     overflow: "visible",
                   }}
                 >
-                  <MenuItem
-                    icon={LayoutDashboard}
-                    label={t("nav_dashboard") || "Dashboard"}
-                    onClick={() => goto("/dashboard")}
-                    testId="dropdown-dashboard"
-                  />
+                  {canEdit && (
+                    <MenuItem
+                      icon={LayoutDashboard}
+                      label={t("nav_dashboard") || "Dashboard"}
+                      onClick={() => goto("/dashboard")}
+                      testId="dropdown-dashboard"
+                    />
+                  )}
                   <MenuItem
                     icon={LifeBuoy}
                     label={t("nav_vip_support") || "VIP Destek"}

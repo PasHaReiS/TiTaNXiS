@@ -68,6 +68,15 @@ function RequireAdmin({ children }) {
   return children;
 }
 
+function RequireAdminOrEditor({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  const canView = user.role === "admin" || user.can_edit === true;
+  if (!canView) return <Navigate to="/" replace />;
+  return children;
+}
+
 function AppShell() {
   const { loading } = useAuth();
   if (loading) return <div className="app-shell"><LoadingScreen /></div>;
@@ -89,7 +98,7 @@ function AppShell() {
           <Route path="/gosterge-paneli" element={<RequireAuth><LiveDashboardPage /></RequireAuth>} />
           <Route path="/widget-kitapligi" element={<RequireAuth><WidgetLibrary /></RequireAuth>} />
           <Route path="/vip-destek" element={<VipSupport />} />
-          <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+          <Route path="/dashboard" element={<RequireAdminOrEditor><Dashboard /></RequireAdminOrEditor>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

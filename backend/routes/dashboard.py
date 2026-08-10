@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 
 def _now_iso() -> str:
@@ -30,7 +30,14 @@ def _as_int(v) -> int:
         return 0
 
 
-def register_dashboard(api_router: APIRouter, db):
+def register_dashboard(api_router: APIRouter, db, require_edit=None):
+    # Guard: admin or editor (can_edit). If not provided, dependency is a no-op passthrough
+    # so existing tests / calls that don't wire the dep won't break.
+    if require_edit is None:
+        async def _guard():
+            return {}
+    else:
+        _guard = require_edit
 
     async def _seed_activity_log_if_empty():
         """Seed 40 realistic activity_log entries derived from real members if empty."""
@@ -93,7 +100,7 @@ def register_dashboard(api_router: APIRouter, db):
         return this_start.isoformat(), last_start.isoformat(), now.isoformat()
 
     @api_router.get("/dashboard/stats")
-    async def dashboard_stats():
+    async def dashboard_stats(_: dict = Depends(_guard)):
         total_members = await db.members.count_documents({})
         online_count = await _online_count_last_15m()
         today = datetime.now(timezone.utc).date().isoformat()
@@ -128,7 +135,7 @@ def register_dashboard(api_router: APIRouter, db):
         }
 
     @api_router.get("/dashboard/weekly")
-    async def dashboard_weekly():
+    async def dashboard_weekly(_: dict = Depends(_guard)):
         this_start, last_start, _ = await _week_bounds()
         this_logins = await db.login_attempts.count_documents({"success": True, "created_at": {"$gte": this_start}})
         last_logins = await db.login_attempts.count_documents({"success": True, "created_at": {"$gte": last_start, "$lt": this_start}})
@@ -143,7 +150,7 @@ def register_dashboard(api_router: APIRouter, db):
         ]
 
     @api_router.get("/dashboard/top-members")
-    async def dashboard_top_members():
+    async def dashboard_top_members(_: dict = Depends(_guard)):
         top: List[dict] = []
         async for m in db.members.find({}, {"_id": 0}):
             p = _as_int(m.get("bireysel_guc"))
@@ -161,7 +168,7 @@ def register_dashboard(api_router: APIRouter, db):
         return rows
 
     @api_router.get("/dashboard/recent-events")
-    async def dashboard_recent_events():
+    async def dashboard_recent_events(_: dict = Depends(_guard)):
         events = await db.events.find({}, {"_id": 0}).sort("created_at", -1).limit(5).to_list(5)
         today = datetime.now(timezone.utc).date().isoformat()
         for e in events:
@@ -186,7 +193,7 @@ def register_dashboard(api_router: APIRouter, db):
         return events
 
     @api_router.get("/dashboard/recent-logins")
-    async def dashboard_recent_logins():
+    async def dashboard_recent_logins(_: dict = Depends(_guard)):
         rows = await (
             db.login_attempts.find({"success": True}, {"_id": 0})
             .sort("created_at", -1).limit(10).to_list(10)
@@ -205,7 +212,7 @@ def register_dashboard(api_router: APIRouter, db):
         return out
 
     @api_router.get("/dashboard/activity-log")
-    async def dashboard_activity_log(filter: Optional[str] = None, limit: int = 50):
+    async def dashboard_activity_log(filter: Optional[str] = None, limit: int = 50, _: dict = Depends(_guard)):
         query: Dict = {}
         # UI filter pills: "all" | "logins" | "scores" | "events".
         f = (filter or "all").lower()
@@ -223,7 +230,7 @@ def register_dashboard(api_router: APIRouter, db):
         return rows
 
     @api_router.get("/dashboard/member-locations")
-    async def dashboard_member_locations():
+    async def dashboard_member_locations(_: dict = Depends(_guard)):
         # Kept for backward compat with previous Dashboard version.
         by_alliance: Dict[str, int] = {}
         async for m in db.members.find({}, {"_id": 0, "alliance_name": 1}):

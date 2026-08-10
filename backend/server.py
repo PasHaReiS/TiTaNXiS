@@ -2893,9 +2893,9 @@ import json  # used by push payload
 from routes.vip import register_vip  # noqa: E402
 register_vip(api_router, db, require_auth, require_admin, logging.getLogger("vip"))
 
-# Premium Dashboard routes
+# Premium Dashboard routes (admin + editor only)
 from routes.dashboard import register_dashboard  # noqa: E402
-register_dashboard(api_router, db)
+register_dashboard(api_router, db, require_edit=require_edit)
 
 app.include_router(api_router)
 app.include_router(make_auth_router(db))

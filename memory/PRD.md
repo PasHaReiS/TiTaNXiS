@@ -13,6 +13,13 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] Dashboard Erişim Kısıtlama (admin + editor) — DONE**:
+  - **Frontend guard** (`App.js`): Yeni `RequireAdminOrEditor` bileşeni eklendi (role=admin veya user.can_edit=true). `/dashboard` route bu guard'a bağlandı. Kimliksiz → `/login`, yetkisiz → `/` yönlendirme.
+  - **Header nav**: Dropdown'daki Dashboard `MenuItem` `{canEdit && ...}` conditional ile sarıldı — normal kullanıcı linki artık göremiyor.
+  - **Backend guard** (`routes/dashboard.py`): `register_dashboard` fonksiyonuna `require_edit` parametresi eklendi, 8 endpoint'e (`/stats`, `/weekly`, `/top-members`, `/recent-events`, `/recent-logins`, `/upcoming-events`, `/activity-log`, `/member-locations`) `Depends(_guard)` uygulandı. `server.py` çağrısı `register_dashboard(api_router, db, require_edit=require_edit)` olarak güncellendi.
+  - **Doğrulama**: 4 senaryo curl → NO AUTH=401, admin=200, pasha (editor)=200, normal user=403 ✅. `deployment_agent`: PASS.
+
+
 - **[2026-02] Modern Kart Dashboard (v2 — full rewrite) — DONE**:
   - **Backend** (`routes/dashboard.py` overwrite): 7 endpoint. `/stats` — 4 KPI + WoW trend %. `/weekly` — grouped bar (thisWeek vs lastWeek: Girişler/Etkinlikler/Yeni Üyeler). `/top-members` — bireysel_guc DESC top 5 + ratio. `/recent-events` — status türeviyle. `/recent-logins` — distinct son 5. `/upcoming-events` — date>=today ASC 5. `/activity-log?filter=all|logins|scores|events` — yeni `activity_log` koleksiyonu, ilk çağrıda 40 gerçekçi entry ile otomatik seed (gerçek member isimleri).
   - **Frontend** (`pages/Dashboard.jsx` overwrite): Header + canlı saat, 4 stat card (violet daire ikon + count-up + trend rozet), Recharts grouped BarChart (violet+amber), 2x2 grid (TopMembers progress bar, RecentEvents status pill, RecentLogins avatar+relTime, Upcoming calendar-style), full-width activity log tablo + 4 filter pill + auto-refresh 30sn. Skeleton placeholders.
