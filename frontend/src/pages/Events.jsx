@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { EVENTS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
-import { Plus, Pencil, Trash2, Archive, X, Calendar } from "lucide-react";
+import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { groupColor, groupBgTint } from "@/lib/groupColors";
@@ -16,6 +16,8 @@ export default function Events() {
   const [tab, setTab] = useState("active");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [renamingGroup, setRenamingGroup] = useState(null); // group name being renamed
+  const [renameValue, setRenameValue] = useState("");
 
   const { data: events = [] } = useSWR(`/events?archived=${tab === "archive"}`, fetcher, { refreshInterval: 6000 });
 
@@ -41,6 +43,46 @@ export default function Events() {
     mutate((k) => typeof k === "string" && k.startsWith("/events"));
     mutate("/stats");
     toast.success(t("group_archived"));
+  };
+
+  const unarchiveGroup = async (group) => {
+    if (!window.confirm(t("confirm_unarchive_group", { group }))) return;
+    await api.post(`/events/unarchive-group?group_name=${encodeURIComponent(group)}`);
+    mutate((k) => typeof k === "string" && k.startsWith("/events"));
+    mutate("/stats");
+    toast.success(t("group_unarchived"));
+  };
+
+  const deleteGroup = async (group) => {
+    if (!window.confirm(t("confirm_delete_group", { group }))) return;
+    try {
+      const res = await api.delete(`/events/group/${encodeURIComponent(group)}`);
+      mutate((k) => typeof k === "string" && k.startsWith("/events"));
+      mutate((k) => typeof k === "string" && k.startsWith("/leaderboard"));
+      mutate("/stats");
+      mutate("/event-groups");
+      toast.success(t("group_deleted", { count: res.data?.events_deleted || 0 }));
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    }
+  };
+
+  const startRenameGroup = (group) => {
+    setRenamingGroup(group);
+    setRenameValue(group);
+  };
+  const commitRenameGroup = async (group) => {
+    const nv = renameValue.trim();
+    if (!nv || nv === group) { setRenamingGroup(null); return; }
+    try {
+      await api.post(`/events/rename-group?old_name=${encodeURIComponent(group)}&new_name=${encodeURIComponent(nv)}`);
+      mutate((k) => typeof k === "string" && k.startsWith("/events"));
+      mutate("/event-groups");
+      toast.success(t("group_renamed", { old: group, new: nv }));
+      setRenamingGroup(null);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    }
   };
 
   return (
@@ -80,22 +122,90 @@ export default function Events() {
           const gc = groupColor(group);
           return (
           <div key={group} className="mb-5">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
                 <span
                   data-testid={`event-group-dot-${group}`}
                   style={{ display: "inline-block", width: 10, height: 10, borderRadius: 5, background: gc, boxShadow: `0 0 6px ${gc}80` }}
                 />
-                <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: gc, textShadow: `0 0 6px ${gc}55` }}>{group}</h3>
+                {renamingGroup === group ? (
+                  <input
+                    autoFocus
+                    data-testid={`event-group-rename-input-${group}`}
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitRenameGroup(group);
+                      if (e.key === "Escape") setRenamingGroup(null);
+                    }}
+                    className="px-2 py-0.5 text-sm rounded"
+                    style={{ background: "#1A1210", color: "#F5F0E8", border: `1px solid ${gc}88`, minWidth: 120 }}
+                  />
+                ) : (
+                  <h3 className="text-sm font-bold uppercase tracking-wider truncate" style={{ color: gc, textShadow: `0 0 6px ${gc}55` }}>{group}</h3>
+                )}
                 <span className="chip" style={{ borderColor: `${gc}55`, color: gc }}>{list.length}</span>
               </div>
-              {tab === "active" && (
-                <CanEdit>
-                  <button onClick={() => archiveGroup(group)} className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-red-500/15 red-text border border-red-500/30 hover:bg-red-500/25">
-                    Grubu Arşivle
-                  </button>
-                </CanEdit>
-              )}
+              <CanEdit>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {renamingGroup === group ? (
+                    <>
+                      <button
+                        onClick={() => commitRenameGroup(group)}
+                        data-testid={`event-group-rename-commit-${group}`}
+                        className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25 flex items-center gap-1"
+                      >
+                        <Check className="w-3 h-3" /> {t("save")}
+                      </button>
+                      <button
+                        onClick={() => setRenamingGroup(null)}
+                        data-testid={`event-group-rename-cancel-${group}`}
+                        className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-neutral-500/15 text-neutral-300 border border-neutral-500/30 hover:bg-neutral-500/25 flex items-center gap-1"
+                      >
+                        <X className="w-3 h-3" /> {t("cancel")}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => startRenameGroup(group)}
+                        data-testid={`event-group-rename-${group}`}
+                        className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25 flex items-center gap-1"
+                        title={t("group_rename")}
+                      >
+                        <Pencil className="w-3 h-3" /> {t("group_rename")}
+                      </button>
+                      {tab === "active" ? (
+                        <button
+                          onClick={() => archiveGroup(group)}
+                          data-testid={`event-group-archive-${group}`}
+                          className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-yellow-500/15 gold-text border border-yellow-500/30 hover:bg-yellow-500/25 flex items-center gap-1"
+                          title={t("archive_group")}
+                        >
+                          <Archive className="w-3 h-3" /> {t("group_move_archive")}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => unarchiveGroup(group)}
+                          data-testid={`event-group-unarchive-${group}`}
+                          className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25 flex items-center gap-1"
+                          title={t("group_unarchive")}
+                        >
+                          <ArchiveRestore className="w-3 h-3" /> {t("group_unarchive")}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => deleteGroup(group)}
+                        data-testid={`event-group-delete-${group}`}
+                        className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-red-500/15 red-text border border-red-500/30 hover:bg-red-500/25 flex items-center gap-1"
+                        title={t("group_delete")}
+                      >
+                        <Trash2 className="w-3 h-3" /> {t("group_delete")}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </CanEdit>
             </div>
 
             <div className="space-y-1.5">

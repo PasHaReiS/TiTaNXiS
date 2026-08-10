@@ -401,6 +401,36 @@ async def archive_group(group_name: str, _: dict = Depends(require_edit)):
     return {"modified": res.modified_count}
 
 
+@api_router.post("/events/unarchive-group")
+async def unarchive_group(group_name: str, _: dict = Depends(require_edit)):
+    res = await db.events.update_many({"group_name": group_name, "archived": True}, {"$set": {"archived": False}})
+    return {"modified": res.modified_count}
+
+
+@api_router.post("/events/rename-group")
+async def rename_group(old_name: str, new_name: str, _: dict = Depends(require_edit)):
+    new_name = (new_name or "").strip()
+    if not new_name:
+        raise HTTPException(400, "new_name cannot be empty")
+    if new_name == old_name:
+        return {"modified": 0}
+    res = await db.events.update_many({"group_name": old_name}, {"$set": {"group_name": new_name}})
+    return {"modified": res.modified_count, "new_name": new_name}
+
+
+@api_router.delete("/events/group/{group_name}")
+async def delete_group(group_name: str, _: dict = Depends(require_edit)):
+    # Cascade: remove all points tied to any event in this group, then remove the events themselves.
+    events = await db.events.find({"group_name": group_name}, {"_id": 0, "id": 1}).to_list(2000)
+    event_ids = [e["id"] for e in events]
+    points_deleted = 0
+    if event_ids:
+        pr = await db.points.delete_many({"event_id": {"$in": event_ids}})
+        points_deleted = pr.deleted_count
+    er = await db.events.delete_many({"group_name": group_name})
+    return {"events_deleted": er.deleted_count, "points_deleted": points_deleted}
+
+
 # ---------- Points ----------
 @api_router.get("/points")
 async def list_points(search: Optional[str] = None, limit: int = 1000):

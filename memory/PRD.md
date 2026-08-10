@@ -13,6 +13,19 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Events Page — Group Management (Rename / Archive / Unarchive / Delete) — DONE**:
+  - **Backend** (`server.py`): 3 new endpoints alongside the existing `/events/archive-group`:
+    - `POST /api/events/unarchive-group?group_name=` → flips all archived events in the group back to active.
+    - `POST /api/events/rename-group?old_name=&new_name=` → renames `group_name` across every event in the group; rejects empty new_name; returns `{modified, new_name}`.
+    - `DELETE /api/events/group/{group_name}` → cascades: deletes all events in the group plus every point tied to those events. Returns `{events_deleted, points_deleted}`.
+  - **Frontend** (`Events.jsx`): For each group header row, added a `CanEdit`-gated action bar to the right:
+    - **Rename**: pencil button → swaps the group title with an autofocused input (`event-group-rename-input-{group}`); Enter/Save commits, Esc/Cancel aborts. Success toast `group_renamed: "old → new"`.
+    - **Move to Archive** (`event-group-archive-{group}`) — visible in Active tab only.
+    - **Unarchive** (`event-group-unarchive-{group}`, `ArchiveRestore` icon) — visible in Archive tab only.
+    - **Delete** (`event-group-delete-{group}`) — confirm modal warns about cascade delete of events + points.
+  - **i18n**: 10 new keys (TR + EN) — `group_move_archive`, `group_unarchive`, `group_rename`, `group_delete`, `group_renamed`, `group_unarchived`, `group_deleted`, `confirm_unarchive_group`, `confirm_delete_group`.
+  - **E2E verified via curl**: full round-trip `create → rename (TestGroup→Renamed) → archive → unarchive → delete` — every step returns expected `modified`/`deleted` counts and post-condition GET reflects the change.
+
 - **[2026-02] Leaderboard Active/Archive Scope Filter — DONE**:
   - **Backend `/api/leaderboard`**: New `scope=active|archived` query param. Filters points to only include events matching the picked archived state; when combined with `group_name` both filters intersect in a single events-collection query.
   - **Frontend group-chip strip**: Now hides groups whose scoped event count is 0. Active tab shows only groups with active events; Archive tab shows only groups with archived events. New test-ids: `leaderboard-group-strip`, `leaderboard-group-all`, `leaderboard-group-{name}`. Picking a group in Archive tab also narrows the visible archived event cards (`visibleArchivedEvents = group ? archivedEvents.filter(...) : archivedEvents`).
