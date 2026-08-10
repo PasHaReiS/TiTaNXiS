@@ -53,13 +53,12 @@ const readDisplay = () => {
       allianceFamily: d.allianceFamily ?? "default",
       allianceBold: d.allianceBold !== false,
       allianceItalic: d.allianceItalic === true,
-      allianceCase: d.allianceCase ?? "normal",
     };
   } catch {
     return {
       nameSize: 12, nameFamily: "default", nameBold: true, nameItalic: false,
       rankSize: 13, rankSizeByRank: {},
-      allianceSize: 18, allianceFamily: "default", allianceBold: true, allianceItalic: false, allianceCase: "normal",
+      allianceSize: 18, allianceFamily: "default", allianceBold: true, allianceItalic: false,
     };
   }
 };
@@ -346,17 +345,6 @@ export default function Members() {
                     fontStyle: "italic", fontWeight: 700,
                   }}
                 >I</button>
-                <select
-                  data-testid="display-alliance-case"
-                  value={displayPrefs.allianceCase}
-                  onChange={(e) => patchDisplay({ allianceCase: e.target.value })}
-                  className="rounded px-2 py-1 text-[11px]"
-                  style={{ background: "#1A1210", color: "#F5F0E8", border: "1px solid rgba(245,166,35,0.4)" }}
-                >
-                  <option value="normal">{t("case_normal")}</option>
-                  <option value="upper">{t("case_upper")}</option>
-                  <option value="lower">{t("case_lower")}</option>
-                </select>
               </div>
             </div>
             <div>
@@ -497,7 +485,6 @@ export default function Members() {
                     fontWeight: displayPrefs.allianceBold ? 700 : 500,
                     fontStyle: displayPrefs.allianceItalic ? "italic" : "normal",
                     fontSize: displayPrefs.allianceSize,
-                    textTransform: displayPrefs.allianceCase === "upper" ? "uppercase" : displayPrefs.allianceCase === "lower" ? "lowercase" : "none",
                   }}
                   data-testid={`alliance-header-name-${grp.name}`}
                 >
