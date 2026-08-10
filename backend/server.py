@@ -1916,6 +1916,7 @@ async def translate(body: TranslateBody):
     results: dict = {}
     detected_sources: dict = {}
     headers = {"Authorization": f"DeepL-Auth-Key {DEEPL_API_KEY}", "Content-Type": "application/json"}
+    total_chars = sum(len(t or "") for t in texts)
     async with httpx.AsyncClient(timeout=25) as client:
         for lang in body.targetLangs:
             deepl_lang = DEEPL_LANG_MAP.get(lang.lower(), lang.upper())
@@ -1935,10 +1936,67 @@ async def translate(body: TranslateBody):
                 results[lang] = {"error": f"DeepL {e.response.status_code}: {e.response.text[:200]}"}
             except Exception as e:
                 results[lang] = {"error": str(e)[:200]}
+    # Fire-and-forget usage log for the weekly digest. Truncate texts to 80 chars.
+    try:
+        successful_langs = [l for l, v in results.items() if not isinstance(v, dict)]
+        if successful_langs:
+            await db.deepl_translate_log.insert_one({
+                "ts": now_iso(),
+                "chars": total_chars,
+                "targets": successful_langs,
+                "source": src or (list(detected_sources.values())[0] if detected_sources else "AUTO"),
+                "texts": [(t or "")[:80] for t in texts[:20]],
+            })
+    except Exception:
+        pass
     out = {"translations": results}
     if src is None and detected_sources:
         out["detected_source_langs"] = detected_sources
     return out
+
+
+@api_router.get("/translate/digest")
+async def deepl_digest(days: int = 7, _: dict = Depends(require_admin)):
+    """Weekly / N-day digest of DeepL usage: character totals, per-language counts,
+    detected source distribution, and the top most-translated source strings."""
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    days = max(1, min(90, int(days or 7)))
+    cutoff = (_dt.now(_tz.utc) - _td(days=days)).isoformat()
+    logs = await db.deepl_translate_log.find({"ts": {"$gte": cutoff}}, {"_id": 0}).to_list(50000)
+    total_chars = 0
+    total_requests = len(logs)
+    lang_counts: dict = {}
+    src_counts: dict = {}
+    text_counts: dict = {}
+    for row in logs:
+        total_chars += int(row.get("chars", 0) or 0)
+        for l in row.get("targets", []) or []:
+            lang_counts[l] = lang_counts.get(l, 0) + 1
+        src = row.get("source") or "?"
+        src_counts[src] = src_counts.get(src, 0) + 1
+        for tx in row.get("texts", []) or []:
+            if tx:
+                text_counts[tx] = text_counts.get(tx, 0) + 1
+    langs = sorted(
+        [{"code": k, "count": v} for k, v in lang_counts.items()],
+        key=lambda x: -x["count"],
+    )
+    sources = sorted(
+        [{"code": k, "count": v} for k, v in src_counts.items()],
+        key=lambda x: -x["count"],
+    )
+    top_keys = sorted(
+        [{"text": k, "count": v} for k, v in text_counts.items()],
+        key=lambda x: -x["count"],
+    )[:15]
+    return {
+        "days": days,
+        "total_chars": total_chars,
+        "total_requests": total_requests,
+        "langs": langs,
+        "sources": sources,
+        "top_keys": top_keys,
+    }
 
 
 @api_router.get("/translate/usage")

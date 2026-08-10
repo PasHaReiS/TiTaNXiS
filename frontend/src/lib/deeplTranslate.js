@@ -14,6 +14,26 @@ const CACHE_KEY = "ol_deepl_cache_v1";
 const CHUNK_SIZE = 60;
 const inflight = new Map();
 
+// A tiny module-level Set so we only surface a given source-lang toast once per
+// browser session (prevents spam when many chunks trigger auto-detect back-to-back).
+const _notifiedDetectedSources = new Set();
+const _emitDetectedSourceToast = (map) => {
+  try {
+    if (!map || typeof map !== "object") return;
+    const codes = Array.from(new Set(Object.values(map).map((s) => (s || "").toUpperCase()).filter(Boolean)));
+    for (const code of codes) {
+      if (_notifiedDetectedSources.has(code)) continue;
+      _notifiedDetectedSources.add(code);
+      // Lazy-load sonner + i18n so this module stays SSR-safe.
+      import("sonner").then(({ toast }) => {
+        import("@/i18n").then((mod) => {
+          const t = mod.default?.t ? mod.default.t.bind(mod.default) : (k) => k;
+          toast.info(t("deepl_detected_source", { code }), { duration: 4500 });
+        }).catch(() => {});
+      }).catch(() => {});
+    }
+  } catch { /* silent */ }
+};
 const readCache = () => {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "{}"); }
   catch { return {}; }
@@ -122,10 +142,11 @@ export async function translateUserText(text, targetLangs) {
     const res = await fetch(`${BACKEND}/api/translate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, targetLangs: langs, sourceLang: "TR" }),
+      body: JSON.stringify({ text, targetLangs: langs, sourceLang: "" }),
     });
     if (!res.ok) return {};
     const data = await res.json();
+    if (data?.detected_source_langs) _emitDetectedSourceToast(data.detected_source_langs);
     const out = {};
     for (const [lang, val] of Object.entries(data?.translations || {})) {
       if (typeof val === "string") out[lang] = val;
