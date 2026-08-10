@@ -43,10 +43,12 @@ export default function DeeplDigestButton() {
   const [loading, setLoading] = useState(false);
   const [daySelected, setDaySelected] = useState(null);
   const [dayDetail, setDayDetail] = useState(null);
+  const [zoomStart, setZoomStart] = useState(null); // ISO date; when set, chart shows 7 days from this date
 
   const pickRange = (d) => {
     setDays(d);
     setDaySelected(null);
+    setZoomStart(null);
     try { localStorage.setItem(RANGE_KEY, String(d)); } catch { /* ignore quota errors */ }
   };
 
@@ -160,14 +162,53 @@ export default function DeeplDigestButton() {
                     </div>
                   </div>
                   {(data.daily || []).length > 0 && (() => {
-                    const daily = data.daily || [];
+                    let daily = data.daily || [];
+                    // 90g zoom: if the user double-clicked a bar, focus the surrounding week.
+                    if (zoomStart) {
+                      const idx = daily.findIndex((d) => d.date === zoomStart);
+                      if (idx >= 0) daily = daily.slice(idx, idx + 7);
+                    }
                     const maxChars = Math.max(1, ...daily.map((d) => d.chars || 0));
-                    // For 30/90-day views, label every 5th bar; for 7-day view label all bars.
                     const labelEvery = daily.length >= 30 ? 5 : 1;
+                    // Compute week-over-week trend on the FULL series (not the zoom window).
+                    const full = data.daily || [];
+                    const half = Math.min(7, Math.floor(full.length / 2));
+                    let trend = null;
+                    if (half >= 3) {
+                      const recent = full.slice(-half).reduce((s, d) => s + (d.chars || 0), 0);
+                      const prev = full.slice(-half * 2, -half).reduce((s, d) => s + (d.chars || 0), 0);
+                      if (prev > 0) trend = Math.round(((recent - prev) / prev) * 100);
+                      else if (recent > 0) trend = 100;
+                      else trend = 0;
+                    }
                     return (
                       <div data-testid="digest-bar-chart">
-                        <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#8B5CF6", letterSpacing: "0.14em" }}>
-                          {t("deepl_digest_daily")}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-[10px] uppercase tracking-widest" style={{ color: "#8B5CF6", letterSpacing: "0.14em" }}>
+                            {t("deepl_digest_daily")}
+                            {trend != null && (
+                              <span
+                                data-testid="digest-trend"
+                                className="ml-2 inline-flex items-center gap-0.5 text-[10px] font-bold"
+                                style={{ color: trend > 0 ? "#22C55E" : trend < 0 ? "#f87171" : "#A88060", letterSpacing: 0 }}
+                              >
+                                {trend > 0 ? "▲" : trend < 0 ? "▼" : "•"}%{Math.abs(trend)}
+                                <span className="ml-1 opacity-70 font-normal normal-case tracking-normal" style={{ color: "#A88060" }}>{t("deepl_trend_vs_prev")}</span>
+                              </span>
+                            )}
+                          </div>
+                          {zoomStart && (
+                            <button
+                              type="button"
+                              onClick={() => setZoomStart(null)}
+                              data-testid="digest-zoom-reset"
+                              className="text-[9px] uppercase font-bold px-2 py-0.5 rounded"
+                              style={{ background: "rgba(245,166,35,0.15)", color: "#F5A623", border: "1px solid rgba(245,166,35,0.4)", letterSpacing: "0.06em" }}
+                              title={t("deepl_zoom_reset")}
+                            >
+                              ← {days}g
+                            </button>
+                          )}
                         </div>
                         <div
                           className="flex items-end gap-[2px] rounded p-2"
@@ -181,9 +222,17 @@ export default function DeeplDigestButton() {
                                 key={d.date}
                                 type="button"
                                 onClick={() => setDaySelected(d.date)}
+                                onDoubleClick={() => {
+                                  if (days !== 90) return;
+                                  // Anchor the 7-day zoom on the double-clicked date (clamp to full-series bounds).
+                                  const full = data.daily || [];
+                                  const idx = full.findIndex((x) => x.date === d.date);
+                                  const start = Math.max(0, Math.min(idx, full.length - 7));
+                                  setZoomStart(full[start]?.date || d.date);
+                                }}
                                 data-testid={`digest-bar-${d.date}`}
                                 className="flex-1 rounded-t transition-all cursor-pointer"
-                                title={`${d.date} · ${(d.chars || 0).toLocaleString()} char · ${d.requests || 0} req`}
+                                title={`${d.date} · ${(d.chars || 0).toLocaleString()} char · ${d.requests || 0} req${days === 90 ? " · " + t("deepl_zoom_hint") : ""}`}
                                 style={{
                                   height: `${Math.max(2, h)}px`,
                                   background: (d.chars || 0) > 0
