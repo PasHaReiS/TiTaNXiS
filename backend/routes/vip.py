@@ -57,6 +57,10 @@ class VisibilityBody(BaseModel):
     is_public: bool
 
 
+class DeleteBody(BaseModel):
+    reason: Optional[str] = None  # e.g. "spam" | "inappropriate" | "duplicate" | free text
+
+
 def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger: logging.Logger):
     async def _ensure_indexes():
         try:
@@ -254,13 +258,16 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
         return {"thread": td, "my_vote": body.value}
 
     @api_router.delete("/vip/threads/{tid}")
-    async def vip_thread_delete(tid: str, _: dict = Depends(require_admin)):
+    async def vip_thread_delete(tid: str, body: Optional[DeleteBody] = None, _: dict = Depends(require_admin)):
         tdoc = await db.vip_threads.find_one({"id": tid}, {"_id": 0, "id": 1})
         if not tdoc:
             raise HTTPException(404, "thread not found")
-        # Soft delete: mark deleted_at. Auto-purge kicks in on /vip/trash reads.
-        await db.vip_threads.update_one({"id": tid}, {"$set": {"deleted_at": _now_iso()}})
-        return {"deleted": True, "id": tid, "soft": True}
+        reason = (body.reason if body else None) or None
+        upd = {"deleted_at": _now_iso()}
+        if reason:
+            upd["deleted_reason"] = reason[:120]
+        await db.vip_threads.update_one({"id": tid}, {"$set": upd})
+        return {"deleted": True, "id": tid, "soft": True, "reason": reason}
 
     @api_router.get("/vip/trash")
     async def vip_trash_list(_: dict = Depends(require_admin)):
@@ -281,10 +288,28 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
 
     @api_router.post("/vip/threads/{tid}/restore")
     async def vip_thread_restore(tid: str, _: dict = Depends(require_admin)):
-        r = await db.vip_threads.update_one({"id": tid}, {"$unset": {"deleted_at": ""}})
+        r = await db.vip_threads.update_one({"id": tid}, {"$unset": {"deleted_at": "", "deleted_reason": ""}})
         if r.matched_count == 0:
             raise HTTPException(404, "thread not found")
         return {"restored": True, "id": tid}
+
+    @api_router.post("/cron/vip-trash-purge")
+    async def cron_vip_trash_purge(request: Request):
+        # Same HMAC-secret guard used by other cron endpoints.
+        import os as _os, hmac as _hmac
+        secret = _os.environ.get("WEBHOOK_CRON_SECRET", "").strip()
+        auth = request.headers.get("authorization", "")
+        if not secret or not _hmac.compare_digest(auth, f"Bearer {secret}"):
+            raise HTTPException(401, "unauthorized")
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        stale = await db.vip_threads.find({"deleted_at": {"$lt": cutoff, "$ne": None}}, {"_id": 0, "id": 1}).to_list(5000)
+        stale_ids = [s["id"] for s in stale]
+        replies_del = votes_del = 0
+        if stale_ids:
+            replies_del = (await db.vip_replies.delete_many({"thread_id": {"$in": stale_ids}})).deleted_count
+            votes_del = (await db.vip_votes.delete_many({"thread_id": {"$in": stale_ids}})).deleted_count
+            await db.vip_threads.delete_many({"id": {"$in": stale_ids}})
+        return {"purged_threads": len(stale_ids), "replies_removed": replies_del, "votes_removed": votes_del}
 
     @api_router.patch("/vip/threads/{tid}/resolve")
     async def vip_thread_resolve(tid: str, body: ResolveBody, _: dict = Depends(require_admin)):

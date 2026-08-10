@@ -13,6 +13,14 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] Loading Video CDN → Local Asset — DONE**:
+  - **App.js**: `LoadingScreen` içindeki hardcoded `customer-assets-4nw71qhi.emergentagent.net/…mp4` URL'si kaldırıldı. Yerine `process.env.REACT_APP_LOADING_VIDEO_URL || "/brand/loading.mp4"` kondu — env override edilebilir, varsayılan olarak local asset.
+  - **frontend/.env**: `REACT_APP_LOADING_VIDEO_URL=/brand/loading.mp4` eklendi.
+  - **frontend/public/brand/loading.mp4**: 2.8MB video CDN'den indirilip repo'ya alındı, artık dış CDN bağımlılığı yok.
+  - **Doğrulama**: `curl -I` → 200 (2869364 bytes, video/mp4). Frontend restart + smoke screenshot → Leaderboard temiz yükleniyor.
+
+
+
 - **[2026-02] VIP — Toplu Silme + Çöp Kutusu (24h) — DONE**:
   - **Backend soft delete**: `DELETE /vip/threads/{tid}` artık hard-delete yerine `deleted_at` alanını set ediyor. 3 list query'ye (`/vip/threads`, `/vip/faq`, `/vip/stats`) `deleted_at: {"$in": [None, ""]}` filtresi eklendi — silinen thread'ler görünmüyor. Yeni `GET /vip/trash` (admin) 24 saat cutoff'la trash list dönüyor + stale >24h olanları aynı çağrıda auto-purge ediyor (thread + replies + votes). Yeni `POST /vip/threads/{tid}/restore` (admin) `deleted_at` alanını unset ediyor.
   - **Frontend Toplu Silme**: "Seçim Modu" toggle butonu (kırmızı pill) — açınca kartlarda checkbox görünür. Seçili kartlarda kırmızı border + tick ikon. "Seçilenleri Sil (N)" butonu → `ConfirmDeleteDialog` → `Promise.all` ile paralel DELETE. SWR mutate ile tam refresh + toast.

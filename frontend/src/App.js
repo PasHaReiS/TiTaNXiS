@@ -35,7 +35,7 @@ function LoadingScreen() {
       data-testid="loading-screen"
     >
       <video
-        src="https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/f650420e34f040c39be51cc046655cc0_1000074064.mp4"
+        src={process.env.REACT_APP_LOADING_VIDEO_URL || "/brand/loading.mp4"}
         autoPlay
         muted
         loop
