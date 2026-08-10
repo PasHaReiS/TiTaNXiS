@@ -3,7 +3,7 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Trash2, Pencil, Check, X, Settings, ChevronRight, Globe, Download, Upload, Sparkles, Share2, History as HistoryIcon, RotateCcw } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, Settings, ChevronRight, Globe, Download, Upload, Share2, History as HistoryIcon, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import { translateUserText } from "@/lib/deeplTranslate";
@@ -46,17 +46,6 @@ function PCAdminActions({ kind }) {
     } finally { setBusy(false); }
   };
 
-  const translateAll = async () => {
-    if (!window.confirm("Tüm etkinlik/tablo isimleri 29 dile çevrilsin mi? Bu işlem 1-2 dakika sürebilir.")) return;
-    setBusy(true);
-    try {
-      const res = await api.post(`/point-calc/translate-all?kind=${kind}`);
-      toast.success(`${res.data.strings_translated} metin çevrildi, ${res.data.days_processed} etkinlik güncellendi`);
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || e.message);
-    } finally { setBusy(false); }
-  };
-
   return (
     <>
       <button
@@ -68,16 +57,6 @@ function PCAdminActions({ kind }) {
         title="Excel indir"
       >
         <Download className="w-3 h-3" /> Excel
-      </button>
-      <button
-        onClick={translateAll}
-        disabled={busy}
-        data-testid={`pc-translate-all-${kind}`}
-        className="h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1"
-        style={{ background: "linear-gradient(135deg,#7C3AED,#3B82F6)", color: "#fff" }}
-        title="Boş çevirileri toplu doldur"
-      >
-        <Sparkles className="w-3 h-3" /> Tümünü Çevir
       </button>
       <button
         onClick={() => setShowImport(true)}
