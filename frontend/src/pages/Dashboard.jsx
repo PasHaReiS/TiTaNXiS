@@ -459,6 +459,74 @@ function Skeleton({ height = 80 }) {
   );
 }
 
+/* ---------------- draggable grid ---------------- */
+const ORDER_KEY = "dash_grid_order_v1";
+function DraggableGrid({ items }) {
+  const defaultOrder = items.map((it) => it.key);
+  const [order, setOrder] = useState(() => {
+    try {
+      const raw = localStorage.getItem(ORDER_KEY);
+      if (!raw) return defaultOrder;
+      const parsed = JSON.parse(raw);
+      // Prune stale keys, append newly added keys.
+      const valid = parsed.filter((k) => defaultOrder.includes(k));
+      defaultOrder.forEach((k) => { if (!valid.includes(k)) valid.push(k); });
+      return valid;
+    } catch { return defaultOrder; }
+  });
+  const [draggingKey, setDraggingKey] = useState(null);
+
+  const byKey = useMemo(() => Object.fromEntries(items.map((it) => [it.key, it.node])), [items]);
+
+  const persist = (next) => {
+    setOrder(next);
+    try { localStorage.setItem(ORDER_KEY, JSON.stringify(next)); } catch {}
+  };
+
+  const onDragStart = (key) => (e) => {
+    setDraggingKey(key);
+    e.dataTransfer.effectAllowed = "move";
+    try { e.dataTransfer.setData("text/plain", key); } catch {}
+  };
+  const onDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
+  const onDrop = (targetKey) => (e) => {
+    e.preventDefault();
+    const sourceKey = draggingKey || e.dataTransfer.getData("text/plain");
+    setDraggingKey(null);
+    if (!sourceKey || sourceKey === targetKey) return;
+    const next = [...order];
+    const from = next.indexOf(sourceKey);
+    const to = next.indexOf(targetKey);
+    if (from < 0 || to < 0) return;
+    next.splice(from, 1);
+    next.splice(to, 0, sourceKey);
+    persist(next);
+  };
+
+  return (
+    <>
+      {order.map((key) => (
+        <div
+          key={key}
+          draggable
+          onDragStart={onDragStart(key)}
+          onDragOver={onDragOver}
+          onDrop={onDrop(key)}
+          onDragEnd={() => setDraggingKey(null)}
+          data-testid={`dash-card-${key}`}
+          style={{
+            cursor: "grab",
+            opacity: draggingKey === key ? 0.5 : 1,
+            transition: "opacity 0.15s ease",
+          }}
+        >
+          {byKey[key]}
+        </div>
+      ))}
+    </>
+  );
+}
+
 /* ---------------- page ---------------- */
 export default function Dashboard() {
   const opts = { refreshInterval: 60000 };
@@ -492,11 +560,15 @@ export default function Dashboard() {
       <SectionTitle>Haftalık Görünüm</SectionTitle>
       {weekly.length === 0 ? <Skeleton height={320} /> : <WeeklyChart rows={weekly} />}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-        <TopMembers items={topMembers} />
-        <RecentEvents items={recentEvents} />
-        <RecentLogins items={recentLogins} />
-        <Upcoming items={upcoming} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3" data-testid="dashboard-cards-grid">
+        <DraggableGrid
+          items={[
+            { key: "top",      node: <TopMembers items={topMembers} /> },
+            { key: "recent",   node: <RecentEvents items={recentEvents} /> },
+            { key: "logins",   node: <RecentLogins items={recentLogins} /> },
+            { key: "upcoming", node: <Upcoming items={upcoming} /> },
+          ]}
+        />
       </div>
 
       <SectionTitle>Kullanıcı İşlemleri</SectionTitle>

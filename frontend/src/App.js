@@ -19,6 +19,7 @@ import PublicPointCalcPage from "@/pages/PublicPointCalcPage";
 import WidgetLibrary from "@/pages/WidgetLibrary";
 import VipSupport from "@/pages/VipSupport";
 import Dashboard from "@/pages/Dashboard";
+import AccessDenied from "@/pages/AccessDenied";
 import Members from "@/pages/Members";
 import Events from "@/pages/Events";
 import Login from "@/pages/Login";
@@ -73,7 +74,7 @@ function RequireAdminOrEditor({ children }) {
   if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   const canView = user.role === "admin" || user.can_edit === true;
-  if (!canView) return <Navigate to="/" replace />;
+  if (!canView) return <AccessDenied />;
   return children;
 }
 

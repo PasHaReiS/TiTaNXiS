@@ -163,6 +163,19 @@ def make_auth_router(db):
         })
         if not ok:
             raise HTTPException(401, "Kullanıcı adı veya şifre hatalı")
+        # Log successful auth to activity feed (fire-and-forget style — safe if collection missing).
+        try:
+            await db.activity_log.insert_one({
+                "id": __import__("uuid").uuid4().hex,
+                "member_id": user["id"],
+                "member_name": user["username"],
+                "action_type": "login",
+                "details": "Uygulamaya giriş yaptı",
+                "timestamp": now_iso(),
+                "device": "desktop",
+            })
+        except Exception:
+            pass
         token = create_token(user["id"], user["username"], user.get("role", "user"))
         return {"token": token, "user": public_user(user)}
 

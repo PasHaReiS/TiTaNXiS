@@ -365,6 +365,19 @@ async def list_events(archived: Optional[bool] = None):
 async def create_event(body: EventCreate, _: dict = Depends(require_edit)):
     e = Event(**body.model_dump())
     await db.events.insert_one(e.model_dump())
+    # Activity feed log
+    try:
+        await db.activity_log.insert_one({
+            "id": uuid.uuid4().hex,
+            "member_id": e.id,
+            "member_name": e.name,
+            "action_type": "event_join",
+            "details": f"'{e.name}' etkinliği oluşturuldu",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "device": "desktop",
+        })
+    except Exception:
+        pass
     # Fire-and-forget push notification (respects per-user subscriptions via group filter)
     try:
         fn = globals().get("_broadcast_push")
@@ -449,6 +462,19 @@ async def create_point(body: PointCreate, _: dict = Depends(require_edit)):
     await enrich_point(doc)
     await db.points.insert_one(doc)
     doc.pop("_id", None)
+    # Activity feed log
+    try:
+        await db.activity_log.insert_one({
+            "id": uuid.uuid4().hex,
+            "member_id": doc.get("member_id"),
+            "member_name": doc.get("member_name", "?"),
+            "action_type": "score_update",
+            "details": f"+{doc.get('points', 0)} puan aldı",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "device": "desktop",
+        })
+    except Exception:
+        pass
     return doc
 
 

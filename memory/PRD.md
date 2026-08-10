@@ -13,6 +13,13 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] 3 Dashboard İyileştirmesi — DONE**:
+  - **Activity Log Auto-Hooks**: `auth.py /auth/login` başarılı girişte + `server.py POST /points` puan oluşturmada + `server.py POST /events` etkinlik oluşturmada `activity_log.insert_one(...)` fire-and-forget hook eklendi (all in try/except). Doğrulama: admin login sonrası `/dashboard/activity-log?filter=logins` → yeni kayıt anında görünüyor.
+  - **Erişim Engellendi Sayfası**: `/app/frontend/src/pages/AccessDenied.jsx` yeni bileşen — kırmızı ShieldAlert ikonu, "🔒 Erişim Engellendi" başlık, açıklayıcı metin, "Geri Dön" (nav(-1)) + "Ana Sayfa" butonları. `App.js` `RequireAdminOrEditor` guard yetkisiz kullanıcı için `Navigate` yerine `<AccessDenied />` render ediyor.
+  - **Kart Sürükle-Yerleştir**: `Dashboard.jsx` içinde yeni `DraggableGrid` bileşeni + 4 kart HTML5 native drag-drop, sıralama `localStorage.dash_grid_order_v1`'e persist ediliyor. Stale/yeni key'ler için otomatik prune+append. Sürüklerken opacity 0.5, cursor grab.
+  - **Doğrulama**: Login hook test edildi (admin login → activity_log'da anında kayıt). Compile OK, `deployment_agent`: PASS.
+
+
 - **[2026-02] Dashboard Aktivite Log + Taşma Düzeltmeleri — DONE**:
   - **Toggle**: ActivityLog varsayılan gizli. "👁 Son İşlemleri Göster / 🙈 Gizle" toggle butonu ile aç/kapa. Tablo gizliyken SWR fetch de duraklıyor (koşullu key).
   - **Sıfırla**: 🔄 Sıfırla butonu → filter='all' + visible=false, tabloyu sıfırdan başlatır.
