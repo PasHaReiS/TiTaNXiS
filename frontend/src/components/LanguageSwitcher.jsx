@@ -111,7 +111,7 @@ export default function LanguageSwitcher() {
               <Globe className="w-3 h-3" />
               {t("choose_language")}
             </div>
-            <ul className="py-1 max-h-72 overflow-y-auto">
+            <ul className="py-1 overflow-y-auto lang-scroll" style={{ maxHeight: "min(80vh, 560px)" }}>
               {LANGUAGES.map((l) => {
                 const isActive = l.code === i18n.language;
                 return (

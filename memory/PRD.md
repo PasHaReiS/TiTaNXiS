@@ -13,6 +13,9 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] Language Switcher — 29 dil görünürlüğü — DONE**: `LanguageSwitcher.jsx` dropdown listesindeki `max-h-72` (288px) sınırı `maxHeight: min(80vh, 560px)` yapıldı. Kod düzeyinde LANGUAGES array + resources zaten 29 dili barındırıyordu; kullanıcının "sadece 8 dil görünüyor" hissi UX kaynaklıydı (scroll fark edilmiyordu). Panel şimdi ~14-16 dili tek bakışta gösteriyor, kalanlar aynı panelde scroll ile ulaşılabilir. Localhost testinde 29/29 doğrulandı (`missing: []`). Deployment agent: PASS.
+
+
 - **[2026-02] Alliance Typography — text-transform removed — DONE**: Removed the upper/lower/normal case dropdown from Alliance name typography settings on `Members.jsx`. Cleaned `allianceCase` state, default, UI select, and inline `textTransform` style. Member name typography section never had the toggle. Deployment agent verified: no blockers. Preview + prod ready to redeploy.
 - **[2026-02] Language Switcher verified — DONE**: `LanguageSwitcher.jsx` in Header renders flag+label pill (`data-testid="lang-toggle"`); click opens a portal-based dropdown (`lang-panel`) listing all 29 languages with flag/name/code; selection persists to `localStorage.ol_lang` and calls `i18n.changeLanguage`; hydration via DeepL runs in background. Verified live on localhost:3000 — 29 items rendered.
 
