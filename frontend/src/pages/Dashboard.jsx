@@ -459,8 +459,11 @@ function Skeleton({ height = 80 }) {
   );
 }
 
-/* ---------------- draggable grid ---------------- */
+/* ---------------- draggable grid + layout templates ---------------- */
 const ORDER_KEY = "dash_grid_order_v1";
+const LAYOUTS_KEY = "dash_grid_layouts_v1";
+const ACTIVE_LAYOUT_KEY = "dash_grid_active_v1";
+
 function DraggableGrid({ items }) {
   const defaultOrder = items.map((it) => it.key);
   const [order, setOrder] = useState(() => {
@@ -474,6 +477,14 @@ function DraggableGrid({ items }) {
     } catch { return defaultOrder; }
   });
   const [draggingKey, setDraggingKey] = useState(null);
+  const [layouts, setLayouts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(LAYOUTS_KEY) || "[]"); }
+    catch { return []; }
+  });
+  const [activeLayout, setActiveLayout] = useState(() =>
+    localStorage.getItem(ACTIVE_LAYOUT_KEY) || "",
+  );
+  const [newName, setNewName] = useState("");
   const isCustomOrder = useMemo(
     () => order.join("|") !== defaultOrder.join("|"),
     [order, defaultOrder],
@@ -485,10 +496,44 @@ function DraggableGrid({ items }) {
     setOrder(next);
     try { localStorage.setItem(ORDER_KEY, JSON.stringify(next)); } catch {}
   };
+  const persistLayouts = (next) => {
+    setLayouts(next);
+    try { localStorage.setItem(LAYOUTS_KEY, JSON.stringify(next)); } catch {}
+  };
+  const setActiveLayoutPersist = (name) => {
+    setActiveLayout(name);
+    try {
+      if (name) localStorage.setItem(ACTIVE_LAYOUT_KEY, name);
+      else localStorage.removeItem(ACTIVE_LAYOUT_KEY);
+    } catch {}
+  };
+
   const resetOrder = () => {
-    try { localStorage.removeItem(ORDER_KEY); } catch {}
-    // Full reload → single source of truth (mount reads defaultOrder).
+    try {
+      localStorage.removeItem(ORDER_KEY);
+      localStorage.removeItem(ACTIVE_LAYOUT_KEY);
+    } catch {}
     window.location.reload();
+  };
+
+  const saveLayout = () => {
+    const name = newName.trim();
+    if (!name) return;
+    const next = layouts.filter((l) => l.name !== name);
+    next.push({ name, order: [...order] });
+    persistLayouts(next);
+    setActiveLayoutPersist(name);
+    setNewName("");
+  };
+  const applyLayout = (name) => {
+    const found = layouts.find((l) => l.name === name);
+    if (!found) return;
+    setActiveLayoutPersist(name);
+    persist(found.order);
+  };
+  const deleteLayout = (name) => {
+    persistLayouts(layouts.filter((l) => l.name !== name));
+    if (activeLayout === name) setActiveLayoutPersist("");
   };
 
   const onDragStart = (key) => (e) => {
@@ -509,28 +554,98 @@ function DraggableGrid({ items }) {
     next.splice(from, 1);
     next.splice(to, 0, sourceKey);
     persist(next);
+    // Reordering breaks the active template link — clear it.
+    if (activeLayout) setActiveLayoutPersist("");
   };
 
   return (
     <>
-      {isCustomOrder && (
-        <div className="md:col-span-2 flex justify-end">
+      <div
+        className="md:col-span-2 flex flex-wrap items-center gap-2 p-2 rounded-xl"
+        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+        data-testid="dash-layouts-bar"
+      >
+        <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: "#9CA3AF" }}>
+          Şablonlar:
+        </span>
+        {layouts.length === 0 && (
+          <span className="text-[10px]" style={{ color: "#6B7280" }}>henüz yok</span>
+        )}
+        {layouts.map((l) => (
+          <span key={l.name} className="flex items-center gap-1 rounded-full"
+                style={{
+                  background: activeLayout === l.name ? VIOLET : "rgba(139,92,246,0.1)",
+                  border: `1px solid ${VIOLET}55`,
+                }}>
+            <button
+              type="button"
+              onClick={() => applyLayout(l.name)}
+              data-testid={`dash-layout-apply-${l.name}`}
+              className="text-[11px] font-bold px-2.5 py-1"
+              style={{ color: activeLayout === l.name ? "#fff" : VIOLET }}
+            >
+              {l.name}
+            </button>
+            <button
+              type="button"
+              onClick={() => deleteLayout(l.name)}
+              data-testid={`dash-layout-del-${l.name}`}
+              className="text-[10px] px-1.5 py-1 opacity-70 hover:opacity-100"
+              style={{ color: activeLayout === l.name ? "#fff" : VIOLET }}
+              title="Sil"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <div className="ml-auto flex items-center gap-1">
+          <input
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") saveLayout(); }}
+            placeholder="Şablon adı (örn. Sabah)"
+            data-testid="dash-layout-name-input"
+            className="text-[11px] px-2 py-1 rounded outline-none"
+            style={{
+              background: "rgba(0,0,0,0.35)",
+              border: `1px solid ${VIOLET}44`,
+              color: "#fff",
+              width: 160,
+            }}
+          />
           <button
             type="button"
-            onClick={resetOrder}
-            data-testid="dash-cards-reset-order"
-            className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full"
+            onClick={saveLayout}
+            disabled={!newName.trim()}
+            data-testid="dash-layout-save"
+            className="text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full disabled:opacity-40"
             style={{
-              background: "rgba(245,158,11,0.1)",
-              color: AMBER,
-              border: `1px solid ${AMBER}55`,
+              background: `${VIOLET}22`,
+              color: "#C4B5FD",
+              border: `1px solid ${VIOLET}66`,
             }}
           >
-            <span aria-hidden>↺</span>
-            <span>Kartları Varsayılan Sıraya Getir</span>
+            💾 Kaydet
           </button>
+          {isCustomOrder && (
+            <button
+              type="button"
+              onClick={resetOrder}
+              data-testid="dash-cards-reset-order"
+              className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full"
+              style={{
+                background: "rgba(245,158,11,0.1)",
+                color: AMBER,
+                border: `1px solid ${AMBER}55`,
+              }}
+            >
+              <span aria-hidden>↺</span>
+              <span>Varsayılan</span>
+            </button>
+          )}
         </div>
-      )}
+      </div>
       {order.map((key) => (
         <div
           key={key}

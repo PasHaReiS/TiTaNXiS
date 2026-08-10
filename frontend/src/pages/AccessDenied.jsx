@@ -57,7 +57,15 @@ export default function AccessDenied() {
         <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
           <button
             type="button"
-            onClick={() => nav("/vip-destek?compose=1&category=teknik-destek")}
+            onClick={() => {
+              const from = window.location.pathname || "/dashboard";
+              const pageName = from.replace(/^\//, "") || "sayfa";
+              const ts = new Date().toLocaleString("tr-TR", { dateStyle: "long", timeStyle: "short" });
+              const title = `Yetkisiz Erişim: /${pageName}`;
+              const body = `Yetkisiz erişim uyarısı aldım.\n\n• Sayfa: /${pageName}\n• Zaman: ${ts}\n\nErişim izni verebilir misiniz?`;
+              const url = `/vip-destek?compose=1&category=teknik-destek&title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+              nav(url);
+            }}
             data-testid="access-denied-contact"
             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider"
             style={{ background: "rgba(139,92,246,0.15)", color: "#C4B5FD", border: "1px solid #8B5CF6" }}

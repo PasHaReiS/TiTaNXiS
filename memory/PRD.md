@@ -13,6 +13,12 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] VIP Destek — Soru Silme (Admin) — DONE**:
+  - **Backend** (`routes/vip.py`): Yeni `DELETE /api/vip/threads/{tid}` endpoint'i eklendi (`Depends(require_admin)`). Thread + tüm bağlı `vip_replies` + `vip_votes` kayıtları silinip `{deleted, replies_removed, votes_removed}` dönüyor. 404 için önce thread varlığı kontrol ediliyor.
+  - **Frontend** (`pages/VipSupport.jsx`): `ThreadCard`'a Trash2 (🗑️) ikonu eklendi, sadece `canAdminUI = isAdmin || user.can_edit === true` ise render ediliyor. `stopPropagation()` ile karta tıklama tetiklenmiyor. Yeni `ConfirmDeleteDialog` bileşeni — soru başlığını + geri alınamaz uyarısı gösteriyor, İptal + Kalıcı Olarak Sil butonları. Silme sonrası SWR mutate → thread listesi, kategoriler, stats, FAQ hepsi yenileniyor + `toast.success("Soru silindi")`.
+  - **Doğrulama**: 4 curl senaryosu ✅ — admin+2 reply oluştur, non-admin DELETE → 403, admin DELETE → {deleted:true,replies_removed:2}, GET → 404, DB'de kalan reply=0. `deployment_agent`: PASS.
+
+
 - **[2026-02] Dashboard Kart Sıra Sıfırlama + Detaylı Erişim Engellendi — DONE**:
   - **Kart Sıra Sıfırlama**: `Dashboard.jsx` `DraggableGrid` bileşenine "↺ Kartları Varsayılan Sıraya Getir" amber butonu eklendi. `isCustomOrder` memo ile mevcut sıra varsayılandan farklı olduğunda otomatik görünüyor, tıklanınca `localStorage.removeItem('dash_grid_order_v1')` + `window.location.reload()` yaparak state'i tek kaynaktan temiz başlatıyor.
   - **Yönetici ile İletişime Geç**: `AccessDenied.jsx` yeniden yazıldı, alt bölümde LifeBuoy ikonlu buton eklendi → `/vip-destek?compose=1&category=teknik-destek`'e yönlendiriyor. `VipSupport.jsx` `useSearchParams` ile bu parametreleri okuyor: `category`'yi initial state olarak alıyor, `compose=1` gördüğünde otomatik yeni talep modalını açıp URL'den temizliyor.

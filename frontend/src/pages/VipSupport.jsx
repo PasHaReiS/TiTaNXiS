@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import {
   Search, Bell, ChevronUp, ChevronDown, CheckCircle2, Eye, Pin,
   MessageSquarePlus, Shield, Sparkles, Lock, Globe as GlobeIcon, X,
-  ChevronRight, ChevronDown as ChevronD, Loader2,
+  ChevronRight, ChevronDown as ChevronD, Loader2, Trash2,
 } from "lucide-react";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -78,7 +78,7 @@ function VoteControl({ thread, myVote, onVote, size = "md" }) {
   );
 }
 
-function ThreadCard({ thread, onOpen }) {
+function ThreadCard({ thread, onOpen, canAdmin, onDelete }) {
   return (
     <div
       onClick={onOpen}
@@ -121,6 +121,68 @@ function ThreadCard({ thread, onOpen }) {
           <span className="mono">@{thread.author_name}</span>
           <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{thread.views || 0}</span>
           <span>💬 {thread.reply_count || 0}</span>
+        </div>
+      </div>
+      {canAdmin && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onDelete(thread); }}
+          data-testid={`vip-thread-delete-${thread.id}`}
+          title="Soruyu sil"
+          className="flex-shrink-0 p-1.5 rounded-md transition-colors hover:bg-red-500/20"
+          style={{ color: "#EF4444", border: "1px solid rgba(239,68,68,0.35)" }}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ConfirmDeleteDialog({ open, thread, onCancel, onConfirm, busy }) {
+  if (!open || !thread) return null;
+  return (
+    <div
+      onClick={onCancel}
+      className="fixed inset-0 bg-black/85 flex items-center justify-center p-4"
+      style={{ zIndex: 1000000 }}
+      data-testid="vip-delete-confirm"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm p-5 rounded-lg text-center"
+        style={{ background: BASE, border: "1px solid #EF4444" }}
+      >
+        <Trash2 className="w-8 h-8 mx-auto mb-2" style={{ color: "#EF4444" }} />
+        <h3 className="text-sm font-black uppercase tracking-widest mb-2"
+            style={{ color: "#EF4444", fontFamily: "Cinzel, serif" }}>
+          Soruyu Sil
+        </h3>
+        <p className="text-xs mb-4" style={{ color: "rgba(245,240,232,0.85)" }}>
+          <b className="block truncate" title={thread.title}>{thread.title}</b>
+          Bu soru ve tüm yanıtları kalıcı olarak silinecek. Bu işlem geri alınamaz.
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            data-testid="vip-delete-cancel"
+            className="flex-1 px-3 py-2 rounded text-xs font-bold uppercase tracking-wider disabled:opacity-40"
+            style={{ background: "rgba(139,92,246,0.15)", color: "#C4B5FD", border: `1px solid ${VIOLET}55` }}
+          >
+            İptal
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            data-testid="vip-delete-confirm-btn"
+            className="flex-1 px-3 py-2 rounded text-xs font-bold uppercase tracking-wider disabled:opacity-40"
+            style={{ background: "#EF4444", color: "#fff", border: "1px solid #EF4444" }}
+          >
+            {busy ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : "Kalıcı Olarak Sil"}
+          </button>
         </div>
       </div>
     </div>
@@ -187,10 +249,16 @@ function ReplyCard({ reply, canAdmin, onToggleVisibility }) {
   );
 }
 
-function NewThreadDialog({ open, onClose, categorySlug, onCreated }) {
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
+function NewThreadDialog({ open, onClose, categorySlug, onCreated, initialTitle = "", initialBody = "" }) {
+  const [title, setTitle] = useState(initialTitle);
+  const [body, setBody] = useState(initialBody);
   const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setTitle(initialTitle);
+      setBody(initialBody);
+    }
+  }, [open, initialTitle, initialBody]);
   if (!open) return null;
   const submit = async () => {
     if (title.trim().length < 3 || body.trim().length < 1) {
@@ -478,14 +546,21 @@ export default function VipSupport() {
   const [q, setQ] = useState("");
   const [newModalOpen, setNewModalOpen] = useState(false);
   const [openThreadId, setOpenThreadId] = useState(null);
+  const [prefill, setPrefill] = useState({ title: "", body: "" });
 
-  // Auto-open the "new thread" modal when routed here with `?compose=1`
-  // (used by the Access-Denied page's "Yönetici ile İletişime Geç" button).
+  // Auto-open the "new thread" modal when routed here with `?compose=1`,
+  // pre-filling title/body from URL when provided (used by Access-Denied page).
   useEffect(() => {
     if (searchParams.get("compose") === "1") {
+      setPrefill({
+        title: searchParams.get("title") || "",
+        body: searchParams.get("body") || "",
+      });
       setNewModalOpen(true);
       const next = new URLSearchParams(searchParams);
       next.delete("compose");
+      next.delete("title");
+      next.delete("body");
       setSearchParams(next, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -593,7 +668,13 @@ export default function VipSupport() {
                 </div>
               )}
               {threads.map((t) => (
-                <ThreadCard key={t.id} thread={t} onOpen={() => setOpenThreadId(t.id)} />
+                <ThreadCard
+                  key={t.id}
+                  thread={t}
+                  onOpen={() => setOpenThreadId(t.id)}
+                  canAdmin={canAdminUI}
+                  onDelete={(th) => setDeleteTarget(th)}
+                />
               ))}
             </div>
 
@@ -651,6 +732,8 @@ export default function VipSupport() {
         onClose={() => setNewModalOpen(false)}
         categorySlug={activeCat}
         onCreated={refreshThreads}
+        initialTitle={prefill.title}
+        initialBody={prefill.body}
       />
       <ThreadDetailDialog
         threadId={openThreadId}
@@ -659,6 +742,13 @@ export default function VipSupport() {
         refreshThreads={refreshThreads}
         isAdminUser={isAdmin}
         user={user}
+      />
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        thread={deleteTarget}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={doDelete}
+        busy={deleteBusy}
       />
     </div>
   );

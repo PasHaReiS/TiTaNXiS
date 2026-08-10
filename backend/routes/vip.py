@@ -253,6 +253,16 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
         td = await db.vip_threads.find_one({"id": tid}, {"_id": 0})
         return {"thread": td, "my_vote": body.value}
 
+    @api_router.delete("/vip/threads/{tid}")
+    async def vip_thread_delete(tid: str, _: dict = Depends(require_admin)):
+        tdoc = await db.vip_threads.find_one({"id": tid}, {"_id": 0, "id": 1})
+        if not tdoc:
+            raise HTTPException(404, "thread not found")
+        replies_removed = (await db.vip_replies.delete_many({"thread_id": tid})).deleted_count
+        votes_removed = (await db.vip_votes.delete_many({"thread_id": tid})).deleted_count
+        await db.vip_threads.delete_one({"id": tid})
+        return {"deleted": True, "id": tid, "replies_removed": replies_removed, "votes_removed": votes_removed}
+
     @api_router.patch("/vip/threads/{tid}/resolve")
     async def vip_thread_resolve(tid: str, body: ResolveBody, _: dict = Depends(require_admin)):
         r = await db.vip_threads.update_one({"id": tid}, {"$set": {"resolved": bool(body.resolved)}})
