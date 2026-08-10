@@ -141,9 +141,27 @@ def make_auth_router(db):
     router = APIRouter(prefix="/api")
 
     @router.post("/auth/login")
-    async def login(body: LoginBody):
-        user = await db.users.find_one({"username": body.username.lower()}, {"_id": 0})
-        if not user or not verify_password(body.password, user["password_hash"]):
+    async def login(body: LoginBody, request: Request):
+        # Brute-force throttle: max 8 failed attempts per username per 15 minutes.
+        # (IP is unreliable behind Kubernetes ingress — proxy pods rotate. Username
+        # is the stable identifier the attacker must control.)
+        uname = body.username.lower()
+        xff = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        client_ip = xff or (request.client.host if request.client else "unknown")
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=15)
+        recent_fails = await db.login_attempts.count_documents({
+            "username": uname,
+            "success": False,
+            "created_at": {"$gte": cutoff.isoformat()},
+        })
+        if recent_fails >= 8:
+            raise HTTPException(429, "Çok fazla başarısız deneme. 15 dakika sonra tekrar deneyin.")
+        user = await db.users.find_one({"username": uname}, {"_id": 0})
+        ok = bool(user and verify_password(body.password, user["password_hash"]))
+        await db.login_attempts.insert_one({
+            "username": uname, "ip": client_ip, "success": ok, "created_at": now_iso(),
+        })
+        if not ok:
             raise HTTPException(401, "Kullanıcı adı veya şifre hatalı")
         token = create_token(user["id"], user["username"], user.get("role", "user"))
         return {"token": token, "user": public_user(user)}
@@ -228,9 +246,9 @@ def make_auth_router(db):
 
 async def seed_admin(db):
     """Seed default admin user if not exists. Also sync password from env on each startup."""
-    username = (os.environ.get("ADMIN_USERNAME") or "admin").lower()
+    username = os.environ["ADMIN_USERNAME"].lower()
     email = os.environ.get("ADMIN_EMAIL") or None
-    password = os.environ.get("ADMIN_PASSWORD") or "admin123"
+    password = os.environ["ADMIN_PASSWORD"]
     existing = await db.users.find_one({"username": username})
     if not existing:
         u = User(
@@ -258,7 +276,7 @@ async def seed_admin(db):
 
     # Seed the editor account "pasha" (role=user, can_edit=True) idempotently.
     editor_username = "pasha"
-    editor_password = os.environ.get("EDITOR_PASSWORD") or "pasha123"
+    editor_password = os.environ["EDITOR_PASSWORD"]
     editor = await db.users.find_one({"username": editor_username})
     if not editor:
         u = User(
@@ -283,3 +301,5 @@ async def seed_admin(db):
 
 async def ensure_indexes(db):
     await db.users.create_index("username", unique=True)
+    # Support brute-force throttle lookups by (username, success, created_at).
+    await db.login_attempts.create_index([("username", 1), ("created_at", -1)])

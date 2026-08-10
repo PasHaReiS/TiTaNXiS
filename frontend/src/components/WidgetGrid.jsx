@@ -623,6 +623,7 @@ export default function WidgetGrid() {
     if (alertRef.current.firedFor !== nextEvent.id) {
       alertRef.current = { armed: true, firedFor: null };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nextEvent?.id]);
   useEffect(() => {
     if (!nextEvent || countdownMs === null) return;

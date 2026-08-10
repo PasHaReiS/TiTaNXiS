@@ -261,7 +261,7 @@ function SidebarContent({ kind, selectedId, setSelectedId }) {
       setSelectedId(days[0].id);
     }
     if (days.length === 0) setSelectedId(null);
-  }, [days, kind]);
+  }, [days, kind, selectedId, setSelectedId]);
 
   const selectedDay = useMemo(() => days.find((d) => d.id === selectedId), [days, selectedId]);
 

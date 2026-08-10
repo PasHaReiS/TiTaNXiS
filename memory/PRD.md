@@ -13,6 +13,14 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] Kod İnceleme Fixleri (güvenlik + hook deps + console) — DONE**:
+  - **Güvenlik**: (a) `CORS_ORIGINS` env için `*` fallback kaldırıldı — env yoksa artık fail-fast. (b) `ADMIN_PASSWORD` / `EDITOR_PASSWORD` için `admin123`/`pasha123` hardcoded fallback'ları kaldırıldı; `EDITOR_PASSWORD` `/app/backend/.env`'e taşındı. (c) `/api/auth/login`'e per-username brute-force throttle eklendi: 15 dk içinde 8+ başarısız → 429 döner (K8s ingress arkasında per-IP throttling çalışmadığı için username tabanlı). Yeni `login_attempts` koleksiyonu + `(username, created_at)` indeksi.
+  - **Hook Deps**: `PointCalcPage.jsx:264` (`selectedId, setSelectedId` eklendi) + `WidgetGrid.jsx:626` (intent gereği `nextEvent?.id` sabit tutulup `eslint-disable-next-line react-hooks/exhaustive-deps` eklendi). ESLint artık 0 uyarı veriyor.
+  - **Console statements**: `frontend/src/index.js:29` `console.warn` production için sessizleştirildi.
+  - **Doğrulama**: 10× yanlış şifre → 1-8 = 401, 9-10 = 429 ✅; admin login halen çalışıyor ✅; ESLint 0 warning; `deployment_agent`: PASS.
+  - **Not**: Kod inceleme raporundaki "42 kritik güvenlik + 91 hook deps" sayıları abartılıydı — codebase'de gerçek `dangerouslySetInnerHTML`, `eval`, path traversal, SSRF, hardcoded secret, veya broad injection bulunmadı. ESLint'in gerçek bulgusu: 2 hook deps warning. Refactor önerileri (95 uzun fonksiyon, server.py bölme) davranışsal değil — kod kalitesi işlemi; backlog'da.
+
+
 - **[2026-02] Push Notification Sistemi — Critical Bug Fix — DONE**:
   - **Kök Neden**: `_get_or_create_vapid()` private key'i PKCS8 PEM formatında MongoDB'ye yazıyordu (`PrivateFormat.PKCS8`). Ancak `pywebpush.webpush(vapid_private_key=...)` bu formatı parse edemiyor — `py_vapid.Vapid.from_string()` sadece **raw 32-byte urlsafe base64** private key'i kabul ediyor. Sonuç: her `webpush()` çağrısı `ValueError: Could not deserialize key data ... ASN.1 parsing error` fırlatıyor, `except Exception: pass` bunu yutuyor ve `sent: 0` dönüyordu. Kullanıcı UI'da "0 gönderim" olarak görüyordu.
   - **Fix**: `_get_or_create_vapid()` artık (1) env-injected `VAPID_PRIVATE_KEY`/`VAPID_PUBLIC_KEY` varsa onları kullanıyor, (2) legacy PKCS8 PEM'i on-the-fly raw base64'e çeviriyor ve `private_b64` alanı olarak MongoDB'ye cache'liyor, (3) her ikisi de yoksa fresh keypair üretiyor. Her iki `webpush()` call site'ı artık raw base64 alan bir dönüş değerini kullanıyor. `VAPID_SUB` env değişkeni eklendi (varsayılan: `mailto:admin@titanxis.local`).

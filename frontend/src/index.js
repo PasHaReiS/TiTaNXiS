@@ -25,8 +25,9 @@ root.render(
 // Register service worker for offline mode + push notifications
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch((err) => {
-      console.warn("SW registration failed:", err);
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // Swallow: service-worker registration failures should not block the app
+      // (browser dev-tools or extension isolation can cause spurious errors).
     });
   });
 }
