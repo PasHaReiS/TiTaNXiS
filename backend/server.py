@@ -552,14 +552,21 @@ async def get_stats():
 
 
 @api_router.get("/leaderboard")
-async def leaderboard(event_id: Optional[str] = None, group_name: Optional[str] = None):
+async def leaderboard(event_id: Optional[str] = None, group_name: Optional[str] = None, scope: Optional[str] = None):
     match_stage = {}
     if event_id:
         match_stage["event_id"] = event_id
-    elif group_name:
-        events = await db.events.find({"group_name": group_name}, {"_id": 0, "id": 1}).to_list(1000)
-        event_ids = [e["id"] for e in events]
-        match_stage["event_id"] = {"$in": event_ids}
+    else:
+        # Combine optional group_name + optional archived/active scope into a single
+        # events-collection query so both filters can apply together.
+        event_query = {}
+        if group_name:
+            event_query["group_name"] = group_name
+        if scope in ("active", "archived"):
+            event_query["archived"] = (scope == "archived")
+        if event_query:
+            events = await db.events.find(event_query, {"_id": 0, "id": 1}).to_list(2000)
+            match_stage["event_id"] = {"$in": [e["id"] for e in events]}
     pipeline = [
         {"$match": match_stage} if match_stage else {"$match": {}},
         {"$project": {"member_id": 1, "weighted": {"$multiply": ["$points", {"$ifNull": ["$multiplier", 1.0]}]}}},

@@ -130,6 +130,8 @@ const tr = {
   // Chips / filter labels
   active_upper: "AKTİF",
   archive_upper: "ARŞİV",
+  archive_events_title: "Arşivlenmiş Etkinlikler",
+  archive_events_empty: "Henüz arşivlenmiş etkinlik yok",
   active: "aktif",
   all_short: "Tümü",
   bulk_mode: "Toplu Mod",
@@ -883,6 +885,8 @@ const en = {
   update_password: "Update Password",
   active_upper: "ACTIVE",
   archive_upper: "ARCHIVE",
+  archive_events_title: "Archived Events",
+  archive_events_empty: "No archived events yet",
   active: "active",
   all_short: "All",
   bulk_mode: "Bulk Mode",

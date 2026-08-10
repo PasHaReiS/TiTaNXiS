@@ -13,6 +13,14 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Leaderboard Active/Archive Scope Filter — DONE**:
+  - **Backend `/api/leaderboard`**: New `scope=active|archived` query param. Filters points to only include events matching the picked archived state; when combined with `group_name` both filters intersect in a single events-collection query.
+  - **Frontend group-chip strip**: Now hides groups whose scoped event count is 0. Active tab shows only groups with active events; Archive tab shows only groups with archived events. New test-ids: `leaderboard-group-strip`, `leaderboard-group-all`, `leaderboard-group-{name}`. Picking a group in Archive tab also narrows the visible archived event cards (`visibleArchivedEvents = group ? archivedEvents.filter(...) : archivedEvents`).
+  - **Frontend fetch**: `useSWR` URL now includes `scope=active|archived` alongside optional `group_name`.
+  - **Tab-flip reset**: `useEffect(() => setGroup(null), [filter])` clears the selected group when switching tabs so a stale selection doesn't leave the leaderboard empty.
+  - **Bug fix**: Removed leftover archive-event-cards + modal + `<>...</>` fragment from a previous ambiguous request that had introduced a JSX mismatch and duplicate trailing block. Leaderboard.jsx compiles clean.
+  - **E2E verified**: `/api/leaderboard?scope=archived&group_name=Pre` returns 82 rows (Selenay top with 511M pts). Screenshot confirms Active tab strip empty (no active events currently seeded).
+
 - **[2026-02] Canlı Gösterge Paneli Bug Fix — DONE**:
   - **Root cause**: Two temporal-dead-zone regressions in `PushBroadcastPanel.jsx` introduced during recent chip-filter work:
     1. `tplSoundFilter` referenced by `visibleTemplates` and the filter chip strip but never declared as state.

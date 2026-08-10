@@ -5,7 +5,7 @@ import { allianceBadgeStyle } from "@/lib/colors";
 import { LEADERBOARD } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
-import { Users, Calendar, Star, TrendingUp, Crown, Medal, Award } from "lucide-react";
+import { Users, Calendar, Star, TrendingUp, Crown, Medal, Award, X } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -15,7 +15,11 @@ export default function Leaderboard() {
   const { t } = useTranslation();
   const [filter, setFilter] = useState("active");
   const [group, setGroup] = useState(null);
+  // Reset the selected group whenever the tab flips so a stale group from the
+  // other scope doesn't leave the leaderboard empty.
+  useEffect(() => { setGroup(null); }, [filter]);
   const [profileId, setProfileId] = useState(null);
+  const [archiveEventId, setArchiveEventId] = useState(null);
   const [rawSearch, setRawSearch] = useState("");
   const [debSearch, setDebSearch] = useState("");
   useEffect(() => {
@@ -25,9 +29,23 @@ export default function Leaderboard() {
 
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 5000 });
   const { data: groups } = useSWR("/event-groups", fetcher, { refreshInterval: 10000 });
-  const { data: lb = [] } = useSWR(group ? `/leaderboard?group_name=${encodeURIComponent(group)}` : "/leaderboard", fetcher, { refreshInterval: 5000 });
+  const { data: lb = [] } = useSWR(
+    `/leaderboard?scope=${filter === "archive" ? "archived" : "active"}${group ? `&group_name=${encodeURIComponent(group)}` : ""}`,
+    fetcher,
+    { refreshInterval: 5000 },
+  );
   const { data: allianceColors = {} } = useSWR("/alliance-colors", fetcher, { refreshInterval: 15000 });
   const { data: allMembers = [] } = useSWR("/members", fetcher, { refreshInterval: 10000 });
+  const { data: archivedEvents = [] } = useSWR(filter === "archive" ? "/events?archived=true" : null, fetcher, { refreshInterval: 15000 });
+  const visibleArchivedEvents = useMemo(
+    () => (group ? archivedEvents.filter((e) => e.group_name === group) : archivedEvents),
+    [group, archivedEvents],
+  );
+  const { data: archiveEventLb = [] } = useSWR(archiveEventId ? `/leaderboard?event_id=${encodeURIComponent(archiveEventId)}` : null, fetcher);
+  const archiveEvent = useMemo(
+    () => (archiveEventId ? archivedEvents.find((e) => e.id === archiveEventId) : null),
+    [archiveEventId, archivedEvents],
+  );
 
   // Merge zero-point members below scored ones so the whole guild is always listed.
   const fullLb = useMemo(() => {
@@ -102,25 +120,40 @@ export default function Leaderboard() {
           >{t("archive_upper")}</button>
         </div>
 
-        {groups && groups.length > 0 && (
-          <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-            <button className={`chip ${!group ? "active" : ""}`} onClick={() => setGroup(null)}>
-              {t("all_short")}
-            </button>
-            {groups.map((g) => (
+        {(() => {
+          // Filter event groups by the current Active/Archive tab so the chip
+          // strip only advertises groups that contain matching events.
+          const visibleGroups = (groups || []).filter((g) => {
+            const activeCount = Number(g.active || 0);
+            const archivedCount = Math.max(0, Number(g.count || 0) - activeCount);
+            return filter === "archive" ? archivedCount > 0 : activeCount > 0;
+          });
+          if (visibleGroups.length === 0) return null;
+          return (
+            <div className="flex gap-2 mb-4 overflow-x-auto pb-1" data-testid="leaderboard-group-strip">
               <button
-                key={g.name}
-                onClick={() => setGroup(g.name === group ? null : g.name)}
-                className={`chip ${group === g.name ? "active" : ""}`}
+                className={`chip ${!group ? "active" : ""}`}
+                onClick={() => setGroup(null)}
+                data-testid="leaderboard-group-all"
               >
-                {g.name}
+                {t("all_short")}
               </button>
-            ))}
-          </div>
-        )}
+              {visibleGroups.map((g) => (
+                <button
+                  key={g.name}
+                  data-testid={`leaderboard-group-${g.name}`}
+                  onClick={() => setGroup(g.name === group ? null : g.name)}
+                  className={`chip ${group === g.name ? "active" : ""}`}
+                >
+                  {g.name}
+                </button>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Podium — Stone & Fire (always lit) */}
-        {(top3[0] || top3[1] || top3[2]) && (
+        {filter !== "archive" && (top3[0] || top3[1] || top3[2]) && (
           <div className="mb-6 mt-3 fade-in" style={{ display: "grid", gridTemplateColumns: "0.85fr 1fr 0.85fr", gap: "4px", alignItems: "end" }}>
             {top3[1] && (
               <div
@@ -231,6 +264,49 @@ export default function Leaderboard() {
           </div>
         )}
 
+        {filter === "archive" && (
+          <div className="mb-6" data-testid="archive-events-grid">
+            <div className="section-title heading-cinzel">{t("archive_events_title")}</div>
+            {visibleArchivedEvents.length === 0 ? (
+              <div className="card-dark p-6 text-center text-muted-foreground text-sm">{t("archive_events_empty")}</div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {visibleArchivedEvents.map((e) => (
+                  <button
+                    key={e.id}
+                    data-testid={`archive-event-card-${e.id}`}
+                    onClick={() => setArchiveEventId(e.id)}
+                    className="text-left rounded-lg p-3 transition-all hover:scale-[1.02]"
+                    style={{
+                      background: "linear-gradient(160deg, rgba(60,30,10,0.85) 0%, rgba(20,12,10,0.92) 100%)",
+                      border: "1px solid rgba(212,115,10,0.45)",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,170,80,0.08)",
+                    }}
+                  >
+                    <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "#D4730A", letterSpacing: "0.14em" }}>
+                      {e.group_name || t("event")}
+                    </div>
+                    <div className="text-sm font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }} title={e.name}>
+                      {e.name}
+                    </div>
+                    {e.subtitle && (
+                      <div className="text-[11px] mt-0.5 truncate opacity-80" style={{ color: "#EAD8B0" }} title={e.subtitle}>
+                        {e.subtitle}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between mt-2 text-[10px]" style={{ color: "#A88060" }}>
+                      <span>{e.date || "—"}</span>
+                      <span className="font-bold mono" style={{ color: "#E74C1A" }}>×{e.multiplier ?? 1}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {filter !== "archive" && (
+          <>
         <div className="section-title heading-cinzel">{t("full_ranking")}</div>
         <div className="relative mb-3">
           <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -298,9 +374,96 @@ export default function Leaderboard() {
         >
           {t("detailed_report")}
         </button>
+          </>
+        )}
       </div>
 
       <MemberProfileDialog memberId={profileId} open={!!profileId} onClose={() => setProfileId(null)} />
+      {archiveEvent && (
+        <div
+          data-testid="archive-event-modal"
+          onClick={() => setArchiveEventId(null)}
+          className="fixed inset-0 z-[9998] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-xl overflow-hidden flex flex-col"
+            style={{
+              background: "linear-gradient(180deg, #1E1410 0%, #0F0806 100%)",
+              border: "1px solid rgba(212,115,10,0.55)",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.7), 0 0 40px rgba(231,76,26,0.25)",
+              maxHeight: "85vh",
+            }}
+          >
+            <div className="flex items-start justify-between p-4 border-b" style={{ borderColor: "rgba(212,115,10,0.3)" }}>
+              <div className="min-w-0 flex-1 pr-3">
+                <div className="text-[10px] uppercase tracking-widest" style={{ color: "#D4730A" }}>
+                  {archiveEvent.group_name || t("event")} · ×{archiveEvent.multiplier ?? 1}
+                </div>
+                <div className="text-base font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }} title={archiveEvent.name}>
+                  {archiveEvent.name}
+                </div>
+                {archiveEvent.subtitle && (
+                  <div className="text-[11px] mt-0.5 opacity-80" style={{ color: "#EAD8B0" }}>{archiveEvent.subtitle}</div>
+                )}
+              </div>
+              <button
+                data-testid="archive-event-modal-close"
+                onClick={() => setArchiveEventId(null)}
+                className="p-1.5 rounded hover:bg-white/10 transition"
+                style={{ color: "#F5F0E8" }}
+                aria-label={t("cancel")}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1" data-testid="archive-event-lb-list">
+              {archiveEventLb.length === 0 ? (
+                <div className="p-6 text-center text-muted-foreground text-sm">{t("no_points_yet")}</div>
+              ) : (
+                <div className="p-2 space-y-1">
+                  {archiveEventLb.map((r) => (
+                    <button
+                      key={r.member_id}
+                      onClick={() => { setArchiveEventId(null); setProfileId(r.member_id); }}
+                      data-testid={`archive-event-row-${r.member_id}`}
+                      className="w-full flex items-center gap-3 rank-row text-left"
+                      style={{ padding: "6px 10px", minHeight: 40 }}
+                    >
+                      <div className="w-7 text-center">
+                        <span className="text-xs font-bold mono" style={{ color: "#D4730A", fontFamily: "Cinzel, Rajdhani, serif" }}>#{r.position}</span>
+                      </div>
+                      <div
+                        className="text-[9px] font-bold rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{
+                          background: (r.alliance_name && allianceColors[r.alliance_name]) || "#E74C1A",
+                          color: "#fff",
+                          minWidth: 44,
+                          padding: "3px 7px",
+                          border: "1px solid rgba(255,255,255,0.15)",
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          fontFamily: "Cinzel, Rajdhani, serif",
+                        }}
+                        title={r.alliance_name || ""}
+                      >
+                        {r.alliance_name || "-"}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold truncate text-sm" style={{ color: "#F5F0E8", fontFamily: "Cinzel, Rajdhani, serif" }}>{r.name}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold mono text-sm" style={{ color: "#E74C1A" }}>{fmt(r.total_points)}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
