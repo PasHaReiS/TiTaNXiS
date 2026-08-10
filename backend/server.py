@@ -2014,6 +2014,45 @@ async def deepl_digest(days: int = 7, _: dict = Depends(require_admin)):
     }
 
 
+@api_router.get("/translate/digest/day")
+async def deepl_digest_day(date: str, _: dict = Depends(require_admin)):
+    """Top-5 translated source strings for a single UTC day (YYYY-MM-DD)."""
+    from datetime import datetime as _dt
+    try:
+        _dt.strptime(date, "%Y-%m-%d")
+    except Exception:
+        raise HTTPException(400, "invalid date; expected YYYY-MM-DD")
+    lo = f"{date}T00:00:00+00:00"
+    hi = f"{date}T23:59:59.999999+00:00"
+    logs = await db.deepl_translate_log.find({"ts": {"$gte": lo, "$lte": hi}}, {"_id": 0}).to_list(20000)
+    total_chars = 0
+    total_requests = len(logs)
+    text_counts: dict = {}
+    lang_counts: dict = {}
+    for row in logs:
+        total_chars += int(row.get("chars", 0) or 0)
+        for l in row.get("targets", []) or []:
+            lang_counts[l] = lang_counts.get(l, 0) + 1
+        for tx in row.get("texts", []) or []:
+            if tx:
+                text_counts[tx] = text_counts.get(tx, 0) + 1
+    top_keys = sorted(
+        [{"text": k, "count": v} for k, v in text_counts.items()],
+        key=lambda x: -x["count"],
+    )[:5]
+    langs = sorted(
+        [{"code": k, "count": v} for k, v in lang_counts.items()],
+        key=lambda x: -x["count"],
+    )
+    return {
+        "date": date,
+        "total_chars": total_chars,
+        "total_requests": total_requests,
+        "top_keys": top_keys,
+        "langs": langs,
+    }
+
+
 # --- Cron: nightly cleanup of DeepL translate log --------------------------
 import hmac as _hmac_cron
 import asyncio as _asyncio_cron

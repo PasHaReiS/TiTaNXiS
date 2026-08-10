@@ -41,11 +41,23 @@ export default function DeeplDigestButton() {
   const [days, setDays] = useState(readRange());
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [daySelected, setDaySelected] = useState(null);
+  const [dayDetail, setDayDetail] = useState(null);
 
   const pickRange = (d) => {
     setDays(d);
+    setDaySelected(null);
     try { localStorage.setItem(RANGE_KEY, String(d)); } catch { /* ignore quota errors */ }
   };
+
+  useEffect(() => {
+    if (!daySelected) { setDayDetail(null); return; }
+    let cancelled = false;
+    api.get(`/translate/digest/day?date=${daySelected}`)
+      .then((r) => { if (!cancelled) setDayDetail(r.data); })
+      .catch(() => { if (!cancelled) setDayDetail({ error: true }); });
+    return () => { cancelled = true; };
+  }, [daySelected]);
 
   useEffect(() => {
     if (!open) return;
@@ -150,6 +162,8 @@ export default function DeeplDigestButton() {
                   {(data.daily || []).length > 0 && (() => {
                     const daily = data.daily || [];
                     const maxChars = Math.max(1, ...daily.map((d) => d.chars || 0));
+                    // For 30/90-day views, label every 5th bar; for 7-day view label all bars.
+                    const labelEvery = daily.length >= 30 ? 5 : 1;
                     return (
                       <div data-testid="digest-bar-chart">
                         <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#8B5CF6", letterSpacing: "0.14em" }}>
@@ -161,30 +175,89 @@ export default function DeeplDigestButton() {
                         >
                           {daily.map((d) => {
                             const h = Math.round(((d.chars || 0) / maxChars) * 56);
+                            const active = daySelected === d.date;
                             return (
-                              <div
+                              <button
                                 key={d.date}
+                                type="button"
+                                onClick={() => setDaySelected(d.date)}
                                 data-testid={`digest-bar-${d.date}`}
-                                className="flex-1 rounded-t"
+                                className="flex-1 rounded-t transition-all cursor-pointer"
                                 title={`${d.date} · ${(d.chars || 0).toLocaleString()} char · ${d.requests || 0} req`}
                                 style={{
                                   height: `${Math.max(2, h)}px`,
                                   background: (d.chars || 0) > 0
-                                    ? "linear-gradient(180deg,#C4B5FD,#8B5CF6)"
+                                    ? (active
+                                        ? "linear-gradient(180deg,#FDE68A,#F5A623)"
+                                        : "linear-gradient(180deg,#C4B5FD,#8B5CF6)")
                                     : "rgba(139,92,246,0.12)",
                                   minWidth: 3,
+                                  outline: active ? "1px solid #F5A623" : "none",
                                 }}
+                                aria-label={`${d.date} · ${d.chars} char`}
                               />
                             );
                           })}
                         </div>
-                        <div className="flex justify-between text-[9px] mono mt-1 opacity-70" style={{ color: "#C4B5FD" }}>
-                          <span>{daily[0]?.date}</span>
-                          <span>{daily[daily.length - 1]?.date}</span>
+                        <div className="flex mt-1" data-testid="digest-bar-legend">
+                          {daily.map((d, i) => {
+                            const show = i % labelEvery === 0 || i === daily.length - 1;
+                            const md = show ? d.date.slice(5) : "";
+                            return (
+                              <span
+                                key={d.date}
+                                className="flex-1 text-center text-[9px] mono opacity-70"
+                                style={{ color: "#C4B5FD", minWidth: 3 }}
+                              >
+                                {md}
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
                     );
                   })()}
+                  {daySelected && dayDetail && (
+                    <div
+                      data-testid="digest-day-detail"
+                      className="rounded-lg p-3 space-y-2"
+                      style={{ background: "rgba(245,166,35,0.08)", border: "1px solid rgba(245,166,35,0.4)" }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-[9px] uppercase tracking-widest" style={{ color: "#F5A623", letterSpacing: "0.14em" }}>
+                            {t("deepl_digest_day_detail")}
+                          </div>
+                          <div className="text-sm font-bold mono" style={{ color: "#F5F0E8" }}>{daySelected}</div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {(dayDetail.total_chars || 0).toLocaleString()} char · {dayDetail.total_requests || 0} req
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setDaySelected(null)}
+                          data-testid="digest-day-detail-close"
+                          className="p-1 rounded hover:bg-white/10 transition"
+                          style={{ color: "#F5A623" }}
+                          aria-label={t("cancel")}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      {(dayDetail.top_keys || []).length === 0 ? (
+                        <div className="text-xs text-muted-foreground italic">—</div>
+                      ) : (
+                        <div className="space-y-1" data-testid="digest-day-top-keys">
+                          {dayDetail.top_keys.map((k, i) => (
+                            <div key={i} className="flex items-center gap-2 px-2 py-1 rounded text-xs" style={{ background: "rgba(20,12,10,0.5)" }}>
+                              <span className="mono text-[10px] font-bold" style={{ color: "#F5A623", minWidth: 20 }}>×{k.count}</span>
+                              <span className="truncate flex-1" style={{ color: "#F5F0E8" }} title={k.text}>{k.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div>
                     <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#F5A623", letterSpacing: "0.14em" }}>
                       {t("deepl_digest_langs")} ({(data.langs || []).length})
