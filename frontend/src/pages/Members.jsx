@@ -49,9 +49,18 @@ const readDisplay = () => {
       nameItalic: d.nameItalic === true,
       rankSize: d.rankSize ?? 13,
       rankSizeByRank: d.rankSizeByRank ?? {},
+      allianceSize: d.allianceSize ?? 18,
+      allianceFamily: d.allianceFamily ?? "default",
+      allianceBold: d.allianceBold !== false,
+      allianceItalic: d.allianceItalic === true,
+      allianceCase: d.allianceCase ?? "normal",
     };
   } catch {
-    return { nameSize: 12, nameFamily: "default", nameBold: true, nameItalic: false, rankSize: 13, rankSizeByRank: {} };
+    return {
+      nameSize: 12, nameFamily: "default", nameBold: true, nameItalic: false,
+      rankSize: 13, rankSizeByRank: {},
+      allianceSize: 18, allianceFamily: "default", allianceBold: true, allianceItalic: false, allianceCase: "normal",
+    };
   }
 };
 
@@ -290,6 +299,67 @@ export default function Members() {
               </button>
             </div>
             <div>
+              <div className="text-[10px] uppercase gold-text mb-1" style={{ letterSpacing: "0.14em" }}>{t("alliance_name_settings")}</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  data-testid="display-alliance-family"
+                  value={displayPrefs.allianceFamily}
+                  onChange={(e) => patchDisplay({ allianceFamily: e.target.value })}
+                  className="rounded px-2 py-1 text-[11px]"
+                  style={{ background: "#1A1210", color: "#F5F0E8", border: "1px solid rgba(245,166,35,0.4)" }}
+                >
+                  <option value="default">Varsayılan</option>
+                  <option value="cinzel">Cinzel</option>
+                  <option value="roboto">Roboto</option>
+                  <option value="georgia">Georgia</option>
+                  <option value="montserrat">Montserrat</option>
+                </select>
+                <select
+                  data-testid="display-alliance-size"
+                  value={displayPrefs.allianceSize}
+                  onChange={(e) => patchDisplay({ allianceSize: parseInt(e.target.value, 10) })}
+                  className="rounded px-2 py-1 text-[11px]"
+                  style={{ background: "#1A1210", color: "#F5F0E8", border: "1px solid rgba(245,166,35,0.4)" }}
+                >
+                  {[10, 12, 14, 16, 18].map((s) => (<option key={s} value={s}>{s}px</option>))}
+                </select>
+                <button
+                  type="button"
+                  data-testid="display-alliance-bold"
+                  onClick={() => patchDisplay({ allianceBold: !displayPrefs.allianceBold })}
+                  className="px-2 py-1 rounded text-[11px] font-bold"
+                  style={{
+                    background: displayPrefs.allianceBold ? "linear-gradient(135deg,#F5A623,#E74C1A)" : "rgba(20,12,10,0.6)",
+                    color: displayPrefs.allianceBold ? "#0a0a0a" : "#F5A623",
+                    border: "1px solid rgba(245,166,35,0.5)",
+                  }}
+                >B</button>
+                <button
+                  type="button"
+                  data-testid="display-alliance-italic"
+                  onClick={() => patchDisplay({ allianceItalic: !displayPrefs.allianceItalic })}
+                  className="px-2 py-1 rounded text-[11px]"
+                  style={{
+                    background: displayPrefs.allianceItalic ? "linear-gradient(135deg,#F5A623,#E74C1A)" : "rgba(20,12,10,0.6)",
+                    color: displayPrefs.allianceItalic ? "#0a0a0a" : "#F5A623",
+                    border: "1px solid rgba(245,166,35,0.5)",
+                    fontStyle: "italic", fontWeight: 700,
+                  }}
+                >I</button>
+                <select
+                  data-testid="display-alliance-case"
+                  value={displayPrefs.allianceCase}
+                  onChange={(e) => patchDisplay({ allianceCase: e.target.value })}
+                  className="rounded px-2 py-1 text-[11px]"
+                  style={{ background: "#1A1210", color: "#F5F0E8", border: "1px solid rgba(245,166,35,0.4)" }}
+                >
+                  <option value="normal">{t("case_normal")}</option>
+                  <option value="upper">{t("case_upper")}</option>
+                  <option value="lower">{t("case_lower")}</option>
+                </select>
+              </div>
+            </div>
+            <div>
               <div className="text-[10px] uppercase gold-text mb-1" style={{ letterSpacing: "0.14em" }}>{t("member_name_settings")}</div>
               <div className="flex flex-wrap items-center gap-2">
                 <select
@@ -420,8 +490,16 @@ export default function Members() {
                 aria-expanded={!collapsedAlliances.has(grp.name)}
               >
                 <span
-                  className="flex items-center gap-2 font-bold tracking-wider text-lg truncate"
-                  style={{ fontFamily: "Cinzel, Rajdhani, serif", letterSpacing: "0.10em", fontWeight: 700 }}
+                  className="flex items-center gap-2 tracking-wider truncate"
+                  style={{
+                    fontFamily: NAME_FONTS[displayPrefs.allianceFamily] || 'Cinzel, Rajdhani, serif',
+                    letterSpacing: "0.10em",
+                    fontWeight: displayPrefs.allianceBold ? 700 : 500,
+                    fontStyle: displayPrefs.allianceItalic ? "italic" : "normal",
+                    fontSize: displayPrefs.allianceSize,
+                    textTransform: displayPrefs.allianceCase === "upper" ? "uppercase" : displayPrefs.allianceCase === "lower" ? "lowercase" : "none",
+                  }}
+                  data-testid={`alliance-header-name-${grp.name}`}
                 >
                   <ChevronDown
                     className="w-4 h-4 flex-shrink-0 transition-transform"
