@@ -12,6 +12,10 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Language: **Turkish** (user communicates in TR)
 - Theme: Midnight Red dark
 
+
+- **[2026-02] Alliance Typography — text-transform removed — DONE**: Removed the upper/lower/normal case dropdown from Alliance name typography settings on `Members.jsx`. Cleaned `allianceCase` state, default, UI select, and inline `textTransform` style. Member name typography section never had the toggle. Deployment agent verified: no blockers. Preview + prod ready to redeploy.
+- **[2026-02] Language Switcher verified — DONE**: `LanguageSwitcher.jsx` in Header renders flag+label pill (`data-testid="lang-toggle"`); click opens a portal-based dropdown (`lang-panel`) listing all 29 languages with flag/name/code; selection persists to `localStorage.ol_lang` and calls `i18n.changeLanguage`; hydration via DeepL runs in background. Verified live on localhost:3000 — 29 items rendered.
+
 ## Implemented (feature snapshot)
 - **[2026-02] Archive Group Total Summary — DONE**:
   - **Frontend** (`Leaderboard.jsx`): Archive tab now renders a new `archive-group-total` section between the group chip strip and the event cards. Visible only when a specific group chip is selected (Tümü ➜ hidden). Uses the existing `/api/leaderboard?scope=archived&group_name=X` endpoint (which already aggregates points across every event in the group with multiplier weighting). Rows are ranked, clickable (opens MemberProfileDialog), and testid'd `archive-group-total-row-{id}`.
