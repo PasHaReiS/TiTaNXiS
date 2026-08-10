@@ -13,6 +13,20 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] Dashboard Aktivite Log — Kısa İsim + Admin Silme — DONE**:
+  - **Backend** (`routes/dashboard.py`): `register_dashboard` imzasına `require_admin` opsiyonel parametresi eklendi + `server.py` çağrısı güncellendi. Yeni `DELETE /api/dashboard/activity-log/{entry_id}` endpoint'i (`Depends(_admin_guard)`) — 200 `{deleted, id}`, kayıt yoksa 404.
+  - **Frontend** (`Dashboard.jsx`): `displayName(email)` helper — `@` öncesini alıp `pasha@titanxis.com → pasha` gösteriyor. Avatar initial'ı da bu kısa isimden hesaplanıyor. Tabloya admin-only "Sil" sütunu eklendi: 🗑️ ikon → tıklayınca aynı satırda inline "Onayla / İptal" pill'leri (modal yok, hızlı akış). `api.delete` başarılı olunca `mutate()` + `toast.success("Kayıt silindi")`.
+  - **Doğrulama**: Backend curl — unauth DELETE → 401, admin DELETE → 200, missing id → 404, silinen kayıt liste tekrar çağırıldığında yok ✅. UI ekran görüntüsü: admin görünümde 50 satır, her satırda kırmızı silme butonu, isimler `@` öncesi görünüyor. Konsol hatası yok.
+
+
+
+- **[2026-02] VIP Destek Crash Fix — DONE**:
+  - **Kök neden**: `VipSupport.jsx` ana bileşeninde `canAdminUI`, `selectionMode`, `selectedIds`, `deleteTarget`, `bulkConfirm`, `deleteBusy`, `trashOpen` state hook'ları + `toggleSelect`, `doDelete`, `bulkDelete` handler'ları eksikti (bir önceki oturumda toplu silme/çöp kutusu eklenirken JSX'e referanslar yazılmış ama state tanımları unutulmuştu). Sonuç: `ReferenceError: canAdminUI is not defined` → tüm sayfa beyaz kalıyordu.
+  - **Fix**: `catDetails` satırından hemen sonra `const canAdminUI = isAdmin || user?.can_edit === true` + eksik 6 state hook + 3 handler eklendi (soft-delete `DELETE /vip/threads/{id}` + bulk `Promise.all` + toast bildirimleri).
+  - **Doğrulama**: Backend endpoint'leri zaten çalışıyordu (`GET /api/vip/categories → 200`, `/threads`, `/faq`, `/stats`). Anon görünüm: 3 thread + kategori sayaçları + FAQ + stats bar hepsi render, konsol hatası yok. Admin token inject edilmiş görünüm: "Seçim Modu" + "Çöp" butonları görünüyor.
+
+
+
 - **[2026-02] Loading Video CDN → Local Asset — DONE**:
   - **App.js**: `LoadingScreen` içindeki hardcoded `customer-assets-4nw71qhi.emergentagent.net/…mp4` URL'si kaldırıldı. Yerine `process.env.REACT_APP_LOADING_VIDEO_URL || "/brand/loading.mp4"` kondu — env override edilebilir, varsayılan olarak local asset.
   - **frontend/.env**: `REACT_APP_LOADING_VIDEO_URL=/brand/loading.mp4` eklendi.

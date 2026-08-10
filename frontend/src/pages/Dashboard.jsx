@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import {
   Users, Wifi, Calendar, Zap, TrendingUp, TrendingDown,
-  Smartphone, Monitor, Tablet, Trophy, Clock, ChevronRight,
+  Smartphone, Monitor, Tablet, Trophy, Clock, ChevronRight, Trash2, Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
 } from "recharts";
@@ -312,14 +313,38 @@ const ACTION_META = {
 };
 const DEVICE_ICON = { mobile: Smartphone, desktop: Monitor, tablet: Tablet };
 
+// Strip domain from an email so "pasha@titanxis.com" → "pasha".
+function displayName(n) {
+  if (!n) return "?";
+  const s = String(n);
+  const at = s.indexOf("@");
+  return at > 0 ? s.slice(0, at) : s;
+}
+
 function ActivityLog() {
+  const { isAdmin } = useAuth();
   const [filter, setFilter] = useState("all");
   const [visible, setVisible] = useState(false);
-  const { data: rows = [] } = useSWR(
+  const [confirmId, setConfirmId] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+  const { data: rows = [], mutate } = useSWR(
     visible ? `/dashboard/activity-log?filter=${filter}` : null,
     fetcher,
     { refreshInterval: 30000 },
   );
+  const doDelete = async (id) => {
+    setBusyId(id);
+    try {
+      await api.delete(`/dashboard/activity-log/${id}`);
+      toast.success("Kayıt silindi");
+      setConfirmId(null);
+      mutate();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Silinemedi");
+    } finally {
+      setBusyId(null);
+    }
+  };
   const tabs = [
     { key: "all", label: "Tümü" },
     { key: "logins", label: "Girişler" },
@@ -389,11 +414,12 @@ function ActivityLog() {
             data-testid="activity-log-table"
           >
             <colgroup>
-              <col style={{ width: "28%" }} />
-              <col style={{ width: "22%" }} />
-              <col style={{ width: "26%" }} className="hidden sm:table-column" />
-              <col style={{ width: "16%" }} />
+              <col style={{ width: isAdmin ? "24%" : "28%" }} />
+              <col style={{ width: "20%" }} />
+              <col style={{ width: "24%" }} className="hidden sm:table-column" />
+              <col style={{ width: "14%" }} />
               <col style={{ width: "8%" }} className="hidden sm:table-column" />
+              {isAdmin && <col style={{ width: "10%" }} />}
             </colgroup>
             <thead>
               <tr className="text-left uppercase text-[9px] tracking-widest" style={{ color: "#9CA3AF" }}>
@@ -402,15 +428,17 @@ function ActivityLog() {
                 <th className="pb-2 pr-2 hidden sm:table-cell">Detay</th>
                 <th className="pb-2 pr-2">Zaman</th>
                 <th className="pb-2 pr-2 hidden sm:table-cell">Cihaz</th>
+                {isAdmin && <th className="pb-2 pr-2 text-right">Sil</th>}
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 && (
-                <tr><td colSpan={5} className="py-4 text-center" style={{ color: "#9CA3AF" }}>Kayıt yok</td></tr>
+                <tr><td colSpan={isAdmin ? 6 : 5} className="py-4 text-center" style={{ color: "#9CA3AF" }}>Kayıt yok</td></tr>
               )}
               {rows.map((r, i) => {
                 const meta = ACTION_META[r.action_type] || { label: r.action_type, bg: "rgba(255,255,255,0.05)", color: "#9CA3AF" };
                 const DevIcon = DEVICE_ICON[r.device] || Monitor;
+                const shortName = displayName(r.member_name);
                 return (
                   <tr key={r.id || i} className="border-t" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
                     <td className="py-2 pr-2 overflow-hidden">
@@ -419,10 +447,10 @@ function ActivityLog() {
                           className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black flex-shrink-0"
                           style={{ background: `${VIOLET}22`, color: VIOLET, border: `1px solid ${VIOLET}55` }}
                         >
-                          {initial(r.member_name)}
+                          {initial(shortName)}
                         </div>
                         <span className="truncate min-w-0" title={r.member_name} style={{ color: "#fff" }}>
-                          {r.member_name}
+                          {shortName}
                         </span>
                       </div>
                     </td>
@@ -440,6 +468,46 @@ function ActivityLog() {
                     <td className="py-2 pr-2 hidden sm:table-cell">
                       <DevIcon className="w-3.5 h-3.5" style={{ color: "#9CA3AF" }} />
                     </td>
+                    {isAdmin && (
+                      <td className="py-2 pr-2 text-right">
+                        {confirmId === r.id ? (
+                          <span className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => doDelete(r.id)}
+                              disabled={busyId === r.id}
+                              data-testid={`activity-log-delete-confirm-${r.id}`}
+                              className="text-[9px] font-black uppercase px-1.5 py-1 rounded"
+                              style={{ background: "#EF4444", color: "#fff", border: "1px solid #EF4444" }}
+                            >
+                              {busyId === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Onayla"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmId(null)}
+                              disabled={busyId === r.id}
+                              data-testid={`activity-log-delete-cancel-${r.id}`}
+                              className="text-[9px] font-bold uppercase px-1.5 py-1 rounded"
+                              style={{ background: "rgba(255,255,255,0.06)", color: "#9CA3AF", border: "1px solid rgba(255,255,255,0.1)" }}
+                            >
+                              İptal
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmId(r.id)}
+                            disabled={!r.id}
+                            data-testid={`activity-log-delete-${r.id}`}
+                            title="Bu kaydı sil"
+                            className="p-1 rounded-full transition-colors hover:opacity-100 opacity-70 disabled:opacity-30"
+                            style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.4)" }}
+                          >
+                            <Trash2 className="w-3 h-3" style={{ color: "#EF4444" }} />
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 );
               })}

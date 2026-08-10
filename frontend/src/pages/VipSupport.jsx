@@ -666,6 +666,56 @@ export default function VipSupport() {
   };
 
   const catDetails = useMemo(() => categories.find((c) => c.slug === activeCat), [categories, activeCat]);
+  const canAdminUI = isAdmin || user?.can_edit === true;
+
+  // Admin moderation state (soft-delete + bulk + trash)
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [trashOpen, setTrashOpen] = useState(false);
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const doDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteBusy(true);
+    try {
+      await api.delete(`/vip/threads/${deleteTarget.id}`);
+      toast.success("Soru çöp kutusuna taşındı");
+      setDeleteTarget(null);
+      refreshThreads();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Silinemedi");
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
+  const bulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setDeleteBusy(true);
+    try {
+      await Promise.all(Array.from(selectedIds).map((id) => api.delete(`/vip/threads/${id}`)));
+      toast.success(`${selectedIds.size} soru çöp kutusuna taşındı`);
+      setSelectedIds(new Set());
+      setSelectionMode(false);
+      setBulkConfirm(false);
+      refreshThreads();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Toplu silme başarısız");
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
   const filterTabs = [
     { key: "all", label: "Tümü" },
     { key: "new", label: "Yeni" },

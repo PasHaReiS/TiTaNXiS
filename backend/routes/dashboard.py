@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 
 def _now_iso() -> str:
@@ -30,7 +30,7 @@ def _as_int(v) -> int:
         return 0
 
 
-def register_dashboard(api_router: APIRouter, db, require_edit=None):
+def register_dashboard(api_router: APIRouter, db, require_edit=None, require_admin=None):
     # Guard: admin or editor (can_edit). If not provided, dependency is a no-op passthrough
     # so existing tests / calls that don't wire the dep won't break.
     if require_edit is None:
@@ -38,6 +38,11 @@ def register_dashboard(api_router: APIRouter, db, require_edit=None):
             return {}
     else:
         _guard = require_edit
+    if require_admin is None:
+        async def _admin_guard():
+            return {}
+    else:
+        _admin_guard = require_admin
 
     async def _seed_activity_log_if_empty():
         """Seed 40 realistic activity_log entries derived from real members if empty."""
@@ -228,6 +233,13 @@ def register_dashboard(api_router: APIRouter, db, require_edit=None):
             .sort("timestamp", -1).limit(min(int(limit), 200)).to_list(200)
         )
         return rows
+
+    @api_router.delete("/dashboard/activity-log/{entry_id}")
+    async def dashboard_activity_log_delete(entry_id: str, _: dict = Depends(_admin_guard)):
+        r = await db.activity_log.delete_one({"id": entry_id})
+        if r.deleted_count == 0:
+            raise HTTPException(404, "entry not found")
+        return {"deleted": True, "id": entry_id}
 
     @api_router.get("/dashboard/member-locations")
     async def dashboard_member_locations(_: dict = Depends(_guard)):

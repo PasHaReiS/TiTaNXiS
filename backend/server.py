@@ -2921,7 +2921,7 @@ register_vip(api_router, db, require_auth, require_admin, logging.getLogger("vip
 
 # Premium Dashboard routes (admin + editor only)
 from routes.dashboard import register_dashboard  # noqa: E402
-register_dashboard(api_router, db, require_edit=require_edit)
+register_dashboard(api_router, db, require_edit=require_edit, require_admin=require_admin)
 
 app.include_router(api_router)
 app.include_router(make_auth_router(db))
