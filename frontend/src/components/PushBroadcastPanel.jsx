@@ -102,6 +102,7 @@ export default function PushBroadcastPanel() {
     return () => clearInterval(id);
   }, []);
   const [testUserActive, setTestUserActive] = useState(0);
+  const [tplSoundFilter, setTplSoundFilter] = useState("all"); // "all" | "rally" | "victory" | "dungeon" | "alarm"
   const [testSoundKey, setTestSoundKey] = useState(() => {
     try { const v = localStorage.getItem(SOUND_PREF_KEY); if (v && ["rally","victory","dungeon","alarm"].includes(v)) return v; } catch {}
     return "rally";
@@ -127,9 +128,6 @@ export default function PushBroadcastPanel() {
       toast.error(e?.response?.data?.detail || e.message);
     }
   };
-  const visibleTemplates = (tplSoundFilter === "all")
-    ? templates
-    : templates.filter((tt) => ((tt.sound && SOUND_COLORS[tt.sound]) ? tt.sound : "rally") === tplSoundFilter);
   const testUserRef = React.useRef(null);
   const testAudioRef = React.useRef(null);
   const [audioBusy, setAudioBusy] = useState(false);
@@ -279,6 +277,9 @@ export default function PushBroadcastPanel() {
   const toggleSeed = (key) => setSeedSelected((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   const { data: history = [], mutate: refreshHistory } = useSWR(isAdmin ? "/push/history" : null, fetcher, { refreshInterval: 20000 });
   const { data: templates = [], mutate: refreshTpl } = useSWR(isAdmin ? "/push/templates" : null, fetcher);
+  const visibleTemplates = (tplSoundFilter === "all")
+    ? templates
+    : templates.filter((tt) => ((tt.sound && SOUND_COLORS[tt.sound]) ? tt.sound : "rally") === tplSoundFilter);
   const { data: scheduled = [], mutate: refreshScheduled } = useSWR(isAdmin ? "/push/scheduled" : null, fetcher, { refreshInterval: 30000 });
   const { data: alliances = [] } = useSWR(isAdmin ? "/alliances" : null, fetcher);
   const { data: eventGroups = [] } = useSWR(isAdmin ? "/push/event-groups" : null, fetcher);

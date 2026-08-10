@@ -13,6 +13,13 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 ## Implemented (feature snapshot)
+- **[2026-02] Canlı Gösterge Paneli Bug Fix — DONE**:
+  - **Root cause**: Two temporal-dead-zone regressions in `PushBroadcastPanel.jsx` introduced during recent chip-filter work:
+    1. `tplSoundFilter` referenced by `visibleTemplates` and the filter chip strip but never declared as state.
+    2. `visibleTemplates` (line 130) referenced `templates` before the `useSWR` declaration (line 282), causing `ReferenceError: Cannot access 'templates' before initialization`.
+  - **Fix**: Added `const [tplSoundFilter, setTplSoundFilter] = useState("all")` alongside the other filter states. Moved `visibleTemplates` immediately below the `useSWR("/push/templates")` line so declaration order is correct.
+  - **Verified via Playwright screenshot**: 0 page errors, `live-dashboard-page` renders, `push-tpl-filter-strip` visible, `NotificationSetupWizard` opens on first load.
+
 - **[2026-02] Overflow Fix + Widget Nav Reorder + Language Switch Fix — DONE**:
   - **Overflow**: Added `html, body { overflow-x: hidden; max-width: 100vw; }` at the top of `index.css` and `overflow-x: hidden` on `.app-shell`. Prevents any horizontal scroll or content bleed on mobile.
   - **Widget Nav Reorder**: `BottomNav` now includes a new `nav-live-dashboard` tab (`/gosterge-paneli`, `Activity` icon, `nav_live_dashboard: "Panel"`) right before `nav-widget-library`. Mobile screenshot confirms 8 tabs render in the exact requested order. Both new tabs are auth-only.
