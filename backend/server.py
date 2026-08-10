@@ -1910,8 +1910,11 @@ async def translate(body: TranslateBody):
     texts = body.text if isinstance(body.text, list) else [body.text]
     if not texts:
         return {"translations": {}}
-    src = (body.sourceLang or "TR").upper()
+    src_raw = (body.sourceLang or "").strip().upper()
+    # sourceLang="" | None | "AUTO" → let DeepL auto-detect (skip source_lang param).
+    src = None if src_raw in ("", "AUTO", "AUTO_DETECT") else src_raw
     results: dict = {}
+    detected_sources: dict = {}
     headers = {"Authorization": f"DeepL-Auth-Key {DEEPL_API_KEY}", "Content-Type": "application/json"}
     async with httpx.AsyncClient(timeout=25) as client:
         for lang in body.targetLangs:
@@ -1923,19 +1926,35 @@ async def translate(body: TranslateBody):
                 r = await client.post(f"{base}/translate", headers=headers, json=payload)
                 r.raise_for_status()
                 data = r.json()
-                translated = [t.get("text", "") for t in data.get("translations", [])]
+                translations = data.get("translations", [])
+                translated = [t.get("text", "") for t in translations]
                 results[lang] = translated if isinstance(body.text, list) else (translated[0] if translated else "")
+                if translations and translations[0].get("detected_source_language"):
+                    detected_sources[lang] = translations[0]["detected_source_language"]
             except httpx.HTTPStatusError as e:
                 results[lang] = {"error": f"DeepL {e.response.status_code}: {e.response.text[:200]}"}
             except Exception as e:
                 results[lang] = {"error": str(e)[:200]}
-    return {"translations": results}
+    out = {"translations": results}
+    if src is None and detected_sources:
+        out["detected_source_langs"] = detected_sources
+    return out
 
 
 @api_router.get("/translate/usage")
 async def deepl_usage():
+    from datetime import datetime as _dt, timezone as _tz
+    from calendar import monthrange as _mr
+    # Compute days until next monthly reset. DeepL Free quota resets on the 1st
+    # of each calendar month (UTC) — this is a common convention and matches how
+    # DeepL displays the reset day on their dashboard for Free-tier accounts.
+    now = _dt.now(_tz.utc)
+    last_day = _mr(now.year, now.month)[1]
+    days_to_reset = (last_day - now.day) + 1
+    reset_at = f"{now.year:04d}-{(now.month % 12 + 1):02d}-01"
     if not DEEPL_API_KEY:
-        return {"configured": False, "character_count": 0, "character_limit": 0}
+        return {"configured": False, "character_count": 0, "character_limit": 0,
+                "plan": None, "days_to_reset": days_to_reset, "reset_at": reset_at}
     base = "https://api-free.deepl.com/v2" if DEEPL_API_KEY.endswith(":fx") else "https://api.deepl.com/v2"
     headers = {"Authorization": f"DeepL-Auth-Key {DEEPL_API_KEY}"}
     try:
@@ -1948,9 +1967,13 @@ async def deepl_usage():
             "character_count": data.get("character_count", 0),
             "character_limit": data.get("character_limit", 0),
             "plan": "free" if DEEPL_API_KEY.endswith(":fx") else "pro",
+            "days_to_reset": days_to_reset,
+            "reset_at": reset_at,
         }
     except Exception as e:
-        return {"configured": True, "error": str(e)[:200], "character_count": 0, "character_limit": 0}
+        return {"configured": True, "error": str(e)[:200], "character_count": 0, "character_limit": 0,
+                "plan": "free" if DEEPL_API_KEY.endswith(":fx") else "pro",
+                "days_to_reset": days_to_reset, "reset_at": reset_at}
 
 
 ENABLED_LANGS = ["en", "ru", "de", "fr", "es", "ko", "bg", "cs", "da", "el", "et", "fi",
