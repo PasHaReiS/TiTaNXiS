@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { ShieldAlert, ArrowLeft } from "lucide-react";
+import { ShieldAlert, ArrowLeft, LifeBuoy } from "lucide-react";
 
 export default function AccessDenied() {
   const nav = useNavigate();
@@ -53,6 +53,20 @@ export default function AccessDenied() {
           >
             Ana Sayfa
           </button>
+        </div>
+        <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+          <button
+            type="button"
+            onClick={() => nav("/vip-destek?compose=1&category=teknik-destek")}
+            data-testid="access-denied-contact"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider"
+            style={{ background: "rgba(139,92,246,0.15)", color: "#C4B5FD", border: "1px solid #8B5CF6" }}
+          >
+            <LifeBuoy className="w-3.5 h-3.5" /> Yönetici ile İletişime Geç
+          </button>
+          <p className="text-[10px] mt-2" style={{ color: "#6B7280" }}>
+            VIP Destek panelinde otomatik olarak yardım talebi formu açılır.
+          </p>
         </div>
       </div>
     </div>

@@ -13,6 +13,12 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] Dashboard Kart Sıra Sıfırlama + Detaylı Erişim Engellendi — DONE**:
+  - **Kart Sıra Sıfırlama**: `Dashboard.jsx` `DraggableGrid` bileşenine "↺ Kartları Varsayılan Sıraya Getir" amber butonu eklendi. `isCustomOrder` memo ile mevcut sıra varsayılandan farklı olduğunda otomatik görünüyor, tıklanınca `localStorage.removeItem('dash_grid_order_v1')` + `window.location.reload()` yaparak state'i tek kaynaktan temiz başlatıyor.
+  - **Yönetici ile İletişime Geç**: `AccessDenied.jsx` yeniden yazıldı, alt bölümde LifeBuoy ikonlu buton eklendi → `/vip-destek?compose=1&category=teknik-destek`'e yönlendiriyor. `VipSupport.jsx` `useSearchParams` ile bu parametreleri okuyor: `category`'yi initial state olarak alıyor, `compose=1` gördüğünde otomatik yeni talep modalını açıp URL'den temizliyor.
+  - **Doğrulama**: Playwright — `/vip-destek?compose=1` açılışında `vip-new-modal` mount ediliyor ✅, modal başlığı "Yeni Talep · #teknik-destek". `deployment_agent`: PASS.
+
+
 - **[2026-02] 3 Dashboard İyileştirmesi — DONE**:
   - **Activity Log Auto-Hooks**: `auth.py /auth/login` başarılı girişte + `server.py POST /points` puan oluşturmada + `server.py POST /events` etkinlik oluşturmada `activity_log.insert_one(...)` fire-and-forget hook eklendi (all in try/except). Doğrulama: admin login sonrası `/dashboard/activity-log?filter=logins` → yeni kayıt anında görünüyor.
   - **Erişim Engellendi Sayfası**: `/app/frontend/src/pages/AccessDenied.jsx` yeni bileşen — kırmızı ShieldAlert ikonu, "🔒 Erişim Engellendi" başlık, açıklayıcı metin, "Geri Dön" (nav(-1)) + "Ana Sayfa" butonları. `App.js` `RequireAdminOrEditor` guard yetkisiz kullanıcı için `Navigate` yerine `<AccessDenied />` render ediyor.

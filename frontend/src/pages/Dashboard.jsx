@@ -468,19 +468,27 @@ function DraggableGrid({ items }) {
       const raw = localStorage.getItem(ORDER_KEY);
       if (!raw) return defaultOrder;
       const parsed = JSON.parse(raw);
-      // Prune stale keys, append newly added keys.
       const valid = parsed.filter((k) => defaultOrder.includes(k));
       defaultOrder.forEach((k) => { if (!valid.includes(k)) valid.push(k); });
       return valid;
     } catch { return defaultOrder; }
   });
   const [draggingKey, setDraggingKey] = useState(null);
+  const isCustomOrder = useMemo(
+    () => order.join("|") !== defaultOrder.join("|"),
+    [order, defaultOrder],
+  );
 
   const byKey = useMemo(() => Object.fromEntries(items.map((it) => [it.key, it.node])), [items]);
 
   const persist = (next) => {
     setOrder(next);
     try { localStorage.setItem(ORDER_KEY, JSON.stringify(next)); } catch {}
+  };
+  const resetOrder = () => {
+    try { localStorage.removeItem(ORDER_KEY); } catch {}
+    // Full reload → single source of truth (mount reads defaultOrder).
+    window.location.reload();
   };
 
   const onDragStart = (key) => (e) => {
@@ -505,6 +513,24 @@ function DraggableGrid({ items }) {
 
   return (
     <>
+      {isCustomOrder && (
+        <div className="md:col-span-2 flex justify-end">
+          <button
+            type="button"
+            onClick={resetOrder}
+            data-testid="dash-cards-reset-order"
+            className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full"
+            style={{
+              background: "rgba(245,158,11,0.1)",
+              color: AMBER,
+              border: `1px solid ${AMBER}55`,
+            }}
+          >
+            <span aria-hidden>↺</span>
+            <span>Kartları Varsayılan Sıraya Getir</span>
+          </button>
+        </div>
+      )}
       {order.map((key) => (
         <div
           key={key}

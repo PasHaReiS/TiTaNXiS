@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
+import { useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useTranslation } from "react-i18next";
@@ -470,11 +471,24 @@ function FaqAccordion({ items }) {
 
 export default function VipSupport() {
   const { user, isAdmin } = useAuth();
-  const [activeCat, setActiveCat] = useState("genel-sorular");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialCat = searchParams.get("category") || "genel-sorular";
+  const [activeCat, setActiveCat] = useState(initialCat);
   const [statusFilter, setStatusFilter] = useState("all");
   const [q, setQ] = useState("");
   const [newModalOpen, setNewModalOpen] = useState(false);
   const [openThreadId, setOpenThreadId] = useState(null);
+
+  // Auto-open the "new thread" modal when routed here with `?compose=1`
+  // (used by the Access-Denied page's "Yönetici ile İletişime Geç" button).
+  useEffect(() => {
+    if (searchParams.get("compose") === "1") {
+      setNewModalOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete("compose");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const { data: categories = [] } = useSWR("/vip/categories", fetcher, { refreshInterval: 30000 });
   const listUrl = `/vip/threads?category=${activeCat}&status=${statusFilter}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
