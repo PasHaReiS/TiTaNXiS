@@ -650,6 +650,7 @@ const tr = {
   wg_total_power_desc: "Tüm üyelerin gücünün toplamı.",
   nav_widget_library: "Widget'lar",
   nav_vip_support: "VIP Destek",
+  nav_dashboard: "Dashboard",
 
   wg_member_count_desc: "Kayıtlı üye sayısı.",
   wg_personal_points_desc: "Sıralamadaki kendi toplam puanın.",
@@ -1200,6 +1201,7 @@ const en = {
   choose_language: "Choose Language",
   nav_widget_library: "Widgets",
   nav_vip_support: "VIP Support",
+  nav_dashboard: "Dashboard",
 
   // BuildingCalculator
   bc_title: "Building Upgrade",

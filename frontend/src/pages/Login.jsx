@@ -27,7 +27,7 @@ export default function Login() {
         toast.warning(t("first_login_change_pwd"), { duration: 6000 });
         nav("/profil", { replace: true });
       } else {
-        nav("/", { replace: true });
+        nav("/dashboard", { replace: true });
       }
     } catch (err) {
       toast.error(apiErr(err));
