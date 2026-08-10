@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Query, Depends, UploadFile, File, Form
+from fastapi import FastAPI, APIRouter, HTTPException, Query, Depends, UploadFile, File, Form, Request
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -1997,6 +1997,34 @@ async def deepl_digest(days: int = 7, _: dict = Depends(require_admin)):
         "sources": sources,
         "top_keys": top_keys,
     }
+
+
+# --- Cron: nightly cleanup of DeepL translate log --------------------------
+import hmac as _hmac_cron
+import asyncio as _asyncio_cron
+
+WEBHOOK_CRON_SECRET = os.environ.get("WEBHOOK_CRON_SECRET", "").strip()
+
+
+async def _prune_deepl_log_task():
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    try:
+        cutoff = (_dt.now(_tz.utc) - _td(days=90)).isoformat()
+        await db.deepl_translate_log.delete_many({"ts": {"$lt": cutoff}})
+    except Exception:
+        pass
+
+
+@api_router.post("/cron/prune-deepl-log")
+async def cron_prune_deepl_log(request: Request):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    auth = request.headers.get("authorization", "")
+    expected = f"Bearer {WEBHOOK_CRON_SECRET}"
+    if not WEBHOOK_CRON_SECRET or not _hmac_cron.compare_digest(auth, expected):
+        raise HTTPException(401, "unauthorized")
+    _asyncio_cron.create_task(_prune_deepl_log_task())
+    return {"accepted": True}
 
 
 @api_router.get("/translate/usage")

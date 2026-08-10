@@ -1,0 +1,8 @@
+crons:
+  - name: prune-deepl-log
+    description: "Deletes deepl_translate_log rows older than 90 days once a day at 03:15 UTC"
+    cron: "15 3 * * *"
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    endpoint: "{{BASE_URL}}/api/cron/prune-deepl-log"
+    method: POST
+    enabled: true

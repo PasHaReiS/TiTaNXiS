@@ -3,15 +3,35 @@ import { createPortal } from "react-dom";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useTranslation } from "react-i18next";
-import { BarChart3, X } from "lucide-react";
+import { BarChart3, Download, X } from "lucide-react";
 
-// Admin-only. Small chart button in the header opens a modal with the last 7
-// days of DeepL usage: character totals, per-language counts, top translated
-// source strings, and the detected-source distribution when auto-detect ran.
+const RANGES = [1, 7, 30, 90];
+
+// Convert a top_keys list into a CSV blob and trigger a browser download.
+const downloadCsv = (topKeys, days) => {
+  const header = "count,text";
+  const rows = (topKeys || []).map((k) => {
+    const safe = String(k.text || "").replace(/"/g, '""');
+    return `${k.count},"${safe}"`;
+  });
+  const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `deepl-top-keys-${days}d.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+// Admin-only. Chart button opens a portal modal showing DeepL usage for a
+// user-picked range (1g / 7g / 30g / 90g). Top-Keys section has a CSV export.
 export default function DeeplDigestButton() {
   const { isAdmin } = useAuth();
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [days, setDays] = useState(7);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -19,12 +39,12 @@ export default function DeeplDigestButton() {
     if (!open) return;
     let cancelled = false;
     setLoading(true);
-    api.get("/translate/digest?days=7")
+    api.get(`/translate/digest?days=${days}`)
       .then((r) => { if (!cancelled) setData(r.data); })
       .catch(() => { if (!cancelled) setData({ error: true }); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [open]);
+  }, [open, days]);
 
   if (!isAdmin) return null;
 
@@ -78,9 +98,28 @@ export default function DeeplDigestButton() {
                 <X className="w-4 h-4" />
               </button>
             </div>
+            <div className="px-4 pt-3 flex items-center gap-1.5" data-testid="digest-range-strip">
+              {RANGES.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setDays(d)}
+                  data-testid={`digest-range-${d}`}
+                  className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase transition"
+                  style={{
+                    background: days === d ? "linear-gradient(135deg,#6366F1,#8B5CF6)" : "rgba(20,12,10,0.6)",
+                    color: days === d ? "#fff" : "#C4B5FD",
+                    border: `1px solid ${days === d ? "rgba(139,92,246,0.85)" : "rgba(139,92,246,0.3)"}`,
+                    letterSpacing: "0.10em",
+                  }}
+                >
+                  {d}g
+                </button>
+              ))}
+            </div>
             <div className="overflow-y-auto flex-1 p-4 space-y-4 text-sm">
               {loading && (<div className="text-center py-6 text-muted-foreground">{t("loading")}…</div>)}
-              {data && !data.error && (
+              {data && !data.error && !loading && (
                 <>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-lg p-3" style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)" }}>
@@ -96,7 +135,6 @@ export default function DeeplDigestButton() {
                       </div>
                     </div>
                   </div>
-
                   <div>
                     <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#F5A623", letterSpacing: "0.14em" }}>
                       {t("deepl_digest_langs")} ({(data.langs || []).length})
@@ -113,7 +151,6 @@ export default function DeeplDigestButton() {
                       </div>
                     )}
                   </div>
-
                   {(data.sources || []).length > 0 && (
                     <div>
                       <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#22C55E", letterSpacing: "0.14em" }}>
@@ -128,10 +165,29 @@ export default function DeeplDigestButton() {
                       </div>
                     </div>
                   )}
-
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#E74C1A", letterSpacing: "0.14em" }}>
-                      {t("deepl_digest_top_keys")}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-[10px] uppercase tracking-widest" style={{ color: "#E74C1A", letterSpacing: "0.14em" }}>
+                        {t("deepl_digest_top_keys")}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => downloadCsv(data.top_keys || [], days)}
+                        disabled={!(data.top_keys && data.top_keys.length)}
+                        data-testid="digest-csv-export"
+                        className="text-[10px] uppercase font-bold px-2 py-1 rounded flex items-center gap-1"
+                        style={{
+                          background: "rgba(231,76,26,0.15)",
+                          color: "#E74C1A",
+                          border: "1px solid rgba(231,76,26,0.4)",
+                          letterSpacing: "0.06em",
+                          opacity: (data.top_keys && data.top_keys.length) ? 1 : 0.4,
+                          cursor: (data.top_keys && data.top_keys.length) ? "pointer" : "not-allowed",
+                        }}
+                        title={t("deepl_digest_export_csv")}
+                      >
+                        <Download className="w-3 h-3" /> CSV
+                      </button>
                     </div>
                     {(data.top_keys || []).length === 0 ? (
                       <div className="text-xs text-muted-foreground italic">—</div>
