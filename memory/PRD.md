@@ -13,6 +13,13 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] Push Notification Sistemi — Critical Bug Fix — DONE**:
+  - **Kök Neden**: `_get_or_create_vapid()` private key'i PKCS8 PEM formatında MongoDB'ye yazıyordu (`PrivateFormat.PKCS8`). Ancak `pywebpush.webpush(vapid_private_key=...)` bu formatı parse edemiyor — `py_vapid.Vapid.from_string()` sadece **raw 32-byte urlsafe base64** private key'i kabul ediyor. Sonuç: her `webpush()` çağrısı `ValueError: Could not deserialize key data ... ASN.1 parsing error` fırlatıyor, `except Exception: pass` bunu yutuyor ve `sent: 0` dönüyordu. Kullanıcı UI'da "0 gönderim" olarak görüyordu.
+  - **Fix**: `_get_or_create_vapid()` artık (1) env-injected `VAPID_PRIVATE_KEY`/`VAPID_PUBLIC_KEY` varsa onları kullanıyor, (2) legacy PKCS8 PEM'i on-the-fly raw base64'e çeviriyor ve `private_b64` alanı olarak MongoDB'ye cache'liyor, (3) her ikisi de yoksa fresh keypair üretiyor. Her iki `webpush()` call site'ı artık raw base64 alan bir dönüş değerini kullanıyor. `VAPID_SUB` env değişkeni eklendi (varsayılan: `mailto:admin@titanxis.local`).
+  - **Env değişkenleri** (`/app/backend/.env`): `VAPID_PUBLIC_KEY=BP9WRApELcDDg__l3Vs2KH4QTe6YPPeJaNZvDfwQbkTIeHj7_aqzbWe-BASqhqk0otPr8YSYAw0Pcl6EbSx59ZI`, `VAPID_PRIVATE_KEY=jvvp9fQqZ43xuewqSQ4uQZf3L3w_svBjcT-4FcUw248`, `VAPID_SUB=mailto:admin@titanxis.local`. Bu key'ler DB'de zaten kayıtlı olan çiftin raw formatı olduğundan mevcut 1 aboneliği (pasha@gow.com) invalidate etmiyor.
+  - **E2E doğrulama**: `POST /api/push/broadcast {"title":"Push Fix Test",...}` → `{"sent":1,"removed":0}` (FCM 201 Created). Öncesinde aynı endpoint sürekli `{"sent":0}` dönüyordu.
+
+
 - **[2026-02] Language Switcher — Scroll Bug Fix — DONE**: Kullanıcı "scroll çalışmıyor" diye rapor etti. Kök neden: `useEffect` içindeki `window.addEventListener("scroll", ..., true)` liste içindeki her scroll olayında paneli kapatıyordu (capture phase). Fix: onScroll callback artık event target'ı kontrol edip panel içindeki scroll'ları yok sayıyor. Ek olarak liste ul'ına `overflowY: scroll`, `WebkitOverflowScrolling: touch`, `touchAction: pan-y`, `overscrollBehavior: contain`, `maxHeight: 220px` eklendi; panel wrapper'ından `overflow-hidden` sınıfı kaldırıldı, z-index 99999 → 999999 yükseltildi. Playwright: `scrollTop: 250` after wheel, ZH (中文) tab-flip sonrası görünür, panel açık kalıyor. Deployment agent: PASS.
 
 

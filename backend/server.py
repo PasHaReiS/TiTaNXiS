@@ -2441,20 +2441,43 @@ import base64 as _base64
 
 
 async def _get_or_create_vapid():
+    # Prefer env-injected keys (production / deployment). Private key is raw
+    # 32-byte base64 (urlsafe, no padding) — the format pywebpush accepts directly.
+    env_priv = os.environ.get("VAPID_PRIVATE_KEY", "").strip()
+    env_pub = os.environ.get("VAPID_PUBLIC_KEY", "").strip()
+    if env_priv and env_pub:
+        return env_priv, env_pub
+    # Fallback: read from DB. If a legacy PKCS8 PEM is stored, convert it to
+    # raw base64 on the fly (pywebpush cannot parse PKCS8 PEMs directly).
     doc = await db.push_config.find_one({"id": "vapid"})
-    if doc and doc.get("private_pem") and doc.get("public_b64"):
-        return doc["private_pem"], doc["public_b64"]
+    if doc and doc.get("public_b64") and (doc.get("private_pem") or doc.get("private_b64")):
+        pub_b64 = doc["public_b64"]
+        if doc.get("private_b64"):
+            return doc["private_b64"], pub_b64
+        try:
+            key = load_pem_private_key(doc["private_pem"].encode(), password=None)
+            n = key.private_numbers().private_value
+            priv_b64 = _base64.urlsafe_b64encode(n.to_bytes(32, "big")).decode().rstrip("=")
+            # Cache converted form for subsequent calls
+            await db.push_config.update_one(
+                {"id": "vapid"}, {"$set": {"private_b64": priv_b64}}
+            )
+            return priv_b64, pub_b64
+        except Exception:
+            pass
     # Generate a fresh P-256 keypair
     priv = ec.generate_private_key(ec.SECP256R1())
+    priv_num = priv.private_numbers().private_value
+    priv_b64 = _base64.urlsafe_b64encode(priv_num.to_bytes(32, "big")).decode().rstrip("=")
     private_pem = priv.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
     pub_bytes = priv.public_key().public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
     public_b64 = _base64.urlsafe_b64encode(pub_bytes).decode().rstrip("=")
     await db.push_config.update_one(
         {"id": "vapid"},
-        {"$set": {"id": "vapid", "private_pem": private_pem, "public_b64": public_b64}},
+        {"$set": {"id": "vapid", "private_pem": private_pem, "private_b64": priv_b64, "public_b64": public_b64}},
         upsert=True,
     )
-    return private_pem, public_b64
+    return priv_b64, public_b64
 
 
 @api_router.get("/push/vapid-public-key")
@@ -2547,7 +2570,7 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
                 subscription_info={"endpoint": s["endpoint"], "keys": s["keys"]},
                 data=payload,
                 vapid_private_key=private_pem,
-                vapid_claims={"sub": "mailto:admin@titanxis.local"},
+                vapid_claims={"sub": os.environ.get("VAPID_SUB", "mailto:admin@titanxis.local")},
             )
             sent += 1
         except WebPushException as ex:
