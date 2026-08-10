@@ -24,15 +24,36 @@ const SORT_MODES = [
 ];
 
 const COLOR_PALETTE = [
-  "#DC2626", // red
-  "#F5A623", // gold
-  "#2563eb", // blue
-  "#16a34a", // green
-  "#7c3aed", // purple
-  "#db2777", // pink
-  "#0891b2", // cyan
-  "#ea580c", // orange
+  "#DC2626", "#EF4444", "#F87171", "#F97316", "#F5A623", "#FACC15",
+  "#EAB308", "#84CC16", "#22C55E", "#16A34A", "#10B981", "#14B8A6",
+  "#06B6D4", "#0891B2", "#0EA5E9", "#2563EB", "#3B82F6", "#6366F1",
+  "#7C3AED", "#A855F7", "#C026D3", "#DB2777", "#E11D48", "#6B7280",
 ];
+
+const NAME_FONTS = {
+  default: 'Rajdhani, "Segoe UI", sans-serif',
+  cinzel: '"Cinzel", "Trajan Pro", serif',
+  roboto: 'Roboto, "Helvetica Neue", sans-serif',
+  georgia: 'Georgia, "Times New Roman", serif',
+  montserrat: 'Montserrat, "Segoe UI", sans-serif',
+};
+
+const DISPLAY_KEY = "members_display_v1";
+const readDisplay = () => {
+  try {
+    const d = JSON.parse(localStorage.getItem(DISPLAY_KEY) || "{}");
+    return {
+      nameSize: d.nameSize ?? 12,
+      nameFamily: d.nameFamily ?? "default",
+      nameBold: d.nameBold !== false,
+      nameItalic: d.nameItalic === true,
+      rankSize: d.rankSize ?? 13,
+      rankSizeByRank: d.rankSizeByRank ?? {},
+    };
+  } catch {
+    return { nameSize: 12, nameFamily: "default", nameBold: true, nameItalic: false, rankSize: 13, rankSizeByRank: {} };
+  }
+};
 
 // 8 preset colors for the "bottom" position member note.
 const NOTE_COLORS = [
@@ -57,6 +78,18 @@ export default function Members() {
   const [filterRanks, setFilterRanks] = useState([]);
   const [sortMode, setSortMode] = useState("default");
   const [colorPickerAlliance, setColorPickerAlliance] = useState(null);
+  const [showDisplayPanel, setShowDisplayPanel] = useState(false);
+  const [displayPrefs, setDisplayPrefs] = useState(readDisplay());
+  const patchDisplay = (patch) => {
+    setDisplayPrefs((prev) => {
+      const next = { ...prev, ...patch };
+      try { localStorage.setItem(DISPLAY_KEY, JSON.stringify(next)); } catch { /* quota */ }
+      return next;
+    });
+  };
+  const patchRankSize = (rk, size) => {
+    patchDisplay({ rankSizeByRank: { ...displayPrefs.rankSizeByRank, [rk]: size } });
+  };
   // Hydrate collapse state from localStorage so alliance expand/collapse
   // persists across reloads. Ranks stored per "alliance::rank" key.
   const [collapsedAlliances, setCollapsedAlliances] = useState(() => {
@@ -220,7 +253,116 @@ export default function Members() {
               >{activeFilterCount}</span>
             )}
           </button>
+          <button
+            type="button"
+            data-testid="members-display-toggle"
+            onClick={() => setShowDisplayPanel((v) => !v)}
+            className={`chip ${showDisplayPanel ? "active" : ""}`}
+            style={{ minWidth: 44, justifyContent: "center" }}
+            aria-label={t("display_settings")}
+            title={t("display_settings")}
+          >
+            <Palette className="w-3.5 h-3.5" />
+          </button>
         </div>
+
+        {showDisplayPanel && (
+          <div
+            data-testid="members-display-panel"
+            className="rounded-lg p-3 mb-3 space-y-3 text-xs"
+            style={{ background: "rgba(20,12,10,0.75)", border: "1px solid rgba(245,166,35,0.4)" }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="text-[11px] uppercase font-bold gold-text" style={{ letterSpacing: "0.14em" }}>
+                {t("display_settings")}
+              </div>
+              <button
+                type="button"
+                data-testid="members-display-reset"
+                onClick={() => {
+                  try { localStorage.removeItem(DISPLAY_KEY); } catch { /* ignore */ }
+                  setDisplayPrefs(readDisplay());
+                }}
+                className="text-[10px] uppercase font-bold px-2 py-0.5 rounded flex items-center gap-1"
+                style={{ background: "rgba(220,38,38,0.15)", color: "#f87171", border: "1px solid rgba(220,38,38,0.35)" }}
+              >
+                <RotateCcw className="w-3 h-3" /> {t("reset")}
+              </button>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase gold-text mb-1" style={{ letterSpacing: "0.14em" }}>{t("member_name_settings")}</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  data-testid="display-name-family"
+                  value={displayPrefs.nameFamily}
+                  onChange={(e) => patchDisplay({ nameFamily: e.target.value })}
+                  className="rounded px-2 py-1 text-[11px]"
+                  style={{ background: "#1A1210", color: "#F5F0E8", border: "1px solid rgba(245,166,35,0.4)" }}
+                >
+                  <option value="default">Varsayılan</option>
+                  <option value="cinzel">Cinzel</option>
+                  <option value="roboto">Roboto</option>
+                  <option value="georgia">Georgia</option>
+                  <option value="montserrat">Montserrat</option>
+                </select>
+                <select
+                  data-testid="display-name-size"
+                  value={displayPrefs.nameSize}
+                  onChange={(e) => patchDisplay({ nameSize: parseInt(e.target.value, 10) })}
+                  className="rounded px-2 py-1 text-[11px]"
+                  style={{ background: "#1A1210", color: "#F5F0E8", border: "1px solid rgba(245,166,35,0.4)" }}
+                >
+                  {[12, 14, 16, 18].map((s) => (<option key={s} value={s}>{s}px</option>))}
+                </select>
+                <button
+                  type="button"
+                  data-testid="display-name-bold"
+                  onClick={() => patchDisplay({ nameBold: !displayPrefs.nameBold })}
+                  className="px-2 py-1 rounded text-[11px] font-bold"
+                  style={{
+                    background: displayPrefs.nameBold ? "linear-gradient(135deg,#F5A623,#E74C1A)" : "rgba(20,12,10,0.6)",
+                    color: displayPrefs.nameBold ? "#0a0a0a" : "#F5A623",
+                    border: "1px solid rgba(245,166,35,0.5)",
+                  }}
+                >B</button>
+                <button
+                  type="button"
+                  data-testid="display-name-italic"
+                  onClick={() => patchDisplay({ nameItalic: !displayPrefs.nameItalic })}
+                  className="px-2 py-1 rounded text-[11px]"
+                  style={{
+                    background: displayPrefs.nameItalic ? "linear-gradient(135deg,#F5A623,#E74C1A)" : "rgba(20,12,10,0.6)",
+                    color: displayPrefs.nameItalic ? "#0a0a0a" : "#F5A623",
+                    border: "1px solid rgba(245,166,35,0.5)",
+                    fontStyle: "italic",
+                    fontWeight: 700,
+                  }}
+                >I</button>
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase gold-text mb-1" style={{ letterSpacing: "0.14em" }}>{t("rank_font_size")}</div>
+              <div className="flex flex-wrap gap-1.5">
+                {["R1", "R2", "R3", "R4", "R5"].map((rk) => (
+                  <div key={rk} className="flex items-center gap-1">
+                    <span className={`rank-badge rank-${rk}`} style={{ width: 22, height: 18, fontSize: 9, borderRadius: 3 }}>{rk}</span>
+                    <select
+                      data-testid={`display-rank-size-${rk}`}
+                      value={displayPrefs.rankSizeByRank[rk] || displayPrefs.rankSize}
+                      onChange={(e) => patchRankSize(rk, parseInt(e.target.value, 10))}
+                      className="rounded px-1.5 py-0.5 text-[10px]"
+                      style={{ background: "#1A1210", color: "#F5F0E8", border: "1px solid rgba(245,166,35,0.4)" }}
+                    >
+                      <option value={11}>{t("small")}</option>
+                      <option value={13}>{t("medium")}</option>
+                      <option value={16}>{t("large")}</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {showFilterPanel && (
           <FilterSortPanel
@@ -377,8 +519,14 @@ export default function Members() {
                                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setProfileId(m.id)}>
                                   <div className="flex items-center gap-1.5 min-w-0">
                                     <span
-                                      className="font-bold text-white text-xs truncate leading-tight normal-case"
-                                      style={{ textTransform: "none" }}
+                                      className="text-white truncate leading-tight normal-case"
+                                      style={{
+                                        textTransform: "none",
+                                        fontSize: displayPrefs.nameSize,
+                                        fontFamily: NAME_FONTS[displayPrefs.nameFamily] || NAME_FONTS.default,
+                                        fontWeight: displayPrefs.nameBold ? 700 : 500,
+                                        fontStyle: displayPrefs.nameItalic ? "italic" : "normal",
+                                      }}
                                       title={m.name}
                                       data-testid={`member-name-${m.id}`}
                                     >
