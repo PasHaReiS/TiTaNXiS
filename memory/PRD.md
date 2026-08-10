@@ -13,6 +13,13 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] VIP — Toplu Silme + Çöp Kutusu (24h) — DONE**:
+  - **Backend soft delete**: `DELETE /vip/threads/{tid}` artık hard-delete yerine `deleted_at` alanını set ediyor. 3 list query'ye (`/vip/threads`, `/vip/faq`, `/vip/stats`) `deleted_at: {"$in": [None, ""]}` filtresi eklendi — silinen thread'ler görünmüyor. Yeni `GET /vip/trash` (admin) 24 saat cutoff'la trash list dönüyor + stale >24h olanları aynı çağrıda auto-purge ediyor (thread + replies + votes). Yeni `POST /vip/threads/{tid}/restore` (admin) `deleted_at` alanını unset ediyor.
+  - **Frontend Toplu Silme**: "Seçim Modu" toggle butonu (kırmızı pill) — açınca kartlarda checkbox görünür. Seçili kartlarda kırmızı border + tick ikon. "Seçilenleri Sil (N)" butonu → `ConfirmDeleteDialog` → `Promise.all` ile paralel DELETE. SWR mutate ile tam refresh + toast.
+  - **Frontend Çöp Kutusu**: 📦 Amber "Çöp" butonu → `TrashDialog` modal — silinen soruları listeler (başlık, yazar, kategori, "X saat önce silindi · Y saat sonra kalıcı silinecek"). Her satırda 🔄 Geri Yükle butonu (yeşil pill). Boşsa "Çöp kutusu boş" mesajı.
+  - **Doğrulama**: Curl testleri geçti — 3 thread create → 2 soft-delete (`soft:true`) → trash count=2 ✅ → restore T1 ✅. Compile OK. `deployment_agent`: PASS (yalnızca önceden var olan DEEPL_API_KEY quote uyarısı).
+
+
 - **[2026-02] VIP Destek — Soru Silme (Admin) — DONE**:
   - **Backend** (`routes/vip.py`): Yeni `DELETE /api/vip/threads/{tid}` endpoint'i eklendi (`Depends(require_admin)`). Thread + tüm bağlı `vip_replies` + `vip_votes` kayıtları silinip `{deleted, replies_removed, votes_removed}` dönüyor. 404 için önce thread varlığı kontrol ediliyor.
   - **Frontend** (`pages/VipSupport.jsx`): `ThreadCard`'a Trash2 (🗑️) ikonu eklendi, sadece `canAdminUI = isAdmin || user.can_edit === true` ise render ediliyor. `stopPropagation()` ile karta tıklama tetiklenmiyor. Yeni `ConfirmDeleteDialog` bileşeni — soru başlığını + geri alınamaz uyarısı gösteriyor, İptal + Kalıcı Olarak Sil butonları. Silme sonrası SWR mutate → thread listesi, kategoriler, stats, FAQ hepsi yenileniyor + `toast.success("Soru silindi")`.

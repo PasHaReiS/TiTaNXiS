@@ -9,7 +9,7 @@ MongoDB collections:
 """
 import uuid
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -258,10 +258,33 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
         tdoc = await db.vip_threads.find_one({"id": tid}, {"_id": 0, "id": 1})
         if not tdoc:
             raise HTTPException(404, "thread not found")
-        replies_removed = (await db.vip_replies.delete_many({"thread_id": tid})).deleted_count
-        votes_removed = (await db.vip_votes.delete_many({"thread_id": tid})).deleted_count
-        await db.vip_threads.delete_one({"id": tid})
-        return {"deleted": True, "id": tid, "replies_removed": replies_removed, "votes_removed": votes_removed}
+        # Soft delete: mark deleted_at. Auto-purge kicks in on /vip/trash reads.
+        await db.vip_threads.update_one({"id": tid}, {"$set": {"deleted_at": _now_iso()}})
+        return {"deleted": True, "id": tid, "soft": True}
+
+    @api_router.get("/vip/trash")
+    async def vip_trash_list(_: dict = Depends(require_admin)):
+        # Purge anything soft-deleted more than 24h ago.
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        stale = await db.vip_threads.find({"deleted_at": {"$lt": cutoff, "$ne": None}}, {"_id": 0, "id": 1}).to_list(500)
+        stale_ids = [s["id"] for s in stale]
+        if stale_ids:
+            await db.vip_replies.delete_many({"thread_id": {"$in": stale_ids}})
+            await db.vip_votes.delete_many({"thread_id": {"$in": stale_ids}})
+            await db.vip_threads.delete_many({"id": {"$in": stale_ids}})
+        # Return remaining trashed items (within 24h window).
+        threads = await (
+            db.vip_threads.find({"deleted_at": {"$ne": None, "$gte": cutoff}}, {"_id": 0})
+            .sort("deleted_at", -1).limit(200).to_list(200)
+        )
+        return threads
+
+    @api_router.post("/vip/threads/{tid}/restore")
+    async def vip_thread_restore(tid: str, _: dict = Depends(require_admin)):
+        r = await db.vip_threads.update_one({"id": tid}, {"$unset": {"deleted_at": ""}})
+        if r.matched_count == 0:
+            raise HTTPException(404, "thread not found")
+        return {"restored": True, "id": tid}
 
     @api_router.patch("/vip/threads/{tid}/resolve")
     async def vip_thread_resolve(tid: str, body: ResolveBody, _: dict = Depends(require_admin)):
@@ -280,7 +303,7 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
     @api_router.get("/vip/faq")
     async def vip_faq():
         threads = await (
-            db.vip_threads.find({"pinned": True}, {"_id": 0})
+            db.vip_threads.find({"pinned": True, "deleted_at": {"$in": [None, ""]}}, {"_id": 0})
             .sort("created_at", -1).limit(20).to_list(20)
         )
         # Attach top public admin reply as answer (if any).
@@ -295,8 +318,8 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
 
     @api_router.get("/vip/stats")
     async def vip_stats():
-        total = await db.vip_threads.count_documents({})
-        resolved = await db.vip_threads.count_documents({"resolved": True})
+        total = await db.vip_threads.count_documents({"deleted_at": {"$in": [None, ""]}})
+        resolved = await db.vip_threads.count_documents({"resolved": True, "deleted_at": {"$in": [None, ""]}})
         # Average first-admin-response hours (across threads that have an admin reply).
         avg_hours: Optional[float] = None
         threads = await db.vip_threads.find({}, {"_id": 0, "id": 1, "created_at": 1}).to_list(2000)

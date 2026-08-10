@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import {
   Search, Bell, ChevronUp, ChevronDown, CheckCircle2, Eye, Pin,
   MessageSquarePlus, Shield, Sparkles, Lock, Globe as GlobeIcon, X,
-  ChevronRight, ChevronDown as ChevronD, Loader2, Trash2,
+  ChevronRight, ChevronDown as ChevronD, Loader2, Trash2, CheckSquare, Square, Undo2, Archive,
 } from "lucide-react";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -78,18 +78,30 @@ function VoteControl({ thread, myVote, onVote, size = "md" }) {
   );
 }
 
-function ThreadCard({ thread, onOpen, canAdmin, onDelete }) {
+function ThreadCard({ thread, onOpen, canAdmin, onDelete, selectionMode, selected, onToggleSelect }) {
   return (
     <div
-      onClick={onOpen}
+      onClick={selectionMode ? () => onToggleSelect(thread.id) : onOpen}
       data-testid={`vip-thread-${thread.id}`}
       className="cursor-pointer p-3 rounded-lg flex gap-3 transition-all hover:translate-y-[-1px]"
       style={{
-        background: "linear-gradient(135deg, rgba(139,92,246,0.08), rgba(10,0,21,0.6))",
-        border: thread.has_admin_reply ? `1px solid ${AMBER}66` : "1px solid rgba(139,92,246,0.25)",
+        background: selected
+          ? `linear-gradient(135deg, rgba(239,68,68,0.15), rgba(10,0,21,0.6))`
+          : "linear-gradient(135deg, rgba(139,92,246,0.08), rgba(10,0,21,0.6))",
+        border: selected
+          ? "1px solid #EF4444"
+          : (thread.has_admin_reply ? `1px solid ${AMBER}66` : "1px solid rgba(139,92,246,0.25)"),
         boxShadow: thread.has_admin_reply ? `0 0 14px ${AMBER}22` : "none",
       }}
     >
+      {selectionMode && canAdmin && (
+        <div className="flex-shrink-0 flex items-center" onClick={(e) => { e.stopPropagation(); onToggleSelect(thread.id); }}>
+          {selected
+            ? <CheckSquare className="w-4 h-4" style={{ color: "#EF4444" }} />
+            : <Square className="w-4 h-4" style={{ color: "rgba(196,181,253,0.5)" }} />
+          }
+        </div>
+      )}
       <VoteControl thread={thread} myVote={0} onVote={() => {}} size="sm" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -123,7 +135,7 @@ function ThreadCard({ thread, onOpen, canAdmin, onDelete }) {
           <span>💬 {thread.reply_count || 0}</span>
         </div>
       </div>
-      {canAdmin && (
+      {canAdmin && !selectionMode && (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onDelete(thread); }}
@@ -135,6 +147,81 @@ function ThreadCard({ thread, onOpen, canAdmin, onDelete }) {
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       )}
+    </div>
+  );
+}
+
+function TrashDialog({ open, onClose, refreshThreads }) {
+  const { data: rows = [], mutate: refetch } = useSWR(open ? "/vip/trash" : null, fetcher);
+  if (!open) return null;
+  const restore = async (tid) => {
+    try {
+      await api.post(`/vip/threads/${tid}/restore`);
+      toast.success("Soru geri yüklendi");
+      await refetch();
+      refreshThreads?.();
+    } catch (e) {
+      toast.error("Geri yüklenemedi");
+    }
+  };
+  const relHours = (iso) => {
+    if (!iso) return "";
+    const diffH = Math.floor((Date.now() - new Date(iso).getTime()) / 3600000);
+    return `${diffH} sa önce silindi · ${Math.max(0, 24 - diffH)} sa sonra kalıcı silinecek`;
+  };
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 bg-black/85 flex items-start sm:items-center justify-center p-4 overflow-y-auto"
+      style={{ zIndex: 999999 }}
+      data-testid="vip-trash-modal"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-2xl p-4 rounded-lg my-4"
+        style={{ background: BASE, border: `1px solid ${AMBER}` }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2"
+              style={{ color: AMBER, fontFamily: "Cinzel, serif" }}>
+            <Archive className="w-4 h-4" /> Çöp Kutusu · 24 saat
+          </h3>
+          <button onClick={onClose} data-testid="vip-trash-close"><X className="w-4 h-4 text-white" /></button>
+        </div>
+        <p className="text-[10px] mb-3" style={{ color: "rgba(196,181,253,0.6)" }}>
+          Silinen sorular 24 saat burada bekler. Geri yüklemeyen sorular kalıcı olarak silinir.
+        </p>
+        {rows.length === 0 && (
+          <div className="text-center py-8 text-xs" style={{ color: "rgba(196,181,253,0.5)" }}>
+            Çöp kutusu boş
+          </div>
+        )}
+        <div className="space-y-2">
+          {rows.map((t) => (
+            <div key={t.id} className="p-3 rounded-lg"
+                 data-testid={`vip-trash-item-${t.id}`}
+                 style={{ background: "rgba(245,158,11,0.06)", border: `1px solid ${AMBER}44` }}>
+              <div className="flex items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold truncate" style={{ color: "#F5F0E8" }}>{t.title}</div>
+                  <div className="text-[10px] mt-1" style={{ color: "rgba(196,181,253,0.6)" }}>
+                    @{t.author_name} · #{t.category} · {relHours(t.deleted_at)}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => restore(t.id)}
+                  data-testid={`vip-trash-restore-${t.id}`}
+                  className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full flex items-center gap-1"
+                  style={{ background: "rgba(16,185,129,0.15)", color: "#10B981", border: "1px solid #10B981" }}
+                >
+                  <Undo2 className="w-3 h-3" /> Geri Yükle
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -657,6 +744,44 @@ export default function VipSupport() {
                       style={{ background: "rgba(245,158,11,0.1)" }}>
                 <Bell className="w-3.5 h-3.5" style={{ color: AMBER }} />
               </button>
+              {canAdminUI && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectionMode((v) => !v); setSelectedIds(new Set()); }}
+                    data-testid="vip-selection-toggle"
+                    className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full"
+                    style={{
+                      background: selectionMode ? "#EF4444" : "rgba(239,68,68,0.1)",
+                      color: selectionMode ? "#fff" : "#EF4444",
+                      border: "1px solid #EF4444",
+                    }}
+                  >
+                    {selectionMode ? "İptal" : "Seçim Modu"}
+                  </button>
+                  {selectionMode && (
+                    <button
+                      type="button"
+                      onClick={() => setBulkConfirm(true)}
+                      disabled={selectedIds.size === 0}
+                      data-testid="vip-bulk-delete"
+                      className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full disabled:opacity-40 flex items-center gap-1"
+                      style={{ background: "#EF4444", color: "#fff", border: "1px solid #EF4444" }}
+                    >
+                      <Trash2 className="w-3 h-3" /> Seçilenleri Sil ({selectedIds.size})
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setTrashOpen(true)}
+                    data-testid="vip-trash-open"
+                    className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full flex items-center gap-1"
+                    style={{ background: `${AMBER}22`, color: AMBER, border: `1px solid ${AMBER}` }}
+                  >
+                    <Archive className="w-3 h-3" /> Çöp
+                  </button>
+                </>
+              )}
             </div>
 
             <FaqAccordion items={faq} />
@@ -674,6 +799,9 @@ export default function VipSupport() {
                   onOpen={() => setOpenThreadId(t.id)}
                   canAdmin={canAdminUI}
                   onDelete={(th) => setDeleteTarget(th)}
+                  selectionMode={selectionMode}
+                  selected={selectedIds.has(t.id)}
+                  onToggleSelect={toggleSelect}
                 />
               ))}
             </div>
@@ -749,6 +877,18 @@ export default function VipSupport() {
         onCancel={() => setDeleteTarget(null)}
         onConfirm={doDelete}
         busy={deleteBusy}
+      />
+      <ConfirmDeleteDialog
+        open={bulkConfirm}
+        thread={{ title: `Seçilen ${selectedIds.size} soru`, id: "bulk" }}
+        onCancel={() => setBulkConfirm(false)}
+        onConfirm={bulkDelete}
+        busy={deleteBusy}
+      />
+      <TrashDialog
+        open={trashOpen}
+        onClose={() => setTrashOpen(false)}
+        refreshThreads={refreshThreads}
       />
     </div>
   );
