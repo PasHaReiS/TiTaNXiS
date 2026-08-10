@@ -277,7 +277,10 @@ export default function Members() {
                 data-testid={`members-group-${grp.name}`}
                 aria-expanded={!collapsedAlliances.has(grp.name)}
               >
-                <span className="flex items-center gap-2 font-bold tracking-wider text-base truncate" style={{ fontFamily: "Cinzel, Rajdhani, serif", letterSpacing: "0.08em" }}>
+                <span
+                  className="flex items-center gap-2 font-bold tracking-wider text-lg truncate"
+                  style={{ fontFamily: "Cinzel, Rajdhani, serif", letterSpacing: "0.10em", fontWeight: 700 }}
+                >
                   <ChevronDown
                     className="w-4 h-4 flex-shrink-0 transition-transform"
                     style={{ transform: collapsedAlliances.has(grp.name) ? "rotate(-90deg)" : "rotate(0deg)" }}
@@ -335,7 +338,16 @@ export default function Members() {
                             <span className={`rank-badge rank-${rk}`} style={{ width: 32, height: 22, fontSize: 11, borderRadius: 4, fontWeight: 800 }}>
                               {rk}
                             </span>
-                            <span className="text-xs font-bold uppercase tracking-wider text-white">
+                            <span
+                              className="font-bold uppercase text-white"
+                              style={{ fontSize: 13, letterSpacing: "0.14em", fontWeight: 700, opacity: 0.95 }}
+                            >
+                              {t("rank")} {rk}
+                            </span>
+                            <span
+                              className="font-semibold mono text-white/70"
+                              style={{ fontSize: 12, letterSpacing: "0.06em" }}
+                            >
                               ({rankMembers.length})
                             </span>
                           </span>
