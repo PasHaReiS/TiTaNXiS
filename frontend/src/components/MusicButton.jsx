@@ -53,7 +53,7 @@ export default function MusicButton() {
       style={{
         position: "fixed",
         bottom: 80,
-        right: 16,
+        left: 16,
         width: 48,
         height: 48,
         borderRadius: "50%",
