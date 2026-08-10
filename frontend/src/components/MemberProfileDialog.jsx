@@ -25,7 +25,7 @@ const formatCastle = (val) => {
 };
 
 export default function MemberProfileDialog({ memberId, open, onClose }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data: allianceColors = {} } = useSWR(open ? "/alliance-colors" : null, fetcher);
   const { data: m } = useSWR(memberId && open ? `/members/${memberId}` : null, fetcher);
   const { data: history } = useSWR(memberId && open ? `/members/${memberId}/history` : null, fetcher);
@@ -38,33 +38,64 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
     return map;
   }, [allEvents, archivedEvents]);
 
+  // Locale-aware "3 days ago" formatter — uses the active i18n language so all
+  // 29 supported languages get proper relative-time strings for free.
+  const relTime = useMemo(() => {
+    const lang = (i18n && i18n.language) || "tr";
+    let rtf;
+    try { rtf = new Intl.RelativeTimeFormat(lang, { numeric: "auto" }); }
+    catch { rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" }); }
+    return (dateStr) => {
+      if (!dateStr) return "";
+      const then = new Date(dateStr).getTime();
+      if (!Number.isFinite(then)) return "";
+      const diffSec = Math.round((then - Date.now()) / 1000);
+      const abs = Math.abs(diffSec);
+      if (abs < 60) return rtf.format(diffSec, "second");
+      if (abs < 3600) return rtf.format(Math.round(diffSec / 60), "minute");
+      if (abs < 86400) return rtf.format(Math.round(diffSec / 3600), "hour");
+      if (abs < 30 * 86400) return rtf.format(Math.round(diffSec / 86400), "day");
+      if (abs < 365 * 86400) return rtf.format(Math.round(diffSec / (30 * 86400)), "month");
+      return rtf.format(Math.round(diffSec / (365 * 86400)), "year");
+    };
+  }, [i18n]);
+
+  // Two-level structure: [{ groupName, events: [{name, rows, total, date}], totalSum, maxDate }]
+  // Groups sorted newest-first by their max event date; events within each group A-Z.
   const grouped = useMemo(() => {
     const list = history?.points || [];
-    const groups = {};
+    const outer = {};
     list.forEach((p) => {
       const info = eventInfoMap[p.event_id] || {};
-      const key = p.event_name || t("event");
-      if (!groups[key]) groups[key] = { rows: [], total: 0, eventDate: null, groupName: info.group_name || null };
+      const evKey = p.event_name || t("event");
+      const groupName = info.group_name || null;
+      const bucket = groupName || `__orphan__::${evKey}`;
+      if (!outer[bucket]) outer[bucket] = { groupName, events: {}, maxDate: null };
+      if (!outer[bucket].events[evKey]) outer[bucket].events[evKey] = { rows: [], total: 0, date: null };
       const mult = Number(p.multiplier || 1);
       const effective = Number(p.points || 0) * mult;
-      groups[key].rows.push({ ...p, effective, mult });
-      groups[key].total += effective;
+      outer[bucket].events[evKey].rows.push({ ...p, effective, mult });
+      outer[bucket].events[evKey].total += effective;
       const evDate = info.date || p.date;
-      // Track the newest date for this event-name so it sorts by its most recent occurrence.
-      if (evDate && (!groups[key].eventDate || evDate > groups[key].eventDate)) {
-        groups[key].eventDate = evDate;
+      if (evDate) {
+        const ev = outer[bucket].events[evKey];
+        if (!ev.date || evDate > ev.date) ev.date = evDate;
+        if (!outer[bucket].maxDate || evDate > outer[bucket].maxDate) outer[bucket].maxDate = evDate;
       }
     });
-    // Sort newest-first by event date. If two entries share the same group_name,
-    // sort them alphabetically (A-Z) as the secondary ordering.
-    return Object.entries(groups).sort((a, b) => {
-      if (a[1].groupName && b[1].groupName && a[1].groupName === b[1].groupName) {
-        return a[0].localeCompare(b[0], "tr");
-      }
-      const da = a[1].eventDate ? new Date(a[1].eventDate).getTime() : 0;
-      const db = b[1].eventDate ? new Date(b[1].eventDate).getTime() : 0;
-      return db - da;
-    });
+    return Object.values(outer)
+      .sort((a, b) => {
+        const da = a.maxDate ? new Date(a.maxDate).getTime() : 0;
+        const db = b.maxDate ? new Date(b.maxDate).getTime() : 0;
+        return db - da;
+      })
+      .map((g) => {
+        const events = Object.entries(g.events)
+          .sort(([a], [b]) => a.localeCompare(b, "tr"))
+          .map(([name, e]) => ({ name, ...e }));
+        const totalSum = events.reduce((s, e) => s + e.total, 0);
+        return { groupName: g.groupName, events, totalSum, maxDate: g.maxDate };
+      });
   }, [history, t, eventInfoMap]);
 
   if (!open) return null;
@@ -195,42 +226,82 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
               {grouped.length === 0 && (
                 <div className="text-xs text-muted-foreground p-2">{t("no_records_dot")}</div>
               )}
-              {grouped.map(([evName, g]) => (
-                <div
-                  key={evName}
-                  className="mb-1.5 flex items-center gap-2"
-                  data-testid={`profile-event-${evName}`}
-                  style={{
-                    padding: "6px 10px",
-                    background: "rgba(26,26,46,0.55)",
-                    border: "1px solid rgba(245,166,35,0.2)",
-                    borderRadius: 6,
-                  }}
-                >
-                  <span
-                    className="text-xs font-bold uppercase tracking-wider truncate"
-                    style={{ color: "#F5A623", fontFamily: "Cinzel, serif", flexShrink: 1, minWidth: 0 }}
-                    title={evName}
-                  >
-                    {evName}
-                  </span>
-                  <span
-                    aria-hidden
-                    style={{
-                      flex: 1,
-                      minWidth: 12,
-                      borderBottom: "1px dotted rgba(245,166,35,0.35)",
-                      alignSelf: "flex-end",
-                      marginBottom: 6,
-                    }}
-                  />
-                  <span
-                    className="mono font-bold whitespace-nowrap"
-                    data-testid={`profile-event-total-${evName}`}
-                    style={{ color: "#E74C1A", fontSize: 12 }}
-                  >
-                    +{fmt(g.total)}
-                  </span>
+              {grouped.map((grp, gi) => (
+                <div key={grp.groupName || `orphan-${gi}`} className="mb-3" data-testid={`profile-group-${grp.groupName || "misc"}`}>
+                  {grp.groupName && (
+                    <div className="flex items-center gap-2 mb-1 px-0.5">
+                      <span
+                        className="text-[9px] font-black uppercase tracking-[.18em] whitespace-nowrap"
+                        style={{ color: "#C4B5FD", fontFamily: "Cinzel, serif" }}
+                        data-testid={`profile-group-title-${grp.groupName}`}
+                      >
+                        {grp.groupName}
+                      </span>
+                      <span aria-hidden style={{ flex: 1, borderTop: "1px solid rgba(196,181,253,0.25)" }} />
+                      <span
+                        className="mono text-[10px] whitespace-nowrap"
+                        style={{ color: "#C4B5FD" }}
+                        data-testid={`profile-group-total-${grp.groupName}`}
+                      >
+                        +{fmt(grp.totalSum)}
+                      </span>
+                    </div>
+                  )}
+                  {grp.events.map((e) => (
+                    <div
+                      key={e.name}
+                      className="mb-1.5 flex items-center gap-2"
+                      data-testid={`profile-event-${e.name}`}
+                      style={{
+                        padding: "6px 10px",
+                        background: "rgba(26,26,46,0.55)",
+                        border: "1px solid rgba(245,166,35,0.2)",
+                        borderRadius: 6,
+                      }}
+                    >
+                      <span
+                        className="text-xs font-bold uppercase tracking-wider truncate"
+                        style={{ color: "#F5A623", fontFamily: "Cinzel, serif", flexShrink: 1, minWidth: 0 }}
+                        title={e.name}
+                      >
+                        {e.name}
+                      </span>
+                      <span
+                        aria-hidden
+                        style={{
+                          flex: 1,
+                          minWidth: 12,
+                          borderBottom: "1px dotted rgba(245,166,35,0.35)",
+                          alignSelf: "flex-end",
+                          marginBottom: 6,
+                        }}
+                      />
+                      {e.date && (
+                        <span
+                          className="text-[9px] whitespace-nowrap"
+                          data-testid={`profile-event-date-${e.name}`}
+                          title={new Date(e.date).toLocaleDateString(i18n.language || "tr")}
+                          style={{
+                            color: "rgba(196,181,253,0.75)",
+                            fontFamily: "'JetBrains Mono', monospace",
+                            padding: "1px 6px",
+                            borderRadius: 999,
+                            background: "rgba(196,181,253,0.08)",
+                            border: "1px solid rgba(196,181,253,0.2)",
+                          }}
+                        >
+                          {relTime(e.date)}
+                        </span>
+                      )}
+                      <span
+                        className="mono font-bold whitespace-nowrap"
+                        data-testid={`profile-event-total-${e.name}`}
+                        style={{ color: "#E74C1A", fontSize: 12 }}
+                      >
+                        +{fmt(e.total)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
