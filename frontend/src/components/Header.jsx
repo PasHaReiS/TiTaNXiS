@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound, Activity, Sparkles } from "lucide-react";
+import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound, Activity, Sparkles, LayoutGrid } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import LogoVideoModal from "@/components/LogoVideoModal";
@@ -130,6 +130,12 @@ export default function Header({ title }) {
                     label={t("live_dashboard")}
                     onClick={() => goto("/gosterge-paneli")}
                     testId="dropdown-live-dashboard"
+                  />
+                  <MenuItem
+                    icon={LayoutGrid}
+                    label={t("nav_widget_library")}
+                    onClick={() => goto("/widget-kitapligi")}
+                    testId="dropdown-widget-library"
                   />
                   <MenuItem
                     icon={UserIcon}

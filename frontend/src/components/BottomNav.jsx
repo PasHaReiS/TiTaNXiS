@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Lock, Trophy, Swords, BarChart2, Calculator, Users, Flag, LayoutGrid, Activity } from "lucide-react";
+import { Lock, Trophy, Swords, BarChart2, Calculator, Users, Flag, Activity } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NAV } from "@/constants/testIds";
 import { useAuth } from "@/context/AuthContext";
@@ -13,7 +13,6 @@ const buildItems = () => [
   { to: "/uyeler", labelKey: "nav_members", Icon: Users, testId: NAV.members, guest: false },
   { to: "/etkinlikler", labelKey: "nav_events", Icon: Flag, testId: NAV.events, guest: false },
   { to: "/gosterge-paneli", labelKey: "nav_live_dashboard", Icon: Activity, testId: "nav-live-dashboard", guest: false },
-  { to: "/widget-kitapligi", labelKey: "nav_widget_library", Icon: LayoutGrid, testId: "nav-widget-library", guest: false },
 ];
 
 const ACTIVE = "#E74C1A";
