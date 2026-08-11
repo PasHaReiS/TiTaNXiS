@@ -37,7 +37,7 @@ function CategoryPill({ cat, active, onClick }) {
         className="text-xs font-bold uppercase tracking-wider truncate"
         style={{ color: active ? "#fff" : "rgba(196,181,253,0.85)", fontFamily: "Cinzel, serif" }}
       >
-        #{cat.slug}
+        #{cat.label}
       </span>
       {badge > 0 && (
         <span
@@ -199,21 +199,21 @@ function TrashDialog({ open, onClose, refreshThreads }) {
           </div>
         )}
         <div className="space-y-2">
-          {rows.map((t) => (
-            <div key={t.id} className="p-3 rounded-lg"
-                 data-testid={`vip-trash-item-${t.id}`}
+          {rows.map((row) => (
+            <div key={row.id} className="p-3 rounded-lg"
+                 data-testid={`vip-trash-item-${row.id}`}
                  style={{ background: "rgba(245,158,11,0.06)", border: `1px solid ${AMBER}44` }}>
               <div className="flex items-start gap-2">
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold truncate" style={{ color: "#F5F0E8" }}>{t.title}</div>
+                  <div className="text-xs font-bold truncate" style={{ color: "#F5F0E8" }}>{row.title}</div>
                   <div className="text-[10px] mt-1" style={{ color: "rgba(196,181,253,0.6)" }}>
-                    @{t.author_name} · #{t.category} · {relHours(t.deleted_at)}
+                    @{row.author_name} · #{row.category} · {relHours(row.deleted_at)}
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => restore(t.id)}
-                  data-testid={`vip-trash-restore-${t.id}`}
+                  onClick={() => restore(row.id)}
+                  data-testid={`vip-trash-restore-${row.id}`}
                   className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full flex items-center gap-1"
                   style={{ background: "rgba(16,185,129,0.15)", color: "#10B981", border: "1px solid #10B981" }}
                 >

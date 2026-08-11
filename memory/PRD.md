@@ -13,6 +13,14 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] VIP Destek 3 Bugfix — DONE**:
+  - **Sidebar diakritikleri**: `CategoryPill` `#{cat.slug}` yerine `#{cat.label}` render ediyor. Slug ASCII olduğu için `oneriler` → `ONERİLER` (yanlış) görünüyordu; artık backend `label` field'ından "Öneriler" ve "Sıkça Sorulanlar" gelip CSS `uppercase` transformu ile doğru "ÖNERİLER" / "SIKÇA SORULANLAR" oluyor. Diğer kategoriler de "GENEL SORULAR", "TEKNİK DESTEK" vb. daha okunaklı.
+  - **Çöp butonu crash — Kök neden**: `TrashDialog` içindeki `rows.map((t) => ...)` callback'i, `useTranslation`'dan gelen `t` fonksiyonunu shadow'luyordu; iç scope'ta `t("vip_trash_restore")` çağırısı row objesi üzerinde çalışıp `TypeError: t is not a function` fırlatıyordu. Fix: map parametresi `row` olarak yeniden adlandırıldı, ilgili tüm `t.title / t.author_name / t.category / t.deleted_at / t.id` referansları `row.*` yapıldı.
+  - **Backend**: `/api/vip/trash` endpoint'i zaten sağlamdı (curl → HTTP 200, 3 kayıt). Değişiklik gerekmedi.
+  - **Doğrulama**: Preview'de sidebar artık `#GENEL SORULAR · #TEKNİK DESTEK · #ÖNERİLER · #DUYURULAR · #SIKÇA SORULANLAR` gösteriyor. Çöp butonu tıklanınca modal açılıyor, 3 çöp item ve "Geri Yükle" butonları görünüyor, konsol hatası yok.
+
+
+
 - **[2026-02] VIP Destek Etiket Kısaltmaları — DONE**:
   - `vip_selection_mode` TR: "Seçim Modu" → "Seç" (EN: "Select Mode" → "Select"). Kullanıcının "SELECT MODE → Seç" mapping'ine göre kısaltıldı.
   - Diğer beş etiket (`vip_filter_all/new/resolved`, `vip_trash_btn`, `vip_search_placeholder`) TR karşılıkları zaten doğruydu ("Tümü/Yeni/Çözüldü/Çöp/Ara..."). Kullanıcının EN görüntülemesi büyük ihtimalle localStorage `ol_lang='en'` ayarından kaynaklanıyor — dil switcher'ından TR seçince beklenen etiketler görünüyor.
