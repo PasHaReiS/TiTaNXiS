@@ -55,11 +55,13 @@ class ThreadCreate(BaseModel):
     category: str
     title: str = Field(..., min_length=3, max_length=200)
     body: str = Field(..., min_length=1, max_length=8000)
+    attachments: Optional[List[str]] = None  # file_ids returned by /uploads/image
 
 
 class ReplyCreate(BaseModel):
     body: str = Field(..., min_length=1, max_length=8000)
     is_public: Optional[bool] = True
+    attachments: Optional[List[str]] = None
 
 
 class VoteBody(BaseModel):
@@ -270,6 +272,7 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
             "author_name": user.get("username", "?"),
             "upvotes": 0, "downvotes": 0, "views": 0,
             "resolved": False, "pinned": False,
+            "attachments": body.attachments or [],
             "created_at": _now_iso(),
             "last_reply_at": None,
         }
@@ -294,6 +297,7 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
             "author_name": user.get("username", "?"),
             "is_admin": is_admin,
             "is_public": bool(is_public),
+            "attachments": body.attachments or [],
             "created_at": _now_iso(),
         }
         await db.vip_replies.insert_one(reply)

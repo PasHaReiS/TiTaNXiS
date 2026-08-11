@@ -2923,6 +2923,13 @@ register_vip(api_router, db, require_auth, require_admin, logging.getLogger("vip
 from routes.dashboard import register_dashboard  # noqa: E402
 register_dashboard(api_router, db, require_edit=require_edit, require_admin=require_admin)
 
+from routes.uploads import register_uploads, init_storage  # noqa: E402
+register_uploads(api_router, db, require_auth=require_auth, require_admin=require_admin)
+try:
+    init_storage()
+except Exception as _e:
+    logging.getLogger("uploads").warning(f"init_storage at import: {_e}")
+
 app.include_router(api_router)
 app.include_router(make_auth_router(db))
 

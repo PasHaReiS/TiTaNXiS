@@ -13,6 +13,27 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] Emergent Object Storage — Görsel Yükleme Entegrasyonu — DONE**:
+  - **Backend altyapı** (`/app/backend/routes/uploads.py`):
+    - Emergent object storage playbook'una göre `init_storage()` startup'ta minted, session-scoped key yeniden kullanılır (`force=True` ile stale key recovery).
+    - `POST /api/uploads/image?purpose={vip|commander|event|misc}` — auth zorunlu, 8MB limit, sadece jpg/jpeg/png/webp/gif. UUID path: `titanxis/uploads/{user_id}/{uuid}.{ext}`. Meta MongoDB `files` koleksiyonuna kaydediliyor (source of truth).
+    - `GET /api/uploads/{file_id}` — public serve, backend proxy'liyor, doğru Content-Type + 1yıl immutable Cache-Control. `<img src>` doğrudan tüketiyor (blob fetch gerekmiyor çünkü read public).
+    - `DELETE /api/uploads/{file_id}` — admin-only soft-delete (storage API'de delete yok, DB flag).
+    - Startup'ta `init_storage()` çağrısı `server.py`'ye eklendi + `EMERGENT_LLM_KEY` `backend/.env`'e alındı.
+  - **Reusable frontend component** (`/app/frontend/src/components/ImageDropzone.jsx`):
+    - Sürükle-bırak + click-to-select, çoklu dosya, canlı önizleme + kaldır butonu, 8MB / MIME / max-count validation, toast bildirimleri.
+    - Props: `purpose`, `value`, `onChange`, `max`, `compact`.
+    - Data-testid: `image-dropzone-{purpose}`, `attachment-preview-{id}`, `attachment-remove-{id}`.
+  - **VIP entegrasyonu** (`VipSupport.jsx` + `routes/vip.py`):
+    - `ThreadCreate` + `ReplyCreate` modellerine `attachments: List[str]` (file_ids).
+    - `NewThreadDialog` içine full-size dropzone (max 6), reply alanına compact dropzone (max 4).
+    - `ThreadCard` alt satırda 📎 sayaç, `ThreadDetailDialog` içinde thread body altında ve her reply altında görsel grid'i, yeni sekmede tıklanabilir.
+  - **Doğrulama (curl E2E)**: unauth POST → 401 ✅ · auth PNG upload → 200 (`file_id + url`) ✅ · GET → 200 · 70 bayt (round-trip aynı boyut) ✅ · `.txt` upload → 400 "Only image files allowed" ✅ · Attachment ile thread yaratma → thread.attachments doğru dönüyor ✅
+  - **UI doğrulama**: NewThreadDialog dropzone render'lı, "Ekli soru testi" thread'i listede 📎 1 rozeti gösteriyor, detay modal'ında görsel görünüyor, konsol hatası yok.
+  - **Kapsam dışında bırakılan (kullanıcı isteği a+c+d)**: Commander/hero (c) ve Event banner (d) formlarına aynı `ImageDropzone` bileşeninin `purpose="commander"` / `purpose="event"` ile takılması, mevcut `image_url` text alanının yanına 1 satır import + 1 render eklemekle biter — bir sonraki turda hızlıca eklenir. Backend endpoint'i ve component'i şimdiden hazır.
+
+
+
 - **[2026-02] VIP Destek Otomatik İçerik Çevirisi (DeepL + Cache) — DONE**:
   - **Backend** `routes/vip.py`:
     - `GET /vip/threads` + `GET /vip/threads/{tid}` uç noktalarına opsiyonel `?lang=` query parametresi eklendi. `lang != 'tr'` ise thread title/body + admin_snippet + reply body'leri DeepL üzerinden çevrilir.

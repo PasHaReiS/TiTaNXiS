@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import ImageDropzone from "@/components/ImageDropzone";
 import {
   Search, Bell, ChevronUp, ChevronDown, CheckCircle2, Eye, Pin,
   MessageSquarePlus, Shield, Sparkles, Lock, Globe as GlobeIcon, X,
@@ -144,6 +145,9 @@ function ThreadCard({ thread, onOpen, canAdmin, onDelete, selectionMode, selecte
           <span className="mono">@{thread.author_name}</span>
           <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{thread.views || 0}</span>
           <span>💬 {thread.reply_count || 0}</span>
+          {Array.isArray(thread.attachments) && thread.attachments.length > 0 && (
+            <span title="Ekler" data-testid={`vip-thread-attach-count-${thread.id}`}>📎 {thread.attachments.length}</span>
+          )}
         </div>
       </div>
       {canAdmin && !selectionMode && (
@@ -329,6 +333,18 @@ function ReplyCard({ reply, canAdmin, onToggleVisibility }) {
       <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: "#F5F0E8" }}>
         {reply.body}
       </p>
+      {Array.isArray(reply.attachments) && reply.attachments.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2" data-testid={`vip-reply-attachments-${reply.id}`}>
+          {reply.attachments.map((fid) => (
+            <a key={fid} href={`/api/uploads/${fid}`} target="_blank" rel="noreferrer"
+               className="block rounded overflow-hidden"
+               style={{ border: `1px solid ${AMBER}55` }}>
+              <img src={`/api/uploads/${fid}`} alt="attachment"
+                   className="w-20 h-20 object-cover hover:opacity-80 transition-opacity" />
+            </a>
+          ))}
+        </div>
+      )}
       {canAdmin && (
         <div className="mt-2 flex items-center gap-2">
           <label
@@ -354,11 +370,13 @@ function NewThreadDialog({ open, onClose, categorySlug, onCreated, initialTitle 
   const { t } = useTranslation();
   const [title, setTitle] = useState(initialTitle);
   const [body, setBody] = useState(initialBody);
+  const [attachments, setAttachments] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   useEffect(() => {
     if (open) {
       setTitle(initialTitle);
       setBody(initialBody);
+      setAttachments([]);
     }
   }, [open, initialTitle, initialBody]);
   if (!open) return null;
@@ -369,9 +387,14 @@ function NewThreadDialog({ open, onClose, categorySlug, onCreated, initialTitle 
     }
     setSubmitting(true);
     try {
-      const res = await api.post("/vip/threads", { category: categorySlug, title, body });
+      const res = await api.post("/vip/threads", {
+        category: categorySlug,
+        title,
+        body,
+        attachments: attachments.map((a) => a.id),
+      });
       toast.success(t("vip_toast_created"));
-      setTitle(""); setBody("");
+      setTitle(""); setBody(""); setAttachments([]);
       onCreated?.(res.data);
       onClose();
     } catch (e) {
@@ -416,6 +439,9 @@ function NewThreadDialog({ open, onClose, categorySlug, onCreated, initialTitle 
           className="w-full px-3 py-2 rounded text-sm outline-none resize-none"
           style={{ background: "rgba(139,92,246,0.1)", border: `1px solid ${VIOLET}66`, color: "#F5F0E8" }}
         />
+        <div className="mt-2">
+          <ImageDropzone purpose="vip" value={attachments} onChange={setAttachments} max={6} />
+        </div>
         <button
           onClick={submit}
           disabled={submitting}
@@ -436,6 +462,7 @@ function ThreadDetailDialog({ threadId, open, onClose, refreshThreads, isAdminUs
   const { data, mutate: refetch } = useSWR(open && threadId ? `/vip/threads/${threadId}${langQ}` : null, fetcher);
   const [replyBody, setReplyBody] = useState("");
   const [replyPublic, setReplyPublic] = useState(true);
+  const [replyAttachments, setReplyAttachments] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   if (!open) return null;
   const canAdmin = data?.can_admin || isAdminUser;
@@ -448,8 +475,13 @@ function ThreadDetailDialog({ threadId, open, onClose, refreshThreads, isAdminUs
     }
     setSubmitting(true);
     try {
-      await api.post(`/vip/threads/${threadId}/reply`, { body: replyBody, is_public: replyPublic });
+      await api.post(`/vip/threads/${threadId}/reply`, {
+        body: replyBody,
+        is_public: replyPublic,
+        attachments: replyAttachments.map((a) => a.id),
+      });
       setReplyBody("");
+      setReplyAttachments([]);
       toast.success(t("vip_toast_reply_added"));
       await refetch();
       refreshThreads?.();
@@ -530,6 +562,19 @@ function ThreadDetailDialog({ threadId, open, onClose, refreshThreads, isAdminUs
                 <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: "#F5F0E8" }}>
                   {thread.body}
                 </p>
+                {Array.isArray(thread.attachments) && thread.attachments.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2" data-testid="vip-thread-attachments">
+                    {thread.attachments.map((fid) => (
+                      <a key={fid} href={`/api/uploads/${fid}`} target="_blank" rel="noreferrer"
+                         className="block rounded overflow-hidden"
+                         style={{ border: `1px solid ${VIOLET}44` }}
+                         data-testid={`vip-thread-attachment-${fid}`}>
+                        <img src={`/api/uploads/${fid}`} alt="attachment"
+                             className="w-24 h-24 object-cover hover:opacity-80 transition-opacity" />
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
               <button onClick={onClose} data-testid="vip-detail-close">
                 <X className="w-4 h-4 text-white" />
@@ -574,6 +619,9 @@ function ThreadDetailDialog({ threadId, open, onClose, refreshThreads, isAdminUs
                   className="w-full px-3 py-2 rounded text-sm outline-none resize-none mb-2"
                   style={{ background: "rgba(139,92,246,0.1)", border: `1px solid ${VIOLET}66`, color: "#F5F0E8" }}
                 />
+                <div className="mb-2">
+                  <ImageDropzone purpose="vip" value={replyAttachments} onChange={setReplyAttachments} max={4} compact />
+                </div>
                 <div className="flex items-center justify-between gap-2">
                   {canAdmin && (
                     <label className="flex items-center gap-1.5 text-[10px] cursor-pointer"
