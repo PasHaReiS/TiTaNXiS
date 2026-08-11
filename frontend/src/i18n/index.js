@@ -918,6 +918,13 @@ const tr = {
   dash_template_save: "Kaydet",
   dash_default: "Varsayılan",
   dash_delete_tooltip_generic: "Sil",
+
+  // __VIP_CAT_I18N_ADDED__
+  vip_cat_general: "Genel Sorular",
+  vip_cat_technical: "Teknik Destek",
+  vip_cat_suggestions: "Öneriler",
+  vip_cat_announcements: "Duyurular",
+  vip_cat_faq: "Sıkça Sorulanlar",
 };
 
 const en = {
@@ -1614,6 +1621,12 @@ const en = {
   dash_template_save: "Save",
   dash_default: "Default",
   dash_delete_tooltip_generic: "Delete",
+
+  vip_cat_general: "General Questions",
+  vip_cat_technical: "Technical Support",
+  vip_cat_suggestions: "Suggestions",
+  vip_cat_announcements: "Announcements",
+  vip_cat_faq: "FAQ",
 };
 
 const ru = {
@@ -2217,6 +2230,12 @@ const ru = {
   dash_template_save: "Сохранить",
   dash_default: "По умолчанию",
   dash_delete_tooltip_generic: "Удалить",
+
+  vip_cat_general: "Общие вопросы",
+  vip_cat_technical: "Техническая поддержка",
+  vip_cat_suggestions: "Предложения",
+  vip_cat_announcements: "Объявления",
+  vip_cat_faq: "Часто задаваемые вопросы",
 };
 
 const de = {
@@ -2733,6 +2752,12 @@ const de = {
   dash_template_save: "Speichern",
   dash_default: "Standard",
   dash_delete_tooltip_generic: "Löschen",
+
+  vip_cat_general: "Allgemeine Fragen",
+  vip_cat_technical: "Technischer Support",
+  vip_cat_suggestions: "Vorschläge",
+  vip_cat_announcements: "Ankündigungen",
+  vip_cat_faq: "Häufig gestellte Fragen",
 };
 
 const fr = {
@@ -3249,6 +3274,12 @@ const fr = {
   dash_template_save: "Enregistrer",
   dash_default: "Par défaut",
   dash_delete_tooltip_generic: "Effacer",
+
+  vip_cat_general: "Questions générales",
+  vip_cat_technical: "Support technique",
+  vip_cat_suggestions: "Suggestions",
+  vip_cat_announcements: "Annonces",
+  vip_cat_faq: "Questions fréquentes",
 };
 
 const es = {
@@ -3765,6 +3796,12 @@ const es = {
   dash_template_save: "Guardar",
   dash_default: "Por defecto",
   dash_delete_tooltip_generic: "Borrar",
+
+  vip_cat_general: "Preguntas generales",
+  vip_cat_technical: "Soporte técnico",
+  vip_cat_suggestions: "Sugerencias",
+  vip_cat_announcements: "Anuncios",
+  vip_cat_faq: "Preguntas frecuentes",
 };
 
 const ko = {
@@ -4248,6 +4285,12 @@ const ko = {
   dash_template_save: "저장",
   dash_default: "기본값",
   dash_delete_tooltip_generic: "지우기",
+
+  vip_cat_general: "일반 질문",
+  vip_cat_technical: "기술 지원",
+  vip_cat_suggestions: "제안",
+  vip_cat_announcements: "공지사항",
+  vip_cat_faq: "자주 묻는 질문",
 };
 
 const ar = {
@@ -4666,6 +4709,12 @@ const ar = {
   bc_saving: "جارٍ الحفظ...",
   bc_save_pattern: "حفظ {{building}} • {{level}}",
   bc_updated: "تم تحديث تكلفة {{building}} • {{level}}",
+
+  vip_cat_general: "أسئلة عامة",
+  vip_cat_technical: "الدعم الفني",
+  vip_cat_suggestions: "اقتراحات",
+  vip_cat_announcements: "إعلانات",
+  vip_cat_faq: "الأسئلة الشائعة",
 };
 
 // Empty translation stubs for additional languages — i18next fallbackLng: "tr"
@@ -4768,6 +4817,12 @@ const bg = {
   dash_template_save: "Запиши",
   dash_default: "По подразбиране",
   dash_delete_tooltip_generic: "Изтрий",
+
+  vip_cat_general: "Общи въпроси",
+  vip_cat_technical: "Техническа поддръжка",
+  vip_cat_suggestions: "Предложения",
+  vip_cat_announcements: "Съобщения",
+  vip_cat_faq: "Често задавани въпроси",
 };
 const cs = {
   vip_page_title: "VIP podpora",
@@ -4867,6 +4922,12 @@ const cs = {
   dash_template_save: "Uložit",
   dash_default: "Výchozí",
   dash_delete_tooltip_generic: "Vymazat",
+
+  vip_cat_general: "Obecné dotazy",
+  vip_cat_technical: "Technická podpora",
+  vip_cat_suggestions: "Návrhy",
+  vip_cat_announcements: "Oznámení",
+  vip_cat_faq: "Často kladené dotazy",
 };
 const da = {
   vip_page_title: "VIP-support",
@@ -4966,6 +5027,12 @@ const da = {
   dash_template_save: "Gem",
   dash_default: "Standard",
   dash_delete_tooltip_generic: "Slet",
+
+  vip_cat_general: "Generelle spørgsmål",
+  vip_cat_technical: "Teknisk support",
+  vip_cat_suggestions: "Forslag",
+  vip_cat_announcements: "Meddelelser",
+  vip_cat_faq: "Ofte stillede spørgsmål",
 };
 const el = {
   vip_page_title: "Υποστήριξη VIP",
@@ -5065,6 +5132,12 @@ const el = {
   dash_template_save: "Αποθήκευση",
   dash_default: "Προεπιλογή",
   dash_delete_tooltip_generic: "Διαγραφή",
+
+  vip_cat_general: "Γενικές ερωτήσεις",
+  vip_cat_technical: "Τεχνική υποστήριξη",
+  vip_cat_suggestions: "Προτάσεις",
+  vip_cat_announcements: "Ανακοινώσεις",
+  vip_cat_faq: "Συχνές ερωτήσεις",
 };
 const et = {
   vip_page_title: "VIP-tugi",
@@ -5164,6 +5237,12 @@ const et = {
   dash_template_save: "Salvesta",
   dash_default: "Vaikimisi",
   dash_delete_tooltip_generic: "Kustuta",
+
+  vip_cat_general: "Üldised küsimused",
+  vip_cat_technical: "Tehniline tugi",
+  vip_cat_suggestions: "Ettepanekud",
+  vip_cat_announcements: "Teadaanded",
+  vip_cat_faq: "Korduma kippuvad küsimused",
 };
 const fi = {
   vip_page_title: "VIP-tuki",
@@ -5263,6 +5342,12 @@ const fi = {
   dash_template_save: "Tallenna",
   dash_default: "Oletus",
   dash_delete_tooltip_generic: "Poista",
+
+  vip_cat_general: "Yleiset kysymykset",
+  vip_cat_technical: "Tekninen tuki",
+  vip_cat_suggestions: "Ehdotukset",
+  vip_cat_announcements: "Ilmoitukset",
+  vip_cat_faq: "Usein kysytyt kysymykset",
 };
 const hu = {
   vip_page_title: "VIP-támogatás",
@@ -5362,6 +5447,12 @@ const hu = {
   dash_template_save: "Mentés",
   dash_default: "Alapértelmezett",
   dash_delete_tooltip_generic: "Törlés",
+
+  vip_cat_general: "Általános kérdések",
+  vip_cat_technical: "Technikai támogatás",
+  vip_cat_suggestions: "Javaslatok",
+  vip_cat_announcements: "Közlemények",
+  vip_cat_faq: "Gyakran ismételt kérdések",
 };
 const id_ = {
   vip_page_title: "Dukungan VIP",
@@ -5461,6 +5552,12 @@ const id_ = {
   dash_template_save: "Simpan",
   dash_default: "Standar",
   dash_delete_tooltip_generic: "Hapus",
+
+  vip_cat_general: "Pertanyaan Umum",
+  vip_cat_technical: "Dukungan Teknis",
+  vip_cat_suggestions: "Saran",
+  vip_cat_announcements: "Pengumuman",
+  vip_cat_faq: "Pertanyaan yang Sering Diajukan",
 };
 const it = {
   vip_page_title: "Assistenza VIP",
@@ -5560,6 +5657,12 @@ const it = {
   dash_template_save: "Salva",
   dash_default: "Predefinito",
   dash_delete_tooltip_generic: "Cancella",
+
+  vip_cat_general: "Domande generali",
+  vip_cat_technical: "Supporto tecnico",
+  vip_cat_suggestions: "Suggerimenti",
+  vip_cat_announcements: "Annunci",
+  vip_cat_faq: "Domande frequenti",
 };
 const ja = {
   vip_page_title: "VIPサポート",
@@ -5659,6 +5762,12 @@ const ja = {
   dash_template_save: "保存",
   dash_default: "デフォルト",
   dash_delete_tooltip_generic: "削除",
+
+  vip_cat_general: "一般的な質問",
+  vip_cat_technical: "テクニカルサポート",
+  vip_cat_suggestions: "提案",
+  vip_cat_announcements: "お知らせ",
+  vip_cat_faq: "よくある質問",
 };
 const lt = {
   vip_page_title: "VIP pagalba",
@@ -5758,6 +5867,12 @@ const lt = {
   dash_template_save: "Išsaugoti",
   dash_default: "Numatytasis",
   dash_delete_tooltip_generic: "Ištrinti",
+
+  vip_cat_general: "Bendri klausimai",
+  vip_cat_technical: "Techninė pagalba",
+  vip_cat_suggestions: "Pasiūlymai",
+  vip_cat_announcements: "Skelbimai",
+  vip_cat_faq: "Dažnai užduodami klausimai",
 };
 const lv = {
   vip_page_title: "VIP atbalsts",
@@ -5857,6 +5972,12 @@ const lv = {
   dash_template_save: "Saglabāt",
   dash_default: "Noklusējums",
   dash_delete_tooltip_generic: "Dzēst",
+
+  vip_cat_general: "Vispārīgi jautājumi",
+  vip_cat_technical: "Tehniskais atbalsts",
+  vip_cat_suggestions: "Ieteikumi",
+  vip_cat_announcements: "Paziņojumi",
+  vip_cat_faq: "Bieži uzdotie jautājumi",
 };
 const nb = {
   vip_page_title: "VIP-støtte",
@@ -5956,6 +6077,12 @@ const nb = {
   dash_template_save: "Lagre",
   dash_default: "Standard",
   dash_delete_tooltip_generic: "Slett",
+
+  vip_cat_general: "Generelle spørsmål",
+  vip_cat_technical: "Teknisk støtte",
+  vip_cat_suggestions: "Forslag",
+  vip_cat_announcements: "Kunngjøringer",
+  vip_cat_faq: "Ofte stilte spørsmål",
 };
 const nl = {
   vip_page_title: "VIP-ondersteuning",
@@ -6055,6 +6182,12 @@ const nl = {
   dash_template_save: "Opslaan",
   dash_default: "Standaard",
   dash_delete_tooltip_generic: "Wissen",
+
+  vip_cat_general: "Algemene vragen",
+  vip_cat_technical: "Technische ondersteuning",
+  vip_cat_suggestions: "Suggesties",
+  vip_cat_announcements: "Aankondigingen",
+  vip_cat_faq: "Veelgestelde vragen",
 };
 const pl = {
   vip_page_title: "Obsługa VIP",
@@ -6154,6 +6287,12 @@ const pl = {
   dash_template_save: "Zapisz",
   dash_default: "Domyślne",
   dash_delete_tooltip_generic: "Usuń",
+
+  vip_cat_general: "Pytania ogólne",
+  vip_cat_technical: "Wsparcie techniczne",
+  vip_cat_suggestions: "Sugestie",
+  vip_cat_announcements: "Ogłoszenia",
+  vip_cat_faq: "Często zadawane pytania",
 };
 const pt = {
   vip_page_title: "Apoio VIP",
@@ -6253,6 +6392,12 @@ const pt = {
   dash_template_save: "Guardar",
   dash_default: "Padrão",
   dash_delete_tooltip_generic: "Apagar",
+
+  vip_cat_general: "Perguntas gerais",
+  vip_cat_technical: "Suporte técnico",
+  vip_cat_suggestions: "Sugestões",
+  vip_cat_announcements: "Anúncios",
+  vip_cat_faq: "Perguntas frequentes",
 };
 const ro = {
   vip_page_title: "Asistență VIP",
@@ -6352,6 +6497,12 @@ const ro = {
   dash_template_save: "Salvează",
   dash_default: "Implicit",
   dash_delete_tooltip_generic: "Șterge",
+
+  vip_cat_general: "Întrebări generale",
+  vip_cat_technical: "Suport tehnic",
+  vip_cat_suggestions: "Sugestii",
+  vip_cat_announcements: "Anunțuri",
+  vip_cat_faq: "Întrebări frecvente",
 };
 const sk = {
   vip_page_title: "VIP podpora",
@@ -6451,6 +6602,12 @@ const sk = {
   dash_template_save: "Uložiť",
   dash_default: "Predvolené",
   dash_delete_tooltip_generic: "Vymazať",
+
+  vip_cat_general: "Všeobecné otázky",
+  vip_cat_technical: "Technická podpora",
+  vip_cat_suggestions: "Návrhy",
+  vip_cat_announcements: "Oznámenia",
+  vip_cat_faq: "Často kladené otázky",
 };
 const sl = {
   vip_page_title: "VIP podpora",
@@ -6550,6 +6707,12 @@ const sl = {
   dash_template_save: "Shrani",
   dash_default: "Privzeto",
   dash_delete_tooltip_generic: "Izbriši",
+
+  vip_cat_general: "Splošna vprašanja",
+  vip_cat_technical: "Tehnična podpora",
+  vip_cat_suggestions: "Predlogi",
+  vip_cat_announcements: "Obvestila",
+  vip_cat_faq: "Pogosta vprašanja",
 };
 const sv = {
   vip_page_title: "VIP-support",
@@ -6649,6 +6812,12 @@ const sv = {
   dash_template_save: "Spara",
   dash_default: "Standard",
   dash_delete_tooltip_generic: "Radera",
+
+  vip_cat_general: "Allmänna frågor",
+  vip_cat_technical: "Teknisk support",
+  vip_cat_suggestions: "Förslag",
+  vip_cat_announcements: "Meddelanden",
+  vip_cat_faq: "Vanliga frågor",
 };
 const uk = {
   vip_page_title: "VIP-підтримка",
@@ -6748,6 +6917,12 @@ const uk = {
   dash_template_save: "Зберегти",
   dash_default: "За замовчуванням",
   dash_delete_tooltip_generic: "Видалити",
+
+  vip_cat_general: "Загальні питання",
+  vip_cat_technical: "Технічна підтримка",
+  vip_cat_suggestions: "Пропозиції",
+  vip_cat_announcements: "Оголошення",
+  vip_cat_faq: "Часті запитання",
 };
 const zh = {
   vip_page_title: "VIP支持",
@@ -6847,6 +7022,12 @@ const zh = {
   dash_template_save: "保存",
   dash_default: "默认",
   dash_delete_tooltip_generic: "删除",
+
+  vip_cat_general: "常见问题",
+  vip_cat_technical: "技术支持",
+  vip_cat_suggestions: "建议",
+  vip_cat_announcements: "公告",
+  vip_cat_faq: "常见问题解答",
 };
 
 const resources = {

@@ -18,7 +18,16 @@ const VIOLET = "#8B5CF6";
 const AMBER = "#F59E0B";
 const BASE = "#0A0015";
 
+const VIP_CAT_I18N = {
+  'genel-sorular': 'vip_cat_general',
+  'teknik-destek': 'vip_cat_technical',
+  'oneriler': 'vip_cat_suggestions',
+  'duyurular': 'vip_cat_announcements',
+  'sikca-sorulanlar': 'vip_cat_faq',
+};
+
 function CategoryPill({ cat, active, onClick }) {
+  const { t } = useTranslation();
   const badge = cat.unread || 0;
   return (
     <button
@@ -38,7 +47,7 @@ function CategoryPill({ cat, active, onClick }) {
         className="text-xs font-bold uppercase tracking-wider truncate"
         style={{ color: active ? "#fff" : "rgba(196,181,253,0.85)", fontFamily: "Cinzel, serif" }}
       >
-        #{cat.label}
+        #{t(VIP_CAT_I18N[cat.slug]) || cat.label}
       </span>
       {badge > 0 && (
         <span
@@ -208,7 +217,7 @@ function TrashDialog({ open, onClose, refreshThreads }) {
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold truncate" style={{ color: "#F5F0E8" }}>{row.title}</div>
                   <div className="text-[10px] mt-1" style={{ color: "rgba(196,181,253,0.6)" }}>
-                    @{row.author_name} · #{row.category} · {relHours(row.deleted_at)}
+                    @{row.author_name} · #{t(VIP_CAT_I18N[row.category]) || row.category} · {relHours(row.deleted_at)}
                   </div>
                 </div>
                 <button
