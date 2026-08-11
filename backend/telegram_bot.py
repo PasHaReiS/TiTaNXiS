@@ -32,6 +32,97 @@ log = logging.getLogger("telegram")
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}" if BOT_TOKEN else ""
 
+DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY", "").strip()
+DEEPL_BASE = "https://api-free.deepl.com/v2" if DEEPL_API_KEY.endswith(":fx") else "https://api.deepl.com/v2"
+
+
+async def _deepl_translate(text: str, target_lang: str,
+                            source_lang: Optional[str] = None) -> Optional[dict]:
+    """Call DeepL /translate. Returns {"text": ..., "detected_source_language": ...}
+    or None on failure. `target_lang` must be a DeepL code (EN-GB, DE, RU, ...)."""
+    if not DEEPL_API_KEY or not text:
+        return None
+    payload = {"text": [text], "target_lang": target_lang}
+    if source_lang:
+        payload["source_lang"] = source_lang
+    headers = {"Authorization": f"DeepL-Auth-Key {DEEPL_API_KEY}",
+               "Content-Type": "application/json"}
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(f"{DEEPL_BASE}/translate",
+                                  headers=headers, json=payload)
+            r.raise_for_status()
+            data = r.json()
+            first = (data.get("translations") or [{}])[0]
+            return {
+                "text": first.get("text"),
+                "detected_source_language": first.get("detected_source_language"),
+            }
+    except Exception as e:
+        log.warning(f"DeepL translate failed: {e}")
+        return None
+
+
+# ISO-ish code (lowercase) → DeepL target-lang code.
+_DEEPL_TARGET = {
+    "en": "EN-GB", "ru": "RU", "de": "DE", "fr": "FR", "es": "ES", "ko": "KO",
+    "bg": "BG", "cs": "CS", "da": "DA", "el": "EL", "et": "ET", "fi": "FI",
+    "hu": "HU", "id": "ID", "it": "IT", "ja": "JA", "lt": "LT", "lv": "LV",
+    "nb": "NB", "nl": "NL", "pl": "PL", "pt": "PT-PT", "ro": "RO", "sk": "SK",
+    "sl": "SL", "sv": "SV", "uk": "UK", "zh": "ZH", "ar": "AR",
+    "tr": "TR",
+}
+
+
+async def _detect_source(text: str) -> Optional[str]:
+    """Detect the source language of a piece of text via DeepL's round-trip
+    (translate to EN and read `detected_source_language`). Returns a 2-letter
+    lowercase code or None on failure."""
+    if not text or not DEEPL_API_KEY:
+        return None
+    res = await _deepl_translate(text, "EN-US")
+    if not res:
+        return None
+    lang = (res.get("detected_source_language") or "").lower()
+    # DeepL returns codes like "EN", "TR", "PT-BR" — normalise.
+    if not lang:
+        return None
+    if "-" in lang:
+        lang = lang.split("-")[0]
+    return lang
+
+
+async def reply_ml(update: Update, tr_text: str, parse_mode: str = "Markdown"):
+    """Reply in the language of the incoming message.
+
+    - Detects the user's language from `update.message.text` via DeepL.
+    - If detected language is Turkish (or detection fails / DeepL disabled),
+      sends the original Turkish text unchanged.
+    - Otherwise translates `tr_text` (Turkish source) to the detected language
+      and sends that.
+
+    Markdown symbols are preserved by DeepL well enough; parse_mode="Markdown"
+    is kept so bold/italic still work in translated replies.
+    """
+    src_lang = None
+    incoming = (update.message.text or "").strip() if update.message else ""
+    # Strip the leading /command so detection sees the human-typed part only.
+    if incoming.startswith("/"):
+        parts = incoming.split(None, 1)
+        incoming = parts[1] if len(parts) > 1 else ""
+    if incoming and DEEPL_API_KEY:
+        src_lang = await _detect_source(incoming)
+    if not src_lang or src_lang == "tr":
+        await update.message.reply_text(tr_text, parse_mode=parse_mode)
+        return
+    target = _DEEPL_TARGET.get(src_lang)
+    if not target:
+        await update.message.reply_text(tr_text, parse_mode=parse_mode)
+        return
+    res = await _deepl_translate(tr_text, target, source_lang="TR")
+    out = (res or {}).get("text") or tr_text
+    await update.message.reply_text(out, parse_mode=parse_mode)
+
 
 def _webhook_url() -> str:
     explicit = os.environ.get("TELEGRAM_WEBHOOK_URL", "").strip()
@@ -120,34 +211,34 @@ async def start_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
         "ve sıralamadaki yerini görebilirsin.\n\n"
         "Komutlar için /yardim yaz."
     )
-    await update.message.reply_text(text, parse_mode="Markdown")
+    await reply_ml(update, text)
 
 
 async def yardim_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
     text = (
         "📖 *TiTaNXiS Bot Komutları*\n\n"
         "/start — Karşılama mesajı\n"
-        "/siralama _(veya /ranking)_ — En güçlü 5 üye\n"
-        "/guc `<isim>` _(veya /power)_ — Üye güç sorgulama\n"
-        "/etkinlik _(veya /event)_ — Aktif etkinlikler\n"
-        "/svs `HH:MM` — SvS başlama hatırlatıcısı planla\n"
-        "/svs\\_iptal _(veya /svs\\_cancel)_ — Planlanmış hatırlatıcıyı iptal et\n"
-        "/yardim _(veya /help)_ — Bu menü\n\n"
+        "/siralama (veya /ranking) — En güçlü 5 üye\n"
+        "/guc [isim] (veya /power) — Üye güç sorgulama\n"
+        "/etkinlik (veya /event) — Aktif etkinlikler\n"
+        "/svs [HH:MM] — SvS başlama hatırlatıcısı planla\n"
+        "/svs_iptal (veya /svs_cancel) — Planlanmış hatırlatıcıyı iptal et\n"
+        "/yardim (veya /help) — Bu menü\n\n"
         "⚔️ TiTaNXiS Lonca Yönetimi"
     )
-    await update.message.reply_text(text, parse_mode="Markdown")
+    await reply_ml(update, text)
 
 
 async def siralama_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
     if _db is None:
-        await update.message.reply_text("⚠️ Veritabanı hazır değil.")
+        await reply_ml(update, "⚠️ Veritabanı hazır değil.")
         return
     cursor = _db.members.find({}, {"_id": 0, "name": 1, "rank": 1,
                                     "alliance_name": 1, "bireysel_guc": 1}) \
         .sort("bireysel_guc", -1).limit(5)
     members = await cursor.to_list(5)
     if not members:
-        await update.message.reply_text("📊 Henüz sıralama verisi yok.")
+        await reply_ml(update, "📊 Henüz sıralama verisi yok.")
         return
     lines = ["🏆 *En Güçlü 5*\n"]
     medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
@@ -157,24 +248,22 @@ async def siralama_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
         rank = m.get("rank", "")
         alliance = m.get("alliance_name", "")
         lines.append(f"{medals[i]} *{name}* [{rank}·{alliance}] — {power:,}")
-    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+    await reply_ml(update, "\n".join(lines))
 
 
 async def guc_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text(
-            "Kullanım: `/guc <isim>`\nÖrnek: `/guc Ekko`", parse_mode="Markdown")
+        await reply_ml(update, "Kullanım: `/guc <isim>`\nÖrnek: `/guc Ekko`")
         return
     if _db is None:
-        await update.message.reply_text("⚠️ Veritabanı hazır değil.")
+        await reply_ml(update, "⚠️ Veritabanı hazır değil.")
         return
     search = " ".join(context.args).strip()
-    # Case-insensitive name substring match; also try exact rank/alliance in fallback.
     import re
     pattern = re.escape(search)
     m = await _db.members.find_one({"name": {"$regex": pattern, "$options": "i"}}, {"_id": 0})
     if not m:
-        await update.message.reply_text(f"❌ '{search}' adında üye bulunamadı.")
+        await reply_ml(update, f"❌ '{search}' adında üye bulunamadı.")
         return
     power = int(m.get("bireysel_guc") or 0)
     text = (
@@ -184,18 +273,18 @@ async def guc_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🏰 İttifak: {m.get('alliance_name', '-')}\n"
         f"📅 Eklenme: {(m.get('created_at') or '')[:10]}"
     )
-    await update.message.reply_text(text, parse_mode="Markdown")
+    await reply_ml(update, text)
 
 
 async def etkinlik_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
     if _db is None:
-        await update.message.reply_text("⚠️ Veritabanı hazır değil.")
+        await reply_ml(update, "⚠️ Veritabanı hazır değil.")
         return
     cursor = _db.events.find({"archived": {"$ne": True}}, {"_id": 0}) \
         .sort("date", -1).limit(5)
     events = await cursor.to_list(5)
     if not events:
-        await update.message.reply_text("📅 Aktif etkinlik bulunmuyor.")
+        await reply_ml(update, "📅 Aktif etkinlik bulunmuyor.")
         return
     lines = ["📅 *Aktif Etkinlikler*\n"]
     for e in events:
@@ -204,7 +293,7 @@ async def etkinlik_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
         group = e.get("group_name", "")
         mult = e.get("multiplier", 1.0)
         lines.append(f"• *{name}* — `{date_str}` · {group} · ×{mult}")
-    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+    await reply_ml(update, "\n".join(lines))
 
 
 # ------------------------------ Notifications --------------------------------
@@ -288,19 +377,15 @@ async def _svs_worker(chat_id: int, target: datetime) -> None:
 async def svs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/svs HH:MM — schedule a one-shot SvS start reminder for this chat."""
     if not context.args:
-        await update.message.reply_text(
-            "Kullanım: `/svs HH:MM`\nÖrnek: `/svs 20:00`", parse_mode="Markdown")
+        await reply_ml(update, "Kullanım: `/svs HH:MM`\nÖrnek: `/svs 20:00`")
         return
     parsed = _parse_hhmm(context.args[0])
     if not parsed:
-        await update.message.reply_text(
-            "❌ Geçersiz saat formatı. `HH:MM` (24 saat) olmalı.",
-            parse_mode="Markdown")
+        await reply_ml(update, "❌ Geçersiz saat formatı. `HH:MM` (24 saat) olmalı.")
         return
     hh, mm = parsed
     chat_id = update.effective_chat.id
     target = _next_occurrence(hh, mm)
-    # Cancel existing schedule if any.
     existing = _svs_tasks.pop(chat_id, None)
     if existing and not existing.done():
         existing.cancel()
@@ -310,12 +395,11 @@ async def svs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     hours = int(delta.total_seconds() // 3600)
     mins = int((delta.total_seconds() % 3600) // 60)
     when = target.strftime("%H:%M")
-    await update.message.reply_text(
+    await reply_ml(update,
         f"⏱ *SvS hatırlatıcı planlandı*\n\n"
         f"🕒 Saat: `{when}` (TR)\n"
         f"⏳ Yaklaşık: {hours} sa {mins} dk sonra\n\n"
-        f"İptal etmek için `/svs_iptal` yaz.",
-        parse_mode="Markdown")
+        f"İptal etmek için `/svs_iptal` yaz.")
 
 
 async def svs_cancel_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
@@ -324,8 +408,6 @@ async def svs_cancel_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
     task = _svs_tasks.pop(chat_id, None)
     if task and not task.done():
         task.cancel()
-        await update.message.reply_text(
-            "🚫 *SvS hatırlatıcı iptal edildi.*", parse_mode="Markdown")
+        await reply_ml(update, "🚫 *SvS hatırlatıcı iptal edildi.*")
     else:
-        await update.message.reply_text(
-            "ℹ️ Aktif SvS hatırlatıcı yok.")
+        await reply_ml(update, "ℹ️ Aktif SvS hatırlatıcı yok.")

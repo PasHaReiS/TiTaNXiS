@@ -13,6 +13,18 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] Telegram Bot Canlı @TiTaNXiS_BoT — DONE**:
+  - **Token**: `TELEGRAM_BOT_TOKEN=8982244615:AAHaaDpF5UefxNK3ZOPzwIQAoRcAx-s-634` `.env`'e eklendi, backend restart edildi.
+  - **Webhook registered**: `POST setWebhook → {url: "https://oyun-loncasi.emergent.host/api/telegram/webhook", pending_update_count: 0, allowed_updates: ["message"]}` (getWebhookInfo doğrulandı).
+  - **Bot kimliği** (getMe): `id=8982244615, username="TiTaNXiS_BoT", first_name="TiTaNXiS", can_join_groups=true`.
+  - **Status endpoint** (`GET /api/telegram/status`): `{configured: true, channel_configured: false}`.
+  - **Simulasyon** (`POST /api/telegram/webhook`): `/start`, `/yardim` her ikisi de 200 OK.
+  - **Multilingual (DeepL)**: `reply_ml()` wrapper her cevap için gelen mesajın dilini DeepL ile algılıyor; TR ise orijinal, değilse cevabı hedef dile çeviriyor.
+  - **Markdown fix**: `/yardim` metnindeki italic wrapper `_(veya /svs\_cancel)_` altını çizme escape'i ile Markdown parser çakışıyordu → Telegram BadRequest. İtalic wrapper'lar kaldırıldı, alias notları düz metin olarak parantez içinde bırakıldı — outbound send artık başarılı.
+  - **Bekleyen (opsiyonel)**: `TELEGRAM_CHANNEL_ID` env eklerse yeni etkinlik oluşturulduğunda o kanala otomatik duyuru gider (`send_event_notification` hook hazır).
+
+
+
 - **[2026-02] Telegram Bot @TiTaNXiS_BoT — DONE**:
   - **Yeni dosya** `/app/backend/telegram_bot.py`:
     - `python-telegram-bot==22.8` yüklendi (`pip install "python-telegram-bot>=20.0"`).
