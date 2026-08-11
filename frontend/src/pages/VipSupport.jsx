@@ -741,17 +741,19 @@ export default function VipSupport() {
       data-testid="vip-support-page"
     >
       <div className="max-w-6xl mx-auto p-3 sm:p-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="w-5 h-5" style={{ color: AMBER }} />
-          <h1 className="text-xl font-black uppercase tracking-widest"
-              style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }}>
-            {t("vip_page_title")}
-          </h1>
-          <span className="text-[10px] px-2 py-0.5 rounded-full ml-2"
-                style={{ background: `${VIOLET}33`, color: "#C4B5FD", border: `1px solid ${VIOLET}66` }}>
-            {catDetails?.label || activeCat}
-          </span>
-          <div className="ml-auto" data-testid="vip-language-switcher">
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles className="w-5 h-5" style={{ color: AMBER }} />
+            <h1 className="text-xl font-black uppercase tracking-widest truncate"
+                style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }}>
+              {t("vip_page_title")}
+            </h1>
+            <span className="text-[10px] px-2 py-0.5 rounded-full ml-2 whitespace-nowrap"
+                  style={{ background: `${VIOLET}33`, color: "#C4B5FD", border: `1px solid ${VIOLET}66` }}>
+              {catDetails?.label || activeCat}
+            </span>
+          </div>
+          <div data-testid="vip-language-switcher" className="flex-shrink-0">
             <LanguageSwitcher />
           </div>
         </div>
