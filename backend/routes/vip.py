@@ -6,14 +6,35 @@ MongoDB collections:
   - vip_replies   : {id, thread_id, author_id, author_name, body, is_admin,
                      is_public, created_at}
   - vip_votes     : {thread_id, user_id, value}  (unique per user/thread)
+  - vip_translations: {entity_id, field, target_lang, translated_text,
+                       source_hash, created_at}  — DeepL cache for user-generated text
 """
+import os
 import uuid
+import hashlib
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+
+
+# DeepL config — key + i18n → DeepL lang code mapping. Duplicated from server.py
+# to keep vip module self-contained.
+DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY", "").strip()
+DEEPL_LANG_MAP = {
+    "en": "EN-GB", "ru": "RU", "de": "DE", "fr": "FR", "es": "ES", "ko": "KO",
+    "bg": "BG", "cs": "CS", "da": "DA", "el": "EL", "et": "ET", "fi": "FI",
+    "hu": "HU", "id": "ID", "it": "IT", "ja": "JA", "lt": "LT", "lv": "LV",
+    "nb": "NB", "nl": "NL", "pl": "PL", "pt": "PT-PT", "ro": "RO", "sk": "SK",
+    "sl": "SL", "sv": "SV", "uk": "UK", "zh": "ZH",
+}
+
+
+def _hash_text(s: str) -> str:
+    return hashlib.md5((s or "").encode("utf-8")).hexdigest()
 
 
 def _now_iso() -> str:
@@ -104,6 +125,54 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
             return True
         return False
 
+    async def _translate_text(text: str, target_lang: str) -> Optional[str]:
+        """Call DeepL to translate a single string. Returns None on failure."""
+        if not text or not DEEPL_API_KEY:
+            return None
+        deepl_lang = DEEPL_LANG_MAP.get(target_lang.lower())
+        if not deepl_lang:
+            return None
+        base = "https://api-free.deepl.com/v2" if DEEPL_API_KEY.endswith(":fx") else "https://api.deepl.com/v2"
+        headers = {"Authorization": f"DeepL-Auth-Key {DEEPL_API_KEY}",
+                   "Content-Type": "application/json"}
+        payload = {"text": [text], "target_lang": deepl_lang, "source_lang": "TR"}
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                r = await client.post(f"{base}/translate", headers=headers, json=payload)
+                r.raise_for_status()
+                data = r.json()
+                translations = data.get("translations", [])
+                return translations[0].get("text") if translations else None
+        except Exception as e:
+            logger.warning(f"DeepL translate failed for {target_lang}: {e}")
+            return None
+
+    async def _translate_field(entity_id: str, field: str, text: str,
+                                target_lang: str) -> str:
+        """Cache-first translate helper. Returns original text on any failure so
+        the endpoint stays functional even if DeepL is down / unconfigured."""
+        if not text or not target_lang or target_lang.lower() == "tr":
+            return text
+        src_hash = _hash_text(text)
+        cache_key = {"entity_id": entity_id, "field": field, "target_lang": target_lang.lower()}
+        cached = await db.vip_translations.find_one(cache_key, {"_id": 0})
+        if cached and cached.get("source_hash") == src_hash and cached.get("translated_text"):
+            return cached["translated_text"]
+        translated = await _translate_text(text, target_lang)
+        if not translated:
+            return text  # graceful fallback
+        # Upsert into cache
+        try:
+            await db.vip_translations.update_one(
+                cache_key,
+                {"$set": {**cache_key, "translated_text": translated,
+                          "source_hash": src_hash, "created_at": _now_iso()}},
+                upsert=True,
+            )
+        except Exception as e:
+            logger.warning(f"vip_translations cache upsert failed: {e}")
+        return translated
+
     @api_router.get("/vip/categories")
     async def vip_categories():
         # Attach live counts (thread total + unresolved).
@@ -121,6 +190,7 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
         status: Optional[str] = "all",  # all | new | resolved
         q: Optional[str] = None,
         limit: int = 50,
+        lang: Optional[str] = None,
     ):
         query: dict = {}
         if category:
@@ -153,10 +223,17 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
             if admin_replies:
                 latest = sorted(admin_replies, key=lambda r: r.get("created_at", ""))[-1]
                 tdoc["admin_snippet"] = (latest.get("body") or "")[:180]
+            # Auto-translate title + body + admin_snippet when a non-TR lang requested.
+            if lang and lang.lower() != "tr":
+                tdoc["title"] = await _translate_field(tdoc["id"], "title", tdoc.get("title") or "", lang)
+                tdoc["body"] = await _translate_field(tdoc["id"], "body", tdoc.get("body") or "", lang)
+                if tdoc.get("admin_snippet"):
+                    tdoc["admin_snippet"] = await _translate_field(
+                        tdoc["id"], "admin_snippet", tdoc["admin_snippet"], lang)
         return threads
 
     @api_router.get("/vip/threads/{tid}")
-    async def vip_thread_get(tid: str, request: Request):
+    async def vip_thread_get(tid: str, request: Request, lang: Optional[str] = None):
         tdoc = await db.vip_threads.find_one({"id": tid}, {"_id": 0})
         if not tdoc:
             raise HTTPException(404, "thread not found")
@@ -171,6 +248,12 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
             v = await db.vip_votes.find_one({"thread_id": tid, "user_id": viewer["id"]}, {"_id": 0})
             if v:
                 my_vote = int(v.get("value", 0))
+        # Auto-translate title/body + each reply body when a non-TR lang is requested.
+        if lang and lang.lower() != "tr":
+            tdoc["title"] = await _translate_field(tid, "title", tdoc.get("title") or "", lang)
+            tdoc["body"] = await _translate_field(tid, "body", tdoc.get("body") or "", lang)
+            for r in replies:
+                r["body"] = await _translate_field(r["id"], "reply_body", r.get("body") or "", lang)
         return {"thread": tdoc, "replies": replies, "my_vote": my_vote,
                 "can_admin": _is_admin(viewer)}
 

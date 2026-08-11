@@ -431,8 +431,9 @@ function NewThreadDialog({ open, onClose, categorySlug, onCreated, initialTitle 
 }
 
 function ThreadDetailDialog({ threadId, open, onClose, refreshThreads, isAdminUser, user }) {
-  const { t } = useTranslation();
-  const { data, mutate: refetch } = useSWR(open && threadId ? `/vip/threads/${threadId}` : null, fetcher);
+  const { t, i18n } = useTranslation();
+  const langQ = i18n.language && i18n.language !== "tr" ? `?lang=${i18n.language}` : "";
+  const { data, mutate: refetch } = useSWR(open && threadId ? `/vip/threads/${threadId}${langQ}` : null, fetcher);
   const [replyBody, setReplyBody] = useState("");
   const [replyPublic, setReplyPublic] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -642,7 +643,7 @@ function FaqAccordion({ items }) {
 }
 
 export default function VipSupport() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCat = searchParams.get("category") || "genel-sorular";
@@ -671,7 +672,8 @@ export default function VipSupport() {
   }, [searchParams, setSearchParams]);
 
   const { data: categories = [] } = useSWR("/vip/categories", fetcher, { refreshInterval: 30000 });
-  const listUrl = `/vip/threads?category=${activeCat}&status=${statusFilter}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+  const langSuffix = i18n.language && i18n.language !== "tr" ? `&lang=${i18n.language}` : "";
+  const listUrl = `/vip/threads?category=${activeCat}&status=${statusFilter}${q ? `&q=${encodeURIComponent(q)}` : ""}${langSuffix}`;
   const { data: threads = [], mutate: mutateThreads } = useSWR(listUrl, fetcher);
   const { data: faq = [] } = useSWR("/vip/faq", fetcher);
   const { data: stats } = useSWR("/vip/stats", fetcher, { refreshInterval: 30000 });

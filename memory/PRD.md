@@ -13,6 +13,27 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] VIP Destek Otomatik İçerik Çevirisi (DeepL + Cache) — DONE**:
+  - **Backend** `routes/vip.py`:
+    - `GET /vip/threads` + `GET /vip/threads/{tid}` uç noktalarına opsiyonel `?lang=` query parametresi eklendi. `lang != 'tr'` ise thread title/body + admin_snippet + reply body'leri DeepL üzerinden çevrilir.
+    - Yeni MongoDB koleksiyonu: **`vip_translations`** `{entity_id, field, target_lang, translated_text, source_hash (md5), created_at}`. Cache-first strategy — kaynak metnin md5 hash'i değişirse (içerik güncellenirse) yeniden çevrilir.
+    - `_translate_text(text, lang)` DeepL API çağrısı yapar (`api-free.deepl.com/v2/translate`, TR→hedef).
+    - `_translate_field(entity_id, field, text, lang)` cache lookup + DeepL fallback + upsert helper.
+    - **Graceful fallback**: `DEEPL_API_KEY` yoksa veya DeepL çağrısı hata verirse orijinal Türkçe metin dönüyor (endpoint hiç kırılmıyor).
+  - **Frontend** `VipSupport.jsx`:
+    - `useTranslation` hook'undan `i18n` da destructure edildi.
+    - Thread listesi: `listUrl` sonuna `&lang=${i18n.language}` (yalnızca TR değilse) — dil değişince SWR anahtarı değişip yeni istek atıyor.
+    - `ThreadDetailDialog`: SWR URL'ine `?lang=…` eklendi.
+    - Bu iki değişiklik dışında UI/stil hiçbir yerde değişmedi.
+  - **Doğrulama (curl)**:
+    - TR: "Test soru: PWA offline modu" · body "Uygulama offline modda hangi verileri saklıyor?" · reply "Service worker leaderboard cache liyor."
+    - FR: "Question de test : mode hors ligne des PWA" · "Quelles données l'application stocke-t-elle en mode hors ligne ?" · "Le classement des service workers est mis en cache."
+    - İlk çağrı 1.9s (DeepL), ikinci çağrı 0.16s (cache, ~12x hızlı) ✅
+    - `vip_translations` koleksiyonunda 21 kayıt.
+  - **UI doğrulama**: FR modda VIP sayfasına girince thread başlıkları Fransızca render oluyor, thread detay modalı açılınca body + reply de çevrilmiş görünüyor. Konsol hatası yok.
+
+
+
 - **[2026-02] VIP Destek Dil Seçici — DONE**:
   - `VipSupport.jsx` header'ına aynı global `LanguageSwitcher` component'i (`@/components/LanguageSwitcher`) eklendi. `ml-auto` ile sağa yaslı, kategori chip'inden sonra konumlandı.
   - `useTranslation` hook'u zaten tüm alt bileşenlerde kullanıldığı için `i18n.changeLanguage()` çağırınca sayfadaki 84 `t()` çağrısı anında yeni dile yeniden render oluyor — reload gerekmiyor.
