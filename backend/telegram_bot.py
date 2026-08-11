@@ -360,18 +360,55 @@ def _next_occurrence(hh: int, mm: int) -> datetime:
 
 
 async def _svs_worker(chat_id: int, target: datetime) -> None:
-    """Sleeps until target, then sends the SvS start message once."""
+    """Sleeps until target, then sends the SvS start message once. Broadcasts
+    to TELEGRAM_CHANNEL_ID as well when configured."""
     delay = (target - datetime.now(target.tzinfo)).total_seconds()
     try:
         if delay > 0:
             await asyncio.sleep(delay)
-        await send_message(str(chat_id), "⚔️ *SvS başlıyor! Hazırlanın!*")
+        msg = "⚔️ *SvS başlıyor! Hazırlanın!*"
+        await send_message(str(chat_id), msg)
+        channel = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+        if channel and str(chat_id) != channel:
+            await send_message(channel, msg)
     except asyncio.CancelledError:
         raise
     except Exception as e:
         log.warning(f"SvS worker error for chat {chat_id}: {e}")
     finally:
         _svs_tasks.pop(chat_id, None)
+
+
+async def send_daily_briefing(db) -> bool:
+    """Fetches upcoming events + top members and broadcasts a morning digest
+    to TELEGRAM_CHANNEL_ID. Called by the platform cron at 08:00 TR (05:00 UTC).
+    Returns True on successful send, False if channel unconfigured or on error."""
+    channel = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+    if not channel or not BOT_TOKEN or db is None:
+        return False
+    # Upcoming events: non-archived, sorted by date ascending (next 5).
+    try:
+        upcoming = await db.events.find(
+            {"archived": {"$ne": True}}, {"_id": 0, "name": 1, "date": 1, "group_name": 1, "multiplier": 1}
+        ).sort("date", 1).limit(5).to_list(5)
+    except Exception as e:
+        log.warning(f"daily briefing DB read failed: {e}")
+        return False
+    tz = timezone(timedelta(hours=3))
+    today_str = datetime.now(tz).strftime("%d %B %Y")
+    lines = [f"🌅 *Günaydın TiTaNXiS!* — {today_str}\n"]
+    if not upcoming:
+        lines.append("📅 Bugün için planlı etkinlik yok.")
+    else:
+        lines.append("📅 *Yaklaşan Etkinlikler:*")
+        for e in upcoming:
+            name = e.get("name", "?")
+            d = (e.get("date") or "")[:10]
+            grp = e.get("group_name", "")
+            mult = e.get("multiplier", 1.0)
+            lines.append(f"• *{name}* — `{d}` · {grp} · ×{mult}")
+    lines.append("\n⚔️ Bugün de savaşa hazır ol!")
+    return await send_message(channel, "\n".join(lines))
 
 
 async def svs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):

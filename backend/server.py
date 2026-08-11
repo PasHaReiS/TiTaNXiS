@@ -385,6 +385,16 @@ async def create_event(body: EventCreate, _: dict = Depends(require_edit)):
             await fn(title="Yeni Etkinlik", body=e.name, url="/etkinlikler", tag=f"event-{e.id}", group_name=e.group_name)
     except Exception as ex:
         logger.warning(f"Push broadcast failed: {ex}")
+    # Fire-and-forget Telegram channel broadcast (no-op if TELEGRAM_CHANNEL_ID unset)
+    try:
+        await send_event_notification(
+            event_name=e.name,
+            event_date=(e.date or ""),
+            group_name=e.group_name or "",
+            multiplier=e.multiplier or 1.0,
+        )
+    except Exception as ex:
+        logger.warning(f"Telegram event broadcast failed: {ex}")
     return e.model_dump()
 
 
@@ -2931,7 +2941,7 @@ except Exception as _e:
     logging.getLogger("uploads").warning(f"init_storage at import: {_e}")
 
 # ---------------- Telegram bot webhook -------------------------------------
-from telegram_bot import init_bot, setup_webhook, process_update, send_event_notification  # noqa: E402
+from telegram_bot import init_bot, setup_webhook, process_update, send_event_notification, send_daily_briefing  # noqa: E402
 init_bot(db)
 
 
@@ -2955,6 +2965,13 @@ async def telegram_status():
         "configured": bool(_os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()),
         "channel_configured": bool(_os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()),
     }
+
+
+@api_router.post("/cron/telegram-daily-briefing")
+async def cron_telegram_daily_briefing():
+    """Platform cron trigger for the 08:00 TR morning digest."""
+    ok = await send_daily_briefing(db)
+    return {"sent": ok}
 
 app.include_router(api_router)
 app.include_router(make_auth_router(db))

@@ -13,6 +13,16 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] Telegram Grup/Kanal Bildirimleri — DONE**:
+  - `.env`: `TELEGRAM_CHANNEL_ID=-1003597221954` eklendi.
+  - **Yeni etkinlik bildirimi**: `POST /api/events` (server.py `create_event`) sonuna `send_event_notification()` fire-and-forget çağrısı eklendi — `TELEGRAM_CHANNEL_ID` set olduğunda kanala `🎉 Yeni Etkinlik!` mesajı gider.
+  - **SvS başlangıç bildirimi**: `_svs_worker()` artık `⚔️ SvS başlıyor! Hazırlanın!` mesajını hem `/svs` komutunu veren sohbete hem de `TELEGRAM_CHANNEL_ID` kanalına gönderiyor (duplicate önleme: chat_id == channel ise tek gönderi).
+  - **Günlük 08:00 (TR) brifingi**: Yeni `send_daily_briefing()` fonksiyonu `send_message()`'e formatlı bir mesaj gönderiyor — `🌅 Günaydın TiTaNXiS!` + yaklaşan 5 etkinlik listesi. `POST /api/cron/telegram-daily-briefing` endpoint'i tetikliyor.
+  - **Cron entry** `/app/.emergent/crons.yml`: `telegram-daily-briefing` — cron `0 5 * * *` (05:00 UTC = 08:00 TR), `{{BASE_URL}}/api/cron/telegram-daily-briefing` POST, `enabled: true`.
+  - **Doğrulama**: `/api/telegram/status` → `{configured:true, channel_configured:true}` ✅ · `POST /api/cron/telegram-daily-briefing` → `{sent:true}` HTTP 200 ✅ · Backend log: `POST https://api.telegram.org/bot.../sendMessage → HTTP 200 OK` (mesaj gerçekten kanala teslim edildi) ✅
+
+
+
 - **[2026-02] Telegram Bot Canlı @TiTaNXiS_BoT — DONE**:
   - **Token**: `TELEGRAM_BOT_TOKEN=8982244615:AAHaaDpF5UefxNK3ZOPzwIQAoRcAx-s-634` `.env`'e eklendi, backend restart edildi.
   - **Webhook registered**: `POST setWebhook → {url: "https://oyun-loncasi.emergent.host/api/telegram/webhook", pending_update_count: 0, allowed_updates: ["message"]}` (getWebhookInfo doğrulandı).

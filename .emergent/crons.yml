@@ -11,3 +11,9 @@ crons:
     endpoint: "{{BASE_URL}}/api/cron/weekly-digest-email"
     method: POST
     enabled: true
+  - name: telegram-daily-briefing
+    description: "Sends a morning briefing to the TiTaNXiS Telegram channel at 08:00 TR (05:00 UTC)"
+    cron: "0 5 * * *"
+    endpoint: "{{BASE_URL}}/api/cron/telegram-daily-briefing"
+    method: POST
+    enabled: true
