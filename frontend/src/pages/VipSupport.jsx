@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import {
   Search, Bell, ChevronUp, ChevronDown, CheckCircle2, Eye, Pin,
   MessageSquarePlus, Shield, Sparkles, Lock, Globe as GlobeIcon, X,
@@ -750,6 +751,9 @@ export default function VipSupport() {
                 style={{ background: `${VIOLET}33`, color: "#C4B5FD", border: `1px solid ${VIOLET}66` }}>
             {catDetails?.label || activeCat}
           </span>
+          <div className="ml-auto" data-testid="vip-language-switcher">
+            <LanguageSwitcher />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4">

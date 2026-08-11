@@ -13,6 +13,13 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] VIP Destek Dil Seçici — DONE**:
+  - `VipSupport.jsx` header'ına aynı global `LanguageSwitcher` component'i (`@/components/LanguageSwitcher`) eklendi. `ml-auto` ile sağa yaslı, kategori chip'inden sonra konumlandı.
+  - `useTranslation` hook'u zaten tüm alt bileşenlerde kullanıldığı için `i18n.changeLanguage()` çağırınca sayfadaki 84 `t()` çağrısı anında yeni dile yeniden render oluyor — reload gerekmiyor.
+  - Doğrulama: TR modda "VIP DESTEK" başlığı + switcher görünüyor · FR moda geçince "ASSISTANCE VIP" + Fransızca switcher tetiği. Konsol hatası yok.
+
+
+
 - **[2026-02] VIP Destek 3 Bugfix — DONE**:
   - **Sidebar diakritikleri**: `CategoryPill` `#{cat.slug}` yerine `#{cat.label}` render ediyor. Slug ASCII olduğu için `oneriler` → `ONERİLER` (yanlış) görünüyordu; artık backend `label` field'ından "Öneriler" ve "Sıkça Sorulanlar" gelip CSS `uppercase` transformu ile doğru "ÖNERİLER" / "SIKÇA SORULANLAR" oluyor. Diğer kategoriler de "GENEL SORULAR", "TEKNİK DESTEK" vb. daha okunaklı.
   - **Çöp butonu crash — Kök neden**: `TrashDialog` içindeki `rows.map((t) => ...)` callback'i, `useTranslation`'dan gelen `t` fonksiyonunu shadow'luyordu; iç scope'ta `t("vip_trash_restore")` çağırısı row objesi üzerinde çalışıp `TypeError: t is not a function` fırlatıyordu. Fix: map parametresi `row` olarak yeniden adlandırıldı, ilgili tüm `t.title / t.author_name / t.category / t.deleted_at / t.id` referansları `row.*` yapıldı.
