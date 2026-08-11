@@ -13,6 +13,13 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] VIP Destek Etiket Kısaltmaları — DONE**:
+  - `vip_selection_mode` TR: "Seçim Modu" → "Seç" (EN: "Select Mode" → "Select"). Kullanıcının "SELECT MODE → Seç" mapping'ine göre kısaltıldı.
+  - Diğer beş etiket (`vip_filter_all/new/resolved`, `vip_trash_btn`, `vip_search_placeholder`) TR karşılıkları zaten doğruydu ("Tümü/Yeni/Çözüldü/Çöp/Ara..."). Kullanıcının EN görüntülemesi büyük ihtimalle localStorage `ol_lang='en'` ayarından kaynaklanıyor — dil switcher'ından TR seçince beklenen etiketler görünüyor.
+  - Doğrulama: TR modda 5/5 etiket + Ara... placeholder mevcut, konsol hatası yok.
+
+
+
 - **[2026-02] VIP Destek + Dashboard i18n (29 dil) — DONE**:
   - **Kapsam**: `VipSupport.jsx` + `Dashboard.jsx` içindeki tüm sabit Türkçe metinler (~97 anahtar) i18n'e taşındı. `vip_*` ve `dash_*` isim uzayları.
   - **Anahtarlar**: sayfa başlıkları, KPI kartları (Toplam Üye/Çevrimiçi/Aktif Etkinlik/Toplam Güç), bölüm başlıkları (Bugün/Haftalık Görünüm/Kullanıcı İşlemleri/En Güçlü 5/Son Etkinlikler/Son Giriş Yapanlar/Yaklaşan), filtre pill'leri (Tümü/Yeni/Çözüldü + Girişler/Puanlar/Etkinlikler), Recharts bar isimleri (Bu Hafta/Geçen Hafta), tüm tablo başlıkları, tüm butonlar (Sil/Onayla/İptal/Sıfırla/Kaydet/Varsayılan/💾), tüm toast'lar (Kayıt silindi/Silinemedi/Soru çöp kutusuna taşındı/Talebiniz oluşturuldu/vb.), VIP diyalog başlıkları (Yeni Talep/Çöp Kutusu/Soruyu Sil/Kalıcı Olarak Sil), rozetler (ÇÖZÜLDÜ/ÖZEL/Herkese Açık/TiTaNXiS Yanıtı), status pill'leri (Aktif/Yaklaşan/Tamamlandı).
