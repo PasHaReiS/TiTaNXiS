@@ -2,9 +2,11 @@ import React from "react";
 import "@/App.css";
 import "@/lib/api"; // register axios interceptors
 import "@/i18n"; // initialize i18n
+import "@/firebase"; // initialize Firebase Analytics
 import i18n from "@/i18n";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
+import { trackPageView } from "@/firebase";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import Layout from "@/components/Layout";
@@ -80,6 +82,10 @@ function RequireAdminOrEditor({ children }) {
 
 function AppShell() {
   const { loading } = useAuth();
+  const location = useLocation();
+  React.useEffect(() => {
+    trackPageView(location.pathname, document.title);
+  }, [location.pathname]);
   if (loading) return <div className="app-shell"><LoadingScreen /></div>;
   return (
     <div className="app-shell">

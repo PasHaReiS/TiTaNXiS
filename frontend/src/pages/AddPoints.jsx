@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Search, ChevronDown, Users, Lock, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { trackEvent } from "@/firebase";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -55,6 +56,8 @@ export default function AddPoints({ hideHeader = false }) {
           note: note.trim() || null,
         });
         toast.success(t("points_added_bulk", { n: bulkIds.length }));
+        trackEvent("score_update", { event_id: eventId, points: Number(points), bulk: true, member_count: bulkIds.length });
+        trackEvent("event_join", { event_id: eventId, method: "bulk", member_count: bulkIds.length });
       } else {
         await api.post("/scores", {
           member_id: selectedMember.id,
@@ -64,6 +67,8 @@ export default function AddPoints({ hideHeader = false }) {
           note: note.trim() || null,
         });
         toast.success(t("point_added_for", { name: selectedMember.name, n: fmt(Number(points) * finalMultiplier) }));
+        trackEvent("score_update", { event_id: eventId, points: Number(points), bulk: false });
+        trackEvent("event_join", { event_id: eventId, method: "single", member_id: selectedMember.id });
       }
       setPoints(""); setNote(""); setSelectedMember(null); setMemberQ(""); setBulkIds([]);
       mutate((k) => typeof k === "string" && (k.startsWith("/scores") || k.startsWith("/points")));

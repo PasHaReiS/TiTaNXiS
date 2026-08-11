@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import axios from "axios";
+import { identifyUser, trackEvent } from "@/firebase";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -22,7 +23,7 @@ export function AuthProvider({ children }) {
     setAxiosToken(token);
     axios
       .get(`${API}/auth/me`)
-      .then((r) => setUser(r.data))
+      .then((r) => { setUser(r.data); identifyUser(r.data); })
       .catch(() => {
         localStorage.removeItem(TOKEN_KEY);
         setAxiosToken(null);
@@ -35,6 +36,8 @@ export function AuthProvider({ children }) {
     localStorage.setItem(TOKEN_KEY, data.token);
     setAxiosToken(data.token);
     setUser(data.user);
+    identifyUser(data.user);
+    trackEvent("user_login", { method: "password", role: data.user?.role || "member" });
     return data.user;
   }, [setAxiosToken]);
 

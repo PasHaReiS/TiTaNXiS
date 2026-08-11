@@ -11,6 +11,7 @@ import {
 import { api, fmt } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useTranslation } from "react-i18next";
+import { isAnalyticsActive, trackEvent } from "@/firebase";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 const BG = "#111111";
@@ -759,6 +760,88 @@ function DraggableGrid({ items }) {
   );
 }
 
+/* ---------------- firebase analytics ---------------- */
+function FirebaseAnalyticsCard() {
+  const [active, setActive] = useState(false);
+  const [sentCount, setSentCount] = useState(0);
+  useEffect(() => {
+    // Poll once shortly after mount — analytics init resolves ~few ms after page load.
+    const check = () => setActive(isAnalyticsActive());
+    check();
+    const id = setTimeout(check, 800);
+    return () => clearTimeout(id);
+  }, []);
+  const sendTest = () => {
+    const ok = trackEvent("dashboard_test_ping", {
+      source: "dashboard-firebase-card",
+      ts: Date.now(),
+    });
+    if (ok) setSentCount((n) => n + 1);
+  };
+  return (
+    <div
+      className="rounded-xl p-4"
+      style={{ background: CARD, border: "1px solid rgba(255,255,255,0.06)" }}
+      data-testid="firebase-analytics-card"
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <span
+          className="w-2 h-2 rounded-full"
+          style={{
+            background: active ? "#10B981" : "#F59E0B",
+            boxShadow: active ? "0 0 8px #10B981" : "0 0 6px #F59E0B",
+          }}
+          data-testid="firebase-status-dot"
+        />
+        <span className="text-xs uppercase tracking-widest font-black" style={{ color: "#fff" }}>
+          Firebase Analitik
+        </span>
+        <span
+          className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded"
+          style={{
+            background: active ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)",
+            color: active ? "#10B981" : "#F59E0B",
+          }}
+          data-testid="firebase-status-badge"
+        >
+          {active ? "AKTİF" : "BEKLEMEDE"}
+        </span>
+      </div>
+      <div className="text-[10px] mb-2" style={{ color: "#9CA3AF" }}>
+        <div className="flex justify-between py-0.5">
+          <span>measurementId</span>
+          <span className="mono" style={{ color: "#C4B5FD" }}>G-BMDBPGQLGD</span>
+        </div>
+        <div className="flex justify-between py-0.5">
+          <span>projectId</span>
+          <span className="mono" style={{ color: "#C4B5FD" }}>titanxis-firebase</span>
+        </div>
+        <div className="flex justify-between py-0.5">
+          <span>Session events</span>
+          <span className="mono" style={{ color: "#F59E0B" }} data-testid="firebase-session-count">{sentCount}</span>
+        </div>
+      </div>
+      <div className="text-[10px] mb-3 leading-relaxed" style={{ color: "rgba(196,181,253,0.6)" }}>
+        İzlenen olaylar: <b>page_view</b>, <b>user_login</b>, <b>score_update</b>, <b>event_join</b>. Firebase Console'da gerçek zamanlı veriler yaklaşık 24 saat içinde görünmeye başlar.
+      </div>
+      <button
+        type="button"
+        onClick={sendTest}
+        disabled={!active}
+        data-testid="firebase-test-event-btn"
+        className="w-full text-[10px] font-black uppercase tracking-widest py-2 rounded disabled:opacity-40"
+        style={{
+          background: active ? "rgba(139,92,246,0.15)" : "rgba(255,255,255,0.04)",
+          border: `1px solid ${active ? "rgba(139,92,246,0.5)" : "rgba(255,255,255,0.1)"}`,
+          color: active ? "#C4B5FD" : "#6B7280",
+        }}
+      >
+        Test Olayı Gönder
+      </button>
+    </div>
+  );
+}
+
 /* ---------------- page ---------------- */
 export default function Dashboard() {
   const { t } = useTranslation();
@@ -806,6 +889,11 @@ export default function Dashboard() {
 
       <SectionTitle>{t("dash_user_actions")}</SectionTitle>
       <ActivityLog />
+
+      <SectionTitle>Firebase Analitik</SectionTitle>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3" data-testid="dashboard-firebase-grid">
+        <FirebaseAnalyticsCard />
+      </div>
 
       <div className="h-8" />
     </div>
