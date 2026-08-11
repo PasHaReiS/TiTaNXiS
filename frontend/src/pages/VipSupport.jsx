@@ -79,6 +79,7 @@ function VoteControl({ thread, myVote, onVote, size = "md" }) {
 }
 
 function ThreadCard({ thread, onOpen, canAdmin, onDelete, selectionMode, selected, onToggleSelect }) {
+  const { t } = useTranslation();
   return (
     <div
       onClick={selectionMode ? () => onToggleSelect(thread.id) : onOpen}
@@ -114,7 +115,7 @@ function ThreadCard({ thread, onOpen, canAdmin, onDelete, selectionMode, selecte
               className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap"
               style={{ background: "rgba(16,185,129,0.15)", color: "#10B981", border: "1px solid rgba(16,185,129,0.4)" }}
             >
-              <CheckCircle2 className="w-2.5 h-2.5" /> ÇÖZÜLDÜ
+              <CheckCircle2 className="w-2.5 h-2.5" /> {t("vip_resolved_badge")}
             </span>
           )}
           {thread.has_admin_reply && (
@@ -140,7 +141,7 @@ function ThreadCard({ thread, onOpen, canAdmin, onDelete, selectionMode, selecte
           type="button"
           onClick={(e) => { e.stopPropagation(); onDelete(thread); }}
           data-testid={`vip-thread-delete-${thread.id}`}
-          title="Soruyu sil"
+          title={t("vip_delete_tooltip")}
           className="flex-shrink-0 p-1.5 rounded-md transition-colors hover:bg-red-500/20"
           style={{ color: "#EF4444", border: "1px solid rgba(239,68,68,0.35)" }}
         >
@@ -152,22 +153,23 @@ function ThreadCard({ thread, onOpen, canAdmin, onDelete, selectionMode, selecte
 }
 
 function TrashDialog({ open, onClose, refreshThreads }) {
+  const { t } = useTranslation();
   const { data: rows = [], mutate: refetch } = useSWR(open ? "/vip/trash" : null, fetcher);
   if (!open) return null;
   const restore = async (tid) => {
     try {
       await api.post(`/vip/threads/${tid}/restore`);
-      toast.success("Soru geri yüklendi");
+      toast.success(t("vip_toast_restored"));
       await refetch();
       refreshThreads?.();
     } catch (e) {
-      toast.error("Geri yüklenemedi");
+      toast.error(t("vip_toast_restore_fail"));
     }
   };
   const relHours = (iso) => {
     if (!iso) return "";
     const diffH = Math.floor((Date.now() - new Date(iso).getTime()) / 3600000);
-    return `${diffH} sa önce silindi · ${Math.max(0, 24 - diffH)} sa sonra kalıcı silinecek`;
+    return t("vip_trash_ago", { h: diffH, r: Math.max(0, 24 - diffH) });
   };
   return (
     <div
@@ -184,16 +186,16 @@ function TrashDialog({ open, onClose, refreshThreads }) {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2"
               style={{ color: AMBER, fontFamily: "Cinzel, serif" }}>
-            <Archive className="w-4 h-4" /> Çöp Kutusu · 24 saat
+            <Archive className="w-4 h-4" /> {t("vip_trash_title")}
           </h3>
           <button onClick={onClose} data-testid="vip-trash-close"><X className="w-4 h-4 text-white" /></button>
         </div>
         <p className="text-[10px] mb-3" style={{ color: "rgba(196,181,253,0.6)" }}>
-          Silinen sorular 24 saat burada bekler. Geri yüklemeyen sorular kalıcı olarak silinir.
+          {t("vip_trash_desc")}
         </p>
         {rows.length === 0 && (
           <div className="text-center py-8 text-xs" style={{ color: "rgba(196,181,253,0.5)" }}>
-            Çöp kutusu boş
+            {t("vip_trash_empty")}
           </div>
         )}
         <div className="space-y-2">
@@ -215,7 +217,7 @@ function TrashDialog({ open, onClose, refreshThreads }) {
                   className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full flex items-center gap-1"
                   style={{ background: "rgba(16,185,129,0.15)", color: "#10B981", border: "1px solid #10B981" }}
                 >
-                  <Undo2 className="w-3 h-3" /> Geri Yükle
+                  <Undo2 className="w-3 h-3" /> {t("vip_trash_restore")}
                 </button>
               </div>
             </div>
@@ -227,6 +229,7 @@ function TrashDialog({ open, onClose, refreshThreads }) {
 }
 
 function ConfirmDeleteDialog({ open, thread, onCancel, onConfirm, busy }) {
+  const { t } = useTranslation();
   if (!open || !thread) return null;
   return (
     <div
@@ -243,11 +246,11 @@ function ConfirmDeleteDialog({ open, thread, onCancel, onConfirm, busy }) {
         <Trash2 className="w-8 h-8 mx-auto mb-2" style={{ color: "#EF4444" }} />
         <h3 className="text-sm font-black uppercase tracking-widest mb-2"
             style={{ color: "#EF4444", fontFamily: "Cinzel, serif" }}>
-          Soruyu Sil
+          {t("vip_delete_title")}
         </h3>
         <p className="text-xs mb-4" style={{ color: "rgba(245,240,232,0.85)" }}>
           <b className="block truncate" title={thread.title}>{thread.title}</b>
-          Bu soru ve tüm yanıtları kalıcı olarak silinecek. Bu işlem geri alınamaz.
+          {t("vip_delete_warn")}
         </p>
         <div className="flex gap-2">
           <button
@@ -258,7 +261,7 @@ function ConfirmDeleteDialog({ open, thread, onCancel, onConfirm, busy }) {
             className="flex-1 px-3 py-2 rounded text-xs font-bold uppercase tracking-wider disabled:opacity-40"
             style={{ background: "rgba(139,92,246,0.15)", color: "#C4B5FD", border: `1px solid ${VIOLET}55` }}
           >
-            İptal
+            {t("cancel")}
           </button>
           <button
             type="button"
@@ -268,7 +271,7 @@ function ConfirmDeleteDialog({ open, thread, onCancel, onConfirm, busy }) {
             className="flex-1 px-3 py-2 rounded text-xs font-bold uppercase tracking-wider disabled:opacity-40"
             style={{ background: "#EF4444", color: "#fff", border: "1px solid #EF4444" }}
           >
-            {busy ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : "Kalıcı Olarak Sil"}
+            {busy ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : t("vip_delete_permanent")}
           </button>
         </div>
       </div>
@@ -277,6 +280,7 @@ function ConfirmDeleteDialog({ open, thread, onCancel, onConfirm, busy }) {
 }
 
 function ReplyCard({ reply, canAdmin, onToggleVisibility }) {
+  const { t } = useTranslation();
   const isAdmin = reply.is_admin;
   return (
     <div
@@ -308,7 +312,7 @@ function ReplyCard({ reply, canAdmin, onToggleVisibility }) {
             className="ml-auto text-[9px] flex items-center gap-1 px-1.5 py-0.5 rounded-full"
             style={{ background: "rgba(239,68,68,0.15)", color: "#EF4444" }}
           >
-            <Lock className="w-2.5 h-2.5" /> ÖZEL
+            <Lock className="w-2.5 h-2.5" /> {t("vip_private")}
           </span>
         )}
       </div>
@@ -328,7 +332,7 @@ function ReplyCard({ reply, canAdmin, onToggleVisibility }) {
               data-testid={`vip-reply-public-${reply.id}`}
             />
             <GlobeIcon className="w-3 h-3" />
-            <span className="uppercase tracking-wider font-bold">Herkese Açık</span>
+            <span className="uppercase tracking-wider font-bold">{t("vip_public")}</span>
           </label>
         </div>
       )}
@@ -337,6 +341,7 @@ function ReplyCard({ reply, canAdmin, onToggleVisibility }) {
 }
 
 function NewThreadDialog({ open, onClose, categorySlug, onCreated, initialTitle = "", initialBody = "" }) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState(initialTitle);
   const [body, setBody] = useState(initialBody);
   const [submitting, setSubmitting] = useState(false);
@@ -349,18 +354,18 @@ function NewThreadDialog({ open, onClose, categorySlug, onCreated, initialTitle 
   if (!open) return null;
   const submit = async () => {
     if (title.trim().length < 3 || body.trim().length < 1) {
-      toast.error("Başlık ve mesaj boş olamaz");
+      toast.error(t("vip_toast_title_empty"));
       return;
     }
     setSubmitting(true);
     try {
       const res = await api.post("/vip/threads", { category: categorySlug, title, body });
-      toast.success("Talebiniz oluşturuldu");
+      toast.success(t("vip_toast_created"));
       setTitle(""); setBody("");
       onCreated?.(res.data);
       onClose();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Oluşturulamadı");
+      toast.error(e?.response?.data?.detail || t("vip_toast_create_fail"));
     } finally {
       setSubmitting(false);
     }
@@ -379,13 +384,13 @@ function NewThreadDialog({ open, onClose, categorySlug, onCreated, initialTitle 
       >
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-black uppercase tracking-widest" style={{ color: AMBER, fontFamily: "Cinzel, serif" }}>
-            Yeni Talep · #{categorySlug}
+            {t("vip_new_thread_title")} · #{categorySlug}
           </h3>
           <button onClick={onClose} data-testid="vip-new-close"><X className="w-4 h-4 text-white" /></button>
         </div>
         <input
           type="text"
-          placeholder="Kısa başlık"
+          placeholder={t("vip_new_title_placeholder")}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           data-testid="vip-new-title"
@@ -393,7 +398,7 @@ function NewThreadDialog({ open, onClose, categorySlug, onCreated, initialTitle 
           style={{ background: "rgba(139,92,246,0.1)", border: `1px solid ${VIOLET}66`, color: "#F5F0E8" }}
         />
         <textarea
-          placeholder="Detaylı açıklama..."
+          placeholder={t("vip_new_body_placeholder")}
           value={body}
           onChange={(e) => setBody(e.target.value)}
           data-testid="vip-new-body"
@@ -408,7 +413,7 @@ function NewThreadDialog({ open, onClose, categorySlug, onCreated, initialTitle 
           className="mt-3 w-full py-2 rounded font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 disabled:opacity-50"
           style={{ background: `linear-gradient(135deg, ${VIOLET}, ${AMBER})`, color: BASE, fontFamily: "Cinzel, serif" }}
         >
-          {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Gönder"}
+          {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t("vip_send")}
         </button>
       </div>
     </div>
@@ -416,6 +421,7 @@ function NewThreadDialog({ open, onClose, categorySlug, onCreated, initialTitle 
 }
 
 function ThreadDetailDialog({ threadId, open, onClose, refreshThreads, isAdminUser, user }) {
+  const { t } = useTranslation();
   const { data, mutate: refetch } = useSWR(open && threadId ? `/vip/threads/${threadId}` : null, fetcher);
   const [replyBody, setReplyBody] = useState("");
   const [replyPublic, setReplyPublic] = useState(true);
@@ -426,25 +432,25 @@ function ThreadDetailDialog({ threadId, open, onClose, refreshThreads, isAdminUs
 
   const submitReply = async () => {
     if (replyBody.trim().length < 1) {
-      toast.error("Yanıt boş olamaz");
+      toast.error(t("vip_toast_reply_empty"));
       return;
     }
     setSubmitting(true);
     try {
       await api.post(`/vip/threads/${threadId}/reply`, { body: replyBody, is_public: replyPublic });
       setReplyBody("");
-      toast.success("Yanıt eklendi");
+      toast.success(t("vip_toast_reply_added"));
       await refetch();
       refreshThreads?.();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Eklenemedi");
+      toast.error(e?.response?.data?.detail || t("vip_toast_add_fail"));
     } finally {
       setSubmitting(false);
     }
   };
 
   const vote = async (val) => {
-    if (!user) { toast.error("Oy vermek için giriş yap"); return; }
+    if (!user) { toast.error(t("vip_toast_vote_login")); return; }
     try {
       await api.post(`/vip/threads/${threadId}/vote`, { value: val });
       await refetch();
@@ -487,7 +493,7 @@ function ThreadDetailDialog({ threadId, open, onClose, refreshThreads, isAdminUs
         className="w-full max-w-2xl p-4 rounded-lg my-4"
         style={{ background: BASE, border: `1px solid ${VIOLET}` }}
       >
-        {!thread && <div className="text-center py-6 text-white">Yükleniyor...</div>}
+        {!thread && <div className="text-center py-6 text-white">{t("loading")}</div>}
         {thread && (
           <>
             <div className="flex items-start gap-3 mb-4">
@@ -501,7 +507,7 @@ function ThreadDetailDialog({ threadId, open, onClose, refreshThreads, isAdminUs
                   {thread.resolved && (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"
                           style={{ background: "rgba(16,185,129,0.15)", color: "#10B981", border: "1px solid rgba(16,185,129,0.4)" }}>
-                      <CheckCircle2 className="w-3 h-3" /> ÇÖZÜLDÜ
+                      <CheckCircle2 className="w-3 h-3" /> {t("vip_resolved_badge")}
                     </span>
                   )}
                 </div>
@@ -525,12 +531,12 @@ function ThreadDetailDialog({ threadId, open, onClose, refreshThreads, isAdminUs
                 <button onClick={toggleResolve} data-testid="vip-toggle-resolve"
                         className="text-[10px] font-bold uppercase px-2 py-1 rounded"
                         style={{ background: thread.resolved ? "#10B981" : "rgba(16,185,129,0.2)", color: thread.resolved ? BASE : "#10B981" }}>
-                  {thread.resolved ? "Çözüldü ✓" : "Çözüldü olarak işaretle"}
+                  {thread.resolved ? t("vip_resolved_check") : t("vip_mark_resolved")}
                 </button>
                 <button onClick={togglePin} data-testid="vip-toggle-pin"
                         className="text-[10px] font-bold uppercase px-2 py-1 rounded"
                         style={{ background: thread.pinned ? AMBER : `${AMBER}22`, color: thread.pinned ? BASE : AMBER }}>
-                  {thread.pinned ? "Sabitli 📌" : "Sabitle"}
+                  {thread.pinned ? t("vip_pinned") : t("vip_pin")}
                 </button>
               </div>
             )}
@@ -541,7 +547,7 @@ function ThreadDetailDialog({ threadId, open, onClose, refreshThreads, isAdminUs
               ))}
               {(data?.replies || []).length === 0 && (
                 <div className="text-center py-4 text-xs" style={{ color: "rgba(196,181,253,0.5)" }}>
-                  Henüz yanıt yok
+                  {t("vip_no_replies")}
                 </div>
               )}
             </div>
@@ -549,7 +555,7 @@ function ThreadDetailDialog({ threadId, open, onClose, refreshThreads, isAdminUs
             {user && (
               <div className="border-t pt-3" style={{ borderColor: `${VIOLET}44` }}>
                 <textarea
-                  placeholder="Yanıtınızı yazın..."
+                  placeholder={t("vip_reply_placeholder")}
                   value={replyBody}
                   onChange={(e) => setReplyBody(e.target.value)}
                   data-testid="vip-reply-body"
@@ -564,13 +570,13 @@ function ThreadDetailDialog({ threadId, open, onClose, refreshThreads, isAdminUs
                       <input type="checkbox" checked={replyPublic} onChange={(e) => setReplyPublic(e.target.checked)}
                              data-testid="vip-reply-public-toggle" />
                       <GlobeIcon className="w-3 h-3" />
-                      <span className="uppercase tracking-wider font-bold">Herkese Açık</span>
+                      <span className="uppercase tracking-wider font-bold">{t("vip_public")}</span>
                     </label>
                   )}
                   <button onClick={submitReply} disabled={submitting} data-testid="vip-reply-submit"
                           className="ml-auto px-4 py-2 rounded text-xs font-black uppercase tracking-widest disabled:opacity-50"
                           style={{ background: `linear-gradient(135deg, ${VIOLET}, ${AMBER})`, color: BASE, fontFamily: "Cinzel, serif" }}>
-                    {submitting ? <Loader2 className="w-3 h-3 animate-spin" /> : "Yanıtla"}
+                    {submitting ? <Loader2 className="w-3 h-3 animate-spin" /> : t("vip_reply_btn")}
                   </button>
                 </div>
               </div>
@@ -583,13 +589,14 @@ function ThreadDetailDialog({ threadId, open, onClose, refreshThreads, isAdminUs
 }
 
 function FaqAccordion({ items }) {
+  const { t } = useTranslation();
   const [openId, setOpenId] = useState(null);
   if (!items || items.length === 0) return null;
   return (
     <div className="mb-4" data-testid="vip-faq-accordion">
       <div className="text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2"
            style={{ color: AMBER, fontFamily: "Cinzel, serif" }}>
-        <Pin className="w-3 h-3" /> Sabitlenmiş Sorular
+        <Pin className="w-3 h-3" /> {t("vip_pinned_questions")}
       </div>
       <div className="space-y-1.5">
         {items.map((it) => {
@@ -610,7 +617,7 @@ function FaqAccordion({ items }) {
                   <div className="mb-2 whitespace-pre-wrap">{it.body}</div>
                   {it.answer && (
                     <div className="mt-2 p-2 rounded" style={{ background: `${AMBER}11`, border: `1px solid ${AMBER}66` }}>
-                      <div className="text-[9px] font-black uppercase mb-1" style={{ color: AMBER }}>TiTaNXiS Yanıtı</div>
+                      <div className="text-[9px] font-black uppercase mb-1" style={{ color: AMBER }}>{t("vip_titan_reply")}</div>
                       <div className="whitespace-pre-wrap" style={{ color: "#F5F0E8" }}>{it.answer}</div>
                     </div>
                   )}
@@ -625,6 +632,7 @@ function FaqAccordion({ items }) {
 }
 
 export default function VipSupport() {
+  const { t } = useTranslation();
   const { user, isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCat = searchParams.get("category") || "genel-sorular";
@@ -689,11 +697,11 @@ export default function VipSupport() {
     setDeleteBusy(true);
     try {
       await api.delete(`/vip/threads/${deleteTarget.id}`);
-      toast.success("Soru çöp kutusuna taşındı");
+      toast.success(t("vip_toast_soft_deleted"));
       setDeleteTarget(null);
       refreshThreads();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Silinemedi");
+      toast.error(e?.response?.data?.detail || t("vip_toast_delete_fail"));
     } finally {
       setDeleteBusy(false);
     }
@@ -704,22 +712,22 @@ export default function VipSupport() {
     setDeleteBusy(true);
     try {
       await Promise.all(Array.from(selectedIds).map((id) => api.delete(`/vip/threads/${id}`)));
-      toast.success(`${selectedIds.size} soru çöp kutusuna taşındı`);
+      toast.success(t("vip_toast_bulk_soft_deleted", { n: selectedIds.size }));
       setSelectedIds(new Set());
       setSelectionMode(false);
       setBulkConfirm(false);
       refreshThreads();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Toplu silme başarısız");
+      toast.error(e?.response?.data?.detail || t("vip_toast_bulk_delete_fail"));
     } finally {
       setDeleteBusy(false);
     }
   };
 
   const filterTabs = [
-    { key: "all", label: "Tümü" },
-    { key: "new", label: "Yeni" },
-    { key: "resolved", label: "Çözüldü" },
+    { key: "all", label: t("vip_filter_all") },
+    { key: "new", label: t("vip_filter_new") },
+    { key: "resolved", label: t("vip_filter_resolved") },
   ];
 
   return (
@@ -736,7 +744,7 @@ export default function VipSupport() {
           <Sparkles className="w-5 h-5" style={{ color: AMBER }} />
           <h1 className="text-xl font-black uppercase tracking-widest"
               style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }}>
-            VIP Destek
+            {t("vip_page_title")}
           </h1>
           <span className="text-[10px] px-2 py-0.5 rounded-full ml-2"
                 style={{ background: `${VIOLET}33`, color: "#C4B5FD", border: `1px solid ${VIOLET}66` }}>
@@ -765,7 +773,7 @@ export default function VipSupport() {
                 <Search className="w-3.5 h-3.5" style={{ color: VIOLET }} />
                 <input
                   type="text"
-                  placeholder="Ara..."
+                  placeholder={t("vip_search_placeholder")}
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   data-testid="vip-search"
@@ -807,7 +815,7 @@ export default function VipSupport() {
                       border: "1px solid #EF4444",
                     }}
                   >
-                    {selectionMode ? "İptal" : "Seçim Modu"}
+                    {selectionMode ? t("cancel") : t("vip_selection_mode")}
                   </button>
                   {selectionMode && (
                     <button
@@ -818,7 +826,7 @@ export default function VipSupport() {
                       className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full disabled:opacity-40 flex items-center gap-1"
                       style={{ background: "#EF4444", color: "#fff", border: "1px solid #EF4444" }}
                     >
-                      <Trash2 className="w-3 h-3" /> Seçilenleri Sil ({selectedIds.size})
+                      <Trash2 className="w-3 h-3" /> {t("vip_delete_selected", { n: selectedIds.size })}
                     </button>
                   )}
                   <button
@@ -828,7 +836,7 @@ export default function VipSupport() {
                     className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full flex items-center gap-1"
                     style={{ background: `${AMBER}22`, color: AMBER, border: `1px solid ${AMBER}` }}
                   >
-                    <Archive className="w-3 h-3" /> Çöp
+                    <Archive className="w-3 h-3" /> {t("vip_trash_btn")}
                   </button>
                 </>
               )}
@@ -839,7 +847,7 @@ export default function VipSupport() {
             <div className="space-y-2" data-testid="vip-threads-list">
               {threads.length === 0 && (
                 <div className="text-center py-10 text-xs" style={{ color: "rgba(196,181,253,0.5)" }}>
-                  Bu kategoride henüz talep yok
+                  {t("vip_empty_category")}
                 </div>
               )}
               {threads.map((t) => (
@@ -867,19 +875,19 @@ export default function VipSupport() {
               >
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] uppercase tracking-widest" style={{ color: "rgba(196,181,253,0.7)" }}>
-                    Toplam Soru
+                    {t("vip_stats_total")}
                   </span>
                   <span className="text-lg font-black mono" style={{ color: AMBER }}>{stats.total_threads}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] uppercase tracking-widest" style={{ color: "rgba(196,181,253,0.7)" }}>
-                    Çözülen
+                    {t("vip_stats_resolved")}
                   </span>
                   <span className="text-lg font-black mono" style={{ color: "#10B981" }}>{stats.resolved_threads}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] uppercase tracking-widest" style={{ color: "rgba(196,181,253,0.7)" }}>
-                    Ort. Yanıt
+                    {t("vip_stats_avg")}
                   </span>
                   <span className="text-lg font-black mono" style={{ color: "#C4B5FD" }}>
                     {stats.avg_response_hours != null ? `${stats.avg_response_hours}s` : "—"}
@@ -930,7 +938,7 @@ export default function VipSupport() {
       />
       <ConfirmDeleteDialog
         open={bulkConfirm}
-        thread={{ title: `Seçilen ${selectedIds.size} soru`, id: "bulk" }}
+        thread={{ title: t("vip_bulk_target", { n: selectedIds.size }), id: "bulk" }}
         onCancel={() => setBulkConfirm(false)}
         onConfirm={bulkDelete}
         busy={deleteBusy}

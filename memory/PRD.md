@@ -13,6 +13,15 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] VIP Destek + Dashboard i18n (29 dil) — DONE**:
+  - **Kapsam**: `VipSupport.jsx` + `Dashboard.jsx` içindeki tüm sabit Türkçe metinler (~97 anahtar) i18n'e taşındı. `vip_*` ve `dash_*` isim uzayları.
+  - **Anahtarlar**: sayfa başlıkları, KPI kartları (Toplam Üye/Çevrimiçi/Aktif Etkinlik/Toplam Güç), bölüm başlıkları (Bugün/Haftalık Görünüm/Kullanıcı İşlemleri/En Güçlü 5/Son Etkinlikler/Son Giriş Yapanlar/Yaklaşan), filtre pill'leri (Tümü/Yeni/Çözüldü + Girişler/Puanlar/Etkinlikler), Recharts bar isimleri (Bu Hafta/Geçen Hafta), tüm tablo başlıkları, tüm butonlar (Sil/Onayla/İptal/Sıfırla/Kaydet/Varsayılan/💾), tüm toast'lar (Kayıt silindi/Silinemedi/Soru çöp kutusuna taşındı/Talebiniz oluşturuldu/vb.), VIP diyalog başlıkları (Yeni Talep/Çöp Kutusu/Soruyu Sil/Kalıcı Olarak Sil), rozetler (ÇÖZÜLDÜ/ÖZEL/Herkese Açık/TiTaNXiS Yanıtı), status pill'leri (Aktif/Yaklaşan/Tamamlandı).
+  - **Çeviri**: TR ve EN manuel yazıldı (yüksek kalite). Diğer 27 dil için `/tmp/i18n_patch.py` script'i `POST /api/translate` (DeepL) ile tek batch'te 97 dize × 27 dil çevirdi ve doğru dil bloklarına idempotent şekilde enjekte etti (marker `__VIP_DASH_I18N_ADDED__`).
+  - **Etkilenen dosyalar**: `/app/frontend/src/i18n/index.js` (28 dil bloğu genişledi, boş stub'lar dolduruldu), `/app/frontend/src/pages/VipSupport.jsx` (t() çağrılarına dönüştü), `/app/frontend/src/pages/Dashboard.jsx` (STATUS_PILL/ACTION_META style ve i18n-key haritalarına ayrıştırıldı; DashboardHeader tarih formatı da `i18n.language`'e göre).
+  - **Doğrulama**: TR/EN/DE/JA çerçevelerinde canlı test — hepsinde başarılı render, konsolda pageerror yok. Anahtar sayıları: tr=98, en=98, diğer 27 dil=97 (aynı set).
+
+
+
 - **[2026-02] Dashboard Aktivite Log — Kısa İsim + Admin Silme — DONE**:
   - **Backend** (`routes/dashboard.py`): `register_dashboard` imzasına `require_admin` opsiyonel parametresi eklendi + `server.py` çağrısı güncellendi. Yeni `DELETE /api/dashboard/activity-log/{entry_id}` endpoint'i (`Depends(_admin_guard)`) — 200 `{deleted, id}`, kayıt yoksa 404.
   - **Frontend** (`Dashboard.jsx`): `displayName(email)` helper — `@` öncesini alıp `pasha@titanxis.com → pasha` gösteriyor. Avatar initial'ı da bu kısa isimden hesaplanıyor. Tabloya admin-only "Sil" sütunu eklendi: 🗑️ ikon → tıklayınca aynı satırda inline "Onayla / İptal" pill'leri (modal yok, hızlı akış). `api.delete` başarılı olunca `mutate()` + `toast.success("Kayıt silindi")`.

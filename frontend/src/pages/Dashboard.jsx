@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import { api, fmt } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { useTranslation } from "react-i18next";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 const BG = "#111111";
@@ -51,6 +52,7 @@ const initial = (name) => (name || "?").trim().charAt(0).toUpperCase();
 
 /* ---------------- header ---------------- */
 function DashboardHeader() {
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -59,20 +61,20 @@ function DashboardHeader() {
   }, []);
   const dateStr = useMemo(() => {
     try {
-      const d = new Intl.DateTimeFormat("tr-TR", {
+      const d = new Intl.DateTimeFormat(i18n.language || "tr", {
         day: "numeric", month: "long", year: "numeric", weekday: "long",
       }).format(now);
       const time = now.toTimeString().slice(0, 5);
       return `${d} · ${time}`;
     } catch { return ""; }
-  }, [now]);
+  }, [now, i18n.language]);
   return (
     <div className="pb-4" data-testid="dashboard-header"
          style={{ borderBottom: `1px solid ${AMBER}66`, boxShadow: `0 1px 0 ${AMBER}22` }}>
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
         <h1 className="text-2xl sm:text-3xl font-black"
             style={{ color: "#fff", fontFamily: "Cinzel, serif", letterSpacing: "0.04em" }}>
-          Merhaba {user?.username || "Komutan"} <span style={{ color: AMBER }}>👑</span>
+          {t("dash_hello", { name: user?.username || t("dash_commander") })} <span style={{ color: AMBER }}>👑</span>
         </h1>
         <div className="text-xs sm:text-sm mono" style={{ color: "#9CA3AF" }}>{dateStr}</div>
       </div>
@@ -137,6 +139,7 @@ function StatCard({ Icon, label, value, trend, format = fmt, testId }) {
 
 /* ---------------- weekly chart ---------------- */
 function WeeklyChart({ rows }) {
+  const { t } = useTranslation();
   return (
     <div
       className="rounded-xl p-4 h-[320px]"
@@ -154,8 +157,8 @@ function WeeklyChart({ rows }) {
             cursor={{ fill: "rgba(139,92,246,0.08)" }}
           />
           <Legend wrapperStyle={{ fontSize: 11, paddingBottom: 8 }} verticalAlign="top" />
-          <Bar dataKey="thisWeek" name="Bu Hafta" fill={VIOLET} radius={[6, 6, 0, 0]} animationDuration={900} />
-          <Bar dataKey="lastWeek" name="Geçen Hafta" fill={AMBER} radius={[6, 6, 0, 0]} animationDuration={900} />
+          <Bar dataKey="thisWeek" name={t("dash_bar_this_week")} fill={VIOLET} radius={[6, 6, 0, 0]} animationDuration={900} />
+          <Bar dataKey="lastWeek" name={t("dash_bar_last_week")} fill={AMBER} radius={[6, 6, 0, 0]} animationDuration={900} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -164,13 +167,14 @@ function WeeklyChart({ rows }) {
 
 /* ---------------- top members ---------------- */
 function TopMembers({ items }) {
+  const { t } = useTranslation();
   return (
     <div className="rounded-xl p-4"
          style={{ background: CARD, border: "1px solid rgba(255,255,255,0.06)" }}
          data-testid="top-members-card">
       <div className="text-xs uppercase tracking-widest font-black mb-3 flex items-center gap-2"
            style={{ color: "#fff" }}>
-        <Trophy className="w-3.5 h-3.5" style={{ color: AMBER }} /> En Güçlü 5
+        <Trophy className="w-3.5 h-3.5" style={{ color: AMBER }} /> {t("dash_top5")}
       </div>
       <div className="space-y-2.5">
         {(items || []).map((m) => (
@@ -202,23 +206,30 @@ function TopMembers({ items }) {
 }
 
 /* ---------------- recent events ---------------- */
-const STATUS_PILL = {
-  active:    { label: "Aktif",       bg: "rgba(16,185,129,0.15)", color: "#10B981" },
-  upcoming:  { label: "Yaklaşan",    bg: `${AMBER}22`,             color: AMBER },
-  completed: { label: "Tamamlandı",  bg: "rgba(156,163,175,0.15)", color: "#9CA3AF" },
+const STATUS_PILL_STYLE = {
+  active:    { bg: "rgba(16,185,129,0.15)", color: "#10B981" },
+  upcoming:  { bg: `${AMBER}22`,             color: AMBER },
+  completed: { bg: "rgba(156,163,175,0.15)", color: "#9CA3AF" },
+};
+const STATUS_KEY = {
+  active: "dash_status_active",
+  upcoming: "dash_status_upcoming",
+  completed: "dash_status_completed",
 };
 function RecentEvents({ items }) {
+  const { t } = useTranslation();
   return (
     <div className="rounded-xl p-4"
          style={{ background: CARD, border: "1px solid rgba(255,255,255,0.06)" }}
          data-testid="recent-events-card">
       <div className="text-xs uppercase tracking-widest font-black mb-3" style={{ color: "#fff" }}>
-        Son Etkinlikler
+        {t("dash_recent_events")}
       </div>
       <div className="space-y-2">
-        {(items || []).length === 0 && <div className="text-xs" style={{ color: "#9CA3AF" }}>Kayıt yok</div>}
+        {(items || []).length === 0 && <div className="text-xs" style={{ color: "#9CA3AF" }}>{t("dash_no_records")}</div>}
         {(items || []).map((e) => {
-          const s = STATUS_PILL[e.status] || STATUS_PILL.completed;
+          const s = STATUS_PILL_STYLE[e.status] || STATUS_PILL_STYLE.completed;
+          const label = t(STATUS_KEY[e.status] || "dash_status_completed");
           return (
             <div key={e.id} className="flex items-center gap-3 py-1.5">
               <div className="flex-1 min-w-0">
@@ -226,7 +237,7 @@ function RecentEvents({ items }) {
                 <div className="text-[10px] mono" style={{ color: "#9CA3AF" }}>{(e.date || "").slice(0, 10)}</div>
               </div>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                    style={{ background: s.bg, color: s.color }}>{s.label}</span>
+                    style={{ background: s.bg, color: s.color }}>{label}</span>
             </div>
           );
         })}
@@ -237,15 +248,16 @@ function RecentEvents({ items }) {
 
 /* ---------------- recent logins ---------------- */
 function RecentLogins({ items }) {
+  const { t } = useTranslation();
   return (
     <div className="rounded-xl p-4"
          style={{ background: CARD, border: "1px solid rgba(255,255,255,0.06)" }}
          data-testid="recent-logins-card">
       <div className="text-xs uppercase tracking-widest font-black mb-3" style={{ color: "#fff" }}>
-        Son Giriş Yapanlar
+        {t("dash_recent_logins")}
       </div>
       <div className="space-y-2">
-        {(items || []).length === 0 && <div className="text-xs" style={{ color: "#9CA3AF" }}>Kayıt yok</div>}
+        {(items || []).length === 0 && <div className="text-xs" style={{ color: "#9CA3AF" }}>{t("dash_no_records")}</div>}
         {(items || []).map((u) => (
           <div key={u.username + u.created_at} className="flex items-center gap-3">
             <div
@@ -268,15 +280,16 @@ function RecentLogins({ items }) {
 /* ---------------- upcoming events (calendar-style) ---------------- */
 const MONTHS_TR = ["Oca","Şub","Mar","Nis","May","Haz","Tem","Ağu","Eyl","Eki","Kas","Ara"];
 function Upcoming({ items }) {
+  const { t } = useTranslation();
   return (
     <div className="rounded-xl p-4"
          style={{ background: CARD, border: "1px solid rgba(255,255,255,0.06)" }}
          data-testid="upcoming-events-card">
       <div className="text-xs uppercase tracking-widest font-black mb-3" style={{ color: "#fff" }}>
-        Yaklaşan
+        {t("dash_upcoming")}
       </div>
       <div className="space-y-2.5">
-        {(items || []).length === 0 && <div className="text-xs" style={{ color: "#9CA3AF" }}>Yok</div>}
+        {(items || []).length === 0 && <div className="text-xs" style={{ color: "#9CA3AF" }}>{t("dash_none")}</div>}
         {(items || []).map((e) => {
           const d = e.date ? new Date(e.date) : null;
           const day = d ? d.getDate() : "?";
@@ -304,12 +317,19 @@ function Upcoming({ items }) {
 }
 
 /* ---------------- activity log ---------------- */
-const ACTION_META = {
-  login:         { label: "Giriş",              bg: "rgba(16,185,129,0.15)", color: "#10B981" },
-  score_update:  { label: "Puan Güncelleme",    bg: `${VIOLET}22`,           color: VIOLET },
-  event_join:    { label: "Etkinlik Katılım",   bg: `${AMBER}22`,            color: AMBER },
-  member_added:  { label: "Üye Eklendi",        bg: "rgba(103,232,249,0.15)", color: "#67E8F9" },
-  rank_change:   { label: "Sıralama Değişimi",  bg: "rgba(236,72,153,0.15)", color: "#EC4899" },
+const ACTION_STYLE = {
+  login:         { bg: "rgba(16,185,129,0.15)", color: "#10B981" },
+  score_update:  { bg: `${VIOLET}22`,           color: VIOLET },
+  event_join:    { bg: `${AMBER}22`,            color: AMBER },
+  member_added:  { bg: "rgba(103,232,249,0.15)", color: "#67E8F9" },
+  rank_change:   { bg: "rgba(236,72,153,0.15)", color: "#EC4899" },
+};
+const ACTION_KEY = {
+  login: "dash_action_login",
+  score_update: "dash_action_score",
+  event_join: "dash_action_event_join",
+  member_added: "dash_action_member_added",
+  rank_change: "dash_action_rank_change",
 };
 const DEVICE_ICON = { mobile: Smartphone, desktop: Monitor, tablet: Tablet };
 
@@ -322,6 +342,7 @@ function displayName(n) {
 }
 
 function ActivityLog() {
+  const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const [filter, setFilter] = useState("all");
   const [visible, setVisible] = useState(false);
@@ -336,20 +357,20 @@ function ActivityLog() {
     setBusyId(id);
     try {
       await api.delete(`/dashboard/activity-log/${id}`);
-      toast.success("Kayıt silindi");
+      toast.success(t("dash_toast_deleted"));
       setConfirmId(null);
       mutate();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Silinemedi");
+      toast.error(e?.response?.data?.detail || t("dash_toast_delete_fail"));
     } finally {
       setBusyId(null);
     }
   };
   const tabs = [
-    { key: "all", label: "Tümü" },
-    { key: "logins", label: "Girişler" },
-    { key: "scores", label: "Puanlar" },
-    { key: "events", label: "Etkinlikler" },
+    { key: "all", label: t("vip_filter_all") },
+    { key: "logins", label: t("dash_activity_filter_logins") },
+    { key: "scores", label: t("dash_activity_filter_scores") },
+    { key: "events", label: t("dash_activity_filter_events") },
   ];
   const reset = () => { setFilter("all"); setVisible(false); };
   return (
@@ -369,7 +390,7 @@ function ActivityLog() {
           }}
         >
           <span aria-hidden>{visible ? "🙈" : "👁"}</span>
-          <span>Son İşlemleri {visible ? "Gizle" : "Göster"}</span>
+          <span>{visible ? t("dash_activity_hide") : t("dash_activity_show")}</span>
         </button>
         <button
           type="button"
@@ -383,7 +404,7 @@ function ActivityLog() {
           }}
         >
           <span aria-hidden>🔄</span>
-          <span>Sıfırla</span>
+          <span>{t("reset")}</span>
         </button>
         {visible && (
           <div className="ml-auto flex items-center gap-1 flex-wrap" data-testid="activity-filter-pills">
@@ -423,20 +444,21 @@ function ActivityLog() {
             </colgroup>
             <thead>
               <tr className="text-left uppercase text-[9px] tracking-widest" style={{ color: "#9CA3AF" }}>
-                <th className="pb-2 pr-2">Kullanıcı</th>
-                <th className="pb-2 pr-2">İşlem</th>
-                <th className="pb-2 pr-2 hidden sm:table-cell">Detay</th>
-                <th className="pb-2 pr-2">Zaman</th>
-                <th className="pb-2 pr-2 hidden sm:table-cell">Cihaz</th>
-                {isAdmin && <th className="pb-2 pr-2 text-right">Sil</th>}
+                <th className="pb-2 pr-2">{t("dash_col_user")}</th>
+                <th className="pb-2 pr-2">{t("dash_col_action")}</th>
+                <th className="pb-2 pr-2 hidden sm:table-cell">{t("dash_col_detail")}</th>
+                <th className="pb-2 pr-2">{t("dash_col_time")}</th>
+                <th className="pb-2 pr-2 hidden sm:table-cell">{t("dash_col_device")}</th>
+                {isAdmin && <th className="pb-2 pr-2 text-right">{t("dash_col_delete")}</th>}
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 && (
-                <tr><td colSpan={isAdmin ? 6 : 5} className="py-4 text-center" style={{ color: "#9CA3AF" }}>Kayıt yok</td></tr>
+                <tr><td colSpan={isAdmin ? 6 : 5} className="py-4 text-center" style={{ color: "#9CA3AF" }}>{t("dash_no_records")}</td></tr>
               )}
               {rows.map((r, i) => {
-                const meta = ACTION_META[r.action_type] || { label: r.action_type, bg: "rgba(255,255,255,0.05)", color: "#9CA3AF" };
+                const style = ACTION_STYLE[r.action_type] || { bg: "rgba(255,255,255,0.05)", color: "#9CA3AF" };
+                const metaLabel = ACTION_KEY[r.action_type] ? t(ACTION_KEY[r.action_type]) : r.action_type;
                 const DevIcon = DEVICE_ICON[r.device] || Monitor;
                 const shortName = displayName(r.member_name);
                 return (
@@ -456,8 +478,8 @@ function ActivityLog() {
                     </td>
                     <td className="py-2 pr-2 overflow-hidden">
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full inline-block max-w-full truncate"
-                            title={meta.label}
-                            style={{ background: meta.bg, color: meta.color }}>{meta.label}</span>
+                            title={metaLabel}
+                            style={{ background: style.bg, color: style.color }}>{metaLabel}</span>
                     </td>
                     <td className="py-2 pr-2 hidden sm:table-cell overflow-hidden" style={{ color: "#9CA3AF" }}>
                       <span className="block truncate" title={r.details}>{r.details}</span>
@@ -480,7 +502,7 @@ function ActivityLog() {
                               className="text-[9px] font-black uppercase px-1.5 py-1 rounded"
                               style={{ background: "#EF4444", color: "#fff", border: "1px solid #EF4444" }}
                             >
-                              {busyId === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Onayla"}
+                              {busyId === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : t("dash_confirm")}
                             </button>
                             <button
                               type="button"
@@ -490,7 +512,7 @@ function ActivityLog() {
                               className="text-[9px] font-bold uppercase px-1.5 py-1 rounded"
                               style={{ background: "rgba(255,255,255,0.06)", color: "#9CA3AF", border: "1px solid rgba(255,255,255,0.1)" }}
                             >
-                              İptal
+                              {t("cancel")}
                             </button>
                           </span>
                         ) : (
@@ -499,7 +521,7 @@ function ActivityLog() {
                             onClick={() => setConfirmId(r.id)}
                             disabled={!r.id}
                             data-testid={`activity-log-delete-${r.id}`}
-                            title="Bu kaydı sil"
+                            title={t("dash_delete_row_tooltip")}
                             className="p-1 rounded-full transition-colors hover:opacity-100 opacity-70 disabled:opacity-30"
                             style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.4)" }}
                           >
@@ -533,6 +555,7 @@ const LAYOUTS_KEY = "dash_grid_layouts_v1";
 const ACTIVE_LAYOUT_KEY = "dash_grid_active_v1";
 
 function DraggableGrid({ items }) {
+  const { t } = useTranslation();
   const defaultOrder = items.map((it) => it.key);
   const [order, setOrder] = useState(() => {
     try {
@@ -634,10 +657,10 @@ function DraggableGrid({ items }) {
         data-testid="dash-layouts-bar"
       >
         <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: "#9CA3AF" }}>
-          Şablonlar:
+          {t("dash_templates")}
         </span>
         {layouts.length === 0 && (
-          <span className="text-[10px]" style={{ color: "#6B7280" }}>henüz yok</span>
+          <span className="text-[10px]" style={{ color: "#6B7280" }}>{t("dash_no_templates")}</span>
         )}
         {layouts.map((l) => (
           <span key={l.name} className="flex items-center gap-1 rounded-full"
@@ -660,7 +683,7 @@ function DraggableGrid({ items }) {
               data-testid={`dash-layout-del-${l.name}`}
               className="text-[10px] px-1.5 py-1 opacity-70 hover:opacity-100"
               style={{ color: activeLayout === l.name ? "#fff" : VIOLET }}
-              title="Sil"
+              title={t("dash_delete_tooltip_generic")}
             >
               ×
             </button>
@@ -672,7 +695,7 @@ function DraggableGrid({ items }) {
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") saveLayout(); }}
-            placeholder="Şablon adı (örn. Sabah)"
+            placeholder={t("dash_template_name_placeholder")}
             data-testid="dash-layout-name-input"
             className="text-[11px] px-2 py-1 rounded outline-none"
             style={{
@@ -694,7 +717,7 @@ function DraggableGrid({ items }) {
               border: `1px solid ${VIOLET}66`,
             }}
           >
-            💾 Kaydet
+            💾 {t("dash_template_save")}
           </button>
           {isCustomOrder && (
             <button
@@ -709,7 +732,7 @@ function DraggableGrid({ items }) {
               }}
             >
               <span aria-hidden>↺</span>
-              <span>Varsayılan</span>
+              <span>{t("dash_default")}</span>
             </button>
           )}
         </div>
@@ -738,6 +761,7 @@ function DraggableGrid({ items }) {
 
 /* ---------------- page ---------------- */
 export default function Dashboard() {
+  const { t } = useTranslation();
   const opts = { refreshInterval: 60000 };
   const { data: stats } = useSWR("/dashboard/stats", fetcher, opts);
   const { data: weekly = [] } = useSWR("/dashboard/weekly", fetcher, opts);
@@ -753,20 +777,20 @@ export default function Dashboard() {
          data-testid="dashboard-page">
       <DashboardHeader />
 
-      <SectionTitle>Bugün</SectionTitle>
+      <SectionTitle>{t("dash_today")}</SectionTitle>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {!stats && Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height={128} />)}
         {stats && (
           <>
-            <StatCard Icon={Users}    label="Toplam Üye"     value={stats.total_members} trend={trends.members} testId="stat-total-members" />
-            <StatCard Icon={Wifi}     label="Çevrimiçi"      value={stats.online_count}  trend={trends.online}  testId="stat-online" />
-            <StatCard Icon={Calendar} label="Aktif Etkinlik" value={stats.active_events} trend={trends.events}  testId="stat-active-events" />
-            <StatCard Icon={Zap}      label="Toplam Güç"     value={stats.total_power}   trend={trends.power}   testId="stat-total-power" />
+            <StatCard Icon={Users}    label={t("dash_stat_total_members")}  value={stats.total_members} trend={trends.members} testId="stat-total-members" />
+            <StatCard Icon={Wifi}     label={t("dash_stat_online")}         value={stats.online_count}  trend={trends.online}  testId="stat-online" />
+            <StatCard Icon={Calendar} label={t("dash_stat_active_events")}  value={stats.active_events} trend={trends.events}  testId="stat-active-events" />
+            <StatCard Icon={Zap}      label={t("dash_stat_total_power")}    value={stats.total_power}   trend={trends.power}   testId="stat-total-power" />
           </>
         )}
       </div>
 
-      <SectionTitle>Haftalık Görünüm</SectionTitle>
+      <SectionTitle>{t("dash_weekly_view")}</SectionTitle>
       {weekly.length === 0 ? <Skeleton height={320} /> : <WeeklyChart rows={weekly} />}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3" data-testid="dashboard-cards-grid">
@@ -780,7 +804,7 @@ export default function Dashboard() {
         />
       </div>
 
-      <SectionTitle>Kullanıcı İşlemleri</SectionTitle>
+      <SectionTitle>{t("dash_user_actions")}</SectionTitle>
       <ActivityLog />
 
       <div className="h-8" />
