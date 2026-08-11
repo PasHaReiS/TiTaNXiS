@@ -13,6 +13,24 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] Telegram Bot @TiTaNXiS_BoT — DONE**:
+  - **Yeni dosya** `/app/backend/telegram_bot.py`:
+    - `python-telegram-bot==22.8` yüklendi (`pip install "python-telegram-bot>=20.0"`).
+    - Komutlar: `/start`, `/yardim`, `/siralama` (MongoDB `members` koleksiyonundan `bireysel_guc` desc top 5), `/guc <isim>` (regex ile üye arama), `/etkinlik` (aktif events `archived != true`), `/svs HH:MM` (asyncio task ile bir defalık hatırlatıcı; TR TZ = UTC+3), `/svs_iptal` (aktif hatırlatıcıyı cancel eder).
+    - `send_event_notification()` — yeni etkinlik oluşturulduğunda `TELEGRAM_CHANNEL_ID` (opsiyonel env) varsa kanala mesaj gönderir.
+    - Modül-seviye `_svs_tasks: dict[int, asyncio.Task]` bir sohbete tek aktif hatırlatıcı sınırlaması; task cancel + await asyncio.sleep pattern'i.
+    - **Graceful degradation**: `TELEGRAM_BOT_TOKEN` boşsa `init_bot()` uyarı logluyor, tüm gönderim fonksiyonları no-op oluyor — app çökmeden çalışıyor.
+  - **Backend server.py**:
+    - `from telegram_bot import init_bot, setup_webhook, process_update, send_event_notification` + `init_bot(db)` çağrısı module load'da.
+    - `POST /api/telegram/webhook` — Telegram güncellemelerini alır, `process_update()` çağırır, her zaman `{ok:true}` döner (retry storm önleme).
+    - `GET /api/telegram/status` — admin izleme (`configured`, `channel_configured`).
+    - `startup()` fonksiyonuna `await setup_webhook()` çağrısı eklendi (token varsa Telegram'a webhook URL'sini POST eder).
+  - **Env değişkenleri** (`/app/backend/.env`): `TELEGRAM_BOT_TOKEN=` (kullanıcı doldurmalı) + `TELEGRAM_WEBHOOK_URL=https://oyun-loncasi.emergent.host/api/telegram/webhook`.
+  - **Doğrulama**: `GET /api/telegram/status` → `{configured:false, channel_configured:false}` ✅ · `POST /api/telegram/webhook` boş payload ile 200 ✅ · `_parse_hhmm("20:00")→(20,0), "25:99"→None` ✅ · Import smoke test tüm handler'ları görüyor ✅ · Backend log: "TELEGRAM_BOT_TOKEN not set — Telegram bot disabled." (beklenen).
+  - **Bekleyen**: Kullanıcı `TELEGRAM_BOT_TOKEN` değerini `/app/backend/.env`'e girip backend'i restart edecek — sonra bot Telegram'a `setWebhook` isteği atacak ve komutlar canlanacak.
+
+
+
 - **[2026-02] Emergent Object Storage — Görsel Yükleme Entegrasyonu — DONE**:
   - **Backend altyapı** (`/app/backend/routes/uploads.py`):
     - Emergent object storage playbook'una göre `init_storage()` startup'ta minted, session-scoped key yeniden kullanılır (`force=True` ile stale key recovery).

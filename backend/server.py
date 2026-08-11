@@ -2930,6 +2930,32 @@ try:
 except Exception as _e:
     logging.getLogger("uploads").warning(f"init_storage at import: {_e}")
 
+# ---------------- Telegram bot webhook -------------------------------------
+from telegram_bot import init_bot, setup_webhook, process_update, send_event_notification  # noqa: E402
+init_bot(db)
+
+
+@api_router.post("/telegram/webhook")
+async def telegram_webhook(request: Request):
+    """Receives updates from Telegram. Always returns 200 to avoid retry
+    storms — errors are logged server-side."""
+    try:
+        body = await request.json()
+        await process_update(body)
+    except Exception as e:
+        logging.getLogger("telegram").warning(f"webhook processing failed: {e}")
+    return {"ok": True}
+
+
+@api_router.get("/telegram/status")
+async def telegram_status():
+    """Health-check for admin monitoring."""
+    import os as _os
+    return {
+        "configured": bool(_os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()),
+        "channel_configured": bool(_os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()),
+    }
+
 app.include_router(api_router)
 app.include_router(make_auth_router(db))
 
@@ -2951,6 +2977,14 @@ logger = logging.getLogger(__name__)
 async def startup():
     await ensure_indexes(db)
     await seed_admin(db)
+
+    # Register the Telegram webhook (no-ops if TELEGRAM_BOT_TOKEN is unset).
+    try:
+        from telegram_bot import setup_webhook as _tg_setup_webhook
+        await _tg_setup_webhook()
+    except Exception as _e:
+        logging.getLogger("telegram").warning(f"setup_webhook at startup: {_e}")
+
     # Backfill alliance_name for legacy members
     legacy = await db.members.find(
         {"$or": [{"alliance_name": {"$exists": False}}, {"alliance_name": None}]},
