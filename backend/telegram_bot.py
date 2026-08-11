@@ -24,7 +24,7 @@ from typing import Optional
 
 import httpx
 
-from telegram import Update
+from telegram import Update, BotCommand
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 log = logging.getLogger("telegram")
@@ -166,13 +166,13 @@ def init_bot(db) -> Optional[Application]:
 
 
 async def setup_webhook() -> bool:
-    """Register the webhook with Telegram. No-op if token is missing."""
+    """Register the webhook with Telegram + publish the / command menu.
+    No-op if token is missing."""
     if not BOT_TOKEN or _app is None:
         return False
     url = _webhook_url()
+    ok_hook = False
     try:
-        # PTB v20+: Application needs to be initialized for bot.set_webhook to work
-        # standalone, so we call the HTTP API directly for simplicity.
         async with httpx.AsyncClient(timeout=15) as client:
             r = await client.post(f"{TELEGRAM_API}/setWebhook",
                                   json={"url": url,
@@ -180,12 +180,27 @@ async def setup_webhook() -> bool:
             data = r.json()
             if data.get("ok"):
                 log.info(f"Telegram webhook set → {url}")
-                return True
-            log.warning(f"Telegram setWebhook failed: {data}")
-            return False
+                ok_hook = True
+            else:
+                log.warning(f"Telegram setWebhook failed: {data}")
+            # Publish the bot command menu so Telegram shows the "/" popover.
+            cmds = [
+                {"command": "siralama",   "description": "Sıralamayı göster"},
+                {"command": "guc",        "description": "Üye güç sorgula"},
+                {"command": "etkinlik",   "description": "Aktif etkinlikler"},
+                {"command": "svs",        "description": "SvS hatırlatma ayarla"},
+                {"command": "yardim",     "description": "Yardım menüsü"},
+            ]
+            r2 = await client.post(f"{TELEGRAM_API}/setMyCommands",
+                                   json={"commands": cmds})
+            d2 = r2.json()
+            if d2.get("ok"):
+                log.info(f"Telegram command menu published ({len(cmds)} entries)")
+            else:
+                log.warning(f"Telegram setMyCommands failed: {d2}")
     except Exception as e:
-        log.warning(f"Telegram setWebhook exception: {e}")
-        return False
+        log.warning(f"Telegram setup exception: {e}")
+    return ok_hook
 
 
 async def process_update(update_data: dict) -> None:
@@ -408,6 +423,61 @@ async def send_daily_briefing(db) -> bool:
             mult = e.get("multiplier", 1.0)
             lines.append(f"• *{name}* — `{d}` · {grp} · ×{mult}")
     lines.append("\n⚔️ Bugün de savaşa hazır ol!")
+    return await send_message(channel, "\n".join(lines))
+
+
+async def send_weekly_summary(db) -> bool:
+    """Monday 08:00 TR digest — total members, top 5, last week's events,
+    new members joined last week. Broadcasts to TELEGRAM_CHANNEL_ID."""
+    channel = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+    if not channel or not BOT_TOKEN or db is None:
+        return False
+    tz = timezone(timedelta(hours=3))
+    now = datetime.now(tz)
+    week_ago = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+    week_ago_iso = week_ago.isoformat()
+    try:
+        total_members = await db.members.count_documents({})
+        top5 = await db.members.find(
+            {}, {"_id": 0, "name": 1, "bireysel_guc": 1, "rank": 1}
+        ).sort("bireysel_guc", -1).limit(5).to_list(5)
+        # Events with a `date` field in the last 7 days (ISO string compare works
+        # because dates are stored as ISO 8601).
+        events = await db.events.find(
+            {"date": {"$gte": week_ago_iso}}, {"_id": 0, "name": 1, "date": 1, "group_name": 1}
+        ).sort("date", -1).limit(10).to_list(10)
+        new_members = await db.members.find(
+            {"created_at": {"$gte": week_ago_iso}}, {"_id": 0, "name": 1, "alliance_name": 1, "created_at": 1}
+        ).sort("created_at", -1).limit(10).to_list(10)
+    except Exception as e:
+        log.warning(f"weekly summary DB read failed: {e}")
+        return False
+
+    lines = [
+        f"📊 *Haftalık Özet* — {now.strftime('%d %B %Y')}\n",
+        f"👥 Toplam üye: *{total_members}*",
+    ]
+    if top5:
+        lines.append("\n🏆 *En Güçlü 5*")
+        medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
+        for i, m in enumerate(top5):
+            power = int(m.get("bireysel_guc") or 0)
+            lines.append(f"{medals[i]} *{m.get('name','?')}* [{m.get('rank','')}] — {power:,}")
+    lines.append(f"\n📅 *Geçen Haftaki Etkinlikler:* ({len(events)})")
+    if events:
+        for e in events[:5]:
+            d = (e.get("date") or "")[:10]
+            lines.append(f"• *{e.get('name','?')}* — `{d}` · {e.get('group_name','')}")
+    else:
+        lines.append("_Yok_")
+    lines.append(f"\n🆕 *Yeni Katılan Üyeler:* ({len(new_members)})")
+    if new_members:
+        for m in new_members[:8]:
+            d = (m.get("created_at") or "")[:10]
+            lines.append(f"• *{m.get('name','?')}* [{m.get('alliance_name','-')}] — `{d}`")
+    else:
+        lines.append("_Yok_")
+    lines.append("\n⚔️ Yeni haftada daha güçlü!")
     return await send_message(channel, "\n".join(lines))
 
 

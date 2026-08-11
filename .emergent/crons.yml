@@ -17,3 +17,9 @@ crons:
     endpoint: "{{BASE_URL}}/api/cron/telegram-daily-briefing"
     method: POST
     enabled: true
+  - name: telegram-weekly-summary
+    description: "Sends a weekly summary to the TiTaNXiS Telegram channel every Monday at 08:00 TR (05:00 UTC)"
+    cron: "0 5 * * 1"
+    endpoint: "{{BASE_URL}}/api/cron/telegram-weekly-summary"
+    method: POST
+    enabled: true

@@ -2941,7 +2941,7 @@ except Exception as _e:
     logging.getLogger("uploads").warning(f"init_storage at import: {_e}")
 
 # ---------------- Telegram bot webhook -------------------------------------
-from telegram_bot import init_bot, setup_webhook, process_update, send_event_notification, send_daily_briefing  # noqa: E402
+from telegram_bot import init_bot, setup_webhook, process_update, send_event_notification, send_daily_briefing, send_weekly_summary  # noqa: E402
 init_bot(db)
 
 
@@ -2971,6 +2971,13 @@ async def telegram_status():
 async def cron_telegram_daily_briefing():
     """Platform cron trigger for the 08:00 TR morning digest."""
     ok = await send_daily_briefing(db)
+    return {"sent": ok}
+
+
+@api_router.post("/cron/telegram-weekly-summary")
+async def cron_telegram_weekly_summary():
+    """Platform cron trigger for the Monday 08:00 TR weekly summary."""
+    ok = await send_weekly_summary(db)
     return {"sent": ok}
 
 app.include_router(api_router)
