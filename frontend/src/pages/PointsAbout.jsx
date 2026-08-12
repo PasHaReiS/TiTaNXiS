@@ -32,13 +32,27 @@ function FlameTab({ tabKey, label, active, disabled, onClick }) {
       disabled={disabled}
       onClick={disabled ? undefined : onClick}
       data-testid={`points-about-tab-${tabKey}`}
-      className={`tab-btn${active ? " is-active" : ""}`}
+      className={`lava-btn${active ? " is-active" : ""}`}
     >
-      <span className="tab-label">
-        <span className="tab-label-top">{top}</span>
-        {bottom && <span className="tab-label-bottom">{bottom}</span>}
+      {/* Three visual layers behind the content — order matters (z-index in CSS). */}
+      <span className="lava-glow" aria-hidden />
+      <span className="lava-ring" aria-hidden />
+      <span className="lava-inner" aria-hidden />
+
+      {/* Spark particles — only animate when active (CSS rule pauses them
+          on non-active buttons so the passive one stays calm). */}
+      <span className="spark" aria-hidden />
+      <span className="spark" aria-hidden />
+      <span className="spark" aria-hidden />
+      <span className="spark" aria-hidden />
+      <span className="spark" aria-hidden />
+      <span className="spark" aria-hidden />
+
+      <span className="lava-label">
+        <span className="lava-label-top">{top}</span>
+        {bottom && <span className="lava-label-bottom">{bottom}</span>}
       </span>
-      {disabled && <Lock className="tab-lock" />}
+      {disabled && <Lock className="lava-lock" />}
     </button>
   );
 }
