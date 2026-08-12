@@ -11,11 +11,12 @@ import { useTranslation } from "react-i18next";
  * Props:
  *   open, onClose       — modal control
  *   mode                — "members" | "event" | "war"
- *   onApply(rows)       — called with parsed rows (mode-shaped) after user confirms;
- *                         parent handles the actual save (e.g. bulk endpoint).
+ *   onApply(data, extra)— called with parsed rows + optional extra (e.g. { event_id })
  *   title?              — custom dialog title
+ *   requireSelection?   — object { type: "event", options: [{id,label}] } — when set,
+ *                         Apply is blocked until the user picks a value from the dropdown.
  */
-export default function OcrDialog({ open, onClose, mode, onApply, title }) {
+export default function OcrDialog({ open, onClose, mode, onApply, title, requireSelection }) {
   const { t } = useTranslation();
   const fileRef = useRef(null);
   const [preview, setPreview] = useState(null); // dataURL for image preview
@@ -23,6 +24,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title }) {
   const [parsing, setParsing] = useState(false);
   const [result, setResult] = useState(null); // parsed payload from backend
   const [applying, setApplying] = useState(false);
+  const [selection, setSelection] = useState("");
 
   if (!open) return null;
 
@@ -61,9 +63,14 @@ export default function OcrDialog({ open, onClose, mode, onApply, title }) {
 
   const doApply = async () => {
     if (!result?.data) return;
+    if (requireSelection && !selection) {
+      toast.error("Lütfen bir seçim yapın");
+      return;
+    }
     setApplying(true);
     try {
-      await onApply(result.data);
+      const extra = requireSelection ? { [`${requireSelection.type}_id`]: selection } : {};
+      await onApply(result.data, extra);
       onClose?.();
     } catch (e) {
       toast.error(apiErr(e));
@@ -225,13 +232,38 @@ export default function OcrDialog({ open, onClose, mode, onApply, title }) {
                 </div>
               )}
 
+              {result && rows.length > 0 && requireSelection && (
+                <div
+                  className="rounded-lg p-3"
+                  style={{ background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.4)" }}
+                  data-testid="ocr-selection-panel"
+                >
+                  <div className="text-[10px] uppercase tracking-widest mb-1.5" style={{ color: "#A78BFA" }}>
+                    {requireSelection.label || "Bir seçim yapın"}
+                  </div>
+                  <select
+                    data-testid="ocr-selection-input"
+                    value={selection}
+                    onChange={(e) => setSelection(e.target.value)}
+                    className="w-full card-dark text-sm text-white px-3 py-2 focus:outline-none focus:border-primary"
+                    style={{ background: "rgba(0,0,0,0.6)" }}
+                  >
+                    <option value="">— {requireSelection.placeholder || "Seçim yapın"} —</option>
+                    {(requireSelection.options || []).map((o) => (
+                      <option key={o.id} value={o.id}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {result && rows.length > 0 && (
                 <button
                   type="button"
                   onClick={doApply}
-                  disabled={applying}
+                  disabled={applying || (requireSelection && !selection)}
                   data-testid="ocr-apply"
                   className="btn-gold w-full py-3 justify-center"
+                  style={requireSelection && !selection ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                 >
                   {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                   {applying ? "Kaydediliyor…" : `Onayla & Kaydet (${rows.length})`}

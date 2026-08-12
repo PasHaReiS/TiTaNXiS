@@ -270,6 +270,10 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 ## Implemented (feature snapshot)
 
 - **[2026-02] OCR — Ekran Görüntüsü Okuyucu (GPT-5.4 Vision) — DONE**:
+  - **Etkinlik akışı v2 (2026-02)**: Etkinlik puanı OCR'ında `requireSelection` mekanizması ile onay ekranında mor "Bu puanları hangi etkinliğe eklemek istiyorsun?" dropdown'u zorunlu tutuluyor. Aktif etkinlikler tarih sırasına göre listeleniyor (`ocr-selection-input`), etkinlik seçilmeden `Onayla & Kaydet` butonu opacity 0.5 + `disabled` + tıklanamıyor.
+    - Yeni backend endpoint `POST /api/ocr/apply-event-points {event_id, participants[]}` (require_edit): event varlığını doğrular (404 yoksa), case-insensitive isim match ile üye bulur, puan dokümanı oluşturur (`note: OCR`, `date: now`). Response: `{created, errors[], event_name}`.
+    - Doğrulama: `Ekko` (mevcut) + `nonexistent-user-xyz` (yok) → `created=1`, `errors=['nonexistent-user-xyz üye listesinde bulunamadı']`, `event_name=Pre 5.Gün` ✅ · Bad event_id → 404 ✅
+
   - **Backend** (`/app/backend/routes/ocr.py`):
     - Yeni router `make_ocr_router(db, require_edit, require_auth)` server.py'da `/api` prefix ile mount edildi.
     - `POST /api/ocr/parse?mode=members|event|war` — multipart file upload. Magic-byte MIME sniffing (PNG/JPEG/WEBP), max 8 MB, 400 empty / 413 oversized / 400 invalid-mode error path'leri.

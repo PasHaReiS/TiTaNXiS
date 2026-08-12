@@ -70,6 +70,12 @@ class OcrApplyMembersBody(BaseModel):
     members: list[dict]
 
 
+class OcrApplyEventPointsBody(BaseModel):
+    event_id: str
+    participants: list[dict]  # [{name: str, points: int}]
+    multiplier: Optional[float] = 1.0
+
+
 def make_ocr_router(db, require_edit, require_auth):
     router = APIRouter()
 
@@ -183,5 +189,52 @@ def make_ocr_router(db, require_edit, require_auth):
             except Exception as e:
                 errors.append(f"{name}: {e}")
         return {"created": created, "updated": updated, "skipped": skipped, "errors": errors}
+
+    @router.post("/ocr/apply-event-points")
+    async def apply_event_points(body: OcrApplyEventPointsBody, _: dict = Depends(require_edit)):
+        """Save OCR-parsed participant scores against a chosen event.
+
+        Resolves each participant name to an existing member (case-insensitive).
+        Skips unresolved names and reports them in `errors`.
+        """
+        import uuid as _uuid
+        from datetime import datetime as _dt, timezone as _tz
+        ev = await db.events.find_one({"id": body.event_id}, {"_id": 0, "id": 1, "name": 1})
+        if not ev:
+            raise HTTPException(404, "Etkinlik bulunamadı")
+        members_all = await db.members.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(10000)
+        by_name = {(m.get("name") or "").strip().lower(): m for m in members_all}
+        created = 0
+        errors: list[str] = []
+        docs: list[dict] = []
+        now_iso_str = _dt.now(_tz.utc).isoformat()
+        for row in body.participants:
+            name = str(row.get("name") or "").strip()
+            pts = row.get("points") or 0
+            if not name:
+                continue
+            try:
+                pts_int = int(pts)
+            except Exception:
+                errors.append(f"{name}: geçersiz puan '{pts}'")
+                continue
+            m = by_name.get(name.lower())
+            if not m:
+                errors.append(f"'{name}' üye listesinde bulunamadı")
+                continue
+            docs.append({
+                "id": str(_uuid.uuid4()),
+                "member_id": m["id"],
+                "event_id": body.event_id,
+                "points": pts_int,
+                "multiplier": float(body.multiplier or 1.0),
+                "note": "OCR",
+                "created_at": now_iso_str,
+                "date": now_iso_str,
+            })
+            created += 1
+        if docs:
+            await db.points.insert_many(docs)
+        return {"created": created, "errors": errors, "event_name": ev.get("name")}
 
     return router

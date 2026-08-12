@@ -363,15 +363,32 @@ export default function Events() {
         onClose={() => setOcrOpen(false)}
         mode="event"
         title="Etkinlik Puanı — Ekran Görüntüsünden Aktar"
-        onApply={async (data) => {
+        requireSelection={{
+          type: "event",
+          label: "Bu puanları hangi etkinliğe eklemek istiyorsun?",
+          placeholder: "Etkinlik seç",
+          options: (events || [])
+            .filter((e) => !e.archived)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .map((e) => ({
+              id: e.id,
+              label: `${e.name}${e.date ? ` · ${new Date(e.date).toLocaleDateString("tr-TR")}` : ""}`,
+            })),
+        }}
+        onApply={async (data, extra) => {
           const parts = data.participants || [];
-          toast.success(`${parts.length} katılımcı okundu · Puanları eklemek için puan sayfasında toplu ekle özelliğini kullan`);
-          // Copy to clipboard as tab-separated so admin can paste into bulk points form.
-          try {
-            const text = parts.map((p) => `${p.name}\t${p.points || 0}`).join("\n");
-            await navigator.clipboard.writeText(text);
-            toast.info("Panoya kopyalandı — Puan Ekle sayfasında yapıştır");
-          } catch {}
+          if (!extra?.event_id) throw new Error("Etkinlik seçilmedi");
+          const res = await api.post("/ocr/apply-event-points", {
+            event_id: extra.event_id,
+            participants: parts,
+          });
+          mutate("/events");
+          mutate((k) => typeof k === "string" && k.startsWith("/points"));
+          const errs = (res.data.errors || []).length;
+          toast.success(
+            `${res.data.created} puan '${res.data.event_name}' etkinliğine eklendi` +
+              (errs ? ` · ${errs} eşleşmeyen üye` : ""),
+          );
         }}
       />
     </div>
