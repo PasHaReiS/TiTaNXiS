@@ -33,7 +33,7 @@ export default function PointsAbout() {
             }}
           >
             <div
-              className="flex flex-row items-center justify-between gap-3"
+              className="flex flex-row items-center justify-center gap-2"
               data-testid="pa-sidebar-list"
             >
               {TABS.map(({ key, labelKey, Icon, requiresEdit }) => {
