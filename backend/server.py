@@ -123,6 +123,7 @@ class Event(BaseModel):
     multiplier: float = 1.0
     date: str
     subtitle: Optional[str] = None
+    banner_url: Optional[str] = None
     archived: bool = False
     created_at: str = Field(default_factory=now_iso)
 
@@ -133,6 +134,7 @@ class EventCreate(BaseModel):
     multiplier: Optional[float] = 1.0
     date: str
     subtitle: Optional[str] = None
+    banner_url: Optional[str] = None
     archived: Optional[bool] = False
 
 
@@ -142,6 +144,7 @@ class EventUpdate(BaseModel):
     multiplier: Optional[float] = None
     date: Optional[str] = None
     subtitle: Optional[str] = None
+    banner_url: Optional[str] = None
     archived: Optional[bool] = None
 
 
@@ -392,6 +395,7 @@ async def create_event(body: EventCreate, _: dict = Depends(require_edit)):
             event_date=(e.date or ""),
             group_name=e.group_name or "",
             multiplier=e.multiplier or 1.0,
+            event_id=e.id,
         )
     except Exception as ex:
         logger.warning(f"Telegram event broadcast failed: {ex}")

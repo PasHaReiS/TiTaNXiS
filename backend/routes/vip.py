@@ -51,11 +51,15 @@ CATEGORIES = [
 CATEGORY_SLUGS = {c["slug"] for c in CATEGORIES}
 
 
+PRIORITIES = {"yuksek", "normal", "dusuk"}
+
+
 class ThreadCreate(BaseModel):
     category: str
     title: str = Field(..., min_length=3, max_length=200)
     body: str = Field(..., min_length=1, max_length=8000)
     attachments: Optional[List[str]] = None  # file_ids returned by /uploads/image
+    priority: Optional[str] = "normal"  # yuksek | normal | dusuk
 
 
 class ReplyCreate(BaseModel):
@@ -191,6 +195,7 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
         category: Optional[str] = None,
         status: Optional[str] = "all",  # all | new | resolved
         q: Optional[str] = None,
+        priority: Optional[str] = None,  # yuksek | normal | dusuk
         limit: int = 50,
         lang: Optional[str] = None,
     ):
@@ -203,17 +208,32 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
             query["resolved"] = True
         elif status == "new":
             query["resolved"] = {"$ne": True}
+        if priority and priority.lower() in PRIORITIES:
+            query["priority"] = priority.lower()
         if q:
             query["$or"] = [
                 {"title": {"$regex": q, "$options": "i"}},
                 {"body": {"$regex": q, "$options": "i"}},
             ]
-        threads = await (
-            db.vip_threads.find(query, {"_id": 0})
-            .sort([("pinned", -1), ("created_at", -1)])
-            .limit(min(int(limit), 200))
-            .to_list(200)
-        )
+        # Priority-first ordering: pinned > yuksek > normal > dusuk > created_at desc.
+        # MongoDB doesn't natively rank string values, so we bucket via aggregation.
+        pipeline = [
+            {"$match": query},
+            {"$addFields": {
+                "_prio_rank": {"$switch": {
+                    "branches": [
+                        {"case": {"$eq": ["$priority", "yuksek"]}, "then": 0},
+                        {"case": {"$eq": ["$priority", "normal"]}, "then": 1},
+                        {"case": {"$eq": ["$priority", "dusuk"]}, "then": 2},
+                    ],
+                    "default": 1,
+                }},
+            }},
+            {"$sort": {"pinned": -1, "_prio_rank": 1, "created_at": -1}},
+            {"$limit": min(int(limit), 200)},
+            {"$project": {"_id": 0, "_prio_rank": 0}},
+        ]
+        threads = await db.vip_threads.aggregate(pipeline).to_list(200)
         # Attach reply counts + last admin snippet (public only, unless viewer is admin).
         viewer = await _optional_user(request)
         for tdoc in threads:
@@ -263,6 +283,9 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
     async def vip_thread_create(body: ThreadCreate, user: dict = Depends(require_auth)):
         if body.category not in CATEGORY_SLUGS:
             raise HTTPException(400, "invalid category")
+        priority = (body.priority or "normal").lower()
+        if priority not in PRIORITIES:
+            priority = "normal"
         doc = {
             "id": str(uuid.uuid4()),
             "category": body.category,
@@ -273,6 +296,7 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
             "upvotes": 0, "downvotes": 0, "views": 0,
             "resolved": False, "pinned": False,
             "attachments": body.attachments or [],
+            "priority": priority,
             "created_at": _now_iso(),
             "last_reply_at": None,
         }

@@ -13,6 +13,20 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] 4 Feature Combined — DONE**:
+  1. **Commander & Event Görselleri**:
+     - Event backend: `Event/EventCreate/EventUpdate` modellerine `banner_url: Optional[str]` eklendi.
+     - `Events.jsx` `EventForm`: import ImageDropzone, `banner` state, JSX'te `<ImageDropzone purpose="event" max={1} compact />` + submit body'ye `banner_url`. Test: `POST /api/events` `banner_url` doğru kaydediyor.
+     - Commanders: Zaten kapsamlı çok görselli custom uploader mevcut (`handleMultiFiles`, `MAX_IMAGES`, `fileInputRef`), aynı ImageDropzone eklemek çakışma yaratır — mevcut uploader zaten "başka hiçbir şeyi değiştirme" kısıtına uygun şekilde görsel yüklemeyi sağlıyor.
+  2. **VIP Öncelik**:
+     - Backend `routes/vip.py`: `ThreadCreate.priority` (yuksek|normal|dusuk, default normal), `GET /vip/threads?priority=` filtre param, aggregation pipeline pinned > yuksek > normal > dusuk > created_at sıralaması.
+     - Frontend `VipSupport.jsx`: `NewThreadDialog` içinde 3 pill (Yüksek=kırmızı, Normal=sarı, Düşük=yeşil), yeni `PriorityBadge` bileşeni ThreadCard'da renkli rozet olarak render.
+     - Doğrulama: `POST` with `priority:"yuksek"` → 200, `GET ?priority=yuksek` → sadece o thread'i döndürüyor.
+  3. **Telegram Deep-Link**: `send_event_notification()` opsiyonel `event_id` parametresi aldı; `PUBLIC_BASE_URL` (fallback `https://titanxis.com`) + `/etkinlikler#event-{id}` deep-link ekliyor. `server.py`'de POST /events çağrısı bu param'ı gönderiyor.
+  4. **Auto-Purge Cron**: `.emergent/crons.yml` içine `purge-vip-trash` girdisi (`30 2 * * *` — her gün 02:30 UTC = 05:30 TR), `{{BASE_URL}}/api/cron/vip-trash-purge` POST. Backend endpoint zaten mevcuttu, sadece cron kaydı eklendi.
+
+
+
 - **[2026-02] Telegram Grup/Kanal Bildirimleri — DONE**:
   - `.env`: `TELEGRAM_CHANNEL_ID=-1003597221954` eklendi.
   - **Yeni etkinlik bildirimi**: `POST /api/events` (server.py `create_event`) sonuna `send_event_notification()` fire-and-forget çağrısı eklendi — `TELEGRAM_CHANNEL_ID` set olduğunda kanala `🎉 Yeni Etkinlik!` mesajı gider.

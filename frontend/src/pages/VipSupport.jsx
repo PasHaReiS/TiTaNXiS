@@ -89,6 +89,24 @@ function VoteControl({ thread, myVote, onVote, size = "md" }) {
   );
 }
 
+function PriorityBadge({ priority }) {
+  const cfg = {
+    yuksek: { label: "Yüksek", bg: "#EF4444", color: "#fff" },
+    normal: { label: "Normal", bg: "#F59E0B", color: "#0A0015" },
+    dusuk:  { label: "Düşük",  bg: "#10B981", color: "#0A0015" },
+  }[priority] || null;
+  if (!cfg) return null;
+  return (
+    <span
+      className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+      style={{ background: cfg.bg, color: cfg.color }}
+      data-testid={`priority-badge-${priority}`}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
 function ThreadCard({ thread, onOpen, canAdmin, onDelete, selectionMode, selected, onToggleSelect }) {
   const { t } = useTranslation();
   return (
@@ -371,12 +389,14 @@ function NewThreadDialog({ open, onClose, categorySlug, onCreated, initialTitle 
   const [title, setTitle] = useState(initialTitle);
   const [body, setBody] = useState(initialBody);
   const [attachments, setAttachments] = useState([]);
+  const [priority, setPriority] = useState("normal");
   const [submitting, setSubmitting] = useState(false);
   useEffect(() => {
     if (open) {
       setTitle(initialTitle);
       setBody(initialBody);
       setAttachments([]);
+      setPriority("normal");
     }
   }, [open, initialTitle, initialBody]);
   if (!open) return null;
@@ -392,9 +412,10 @@ function NewThreadDialog({ open, onClose, categorySlug, onCreated, initialTitle 
         title,
         body,
         attachments: attachments.map((a) => a.id),
+        priority,
       });
       toast.success(t("vip_toast_created"));
-      setTitle(""); setBody(""); setAttachments([]);
+      setTitle(""); setBody(""); setAttachments([]); setPriority("normal");
       onCreated?.(res.data);
       onClose();
     } catch (e) {
@@ -441,6 +462,29 @@ function NewThreadDialog({ open, onClose, categorySlug, onCreated, initialTitle 
         />
         <div className="mt-2">
           <ImageDropzone purpose="vip" value={attachments} onChange={setAttachments} max={6} />
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: "rgba(196,181,253,0.7)" }}>Öncelik:</span>
+          {[
+            { k: "yuksek", label: "Yüksek", bg: "#EF4444" },
+            { k: "normal", label: "Normal", bg: "#F59E0B" },
+            { k: "dusuk",  label: "Düşük",  bg: "#10B981" },
+          ].map((p) => (
+            <button
+              type="button"
+              key={p.k}
+              onClick={() => setPriority(p.k)}
+              data-testid={`vip-priority-${p.k}`}
+              className="text-[10px] font-bold uppercase px-2 py-1 rounded-full"
+              style={{
+                background: priority === p.k ? p.bg : "transparent",
+                color: priority === p.k ? "#0A0015" : p.bg,
+                border: `1px solid ${p.bg}`,
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
         <button
           onClick={submit}

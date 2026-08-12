@@ -23,3 +23,9 @@ crons:
     endpoint: "{{BASE_URL}}/api/cron/telegram-weekly-summary"
     method: POST
     enabled: true
+  - name: purge-vip-trash
+    description: "Permanently deletes VIP support tickets that have been in trash for over 24 hours"
+    cron: "30 2 * * *"
+    endpoint: "{{BASE_URL}}/api/cron/vip-trash-purge"
+    method: POST
+    enabled: true

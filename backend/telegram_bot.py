@@ -329,19 +329,26 @@ async def send_message(chat_id: str, text: str, parse_mode: str = "Markdown") ->
 
 
 async def send_event_notification(event_name: str, event_date: str,
-                                    group_name: str, multiplier: float) -> bool:
-    """Broadcast to TELEGRAM_CHANNEL_ID (if set) when a new event is created."""
+                                    group_name: str, multiplier: float,
+                                    event_id: Optional[str] = None) -> bool:
+    """Broadcast to TELEGRAM_CHANNEL_ID (if set) when a new event is created.
+    When `event_id` is provided, appends a deep-link that opens the event on the
+    production site."""
     channel = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
     if not channel:
         return False
-    text = (
-        f"🎉 *Yeni Etkinlik!*\n\n"
-        f"📅 *{event_name}*\n"
-        f"🗓 Tarih: `{event_date[:10]}`\n"
-        f"📊 Grup: {group_name}\n"
-        f"⚡ Çarpan: ×{multiplier}"
-    )
-    return await send_message(channel, text)
+    lines = [
+        "🎉 *Yeni Etkinlik!*",
+        "",
+        f"📅 *{event_name}*",
+        f"🗓 Tarih: `{event_date[:10]}`",
+        f"📊 Grup: {group_name}",
+        f"⚡ Çarpan: ×{multiplier}",
+    ]
+    if event_id:
+        base = (os.environ.get("PUBLIC_BASE_URL", "") or "https://titanxis.com").rstrip("/")
+        lines.append(f"\n🔗 [Etkinliğe Katıl]({base}/etkinlikler#event-{event_id})")
+    return await send_message(channel, "\n".join(lines))
 
 
 # ------------------------------ SvS reminders --------------------------------

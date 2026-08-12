@@ -7,6 +7,7 @@ import CanEdit from "@/components/CanEdit";
 import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import ImageDropzone from "@/components/ImageDropzone";
 import { groupColor, groupBgTint } from "@/lib/groupColors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -315,6 +316,7 @@ function EventForm({ initial, onClose }) {
   const [subtitle, setSubtitle] = useState(initial?.subtitle || "");
   const [groupName, setGroupName] = useState(initial?.group_name || "SvS vs 10007");
   const [saving, setSaving] = useState(false);
+  const [banner, setBanner] = useState(initial?.banner_url ? [{ id: "existing", url: initial.banner_url, filename: "banner" }] : []);
   const { data: activeGroups = [] } = useSWR("/event-groups?active_only=true", fetcher);
 
   const submit = async (e) => {
@@ -322,7 +324,12 @@ function EventForm({ initial, onClose }) {
     if (!name.trim()) { toast.error(t("name_field_required")); return; }
     setSaving(true);
     try {
-      const body = { name: name.trim(), date: new Date(date).toISOString(), multiplier: Number(multiplier), subtitle: subtitle.trim() || null, group_name: groupName };
+      const body = {
+        name: name.trim(), date: new Date(date).toISOString(),
+        multiplier: Number(multiplier), subtitle: subtitle.trim() || null,
+        group_name: groupName,
+        banner_url: banner[0]?.url || null,
+      };
       if (initial) await api.patch(`/events/${initial.id}`, body);
       else await api.post("/events", body);
       mutate((k) => typeof k === "string" && (k.startsWith("/events") || k.startsWith("/event-groups")));
@@ -379,6 +386,9 @@ function EventForm({ initial, onClose }) {
         <input value={groupName} onChange={(e) => setGroupName(e.target.value)}
           data-testid={EVENTS.formGroup || "event-form-group"}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
+
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Etkinlik Görseli</label>
+        <ImageDropzone purpose="event" value={banner} onChange={setBanner} max={1} compact />
 
         <button data-testid={EVENTS.formSubmit} type="submit" disabled={saving} className="btn-gold w-full mt-5">
           {saving ? t("saving") : initial ? t("update") : t("add_short")}
