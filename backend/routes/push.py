@@ -183,6 +183,12 @@ def register_push(api_router: APIRouter, db, require_auth, require_admin, logger
     ):
         priv_b64, _pub = await get_or_create_vapid(db)
         subs = await db.push_subscriptions.find({}, {"_id": 0}).to_list(1000)
+        # Global opt-out: users with notification_enabled == False are excluded.
+        opted_out_users = {
+            u["id"] async for u in db.users.find(
+                {"notification_enabled": False}, {"_id": 0, "id": 1}
+            )
+        }
         allowed_users: Optional[set] = None
         if group_name:
             prefs = await db.push_prefs.find({}, {"_id": 0}).to_list(2000)
@@ -224,8 +230,11 @@ def register_push(api_router: APIRouter, db, require_auth, require_admin, logger
         removed = 0
         retry_subs: list = []
         for s in subs:
+            uid = s.get("user_id")
+            # Respect global opt-out toggle
+            if uid and uid in opted_out_users:
+                continue
             if allowed_users is not None:
-                uid = s.get("user_id")
                 if uid and uid not in allowed_users:
                     pref_doc = await db.push_prefs.find_one({"user_id": uid}, {"_id": 0})
                     if pref_doc and pref_doc.get("groups") and group_name not in pref_doc["groups"]:
@@ -480,6 +489,17 @@ def register_push(api_router: APIRouter, db, require_auth, require_admin, logger
             raise HTTPException(status_code=400, detail="invalid target")
         if not user_ids:
             return {"sent": 0, "removed": 0, "target": target, "matched_users": 0}
+        # Respect global opt-out (except when admin tests their own subscription — target=me).
+        if target != "me":
+            opted_out = {
+                u["id"] async for u in db.users.find(
+                    {"notification_enabled": False, "id": {"$in": user_ids}}, {"_id": 0, "id": 1}
+                )
+            }
+            user_ids = [uid for uid in user_ids if uid not in opted_out]
+            if not user_ids:
+                return {"sent": 0, "removed": 0, "target": target, "matched_users": 0,
+                        "note": "all targets opted-out"}
         subs = await db.push_subscriptions.find({"user_id": {"$in": user_ids}}, {"_id": 0}).to_list(500)
         if not subs:
             return {"sent": 0, "removed": 0, "target": target, "matched_users": len(user_ids),

@@ -3,7 +3,8 @@ import useSWR, { mutate } from "swr";
 import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
-import { Plus, Trash2, KeyRound, Shield, User, X, ShieldCheck, PencilLine } from "lucide-react";
+import LinkMemberDialog from "@/components/LinkMemberDialog";
+import { Plus, Trash2, KeyRound, Shield, User, X, ShieldCheck, PencilLine, Link2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "react-i18next";
@@ -14,8 +15,18 @@ export default function UserManagement() {
   const { user: me } = useAuth();
   const { t } = useTranslation();
   const { data: users = [] } = useSWR("/users", fetcher);
+  const { data: unmatched = [] } = useSWR("/users/unmatched", fetcher);
+  const { data: members = [] } = useSWR("/members", fetcher);
   const [showForm, setShowForm] = useState(false);
   const [resetTarget, setResetTarget] = useState(null);
+  const [linkTarget, setLinkTarget] = useState(null); // { userId, username, currentMemberId }
+
+  // Quick lookup: member_id → member doc (for showing linked character name on each row)
+  const memberById = React.useMemo(() => {
+    const map = {};
+    for (const m of members) map[m.id] = m;
+    return map;
+  }, [members]);
 
   return (
     <div data-testid="user-management-page">
@@ -34,8 +45,60 @@ export default function UserManagement() {
           </button>
         </div>
 
+        {/* Unmatched Users panel — highlights accounts without a linked in-game character */}
+        <div
+          data-testid="unmatched-users-panel"
+          className="rounded-lg p-3 mb-4"
+          style={{
+            background: "rgba(245,166,35,0.08)",
+            border: "1px solid rgba(245,166,35,0.4)",
+          }}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-xs uppercase font-bold gold-text" style={{ letterSpacing: "0.14em" }}>
+              <AlertTriangle className="w-3.5 h-3.5" />
+              {t("unmatched_users")}
+            </div>
+            <span
+              data-testid="unmatched-users-count"
+              className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+              style={{ background: "rgba(245,166,35,0.25)", color: "#F5A623" }}
+            >
+              {unmatched.length}
+            </span>
+          </div>
+          {unmatched.length === 0 ? (
+            <div className="text-xs text-muted-foreground py-2" data-testid="unmatched-users-empty">
+              {t("unmatched_users_empty")}
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {unmatched.map((u) => (
+                <div
+                  key={u.id}
+                  data-testid={`unmatched-row-${u.id}`}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded bg-black/30"
+                >
+                  <User className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                  <span className="text-sm text-white truncate flex-1">{u.username}</span>
+                  <button
+                    type="button"
+                    data-testid={`unmatched-link-${u.id}`}
+                    onClick={() => setLinkTarget({ userId: u.id, username: u.username, currentMemberId: null })}
+                    className="chip text-[10px] py-1"
+                  >
+                    <Link2 className="w-3 h-3" /> {t("admin_link_member")}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="space-y-2">
-          {users.map((u) => (
+          {users.map((u) => {
+            const linked = u.member_id ? memberById[u.member_id] : null;
+            return (
             <div key={u.id} data-testid={`user-row-${u.id}`} className="card-dark p-3">
               <div className="flex items-center gap-3">
                 <div className={`rank-badge ${u.role === "admin" ? "rank-GOW" : u.can_edit ? "rank-R3" : "rank-R2"}`}>
@@ -50,9 +113,33 @@ export default function UserManagement() {
                     {u.role !== "admin" && u.can_edit && (
                       <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/25 text-green-300 border border-green-500/40 font-bold">{t("can_edit_upper")}</span>
                     )}
+                    {u.notification_enabled === false && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/40 font-bold" title={t("notification_off")}>
+                        🔕
+                      </span>
+                    )}
                   </div>
                   {u.email && <div className="text-[10px] text-muted-foreground truncate">{u.email}</div>}
+                  <div className="text-[10px] mt-0.5 truncate" data-testid={`user-linked-${u.id}`}>
+                    <Link2 className="w-2.5 h-2.5 inline mr-1 opacity-70" />
+                    {linked ? (
+                      <span className="text-green-400 font-semibold">
+                        {t("linked_to", { name: linked.name })}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground italic">{t("linked_member_none")}</span>
+                    )}
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  data-testid={`user-link-btn-${u.id}`}
+                  onClick={() => setLinkTarget({ userId: u.id, username: u.username, currentMemberId: u.member_id || null })}
+                  className="w-8 h-8 rounded-md bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 flex items-center justify-center flex-shrink-0"
+                  title={t("admin_link_member")}
+                >
+                  <Link2 className="w-3.5 h-3.5" />
+                </button>
               </div>
 
               {u.role !== "admin" && (
@@ -101,12 +188,27 @@ export default function UserManagement() {
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       {showForm && <UserForm onClose={() => setShowForm(false)} />}
       {resetTarget && <ResetPwdForm user={resetTarget} onClose={() => setResetTarget(null)} />}
+      {linkTarget && (
+        <LinkMemberDialog
+          open={!!linkTarget}
+          onClose={() => setLinkTarget(null)}
+          mode="admin"
+          targetUserId={linkTarget.userId}
+          targetUsername={linkTarget.username}
+          currentMemberId={linkTarget.currentMemberId}
+          onSaved={() => {
+            mutate("/users");
+            mutate("/users/unmatched");
+          }}
+        />
+      )}
     </div>
   );
 }

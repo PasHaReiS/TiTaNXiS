@@ -266,6 +266,33 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - **[2026-02] Language Switcher verified — DONE**: `LanguageSwitcher.jsx` in Header renders flag+label pill (`data-testid="lang-toggle"`); click opens a portal-based dropdown (`lang-panel`) listing all 29 languages with flag/name/code; selection persists to `localStorage.ol_lang` and calls `i18n.changeLanguage`; hydration via DeepL runs in background. Verified live on localhost:3000 — 29 items rendered.
 
 ## Implemented (feature snapshot)
+
+- **[2026-02] Üye Eşleştirme Sistemi (Member Matching) — DONE**:
+  - **Backend `auth.py`**:
+    - User modeline `member_id: Optional[str]` + `notification_enabled: bool=True` alanları eklendi. `public_user()` her ikisini de dönüyor. `UpdateUserBody` bu alanları alacak şekilde genişletildi.
+    - Yeni endpoint'ler: `POST /api/auth/link-member` (user self-link, `LinkMemberBody{member_id}`) — 404 üye yok, 409 başka hesaba bağlı, null ile unlink. `POST /api/auth/notification-preference` (user toggle, `NotificationPrefBody{enabled}`).
+    - Admin: `GET /api/users/unmatched` — member_id null/eksik olan kullanıcılar. `PATCH /api/users/{id}` `member_id` ve `notification_enabled` alanlarını override edebiliyor. `exclude_unset=True` sayesinde `member_id:null` gönderimi de unlink olarak işleniyor. Aynı üye başka bir kullanıcıya bağlıysa admin PATCH auto-detach yapıyor.
+    - MongoDB: `users.member_id` sparse index eklendi (ensure_indexes).
+  - **Bildirim akışı**: `routes/push.py` `broadcast_push` + `broadcast_test` + `server.py` legacy `_broadcast_push` — `notification_enabled=False` olan kullanıcıların abonelikleri `opted_out_users` seti ile filtrelenip atlanıyor. Group/alliance filtreleri sonrası ek katman olarak çalışıyor.
+  - **Frontend**:
+    - Yeni reusable component `/app/frontend/src/components/LinkMemberDialog.jsx`: Arama kutulu üye seçici modal, `mode="self"` (POST /auth/link-member) veya `mode="admin"` (PATCH /users/{id}). Data-testid'ler: `link-member-dialog`, `link-member-search`, `link-member-opt-{id}`, `link-member-submit`, `link-member-unlink`.
+    - `pages/Profile.jsx`: Yeni "Bağlı Karakter" kartı (linked name/rank/alliance veya "Karakter bağlanmamış") + "Hesap Bağla" butonu. Yeni "Bildirimler" toggle satırı (Switch, `POST /auth/notification-preference` ile senkron). Testid: `profile-linked-member-card`, `profile-link-member-btn`, `profile-notification-toggle`.
+    - `pages/Members.jsx`: Header'a giriş yapmış kullanıcı için "Hesap Bağla" chip'i (link edilmişse yeşil "Bağlı Karakter" olarak). LinkMemberDialog kullanıyor. Testid: `members-link-account-btn`.
+    - `pages/UserManagement.jsx`: Sayfa üstünde amber-border "Eşleştirilmemiş Kullanıcılar" paneli (`unmatched-users-panel`, count rozeti). Her ana kullanıcı satırında bağlı karakter ismi ("Bağlı: X" yeşil) + amber Link2 butonu (`user-link-btn-{id}`). Admin dropdown/modal LinkMemberDialog ile açılıyor.
+    - i18n: 21 yeni anahtar TR + EN (`link_account`, `linked_member`, `unlink_account`, `notification_toggle_*`, `unmatched_users`, `admin_link_member`, `linked_to`, vb.).
+  - **Doğrulama (curl E2E)**:
+    - `POST /auth/link-member` admin+valid id → 200 member_id set ✅
+    - `POST /auth/notification-preference {enabled:false}` → 200 notification_enabled=false ✅
+    - `POST /auth/link-member {member_id:null}` → 200 unlink ✅
+    - `GET /users/unmatched` admin → 200 15 kullanıcı; pasha → 403 ✅
+    - `POST /auth/link-member` çakışan üye ile → 409 "Bu üye zaten X hesabına bağlı" ✅
+    - Admin `PATCH /users/{pasha_id} {member_id: M}` çakışıyorsa auto-detach → 200 ✅
+    - Admin `PATCH /users/{id} {member_id: null}` → 200 unlink (exclude_unset fix) ✅
+    - Admin `PATCH /users/{id} {notification_enabled:false}` → 200 ✅
+  - **UI smoke** (Playwright): `/profil` linked_card + toggle + link_btn render ✅ · `/uyeler` header link_account_btn render ✅ · `/kullanicilar` unmatched_panel + count=15 render ✅
+
+
+
 - **[2026-02] Archive Group Total Summary — DONE**:
   - **Frontend** (`Leaderboard.jsx`): Archive tab now renders a new `archive-group-total` section between the group chip strip and the event cards. Visible only when a specific group chip is selected (Tümü ➜ hidden). Uses the existing `/api/leaderboard?scope=archived&group_name=X` endpoint (which already aggregates points across every event in the group with multiplier weighting). Rows are ranked, clickable (opens MemberProfileDialog), and testid'd `archive-group-total-row-{id}`.
   - **UX**: Distinct card container (dashed orange border + gradient tint) sets it apart from individual event cards. Individual archived event cards remain visible below, satisfying "bireysel etkinlik puanlarıyla birlikte görünsün".

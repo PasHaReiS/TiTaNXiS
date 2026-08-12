@@ -1,13 +1,15 @@
 import React, { useState, useMemo, useEffect } from "react";
 import useSWR, { mutate } from "swr";
 import { api, apiErr, RANKS } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { allianceBadgeStyle } from "@/lib/colors";
 import { MEMBERS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
+import LinkMemberDialog from "@/components/LinkMemberDialog";
 import CanEdit from "@/components/CanEdit";
 import CountUp from "@/components/CountUp";
-import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -77,10 +79,12 @@ const NOTE_COLORS = [
 
 export default function Members() {
   const { t } = useTranslation();
+  const { user, refreshMe } = useAuth();
   const [q, setQ] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [profileId, setProfileId] = useState(null);
+  const [linkOpen, setLinkOpen] = useState(false);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [filterAlliances, setFilterAlliances] = useState([]);
   const [filterRanks, setFilterRanks] = useState([]);
@@ -222,15 +226,32 @@ export default function Members() {
               )}
             </p>
           </div>
-          <CanEdit>
-            <button
-              data-testid={MEMBERS.addBtn}
-              onClick={() => { setEditing(null); setShowForm(true); }}
-              className="btn-gold flex items-center gap-1.5 text-xs"
-            >
-              <Plus className="w-4 h-4" /> {t("new_short")}
-            </button>
-          </CanEdit>
+          <div className="flex items-center gap-2">
+            {user && (
+              <button
+                data-testid="members-link-account-btn"
+                onClick={() => setLinkOpen(true)}
+                className="chip text-xs flex items-center gap-1.5"
+                style={{
+                  borderColor: user.member_id ? "rgba(34,197,94,0.5)" : "rgba(245,166,35,0.5)",
+                  color: user.member_id ? "#4ade80" : "#F5A623",
+                }}
+                title={t("link_account")}
+              >
+                <Link2 className="w-3.5 h-3.5" />
+                {user.member_id ? t("linked_member") : t("link_account")}
+              </button>
+            )}
+            <CanEdit>
+              <button
+                data-testid={MEMBERS.addBtn}
+                onClick={() => { setEditing(null); setShowForm(true); }}
+                className="btn-gold flex items-center gap-1.5 text-xs"
+              >
+                <Plus className="w-4 h-4" /> {t("new_short")}
+              </button>
+            </CanEdit>
+          </div>
         </div>
 
         <div className="flex gap-2 mb-3">

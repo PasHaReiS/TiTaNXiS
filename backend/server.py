@@ -2561,6 +2561,12 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
     only send to subscribers whose linked member document has the matching alliance."""
     private_pem, _ = await _get_or_create_vapid()
     subs = await db.push_subscriptions.find({}, {"_id": 0}).to_list(1000)
+    # Global opt-out — skip subscribers whose user set notification_enabled=False.
+    opted_out_users = {
+        u["id"] async for u in db.users.find(
+            {"notification_enabled": False}, {"_id": 0, "id": 1}
+        )
+    }
     allowed_users: Optional[set] = None
     if group_name:
         prefs = await db.push_prefs.find({}, {"_id": 0}).to_list(2000)
@@ -2599,8 +2605,10 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
     sent = 0
     removed = 0
     for s in subs:
+        uid = s.get("user_id")
+        if uid and uid in opted_out_users:
+            continue
         if allowed_users is not None:
-            uid = s.get("user_id")
             if uid and uid not in allowed_users:
                 pref_doc = await db.push_prefs.find_one({"user_id": uid}, {"_id": 0})
                 if pref_doc and pref_doc.get("groups") and group_name not in pref_doc["groups"]:
