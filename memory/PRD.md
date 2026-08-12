@@ -269,9 +269,14 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 
 ## Implemented (feature snapshot)
 
-## Implemented (feature snapshot)
+- **[2026-02] OCR Multi-Image Event Merge — DONE**:
+  - **Backend** yeni endpoint `POST /api/ocr/parse-multi?mode=event&merge=sum|max|first` (`files: List[UploadFile]`, max 10, 8MB each). Her resim ayrı ayrı GPT-5.4'e gönderilir, sonuçlar `_norm_key(name)` (alliance tag strip + lowercase) ile birleştirilir. `sources` counter her tekrar için artar. Response: `{data:{participants:[{name,points,sources}]}, per_image:[{index,filename,count}], merge_strategy, event_hint}`.
+  - **Frontend `OcrDialog`**: `supportsMulti = mode==="event"` iken çoklu file input, thumbnail grid + "+" add-more butonu, X kaldırma butonları. Merge strateji chip'leri (`Topla / En yüksek / İlkini kullan`) sadece 2+ resim varken görünür. Analyze butonu resim sayısını gösterir. Sonuç tablosunda yeni "Kaynak" sütunu (×N mor rozet).
+  - **Doğrulama** (curl E2E): 2 resim × 3 katılımcı → 4 unique üye, sum stratejisi ile `Ekko: 12345+3210=15555 (sources=2)`, `PasHa: 8900+1000=9900 (sources=2)`, `Vega: 5432 (×1)`, `Newbie: 999 (×1)` ✅ Alliance tag'ler normalize edildi ✅
+  - **Deploy**: Preview'da hazır.
 
-- **[2026-02] Cascade Event Delete + Gruplu/Grupsuz Toggle — DONE**:
+
+
   - **Cascade delete** (`DELETE /api/events/{event_id}`): Artık silmeden önce `db.points.delete_many({event_id})` çalıştırıyor, sonra event doc siliniyor. Response `{ok:true, points_deleted:N}` — orphan puan kaydı bırakılmıyor. Bu fix "Özel Zaman" event'inde yaşanan Network Error benzeri stale-state sorununu önlüyor.
   - **Gruplu/Grupsuz toggle** (`EventForm`): Yeni `grouped: boolean` state (initial değer: mevcut event'in `group_name` doluluğuna göre). İki chip button `event-form-grouped-yes` / `event-form-grouped-no`. Grupsuz seçiliyken tüm grup section (active chips + manual input) `{grouped && (...)}` ile gizleniyor. Submit'te `group_name: grouped ? name || null : ""` gönderiliyor → backend'de boş → UI'da "Grupsuz" bucket'ında görünüyor.
   - **Grup silme UI** (mevcut): Header'daki kırmızı `event-group-delete-{group}` butonu `DELETE /api/events/group/{group_name}` çağırıyor (backend cascade — line 473 zaten var, hem event'leri hem puanları siliyor).

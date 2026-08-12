@@ -277,4 +277,103 @@ def make_ocr_router(db, require_edit, require_auth):
             await db.points.insert_many(docs)
         return {"created": created, "errors": errors, "event_name": ev.get("name")}
 
+    @router.post("/ocr/parse-multi")
+    async def parse_multi(
+        mode: str = Query(..., description="event only"),
+        files: list[UploadFile] = File(...),
+        merge: str = Query("sum", description="sum | max | first"),
+        _: dict = Depends(require_auth),
+    ):
+        """Parse multiple screenshots and merge participant scores by normalised name.
+
+        Currently supports `mode=event` only. Each image is sent to the LLM
+        independently; the results are merged client-side of the LLM (by us) using
+        the requested strategy: `sum` (default), `max`, or `first`.
+        """
+        if mode != "event":
+            raise HTTPException(400, "parse-multi sadece event modunu destekliyor")
+        if not files:
+            raise HTTPException(400, "En az bir dosya gerekli")
+        if len(files) > 10:
+            raise HTTPException(400, "En fazla 10 dosya yüklenebilir")
+        if merge not in ("sum", "max", "first"):
+            raise HTTPException(400, "merge: sum | max | first")
+
+        from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+        api_key = os.environ.get("EMERGENT_LLM_KEY")
+        if not api_key:
+            raise HTTPException(500, "EMERGENT_LLM_KEY tanımlı değil")
+
+        per_image: list[dict] = []
+        # Merge structure: normalised_key → {name (best-cased), points, sources}
+        merged: dict[str, dict] = {}
+        event_hint: Optional[str] = None
+
+        for idx, f in enumerate(files):
+            contents = await f.read()
+            if not contents or len(contents) > _MAX_IMAGE_BYTES:
+                per_image.append({"index": idx, "filename": f.filename, "error": "boş/çok büyük"})
+                continue
+            # MIME sniff
+            mime = None
+            if contents[:8].startswith(b"\x89PNG"):
+                mime = "image/png"
+            elif contents[:3] == b"\xff\xd8\xff":
+                mime = "image/jpeg"
+            elif contents[:4] == b"RIFF" and contents[8:12] == b"WEBP":
+                mime = "image/webp"
+            if not mime:
+                per_image.append({"index": idx, "filename": f.filename, "error": "invalid MIME"})
+                continue
+            b64 = base64.b64encode(contents).decode()
+            chat = LlmChat(
+                api_key=api_key,
+                session_id=f"ocr-multi-{uuid.uuid4().hex[:8]}",
+                system_message="You are a precise OCR JSON extractor. Return only valid JSON.",
+            ).with_model("openai", _LLM_MODEL)
+            try:
+                reply = await chat.send_message(
+                    UserMessage(text=_PROMPTS["event"], file_contents=[ImageContent(image_base64=b64)])
+                )
+                data = _extract_json(reply)
+            except Exception as e:
+                per_image.append({"index": idx, "filename": f.filename, "error": str(e)[:120]})
+                continue
+            parts = data.get("participants") or []
+            if not event_hint and data.get("event_hint"):
+                event_hint = data["event_hint"]
+            per_image.append({
+                "index": idx, "filename": f.filename,
+                "count": len(parts), "participants": parts,
+            })
+            for p in parts:
+                raw_name = str(p.get("name") or "").strip()
+                if not raw_name:
+                    continue
+                pts = p.get("points") or 0
+                try:
+                    pts_int = int(pts)
+                except Exception:
+                    continue
+                key = _norm_key(raw_name)
+                if key not in merged:
+                    merged[key] = {"name": raw_name, "points": pts_int, "sources": 1}
+                else:
+                    merged[key]["sources"] += 1
+                    if merge == "sum":
+                        merged[key]["points"] += pts_int
+                    elif merge == "max":
+                        if pts_int > merged[key]["points"]:
+                            merged[key]["points"] = pts_int
+                    # merge == "first" → keep existing
+
+        merged_list = sorted(merged.values(), key=lambda x: -x["points"])
+        return {
+            "mode": mode,
+            "merge_strategy": merge,
+            "event_hint": event_hint,
+            "data": {"participants": merged_list, "event_hint": event_hint},
+            "per_image": per_image,
+        }
+
     return router

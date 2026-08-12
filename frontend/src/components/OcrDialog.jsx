@@ -19,12 +19,13 @@ import { useTranslation } from "react-i18next";
 export default function OcrDialog({ open, onClose, mode, onApply, title, requireSelection }) {
   const { t } = useTranslation();
   const fileRef = useRef(null);
-  const [preview, setPreview] = useState(null); // dataURL for image preview
-  const [file, setFile] = useState(null);
+  const supportsMulti = mode === "event";
+  const [previews, setPreviews] = useState([]); // [{file, url}]
   const [parsing, setParsing] = useState(false);
-  const [result, setResult] = useState(null); // parsed payload from backend
+  const [result, setResult] = useState(null);
   const [applying, setApplying] = useState(false);
   const [selection, setSelection] = useState("");
+  const [mergeStrategy, setMergeStrategy] = useState("sum"); // sum | max | first
 
   if (!open) return null;
 
@@ -126,12 +127,13 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
             ref={fileRef}
             type="file"
             accept="image/png,image/jpeg,image/webp"
+            multiple={supportsMulti}
             className="hidden"
             data-testid="ocr-file-input"
-            onChange={(e) => pick(e.target.files?.[0])}
+            onChange={(e) => pick(e.target.files)}
           />
 
-          {!preview ? (
+          {previews.length === 0 ? (
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
@@ -139,21 +141,63 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
               data-testid="ocr-select"
             >
               <Upload className="w-6 h-6" />
-              <span className="text-sm">Ekran Görüntüsü Seç</span>
+              <span className="text-sm">
+                {supportsMulti ? "Ekran Görüntüleri Seç (çoklu)" : "Ekran Görüntüsü Seç"}
+              </span>
               <span className="text-[10px] opacity-75">PNG / JPEG / WEBP</span>
             </button>
           ) : (
             <div className="flex flex-col gap-3 flex-1 min-h-0">
-              <div className="relative rounded-lg overflow-hidden flex-shrink-0" style={{ maxHeight: 200 }}>
-                <img src={preview} alt="preview" className="w-full h-auto object-contain max-h-[200px]" data-testid="ocr-image-preview" />
-                <button
-                  type="button"
-                  onClick={() => { setFile(null); setPreview(null); setResult(null); }}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 hover:bg-red-500/60 text-white flex items-center justify-center"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+              <div className="flex gap-2 overflow-x-auto flex-shrink-0" data-testid="ocr-thumbs">
+                {previews.map((p, i) => (
+                  <div key={i} className="relative flex-shrink-0" style={{ width: 90, height: 60 }}>
+                    <img src={p.url} alt={`preview-${i}`} className="w-full h-full object-cover rounded border border-white/10"
+                      data-testid={`ocr-image-preview-${i}`} />
+                    <button
+                      type="button"
+                      onClick={() => removePreview(i)}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500/80 hover:bg-red-500 text-white flex items-center justify-center"
+                      data-testid={`ocr-remove-${i}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+                {supportsMulti && (
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className="flex-shrink-0 rounded border border-dashed border-white/25 hover:border-amber-500/60 text-muted-foreground hover:text-amber-400 flex items-center justify-center"
+                    style={{ width: 90, height: 60 }}
+                    data-testid="ocr-add-more"
+                  >
+                    <Upload className="w-4 h-4" />
+                  </button>
+                )}
               </div>
+
+              {supportsMulti && previews.length > 1 && !result && (
+                <div className="flex items-center gap-1.5 text-[10px]" data-testid="ocr-merge-strategy">
+                  <span className="uppercase tracking-widest text-muted-foreground mr-1">
+                    Tekrarlanan üyeler:
+                  </span>
+                  {[
+                    { id: "sum", label: "Topla" },
+                    { id: "max", label: "En yüksek" },
+                    { id: "first", label: "İlkini kullan" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setMergeStrategy(opt.id)}
+                      data-testid={`ocr-merge-${opt.id}`}
+                      className={`chip px-2 py-1 text-[10px] ${mergeStrategy === opt.id ? "active" : ""}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {!result && (
                 <button
@@ -164,7 +208,9 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                   className="btn-gold w-full py-3 justify-center"
                 >
                   {parsing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-                  {parsing ? "Analiz ediliyor…" : "AI ile Analiz Et"}
+                  {parsing
+                    ? `Analiz ediliyor (${previews.length} resim)…`
+                    : `AI ile Analiz Et (${previews.length} resim)`}
                 </button>
               )}
 
@@ -194,6 +240,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                           {mode === "event" && (<>
                             <th className="text-left py-1">İsim</th>
                             <th className="text-right py-1">Puan</th>
+                            <th className="text-right py-1">Kaynak</th>
                           </>)}
                           {mode === "war" && (<>
                             <th className="text-left py-1">Kazanan</th>
@@ -217,6 +264,13 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             {mode === "event" && (<>
                               <td className="text-white py-1 truncate max-w-[220px]">{r.name}</td>
                               <td className="text-right mono py-1 gold-text">{Number(r.points || 0).toLocaleString("tr-TR")}</td>
+                              <td className="text-right py-1 text-white/60">
+                                {r.sources > 1 ? (
+                                  <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(139,92,246,0.2)", color: "#A78BFA" }}>
+                                    ×{r.sources}
+                                  </span>
+                                ) : "—"}
+                              </td>
                             </>)}
                             {mode === "war" && (<>
                               <td className="text-green-400 py-1">{r.winner || "—"}</td>
@@ -258,6 +312,25 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
 
               {result && rows.length > 0 && (
                 <button
+                  type="button"
+                  onClick={doApply}
+                  disabled={applying || (requireSelection && !selection)}
+                  data-testid="ocr-apply"
+                  className="btn-gold w-full py-3 justify-center"
+                  style={requireSelection && !selection ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                >
+                  {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  {applying ? "Kaydediliyor…" : `Onayla & Kaydet (${rows.length})`}
+                </button>
+              )}
+            </div>
+          )}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+          <button
                   type="button"
                   onClick={doApply}
                   disabled={applying || (requireSelection && !selection)}
