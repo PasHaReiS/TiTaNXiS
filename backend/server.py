@@ -351,11 +351,139 @@ async def member_history(member_id: str):
     return {"member": m, "points": points, "total": int(total), "event_count": len(set(p["event_id"] for p in points))}
 
 
+import re as _re_alliance
+
+_ALLIANCE_BRACKETS_RE = _re_alliance.compile(r"^\s*\[([^\]]+)\]\s*(.*)$")
+
+
+async def find_or_create_alliance(raw_input: Optional[str]) -> Optional[str]:
+    """Resolve a user-provided alliance tag/name to its canonical existing casing.
+
+    - Strips `[TAG]` brackets and outer whitespace.
+    - Case-insensitive lookup against existing distinct `members.alliance_name` values.
+    - Returns the existing canonical string if any member already uses this alliance
+      (so "gow" / "GoW" / "GOW" collapse into a single group), else returns the
+      cleaned string as-is (which effectively "creates" it the moment the member
+      is saved — alliances are not a separate collection in this schema).
+    """
+    if not raw_input:
+        return None
+    s = str(raw_input).strip()
+    if not s:
+        return None
+    # If wrapped in brackets, take the tag inside.
+    m = _ALLIANCE_BRACKETS_RE.match(s)
+    if m:
+        s = m.group(1).strip()
+    if not s:
+        return None
+    existing = await db.members.distinct("alliance_name")
+    lc = s.lower()
+    for e in existing:
+        if e and str(e).lower() == lc:
+            return e  # canonical existing casing
+    return s  # new alliance — first member using this name defines the casing
+
+
+def _split_alliance_from_name(raw: str) -> tuple[Optional[str], str]:
+    """Given "[GOW] PasHa" return ("GOW", "PasHa"); given "PasHa" return (None, "PasHa")."""
+    if not raw:
+        return None, ""
+    m = _ALLIANCE_BRACKETS_RE.match(str(raw))
+    if m:
+        return m.group(1).strip() or None, m.group(2).strip()
+    return None, str(raw).strip()
+
+
+class BatchCreateMemberInput(BaseModel):
+    name: str
+    alliance_tag: Optional[str] = None
+    power: Optional[int] = None
+    castle_level: Optional[int] = None
+    rank: Optional[str] = None
+
+
+class BatchCreateBody(BaseModel):
+    members: list[BatchCreateMemberInput]
+
+
 @api_router.post("/members")
 async def create_member(body: MemberCreate, _: dict = Depends(require_edit)):
-    m = Member(**body.model_dump())
+    payload = body.model_dump()
+    # Auto-resolve/canonicalise alliance. Strip [TAG] wrappers and match existing casing.
+    payload["alliance_name"] = await find_or_create_alliance(payload.get("alliance_name"))
+    # If admin left alliance blank but the name has "[TAG] ...", extract it.
+    if not payload["alliance_name"]:
+        tag, clean = _split_alliance_from_name(payload.get("name") or "")
+        if tag:
+            payload["alliance_name"] = await find_or_create_alliance(tag)
+            payload["name"] = clean
+    m = Member(**payload)
     await db.members.insert_one(m.model_dump())
     return m.model_dump()
+
+
+@api_router.post("/members/batch-create")
+async def batch_create_members(body: BatchCreateBody, _: dict = Depends(require_edit)):
+    """Bulk-create members with automatic alliance resolution / creation.
+
+    For each entry: strip `[TAG]` from name, resolve alliance case-insensitively
+    against existing members, upsert on normalised name (existing member with the
+    same case-insensitive name → skip create, keep existing).
+    Returns per-status counts + created alliance names.
+    """
+    existing_members = await db.members.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(20000)
+    by_name = {(x.get("name") or "").strip().lower(): x for x in existing_members}
+    existing_alliances_lc = {
+        str(a).lower() for a in await db.members.distinct("alliance_name") if a
+    }
+
+    created_members = 0
+    existing_hits = 0
+    new_alliances: list[str] = []
+    docs_to_insert: list[dict] = []
+    report: list[dict] = []
+
+    for row in body.members:
+        raw_name = (row.name or "").strip()
+        if not raw_name:
+            continue
+        tag_from_bracket, clean_name = _split_alliance_from_name(raw_name)
+        # Explicit alliance_tag prop wins over the one embedded in the name.
+        alliance_tag = (row.alliance_tag or "").strip() or tag_from_bracket
+        canonical_alliance = await find_or_create_alliance(alliance_tag) if alliance_tag else None
+        # Track brand-new alliances for the response summary.
+        if canonical_alliance and canonical_alliance.lower() not in existing_alliances_lc:
+            if canonical_alliance not in new_alliances:
+                new_alliances.append(canonical_alliance)
+            existing_alliances_lc.add(canonical_alliance.lower())
+
+        key = clean_name.lower()
+        if key in by_name:
+            existing_hits += 1
+            report.append({"name": clean_name, "alliance": canonical_alliance, "status": "existing"})
+            continue
+        doc = {
+            "id": str(uuid.uuid4()),
+            "name": clean_name,
+            "rank": (row.rank if row.rank in ("R1", "R2", "R3", "R4", "R5") else "R1"),
+            "alliance_name": canonical_alliance or "",
+            "bireysel_guc": int(row.power) if row.power and row.power > 0 else 0,
+            "castle_level": int(row.castle_level) if row.castle_level and row.castle_level > 0 else 0,
+        }
+        docs_to_insert.append(doc)
+        by_name[key] = doc
+        created_members += 1
+        report.append({"name": clean_name, "alliance": canonical_alliance, "status": "new"})
+
+    if docs_to_insert:
+        await db.members.insert_many(docs_to_insert)
+    return {
+        "created": created_members,
+        "existing": existing_hits,
+        "new_alliances": new_alliances,
+        "report": report,
+    }
 
 
 @api_router.patch("/members/{member_id}")

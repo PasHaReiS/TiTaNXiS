@@ -279,19 +279,19 @@ def make_ocr_router(db, require_edit, require_auth):
 
     @router.post("/ocr/parse-multi")
     async def parse_multi(
-        mode: str = Query(..., description="event only"),
+        mode: str = Query(..., description="event | members"),
         files: list[UploadFile] = File(...),
-        merge: str = Query("sum", description="sum | max | first"),
+        merge: str = Query("sum", description="sum | max | first (event only)"),
         _: dict = Depends(require_auth),
     ):
-        """Parse multiple screenshots and merge participant scores by normalised name.
+        """Parse multiple screenshots and merge results by normalised name.
 
-        Currently supports `mode=event` only. Each image is sent to the LLM
-        independently; the results are merged client-side of the LLM (by us) using
-        the requested strategy: `sum` (default), `max`, or `first`.
+        Supports `mode=event` (participant scores) and `mode=members` (roster rows).
+        For members: dedupe by normalised name; the first non-empty value wins for
+        power/castle/rank/alliance_name fields.
         """
-        if mode != "event":
-            raise HTTPException(400, "parse-multi sadece event modunu destekliyor")
+        if mode not in ("event", "members"):
+            raise HTTPException(400, "parse-multi sadece event/members modunu destekliyor")
         if not files:
             raise HTTPException(400, "En az bir dosya gerekli")
         if len(files) > 10:
@@ -305,16 +305,14 @@ def make_ocr_router(db, require_edit, require_auth):
             raise HTTPException(500, "EMERGENT_LLM_KEY tanımlı değil")
 
         per_image: list[dict] = []
-        # Merge structure: normalised_key → {name (best-cased), points, sources}
         merged: dict[str, dict] = {}
         event_hint: Optional[str] = None
-
+        prompt_key = mode
         for idx, f in enumerate(files):
             contents = await f.read()
             if not contents or len(contents) > _MAX_IMAGE_BYTES:
                 per_image.append({"index": idx, "filename": f.filename, "error": "boş/çok büyük"})
                 continue
-            # MIME sniff
             mime = None
             if contents[:8].startswith(b"\x89PNG"):
                 mime = "image/png"
@@ -333,46 +331,63 @@ def make_ocr_router(db, require_edit, require_auth):
             ).with_model("openai", _LLM_MODEL)
             try:
                 reply = await chat.send_message(
-                    UserMessage(text=_PROMPTS["event"], file_contents=[ImageContent(image_base64=b64)])
+                    UserMessage(text=_PROMPTS[prompt_key], file_contents=[ImageContent(image_base64=b64)])
                 )
                 data = _extract_json(reply)
             except Exception as e:
                 per_image.append({"index": idx, "filename": f.filename, "error": str(e)[:120]})
                 continue
-            parts = data.get("participants") or []
-            if not event_hint and data.get("event_hint"):
-                event_hint = data["event_hint"]
-            per_image.append({
-                "index": idx, "filename": f.filename,
-                "count": len(parts), "participants": parts,
-            })
-            for p in parts:
-                raw_name = str(p.get("name") or "").strip()
-                if not raw_name:
-                    continue
-                pts = p.get("points") or 0
-                try:
-                    pts_int = int(pts)
-                except Exception:
-                    continue
-                key = _norm_key(raw_name)
-                if key not in merged:
-                    merged[key] = {"name": raw_name, "points": pts_int, "sources": 1}
-                else:
-                    merged[key]["sources"] += 1
-                    if merge == "sum":
-                        merged[key]["points"] += pts_int
-                    elif merge == "max":
-                        if pts_int > merged[key]["points"]:
-                            merged[key]["points"] = pts_int
-                    # merge == "first" → keep existing
 
-        merged_list = sorted(merged.values(), key=lambda x: -x["points"])
+            if mode == "event":
+                parts = data.get("participants") or []
+                if not event_hint and data.get("event_hint"):
+                    event_hint = data["event_hint"]
+                per_image.append({"index": idx, "filename": f.filename, "count": len(parts)})
+                for p in parts:
+                    raw_name = str(p.get("name") or "").strip()
+                    if not raw_name:
+                        continue
+                    try:
+                        pts_int = int(p.get("points") or 0)
+                    except Exception:
+                        continue
+                    key = _norm_key(raw_name)
+                    if key not in merged:
+                        merged[key] = {"name": raw_name, "points": pts_int, "sources": 1}
+                    else:
+                        merged[key]["sources"] += 1
+                        if merge == "sum":
+                            merged[key]["points"] += pts_int
+                        elif merge == "max":
+                            merged[key]["points"] = max(merged[key]["points"], pts_int)
+            else:  # members
+                rows = data.get("members") or []
+                per_image.append({"index": idx, "filename": f.filename, "count": len(rows)})
+                for r in rows:
+                    raw_name = str(r.get("name") or "").strip()
+                    if not raw_name:
+                        continue
+                    key = _norm_key(raw_name)
+                    if key not in merged:
+                        merged[key] = {**r, "name": raw_name, "sources": 1}
+                    else:
+                        merged[key]["sources"] += 1
+                        # First-non-empty-wins for scalar fields
+                        for fld in ("power", "castle_level", "rank", "alliance_name"):
+                            if not merged[key].get(fld) and r.get(fld):
+                                merged[key][fld] = r.get(fld)
+
+        merged_list = (
+            sorted(merged.values(), key=lambda x: -(x.get("points") or 0))
+            if mode == "event"
+            else sorted(merged.values(), key=lambda x: -(x.get("power") or 0))
+        )
+        payload_key = "participants" if mode == "event" else "members"
         return {
             "mode": mode,
             "merge_strategy": merge,
             "event_hint": event_hint,
-            "data": {"participants": merged_list, "event_hint": event_hint},
+            "data": {payload_key: merged_list, "event_hint": event_hint},
             "per_image": per_image,
         }
 
