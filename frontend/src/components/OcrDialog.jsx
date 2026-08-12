@@ -48,11 +48,10 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   const [selection, setSelection] = useState("");
   const [mergeStrategy, setMergeStrategy] = useState("sum"); // sum | max | first
 
-  // Threshold: when we have this many images or more, we call /ocr/parse per
-  // image sequentially and merge in the browser — a single request with all
-  // files can exceed Cloudflare's 100s edge timeout → 524. Two images still
-  // use the batched /parse-multi endpoint for speed.
-  const SEQUENTIAL_THRESHOLD = 3;
+  // (Legacy) threshold constant kept only for the progress-UI heuristic below —
+  // all parsing now goes through per-image sequential calls to avoid Cloudflare's
+  // 100s edge timeout (524) that hit /parse-multi on large batches.
+  const SEQUENTIAL_THRESHOLD = 2;
 
   if (!open) return null;
 
@@ -134,39 +133,15 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
     setResult(null);
     setProgress({ current: 0, total: previews.length, errors: 0 });
 
-    // Route A — single/two-image batch: still use /parse-multi (fast, within
-    // Cloudflare's 100s edge timeout).
-    if (previews.length < SEQUENTIAL_THRESHOLD) {
-      try {
-        const fd = new FormData();
-        let url;
-        if (supportsMulti && previews.length > 1) {
-          previews.forEach((p) => fd.append("files", p.file));
-          url = `/ocr/parse-multi?mode=${mode}&merge=${mergeStrategy}`;
-        } else {
-          fd.append("file", previews[0].file);
-          url = `/ocr/parse?mode=${mode}`;
-        }
-        const res = await api.post(url, fd, {
-          headers: { "Content-Type": "multipart/form-data" },
-          timeout: 180000,
-        });
-        setResult(res.data);
-        toast.success("OCR analizi tamamlandı");
-      } catch (e) {
-        toast.error(apiErr(e));
-      } finally {
-        setParsing(false);
-      }
-      return;
-    }
-
-    // Route B — sequential per-image parse then merge in the browser. Avoids
-    // Cloudflare 524 on large batches (each request stays well under 100s).
+    // Always call /ocr/parse ONCE PER IMAGE, sequentially. A single request
+    // batching all files exceeds Cloudflare's 100s edge timeout on 3+ images
+    // (524). Per-image calls stay well under 100s each (~5–20s w/ vision).
+    // Frontend merges the results in `_mergeRows` — same logic that the old
+    // /parse-multi endpoint used server-side.
     const chunks = [];
     let errCount = 0;
     for (let i = 0; i < previews.length; i++) {
-      setProgress({ current: i + 1, total: previews.length, errors: errCount });
+      setProgress({ current: i, total: previews.length, errors: errCount });
       const fd = new FormData();
       fd.append("file", previews[i].file);
       try {
@@ -179,7 +154,26 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
         errCount += 1;
         toast.error(`Resim ${i + 1}/${previews.length}: ${apiErr(e)}`);
       }
+      setProgress({ current: i + 1, total: previews.length, errors: errCount });
     }
+
+    // Single-image shortcut: pass through unchanged so the raw parse response
+    // shape is preserved (mostly cosmetic — merge still works with 1 chunk).
+    if (previews.length === 1) {
+      const only = chunks[0] || {};
+      const single =
+        mode === "war"
+          ? only
+          : mode === "event"
+          ? { participants: only.participants || [], event_hint: only.event_hint || null }
+          : { members: only.members || [] };
+      setResult({ mode, data: single });
+      setParsing(false);
+      if (errCount) toast.error("OCR başarısız");
+      else toast.success("OCR analizi tamamlandı");
+      return;
+    }
+
     const { arr, event_hint } = _mergeRows(chunks);
     const merged =
       mode === "event"

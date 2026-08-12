@@ -1,5 +1,12 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] OCR — Per-Image Sequential (FINAL Cloudflare 524 Fix) — DONE & VERIFIED
+- **Mimari değişim**: `OcrDialog.jsx` içindeki `runParse` artık **koşulsuz olarak her resmi ayrı ayrı** `POST /api/ocr/parse?mode=...` çağrısı ile sıralı işliyor. `/parse-multi` çağrısı frontend'de tamamen kaldırıldı (backend endpoint kaldı ama frontend hiç çağırmıyor).
+- **Kanıt (Playwright network log)**: 4 resim yüklenip Analiz Et'e basıldı → 4 ayrı `POST /ocr/parse?mode=members` isteği ✅, 0 `parse-multi` isteği ✅. Progress "1/4 resim" → "4/4" → "4 resim analiz edildi" toast'ı.
+- **Timeout mühendisliği**: Her istek `timeout: 90000` (90s < CF 100s). Tek resim analizi ~5–20s → CF 524 yapısal olarak imkânsız.
+- **Frontend merge** (`_mergeRows`): backend `/parse-multi` mantığının aynısı — members için first-non-empty scalar wins; event için sum/max/first stratejisi. Sources sayacı, sıralama korundu.
+- **Hata izolasyonu**: Bir resim başarısız olursa `errCount++`, döngü devam eder, sonunda "M/N başarılı · K hata" toast'ı.
+
 ## [2026-02] OCR Sequential Parse — Cloudflare 524 Fix — DONE & VERIFIED
 - **Sorun**: 10 resim tek `/parse-multi` isteğinde gidiyor → Cloudflare 100s edge timeout → 524.
 - **Çözüm** (`OcrDialog.jsx`): `SEQUENTIAL_THRESHOLD = 3`. 1–2 resim → hâlâ `/parse-multi` (hızlı batch). 3+ resim → **frontend loop**: her resmi ayrı `/ocr/parse?mode=...` çağrısı, browser'da merge.
