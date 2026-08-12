@@ -269,7 +269,26 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 
 ## Implemented (feature snapshot)
 
-- **[2026-02] Per-Karakter Bildirim + 7g Trend Sparkline + Toplu Excel/CSV Import — DONE**:
+- **[2026-02] Şifre Rotasyon Log — DONE**:
+  - **Backend `auth.py`**:
+    - User modeline `password_updated_at: ISO string` + `password_updated_by: str` alanları eklendi (public_user her ikisini de dönüyor).
+    - Tetikleyiciler:
+      - `POST /auth/change-password` → `by=<username>` (self-service)
+      - `POST /users/{id}/reset-password` → `by=admin:<admin_username>` (admin override)
+      - `POST /users` (create) → `by=admin:<admin_username>`
+      - `seed_admin` insert veya password re-sync → `by="system-seed"` (sadece hash gerçekten değişince yazılıyor — idempotent)
+  - **Frontend `UserManagement.jsx`**:
+    - `useRelativeTime()` hook: ISO string'i `az önce / Nsa önce / Ng önce / Nay önce` şeklinde localize ediyor.
+    - `useActorLabel()` hook: `system-seed` → "sistem", `admin:X` → "yönetici X", kendi username'i → "kendisi", diğer → raw string.
+    - Her kullanıcı satırının altında Clock ikonu ile `Şifre: 2sa önce · yönetici admin` satırı (`user-pwd-log-{id}` testid).
+    - Yeni 10 i18n anahtarı TR + EN: `pwd_updated`, `pwd_never`, `pwd_by_system/admin/self`, `time_ago_now/minutes/hours/days/months`.
+  - **Doğrulama** (curl + Playwright):
+    - Admin reset pasha → DB'de `password_updated_by: admin:admin`, `password_updated_at: 2026-08-12T…` ✅
+    - Pasha self change-password → `password_updated_by: pasha` ✅
+    - UI: 5 satır render, satırların altında Şifre + relative time gösteriliyor ✅
+
+
+
   - **1. Karakter Bazlı Bildirim Filtresi**:
     - Backend: `users.notification_member_ids: List[str]` (subset of `member_ids`, empty=default all). Yeni endpoint `POST /api/auth/notification-members {member_ids:[…]}` (non-linked id'ler sessizce atılır). `link-members` bulk-set auto-prune yapıyor (removed karakter notif listesinden de düşüyor). `link-members/remove` `$pull`'u iki alandan birden yapıyor.
     - Push alliance filter (`routes/push.py` + `server.py`): `effective = notification_member_ids if non-empty else linked` → sadece opt-in karakterlere gelen alliance mesajlarında kullanıcıya push atılıyor.

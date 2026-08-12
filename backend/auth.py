@@ -132,6 +132,8 @@ def public_user(u: dict) -> dict:
         "member_ids": ids,
         "notification_member_ids": notif_ids,
         "notification_enabled": bool(u.get("notification_enabled", True)),
+        "password_updated_at": u.get("password_updated_at"),
+        "password_updated_by": u.get("password_updated_by"),
         "created_at": u.get("created_at"),
     }
 
@@ -228,7 +230,12 @@ def make_auth_router(db):
             raise HTTPException(400, "Yeni şifre en az 6 karakter olmalı")
         await db.users.update_one(
             {"id": user["id"]},
-            {"$set": {"password_hash": hash_password(body.new_password), "must_change_password": False}},
+            {"$set": {
+                "password_hash": hash_password(body.new_password),
+                "must_change_password": False,
+                "password_updated_at": now_iso(),
+                "password_updated_by": user["username"],
+            }},
         )
         return {"ok": True}
 
@@ -409,7 +416,12 @@ def make_auth_router(db):
             raise HTTPException(400, "Şifre en az 6 karakter olmalı")
         res = await db.users.update_one(
             {"id": user_id},
-            {"$set": {"password_hash": hash_password(body.new_password), "must_change_password": True}},
+            {"$set": {
+                "password_hash": hash_password(body.new_password),
+                "must_change_password": True,
+                "password_updated_at": now_iso(),
+                "password_updated_by": f"admin:{admin['username']}",
+            }},
         )
         if res.matched_count == 0:
             raise HTTPException(404, "Kullanıcı bulunamadı")
@@ -531,7 +543,10 @@ async def seed_admin(db):
             can_edit=True,
             must_change_password=True,
         )
-        await db.users.insert_one(u.model_dump())
+        doc = u.model_dump()
+        doc["password_updated_at"] = now_iso()
+        doc["password_updated_by"] = "system-seed"
+        await db.users.insert_one(doc)
     else:
         # Ensure admin flags always correct; re-sync password from env if it changed.
         updates = {}
@@ -543,6 +558,8 @@ async def seed_admin(db):
             updates["email"] = email
         if not verify_password(password, existing["password_hash"]):
             updates["password_hash"] = hash_password(password)
+            updates["password_updated_at"] = now_iso()
+            updates["password_updated_by"] = "system-seed"
         if updates:
             await db.users.update_one({"id": existing["id"]}, {"$set": updates})
 
@@ -559,7 +576,10 @@ async def seed_admin(db):
             can_edit=True,
             must_change_password=False,
         )
-        await db.users.insert_one(u.model_dump())
+        doc = u.model_dump()
+        doc["password_updated_at"] = now_iso()
+        doc["password_updated_by"] = "system-seed"
+        await db.users.insert_one(doc)
     else:
         updates = {}
         if editor.get("role") != "user":
@@ -568,6 +588,8 @@ async def seed_admin(db):
             updates["can_edit"] = True
         if not verify_password(editor_password, editor["password_hash"]):
             updates["password_hash"] = hash_password(editor_password)
+            updates["password_updated_at"] = now_iso()
+            updates["password_updated_by"] = "system-seed"
         if updates:
             await db.users.update_one({"id": editor["id"]}, {"$set": updates})
 

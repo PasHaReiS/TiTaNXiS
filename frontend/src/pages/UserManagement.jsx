@@ -4,16 +4,50 @@ import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
-import { Plus, Trash2, KeyRound, Shield, User, X, ShieldCheck, PencilLine, Link2, AlertTriangle, Upload } from "lucide-react";
+import { Plus, Trash2, KeyRound, Shield, User, X, ShieldCheck, PencilLine, Link2, AlertTriangle, Upload, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "react-i18next";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
+/** Format an ISO timestamp as a compact "N minutes/hours/days/months ago" string. */
+function useRelativeTime() {
+  const { t } = useTranslation();
+  return (iso) => {
+    if (!iso) return t("pwd_never");
+    const then = new Date(iso).getTime();
+    if (!then) return t("pwd_never");
+    const diffMs = Date.now() - then;
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return t("time_ago_now");
+    if (mins < 60) return t("time_ago_minutes", { n: mins });
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return t("time_ago_hours", { n: hrs });
+    const days = Math.floor(hrs / 24);
+    if (days < 60) return t("time_ago_days", { n: days });
+    const months = Math.floor(days / 30);
+    return t("time_ago_months", { n: months });
+  };
+}
+
+/** Parse `password_updated_by` string into a human-readable actor label. */
+function useActorLabel() {
+  const { t } = useTranslation();
+  return (by, currentUsername) => {
+    if (!by) return null;
+    if (by === "system-seed") return t("pwd_by_system");
+    if (by.startsWith("admin:")) return `${t("pwd_by_admin")} ${by.slice(6)}`;
+    if (by === currentUsername) return t("pwd_by_self");
+    return by;
+  };
+}
+
 export default function UserManagement() {
   const { user: me } = useAuth();
   const { t } = useTranslation();
+  const relTime = useRelativeTime();
+  const actorLabel = useActorLabel();
   const { data: users = [] } = useSWR("/users", fetcher);
   const { data: unmatched = [] } = useSWR("/users/unmatched", fetcher);
   const { data: members = [] } = useSWR("/members", fetcher);
@@ -163,6 +197,15 @@ export default function UserManagement() {
                       </span>
                     ) : (
                       <span className="text-muted-foreground italic">{t("linked_member_none")}</span>
+                    )}
+                  </div>
+                  {/* Password rotation history */}
+                  <div className="text-[10px] mt-0.5 text-muted-foreground" data-testid={`user-pwd-log-${u.id}`}>
+                    <Clock className="w-2.5 h-2.5 inline mr-1 opacity-70" />
+                    <span className="uppercase tracking-widest text-[9px]">{t("pwd_updated")}:</span>{" "}
+                    <span className="text-white/70">{relTime(u.password_updated_at)}</span>
+                    {u.password_updated_by && (
+                      <span className="text-white/50"> · {actorLabel(u.password_updated_by, u.username)}</span>
                     )}
                   </div>
                 </div>
