@@ -4,7 +4,7 @@ import bcrypt
 import jwt
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from pydantic import BaseModel, Field, ConfigDict
 import uuid
 
@@ -58,6 +58,8 @@ class User(BaseModel):
     must_change_password: bool = False
     # Member matching: link app user to one or more in-game members._id
     member_ids: List[str] = Field(default_factory=list)
+    # Per-character notification opt-in (subset of member_ids). Empty = all opted-in.
+    notification_member_ids: List[str] = Field(default_factory=list)
     # Global notification opt-in/out (both Telegram DMs and Web Push respect this)
     notification_enabled: bool = True
     created_at: str = Field(default_factory=now_iso)
@@ -98,6 +100,11 @@ class NotificationPrefBody(BaseModel):
     enabled: bool
 
 
+class NotificationMembersBody(BaseModel):
+    """Per-character notification opt-in list (subset of linked members)."""
+    member_ids: List[str] = Field(default_factory=list)
+
+
 class ResetPwdBody(BaseModel):
     new_password: str
 
@@ -114,6 +121,7 @@ def public_user(u: dict) -> dict:
     legacy = u.get("member_id")
     if legacy and legacy not in ids:
         ids.append(legacy)
+    notif_ids = [x for x in (u.get("notification_member_ids") or []) if x and x in ids]
     return {
         "id": u["id"],
         "username": u["username"],
@@ -122,6 +130,7 @@ def public_user(u: dict) -> dict:
         "can_edit": bool(u.get("can_edit", False)) or u.get("role") == "admin",
         "must_change_password": bool(u.get("must_change_password", False)),
         "member_ids": ids,
+        "notification_member_ids": notif_ids,
         "notification_enabled": bool(u.get("notification_enabled", True)),
         "created_at": u.get("created_at"),
     }
@@ -226,7 +235,9 @@ def make_auth_router(db):
     # ---------- Member Matching (user self-service) ----------
     @router.post("/auth/link-members")
     async def set_linked_members(body: LinkMembersBody, user: dict = Depends(require_auth)):
-        """Replace the caller's linked-members list. Empty list = unlink all."""
+        """Replace the caller's linked-members list. Empty list = unlink all.
+        Auto-syncs `notification_member_ids` so removed characters are dropped from
+        the opt-in set."""
         ids = list(dict.fromkeys([(x or "").strip() for x in (body.member_ids or []) if x and x.strip()]))
         if ids:
             found_docs = await db.members.find({"id": {"$in": ids}}, {"_id": 0, "id": 1}).to_list(len(ids))
@@ -241,9 +252,14 @@ def make_auth_router(db):
             )
             if taken:
                 raise HTTPException(409, f"Bazı üyeler zaten '{taken['username']}' hesabına bağlı")
+        # Prune notification_member_ids to only the ids that are still linked.
+        current = await db.users.find_one({"id": user["id"]}, {"_id": 0, "notification_member_ids": 1})
+        prev_notif = list((current or {}).get("notification_member_ids") or [])
+        new_notif = [x for x in prev_notif if x in ids]
         await db.users.update_one(
             {"id": user["id"]},
-            {"$set": {"member_ids": ids}, "$unset": {"member_id": ""}},
+            {"$set": {"member_ids": ids, "notification_member_ids": new_notif},
+             "$unset": {"member_id": ""}},
         )
         doc = await db.users.find_one({"id": user["id"]}, {"_id": 0})
         return public_user(doc)
@@ -276,11 +292,22 @@ def make_auth_router(db):
             raise HTTPException(400, "member_id gerekli")
         await db.users.update_one(
             {"id": user["id"]},
-            {"$pull": {"member_ids": mid}},
+            {"$pull": {"member_ids": mid, "notification_member_ids": mid}},
         )
         await db.users.update_one(
             {"id": user["id"], "member_id": mid}, {"$unset": {"member_id": ""}}
         )
+        doc = await db.users.find_one({"id": user["id"]}, {"_id": 0})
+        return public_user(doc)
+
+    @router.post("/auth/notification-members")
+    async def set_notification_members(body: NotificationMembersBody, user: dict = Depends(require_auth)):
+        """Per-character notification opt-in list (must be subset of linked members)."""
+        raw = list(dict.fromkeys([(x or "").strip() for x in (body.member_ids or []) if x and x.strip()]))
+        u_doc = await db.users.find_one({"id": user["id"]}, {"_id": 0, "member_ids": 1})
+        linked = set((u_doc or {}).get("member_ids") or [])
+        ids = [x for x in raw if x in linked]  # silently discard non-linked ids
+        await db.users.update_one({"id": user["id"]}, {"$set": {"notification_member_ids": ids}})
         doc = await db.users.find_one({"id": user["id"]}, {"_id": 0})
         return public_user(doc)
 
@@ -396,6 +423,95 @@ def make_auth_router(db):
         if res.deleted_count == 0:
             raise HTTPException(404, "Kullanıcı bulunamadı")
         return {"ok": True}
+
+    @router.post("/users/link-members/import")
+    async def bulk_link_import(file: UploadFile = File(...), _: dict = Depends(require_admin)):
+        """Admin bulk-import of user↔member linkage from an .xlsx/.csv.
+
+        Expected columns (case-insensitive, Turkish accents tolerated):
+          - username     (required)   — matched exactly against users.username (lowercased)
+          - member_name  (optional)   — matched case-insensitively against members.name
+          - member_id    (optional)   — matched exactly against members.id or members.member_id
+
+        Behavior: For each row, add the resolved member id to the user's member_ids list
+        (idempotent). Rows without a match report an error. Existing links preserved.
+        """
+        from openpyxl import load_workbook
+        from io import BytesIO
+        import csv as csv_mod
+        contents = await file.read()
+        if not contents:
+            raise HTTPException(400, "Boş dosya")
+        ext = (file.filename or "").lower().rsplit(".", 1)[-1]
+        rows: list[dict] = []
+        if ext == "xlsx":
+            wb = load_workbook(BytesIO(contents), read_only=True, data_only=True)
+            ws = wb[wb.sheetnames[0]]
+            it = list(ws.iter_rows(values_only=True))
+            if not it:
+                return {"added": 0, "skipped": 0, "errors": 0, "rows": []}
+            headers = [str(h).strip().lower() if h is not None else "" for h in it[0]]
+            for r in it[1:]:
+                if all(c is None or c == "" for c in r):
+                    continue
+                rows.append({headers[i]: r[i] for i in range(min(len(headers), len(r)))})
+        elif ext == "csv":
+            text = contents.decode("utf-8-sig", errors="ignore")
+            rows = [dict(r) for r in csv_mod.DictReader(text.splitlines())]
+            rows = [{(k or "").strip().lower(): v for k, v in row.items()} for row in rows]
+        else:
+            raise HTTPException(400, "Yalnızca .xlsx veya .csv desteklenir")
+
+        users_all = await db.users.find({}, {"_id": 0, "id": 1, "username": 1, "member_ids": 1, "member_id": 1}).to_list(5000)
+        users_by_name = {u["username"].lower(): u for u in users_all if u.get("username")}
+        members_all = await db.members.find({}, {"_id": 0, "id": 1, "name": 1, "member_id": 1}).to_list(10000)
+        members_by_id = {m["id"]: m for m in members_all}
+        members_by_gid = {m["member_id"]: m for m in members_all if m.get("member_id")}
+        members_by_name = {(m.get("name") or "").lower(): m for m in members_all if m.get("name")}
+
+        added = 0
+        skipped = 0
+        errors = 0
+        report: list[dict] = []
+        for row in rows:
+            uname = str(row.get("username") or "").strip().lower()
+            mname = str(row.get("member_name") or "").strip()
+            mid_col = str(row.get("member_id") or "").strip()
+            if not uname:
+                errors += 1
+                report.append({"row": row, "error": "username missing"})
+                continue
+            u = users_by_name.get(uname)
+            if not u:
+                errors += 1
+                report.append({"row": row, "error": f"user '{uname}' not found"})
+                continue
+            m = None
+            if mid_col:
+                m = members_by_id.get(mid_col) or members_by_gid.get(mid_col)
+            if not m and mname:
+                m = members_by_name.get(mname.lower())
+            if not m:
+                errors += 1
+                report.append({"row": row, "error": "member not resolved"})
+                continue
+            existing_ids = set(u.get("member_ids") or [])
+            if u.get("member_id"):
+                existing_ids.add(u["member_id"])
+            if m["id"] in existing_ids:
+                skipped += 1
+                continue
+            # Auto-detach from any OTHER user first (admin override wins).
+            await db.users.update_many(
+                {"id": {"$ne": u["id"]}, "$or": [{"member_ids": m["id"]}, {"member_id": m["id"]}]},
+                {"$pull": {"member_ids": m["id"], "notification_member_ids": m["id"]}},
+            )
+            await db.users.update_one(
+                {"id": u["id"]},
+                {"$addToSet": {"member_ids": m["id"]}, "$unset": {"member_id": ""}},
+            )
+            added += 1
+        return {"added": added, "skipped": skipped, "errors": errors, "report": report[:50]}
 
     return router
 

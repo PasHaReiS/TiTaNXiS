@@ -269,7 +269,27 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 
 ## Implemented (feature snapshot)
 
-- **[2026-02] Karakter Karşılaştırma Paneli — DONE**:
+- **[2026-02] Per-Karakter Bildirim + 7g Trend Sparkline + Toplu Excel/CSV Import — DONE**:
+  - **1. Karakter Bazlı Bildirim Filtresi**:
+    - Backend: `users.notification_member_ids: List[str]` (subset of `member_ids`, empty=default all). Yeni endpoint `POST /api/auth/notification-members {member_ids:[…]}` (non-linked id'ler sessizce atılır). `link-members` bulk-set auto-prune yapıyor (removed karakter notif listesinden de düşüyor). `link-members/remove` `$pull`'u iki alandan birden yapıyor.
+    - Push alliance filter (`routes/push.py` + `server.py`): `effective = notification_member_ids if non-empty else linked` → sadece opt-in karakterlere gelen alliance mesajlarında kullanıcıya push atılıyor.
+    - Frontend `Profile.jsx`: Her karakter kartına yeşil/gri bell butonu (`profile-linked-bell-{id}`, aria-pressed). Toggle mantığı: default (boş list) → tümü ON; ilk kapatmada list dolduruluyor; tekrar ON eklerken listeye eklenir; tüm karakterler ON olduğunda list `[]`'ye reset (default). Toast: "'X' için bildirimler açıldı/kapatıldı".
+  - **2. 7 Günlük Puan Trendi**:
+    - Backend: `GET /api/members/trend?ids=id1,id2&days=7` — comma-separated id listesinden `points` collection'u toplayıp UTC gün-bucket'a topluyor. Response: `{member_id: [{date, points}, ...7 gün eski→yeni]}`. Max 20 id, max 30 gün.
+    - Frontend: `Profile.jsx` her karakter kartının altında mini SVG polyline sparkline (`profile-linked-sparkline-{id}`). Her sparkline yerel max'a normalize, altın çizgi (#F5A623), sağda 7 günlük toplam TR-locale format ile.
+  - **3. Toplu Excel/CSV Import** (Admin):
+    - Backend: `POST /api/users/link-members/import` (multipart/form-data). `.xlsx` (openpyxl) veya `.csv` (utf-8-sig). Kolonlar: `username` (zorunlu, lowercase match), `member_name` veya `member_id` (biri). Her satır → user bulunur, member bulunur, `$addToSet: member_ids` (idempotent), diğer kullanıcıdan `$pull` (auto-detach). Response: `{added, skipped, errors, report[:50]}`.
+    - Frontend: `UserManagement.jsx` "Toplu İçe Aktar" mor chip (`user-bulk-import-btn`). Modal (`bulk-import-dialog`): hidden file input + "Toplu İçe Aktar" tetikleyici butonu (`bulk-import-select-file`). Sonuç kartında sayaç + ilk 20 hata satırı gösterilir. `mutate('/users')` + `mutate('/users/unmatched')` refresh.
+  - **Doğrulama** (curl + Playwright):
+    - `POST /auth/notification-members {[M1]}` → notif_ids=[M1] ✅ · `{[]}` → reset ✅
+    - `POST /auth/link-members/add` yeni karakter eklendiğinde notif otomatik senkron ✅
+    - `GET /members/trend?ids=…&days=7` → 2 üye, her biri 7 günlük array ✅
+    - CSV import: `admin,MNAME5\npasha,MNAME6\nnonuser,fake` → added=2 skipped=0 errors=1 ✅
+    - UI: Profile 3 karakter bell toggle çalıştı, "Scalanuova için bildirimler kapatıldı" toast render, sparklines=3, dashboard karşılaştırma paneli render ✅
+    - UI: UserMgmt bulk import butonu + modal + file input + sonuç kartı render ✅
+
+
+
   - **Frontend** (`pages/Profile.jsx`): `linkedMembers.length >= 2` iken linked list'in üstünde mor-tint karşılaştırma paneli render oluyor.
     - **Winner badges**: `strongest` (max `bireysel_guc`) turuncu Crown ikonu ile, `topRank` (min `position` non-null) altın Medal ikonu ile. Her ikisi de karakter adı + değer gösteriyor.
     - **Güç Oranı bar'ları**: Her karakter için isim + progress bar + yüzde (max güce göre `Math.round(pct)`). En güçlü karakter turuncu gradient (`#FF6B00 → #F5A623`), diğerleri mor gradient (`rgba(139,92,246,…)`) — kaybedenler yerine "en güçlüyü" görsel olarak öne çıkarıyor.

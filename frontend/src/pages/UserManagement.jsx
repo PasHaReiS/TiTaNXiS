@@ -4,7 +4,7 @@ import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
-import { Plus, Trash2, KeyRound, Shield, User, X, ShieldCheck, PencilLine, Link2, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, KeyRound, Shield, User, X, ShieldCheck, PencilLine, Link2, AlertTriangle, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "react-i18next";
@@ -20,6 +20,31 @@ export default function UserManagement() {
   const [showForm, setShowForm] = useState(false);
   const [resetTarget, setResetTarget] = useState(null);
   const [linkTarget, setLinkTarget] = useState(null); // { userId, username, currentMemberIds }
+  const [importOpen, setImportOpen] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const importInputRef = React.useRef(null);
+
+  const handleImportFile = async (file) => {
+    if (!file) return;
+    setImportBusy(true);
+    setImportResult(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await api.post("/users/link-members/import", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setImportResult(res.data);
+      mutate("/users");
+      mutate("/users/unmatched");
+      toast.success(t("bulk_import_result", res.data));
+    } catch (e) {
+      toast.error(apiErr(e));
+    } finally {
+      setImportBusy(false);
+    }
+  };
 
   // Quick lookup: member_id → member doc (for showing linked character name on each row)
   const memberById = React.useMemo(() => {
@@ -36,13 +61,23 @@ export default function UserManagement() {
           <div>
             <p className="text-xs text-muted-foreground">{t("users_total", { count: users.length })}</p>
           </div>
-          <button
-            data-testid="user-add-btn"
-            onClick={() => setShowForm(true)}
-            className="btn-gold flex items-center gap-1.5 text-xs"
-          >
-            <Plus className="w-4 h-4" /> {t("new_short")}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              data-testid="user-bulk-import-btn"
+              onClick={() => { setImportOpen(true); setImportResult(null); }}
+              className="chip text-xs flex items-center gap-1.5"
+              style={{ borderColor: "rgba(139,92,246,0.5)", color: "#A78BFA" }}
+            >
+              <Upload className="w-3.5 h-3.5" /> {t("bulk_import")}
+            </button>
+            <button
+              data-testid="user-add-btn"
+              onClick={() => setShowForm(true)}
+              className="btn-gold flex items-center gap-1.5 text-xs"
+            >
+              <Plus className="w-4 h-4" /> {t("new_short")}
+            </button>
+          </div>
         </div>
 
         {/* Unmatched Users panel — highlights accounts without a linked in-game character */}
@@ -195,6 +230,68 @@ export default function UserManagement() {
 
       {showForm && <UserForm onClose={() => setShowForm(false)} />}
       {resetTarget && <ResetPwdForm user={resetTarget} onClose={() => setResetTarget(null)} />}
+      {importOpen && (
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={() => !importBusy && setImportOpen(false)}
+          data-testid="bulk-import-overlay"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="card-red-gold w-full max-w-md p-5 fade-in relative"
+            data-testid="bulk-import-dialog"
+          >
+            <button
+              type="button"
+              onClick={() => !importBusy && setImportOpen(false)}
+              className="absolute top-3 right-3 text-muted-foreground hover:text-white"
+            ><X className="w-5 h-5" /></button>
+            <h3 className="text-lg font-bold uppercase gold-text mb-1 flex items-center gap-2">
+              <Upload className="w-4 h-4" /> {t("bulk_import_title")}
+            </h3>
+            <p className="text-xs text-muted-foreground mb-4">{t("bulk_import_desc")}</p>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".xlsx,.csv"
+              className="hidden"
+              data-testid="bulk-import-file-input"
+              onChange={(e) => {
+                const f = e.target.files && e.target.files[0];
+                if (f) handleImportFile(f);
+              }}
+            />
+            <button
+              type="button"
+              disabled={importBusy}
+              onClick={() => importInputRef.current?.click()}
+              data-testid="bulk-import-select-file"
+              className="btn-gold w-full py-3 justify-center"
+            >
+              <Upload className="w-4 h-4" />
+              {importBusy ? t("saving") : t("bulk_import")}
+            </button>
+            {importResult && (
+              <div
+                data-testid="bulk-import-result"
+                className="mt-4 rounded-lg p-3 text-xs"
+                style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(245,166,35,0.35)" }}
+              >
+                <div className="font-bold text-white mb-1">
+                  {t("bulk_import_result", importResult)}
+                </div>
+                {importResult.report && importResult.report.length > 0 && (
+                  <div className="max-h-32 overflow-y-auto text-[10px] text-red-300 space-y-0.5">
+                    {importResult.report.slice(0, 20).map((r, i) => (
+                      <div key={i}>· {r.error}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {linkTarget && (
         <LinkMemberDialog
           open={!!linkTarget}

@@ -307,6 +307,31 @@ async def list_alliances():
     return sorted([n for n in names if n])
 
 
+@api_router.get("/members/trend")
+async def members_trend(ids: str = Query(...), days: int = 7):
+    """Return daily weighted-points totals for each requested member_id over the last N days.
+
+    Response: { member_id: [ {date: "YYYY-MM-DD", points: N}, ... days entries ordered oldest→newest ] }
+    """
+    days = max(1, min(int(days or 7), 30))
+    id_list = [x.strip() for x in (ids or "").split(",") if x.strip()][:20]
+    if not id_list:
+        return {}
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    points = await db.points.find(
+        {"member_id": {"$in": id_list}, "date": {"$gte": cutoff.isoformat()}},
+        {"_id": 0, "member_id": 1, "points": 1, "multiplier": 1, "date": 1},
+    ).to_list(20000)
+    today = datetime.now(timezone.utc).date()
+    day_keys = [(today - timedelta(days=(days - 1 - i))).isoformat() for i in range(days)]
+    result = {mid: {d: 0 for d in day_keys} for mid in id_list}
+    for p in points:
+        d = str(p.get("date") or "")[:10]
+        if d in result.get(p["member_id"], {}):
+            result[p["member_id"]][d] += int(p["points"]) * float(p.get("multiplier", 1.0))
+    return {mid: [{"date": d, "points": int(result[mid][d])} for d in day_keys] for mid in id_list}
+
+
 @api_router.get("/members/{member_id}")
 async def get_member(member_id: str):
     doc = await db.members.find_one({"id": member_id}, {"_id": 0})
@@ -2581,12 +2606,14 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
         member_ids = {m["id"] for m in member_docs if m.get("id")}
         alliance_user_ids: set = set()
         # A user may be linked via users.member_ids list, legacy users.member_id, or member.user_id
-        user_docs = await db.users.find({}, {"_id": 0, "id": 1, "member_ids": 1, "member_id": 1}).to_list(5000)
+        user_docs = await db.users.find({}, {"_id": 0, "id": 1, "member_ids": 1, "member_id": 1, "notification_member_ids": 1}).to_list(5000)
         for u in user_docs:
             linked = list(u.get("member_ids") or [])
             if u.get("member_id"):
                 linked.append(u["member_id"])
-            if any(mid in member_ids for mid in linked):
+            notif_opt = list(u.get("notification_member_ids") or [])
+            effective = notif_opt if notif_opt else linked
+            if any(mid in member_ids for mid in effective):
                 alliance_user_ids.add(u["id"])
         for m in member_docs:
             if m.get("user_id"):
