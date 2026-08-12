@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Lock } from "lucide-react";
 import AddPoints from "@/pages/AddPoints";
@@ -21,10 +22,15 @@ const splitLabel = (raw) => {
   return [parts[0].toUpperCase(), parts.slice(1).join(" ").toUpperCase()];
 };
 
+// Pre-rendered stone/lava border artwork — loaded as background-image so the
+// entire button chrome is a single image (no runtime SVG/CSS animation).
+const LAVA_BG =
+  "url('https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/07710d216980683f752205b302c41d253827054fb1d2f282bdab27d6e4081652.jpeg')";
+
 function FlameTab({ tabKey, label, active, disabled, onClick }) {
-  const [top, bottom] = splitLabel(label);
+  const [, bottom] = splitLabel(label);
   return (
-    <button
+    <motion.button
       type="button"
       role="tab"
       aria-selected={active}
@@ -32,28 +38,39 @@ function FlameTab({ tabKey, label, active, disabled, onClick }) {
       disabled={disabled}
       onClick={disabled ? undefined : onClick}
       data-testid={`points-about-tab-${tabKey}`}
-      className={`lava-btn${active ? " is-active" : ""}`}
+      whileHover={disabled ? undefined : { scale: 1.05 }}
+      whileTap={disabled ? undefined : { scale: 0.97 }}
+      style={{
+        position: "relative",
+        backgroundImage: LAVA_BG,
+        backgroundSize: "100% 100%",
+        backgroundRepeat: "no-repeat",
+        border: "none",
+        padding: "18px 36px",
+        color: "white",
+        fontWeight: 900,
+        fontSize: 15,
+        letterSpacing: "3px",
+        cursor: disabled ? "not-allowed" : "pointer",
+        minWidth: 170,
+        textShadow: "0 0 12px rgba(255,255,255,0.9)",
+        filter: active ? "brightness(1.2)" : "brightness(0.75)",
+        transition: "filter 0.3s ease",
+        opacity: disabled ? 0.45 : 1,
+      }}
     >
-      {/* Three visual layers behind the content — order matters (z-index in CSS). */}
-      <span className="lava-glow" aria-hidden />
-      <span className="lava-ring" aria-hidden />
-      <span className="lava-inner" aria-hidden />
-
-      {/* Spark particles — only animate when active (CSS rule pauses them
-          on non-active buttons so the passive one stays calm). */}
-      <span className="spark" aria-hidden />
-      <span className="spark" aria-hidden />
-      <span className="spark" aria-hidden />
-      <span className="spark" aria-hidden />
-      <span className="spark" aria-hidden />
-      <span className="spark" aria-hidden />
-
-      <span className="lava-label">
-        <span className="lava-label-top">{top}</span>
-        {bottom && <span className="lava-label-bottom">{bottom}</span>}
+      <span style={{ display: "block", fontSize: 10, letterSpacing: "4px", opacity: 0.85 }}>
+        PUAN
       </span>
-      {disabled && <Lock className="lava-lock" />}
-    </button>
+      <span style={{ display: "block", fontSize: 16, letterSpacing: "3px" }}>
+        {bottom || ""}
+      </span>
+      {disabled && (
+        <Lock
+          style={{ position: "absolute", top: 6, right: 10, width: 14, height: 14, color: "#fff", opacity: 0.85 }}
+        />
+      )}
+    </motion.button>
   );
 }
 
