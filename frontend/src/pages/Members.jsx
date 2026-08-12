@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import useSWR, { mutate } from "swr";
+import { motion } from "framer-motion";
 import { api, apiErr, RANKS } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { allianceBadgeStyle } from "@/lib/colors";
@@ -584,17 +585,27 @@ export default function Members() {
                         </button>
 
                         {!isCollapsed && (
-                          <div
+                          <motion.div
                             className="mt-1.5"
                             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}
                             data-testid={`rank-section-grid-${grp.name}-${rk}`}
+                            initial="hidden"
+                            animate="visible"
+                            variants={{
+                              hidden: {},
+                              visible: { transition: { staggerChildren: 0.04 } },
+                            }}
                           >
                             {rankMembers.map((m) => (
-                              <div
+                              <motion.div
                                 key={m.id}
                                 data-testid={MEMBERS.card(m.id)}
                                 className="card-dark row-hover min-w-0"
                                 style={{ padding: "8px", display: "flex", alignItems: "center", gap: "6px" }}
+                                variants={{
+                                  hidden: { opacity: 0, y: 12 },
+                                  visible: { opacity: 1, y: 0, transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] } },
+                                }}
                               >
                                 <button
                                   onClick={() => setProfileId(m.id)}
@@ -689,9 +700,9 @@ export default function Members() {
                                     </button>
                                   </div>
                                 </CanEdit>
-                              </div>
+                              </motion.div>
                             ))}
-                          </div>
+                          </motion.div>
                         )}
                       </div>
                     );

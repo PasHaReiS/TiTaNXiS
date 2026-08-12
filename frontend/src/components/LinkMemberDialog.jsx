@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import useSWR, { mutate } from "swr";
+import { motion, AnimatePresence } from "framer-motion";
 import { api, apiErr } from "@/lib/api";
 import { X, Search, Link2, Check } from "lucide-react";
 import { toast } from "sonner";
@@ -88,15 +89,24 @@ export default function LinkMemberDialog({
   const selectedCount = selected.size;
 
   return (
-    <div
+    <AnimatePresence>
+    <motion.div
       className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4"
       onClick={onClose}
       data-testid="link-member-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
     >
-      <div
+      <motion.div
         onClick={(e) => e.stopPropagation()}
-        className="card-red-gold w-full max-w-md p-5 fade-in relative max-h-[85vh] flex flex-col"
+        className="card-red-gold w-full max-w-md p-5 relative max-h-[85vh] flex flex-col"
         data-testid="link-member-dialog"
+        initial={{ opacity: 0, scale: 0.92, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.94, y: 12 }}
+        transition={{ type: "spring", stiffness: 380, damping: 26, mass: 0.7 }}
       >
         <button
           type="button"
@@ -210,7 +220,8 @@ export default function LinkMemberDialog({
             {saving ? t("saving") : t("save")} ({selectedCount})
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+    </AnimatePresence>
   );
 }

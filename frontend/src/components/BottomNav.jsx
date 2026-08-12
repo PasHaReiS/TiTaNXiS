@@ -1,5 +1,6 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
 import { Lock, Trophy, Swords, BarChart2, Calculator, Users, Flag } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NAV } from "@/constants/testIds";
@@ -27,12 +28,30 @@ export default function BottomNav() {
   const cols = items.length;
 
   return (
-    <nav className="bottom-nav" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+    <motion.nav
+      className="bottom-nav"
+      style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
+      initial="hidden"
+      animate="visible"
+      variants={{
+        hidden: {},
+        visible: { transition: { staggerChildren: 0.06, delayChildren: 0.1 } },
+      }}
+    >
       {items.map((it) => {
         const disabledEdit = it.requiresEdit && !canEdit;
         return (
-          <NavLink
+          <motion.div
             key={it.to}
+            variants={{
+              hidden: { opacity: 0, y: 18 },
+              visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 420, damping: 26 } },
+            }}
+            whileHover={disabledEdit ? undefined : { scale: 1.06, filter: "drop-shadow(0 0 8px rgba(245,166,35,0.55))" }}
+            whileTap={disabledEdit ? undefined : { scale: 0.94 }}
+            transition={{ type: "spring", stiffness: 420, damping: 24 }}
+          >
+          <NavLink
             to={it.to}
             end={it.to === "/"}
             data-testid={it.testId}
@@ -66,8 +85,9 @@ export default function BottomNav() {
               );
             }}
           </NavLink>
+          </motion.div>
         );
       })}
-    </nav>
+    </motion.nav>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import useSWR, { mutate } from "swr";
+import { motion } from "framer-motion";
 import { api } from "@/lib/api";
 import { EVENTS } from "@/constants/testIds";
 import Header from "@/components/Header";
@@ -209,7 +210,15 @@ export default function Events() {
               </CanEdit>
             </div>
 
-            <div className="space-y-1.5">
+            <motion.div
+              className="space-y-1.5"
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: {},
+                visible: { transition: { staggerChildren: 0.05 } },
+              }}
+            >
               {list.map((e) => {
                 const evMs = new Date(e.date).getTime();
                 const nowMs = Date.now();
@@ -219,11 +228,15 @@ export default function Events() {
                 const isPastActive = !e.archived && evMs <= nowMs && (nowMs - evMs) < 6 * 3600 * 1000; // within 6h
                 const highlight = isTodayEvent || isPastActive;
                 return (
-                <div
+                <motion.div
                   key={e.id}
                   id={`event-${e.id}`}
                   data-testid={EVENTS.card(e.id)}
                   className={`card-dark row-hover ${e.banner_url ? "overflow-hidden" : "p-3 flex items-center gap-3"}`}
+                  variants={{
+                    hidden: { opacity: 0, y: 14 },
+                    visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } },
+                  }}
                   style={highlight ? {
                     backgroundImage: "repeating-linear-gradient(45deg, rgba(220,38,38,0.14), rgba(220,38,38,0.14) 6px, transparent 6px, transparent 14px)",
                     borderColor: "rgba(220,38,38,0.55)",
@@ -317,10 +330,10 @@ export default function Events() {
                     </button>
                   </CanEdit>
                   </div>
-                </div>
+                </motion.div>
                 );
               })}
-            </div>
+            </motion.div>
           </div>
           );
         })}

@@ -269,7 +269,31 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 
 ## Implemented (feature snapshot)
 
-- **[2026-02] Şifre Rotasyon Log — DONE**:
+- **[2026-02] Framer Motion Animasyon Sistemi — DONE**:
+  - **Paket**: `framer-motion@13.1.0` yarn ile eklendi.
+  - **Yeni component'ler**:
+    - `/components/MotionPage.jsx`: Reusable page-transition wrapper (fade + slide-up 12px, exit slide-up -8px, 0.28s cubic-bezier). Export ediyor: `staggerContainer` (0.05s stagger, 0.05s delayChildren), `listItem` (0.32s spring), `modalVariants` (scale 0.92 → 1, 0.24s).
+    - `/components/MotionButton.jsx`: Drop-in `<button>` replacement — hover'da scale 1.03 + altın glow `boxShadow: 0 0 22px rgba(245,166,35,0.55)`, tap'te scale 0.96 spring (stiffness 380, damping 22).
+  - **Route transitions** (`App.js`):
+    - `AnimatePresence mode="wait"` Routes'u sarıyor, `location.pathname` ile key değişince sayfalar fade+slide ile giriş/çıkış yapıyor.
+    - Tüm 13 protected/public route `<MotionPage>` ile sarıldı.
+  - **BottomNav** (`components/BottomNav.jsx`):
+    - `motion.nav` container `staggerChildren: 0.06, delayChildren: 0.1` — 6 butonu sırayla aşağıdan yukarı kaydırıyor.
+    - Her buton `whileHover: scale 1.06 + drop-shadow(0 0 8px rgba(245,166,35,0.55))`, `whileTap: scale 0.94` spring (stiffness 420, damping 24).
+  - **Tier selector** (`components/SoldierCalculator.jsx`): T11/T8/T7/T6 butonları `motion.button` — `whileHover scale 1.05 + gold glow`, `whileTap scale 0.9`, `animate: {scale: selected ? 1.05 : 1}` spring (stiffness 500, damping 14, mass 0.5) — seçim anında belirgin bounce.
+  - **Modal animations** (`components/LinkMemberDialog.jsx`): `AnimatePresence` + backdrop fade (opacity 0→1, 0.2s), dialog scale+fade+y (0.92→1 + y 20→0) spring (stiffness 380, damping 26). Exit reverse.
+  - **List stagger**:
+    - `pages/Members.jsx`: Her rank-section grid `motion.div staggerChildren: 0.04`, üye kartları `hidden: {opacity:0, y:12}` → `visible: {opacity:1, y:0, duration:0.28}`.
+    - `pages/Events.jsx`: Her grup event listesi `motion.div staggerChildren: 0.05`, event kartları y:14 cascade.
+  - **Doğrulama** (Playwright):
+    - Root URL 200, JS bundle temiz, runtime error yok ✅
+    - `/uyeler`: R5/R4/R3 grupları + üye kartları cascade render ✅
+    - `/etkinlikler`: Test Banner kartı fade-in ✅
+    - `/komutanlar`: 4 tier button (`tier-btn-T11/T8/T7/T6`), T8 tıklanınca turuncu gradient + spring bounce ✅
+    - Menü kartları (BİLGİLENDİRME/REHBER/KAHRAMANLAR/KAFES/GARNİZON/SAVAŞ/SVS) staggered giriş ✅
+
+
+
   - **Backend `auth.py`**:
     - User modeline `password_updated_at: ISO string` + `password_updated_by: str` alanları eklendi (public_user her ikisini de dönüyor).
     - Tetikleyiciler:

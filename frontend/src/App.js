@@ -5,6 +5,7 @@ import "@/i18n"; // initialize i18n
 import "@/firebase"; // initialize Firebase Analytics
 import i18n from "@/i18n";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 import { Toaster } from "sonner";
 import { trackPageView } from "@/firebase";
 import { ThemeProvider } from "@/context/ThemeContext";
@@ -28,6 +29,7 @@ import Login from "@/pages/Login";
 import UserManagement from "@/pages/UserManagement";
 import Profile from "@/pages/Profile";
 import PushSoundListener from "@/components/PushSoundListener";
+import MotionPage from "@/components/MotionPage";
 
 function LoadingScreen() {
   return (
@@ -90,24 +92,26 @@ function AppShell() {
   return (
     <div className="app-shell">
       <Layout>
-        <Routes>
+        <AnimatePresence mode="wait" initial={false}>
+        <Routes location={location} key={location.pathname}>
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Leaderboard />} />
-          <Route path="/komutanlar" element={<Commanders />} />
-          <Route path="/puanlar" element={<RequireAuth><PointsList /></RequireAuth>} />
-          <Route path="/puan-ekle" element={<RequireAuth><AddPoints /></RequireAuth>} />
-          <Route path="/puanlar-hakkinda" element={<RequireAuth><PointsAbout /></RequireAuth>} />
-          <Route path="/puan-hesaplama" element={<PointCalcPage />} />
-          <Route path="/uyeler" element={<RequireAuth><Members /></RequireAuth>} />
-          <Route path="/etkinlikler" element={<RequireAuth><Events /></RequireAuth>} />
-          <Route path="/kullanicilar" element={<RequireAdmin><UserManagement /></RequireAdmin>} />
-          <Route path="/profil" element={<RequireAuth><Profile /></RequireAuth>} />
-          <Route path="/gosterge-paneli" element={<RequireAuth><LiveDashboardPage /></RequireAuth>} />
-          <Route path="/widget-kitapligi" element={<RequireAuth><WidgetLibrary /></RequireAuth>} />
-          <Route path="/vip-destek" element={<VipSupport />} />
-          <Route path="/dashboard" element={<RequireAdminOrEditor><Dashboard /></RequireAdminOrEditor>} />
+          <Route path="/" element={<MotionPage><Leaderboard /></MotionPage>} />
+          <Route path="/komutanlar" element={<MotionPage><Commanders /></MotionPage>} />
+          <Route path="/puanlar" element={<RequireAuth><MotionPage><PointsList /></MotionPage></RequireAuth>} />
+          <Route path="/puan-ekle" element={<RequireAuth><MotionPage><AddPoints /></MotionPage></RequireAuth>} />
+          <Route path="/puanlar-hakkinda" element={<RequireAuth><MotionPage><PointsAbout /></MotionPage></RequireAuth>} />
+          <Route path="/puan-hesaplama" element={<MotionPage><PointCalcPage /></MotionPage>} />
+          <Route path="/uyeler" element={<RequireAuth><MotionPage><Members /></MotionPage></RequireAuth>} />
+          <Route path="/etkinlikler" element={<RequireAuth><MotionPage><Events /></MotionPage></RequireAuth>} />
+          <Route path="/kullanicilar" element={<RequireAdmin><MotionPage><UserManagement /></MotionPage></RequireAdmin>} />
+          <Route path="/profil" element={<RequireAuth><MotionPage><Profile /></MotionPage></RequireAuth>} />
+          <Route path="/gosterge-paneli" element={<RequireAuth><MotionPage><LiveDashboardPage /></MotionPage></RequireAuth>} />
+          <Route path="/widget-kitapligi" element={<RequireAuth><MotionPage><WidgetLibrary /></MotionPage></RequireAuth>} />
+          <Route path="/vip-destek" element={<MotionPage><VipSupport /></MotionPage>} />
+          <Route path="/dashboard" element={<RequireAdminOrEditor><MotionPage><Dashboard /></MotionPage></RequireAdminOrEditor>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </AnimatePresence>
       </Layout>
     </div>
   );

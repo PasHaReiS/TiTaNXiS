@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { motion } from "framer-motion";
 import useSWR, { mutate as globalMutate } from "swr";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -126,24 +127,28 @@ export default function SoldierCalculator() {
         <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_tier_label")}</label>
         <div className="grid grid-cols-4 gap-2">
           {TIERS.map((tt) => (
-            <button
+            <motion.button
               key={tt}
               onClick={() => setTier(tt)}
               data-testid={`tier-btn-${tt}`}
               aria-pressed={tier === tt}
-              className="py-2 rounded font-bold uppercase transition-all"
+              className="py-2 rounded font-bold uppercase"
+              whileHover={{ scale: 1.05, boxShadow: "0 0 18px rgba(245,166,35,0.55)" }}
+              whileTap={{ scale: 0.9 }}
+              animate={{ scale: tier === tt ? 1.05 : 1 }}
+              transition={{ type: "spring", stiffness: 500, damping: 14, mass: 0.5 }}
               style={{
                 background: tier === tt ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
                 border: `1px solid ${tier === tt ? "#F5A623" : "rgba(255,255,255,0.12)"}`,
                 color: tier === tt ? "#0B0704" : "#F5F0E8",
-                boxShadow: tier === tt ? "0 0 10px rgba(231,76,26,0.5)" : "none",
+                boxShadow: tier === tt ? "0 0 12px rgba(231,76,26,0.55)" : "none",
                 fontFamily: "Cinzel, serif",
                 letterSpacing: "0.08em",
                 fontSize: 13,
               }}
             >
               {tt}
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
