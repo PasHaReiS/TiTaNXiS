@@ -48,9 +48,9 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   const [selection, setSelection] = useState("");
   const [mergeStrategy, setMergeStrategy] = useState("sum"); // sum | max | first
 
-  // (Legacy) threshold constant kept only for the progress-UI heuristic below —
-  // all parsing now goes through per-image sequential calls to avoid Cloudflare's
-  // 100s edge timeout (524) that hit /parse-multi on large batches.
+  // Progress-UI heuristic: for 2+ images we show a live X/N counter and bar.
+  // Every image is always dispatched as its own /ocr/parse request (below) —
+  // NEVER batched — so Cloudflare's 100s edge timeout can't be hit.
   const SEQUENTIAL_THRESHOLD = 2;
 
   if (!open) return null;
@@ -133,11 +133,10 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
     setResult(null);
     setProgress({ current: 0, total: previews.length, errors: 0 });
 
-    // Always call /ocr/parse ONCE PER IMAGE, sequentially. A single request
-    // batching all files exceeds Cloudflare's 100s edge timeout on 3+ images
-    // (524). Per-image calls stay well under 100s each (~5–20s w/ vision).
-    // Frontend merges the results in `_mergeRows` — same logic that the old
-    // /parse-multi endpoint used server-side.
+    // Always dispatch ONE /ocr/parse request PER image, sequentially. Never
+    // batch. Each request stays well under Cloudflare's 100s edge timeout.
+    // Frontend merges the chunks below (`_mergeRows`) — identical logic to
+    // what the old server-side batch endpoint did.
     const chunks = [];
     let errCount = 0;
     for (let i = 0; i < previews.length; i++) {
@@ -252,6 +251,14 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
           </button>
           <h3 className="text-lg font-bold uppercase gold-text mb-1 flex items-center gap-2">
             <Camera className="w-4 h-4" /> {title || "Ekran Görüntüsünden Aktar"}
+            <span
+              className="text-[9px] font-normal px-1.5 py-0.5 rounded"
+              style={{ background: "rgba(34,197,94,0.2)", color: "#4ade80", letterSpacing: "0.1em" }}
+              data-testid="ocr-version"
+              title="Per-image sequential mode — Cloudflare 524 fix"
+            >
+              v2 • SEQ
+            </span>
           </h3>
           <p className="text-xs text-muted-foreground mb-3">
             Ekran görüntüsünü yükle, AI ile analiz et, önizle, onayla.
