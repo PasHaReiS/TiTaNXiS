@@ -19,7 +19,7 @@ export default function UserManagement() {
   const { data: members = [] } = useSWR("/members", fetcher);
   const [showForm, setShowForm] = useState(false);
   const [resetTarget, setResetTarget] = useState(null);
-  const [linkTarget, setLinkTarget] = useState(null); // { userId, username, currentMemberId }
+  const [linkTarget, setLinkTarget] = useState(null); // { userId, username, currentMemberIds }
 
   // Quick lookup: member_id → member doc (for showing linked character name on each row)
   const memberById = React.useMemo(() => {
@@ -84,7 +84,7 @@ export default function UserManagement() {
                   <button
                     type="button"
                     data-testid={`unmatched-link-${u.id}`}
-                    onClick={() => setLinkTarget({ userId: u.id, username: u.username, currentMemberId: null })}
+                    onClick={() => setLinkTarget({ userId: u.id, username: u.username, currentMemberIds: [] })}
                     className="chip text-[10px] py-1"
                   >
                     <Link2 className="w-3 h-3" /> {t("admin_link_member")}
@@ -97,7 +97,7 @@ export default function UserManagement() {
 
         <div className="space-y-2">
           {users.map((u) => {
-            const linked = u.member_id ? memberById[u.member_id] : null;
+            const linkedList = (u.member_ids || []).map((mid) => memberById[mid]).filter(Boolean);
             return (
             <div key={u.id} data-testid={`user-row-${u.id}`} className="card-dark p-3">
               <div className="flex items-center gap-3">
@@ -120,11 +120,11 @@ export default function UserManagement() {
                     )}
                   </div>
                   {u.email && <div className="text-[10px] text-muted-foreground truncate">{u.email}</div>}
-                  <div className="text-[10px] mt-0.5 truncate" data-testid={`user-linked-${u.id}`}>
+                  <div className="text-[10px] mt-0.5" data-testid={`user-linked-${u.id}`}>
                     <Link2 className="w-2.5 h-2.5 inline mr-1 opacity-70" />
-                    {linked ? (
+                    {linkedList.length > 0 ? (
                       <span className="text-green-400 font-semibold">
-                        {t("linked_to", { name: linked.name })}
+                        {linkedList.map((m) => m.name).join(", ")}
                       </span>
                     ) : (
                       <span className="text-muted-foreground italic">{t("linked_member_none")}</span>
@@ -134,7 +134,7 @@ export default function UserManagement() {
                 <button
                   type="button"
                   data-testid={`user-link-btn-${u.id}`}
-                  onClick={() => setLinkTarget({ userId: u.id, username: u.username, currentMemberId: u.member_id || null })}
+                  onClick={() => setLinkTarget({ userId: u.id, username: u.username, currentMemberIds: u.member_ids || [] })}
                   className="w-8 h-8 rounded-md bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 flex items-center justify-center flex-shrink-0"
                   title={t("admin_link_member")}
                 >
@@ -202,7 +202,7 @@ export default function UserManagement() {
           mode="admin"
           targetUserId={linkTarget.userId}
           targetUsername={linkTarget.username}
-          currentMemberId={linkTarget.currentMemberId}
+          currentMemberIds={linkTarget.currentMemberIds || []}
           onSaved={() => {
             mutate("/users");
             mutate("/users/unmatched");

@@ -233,13 +233,15 @@ export default function Members() {
                 onClick={() => setLinkOpen(true)}
                 className="chip text-xs flex items-center gap-1.5"
                 style={{
-                  borderColor: user.member_id ? "rgba(34,197,94,0.5)" : "rgba(245,166,35,0.5)",
-                  color: user.member_id ? "#4ade80" : "#F5A623",
+                  borderColor: (user.member_ids?.length || 0) > 0 ? "rgba(34,197,94,0.5)" : "rgba(245,166,35,0.5)",
+                  color: (user.member_ids?.length || 0) > 0 ? "#4ade80" : "#F5A623",
                 }}
                 title={t("link_account")}
               >
                 <Link2 className="w-3.5 h-3.5" />
-                {user.member_id ? t("linked_member") : t("link_account")}
+                {(user.member_ids?.length || 0) > 0
+                  ? t("linked_member_count", { count: user.member_ids.length })
+                  : t("link_account")}
               </button>
             )}
             <CanEdit>

@@ -2576,14 +2576,17 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
             if not grps or group_name in grps:
                 allowed_users.add(uid)
     if alliance_name:
-        # Build the set of user_ids whose linked member has this alliance.
+        # Build the set of user_ids whose linked members include this alliance.
         member_docs = await db.members.find({"alliance_name": alliance_name}, {"_id": 0, "id": 1, "user_id": 1}).to_list(5000)
         member_ids = {m["id"] for m in member_docs if m.get("id")}
         alliance_user_ids: set = set()
-        # A user may be linked to a member either via users.member_id or member.user_id
-        user_docs = await db.users.find({}, {"_id": 0, "id": 1, "member_id": 1}).to_list(5000)
+        # A user may be linked via users.member_ids list, legacy users.member_id, or member.user_id
+        user_docs = await db.users.find({}, {"_id": 0, "id": 1, "member_ids": 1, "member_id": 1}).to_list(5000)
         for u in user_docs:
-            if u.get("member_id") and u["member_id"] in member_ids:
+            linked = list(u.get("member_ids") or [])
+            if u.get("member_id"):
+                linked.append(u["member_id"])
+            if any(mid in member_ids for mid in linked):
                 alliance_user_ids.add(u["id"])
         for m in member_docs:
             if m.get("user_id"):

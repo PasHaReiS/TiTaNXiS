@@ -267,7 +267,33 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 
 ## Implemented (feature snapshot)
 
-- **[2026-02] Üye Eşleştirme Sistemi (Member Matching) — DONE**:
+- **[2026-02] Çoklu Üye Eşleştirme (Multi-Select Member Matching) — DONE**:
+  - **Backend `auth.py`**:
+    - Şema değişikliği: `User.member_id: Optional[str]` → `member_ids: List[str]` (default []). `public_user()` legacy string field'ı listeye migrate ediyor + null/empty entry'leri temizliyor.
+    - Yeni endpoint'ler (user self-service): `POST /api/auth/link-members {member_ids:[…]}` (full replace/unlink), `POST /api/auth/link-members/add {member_id}` (`$addToSet` idempotent), `POST /api/auth/link-members/remove {member_id}` (`$pull`). Eski `POST /auth/link-member` kaldırıldı.
+    - Admin: `PATCH /api/users/{id} {member_ids:[…]}` — çakışan seat'leri auto-detach (`$pull` other users). Boş `[]` unlink olarak çalışıyor (`exclude_unset=True`).
+    - `GET /api/users/unmatched` — `member_ids` boş VE legacy `member_id` yok olan kullanıcıları döner.
+    - Startup migration (`ensure_indexes`): legacy `member_id` string alanı olan kullanıcıları tek seferlik `member_ids: [old_id]`'e migrate ediyor + eski alan unset. Sparse index `users.member_ids` üzerine.
+  - **Push filtering** (`routes/push.py` + `server.py` legacy `_broadcast_push`): Alliance filter artık `member_ids` listesinden HER BİRİNİ kontrol ediyor (legacy `member_id` fallback ile). Global opt-out (notification_enabled=false) korunuyor.
+  - **Frontend**:
+    - `components/LinkMemberDialog.jsx` yeniden yazıldı: Checkbox tabanlı multi-select modal. `Set<string>` state, "2 seçildi" sayacı, "Tümünü Kaldır" butonu, `Kaydet (N)` submit. Data-testid'ler: `link-member-dialog`, `link-member-opt-{id}` (aria-pressed=isSel), `link-member-count`, `link-member-clear-selection`, `link-member-submit`, `link-member-cancel`.
+    - `Profile.jsx`: "Bağlı Karakterler" kartı — SWR `/members` ile isim resolve edilip her karakter için yeşil chip (rank badge + isim + alliance + kırmızı X). X tıklanınca `POST /auth/link-members/remove`. Chip listesinin altında amber "+ Karakter Ekle" butonu (0 karakterse "Hesap Bağla"). Testid: `profile-linked-members-card`, `profile-linked-chip-{id}`, `profile-linked-remove-{id}`.
+    - `Members.jsx`: Header'daki "Hesap Bağla" chip'i artık `linked_member_count: 2 karakter bağlı` gösteriyor (linked count > 0 iken yeşil, yoksa amber).
+    - `UserManagement.jsx`: Her satırda bağlı karakterlerin virgülle ayrılmış isim listesi (`linkedList.map(m => m.name).join(", ")`). Admin link butonu multi-select modal açıyor.
+    - 11 yeni i18n anahtarı TR + EN (`linked_members`, `linked_member_count`, `add_member`, `remove_member`, `selected_count`, `link_account_desc_multi`, `confirm_remove_linked`, vb.).
+  - **Doğrulama (curl E2E)**:
+    - Migration: leftover `[None]` entries `$pull None` ile temizlendi (2 doc etkilendi) ✅
+    - `POST /auth/link-members {member_ids:[M1,M2,M3]}` → count=3 ✅
+    - `POST /auth/link-members/add {M4}` → count=4 ✅
+    - Aynı ID tekrar add → count=4 (idempotent) ✅
+    - `POST /auth/link-members/remove {M2}` → count=3 ✅
+    - Pasha'nın admin'in M1'ini alma denemesi → 409 "Bu üye zaten 'admin' hesabına bağlı" ✅
+    - Admin `PATCH /users/{pasha_id} {member_ids:[M1,M2]}` çakışıyor → auto-detach admin'den, pasha 2 karaktere sahip ✅
+    - Bulk unlink `{member_ids:[]}` → count=0 ✅
+  - **UI smoke** (Playwright): Profile 2 chip render + 164 seçenekli multi-dialog + "2 seçildi" + "Kaydet (2)" ✅ · UserMgmt unmatched=14 (admin bağlı olduğu için 15'ten 14'e düştü) ✅
+
+
+- **[2026-02] Üye Eşleştirme Sistemi (Member Matching v1 — tek seçim) — DEPRECATED (çoklu seçime geçildi)**:
   - **Backend `auth.py`**:
     - User modeline `member_id: Optional[str]` + `notification_enabled: bool=True` alanları eklendi. `public_user()` her ikisini de dönüyor. `UpdateUserBody` bu alanları alacak şekilde genişletildi.
     - Yeni endpoint'ler: `POST /api/auth/link-member` (user self-link, `LinkMemberBody{member_id}`) — 404 üye yok, 409 başka hesaba bağlı, null ile unlink. `POST /api/auth/notification-preference` (user toggle, `NotificationPrefBody{enabled}`).

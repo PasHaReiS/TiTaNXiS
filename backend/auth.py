@@ -3,7 +3,7 @@ import os
 import bcrypt
 import jwt
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, ConfigDict
 import uuid
@@ -56,8 +56,8 @@ class User(BaseModel):
     role: str = "user"  # "admin" or "user"
     can_edit: bool = False
     must_change_password: bool = False
-    # Member matching: link app user to an in-game members._id
-    member_id: Optional[str] = None
+    # Member matching: link app user to one or more in-game members._id
+    member_ids: List[str] = Field(default_factory=list)
     # Global notification opt-in/out (both Telegram DMs and Web Push respect this)
     notification_enabled: bool = True
     created_at: str = Field(default_factory=now_iso)
@@ -80,12 +80,18 @@ class UpdateUserBody(BaseModel):
     role: Optional[str] = None
     can_edit: Optional[bool] = None
     email: Optional[str] = None
-    member_id: Optional[str] = None
+    member_ids: Optional[List[str]] = None
     notification_enabled: Optional[bool] = None
 
 
-class LinkMemberBody(BaseModel):
-    member_id: Optional[str] = None  # None/empty = unlink
+class LinkMembersBody(BaseModel):
+    """Full-replace list of linked members."""
+    member_ids: List[str] = Field(default_factory=list)
+
+
+class LinkMemberOneBody(BaseModel):
+    """Single-member add/remove."""
+    member_id: str
 
 
 class NotificationPrefBody(BaseModel):
@@ -102,6 +108,12 @@ class ChangePwdBody(BaseModel):
 
 
 def public_user(u: dict) -> dict:
+    # Migrate legacy single member_id → member_ids list so old records stay compatible.
+    # Strip out any null/empty entries that may have leaked in from earlier writes.
+    ids = [x for x in (u.get("member_ids") or []) if x]
+    legacy = u.get("member_id")
+    if legacy and legacy not in ids:
+        ids.append(legacy)
     return {
         "id": u["id"],
         "username": u["username"],
@@ -109,7 +121,7 @@ def public_user(u: dict) -> dict:
         "role": u.get("role", "user"),
         "can_edit": bool(u.get("can_edit", False)) or u.get("role") == "admin",
         "must_change_password": bool(u.get("must_change_password", False)),
-        "member_id": u.get("member_id") or None,
+        "member_ids": ids,
         "notification_enabled": bool(u.get("notification_enabled", True)),
         "created_at": u.get("created_at"),
     }
@@ -212,21 +224,63 @@ def make_auth_router(db):
         return {"ok": True}
 
     # ---------- Member Matching (user self-service) ----------
-    @router.post("/auth/link-member")
-    async def link_own_member(body: LinkMemberBody, user: dict = Depends(require_auth)):
-        """Link the current user to an in-game member. Passing empty/null unlinks."""
-        mid = (body.member_id or "").strip() or None
-        if mid:
-            m = await db.members.find_one({"id": mid}, {"_id": 0, "id": 1, "name": 1})
-            if not m:
-                raise HTTPException(404, "Üye bulunamadı")
-            # Prevent stealing an already-linked member (unless admin overrides via /users/{id})
+    @router.post("/auth/link-members")
+    async def set_linked_members(body: LinkMembersBody, user: dict = Depends(require_auth)):
+        """Replace the caller's linked-members list. Empty list = unlink all."""
+        ids = list(dict.fromkeys([(x or "").strip() for x in (body.member_ids or []) if x and x.strip()]))
+        if ids:
+            found_docs = await db.members.find({"id": {"$in": ids}}, {"_id": 0, "id": 1}).to_list(len(ids))
+            found = {m["id"] for m in found_docs}
+            missing = [i for i in ids if i not in found]
+            if missing:
+                raise HTTPException(404, "Bazı üyeler bulunamadı")
             taken = await db.users.find_one(
-                {"member_id": mid, "id": {"$ne": user["id"]}}, {"_id": 0, "id": 1, "username": 1}
+                {"$or": [{"member_ids": {"$in": ids}}, {"member_id": {"$in": ids}}],
+                 "id": {"$ne": user["id"]}},
+                {"_id": 0, "username": 1},
             )
             if taken:
-                raise HTTPException(409, f"Bu üye zaten '{taken['username']}' hesabına bağlı")
-        await db.users.update_one({"id": user["id"]}, {"$set": {"member_id": mid}})
+                raise HTTPException(409, f"Bazı üyeler zaten '{taken['username']}' hesabına bağlı")
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$set": {"member_ids": ids}, "$unset": {"member_id": ""}},
+        )
+        doc = await db.users.find_one({"id": user["id"]}, {"_id": 0})
+        return public_user(doc)
+
+    @router.post("/auth/link-members/add")
+    async def add_linked_member(body: LinkMemberOneBody, user: dict = Depends(require_auth)):
+        mid = (body.member_id or "").strip()
+        if not mid:
+            raise HTTPException(400, "member_id gerekli")
+        m = await db.members.find_one({"id": mid}, {"_id": 0, "id": 1})
+        if not m:
+            raise HTTPException(404, "Üye bulunamadı")
+        taken = await db.users.find_one(
+            {"$or": [{"member_ids": mid}, {"member_id": mid}], "id": {"$ne": user["id"]}},
+            {"_id": 0, "username": 1},
+        )
+        if taken:
+            raise HTTPException(409, f"Bu üye zaten '{taken['username']}' hesabına bağlı")
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$addToSet": {"member_ids": mid}, "$unset": {"member_id": ""}},
+        )
+        doc = await db.users.find_one({"id": user["id"]}, {"_id": 0})
+        return public_user(doc)
+
+    @router.post("/auth/link-members/remove")
+    async def remove_linked_member(body: LinkMemberOneBody, user: dict = Depends(require_auth)):
+        mid = (body.member_id or "").strip()
+        if not mid:
+            raise HTTPException(400, "member_id gerekli")
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$pull": {"member_ids": mid}},
+        )
+        await db.users.update_one(
+            {"id": user["id"], "member_id": mid}, {"$unset": {"member_id": ""}}
+        )
         doc = await db.users.find_one({"id": user["id"]}, {"_id": 0})
         return public_user(doc)
 
@@ -241,9 +295,14 @@ def make_auth_router(db):
     # ---------- User Management (admin only) ----------
     @router.get("/users/unmatched")
     async def list_unmatched_users(_: dict = Depends(require_admin)):
-        """Return users without a linked member (admin panel)."""
+        """Return users with no linked member (empty/missing member_ids AND no legacy member_id)."""
         docs = await db.users.find(
-            {"$or": [{"member_id": None}, {"member_id": ""}, {"member_id": {"$exists": False}}]},
+            {
+                "$and": [
+                    {"$or": [{"member_ids": {"$exists": False}}, {"member_ids": {"$size": 0}}]},
+                    {"$or": [{"member_id": None}, {"member_id": ""}, {"member_id": {"$exists": False}}]},
+                ]
+            },
             {"_id": 0, "password_hash": 0},
         ).sort("created_at", 1).to_list(1000)
         return [public_user({**d, "password_hash": ""}) for d in docs]
@@ -276,28 +335,42 @@ def make_auth_router(db):
 
     @router.patch("/users/{user_id}")
     async def update_user(user_id: str, body: UpdateUserBody, admin: dict = Depends(require_admin)):
-        # Use exclude_unset so admins can explicitly set member_id=None (unlink) —
+        # Use exclude_unset so admins can explicitly set member_ids=[] (unlink) —
         # a plain `if v is not None` filter would drop that intent.
         raw = body.model_dump(exclude_unset=True)
-        update = {k: v for k, v in raw.items() if k == "member_id" or v is not None}
+        update = {k: v for k, v in raw.items() if k == "member_ids" or v is not None}
         if "role" in update and update["role"] not in ("admin", "user"):
             raise HTTPException(400, "Geçersiz rol")
-        # Admin override for member linking: verify member exists + free the seat if reassigning.
-        if "member_id" in update:
-            mid_raw = update["member_id"]
-            mid = (mid_raw or "").strip() if isinstance(mid_raw, str) else None
-            mid = mid or None
-            update["member_id"] = mid
-            if mid:
-                m = await db.members.find_one({"id": mid}, {"_id": 0, "id": 1})
-                if not m:
-                    raise HTTPException(404, "Üye bulunamadı")
-                # Auto-detach any other user pointing at the same member (admin override wins).
+        unset_fields = {}
+        # Admin override for member linking: verify each id + free the seats from other users.
+        if "member_ids" in update:
+            ids = list(dict.fromkeys([
+                (x or "").strip() for x in (update["member_ids"] or []) if x and x.strip()
+            ]))
+            update["member_ids"] = ids
+            if ids:
+                found_docs = await db.members.find({"id": {"$in": ids}}, {"_id": 0, "id": 1}).to_list(len(ids))
+                found = {m["id"] for m in found_docs}
+                missing = [i for i in ids if i not in found]
+                if missing:
+                    raise HTTPException(404, "Bazı üyeler bulunamadı")
+                # Auto-detach these members from any OTHER user (admin override wins).
                 await db.users.update_many(
-                    {"member_id": mid, "id": {"$ne": user_id}},
-                    {"$set": {"member_id": None}},
+                    {"id": {"$ne": user_id},
+                     "$or": [{"member_ids": {"$in": ids}}, {"member_id": {"$in": ids}}]},
+                    {"$pull": {"member_ids": {"$in": ids}}},
                 )
-        res = await db.users.update_one({"id": user_id}, {"$set": update})
+                # And clear any legacy singular member_id that collides.
+                await db.users.update_many(
+                    {"id": {"$ne": user_id}, "member_id": {"$in": ids}},
+                    {"$unset": {"member_id": ""}},
+                )
+            # Any admin write drops the legacy singular field for this user.
+            unset_fields["member_id"] = ""
+        mongo_op: dict = {"$set": update}
+        if unset_fields:
+            mongo_op["$unset"] = unset_fields
+        res = await db.users.update_one({"id": user_id}, mongo_op)
         if res.matched_count == 0:
             raise HTTPException(404, "Kullanıcı bulunamadı")
         doc = await db.users.find_one({"id": user_id}, {"_id": 0})
@@ -387,4 +460,14 @@ async def ensure_indexes(db):
     # Support brute-force throttle lookups by (username, success, created_at).
     await db.login_attempts.create_index([("username", 1), ("created_at", -1)])
     # Member matching lookup (sparse — some users have no linked member).
-    await db.users.create_index("member_id", sparse=True)
+    await db.users.create_index("member_ids", sparse=True)
+    # One-shot migration: users with legacy `member_id` string but no `member_ids` array.
+    async for u in db.users.find(
+        {"member_id": {"$exists": True, "$nin": [None, ""]},
+         "$or": [{"member_ids": {"$exists": False}}, {"member_ids": {"$size": 0}}]},
+        {"_id": 0, "id": 1, "member_id": 1},
+    ):
+        await db.users.update_one(
+            {"id": u["id"]},
+            {"$set": {"member_ids": [u["member_id"]]}, "$unset": {"member_id": ""}},
+        )

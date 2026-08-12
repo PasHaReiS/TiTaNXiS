@@ -5,7 +5,7 @@ import { api, apiErr } from "@/lib/api";
 import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
 import { Switch } from "@/components/ui/switch";
-import { KeyRound, Shield, User, LogOut, AlertTriangle, Link2, Bell, BellOff } from "lucide-react";
+import { KeyRound, Shield, User, LogOut, AlertTriangle, Link2, Bell, BellOff, X as XIcon, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -22,14 +22,34 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [notifBusy, setNotifBusy] = useState(false);
+  const [removingId, setRemovingId] = useState(null);
 
-  // Pull linked member details when user has one, so we can show the character name.
-  const { data: linkedMember } = useSWR(
-    user?.member_id ? `/members/${user.member_id}` : null,
-    fetcher,
-  );
+  const memberIds = user?.member_ids || [];
+
+  // Bulk-fetch all guild members so we can resolve name/rank/alliance from IDs.
+  const { data: allMembers = [] } = useSWR(memberIds.length ? "/members" : null, fetcher);
+  const linkedMembers = React.useMemo(() => {
+    const byId = new Map((allMembers || []).map((m) => [m.id, m]));
+    return memberIds
+      .map((id) => byId.get(id))
+      .filter(Boolean);
+  }, [allMembers, memberIds]);
 
   if (!user) return null;
+
+  const removeLinked = async (mid, name) => {
+    if (!window.confirm(t("confirm_remove_linked", { name }))) return;
+    setRemovingId(mid);
+    try {
+      await api.post("/auth/link-members/remove", { member_id: mid });
+      toast.success(t("link_removed"));
+      await refreshMe();
+    } catch (e) {
+      toast.error(apiErr(e));
+    } finally {
+      setRemovingId(null);
+    }
+  };
 
   const toggleNotifications = async (enabled) => {
     setNotifBusy(true);
@@ -91,32 +111,64 @@ export default function Profile() {
           </div>
         )}
 
-        {/* Linked in-game character */}
-        <div className="section-title flex items-center gap-2"><Link2 className="w-3 h-3" /> {t("linked_member")}</div>
-        <div className="card-dark p-3 mb-4 flex items-center justify-between gap-3" data-testid="profile-linked-member-card">
-          <div className="flex-1 min-w-0">
-            {user.member_id && linkedMember ? (
-              <div>
-                <div className="font-bold text-white truncate" data-testid="profile-linked-member-name">
-                  {linkedMember.name}
-                </div>
-                <div className="text-[11px] text-muted-foreground truncate">
-                  {linkedMember.rank || "-"} · {linkedMember.alliance_name || "—"}
-                </div>
+        {/* Linked in-game characters (multi) */}
+        <div className="section-title flex items-center gap-2"><Link2 className="w-3 h-3" /> {t("linked_members")}</div>
+        <div className="card-dark p-3 mb-4" data-testid="profile-linked-members-card">
+          {linkedMembers.length === 0 ? (
+            <div className="text-xs text-muted-foreground italic mb-3" data-testid="profile-linked-members-empty">
+              {t("linked_member_none")}
+            </div>
+          ) : (
+            <>
+              <div className="text-[10px] uppercase tracking-widest gold-text mb-2">
+                {t("linked_member_count", { count: linkedMembers.length })}
               </div>
-            ) : (
-              <div className="text-xs text-muted-foreground italic" data-testid="profile-linked-member-empty">
-                {t("linked_member_none")}
+              <div className="flex flex-wrap gap-2 mb-3" data-testid="profile-linked-members-list">
+                {linkedMembers.map((m) => (
+                  <div
+                    key={m.id}
+                    data-testid={`profile-linked-chip-${m.id}`}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-md"
+                    style={{
+                      background: "rgba(34,197,94,0.12)",
+                      border: "1px solid rgba(34,197,94,0.4)",
+                    }}
+                  >
+                    <span
+                      className={`rank-badge rank-${m.rank || "R1"}`}
+                      style={{ width: 22, height: 18, fontSize: 9, borderRadius: 3, fontWeight: 800 }}
+                    >
+                      {m.rank || "R1"}
+                    </span>
+                    <span className="text-xs text-white font-semibold truncate max-w-[140px]" title={m.name}>
+                      {m.name}
+                    </span>
+                    {m.alliance_name && (
+                      <span className="text-[9px] text-muted-foreground truncate">· {m.alliance_name}</span>
+                    )}
+                    <button
+                      type="button"
+                      data-testid={`profile-linked-remove-${m.id}`}
+                      onClick={() => removeLinked(m.id, m.name)}
+                      disabled={removingId === m.id}
+                      className="ml-1 w-4 h-4 rounded-full bg-red-500/20 hover:bg-red-500/40 text-red-300 flex items-center justify-center"
+                      aria-label={t("remove_member")}
+                      title={t("remove_member")}
+                    >
+                      <XIcon className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
+            </>
+          )}
           <button
             type="button"
             data-testid="profile-link-member-btn"
             onClick={() => setLinkOpen(true)}
-            className="btn-gold text-xs px-3 py-2 flex-shrink-0"
+            className="btn-gold text-xs px-3 py-2 w-full justify-center"
           >
-            <Link2 className="w-3.5 h-3.5" /> {t("link_account")}
+            <Plus className="w-3.5 h-3.5" /> {linkedMembers.length ? t("add_member") : t("link_account")}
           </button>
         </div>
 
@@ -173,7 +225,7 @@ export default function Profile() {
       <LinkMemberDialog
         open={linkOpen}
         onClose={() => setLinkOpen(false)}
-        currentMemberId={user.member_id}
+        currentMemberIds={memberIds}
         onSaved={() => refreshMe()}
       />
     </div>
