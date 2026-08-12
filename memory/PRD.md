@@ -269,7 +269,20 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 
 ## Implemented (feature snapshot)
 
-- **[2026-02] Etkinlik Yönetimi — Grup Adı Olmadan Oluşturulanlar Dahil Full CRUD — DONE**:
+## Implemented (feature snapshot)
+
+- **[2026-02] Cascade Event Delete + Gruplu/Grupsuz Toggle — DONE**:
+  - **Cascade delete** (`DELETE /api/events/{event_id}`): Artık silmeden önce `db.points.delete_many({event_id})` çalıştırıyor, sonra event doc siliniyor. Response `{ok:true, points_deleted:N}` — orphan puan kaydı bırakılmıyor. Bu fix "Özel Zaman" event'inde yaşanan Network Error benzeri stale-state sorununu önlüyor.
+  - **Gruplu/Grupsuz toggle** (`EventForm`): Yeni `grouped: boolean` state (initial değer: mevcut event'in `group_name` doluluğuna göre). İki chip button `event-form-grouped-yes` / `event-form-grouped-no`. Grupsuz seçiliyken tüm grup section (active chips + manual input) `{grouped && (...)}` ile gizleniyor. Submit'te `group_name: grouped ? name || null : ""` gönderiliyor → backend'de boş → UI'da "Grupsuz" bucket'ında görünüyor.
+  - **Grup silme UI** (mevcut): Header'daki kırmızı `event-group-delete-{group}` butonu `DELETE /api/events/group/{group_name}` çağırıyor (backend cascade — line 473 zaten var, hem event'leri hem puanları siliyor).
+  - **E2E**:
+    - Cascade delete: event + 2 puan yaratıldı → DELETE → response `points_deleted:2` ✅
+    - Repeat DELETE → 404 doğru rapor ✅
+    - Toggle UI: Grupsuz seçildiğinde grup chips gizleniyor (chips=0), Gruplu'ya dönünce tekrar görünüyor ✅
+  - **Deploy**: Preview'da hazır.
+
+
+
   - **Frontend `pages/Events.jsx`**:
     - **Grupsuz etkinlik fallback**: `grouped` useMemo artık `group_name` boş/null olan etkinlikleri `"Grupsuz"` bucket'ına düşürüyor — daha önce `g[undefined]` ile kayboluyordu.
     - **Per-event Unarchive butonu**: Arşiv tabında her etkinlik satırında yeşil `ArchiveRestore` butonu (`event-unarchive-{id}`) → `PATCH /events/{id} {archived:false}` çağırıyor. Toast: "Etkinlik aktife alındı".

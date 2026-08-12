@@ -441,10 +441,13 @@ async def update_event(event_id: str, body: EventUpdate, _: dict = Depends(requi
 
 @api_router.delete("/events/{event_id}")
 async def delete_event(event_id: str, _: dict = Depends(require_edit)):
+    # Cascade: remove any point records tied to this event before deleting the event doc.
+    # Prevents orphan points and matches the behaviour of /events/group/{name}.
+    pts_res = await db.points.delete_many({"event_id": event_id})
     res = await db.events.delete_one({"id": event_id})
     if res.deleted_count == 0:
         raise HTTPException(404, "Etkinlik bulunamadı")
-    return {"ok": True}
+    return {"ok": True, "points_deleted": pts_res.deleted_count}
 
 
 @api_router.post("/events/archive-group")

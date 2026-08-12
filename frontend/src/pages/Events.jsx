@@ -418,6 +418,12 @@ function EventForm({ initial, onClose }) {
   const [date, setDate] = useState(initial?.date?.slice(0, 10) || new Date().toISOString().slice(0, 10));
   const [multiplier, setMultiplier] = useState(initial?.multiplier || 1);
   const [subtitle, setSubtitle] = useState(initial?.subtitle || "");
+  // "Gruplu" vs "Grupsuz" toggle — an event may live inside a group (SvS, Guild Fest…)
+  // or exist on its own. When switching to "Grupsuz" we clear the group_name so the
+  // backend stores it as ungrouped and the UI shows it under the "Grupsuz" bucket.
+  const [grouped, setGrouped] = useState(
+    initial ? !!(initial.group_name && String(initial.group_name).trim()) : true,
+  );
   const [groupName, setGroupName] = useState(initial?.group_name || "SvS vs 10007");
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState(initial?.banner_url ? [{ id: "existing", url: initial.banner_url, filename: "banner" }] : []);
@@ -431,7 +437,7 @@ function EventForm({ initial, onClose }) {
       const body = {
         name: name.trim(), date: new Date(date).toISOString(),
         multiplier: Number(multiplier), subtitle: subtitle.trim() || null,
-        group_name: groupName,
+        group_name: grouped ? (groupName || "").trim() || null : "",
         banner_url: banner[0]?.url || null,
       };
       if (initial) await api.patch(`/events/${initial.id}`, body);
@@ -470,26 +476,52 @@ function EventForm({ initial, onClose }) {
           placeholder={t("subtitle_example")}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("group")}</label>
-        {activeGroups.length > 0 && (
-          <div className="flex gap-1.5 flex-wrap mb-2">
-            {activeGroups.map((g) => (
-              <button
-                key={g.name}
-                type="button"
-                data-testid={`event-group-chip-${g.name}`}
-                onClick={() => setGroupName(g.name)}
-                className={`chip ${groupName === g.name ? "active" : ""}`}
-              >
-                {g.name}
-                <span className="ml-1 text-[9px] opacity-70">({g.active})</span>
-              </button>
-            ))}
-          </div>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Grup Tipi</label>
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <button
+            type="button"
+            data-testid="event-form-grouped-yes"
+            onClick={() => setGrouped(true)}
+            className={`chip justify-center py-2 ${grouped ? "active" : ""}`}
+            aria-pressed={grouped}
+          >
+            Gruplu
+          </button>
+          <button
+            type="button"
+            data-testid="event-form-grouped-no"
+            onClick={() => setGrouped(false)}
+            className={`chip justify-center py-2 ${!grouped ? "active" : ""}`}
+            aria-pressed={!grouped}
+          >
+            Grupsuz
+          </button>
+        </div>
+
+        {grouped && (
+          <>
+            <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("group")}</label>
+            {activeGroups.length > 0 && (
+              <div className="flex gap-1.5 flex-wrap mb-2">
+                {activeGroups.map((g) => (
+                  <button
+                    key={g.name}
+                    type="button"
+                    data-testid={`event-group-chip-${g.name}`}
+                    onClick={() => setGroupName(g.name)}
+                    className={`chip ${groupName === g.name ? "active" : ""}`}
+                  >
+                    {g.name}
+                    <span className="ml-1 text-[9px] opacity-70">({g.active})</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <input value={groupName} onChange={(e) => setGroupName(e.target.value)}
+              data-testid={EVENTS.formGroup || "event-form-group"}
+              className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
+          </>
         )}
-        <input value={groupName} onChange={(e) => setGroupName(e.target.value)}
-          data-testid={EVENTS.formGroup || "event-form-group"}
-          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Etkinlik Görseli</label>
         <ImageDropzone purpose="event" value={banner} onChange={setBanner} max={1} compact />
