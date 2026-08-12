@@ -23,14 +23,18 @@ const splitLabel = (raw) => {
 
 function FlameTab({ tabKey, label, active, disabled, onClick }) {
   const [top, bottom] = splitLabel(label);
+  const W = 160;
+  const H = 60;
+  const R = 10; // border-radius
+  const BORDER = 2; // ring thickness
 
-  // 12px chamfer on all corners — the canonical "cyber" bevelled octagon.
-  const CLIP =
-    "polygon(12px 0%, calc(100% - 12px) 0%, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0% calc(100% - 12px), 0% 12px)";
-
-  // Faint diagonal scanline pattern for the cyber-grid vibe (10% opacity).
-  const SCANLINES =
-    "repeating-linear-gradient(45deg, rgba(255,180,80,0.10) 0 1px, transparent 1px 6px)";
+  // Particle stream: sharp conic gradient with narrow bright arcs + dark gaps
+  // rotating continuously → reads as light "particles" chasing round the border.
+  // Purple → Blue → Orange as the user asked.
+  const PARTICLE_RING = (a) =>
+    a
+      ? "conic-gradient(from 0deg, #8B5CF6 0deg 6deg, transparent 6deg 45deg, #3B82F6 45deg 51deg, transparent 51deg 90deg, #F97316 90deg 96deg, transparent 96deg 135deg, #A855F7 135deg 141deg, transparent 141deg 180deg, #60A5FA 180deg 186deg, transparent 186deg 225deg, #FB923C 225deg 231deg, transparent 231deg 270deg, #8B5CF6 270deg 276deg, transparent 276deg 315deg, #3B82F6 315deg 321deg, transparent 321deg 360deg)"
+      : "conic-gradient(from 0deg, rgba(139,92,246,0.7) 0deg 4deg, transparent 4deg 60deg, rgba(59,130,246,0.7) 60deg 64deg, transparent 64deg 120deg, rgba(249,115,22,0.7) 120deg 124deg, transparent 124deg 180deg, rgba(139,92,246,0.7) 180deg 184deg, transparent 184deg 240deg, rgba(59,130,246,0.7) 240deg 244deg, transparent 244deg 300deg, rgba(249,115,22,0.7) 300deg 304deg, transparent 304deg 360deg)";
 
   return (
     <motion.button
@@ -41,108 +45,117 @@ function FlameTab({ tabKey, label, active, disabled, onClick }) {
       onClick={disabled ? undefined : onClick}
       data-testid={`points-about-tab-${tabKey}`}
       initial={false}
-      animate={{
-        scale: active ? 1.03 : 1,
-        filter: active
-          ? "drop-shadow(0 0 10px rgba(255,102,0,0.85)) drop-shadow(0 0 22px rgba(255,51,0,0.55))"
-          : "drop-shadow(0 0 6px rgba(255,102,0,0.28))",
-      }}
+      animate={{ scale: active ? 1.02 : 1 }}
       transition={{ type: "spring", stiffness: 320, damping: 22 }}
-      whileHover={disabled ? undefined : { scale: active ? 1.06 : 1.05 }}
+      whileHover={disabled ? undefined : { scale: 1.05 }}
       whileTap={disabled ? undefined : { scale: 0.97 }}
-      className="relative inline-block"
+      className="relative inline-block overflow-hidden"
       style={{
-        width: 130,
-        height: 80,
+        width: W,
+        height: H,
         padding: 0,
         border: "none",
+        borderRadius: R,
         background: "transparent",
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.4 : 1,
         outline: "none",
+        // Overall glow scales with active state
+        filter: active
+          ? "drop-shadow(0 0 10px rgba(139,92,246,0.75)) drop-shadow(0 0 24px rgba(59,130,246,0.4))"
+          : "drop-shadow(0 0 6px rgba(139,92,246,0.35))",
       }}
     >
-      {/* Layer 1 — neon frame: full-size gradient clipped to the octagon. */}
-      <span
+      {/* Rotating particle ring — full-size conic clipped to a ring by mask.
+          Framer Motion drives `rotate` so we avoid CSS @keyframes injection. */}
+      <motion.span
         aria-hidden
         className="absolute inset-0 pointer-events-none"
         style={{
-          clipPath: CLIP,
-          background: active
-            ? "linear-gradient(135deg, #FFB347 0%, #FF6B00 45%, #E74C1A 70%, #FF3300 100%)"
-            : "linear-gradient(135deg, rgba(255,140,50,0.85), rgba(231,76,26,0.75), rgba(255,51,0,0.85))",
+          borderRadius: R,
+          background: PARTICLE_RING(active),
+          WebkitMask:
+            `linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)`,
+          WebkitMaskComposite: "xor",
+          maskComposite: "exclude",
+          padding: BORDER,
+        }}
+        animate={{ rotate: 360 }}
+        transition={{
+          repeat: Infinity,
+          duration: active ? 3.5 : 7,
+          ease: "linear",
         }}
       />
 
-      {/* Layer 2 — inner fill inset by 2px so Layer 1 shows as a neon border. */}
+      {/* Dark inner core with subtle purple→blue radial glow */}
       <span
         aria-hidden
         className="absolute pointer-events-none"
         style={{
-          top: 2,
-          left: 2,
-          right: 2,
-          bottom: 2,
-          clipPath: CLIP,
+          top: BORDER,
+          left: BORDER,
+          right: BORDER,
+          bottom: BORDER,
+          borderRadius: R - 1,
           background: active
-            ? "linear-gradient(135deg, #FF7A1A 0%, #E23E12 55%, #B01F05 100%)"
-            : "linear-gradient(135deg, rgba(20,10,6,0.92), rgba(12,6,4,0.96))",
+            ? "radial-gradient(ellipse at 30% 30%, rgba(139,92,246,0.35) 0%, rgba(59,130,246,0.18) 40%, rgba(10,10,26,0.92) 80%)"
+            : "radial-gradient(ellipse at 30% 30%, rgba(139,92,246,0.18) 0%, rgba(59,130,246,0.08) 40%, rgba(10,10,26,0.92) 80%)",
         }}
       />
 
-      {/* Layer 3 — diagonal scanline pattern for cyber grid feel. */}
-      <span
+      {/* Faint horizontal data-flow lines shimmering across the core.
+          `backgroundPosition` animates via Framer Motion → real "particle
+          stream" feel through the middle of the button. */}
+      <motion.span
         aria-hidden
         className="absolute pointer-events-none"
         style={{
-          top: 2,
-          left: 2,
-          right: 2,
-          bottom: 2,
-          clipPath: CLIP,
-          background: SCANLINES,
-          mixBlendMode: "overlay",
-          opacity: active ? 0.9 : 0.6,
+          top: BORDER,
+          left: BORDER,
+          right: BORDER,
+          bottom: BORDER,
+          borderRadius: R - 1,
+          background:
+            "repeating-linear-gradient(90deg, transparent 0 8px, rgba(139,92,246,0.10) 8px 10px, transparent 10px 20px, rgba(59,130,246,0.10) 20px 22px, transparent 22px 40px, rgba(249,115,22,0.10) 40px 42px, transparent 42px 60px)",
+          backgroundSize: "200% 100%",
+          mixBlendMode: "screen",
         }}
+        animate={{ backgroundPositionX: ["0%", "200%"] }}
+        transition={{ repeat: Infinity, duration: active ? 4 : 8, ease: "linear" }}
       />
 
-      {/* Layer 4 — corner neon accent dots at the 8 chamfer joints. */}
-      {[
-        [12, 0], [130 - 12, 0], [130, 12], [130, 80 - 12],
-        [130 - 12, 80], [12, 80], [0, 80 - 12], [0, 12],
-      ].map(([x, y], i) => (
-        <span
+      {/* 3 orbiting particles — small bright dots that trace the border path.
+          Rotate a small offset element around the button center. */}
+      {active && [0, 120, 240].map((deg, i) => (
+        <motion.span
           key={i}
           aria-hidden
           className="absolute pointer-events-none rounded-full"
           style={{
-            left: x - 2,
-            top: y - 2,
-            width: 4,
-            height: 4,
-            background: active ? "#FFF4D9" : "#FF6B00",
-            boxShadow: active
-              ? "0 0 8px rgba(255,220,120,0.95), 0 0 14px rgba(255,120,50,0.7)"
-              : "0 0 6px rgba(255,102,0,0.7)",
+            width: 5,
+            height: 5,
+            top: "50%",
+            left: "50%",
+            marginTop: -2.5,
+            marginLeft: -2.5,
+            background: i === 0 ? "#C4B5FD" : i === 1 ? "#93C5FD" : "#FDBA74",
+            boxShadow: `0 0 8px ${i === 0 ? "#8B5CF6" : i === 1 ? "#3B82F6" : "#F97316"}, 0 0 14px ${i === 0 ? "#A855F7" : i === 1 ? "#60A5FA" : "#FB923C"}`,
+            transformOrigin: "center center",
           }}
-        />
+          animate={{ rotate: [deg, deg + 360] }}
+          transition={{ repeat: Infinity, duration: 3.5, ease: "linear" }}
+        >
+          {/* Inner translate positions the dot on the border ellipse */}
+          <span
+            className="block rounded-full w-full h-full"
+            style={{
+              transform: `translate(${W / 2 - BORDER - 1}px, 0)`,
+              background: "inherit",
+            }}
+          />
+        </motion.span>
       ))}
-
-      {/* Active-only inner glow pulse. */}
-      {active && (
-        <motion.span
-          aria-hidden
-          className="absolute pointer-events-none"
-          style={{
-            top: 2, left: 2, right: 2, bottom: 2,
-            clipPath: CLIP,
-            background:
-              "radial-gradient(ellipse at 50% 55%, rgba(255,200,120,0.35) 0%, rgba(255,80,0,0) 65%)",
-          }}
-          animate={{ opacity: [0.55, 1, 0.7, 1, 0.6] }}
-          transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
-        />
-      )}
 
       {/* Content: two-line label */}
       <span
@@ -155,9 +168,9 @@ function FlameTab({ tabKey, label, active, disabled, onClick }) {
             fontWeight: 700,
             fontSize: 10,
             letterSpacing: "0.35em",
-            color: active ? "#FFF4D9" : "#F5A623",
+            color: active ? "#E9D5FF" : "#C4B5FD",
             textShadow: active
-              ? "0 0 8px rgba(255,220,120,0.9), 0 1px 2px rgba(0,0,0,0.85)"
+              ? "0 0 8px rgba(196,181,253,0.9), 0 1px 2px rgba(0,0,0,0.9)"
               : "0 1px 2px rgba(0,0,0,0.9)",
           }}
         >
@@ -168,12 +181,12 @@ function FlameTab({ tabKey, label, active, disabled, onClick }) {
             style={{
               fontFamily: "Cinzel, serif",
               fontWeight: 900,
-              fontSize: 20,
+              fontSize: 19,
               letterSpacing: "0.22em",
-              color: active ? "#FFFFFF" : "#F5F0E8",
+              color: "#FFFFFF",
               textShadow: active
-                ? "0 0 12px rgba(255,180,80,0.95), 0 0 24px rgba(255,80,0,0.55), 0 2px 3px rgba(0,0,0,0.85)"
-                : "0 1px 2px rgba(0,0,0,0.9)",
+                ? "0 0 10px rgba(147,197,253,0.9), 0 0 22px rgba(139,92,246,0.5), 0 2px 3px rgba(0,0,0,0.9)"
+                : "0 0 8px rgba(139,92,246,0.4), 0 1px 2px rgba(0,0,0,0.9)",
             }}
           >
             {bottom}
@@ -184,7 +197,7 @@ function FlameTab({ tabKey, label, active, disabled, onClick }) {
       {disabled && (
         <Lock
           className="absolute z-10"
-          style={{ width: 14, height: 14, top: 6, right: 18, color: "#F5A623", opacity: 0.85 }}
+          style={{ width: 14, height: 14, top: 6, right: 10, color: "#C4B5FD", opacity: 0.85 }}
         />
       )}
     </motion.button>
@@ -202,10 +215,10 @@ export default function PointsAbout() {
         <Header title={t("nav_points_about")} />
 
         <div className="flex flex-col gap-4" data-testid="pa-layout">
-          {/* Cyber-cut octagonal tab picker — buttons float centered, no container */}
+          {/* Particle / data-flow tab picker — buttons float centered, no container */}
           <div
             className="flex flex-row items-center justify-center py-3"
-            style={{ gap: 12 }}
+            style={{ gap: 16 }}
             data-testid="pa-sidebar-list"
             role="tablist"
           >
