@@ -1,5 +1,16 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Alliance Bracket Strip + Event OCR Auto-Create Member — DONE & VERIFIED
+- **Alliance bracket strip**: `find_or_create_alliance` ve `_split_alliance_from_name` `[` `]` karakterlerini kesinlikle temizliyor. Startup migration: DB'de bracket içeren tüm `alliance_name` değerleri düzeltildi (`"[GOW]"` → `"GOW"`).
+- **Event OCR auto-create**: `POST /api/ocr/apply-event-points` eşleşmeyen isimleri artık atlamıyor — otomatik olarak yeni üye oluşturuyor. `[TAG] İsim` formatındaki tag `find_or_create_alliance` mantığıyla kanonikleşiyor. Aynı batch içindeki tekrar isimler in-memory index'e ekleniyor (fuzzy match sonraki satırlarla çalışıyor).
+- **UI**: `OcrDialog` event modu artık "Durum" kolonu gösteriyor — mevcut üyeler için "MEVCUT" (gri), yeni oluşturulacaklar için "+ YENİ" (yeşil) rozeti. Toast: `"X puan '<etkinlik>' etkinliğine eklendi · N yeni üye oluşturuldu"`.
+- **Response schema**: `{created, new_members_created, new_member_names, errors, event_name}`.
+- **Doğrulama (curl)**:
+  - `POST /api/members {alliance_name:"[TESTBRK]"}` → kayıtlı alliance: `'TESTBRK'` ✅
+  - `POST /api/members {name:"[TESTBRK2] TestUser..."}` → name: `'TestUser'`, alliance: `'TESTBRK2'` ✅
+  - DB scan: `bad_alliance_count = 0` (migration temizledi) ✅
+  - `apply-event-points` `[TESTAA] BrandNewOne` → auto-created, alliance `'TESTAA'` ✅
+
 ## [2026-02] Members Multi-Image OCR — DONE & VERIFIED
 - **What**: `OcrDialog.jsx` `supportsMulti = mode === "event" || mode === "members"` — üye listesi ekran görüntüleri için de çoklu dosya seçimi, preview grid, merge strategy chip'leri, "+" add-more butonu ve batch analyze.
 - **Backend**: `POST /api/ocr/parse-multi?mode=members` `[TAG] İsim` prefix'ini `_strip_alliance_tag` ile ayıklıyor, normalize edilmiş isim ile dedupe, first-non-empty wins for `power/castle_level/rank/alliance_name`. `/members/batch-create` alliance auto-create yapıyor.

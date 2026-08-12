@@ -375,6 +375,9 @@ async def find_or_create_alliance(raw_input: Optional[str]) -> Optional[str]:
     m = _ALLIANCE_BRACKETS_RE.match(s)
     if m:
         s = m.group(1).strip()
+    # Belt-and-braces: strip any stray brackets/whitespace so we never store
+    # "[GOW]" or "GOW]" as an alliance name (e.g. malformed OCR outputs).
+    s = s.replace("[", "").replace("]", "").strip()
     if not s:
         return None
     existing = await db.members.distinct("alliance_name")
@@ -391,7 +394,8 @@ def _split_alliance_from_name(raw: str) -> tuple[Optional[str], str]:
         return None, ""
     m = _ALLIANCE_BRACKETS_RE.match(str(raw))
     if m:
-        return m.group(1).strip() or None, m.group(2).strip()
+        tag = (m.group(1) or "").replace("[", "").replace("]", "").strip()
+        return (tag or None), m.group(2).strip()
     return None, str(raw).strip()
 
 
@@ -3212,6 +3216,28 @@ async def startup():
             migrated += 1
     if migrated:
         logger.info(f"Stripped non-digit chars from level fields for {migrated} members")
+
+    # One-time migration: strip stray brackets from alliance_name ("[GOW]" -> "GOW").
+    try:
+        dirty_alliance = await db.members.find(
+            {"alliance_name": {"$regex": r"[\[\]]"}},
+            {"_id": 0, "id": 1, "alliance_name": 1},
+        ).to_list(20000)
+        alliance_fixed = 0
+        for m in dirty_alliance:
+            v = m.get("alliance_name")
+            if not isinstance(v, str):
+                continue
+            cleaned = v.replace("[", "").replace("]", "").strip()
+            if cleaned != v:
+                await db.members.update_one(
+                    {"id": m["id"]}, {"$set": {"alliance_name": cleaned}}
+                )
+                alliance_fixed += 1
+        if alliance_fixed:
+            logger.info(f"Stripped brackets from alliance_name for {alliance_fixed} members")
+    except Exception as _e:
+        logger.warning(f"alliance_name migration failed: {_e}")
     # Auto-seed disabled: guild leaders now populate their own members.
     # To manually populate demo data, POST /api/seed?force=true with admin token.
 

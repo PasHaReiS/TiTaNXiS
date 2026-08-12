@@ -401,10 +401,14 @@ export default function Events() {
           });
           mutate("/events");
           mutate((k) => typeof k === "string" && k.startsWith("/points"));
+          mutate((k) => typeof k === "string" && k.startsWith("/members"));
+          mutate("/stats");
           const errs = (res.data.errors || []).length;
+          const newMembers = res.data.new_members_created || 0;
           toast.success(
             `${res.data.created} puan '${res.data.event_name}' etkinliğine eklendi` +
-              (errs ? ` · ${errs} eşleşmeyen üye` : ""),
+              (newMembers ? ` · ${newMembers} yeni üye oluşturuldu` : "") +
+              (errs ? ` · ${errs} hata` : ""),
           );
         }}
       />

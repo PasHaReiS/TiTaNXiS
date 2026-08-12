@@ -231,7 +231,9 @@ def make_ocr_router(db, require_edit, require_auth):
         """Save OCR-parsed participant scores against a chosen event.
 
         Name matching strips leading `[ALLIANCE]` tags (e.g. `[GOW] PasHa` → `PasHa`)
-        and falls back to a fuzzy (difflib) match if no exact hit.
+        and falls back to a fuzzy (difflib) match if no exact hit. If still no match,
+        auto-creates a new member (with alliance auto-resolution from the bracket tag)
+        so the point row can always be saved.
         """
         import uuid as _uuid
         from datetime import datetime as _dt, timezone as _tz
@@ -241,9 +243,25 @@ def make_ocr_router(db, require_edit, require_auth):
         members_all = await db.members.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(10000)
         by_name = {_norm_key(m.get("name") or ""): m for m in members_all}
         by_name_keys = list(by_name.keys())
+
+        # Cache existing alliance canonical casing so freshly-created members reuse
+        # the same casing (`gow` / `GoW` / `GOW` → same canonical string).
+        existing_alliances = await db.members.distinct("alliance_name")
+        alliance_by_lc = {str(a).lower(): a for a in existing_alliances if a}
+
+        def _resolve_alliance(tag: Optional[str]) -> Optional[str]:
+            if not tag:
+                return None
+            t = str(tag).replace("[", "").replace("]", "").strip()
+            if not t:
+                return None
+            return alliance_by_lc.get(t.lower(), t)
+
         created = 0
+        new_members: list[str] = []
         errors: list[str] = []
         docs: list[dict] = []
+        new_member_docs: list[dict] = []
         now_iso_str = _dt.now(_tz.utc).isoformat()
         for row in body.participants:
             raw_name = str(row.get("name") or "").strip()
@@ -258,24 +276,66 @@ def make_ocr_router(db, require_edit, require_auth):
                 continue
             key = _norm_key(clean_name)
             match_key = key if key in by_name else _fuzzy_match(key, by_name_keys)
-            if not match_key:
-                errors.append(f"'{raw_name}' üye listesinde bulunamadı")
-                continue
-            m = by_name[match_key]
+            if match_key:
+                target_member_id = by_name[match_key]["id"]
+                target_name = by_name[match_key]["name"]
+                note = (
+                    "OCR" if match_key == key
+                    else f"OCR (fuzzy match: '{raw_name}' → '{target_name}')"
+                )
+            else:
+                # Auto-create the missing member. Extract alliance tag from raw name
+                # (e.g. "[GOW] PasHa" → alliance=GOW) or from explicit alliance_name field.
+                tag_from_row = row.get("alliance_name")
+                tag_from_name = None
+                m_tag = _ALLIANCE_TAG_RE.match(raw_name)
+                if m_tag:
+                    inner = m_tag.group(0).strip().strip("[]").strip()
+                    tag_from_name = inner or None
+                alliance_canonical = _resolve_alliance(tag_from_row or tag_from_name)
+                if alliance_canonical and alliance_canonical.lower() not in alliance_by_lc:
+                    alliance_by_lc[alliance_canonical.lower()] = alliance_canonical
+
+                new_id = str(_uuid.uuid4())
+                new_member_docs.append({
+                    "id": new_id,
+                    "name": clean_name,
+                    "rank": "R1",
+                    "alliance_name": alliance_canonical or "",
+                    "bireysel_guc": 0,
+                    "castle_level": 0,
+                })
+                # Update the in-memory index so a repeat name in the same batch matches.
+                by_name[key] = {"id": new_id, "name": clean_name}
+                by_name_keys.append(key)
+                new_members.append(clean_name)
+                target_member_id = new_id
+                target_name = clean_name
+                note = f"OCR (auto-created member from '{raw_name}')"
+
             docs.append({
                 "id": str(_uuid.uuid4()),
-                "member_id": m["id"],
+                "member_id": target_member_id,
                 "event_id": body.event_id,
                 "points": pts_int,
                 "multiplier": float(body.multiplier or 1.0),
-                "note": "OCR" if match_key == key else f"OCR (fuzzy match: '{raw_name}' → '{m['name']}')",
+                "note": note,
                 "created_at": now_iso_str,
                 "date": now_iso_str,
             })
             created += 1
+
+        if new_member_docs:
+            await db.members.insert_many(new_member_docs)
         if docs:
             await db.points.insert_many(docs)
-        return {"created": created, "errors": errors, "event_name": ev.get("name")}
+        return {
+            "created": created,
+            "new_members_created": len(new_member_docs),
+            "new_member_names": new_members,
+            "errors": errors,
+            "event_name": ev.get("name"),
+        }
 
     @router.post("/ocr/parse-multi")
     async def parse_multi(

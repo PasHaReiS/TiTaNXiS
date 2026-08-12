@@ -24,10 +24,10 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   const fileRef = useRef(null);
   const supportsMulti = mode === "event" || mode === "members";
 
-  // For members mode we need the existing roster so we can flag each parsed row
-  // as "new" (will be created) vs "existing" (case-insensitive name match).
+  // For members/event mode we need the existing roster so we can flag each parsed
+  // row as "new" (will be created) vs "existing" (case-insensitive name match).
   const { data: existingMembers = [] } = useSWR(
-    open && mode === "members" ? "/members" : null,
+    open && (mode === "members" || mode === "event") ? "/members" : null,
     _fetcher,
   );
   const existingNamesLc = React.useMemo(
@@ -282,6 +282,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             <th className="text-left py-1">İsim</th>
                             <th className="text-right py-1">Puan</th>
                             <th className="text-right py-1">Kaynak</th>
+                            <th className="text-right py-1">Durum</th>
                           </>)}
                           {mode === "war" && (<>
                             <th className="text-left py-1">Kazanan</th>
@@ -324,17 +325,32 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                 </td>
                               </>);
                             })()}
-                            {mode === "event" && (<>
-                              <td className="text-white py-1 truncate max-w-[220px]">{r.name}</td>
-                              <td className="text-right mono py-1 gold-text">{Number(r.points || 0).toLocaleString("tr-TR")}</td>
-                              <td className="text-right py-1 text-white/60">
-                                {r.sources > 1 ? (
-                                  <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(139,92,246,0.2)", color: "#A78BFA" }}>
-                                    ×{r.sources}
-                                  </span>
-                                ) : "—"}
-                              </td>
-                            </>)}
+                            {mode === "event" && (() => {
+                              const cleanName = _stripTag(r.name);
+                              const isExisting = existingNamesLc.has(cleanName.toLowerCase());
+                              return (<>
+                                <td className="text-white py-1 truncate max-w-[180px]">{r.name}</td>
+                                <td className="text-right mono py-1 gold-text">{Number(r.points || 0).toLocaleString("tr-TR")}</td>
+                                <td className="text-right py-1 text-white/60">
+                                  {r.sources > 1 ? (
+                                    <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(139,92,246,0.2)", color: "#A78BFA" }}>
+                                      ×{r.sources}
+                                    </span>
+                                  ) : "—"}
+                                </td>
+                                <td className="text-right py-1">
+                                  {isExisting ? (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: "rgba(107,114,128,0.25)", color: "#9ca3af" }}>
+                                      MEVCUT
+                                    </span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: "rgba(34,197,94,0.25)", color: "#4ade80" }} title="Yeni üye oluşturulacak">
+                                      + YENİ
+                                    </span>
+                                  )}
+                                </td>
+                              </>);
+                            })()}
                             {mode === "war" && (<>
                               <td className="text-green-400 py-1">{r.winner || "—"}</td>
                               <td className="text-red-400 py-1">{r.loser || "—"}</td>
