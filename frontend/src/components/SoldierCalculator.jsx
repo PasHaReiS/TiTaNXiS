@@ -134,7 +134,7 @@ export default function SoldierCalculator() {
               aria-pressed={tier === tt}
               className="py-2 rounded font-bold uppercase"
               whileHover={{ scale: 1.05, boxShadow: "0 0 18px rgba(245,166,35,0.55)" }}
-              whileTap={{ scale: 0.9 }}
+              whileTap={{ scale: 0.95 }}
               animate={{ scale: tier === tt ? 1.05 : 1 }}
               transition={{ type: "spring", stiffness: 500, damping: 14, mass: 0.5 }}
               style={{

@@ -7,6 +7,7 @@ import CanEdit from "@/components/CanEdit";
 import { Plus, Pencil, Trash2, X, Shield, ChevronDown, ChevronRight, Upload, Image as ImageIcon, Sparkles, Link as LinkIcon, Grid3x3, ArrowLeft, Info, Calculator, Users, LayoutGrid, Home, Swords, Flag } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { motion } from "framer-motion";
 import SoldierCalculator from "@/components/SoldierCalculator";
 import BuildingCalculator from "@/components/BuildingCalculator";
 import EquipmentTables from "@/components/EquipmentTables";
@@ -277,13 +278,17 @@ export default function Commanders() {
             const renderCard = ([section], idx) => {
               const Icon = SECTION_ICON[section] || Grid3x3;
               return (
-                <button
+                <motion.button
                   key={section}
                   type="button"
                   onClick={() => openSectionView(section)}
                   data-testid={`section-open-${section}`}
                   className="sidebar-card sidebar-card-full"
-                  style={{ animationDelay: `${idx * 100}ms` }}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: idx * 0.1, ease: [0.22, 1, 0.36, 1] }}
+                  whileHover={{ scale: 1.03, boxShadow: "0 0 22px rgba(245,166,35,0.55), 0 0 6px rgba(245,166,35,0.35)" }}
+                  whileTap={{ scale: 0.97 }}
                 >
                   <span className="embers" aria-hidden="true">
                     <span></span><span></span><span></span><span></span><span></span>
@@ -295,7 +300,7 @@ export default function Commanders() {
                     {t(SIDEBAR_SECTION_I18N[section] || "") || section}
                   </span>
                   <ChevronRight className="w-4 h-4 sidebar-card-chevron" />
-                </button>
+                </motion.button>
               );
             };
             return (
