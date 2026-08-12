@@ -29,29 +29,48 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
 
   if (!open) return null;
 
-  const pick = (f) => {
-    if (!f) return;
-    if (!/^image\/(png|jpe?g|webp)$/i.test(f.type)) {
+  const pick = (fileList) => {
+    if (!fileList || fileList.length === 0) return;
+    const arr = Array.from(fileList).filter((f) => /^image\/(png|jpe?g|webp)$/i.test(f.type));
+    if (arr.length === 0) {
       toast.error("PNG, JPEG veya WEBP yükleyin");
       return;
     }
-    setFile(f);
     setResult(null);
-    const reader = new FileReader();
-    reader.onload = (e) => setPreview(e.target.result);
-    reader.readAsDataURL(f);
+    const readers = arr.map(
+      (f) => new Promise((resolve) => {
+        const r = new FileReader();
+        r.onload = (e) => resolve({ file: f, url: e.target.result });
+        r.readAsDataURL(f);
+      }),
+    );
+    Promise.all(readers).then((items) => {
+      setPreviews(supportsMulti ? items : items.slice(0, 1));
+    });
+  };
+
+  const removePreview = (idx) => {
+    setPreviews((prev) => prev.filter((_, i) => i !== idx));
+    setResult(null);
   };
 
   const runParse = async () => {
-    if (!file) return;
+    if (previews.length === 0) return;
     setParsing(true);
     setResult(null);
     try {
       const fd = new FormData();
-      fd.append("file", file);
-      const res = await api.post(`/ocr/parse?mode=${mode}`, fd, {
+      let url;
+      if (supportsMulti && previews.length > 1) {
+        previews.forEach((p) => fd.append("files", p.file));
+        url = `/ocr/parse-multi?mode=${mode}&merge=${mergeStrategy}`;
+      } else {
+        fd.append("file", previews[0].file);
+        url = `/ocr/parse?mode=${mode}`;
+      }
+      const res = await api.post(url, fd, {
         headers: { "Content-Type": "multipart/form-data" },
-        timeout: 90000,
+        timeout: 180000,
       });
       setResult(res.data);
       toast.success("OCR analizi tamamlandı");
@@ -312,25 +331,6 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
 
               {result && rows.length > 0 && (
                 <button
-                  type="button"
-                  onClick={doApply}
-                  disabled={applying || (requireSelection && !selection)}
-                  data-testid="ocr-apply"
-                  className="btn-gold w-full py-3 justify-center"
-                  style={requireSelection && !selection ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-                >
-                  {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                  {applying ? "Kaydediliyor…" : `Onayla & Kaydet (${rows.length})`}
-                </button>
-              )}
-            </div>
-          )}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  );
-}
-          <button
                   type="button"
                   onClick={doApply}
                   disabled={applying || (requireSelection && !selection)}

@@ -745,6 +745,29 @@ export default function Members() {
       )}
 
       <MemberProfileDialog memberId={profileId} open={!!profileId} onClose={() => setProfileId(null)} />
+
+      <LinkMemberDialog
+        open={linkOpen}
+        onClose={() => setLinkOpen(false)}
+        currentMemberIds={user?.member_ids || []}
+        onSaved={() => refreshMe && refreshMe()}
+      />
+
+      <OcrDialog
+        open={ocrOpen}
+        onClose={() => setOcrOpen(false)}
+        mode="members"
+        title="Üye Listesi — Ekran Görüntüsünden Aktar"
+        onApply={async (data) => {
+          const rows = data.members || [];
+          const res = await api.post("/ocr/apply-members", { members: rows });
+          mutate((k) => typeof k === "string" && k.startsWith("/members"));
+          mutate("/stats");
+          toast.success(
+            `Eklendi: ${res.data.created} · Güncellendi: ${res.data.updated} · Atlandı: ${res.data.skipped}`,
+          );
+        }}
+      />
     </div>
   );
 }
