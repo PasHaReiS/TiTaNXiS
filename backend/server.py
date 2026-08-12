@@ -3024,6 +3024,8 @@ async def cron_telegram_weekly_summary():
 
 app.include_router(api_router)
 app.include_router(make_auth_router(db))
+from routes.ocr import make_ocr_router
+app.include_router(make_ocr_router(db, require_edit, require_auth), prefix="/api")
 
 app.mount("/api/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 

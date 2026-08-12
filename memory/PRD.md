@@ -269,6 +269,28 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 
 ## Implemented (feature snapshot)
 
+- **[2026-02] OCR — Ekran Görüntüsü Okuyucu (GPT-5.4 Vision) — DONE**:
+  - **Backend** (`/app/backend/routes/ocr.py`):
+    - Yeni router `make_ocr_router(db, require_edit, require_auth)` server.py'da `/api` prefix ile mount edildi.
+    - `POST /api/ocr/parse?mode=members|event|war` — multipart file upload. Magic-byte MIME sniffing (PNG/JPEG/WEBP), max 8 MB, 400 empty / 413 oversized / 400 invalid-mode error path'leri.
+    - `emergentintegrations.llm.chat.LlmChat` + `ImageContent(base64)` + `openai/gpt-5.4` model. Her mod için özel prompt (`_PROMPTS`), strict-JSON çıkış.
+    - `_extract_json()`: Markdown fence temizler, sonra fallback olarak first-brace slice yapar.
+    - `POST /api/ocr/apply-members` (require_edit): OCR sonucundan gelen `[{name, power, castle_level, rank, alliance_name}]` listesini idempotent apply — isim case-insensitive lookup, mevcut üye varsa `bireysel_guc`/`castle_level`/`rank`/`alliance_name` update, yoksa insert. Response: `{created, updated, skipped, errors[]}`.
+  - **Frontend** (`/app/frontend/src/components/OcrDialog.jsx`):
+    - Reusable framer-motion modal (scale+fade spring, backdrop fade). File-picker → local preview → "AI ile Analiz Et" butonu → sonuçları tablo halinde göster → "Onayla & Kaydet" onApply callback.
+    - Mode-aware tablo layout: `members` (İsim/Güç/Kale/Rank), `event` (İsim/Puan), `war` (Kazanan/Kaybeden/Kayıp+/Kayıp-).
+    - Data-testid'ler: `ocr-dialog`, `ocr-select`, `ocr-file-input`, `ocr-analyze`, `ocr-apply`, `ocr-result-panel`, `ocr-row-{i}`, `ocr-image-preview`.
+  - **Entegrasyon**:
+    - `Members.jsx`: Header'a mor `📷 OCR` chip (`members-ocr-btn`). Onay sonrası `POST /ocr/apply-members` → toast `Eklendi/Güncellendi/Atlandı` sayaçları + SWR mutate.
+    - `Events.jsx`: Header'a mor `📷 OCR` chip (`events-ocr-btn`). Onay sonrası katılımcı listesi tab-separated formatta clipboard'a kopyalanıyor (Puan Ekle sayfasında yapıştır).
+  - **Test playbook**: `/app/image_testing.md` kaydedildi.
+  - **Doğrulama** (curl E2E):
+    - PIL ile 5-satırlı roster PNG üretildi (`/tmp/test_roster.png`).
+    - `POST /ocr/parse?mode=members` → GPT-5.4 5/5 üyeyi doğru parse etti: Ekko R5 1.546.244.298 F8, Czar R4 1.585.140.747 F8, HANA R4 977.338.750 F8, Apple Dog R3 1.156.252.735 F8, BeeBee R2 432.891.102 F7 ✅
+    - Error paths: `mode=bogus` → 400, empty file → 400 ✅
+    - UI: Her iki sayfada mor OCR chip render, framer-motion smooth entrance ✅
+
+
 - **[2026-02] Framer Motion Animasyon Sistemi — DONE**:
   - **Paket**: `framer-motion@13.1.0` yarn ile eklendi.
   - **Yeni component'ler**:

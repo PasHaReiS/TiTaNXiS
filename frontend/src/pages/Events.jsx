@@ -5,10 +5,11 @@ import { api } from "@/lib/api";
 import { EVENTS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
-import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check } from "lucide-react";
+import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import ImageDropzone from "@/components/ImageDropzone";
+import OcrDialog from "@/components/OcrDialog";
 import { groupColor, groupBgTint } from "@/lib/groupColors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -20,6 +21,7 @@ export default function Events() {
   const [editing, setEditing] = useState(null);
   const [renamingGroup, setRenamingGroup] = useState(null); // group name being renamed
   const [renameValue, setRenameValue] = useState("");
+  const [ocrOpen, setOcrOpen] = useState(false);
 
   const { data: events = [] } = useSWR(`/events?archived=${tab === "archive"}`, fetcher, { refreshInterval: 6000 });
 
@@ -97,6 +99,15 @@ export default function Events() {
             <p className="text-xs text-muted-foreground"><span className="gold-text font-bold mono">{activeCount}</span> {t("active")}</p>
           </div>
           <CanEdit>
+            <button
+              data-testid="events-ocr-btn"
+              onClick={() => setOcrOpen(true)}
+              className="chip text-xs flex items-center gap-1.5 mr-1"
+              style={{ borderColor: "rgba(139,92,246,0.5)", color: "#A78BFA" }}
+              title="Ekran Görüntüsünden Aktar"
+            >
+              <Camera className="w-3.5 h-3.5" /> OCR
+            </button>
             <button
               data-testid={EVENTS.addBtn}
               onClick={() => { setEditing(null); setShowForm(true); }}
@@ -346,6 +357,23 @@ export default function Events() {
       {showForm && (
         <EventForm initial={editing} onClose={() => { setShowForm(false); setEditing(null); }} />
       )}
+
+      <OcrDialog
+        open={ocrOpen}
+        onClose={() => setOcrOpen(false)}
+        mode="event"
+        title="Etkinlik Puanı — Ekran Görüntüsünden Aktar"
+        onApply={async (data) => {
+          const parts = data.participants || [];
+          toast.success(`${parts.length} katılımcı okundu · Puanları eklemek için puan sayfasında toplu ekle özelliğini kullan`);
+          // Copy to clipboard as tab-separated so admin can paste into bulk points form.
+          try {
+            const text = parts.map((p) => `${p.name}\t${p.points || 0}`).join("\n");
+            await navigator.clipboard.writeText(text);
+            toast.info("Panoya kopyalandı — Puan Ekle sayfasında yapıştır");
+          } catch {}
+        }}
+      />
     </div>
   );
 }

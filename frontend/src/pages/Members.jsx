@@ -8,9 +8,10 @@ import { MEMBERS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
+import OcrDialog from "@/components/OcrDialog";
 import CanEdit from "@/components/CanEdit";
 import CountUp from "@/components/CountUp";
-import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2 } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -86,6 +87,7 @@ export default function Members() {
   const [editing, setEditing] = useState(null);
   const [profileId, setProfileId] = useState(null);
   const [linkOpen, setLinkOpen] = useState(false);
+  const [ocrOpen, setOcrOpen] = useState(false);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [filterAlliances, setFilterAlliances] = useState([]);
   const [filterRanks, setFilterRanks] = useState([]);
@@ -246,6 +248,15 @@ export default function Members() {
               </button>
             )}
             <CanEdit>
+              <button
+                data-testid="members-ocr-btn"
+                onClick={() => setOcrOpen(true)}
+                className="chip text-xs flex items-center gap-1.5"
+                style={{ borderColor: "rgba(139,92,246,0.5)", color: "#A78BFA" }}
+                title="Ekran Görüntüsünden Aktar"
+              >
+                <Camera className="w-3.5 h-3.5" /> OCR
+              </button>
               <button
                 data-testid={MEMBERS.addBtn}
                 onClick={() => { setEditing(null); setShowForm(true); }}
