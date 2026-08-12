@@ -547,8 +547,9 @@ async def seed_admin(db):
             await db.users.update_one({"id": existing["id"]}, {"$set": updates})
 
     # Seed the editor account "pasha" (role=user, can_edit=True) idempotently.
+    # Password is sourced from PASHA_ADMIN_PASSWORD env var and re-synced on every startup.
     editor_username = "pasha"
-    editor_password = os.environ["EDITOR_PASSWORD"]
+    editor_password = os.environ["PASHA_ADMIN_PASSWORD"]
     editor = await db.users.find_one({"username": editor_username})
     if not editor:
         u = User(
