@@ -267,7 +267,18 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 
 ## Implemented (feature snapshot)
 
-- **[2026-02] Profil'de Karakter Bazlı Sıralama & Stat Kartı — DONE**:
+## Implemented (feature snapshot)
+
+- **[2026-02] Karakter Karşılaştırma Paneli — DONE**:
+  - **Frontend** (`pages/Profile.jsx`): `linkedMembers.length >= 2` iken linked list'in üstünde mor-tint karşılaştırma paneli render oluyor.
+    - **Winner badges**: `strongest` (max `bireysel_guc`) turuncu Crown ikonu ile, `topRank` (min `position` non-null) altın Medal ikonu ile. Her ikisi de karakter adı + değer gösteriyor.
+    - **Güç Oranı bar'ları**: Her karakter için isim + progress bar + yüzde (max güce göre `Math.round(pct)`). En güçlü karakter turuncu gradient (`#FF6B00 → #F5A623`), diğerleri mor gradient (`rgba(139,92,246,…)`) — kaybedenler yerine "en güçlüyü" görsel olarak öne çıkarıyor.
+    - Yeni i18n anahtarları TR + EN: `compare_title`, `compare_strongest`, `compare_top_rank`, `compare_power_ratio`.
+    - Data-testid'ler: `profile-compare-panel`, `profile-compare-strongest`, `profile-compare-toprank`, `profile-compare-bars`, `profile-compare-bar-{id}`.
+  - **Doğrulama** (Playwright): 3 top-power karakter link → panel=1 render, bars=3, strongest="Scalanuova 1.809.564.344", topRank="Czar #31", bars=[100%, 91%, 88%]. Tek karaktere düşürünce panel gizleniyor ✅
+
+
+
   - **Frontend** (`pages/Profile.jsx`):
     - `useSWR('/leaderboard')` eklendi (memberIds boş olduğunda skip). Position + total_points map'i oluşturuluyor, her linked member'a `position` + `total_points` field'ları enrich ediliyor.
     - Chip listesi zenginleştirildi: Her karakter için ayrı stat kartı (yeşil-tint border) → header satırında rank badge + name + alliance + X (kaldır), altında 3 sütunlu grid: **Sıra** (`Trophy` altın ikon, `#N` veya `—`), **Bireysel Güç** (`Zap` turuncu ikon, TR-locale formatı `1.809.564.344`), **Kale** (`Castle` mor ikon, `F8`).

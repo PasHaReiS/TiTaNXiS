@@ -5,7 +5,7 @@ import { api, apiErr } from "@/lib/api";
 import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
 import { Switch } from "@/components/ui/switch";
-import { KeyRound, Shield, User, LogOut, AlertTriangle, Link2, Bell, BellOff, X as XIcon, Plus, Trophy, Zap, Castle } from "lucide-react";
+import { KeyRound, Shield, User, LogOut, AlertTriangle, Link2, Bell, BellOff, X as XIcon, Plus, Trophy, Zap, Castle, Crown, Medal, GitCompare } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -134,6 +134,113 @@ export default function Profile() {
               <div className="text-[10px] uppercase tracking-widest gold-text mb-2">
                 {t("linked_member_count", { count: linkedMembers.length })}
               </div>
+
+              {/* Comparison panel — visible only with 2+ linked characters */}
+              {linkedMembers.length >= 2 && (() => {
+                const strongest = linkedMembers.reduce(
+                  (a, b) => ((b.bireysel_guc || 0) > (a.bireysel_guc || 0) ? b : a),
+                  linkedMembers[0],
+                );
+                const ranked = linkedMembers.filter((x) => x.position);
+                const topRank = ranked.length
+                  ? ranked.reduce((a, b) => (b.position < a.position ? b : a), ranked[0])
+                  : null;
+                const maxPower = Math.max(1, ...linkedMembers.map((x) => x.bireysel_guc || 0));
+                return (
+                  <div
+                    className="rounded-lg p-3 mb-3"
+                    style={{
+                      background: "rgba(139,92,246,0.08)",
+                      border: "1px solid rgba(139,92,246,0.4)",
+                    }}
+                    data-testid="profile-compare-panel"
+                  >
+                    <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold mb-2" style={{ color: "#A78BFA", letterSpacing: "0.14em" }}>
+                      <GitCompare className="w-3 h-3" />
+                      {t("compare_title")}
+                    </div>
+                    {/* Winner badges */}
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div
+                        className="rounded-md px-2 py-1.5"
+                        style={{ background: "rgba(255,107,0,0.12)", border: "1px solid rgba(255,107,0,0.4)" }}
+                        data-testid="profile-compare-strongest"
+                      >
+                        <div className="flex items-center gap-1 text-[9px] uppercase tracking-widest" style={{ color: "#FF6B00" }}>
+                          <Crown className="w-3 h-3" /> {t("compare_strongest")}
+                        </div>
+                        <div className="text-xs text-white font-bold truncate mt-0.5" title={strongest.name}>
+                          {strongest.name}
+                        </div>
+                        <div className="text-[10px] mono truncate" style={{ color: "#FF6B00" }}>
+                          {Number(strongest.bireysel_guc || 0).toLocaleString("tr-TR")}
+                        </div>
+                      </div>
+                      <div
+                        className="rounded-md px-2 py-1.5"
+                        style={{ background: "rgba(245,166,35,0.12)", border: "1px solid rgba(245,166,35,0.4)" }}
+                        data-testid="profile-compare-toprank"
+                      >
+                        <div className="flex items-center gap-1 text-[9px] uppercase tracking-widest gold-text">
+                          <Medal className="w-3 h-3" /> {t("compare_top_rank")}
+                        </div>
+                        {topRank ? (
+                          <>
+                            <div className="text-xs text-white font-bold truncate mt-0.5" title={topRank.name}>
+                              {topRank.name}
+                            </div>
+                            <div className="text-[10px] mono gold-text">#{topRank.position}</div>
+                          </>
+                        ) : (
+                          <div className="text-[10px] text-muted-foreground italic mt-1">—</div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Power ratio bars */}
+                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1.5">
+                      {t("compare_power_ratio")}
+                    </div>
+                    <div className="space-y-1.5" data-testid="profile-compare-bars">
+                      {linkedMembers.map((m) => {
+                        const pct = Math.round(((m.bireysel_guc || 0) / maxPower) * 100);
+                        const isStrongest = m.id === strongest.id;
+                        return (
+                          <div
+                            key={m.id}
+                            className="flex items-center gap-2"
+                            data-testid={`profile-compare-bar-${m.id}`}
+                          >
+                            <span className="text-[10px] text-white truncate w-24 flex-shrink-0" title={m.name}>
+                              {m.name}
+                            </span>
+                            <div
+                              className="flex-1 h-3 rounded-full overflow-hidden"
+                              style={{ background: "rgba(0,0,0,0.4)" }}
+                            >
+                              <div
+                                className="h-full transition-all"
+                                style={{
+                                  width: `${pct}%`,
+                                  background: isStrongest
+                                    ? "linear-gradient(90deg, #FF6B00, #F5A623)"
+                                    : "linear-gradient(90deg, rgba(139,92,246,0.55), rgba(139,92,246,0.85))",
+                                }}
+                              />
+                            </div>
+                            <span
+                              className="text-[9px] mono flex-shrink-0 w-9 text-right"
+                              style={{ color: isStrongest ? "#FF6B00" : "#A78BFA" }}
+                            >
+                              {pct}%
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="space-y-2 mb-3" data-testid="profile-linked-members-list">
                 {linkedMembers.map((m) => (
                   <div
