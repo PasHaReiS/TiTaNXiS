@@ -305,7 +305,7 @@ export default function Events() {
                     </div>
                   </div>
                   <CanEdit>
-                    {!e.archived && (
+                    {!e.archived ? (
                       <button
                         data-testid={EVENTS.archiveBtn(e.id)}
                         onClick={async () => {
@@ -315,14 +315,30 @@ export default function Events() {
                         }}
                         className="w-8 h-8 rounded-md bg-yellow-500/15 hover:bg-yellow-500/30 gold-text flex items-center justify-center"
                         aria-label={t("archive")}
+                        title={t("archive")}
                       >
                         <Archive className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <button
+                        data-testid={`event-unarchive-${e.id}`}
+                        onClick={async () => {
+                          await api.patch(`/events/${e.id}`, { archived: false });
+                          mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                          toast.success(t("group_unarchived") || "Etkinlik aktife alındı");
+                        }}
+                        className="w-8 h-8 rounded-md bg-green-500/15 hover:bg-green-500/30 text-green-400 flex items-center justify-center"
+                        aria-label={t("group_unarchive")}
+                        title={t("group_unarchive")}
+                      >
+                        <ArchiveRestore className="w-3.5 h-3.5" />
                       </button>
                     )}
                     <button
                       data-testid={EVENTS.editBtn(e.id)}
                       onClick={() => { setEditing(e); setShowForm(true); }}
                       className="w-8 h-8 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
+                      title={t("edit")}
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
@@ -336,6 +352,7 @@ export default function Events() {
                         toast.success(t("event_deleted"));
                       }}
                       className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
+                      title={t("delete")}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

@@ -269,7 +269,21 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 
 ## Implemented (feature snapshot)
 
-- **[2026-02] OCR — Ekran Görüntüsü Okuyucu (GPT-5.4 Vision) — DONE**:
+- **[2026-02] Etkinlik Yönetimi — Grup Adı Olmadan Oluşturulanlar Dahil Full CRUD — DONE**:
+  - **Frontend `pages/Events.jsx`**:
+    - **Grupsuz etkinlik fallback**: `grouped` useMemo artık `group_name` boş/null olan etkinlikleri `"Grupsuz"` bucket'ına düşürüyor — daha önce `g[undefined]` ile kayboluyordu.
+    - **Per-event Unarchive butonu**: Arşiv tabında her etkinlik satırında yeşil `ArchiveRestore` butonu (`event-unarchive-{id}`) → `PATCH /events/{id} {archived:false}` çağırıyor. Toast: "Etkinlik aktife alındı".
+    - Aktif tabda mevcut archive butonu (sarı `Archive` → `archived:true`), edit butonu (mavi `Pencil` → form açar), delete butonu (kırmızı `Trash2` → confirm + DELETE) korundu. Tüm butonlar hem aktif hem arşiv tabında görünür (unarchive/archive tabdaki state'e göre birbirinin yerine geçer).
+  - **Doğrulama** (curl E2E, grupsuz event üzerinde):
+    - `POST /events {group_name:""}` → grupsuz event yaratıldı ✅
+    - `PATCH /events/{id} {name:"..."}` → updated_name doğru ✅
+    - `PATCH /events/{id} {archived:true}` → archived=True ✅
+    - `PATCH /events/{id} {archived:false}` → archived=False ✅
+    - `DELETE /events/{id}` → ok:true ✅
+    - UI: Aktif tab'da 2 event × 3 buton (archive+edit+delete), arşiv tab'da unarchive+edit+delete render ✅
+
+
+
   - **Etkinlik akışı v2 (2026-02)**: Etkinlik puanı OCR'ında `requireSelection` mekanizması ile onay ekranında mor "Bu puanları hangi etkinliğe eklemek istiyorsun?" dropdown'u zorunlu tutuluyor. Aktif etkinlikler tarih sırasına göre listeleniyor (`ocr-selection-input`), etkinlik seçilmeden `Onayla & Kaydet` butonu opacity 0.5 + `disabled` + tıklanamıyor.
     - Yeni backend endpoint `POST /api/ocr/apply-event-points {event_id, participants[]}` (require_edit): event varlığını doğrular (404 yoksa), case-insensitive isim match ile üye bulur, puan dokümanı oluşturur (`note: OCR`, `date: now`). Response: `{created, errors[], event_name}`.
     - Doğrulama: `Ekko` (mevcut) + `nonexistent-user-xyz` (yok) → `created=1`, `errors=['nonexistent-user-xyz üye listesinde bulunamadı']`, `event_name=Pre 5.Gün` ✅ · Bad event_id → 404 ✅
