@@ -760,11 +760,22 @@ export default function Members() {
         title="Üye Listesi — Ekran Görüntüsünden Aktar"
         onApply={async (data) => {
           const rows = data.members || [];
-          const res = await api.post("/ocr/apply-members", { members: rows });
+          // Send raw names (with `[TAG] Name`) — backend batch-create strips brackets
+          // and auto-resolves alliances via find_or_create_alliance().
+          const payload = rows.map((r) => ({
+            name: r.name,
+            alliance_tag: r.alliance_name || null,
+            power: r.power || null,
+            castle_level: r.castle_level || null,
+            rank: r.rank || null,
+          }));
+          const res = await api.post("/members/batch-create", { members: payload });
           mutate((k) => typeof k === "string" && k.startsWith("/members"));
           mutate("/stats");
+          const newAlliances = (res.data.new_alliances || []).length;
           toast.success(
-            `Eklendi: ${res.data.created} · Güncellendi: ${res.data.updated} · Atlandı: ${res.data.skipped}`,
+            `Eklendi: ${res.data.created} · Mevcut: ${res.data.existing}` +
+              (newAlliances ? ` · Yeni ittifak: ${newAlliances}` : ""),
           );
         }}
       />

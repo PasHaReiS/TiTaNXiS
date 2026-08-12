@@ -1,5 +1,10 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Members Multi-Image OCR — DONE & VERIFIED
+- **What**: `OcrDialog.jsx` `supportsMulti = mode === "event" || mode === "members"` — üye listesi ekran görüntüleri için de çoklu dosya seçimi, preview grid, merge strategy chip'leri, "+" add-more butonu ve batch analyze.
+- **Backend**: `POST /api/ocr/parse-multi?mode=members` `[TAG] İsim` prefix'ini `_strip_alliance_tag` ile ayıklıyor, normalize edilmiş isim ile dedupe, first-non-empty wins for `power/castle_level/rank/alliance_name`. `/members/batch-create` alliance auto-create yapıyor.
+- **E2E Doğrulama (Playwright)**: 2 dosya set → preview 2 ✅, merge chips görünür ✅, add-more mevcut ✅, "AI İLE ANALİZ ET (2 RESİM)" ✅, remove 2→1 ✅. Backend curl: 2 PNG ile HTTP 200, `per_image` iki dosyayı listeliyor ✅.
+
 ## Original Problem Statement
 Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderboard, Commanders list, Points tracking/adding, Member management grouped by alliances, and Events management. Midnight Red dark theme. Role-based JWT Auth (Admin, Edit, View), Excel export, 8-language i18n (TR, EN, RU, DE, FR, ES, KO, AR).
 

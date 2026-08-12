@@ -1,9 +1,12 @@
 import React, { useRef, useState } from "react";
+import useSWR from "swr";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Camera, Loader2, Check, AlertTriangle, Upload } from "lucide-react";
 import { api, apiErr } from "@/lib/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+
+const _fetcher = (url) => api.get(url).then((r) => r.data);
 
 /**
  * Reusable OCR dialog.
@@ -19,7 +22,24 @@ import { useTranslation } from "react-i18next";
 export default function OcrDialog({ open, onClose, mode, onApply, title, requireSelection }) {
   const { t } = useTranslation();
   const fileRef = useRef(null);
-  const supportsMulti = mode === "event";
+  const supportsMulti = mode === "event" || mode === "members";
+
+  // For members mode we need the existing roster so we can flag each parsed row
+  // as "new" (will be created) vs "existing" (case-insensitive name match).
+  const { data: existingMembers = [] } = useSWR(
+    open && mode === "members" ? "/members" : null,
+    _fetcher,
+  );
+  const existingNamesLc = React.useMemo(
+    () => new Set((existingMembers || []).map((m) => (m.name || "").trim().toLowerCase())),
+    [existingMembers],
+  );
+
+  // Strip a leading "[TAG]" bracket to check membership against the roster.
+  const _stripTag = (n) => {
+    const m = /^\s*\[[^\]]+\]\s*(.+)$/.exec(String(n || ""));
+    return (m ? m[1] : String(n || "")).trim();
+  };
   const [previews, setPreviews] = useState([]); // [{file, url}]
   const [parsing, setParsing] = useState(false);
   const [result, setResult] = useState(null);
@@ -255,6 +275,8 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             <th className="text-right py-1">Güç</th>
                             <th className="text-right py-1">Kale</th>
                             <th className="text-right py-1">Rank</th>
+                            <th className="text-right py-1">İttifak</th>
+                            <th className="text-right py-1">Durum</th>
                           </>)}
                           {mode === "event" && (<>
                             <th className="text-left py-1">İsim</th>
@@ -272,14 +294,36 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                       <tbody>
                         {rows.map((r, i) => (
                           <tr key={i} className="border-t border-white/5" data-testid={`ocr-row-${i}`}>
-                            {mode === "members" && (<>
-                              <td className="text-white py-1 truncate max-w-[140px]">{r.name}</td>
-                              <td className="text-right mono py-1" style={{ color: "#FF6B00" }}>
-                                {r.power ? Number(r.power).toLocaleString("tr-TR") : "—"}
-                              </td>
-                              <td className="text-right py-1 gold-text mono">{r.castle_level ? `F${r.castle_level}` : "—"}</td>
-                              <td className="text-right py-1 text-white/70">{r.rank || "—"}</td>
-                            </>)}
+                            {mode === "members" && (() => {
+                              const cleanName = _stripTag(r.name);
+                              const isExisting = existingNamesLc.has(cleanName.toLowerCase());
+                              // Alliance tag: prefer explicit field, else bracket in name
+                              let allianceGuess = r.alliance_name;
+                              if (!allianceGuess) {
+                                const mm = /^\s*\[([^\]]+)\]/.exec(String(r.name || ""));
+                                if (mm) allianceGuess = mm[1].trim();
+                              }
+                              return (<>
+                                <td className="text-white py-1 truncate max-w-[140px]">{cleanName}</td>
+                                <td className="text-right mono py-1" style={{ color: "#FF6B00" }}>
+                                  {r.power ? Number(r.power).toLocaleString("tr-TR") : "—"}
+                                </td>
+                                <td className="text-right py-1 gold-text mono">{r.castle_level ? `F${r.castle_level}` : "—"}</td>
+                                <td className="text-right py-1 text-white/70">{r.rank || "—"}</td>
+                                <td className="text-right py-1 text-white/70">{allianceGuess || "—"}</td>
+                                <td className="text-right py-1">
+                                  {isExisting ? (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: "rgba(107,114,128,0.25)", color: "#9ca3af" }}>
+                                      MEVCUT
+                                    </span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: "rgba(34,197,94,0.25)", color: "#4ade80" }}>
+                                      YENİ
+                                    </span>
+                                  )}
+                                </td>
+                              </>);
+                            })()}
                             {mode === "event" && (<>
                               <td className="text-white py-1 truncate max-w-[220px]">{r.name}</td>
                               <td className="text-right mono py-1 gold-text">{Number(r.points || 0).toLocaleString("tr-TR")}</td>
