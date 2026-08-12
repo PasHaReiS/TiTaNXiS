@@ -267,7 +267,16 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 
 ## Implemented (feature snapshot)
 
-- **[2026-02] Çoklu Üye Eşleştirme (Multi-Select Member Matching) — DONE**:
+- **[2026-02] Profil'de Karakter Bazlı Sıralama & Stat Kartı — DONE**:
+  - **Frontend** (`pages/Profile.jsx`):
+    - `useSWR('/leaderboard')` eklendi (memberIds boş olduğunda skip). Position + total_points map'i oluşturuluyor, her linked member'a `position` + `total_points` field'ları enrich ediliyor.
+    - Chip listesi zenginleştirildi: Her karakter için ayrı stat kartı (yeşil-tint border) → header satırında rank badge + name + alliance + X (kaldır), altında 3 sütunlu grid: **Sıra** (`Trophy` altın ikon, `#N` veya `—`), **Bireysel Güç** (`Zap` turuncu ikon, TR-locale formatı `1.809.564.344`), **Kale** (`Castle` mor ikon, `F8`).
+    - Data-testid'ler: `profile-linked-chip-{id}`, `profile-linked-stats-{id}`, `profile-linked-name-{id}`, `profile-linked-position-{id}`, `profile-linked-power-{id}`, `profile-linked-castle-{id}`, `profile-linked-remove-{id}`.
+    - Kaldır butonu 4×4 → 6×6'ya büyütüldü, kart layout'una uygun. i18n mevcut anahtarlar tekrar kullanıldı (`sort`, `bireysel_guc`, `castle_level`) — yeni anahtar eklenmedi.
+  - **Doğrulama** (Playwright): 3 top-power üye linked → chips=3, stats=3 kart, positions=[#56, —, #31], powers=`['1.809.564.344', '1.638.476.195', '1.585.140.747']`, castles=[F8, F8, F8]. Kartlar tam olarak render, kaldır butonu yerinde ✅
+
+
+
   - **Backend `auth.py`**:
     - Şema değişikliği: `User.member_id: Optional[str]` → `member_ids: List[str]` (default []). `public_user()` legacy string field'ı listeye migrate ediyor + null/empty entry'leri temizliyor.
     - Yeni endpoint'ler (user self-service): `POST /api/auth/link-members {member_ids:[…]}` (full replace/unlink), `POST /api/auth/link-members/add {member_id}` (`$addToSet` idempotent), `POST /api/auth/link-members/remove {member_id}` (`$pull`). Eski `POST /auth/link-member` kaldırıldı.

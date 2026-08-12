@@ -5,7 +5,7 @@ import { api, apiErr } from "@/lib/api";
 import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
 import { Switch } from "@/components/ui/switch";
-import { KeyRound, Shield, User, LogOut, AlertTriangle, Link2, Bell, BellOff, X as XIcon, Plus } from "lucide-react";
+import { KeyRound, Shield, User, LogOut, AlertTriangle, Link2, Bell, BellOff, X as XIcon, Plus, Trophy, Zap, Castle } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -28,12 +28,23 @@ export default function Profile() {
 
   // Bulk-fetch all guild members so we can resolve name/rank/alliance from IDs.
   const { data: allMembers = [] } = useSWR(memberIds.length ? "/members" : null, fetcher);
+  // Overall leaderboard to compute each linked member's guild rank position.
+  const { data: leaderboard = [] } = useSWR(memberIds.length ? "/leaderboard" : null, fetcher);
   const linkedMembers = React.useMemo(() => {
     const byId = new Map((allMembers || []).map((m) => [m.id, m]));
+    const rankById = new Map();
+    (leaderboard || []).forEach((r) => {
+      rankById.set(r.member_id, { position: r.position, total_points: r.total_points });
+    });
     return memberIds
-      .map((id) => byId.get(id))
+      .map((id) => {
+        const m = byId.get(id);
+        if (!m) return null;
+        const lb = rankById.get(id);
+        return { ...m, position: lb?.position || null, total_points: lb?.total_points || 0 };
+      })
       .filter(Boolean);
-  }, [allMembers, memberIds]);
+  }, [allMembers, leaderboard, memberIds]);
 
   if (!user) return null;
 
@@ -123,40 +134,106 @@ export default function Profile() {
               <div className="text-[10px] uppercase tracking-widest gold-text mb-2">
                 {t("linked_member_count", { count: linkedMembers.length })}
               </div>
-              <div className="flex flex-wrap gap-2 mb-3" data-testid="profile-linked-members-list">
+              <div className="space-y-2 mb-3" data-testid="profile-linked-members-list">
                 {linkedMembers.map((m) => (
                   <div
                     key={m.id}
                     data-testid={`profile-linked-chip-${m.id}`}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-md"
+                    className="rounded-lg p-2.5"
                     style={{
-                      background: "rgba(34,197,94,0.12)",
-                      border: "1px solid rgba(34,197,94,0.4)",
+                      background: "rgba(34,197,94,0.08)",
+                      border: "1px solid rgba(34,197,94,0.35)",
                     }}
                   >
-                    <span
-                      className={`rank-badge rank-${m.rank || "R1"}`}
-                      style={{ width: 22, height: 18, fontSize: 9, borderRadius: 3, fontWeight: 800 }}
+                    {/* Header row */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span
+                        className={`rank-badge rank-${m.rank || "R1"}`}
+                        style={{ width: 28, height: 22, fontSize: 10, borderRadius: 4, fontWeight: 800 }}
+                      >
+                        {m.rank || "R1"}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className="text-sm text-white font-bold truncate"
+                          title={m.name}
+                          data-testid={`profile-linked-name-${m.id}`}
+                        >
+                          {m.name}
+                        </div>
+                        {m.alliance_name && (
+                          <div className="text-[10px] text-muted-foreground truncate">{m.alliance_name}</div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        data-testid={`profile-linked-remove-${m.id}`}
+                        onClick={() => removeLinked(m.id, m.name)}
+                        disabled={removingId === m.id}
+                        className="w-6 h-6 rounded-full bg-red-500/20 hover:bg-red-500/40 text-red-300 flex items-center justify-center flex-shrink-0"
+                        aria-label={t("remove_member")}
+                        title={t("remove_member")}
+                      >
+                        <XIcon className="w-3 h-3" />
+                      </button>
+                    </div>
+                    {/* Stats row: rank position | power | castle */}
+                    <div
+                      className="grid grid-cols-3 gap-1.5"
+                      data-testid={`profile-linked-stats-${m.id}`}
                     >
-                      {m.rank || "R1"}
-                    </span>
-                    <span className="text-xs text-white font-semibold truncate max-w-[140px]" title={m.name}>
-                      {m.name}
-                    </span>
-                    {m.alliance_name && (
-                      <span className="text-[9px] text-muted-foreground truncate">· {m.alliance_name}</span>
-                    )}
-                    <button
-                      type="button"
-                      data-testid={`profile-linked-remove-${m.id}`}
-                      onClick={() => removeLinked(m.id, m.name)}
-                      disabled={removingId === m.id}
-                      className="ml-1 w-4 h-4 rounded-full bg-red-500/20 hover:bg-red-500/40 text-red-300 flex items-center justify-center"
-                      aria-label={t("remove_member")}
-                      title={t("remove_member")}
-                    >
-                      <XIcon className="w-2.5 h-2.5" />
-                    </button>
+                      <div
+                        className="rounded-md px-2 py-1.5 flex flex-col items-center justify-center"
+                        style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(245,166,35,0.25)" }}
+                        title={t("sort")}
+                      >
+                        <Trophy className="w-3 h-3 gold-text mb-0.5" />
+                        <span
+                          className="text-sm font-bold text-white mono leading-none"
+                          data-testid={`profile-linked-position-${m.id}`}
+                        >
+                          {m.position ? `#${m.position}` : "—"}
+                        </span>
+                        <span className="text-[8px] uppercase text-muted-foreground tracking-widest mt-0.5">
+                          {t("sort")}
+                        </span>
+                      </div>
+                      <div
+                        className="rounded-md px-2 py-1.5 flex flex-col items-center justify-center"
+                        style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,107,0,0.3)" }}
+                        title={t("bireysel_guc")}
+                      >
+                        <Zap className="w-3 h-3 mb-0.5" style={{ color: "#FF6B00" }} />
+                        <span
+                          className="text-sm font-bold mono leading-none"
+                          style={{ color: "#FF6B00" }}
+                          data-testid={`profile-linked-power-${m.id}`}
+                        >
+                          {m.bireysel_guc
+                            ? Number(m.bireysel_guc).toLocaleString("tr-TR")
+                            : "0"}
+                        </span>
+                        <span className="text-[8px] uppercase text-muted-foreground tracking-widest mt-0.5">
+                          {t("bireysel_guc")}
+                        </span>
+                      </div>
+                      <div
+                        className="rounded-md px-2 py-1.5 flex flex-col items-center justify-center"
+                        style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(139,92,246,0.3)" }}
+                        title={t("castle_level")}
+                      >
+                        <Castle className="w-3 h-3 mb-0.5" style={{ color: "#A78BFA" }} />
+                        <span
+                          className="text-sm font-bold text-white mono leading-none"
+                          data-testid={`profile-linked-castle-${m.id}`}
+                        >
+                          {m.castle_level ? `F${m.castle_level}` : "—"}
+                        </span>
+                        <span className="text-[8px] uppercase text-muted-foreground tracking-widest mt-0.5">
+                          {t("castle_level")}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
