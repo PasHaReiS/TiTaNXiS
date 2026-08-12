@@ -12,9 +12,35 @@ import uuid
 import json
 import base64
 import re
+import difflib
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel
 from typing import Optional
+
+
+# Strip a leading alliance tag like "[GOW] PasHa" → "PasHa" and normalise to lowercase for lookup.
+_ALLIANCE_TAG_RE = re.compile(r"^\s*\[[^\]]*\]\s*")
+
+
+def _strip_alliance_tag(name: str) -> str:
+    """Remove any leading `[ALLIANCE]` prefix. Idempotent + whitespace-safe."""
+    if not name:
+        return ""
+    cleaned = _ALLIANCE_TAG_RE.sub("", name).strip()
+    return cleaned
+
+
+def _norm_key(name: str) -> str:
+    return _strip_alliance_tag(name).lower()
+
+
+def _fuzzy_match(cleaned_lc: str, candidates_lc: list[str]) -> Optional[str]:
+    """Return the closest candidate (lowercased key) or None if no >=0.82 match."""
+    if not cleaned_lc or not candidates_lc:
+        return None
+    hits = difflib.get_close_matches(cleaned_lc, candidates_lc, n=1, cutoff=0.82)
+    return hits[0] if hits else None
+
 
 
 _LLM_MODEL = os.environ.get("OCR_MODEL", "gpt-5.4")
@@ -139,28 +165,38 @@ def make_ocr_router(db, require_edit, require_auth):
     async def apply_members(body: OcrApplyMembersBody, admin: dict = Depends(require_edit)):
         """Admin-only bulk create/update after user reviews OCR preview.
 
-        For each row: if a member with the same (case-insensitive) name exists, PATCH power/castle.
-        Otherwise INSERT a new member. Returns per-row status.
+        Names may arrive prefixed with an alliance tag like `[GOW] PasHa` — the tag is
+        stripped before matching so we don't create duplicates. If no exact match, a
+        fuzzy (difflib ratio >=0.82) fallback matches typos/OCR artefacts.
         """
-        # Preload existing members once for fast lookup by name.
         existing = await db.members.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(10000)
-        by_name = {(m.get("name") or "").strip().lower(): m for m in existing}
+        # Index by normalised name (alliance tag stripped, lowercased).
+        by_name = {_norm_key(m.get("name") or ""): m for m in existing}
+        by_name_keys = list(by_name.keys())
         created = 0
         updated = 0
         skipped = 0
         errors: list[str] = []
         for row in body.members:
-            name = str(row.get("name") or "").strip()
-            if not name:
+            raw_name = str(row.get("name") or "").strip()
+            clean_name = _strip_alliance_tag(raw_name)
+            if not clean_name:
                 skipped += 1
                 continue
             power = row.get("power")
             castle = row.get("castle_level")
             rank = row.get("rank") or None
             alliance_name = row.get("alliance_name") or None
-            key = name.lower()
+            # If OCR gave us "[GOW] PasHa" but no alliance_name field, capture the tag.
+            if not alliance_name:
+                m_tag = _ALLIANCE_TAG_RE.match(raw_name)
+                if m_tag:
+                    alliance_name = m_tag.group(0).strip().strip("[]").strip() or None
+            key = _norm_key(clean_name)
+            # Exact match first, fuzzy fallback second.
+            match_key = key if key in by_name else _fuzzy_match(key, by_name_keys)
             try:
-                if key in by_name:
+                if match_key:
                     upd = {}
                     if isinstance(power, (int, float)) and power > 0:
                         upd["bireysel_guc"] = int(power)
@@ -171,14 +207,14 @@ def make_ocr_router(db, require_edit, require_auth):
                     if alliance_name:
                         upd["alliance_name"] = alliance_name
                     if upd:
-                        await db.members.update_one({"id": by_name[key]["id"]}, {"$set": upd})
+                        await db.members.update_one({"id": by_name[match_key]["id"]}, {"$set": upd})
                         updated += 1
                     else:
                         skipped += 1
                 else:
                     doc = {
                         "id": str(uuid.uuid4()),
-                        "name": name,
+                        "name": clean_name,
                         "rank": rank if rank in ("R1", "R2", "R3", "R4", "R5") else "R1",
                         "alliance_name": alliance_name or "",
                         "bireysel_guc": int(power) if isinstance(power, (int, float)) and power > 0 else 0,
@@ -187,15 +223,15 @@ def make_ocr_router(db, require_edit, require_auth):
                     await db.members.insert_one(doc)
                     created += 1
             except Exception as e:
-                errors.append(f"{name}: {e}")
+                errors.append(f"{clean_name}: {e}")
         return {"created": created, "updated": updated, "skipped": skipped, "errors": errors}
 
     @router.post("/ocr/apply-event-points")
     async def apply_event_points(body: OcrApplyEventPointsBody, _: dict = Depends(require_edit)):
         """Save OCR-parsed participant scores against a chosen event.
 
-        Resolves each participant name to an existing member (case-insensitive).
-        Skips unresolved names and reports them in `errors`.
+        Name matching strips leading `[ALLIANCE]` tags (e.g. `[GOW] PasHa` → `PasHa`)
+        and falls back to a fuzzy (difflib) match if no exact hit.
         """
         import uuid as _uuid
         from datetime import datetime as _dt, timezone as _tz
@@ -203,32 +239,36 @@ def make_ocr_router(db, require_edit, require_auth):
         if not ev:
             raise HTTPException(404, "Etkinlik bulunamadı")
         members_all = await db.members.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(10000)
-        by_name = {(m.get("name") or "").strip().lower(): m for m in members_all}
+        by_name = {_norm_key(m.get("name") or ""): m for m in members_all}
+        by_name_keys = list(by_name.keys())
         created = 0
         errors: list[str] = []
         docs: list[dict] = []
         now_iso_str = _dt.now(_tz.utc).isoformat()
         for row in body.participants:
-            name = str(row.get("name") or "").strip()
+            raw_name = str(row.get("name") or "").strip()
+            clean_name = _strip_alliance_tag(raw_name)
             pts = row.get("points") or 0
-            if not name:
+            if not clean_name:
                 continue
             try:
                 pts_int = int(pts)
             except Exception:
-                errors.append(f"{name}: geçersiz puan '{pts}'")
+                errors.append(f"{clean_name}: geçersiz puan '{pts}'")
                 continue
-            m = by_name.get(name.lower())
-            if not m:
-                errors.append(f"'{name}' üye listesinde bulunamadı")
+            key = _norm_key(clean_name)
+            match_key = key if key in by_name else _fuzzy_match(key, by_name_keys)
+            if not match_key:
+                errors.append(f"'{raw_name}' üye listesinde bulunamadı")
                 continue
+            m = by_name[match_key]
             docs.append({
                 "id": str(_uuid.uuid4()),
                 "member_id": m["id"],
                 "event_id": body.event_id,
                 "points": pts_int,
                 "multiplier": float(body.multiplier or 1.0),
-                "note": "OCR",
+                "note": "OCR" if match_key == key else f"OCR (fuzzy match: '{raw_name}' → '{m['name']}')",
                 "created_at": now_iso_str,
                 "date": now_iso_str,
             })
