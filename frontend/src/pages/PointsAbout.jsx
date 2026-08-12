@@ -32,7 +32,10 @@ export default function PointsAbout() {
               boxShadow: "0 4px 20px rgba(0,0,0,0.5), inset 0 0 24px rgba(139,92,246,0.15)",
             }}
           >
-            <div className="flex flex-row flex-wrap gap-1.5" data-testid="pa-sidebar-list">
+            <div
+              className="flex flex-row items-center justify-between gap-3"
+              data-testid="pa-sidebar-list"
+            >
               {TABS.map(({ key, labelKey, Icon, requiresEdit }) => {
                 const disabled = requiresEdit && !canEdit;
                 const active = tab === key;
@@ -44,7 +47,7 @@ export default function PointsAbout() {
                     disabled={disabled}
                     onClick={() => !disabled && setTab(key)}
                     data-testid={`points-about-tab-${key}`}
-                    className="group rounded-lg flex items-center gap-1 px-2 py-1.5 transition-all"
+                    className="group rounded-lg flex items-center gap-2 px-6 py-3 transition-all"
                     style={{
                       background: active
                         ? "linear-gradient(135deg, rgba(139,92,246,0.85), rgba(59,130,246,0.75))"
@@ -56,24 +59,24 @@ export default function PointsAbout() {
                     }}
                   >
                     <Icon
-                      className="w-3 h-3"
+                      className="w-4 h-4"
                       style={{
                         color: active ? "#FFFFFF" : "#F5A623",
                         filter: active ? "drop-shadow(0 0 6px rgba(255,255,255,0.4))" : "none",
                       }}
                     />
                     <span
-                      className="text-xs font-bold whitespace-nowrap"
+                      className="text-sm font-bold whitespace-nowrap"
                       style={{
                         color: active ? "#FFFFFF" : "#E0E7FF",
                         fontFamily: "Cinzel, serif",
-                        letterSpacing: "0.04em",
+                        letterSpacing: "0.06em",
                         textShadow: active ? "0 0 8px rgba(255,255,255,0.35)" : "none",
                       }}
                     >
                       {t(labelKey)}
                     </span>
-                    {disabled && <Lock className="w-2.5 h-2.5" style={{ color: "#F5A623", opacity: 0.7 }} />}
+                    {disabled && <Lock className="w-3 h-3" style={{ color: "#F5A623", opacity: 0.7 }} />}
                   </button>
                 );
               })}
