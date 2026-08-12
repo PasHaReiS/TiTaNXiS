@@ -42,10 +42,17 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   };
   const [previews, setPreviews] = useState([]); // [{file, url}]
   const [parsing, setParsing] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0, errors: 0 });
   const [result, setResult] = useState(null);
   const [applying, setApplying] = useState(false);
   const [selection, setSelection] = useState("");
   const [mergeStrategy, setMergeStrategy] = useState("sum"); // sum | max | first
+
+  // Threshold: when we have this many images or more, we call /ocr/parse per
+  // image sequentially and merge in the browser — a single request with all
+  // files can exceed Cloudflare's 100s edge timeout → 524. Two images still
+  // use the batched /parse-multi endpoint for speed.
+  const SEQUENTIAL_THRESHOLD = 3;
 
   if (!open) return null;
 
@@ -74,31 +81,125 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
     setResult(null);
   };
 
+  // Merge helper: dedupe rows by normalised name (alliance-tag-stripped, lowercased).
+  // For `event` mode we apply the chosen strategy to `points`. For `members` mode
+  // we keep the first non-empty scalar per field. Both track `sources` count.
+  const _mergeRows = (all) => {
+    const merged = new Map();
+    let event_hint = null;
+    for (const chunk of all) {
+      if (mode === "event") {
+        if (!event_hint && chunk?.event_hint) event_hint = chunk.event_hint;
+        for (const p of chunk?.participants || []) {
+          const raw = String(p.name || "").trim();
+          if (!raw) continue;
+          const key = _stripTag(raw).toLowerCase();
+          const pts = Number(p.points || 0) || 0;
+          if (!merged.has(key)) {
+            merged.set(key, { name: raw, points: pts, sources: 1 });
+          } else {
+            const cur = merged.get(key);
+            cur.sources += 1;
+            if (mergeStrategy === "sum") cur.points += pts;
+            else if (mergeStrategy === "max") cur.points = Math.max(cur.points, pts);
+            // 'first' → keep original
+          }
+        }
+      } else if (mode === "members") {
+        for (const r of chunk?.members || []) {
+          const raw = String(r.name || "").trim();
+          if (!raw) continue;
+          const key = _stripTag(raw).toLowerCase();
+          if (!merged.has(key)) {
+            merged.set(key, { ...r, name: raw, sources: 1 });
+          } else {
+            const cur = merged.get(key);
+            cur.sources += 1;
+            for (const fld of ["power", "castle_level", "rank", "alliance_name"]) {
+              if (!cur[fld] && r[fld]) cur[fld] = r[fld];
+            }
+          }
+        }
+      }
+    }
+    const arr = Array.from(merged.values());
+    if (mode === "event") arr.sort((a, b) => (b.points || 0) - (a.points || 0));
+    else arr.sort((a, b) => (b.power || 0) - (a.power || 0));
+    return { arr, event_hint };
+  };
+
   const runParse = async () => {
     if (previews.length === 0) return;
     setParsing(true);
     setResult(null);
-    try {
-      const fd = new FormData();
-      let url;
-      if (supportsMulti && previews.length > 1) {
-        previews.forEach((p) => fd.append("files", p.file));
-        url = `/ocr/parse-multi?mode=${mode}&merge=${mergeStrategy}`;
-      } else {
-        fd.append("file", previews[0].file);
-        url = `/ocr/parse?mode=${mode}`;
+    setProgress({ current: 0, total: previews.length, errors: 0 });
+
+    // Route A — single/two-image batch: still use /parse-multi (fast, within
+    // Cloudflare's 100s edge timeout).
+    if (previews.length < SEQUENTIAL_THRESHOLD) {
+      try {
+        const fd = new FormData();
+        let url;
+        if (supportsMulti && previews.length > 1) {
+          previews.forEach((p) => fd.append("files", p.file));
+          url = `/ocr/parse-multi?mode=${mode}&merge=${mergeStrategy}`;
+        } else {
+          fd.append("file", previews[0].file);
+          url = `/ocr/parse?mode=${mode}`;
+        }
+        const res = await api.post(url, fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+          timeout: 180000,
+        });
+        setResult(res.data);
+        toast.success("OCR analizi tamamlandı");
+      } catch (e) {
+        toast.error(apiErr(e));
+      } finally {
+        setParsing(false);
       }
-      const res = await api.post(url, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-        timeout: 180000,
-      });
-      setResult(res.data);
-      toast.success("OCR analizi tamamlandı");
-    } catch (e) {
-      toast.error(apiErr(e));
-    } finally {
-      setParsing(false);
+      return;
     }
+
+    // Route B — sequential per-image parse then merge in the browser. Avoids
+    // Cloudflare 524 on large batches (each request stays well under 100s).
+    const chunks = [];
+    let errCount = 0;
+    for (let i = 0; i < previews.length; i++) {
+      setProgress({ current: i + 1, total: previews.length, errors: errCount });
+      const fd = new FormData();
+      fd.append("file", previews[i].file);
+      try {
+        const res = await api.post(`/ocr/parse?mode=${mode}`, fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+          timeout: 90000,
+        });
+        chunks.push(res.data?.data || {});
+      } catch (e) {
+        errCount += 1;
+        toast.error(`Resim ${i + 1}/${previews.length}: ${apiErr(e)}`);
+      }
+    }
+    const { arr, event_hint } = _mergeRows(chunks);
+    const merged =
+      mode === "event"
+        ? { participants: arr, event_hint }
+        : { members: arr };
+    setResult({
+      mode,
+      data: merged,
+      merge_strategy: mergeStrategy,
+      per_image_errors: errCount,
+    });
+    setProgress({ current: previews.length, total: previews.length, errors: errCount });
+    if (errCount) {
+      toast.success(
+        `${previews.length - errCount}/${previews.length} resim başarılı · ${errCount} hata`,
+      );
+    } else {
+      toast.success(`${previews.length} resim analiz edildi`);
+    }
+    setParsing(false);
   };
 
   const doApply = async () => {
@@ -239,18 +340,51 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
               )}
 
               {!result && (
-                <button
-                  type="button"
-                  onClick={runParse}
-                  disabled={parsing}
-                  data-testid="ocr-analyze"
-                  className="btn-gold w-full py-3 justify-center"
-                >
-                  {parsing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-                  {parsing
-                    ? `Analiz ediliyor (${previews.length} resim)…`
-                    : `AI ile Analiz Et (${previews.length} resim)`}
-                </button>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={runParse}
+                    disabled={parsing}
+                    data-testid="ocr-analyze"
+                    className="btn-gold w-full py-3 justify-center"
+                  >
+                    {parsing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                    {parsing
+                      ? progress.total > 1 && previews.length >= SEQUENTIAL_THRESHOLD
+                        ? `Analiz ediliyor… ${progress.current}/${progress.total}`
+                        : `Analiz ediliyor (${previews.length} resim)…`
+                      : `AI ile Analiz Et (${previews.length} resim)`}
+                  </button>
+
+                  {parsing && progress.total > 1 && previews.length >= SEQUENTIAL_THRESHOLD && (
+                    <div className="flex flex-col gap-1" data-testid="ocr-progress">
+                      <div
+                        className="w-full h-2 rounded overflow-hidden"
+                        style={{ background: "rgba(255,255,255,0.08)" }}
+                      >
+                        <div
+                          className="h-full transition-all duration-300"
+                          style={{
+                            width: `${Math.round((progress.current / progress.total) * 100)}%`,
+                            background: "linear-gradient(90deg, #F5A623, #FF6B00)",
+                          }}
+                          data-testid="ocr-progress-bar"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span data-testid="ocr-progress-label">
+                          {progress.current}/{progress.total} resim
+                          {progress.errors > 0 && (
+                            <span className="text-red-400 ml-1.5">· {progress.errors} hata</span>
+                          )}
+                        </span>
+                        <span className="opacity-60">
+                          ~{Math.max(1, Math.round(((progress.total - progress.current) * 10) / 60))} dk kaldı
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
               {result && (

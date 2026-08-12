@@ -1,5 +1,13 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] OCR Sequential Parse — Cloudflare 524 Fix — DONE & VERIFIED
+- **Sorun**: 10 resim tek `/parse-multi` isteğinde gidiyor → Cloudflare 100s edge timeout → 524.
+- **Çözüm** (`OcrDialog.jsx`): `SEQUENTIAL_THRESHOLD = 3`. 1–2 resim → hâlâ `/parse-multi` (hızlı batch). 3+ resim → **frontend loop**: her resmi ayrı `/ocr/parse?mode=...` çağrısı, browser'da merge.
+- **Progress UI**: "ANALİZ EDİLİYOR… i/N" + turuncu gradient progress bar + "i/N resim · ~X dk kaldı" alt yazı. Buton parsing sırasında disabled.
+- **Frontend merge** (`_mergeRows`): backend `/parse-multi` mantığının aynısı — members için first-non-empty scalar wins + sources sayacı; event için sum/max/first stratejisine göre puan birleştirme.
+- **Hata yönetimi**: Bir resim başarısızsa toast basıyor (`Resim 3/10: <error>`) ama loop devam ediyor. Sonda `"8/10 resim başarılı · 2 hata"` toast'ı.
+- **E2E**: 3 tiny PNG → progress bar "1/3", sonra "3 resim analiz edildi", sonuç paneli açık ✅.
+
 ## [2026-02] Alliance Bracket Strip + Event OCR Auto-Create Member — DONE & VERIFIED
 - **Alliance bracket strip**: `find_or_create_alliance` ve `_split_alliance_from_name` `[` `]` karakterlerini kesinlikle temizliyor. Startup migration: DB'de bracket içeren tüm `alliance_name` değerleri düzeltildi (`"[GOW]"` → `"GOW"`).
 - **Event OCR auto-create**: `POST /api/ocr/apply-event-points` eşleşmeyen isimleri artık atlamıyor — otomatik olarak yeni üye oluşturuyor. `[TAG] İsim` formatındaki tag `find_or_create_alliance` mantığıyla kanonikleşiyor. Aynı batch içindeki tekrar isimler in-memory index'e ekleniyor (fuzzy match sonraki satırlarla çalışıyor).
