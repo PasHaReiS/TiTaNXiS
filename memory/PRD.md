@@ -13,6 +13,18 @@ Build a full-stack Gaming Guild Management App (rebranded "GOD OF WAR"): Leaderb
 - Theme: Midnight Red dark
 
 
+- **[2026-02] Event Banner Hero + Trash Purge Butonu — DONE**:
+  1. **Event Banner Hero View** (`pages/Events.jsx`):
+     - Etkinlik kartına `banner_url` varsa üstte 120px yüksekliğinde tam-genişlik hero image render ediliyor: `<img object-cover>` + dikey gradient overlay (`rgba(10,0,21,0) → 0.92`) + alt-solda Cinzel font ile etkinlik adı beyaz gölgeli.
+     - Kartın layout'u koşullu: `banner_url` varsa flex-col (banner + content bloğu), yoksa mevcut flex-row korunuyor.
+     - `id={event-{id}}` anchor eklendi — Telegram deep-link `#event-{id}` doğrudan bu karta scroll edecek.
+  2. **Trash Purge Şimdi Butonu**:
+     - Backend `routes/vip.py`: `POST /api/vip/trash/purge-now` (admin-only) endpoint eklendi; cron endpoint'iyle paylaşılan `_do_purge()` helper'ı kullanıyor.
+     - Frontend `pages/Dashboard.jsx`: Yeni `TrashPurgeCard` bileşeni "Firebase Analitik" grid'inin yanında. Açıklama + son sonuç bloğu (yeşil/kırmızı) + kırmızı "🗑️ Trash Purge Şimdi" butonu. Tıklandığında `api.post("/vip/trash/purge-now")` → `{purged_threads, replies_removed, votes_removed}` toast + inline sonuç.
+  - **Doğrulama**: `POST /api/vip/trash/purge-now` unauth → 401, admin → 200 `{purged_threads:0,...}` ✅ · Webpack compiled successfully ✅
+
+
+
 - **[2026-02] 4 Feature Combined — DONE**:
   1. **Commander & Event Görselleri**:
      - Event backend: `Event/EventCreate/EventUpdate` modellerine `banner_url: Optional[str]` eklendi.

@@ -221,14 +221,42 @@ export default function Events() {
                 return (
                 <div
                   key={e.id}
+                  id={`event-${e.id}`}
                   data-testid={EVENTS.card(e.id)}
-                  className="card-dark p-3 flex items-center gap-3 row-hover"
+                  className={`card-dark row-hover ${e.banner_url ? "overflow-hidden" : "p-3 flex items-center gap-3"}`}
                   style={highlight ? {
                     backgroundImage: "repeating-linear-gradient(45deg, rgba(220,38,38,0.14), rgba(220,38,38,0.14) 6px, transparent 6px, transparent 14px)",
                     borderColor: "rgba(220,38,38,0.55)",
                     boxShadow: "0 0 12px rgba(220,38,38,0.25), inset 0 0 12px rgba(220,38,38,0.1)",
                   } : { borderLeft: `3px solid ${gc}`, background: groupBgTint(group, 0.06) }}
                 >
+                  {e.banner_url && (
+                    <div
+                      className="relative w-full"
+                      style={{ height: 120 }}
+                      data-testid={`event-hero-${e.id}`}
+                    >
+                      <img
+                        src={e.banner_url}
+                        alt={e.name}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          background:
+                            "linear-gradient(180deg, rgba(10,0,21,0) 0%, rgba(10,0,21,0.55) 65%, rgba(10,0,21,0.92) 100%)",
+                        }}
+                      />
+                      <div
+                        className="absolute left-3 bottom-2 right-3 text-white font-black uppercase tracking-widest truncate"
+                        style={{ fontFamily: "Cinzel, serif", textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}
+                      >
+                        {e.name}
+                      </div>
+                    </div>
+                  )}
+                  <div className={e.banner_url ? "p-3 flex items-center gap-3" : "flex-1 flex items-center gap-3"}>
                   <div className="tr-flag" />
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-white truncate flex items-center gap-1.5">
@@ -288,6 +316,7 @@ export default function Events() {
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </CanEdit>
+                  </div>
                 </div>
                 );
               })}

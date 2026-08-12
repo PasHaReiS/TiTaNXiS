@@ -842,6 +842,73 @@ function FirebaseAnalyticsCard() {
   );
 }
 
+/* ---------------- trash purge ---------------- */
+function TrashPurgeCard() {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const trigger = async () => {
+    setBusy(true);
+    setResult(null);
+    try {
+      const res = await api.post("/vip/trash/purge-now");
+      setResult({ ok: true, ...res.data });
+      toast.success(`Temizlendi: ${res.data.purged_threads} thread, ${res.data.replies_removed} yanıt`);
+    } catch (e) {
+      setResult({ ok: false, error: e?.response?.data?.detail || "Hata" });
+      toast.error(e?.response?.data?.detail || "Purge başarısız");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div
+      className="rounded-xl p-4"
+      style={{ background: CARD, border: "1px solid rgba(255,255,255,0.06)" }}
+      data-testid="trash-purge-card"
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <Trash2 className="w-3.5 h-3.5" style={{ color: "#EF4444" }} />
+        <span className="text-xs uppercase tracking-widest font-black" style={{ color: "#fff" }}>
+          VIP Trash Temizlik
+        </span>
+      </div>
+      <div className="text-[10px] mb-3 leading-relaxed" style={{ color: "rgba(196,181,253,0.6)" }}>
+        24 saatten eski silinmiş VIP taleplerini kalıcı olarak temizler. Bu işlem cron ile her gün 05:30'da otomatik çalışır — manuel tetiklemek için kullan.
+      </div>
+      {result && (
+        <div
+          className="text-[10px] mb-3 p-2 rounded"
+          style={{
+            background: result.ok ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
+            border: `1px solid ${result.ok ? "rgba(16,185,129,0.4)" : "rgba(239,68,68,0.4)"}`,
+            color: result.ok ? "#10B981" : "#EF4444",
+          }}
+          data-testid="trash-purge-result"
+        >
+          {result.ok
+            ? `✓ ${result.purged_threads} thread · ${result.replies_removed} yanıt · ${result.votes_removed} oy silindi`
+            : `✗ ${result.error}`}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={trigger}
+        disabled={busy}
+        data-testid="trash-purge-btn"
+        className="w-full text-[10px] font-black uppercase tracking-widest py-2 rounded disabled:opacity-40"
+        style={{
+          background: "rgba(239,68,68,0.15)",
+          border: "1px solid rgba(239,68,68,0.5)",
+          color: "#EF4444",
+        }}
+      >
+        {busy ? <Loader2 className="w-3 h-3 animate-spin inline mr-1" /> : "🗑️ "}
+        Trash Purge Şimdi
+      </button>
+    </div>
+  );
+}
+
 /* ---------------- page ---------------- */
 export default function Dashboard() {
   const { t } = useTranslation();
@@ -893,6 +960,7 @@ export default function Dashboard() {
       <SectionTitle>Firebase Analitik</SectionTitle>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3" data-testid="dashboard-firebase-grid">
         <FirebaseAnalyticsCard />
+        <TrashPurgeCard />
       </div>
 
       <div className="h-8" />

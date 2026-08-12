@@ -412,6 +412,9 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
         auth = request.headers.get("authorization", "")
         if not secret or not _hmac.compare_digest(auth, f"Bearer {secret}"):
             raise HTTPException(401, "unauthorized")
+        return await _do_purge()
+
+    async def _do_purge():
         cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
         stale = await db.vip_threads.find({"deleted_at": {"$lt": cutoff, "$ne": None}}, {"_id": 0, "id": 1}).to_list(5000)
         stale_ids = [s["id"] for s in stale]
@@ -421,6 +424,11 @@ def register_vip(api_router: APIRouter, db, require_auth, require_admin, logger:
             votes_del = (await db.vip_votes.delete_many({"thread_id": {"$in": stale_ids}})).deleted_count
             await db.vip_threads.delete_many({"id": {"$in": stale_ids}})
         return {"purged_threads": len(stale_ids), "replies_removed": replies_del, "votes_removed": votes_del}
+
+    @api_router.post("/vip/trash/purge-now")
+    async def vip_trash_purge_now(_: dict = Depends(require_admin)):
+        """Admin-triggered manual purge of expired trash (24h+ soft-deleted)."""
+        return await _do_purge()
 
     @api_router.patch("/vip/threads/{tid}/resolve")
     async def vip_thread_resolve(tid: str, body: ResolveBody, _: dict = Depends(require_admin)):
