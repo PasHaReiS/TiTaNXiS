@@ -93,6 +93,7 @@ export default function Members() {
   const [filterRanks, setFilterRanks] = useState([]);
   const [sortMode, setSortMode] = useState("default");
   const [colorPickerAlliance, setColorPickerAlliance] = useState(null);
+  const [renamingAlliance, setRenamingAlliance] = useState(null); // { old, next }
   const [showDisplayPanel, setShowDisplayPanel] = useState(false);
   const [displayPrefs, setDisplayPrefs] = useState(readDisplay());
   const patchDisplay = (patch) => {
@@ -551,6 +552,26 @@ export default function Members() {
                         <Palette className="w-3.5 h-3.5 text-white" />
                       </span>
                     )}
+                    {grp.name && grp.name !== "Gruplandırılmamış" && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => { e.stopPropagation(); setRenamingAlliance({ old: grp.name, next: grp.name }); }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setRenamingAlliance({ old: grp.name, next: grp.name });
+                          }
+                        }}
+                        data-testid={`alliance-rename-btn-${grp.name}`}
+                        aria-label="İttifak adını değiştir"
+                        title="İttifak adını değiştir"
+                        className="w-6 h-6 rounded-full flex items-center justify-center bg-black/30 hover:bg-black/50 transition-colors cursor-pointer"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-white" />
+                      </span>
+                    )}
                   </CanEdit>
                   <span className="text-xs font-bold mono opacity-95">({grp.members.length} {t("members_word")})</span>
                 </div>
@@ -742,6 +763,63 @@ export default function Members() {
           current={allianceColors[colorPickerAlliance]}
           onClose={() => setColorPickerAlliance(null)}
         />
+      )}
+
+      {renamingAlliance && (
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+          onClick={() => setRenamingAlliance(null)}
+          data-testid="alliance-rename-modal"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="card-red-gold p-5 w-full max-w-sm"
+          >
+            <h3 className="gold-text uppercase text-sm mb-3">
+              '{renamingAlliance.old}' Yeniden Adlandır
+            </h3>
+            <input
+              autoFocus
+              value={renamingAlliance.next}
+              onChange={(e) => setRenamingAlliance({ ...renamingAlliance, next: e.target.value })}
+              data-testid="alliance-rename-input"
+              className="w-full px-3 py-2 rounded bg-black/40 border border-amber-500/30 text-white text-sm"
+              placeholder="Yeni ittifak adı"
+            />
+            <div className="flex gap-2 mt-3">
+              <button
+                type="button"
+                className="chip text-xs flex-1"
+                onClick={() => setRenamingAlliance(null)}
+                data-testid="alliance-rename-cancel"
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                className="btn-gold text-xs flex-1"
+                data-testid="alliance-rename-save"
+                onClick={async () => {
+                  const next = (renamingAlliance.next || "").trim();
+                  if (!next) return;
+                  try {
+                    const res = await api.post("/alliances/rename", {
+                      old_name: renamingAlliance.old,
+                      new_name: next,
+                    });
+                    toast.success(`${res.data.modified} üye '${next}' ittifakına güncellendi`);
+                    setRenamingAlliance(null);
+                    mutate((k) => typeof k === "string" && k.startsWith("/members"));
+                    mutate("/alliances");
+                    mutate("/alliances/stats");
+                  } catch (e) { toast.error(apiErr(e)); }
+                }}
+              >
+                Kaydet
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <MemberProfileDialog memberId={profileId} open={!!profileId} onClose={() => setProfileId(null)} />

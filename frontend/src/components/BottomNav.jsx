@@ -13,7 +13,6 @@ const buildItems = () => [
   { to: "/puanlar-hakkinda", labelKey: "nav_points_about", Icon: BarChart2, testId: NAV.pointsAbout, guest: false },
   { to: "/uyeler", labelKey: "nav_members", Icon: Users, testId: NAV.members, guest: false },
   { to: "/etkinlikler", labelKey: "nav_events", Icon: Flag, testId: NAV.events, guest: false },
-  { to: "/ittifaklar", labelKey: "nav_alliances", Icon: GitMerge, testId: "nav-alliances", guest: false, requiresEdit: true },
   { to: "/ocr/history", labelKey: "nav_ocr_history", Icon: HistoryIcon, testId: "nav-ocr-history", guest: false, requiresEdit: true },
 ];
 
