@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound, Activity, Sparkles, LayoutGrid, LifeBuoy, LayoutDashboard } from "lucide-react";
+import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound, Activity, Sparkles, LayoutGrid, LifeBuoy, LayoutDashboard, History } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import LogoVideoModal from "@/components/LogoVideoModal";
@@ -173,6 +173,14 @@ export default function Header({ title }) {
                     onClick={() => goto("/profil")}
                     testId="dropdown-password"
                   />
+                  {(isAdmin || canEdit) && (
+                    <MenuItem
+                      icon={History}
+                      label={t("nav_ocr_history")}
+                      onClick={() => goto("/ocr/history")}
+                      testId="dropdown-ocr-history"
+                    />
+                  )}
                   {isAdmin && (
                     <MenuItem
                       icon={Download}

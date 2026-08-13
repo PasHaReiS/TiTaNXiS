@@ -1,7 +1,7 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Lock, Trophy, Swords, BarChart2, Calculator, Users, Flag, GitMerge, History as HistoryIcon } from "lucide-react";
+import { Lock, Trophy, Swords, BarChart2, Calculator, Users, Flag } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NAV } from "@/constants/testIds";
 import { useAuth } from "@/context/AuthContext";
@@ -13,7 +13,6 @@ const buildItems = () => [
   { to: "/puanlar-hakkinda", labelKey: "nav_points_about", Icon: BarChart2, testId: NAV.pointsAbout, guest: false },
   { to: "/uyeler", labelKey: "nav_members", Icon: Users, testId: NAV.members, guest: false },
   { to: "/etkinlikler", labelKey: "nav_events", Icon: Flag, testId: NAV.events, guest: false },
-  { to: "/ocr/history", labelKey: "nav_ocr_history", Icon: HistoryIcon, testId: "nav-ocr-history", guest: false, requiresEdit: true },
 ];
 
 const ACTIVE = "#E74C1A";
