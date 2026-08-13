@@ -27,6 +27,8 @@ import Members from "@/pages/Members";
 import Events from "@/pages/Events";
 import Login from "@/pages/Login";
 import UserManagement from "@/pages/UserManagement";
+import OcrHistory from "@/pages/OcrHistory";
+import Alliances from "@/pages/Alliances";
 import Profile from "@/pages/Profile";
 import PushSoundListener from "@/components/PushSoundListener";
 import MotionPage from "@/components/MotionPage";
@@ -109,6 +111,8 @@ function AppShell() {
           <Route path="/widget-kitapligi" element={<RequireAuth><MotionPage><WidgetLibrary /></MotionPage></RequireAuth>} />
           <Route path="/vip-destek" element={<MotionPage><VipSupport /></MotionPage>} />
           <Route path="/dashboard" element={<RequireAdminOrEditor><MotionPage><Dashboard /></MotionPage></RequireAdminOrEditor>} />
+          <Route path="/ocr/history" element={<RequireAdminOrEditor><MotionPage><OcrHistory /></MotionPage></RequireAdminOrEditor>} />
+          <Route path="/ittifaklar" element={<RequireAdminOrEditor><MotionPage><Alliances /></MotionPage></RequireAdminOrEditor>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </AnimatePresence>

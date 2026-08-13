@@ -224,10 +224,25 @@ def make_ocr_router(db, require_edit, require_auth):
                     created += 1
             except Exception as e:
                 errors.append(f"{clean_name}: {e}")
+        # Audit log — best-effort, never fails the request.
+        try:
+            from datetime import datetime as _dt, timezone as _tz
+            await db.ocr_audit.insert_one({
+                "id": str(uuid.uuid4()),
+                "mode": "members",
+                "actor": (admin or {}).get("username") or (admin or {}).get("email") or "?",
+                "created": created,
+                "updated": updated,
+                "skipped": skipped,
+                "errors": len(errors),
+                "created_at": _dt.now(_tz.utc).isoformat(),
+            })
+        except Exception:
+            pass
         return {"created": created, "updated": updated, "skipped": skipped, "errors": errors}
 
     @router.post("/ocr/apply-event-points")
-    async def apply_event_points(body: OcrApplyEventPointsBody, _: dict = Depends(require_edit)):
+    async def apply_event_points(body: OcrApplyEventPointsBody, admin: dict = Depends(require_edit)):
         """Save OCR-parsed participant scores against a chosen event.
 
         Name matching strips leading `[ALLIANCE]` tags (e.g. `[GOW] PasHa` → `PasHa`)
@@ -329,6 +344,23 @@ def make_ocr_router(db, require_edit, require_auth):
             await db.members.insert_many(new_member_docs)
         if docs:
             await db.points.insert_many(docs)
+        # Audit log — best-effort.
+        try:
+            from datetime import datetime as _dt, timezone as _tz
+            await db.ocr_audit.insert_one({
+                "id": str(_uuid.uuid4()),
+                "mode": "event",
+                "actor": (admin or {}).get("username") or (admin or {}).get("email") or "?",
+                "event_name": ev.get("name"),
+                "event_id": body.event_id,
+                "created": created,
+                "updated": 0,
+                "new_members_created": len(new_member_docs),
+                "errors": len(errors),
+                "created_at": _dt.now(_tz.utc).isoformat(),
+            })
+        except Exception:
+            pass
         return {
             "created": created,
             "new_members_created": len(new_member_docs),
@@ -450,5 +482,11 @@ def make_ocr_router(db, require_edit, require_auth):
             "data": {payload_key: merged_list, "event_hint": event_hint},
             "per_image": per_image,
         }
+
+    @router.get("/ocr/history")
+    async def ocr_history(limit: int = 100, _: dict = Depends(require_auth)):
+        """Return the most recent OCR ingestions (members + event apply calls)."""
+        docs = await db.ocr_audit.find({}, {"_id": 0}).sort("created_at", -1).limit(max(1, min(int(limit), 500))).to_list(500)
+        return docs
 
     return router

@@ -3161,6 +3161,8 @@ app.include_router(api_router)
 app.include_router(make_auth_router(db))
 from routes.ocr import make_ocr_router
 app.include_router(make_ocr_router(db, require_edit, require_auth), prefix="/api")
+from routes.alliances import make_alliances_router
+app.include_router(make_alliances_router(db, require_edit), prefix="/api")
 
 app.mount("/api/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
