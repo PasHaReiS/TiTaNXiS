@@ -248,10 +248,3 @@ export default function Alliances() {
     </div>
   );
 }
-      </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}

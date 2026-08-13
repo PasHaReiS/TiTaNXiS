@@ -11,7 +11,7 @@ import LinkMemberDialog from "@/components/LinkMemberDialog";
 import OcrDialog from "@/components/OcrDialog";
 import CanEdit from "@/components/CanEdit";
 import CountUp from "@/components/CountUp";
-import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -1136,6 +1136,26 @@ function MemberForm({ initial, onClose }) {
   const [noteColor, setNoteColor] = useState(initial?.note_color || "#DC2626");
   const [saving, setSaving] = useState(false);
   const { data: alliances = [] } = useSWR("/alliances", fetcher);
+  // Category (main/academy) is loaded per-alliance from /alliances/stats so
+  // that when you tap an existing alliance chip we pre-fill its saved category.
+  const { data: allianceStats = [] } = useSWR("/alliances/stats", fetcher);
+  const categoryByAlliance = useMemo(() => {
+    const m = {};
+    (allianceStats || []).forEach((a) => { m[a.name] = a.category || null; });
+    return m;
+  }, [allianceStats]);
+  const [allianceCategory, setAllianceCategory] = useState(
+    initial?.alliance_name ? null : null,  // start null; effect below fills it
+  );
+  // When the alliance name changes to one that already has a saved category,
+  // reflect that in the selector; unknown alliances leave the picker as the
+  // user has set it (or null).
+  useEffect(() => {
+    const trimmed = allianceName.trim();
+    if (!trimmed) { setAllianceCategory(null); return; }
+    const known = categoryByAlliance[trimmed];
+    if (known !== undefined) setAllianceCategory(known);
+  }, [allianceName, categoryByAlliance]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -1164,7 +1184,21 @@ function MemberForm({ initial, onClose }) {
         await api.post("/members", body);
         toast.success(t("member_added"));
       }
+      // Persist category selection alongside the member save. Only fires when
+      // an alliance name is present and either (a) no category is stored yet,
+      // or (b) the user explicitly picked a different one.
+      const trimmedAlliance = allianceName.trim();
+      const currentSaved = categoryByAlliance[trimmedAlliance];
+      if (trimmedAlliance && allianceCategory !== undefined && allianceCategory !== currentSaved) {
+        try {
+          await api.post("/alliances/set-category", {
+            name: trimmedAlliance,
+            category: allianceCategory,  // "main" | "academy" | null
+          });
+        } catch (_) { /* non-fatal — member is saved */ }
+      }
       mutate((k) => typeof k === "string" && (k.startsWith("/members") || k.startsWith("/alliances")));
+      mutate("/alliances/stats");
       mutate("/stats");
       onClose();
     } catch (err) {
@@ -1216,6 +1250,32 @@ function MemberForm({ initial, onClose }) {
         <datalist id="alliance-list">
           {alliances.map((a) => (<option key={a} value={a} />))}
         </datalist>
+
+        {/* Category picker — Ana (main) / Akademi (academy). Only shown when
+            an alliance name is filled. Selection auto-syncs on the backend
+            via /alliances/set-category when the form is submitted. */}
+        {allianceName.trim() && (
+          <div className="flex gap-2 mt-2" data-testid="member-form-alliance-category">
+            <button
+              type="button"
+              data-testid="member-form-cat-main"
+              onClick={() => setAllianceCategory(allianceCategory === "main" ? null : "main")}
+              className="chip text-[10px] flex-1 flex items-center justify-center gap-1"
+              style={allianceCategory === "main" ? { background: "rgba(245,166,35,0.25)", borderColor: "#F5A623", color: "#F5A623" } : {}}
+            >
+              <Shield className="w-3 h-3" /> Ana İttifak
+            </button>
+            <button
+              type="button"
+              data-testid="member-form-cat-acad"
+              onClick={() => setAllianceCategory(allianceCategory === "academy" ? null : "academy")}
+              className="chip text-[10px] flex-1 flex items-center justify-center gap-1"
+              style={allianceCategory === "academy" ? { background: "rgba(56,189,248,0.25)", borderColor: "#38BDF8", color: "#38BDF8" } : {}}
+            >
+              <GraduationCap className="w-3 h-3" /> Akademi
+            </button>
+          </div>
+        )}
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("player_name")}</label>
         <input data-testid={MEMBERS.formName} value={name} onChange={(e) => setName(e.target.value)}
