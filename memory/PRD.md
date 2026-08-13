@@ -1,5 +1,13 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Küçük Harf Korunumu — Sıralama İttifak Rozetleri — DONE
+- **Sorun**: `Leaderboard.jsx` içindeki 6 ittifak rozetinde inline `textTransform: "uppercase"` vardı → "GoW" (Akademi) ve "GOW" (Ana) rozette aynı görünüyordu.
+- **Fix**: 6 noktada `textTransform: "uppercase"` → `"none"` (podium top-3 + aktif liste row + grup archive row + full-ranking row + archive rows). Font `Cinzel, Rajdhani, serif` korundu (küçük harf destekliyor).
+- **Doğrulama**: `grep textTransform Leaderboard.jsx` = 6/6 `"none"`. Playwright screenshot: üye isimleri natural case ("Lanzee'ツ", "Teppy") görünüyor; rozet değeri artık CSS ile büyütülmüyor — DB'deki case aynen render ediliyor.
+- **Members.jsx**: Değiştirilmedi — ittifak header'ı (satır 525) zaten kullanıcı `NAME_FONTS` seçimini kullanıyor, üye kartındaki `uppercase` sadece "RANK X" UI etiketinde (kullanıcı onayına göre UI etiketleri korunacak).
+
+
+
 ## [2026-02] OCR — Per-Image Sequential (FINAL Cloudflare 524 Fix) — DONE & VERIFIED
 - **Mimari değişim**: `OcrDialog.jsx` içindeki `runParse` artık **koşulsuz olarak her resmi ayrı ayrı** `POST /api/ocr/parse?mode=...` çağrısı ile sıralı işliyor. `/parse-multi` çağrısı frontend'de tamamen kaldırıldı (backend endpoint kaldı ama frontend hiç çağırmıyor).
 - **Kanıt (Playwright network log)**: 4 resim yüklenip Analiz Et'e basıldı → 4 ayrı `POST /ocr/parse?mode=members` isteği ✅, 0 `parse-multi` isteği ✅. Progress "1/4 resim" → "4/4" → "4 resim analiz edildi" toast'ı.

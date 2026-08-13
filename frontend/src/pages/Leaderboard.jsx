@@ -187,7 +187,7 @@ export default function Leaderboard() {
                     color: "#fff",
                     padding: "2px 8px",
                     letterSpacing: "0.06em",
-                    textTransform: "uppercase",
+                    textTransform: "none",
                     fontFamily: "Cinzel, Rajdhani, serif",
                     border: "1px solid rgba(255,255,255,0.15)",
                   }}
@@ -223,7 +223,7 @@ export default function Leaderboard() {
                     color: "#fff",
                     padding: "2px 8px",
                     letterSpacing: "0.06em",
-                    textTransform: "uppercase",
+                    textTransform: "none",
                     fontFamily: "Cinzel, Rajdhani, serif",
                     border: "1px solid rgba(255,255,255,0.15)",
                   }}
@@ -258,7 +258,7 @@ export default function Leaderboard() {
                     color: "#fff",
                     padding: "2px 8px",
                     letterSpacing: "0.06em",
-                    textTransform: "uppercase",
+                    textTransform: "none",
                     fontFamily: "Cinzel, Rajdhani, serif",
                     border: "1px solid rgba(255,255,255,0.15)",
                   }}
@@ -306,7 +306,7 @@ export default function Leaderboard() {
                         padding: "3px 7px",
                         border: "1px solid rgba(255,255,255,0.15)",
                         letterSpacing: "0.06em",
-                        textTransform: "uppercase",
+                        textTransform: "none",
                         fontFamily: "Cinzel, Rajdhani, serif",
                       }}
                       title={r.alliance_name || ""}
@@ -407,7 +407,7 @@ export default function Leaderboard() {
                   padding: "4px 9px",
                   border: "1px solid rgba(255,255,255,0.15)",
                   letterSpacing: "0.06em",
-                  textTransform: "uppercase",
+                  textTransform: "none",
                   fontFamily: "Cinzel, Rajdhani, serif",
                 }}
                 title={r.alliance_name || ""}
@@ -505,7 +505,7 @@ export default function Leaderboard() {
                           padding: "3px 7px",
                           border: "1px solid rgba(255,255,255,0.15)",
                           letterSpacing: "0.06em",
-                          textTransform: "uppercase",
+                          textTransform: "none",
                           fontFamily: "Cinzel, Rajdhani, serif",
                         }}
                         title={r.alliance_name || ""}
