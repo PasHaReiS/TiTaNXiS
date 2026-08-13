@@ -29,9 +29,9 @@ const LAVA_BG =
 
 function FlameTab({ tabKey, label, active, disabled, onClick }) {
   const [, bottom] = splitLabel(label);
-  // Thickness of the visible border art (in px). The mask below cuts out a
-  // rectangle this size from the middle so the page's stone texture shows
-  // through, leaving only a frame of the lava artwork on the outside.
+  // Thickness of the visible border art (in px). Mask below cuts a rectangle
+  // of this size from the middle so the page background shows through and
+  // only the lava frame remains.
   const FRAME = 22;
   return (
     <motion.button
@@ -46,10 +46,16 @@ function FlameTab({ tabKey, label, active, disabled, onClick }) {
       whileTap={disabled ? undefined : { scale: 0.97 }}
       style={{
         position: "relative",
-        background: "transparent",
+        // Hard-reset every possible fill source: button UA bg, background
+        // shorthand, and iOS/Android WebView tap highlight.
+        background: "none",
+        backgroundColor: "transparent",
+        WebkitAppearance: "none",
+        appearance: "none",
+        WebkitTapHighlightColor: "transparent",
         border: "none",
         borderRadius: 6,
-        overflow: "hidden",           // crop external glow bleed
+        overflow: "hidden",             // crop external glow bleed
         padding: `${FRAME + 6}px 44px`,
         minWidth: 190,
         color: "white",
@@ -63,14 +69,16 @@ function FlameTab({ tabKey, label, active, disabled, onClick }) {
         opacity: disabled ? 0.45 : 1,
       }}
     >
-      {/* Lava artwork layer — masked so only the outer FRAME-wide ring is
-          visible. mask-composite:exclude XORs the two masks so the padding-box
-          rectangle (the middle) becomes transparent → page bg shows through. */}
+      {/* Lava artwork layer — masked so only the outer FRAME-wide ring shows.
+          `mask-composite: exclude` (standard) + `-webkit-mask-composite: xor`
+          (legacy) makes the padding-box (middle) transparent → page bg shows. */}
       <span
         aria-hidden
         style={{
           position: "absolute",
           inset: 0,
+          background: "none",
+          backgroundColor: "transparent",
           backgroundImage: LAVA_BG,
           backgroundSize: "100% 100%",
           backgroundRepeat: "no-repeat",
@@ -78,13 +86,15 @@ function FlameTab({ tabKey, label, active, disabled, onClick }) {
           WebkitMask:
             "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
           WebkitMaskComposite: "xor",
+          mask:
+            "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
           maskComposite: "exclude",
           pointerEvents: "none",
           zIndex: 0,
         }}
       />
 
-      {/* Label sits above the frame */}
+      {/* Label on top of the frame */}
       <span style={{ position: "relative", zIndex: 1, display: "block", fontSize: 10, letterSpacing: "4px", opacity: 0.85 }}>
         PUAN
       </span>
