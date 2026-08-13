@@ -150,6 +150,12 @@ export default function Members() {
     refreshInterval: 8000,
   });
   const { data: allianceColors = {} } = useSWR("/alliance-colors", fetcher, { refreshInterval: 15000 });
+  const { data: allianceStatsTop = [] } = useSWR("/alliances/stats", fetcher);
+  const allianceCategoryMap = useMemo(() => {
+    const m = {};
+    (allianceStatsTop || []).forEach((a) => { if (a && a.name) m[a.name] = a.category || null; });
+    return m;
+  }, [allianceStatsTop]);
   const { data: alliancesList = [] } = useSWR("/alliances", fetcher);
 
   const grouped = useMemo(() => {
@@ -529,6 +535,27 @@ export default function Members() {
                     style={{ transform: collapsedAlliances.has(grp.name) ? "rotate(-90deg)" : "rotate(0deg)" }}
                   />
                   ── {grp.name}
+                  {(() => {
+                    const cat = allianceCategoryMap[grp.name];
+                    if (cat !== "main" && cat !== "academy") return null;
+                    const isMain = cat === "main";
+                    return (
+                      <span
+                        data-testid={`alliance-cat-badge-${grp.name}`}
+                        className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold"
+                        style={{
+                          background: isMain ? "rgba(245,166,35,0.22)" : "rgba(56,189,248,0.22)",
+                          color: isMain ? "#F5A623" : "#38BDF8",
+                          border: `1px solid ${isMain ? "#F5A623" : "#38BDF8"}`,
+                          letterSpacing: "0.14em",
+                        }}
+                        title={isMain ? "Ana İttifak" : "Akademi"}
+                      >
+                        {isMain ? <Shield className="w-2.5 h-2.5" /> : <GraduationCap className="w-2.5 h-2.5" />}
+                        {isMain ? "ANA" : "AKADEMİ"}
+                      </span>
+                    );
+                  })()}
                 </span>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <CanEdit>

@@ -523,7 +523,14 @@ async def list_events(archived: Optional[bool] = None):
 
 @api_router.post("/events")
 async def create_event(body: EventCreate, _: dict = Depends(require_edit)):
-    e = Event(**body.model_dump())
+    # If no group_name provided, fall back to the event name so the event
+    # gets its own chip on the leaderboard instead of being pooled into
+    # "Özel Zaman" with every other untitled event.
+    payload = body.model_dump()
+    gn = (payload.get("group_name") or "").strip()
+    if not gn:
+        payload["group_name"] = (payload.get("name") or "").strip() or "Özel Zaman"
+    e = Event(**payload)
     await db.events.insert_one(e.model_dump())
     # Activity feed log
     try:
