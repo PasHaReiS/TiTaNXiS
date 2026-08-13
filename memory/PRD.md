@@ -1,5 +1,20 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Üye Adları Case-Sensitive — DONE & VERIFIED
+- **Kapsam**: "Ali", "ali", "ALI" artık 3 ayrı üye olarak kayıt olabilir (ittifak case-sensitivity kuralıyla aynı — GOW/GoW/GOw).
+- **Değişen dosyalar**:
+  - `routes/ocr.py`: `_norm_key` artık `.lower()` yapmıyor, sadece `[TAG]` prefix'ini strip ediyor. Fuzzy match (difflib 0.82 cutoff) case farkı olan isimleri doğal olarak birleştirmiyor (ratio ~0.75). Fonksiyon parametreleri `cleaned_lc/candidates_lc` → `cleaned/candidates` olarak da yeniden adlandırıldı.
+  - `server.py` `batch-create` (POST /api/members/batch-create): `by_name` index'inden `.lower()` kaldırıldı, `key = clean_name.lower()` → `key = clean_name`.
+  - `server.py` CSV/Excel import: `existing_members_by_name`, `members_by_name` case-sensitive; ilgili 4 lookup noktası da orijinal case ile match'liyor.
+  - `auth.py` bulk_import_user_to_member: `members_by_name` case-sensitive (Ali≠ali).
+- **Doğrulama (curl)**:
+  - `POST /api/members/batch-create {"CaseTestAli","casetestali","CASETESTALI"}` → 3 created ✅
+  - Aynı payload'ı tekrar gönder → 3 existing ✅ (case-sensitive duplicate detection)
+  - `GET /api/members?search=casetestali` → `['CaseTestAli', 'casetestali', 'CASETESTALI']` üçü de listede ✅
+- **Değişmedi**: Etkinlik adı matching (`events_by_name`) hâlâ lowercased (kullanıcı sadece üye adlarını istedi). Username `.lower()` (auth.py) da aynen kaldı — usernames zaten user-facing değil.
+
+
+
 ## [2026-02] Küçük Harf Korunumu — Sıralama İttifak Rozetleri — DONE
 - **Sorun**: `Leaderboard.jsx` içindeki 6 ittifak rozetinde inline `textTransform: "uppercase"` vardı → "GoW" (Akademi) ve "GOW" (Ana) rozette aynı görünüyordu.
 - **Fix**: 6 noktada `textTransform: "uppercase"` → `"none"` (podium top-3 + aktif liste row + grup archive row + full-ranking row + archive rows). Font `Cinzel, Rajdhani, serif` korundu (küçük harf destekliyor).

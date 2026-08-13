@@ -31,14 +31,22 @@ def _strip_alliance_tag(name: str) -> str:
 
 
 def _norm_key(name: str) -> str:
-    return _strip_alliance_tag(name).lower()
+    """Case-SENSITIVE member key: only strips the leading [ALLIANCE] tag.
+
+    Rationale: users may keep "Ecem" and "ecem" as two DISTINCT members (mirroring
+    the case-sensitive alliance policy GOW vs GoW vs GOw). Keeping the original
+    case means exact match won't merge them. Fuzzy match (difflib cutoff 0.82)
+    also naturally treats "Ecem" vs "ecem" as different (ratio ~0.75), so
+    typo-tolerance still works only when case is preserved.
+    """
+    return _strip_alliance_tag(name)
 
 
-def _fuzzy_match(cleaned_lc: str, candidates_lc: list[str]) -> Optional[str]:
-    """Return the closest candidate (lowercased key) or None if no >=0.82 match."""
-    if not cleaned_lc or not candidates_lc:
+def _fuzzy_match(cleaned: str, candidates: list[str]) -> Optional[str]:
+    """Return the closest candidate (case-preserved key) or None if no >=0.82 match."""
+    if not cleaned or not candidates:
         return None
-    hits = difflib.get_close_matches(cleaned_lc, candidates_lc, n=1, cutoff=0.82)
+    hits = difflib.get_close_matches(cleaned, candidates, n=1, cutoff=0.82)
     return hits[0] if hits else None
 
 
@@ -170,7 +178,8 @@ def make_ocr_router(db, require_edit, require_auth):
         fuzzy (difflib ratio >=0.82) fallback matches typos/OCR artefacts.
         """
         existing = await db.members.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(10000)
-        # Index by normalised name (alliance tag stripped, lowercased).
+        # Index by CASE-SENSITIVE name (alliance tag stripped). "Ali" and "ali"
+        # are intentionally kept as distinct members.
         by_name = {_norm_key(m.get("name") or ""): m for m in existing}
         by_name_keys = list(by_name.keys())
         created = 0

@@ -479,7 +479,8 @@ def make_auth_router(db):
         members_all = await db.members.find({}, {"_id": 0, "id": 1, "name": 1, "member_id": 1}).to_list(10000)
         members_by_id = {m["id"]: m for m in members_all}
         members_by_gid = {m["member_id"]: m for m in members_all if m.get("member_id")}
-        members_by_name = {(m.get("name") or "").lower(): m for m in members_all if m.get("name")}
+        # Case-sensitive member name lookup (Ali ≠ ali). Only usernames stay lowercased.
+        members_by_name = {(m.get("name") or ""): m for m in members_all if m.get("name")}
 
         added = 0
         skipped = 0
@@ -502,7 +503,7 @@ def make_auth_router(db):
             if mid_col:
                 m = members_by_id.get(mid_col) or members_by_gid.get(mid_col)
             if not m and mname:
-                m = members_by_name.get(mname.lower())
+                m = members_by_name.get(mname)
             if not m:
                 errors += 1
                 report.append({"row": row, "error": "member not resolved"})

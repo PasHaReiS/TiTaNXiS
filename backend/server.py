@@ -437,7 +437,9 @@ async def batch_create_members(body: BatchCreateBody, _: dict = Depends(require_
     Returns per-status counts + created alliance names.
     """
     existing_members = await db.members.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(20000)
-    by_name = {(x.get("name") or "").strip().lower(): x for x in existing_members}
+    # Case-SENSITIVE member key: "Ecem" and "ecem" are treated as distinct members
+    # (parallels the case-sensitive alliance policy: GOW vs GoW vs GOw).
+    by_name = {(x.get("name") or "").strip(): x for x in existing_members}
     existing_alliances_lc = {
         str(a).lower() for a in await db.members.distinct("alliance_name") if a
     }
@@ -462,7 +464,7 @@ async def batch_create_members(body: BatchCreateBody, _: dict = Depends(require_
                 new_alliances.append(canonical_alliance)
             existing_alliances_lc.add(canonical_alliance.lower())
 
-        key = clean_name.lower()
+        key = clean_name  # case-sensitive; see by_name construction above
         if key in by_name:
             existing_hits += 1
             report.append({"name": clean_name, "alliance": canonical_alliance, "status": "existing"})
@@ -1603,7 +1605,8 @@ async def import_bulk(
     existing_members_by_mid = {}
     for m in await db.members.find({}, {"_id": 0}).to_list(10000):
         if m.get("name"):
-            existing_members_by_name[m["name"].lower()] = m
+            # Case-sensitive: "Ecem" and "ecem" stay as distinct members.
+            existing_members_by_name[m["name"]] = m
         if m.get("member_id"):
             existing_members_by_mid[str(m["member_id"]).strip()] = m
     existing_events = {}
@@ -1637,12 +1640,12 @@ async def import_bulk(
                 "note": (str(_pick(r, "note", "not", "Not", "Note") or "").strip() or None),
             }
 
-            # Prefer matching by member_id, fall back to name (case-insensitive)
+            # Prefer matching by member_id, fall back to name (CASE-SENSITIVE)
             existing = None
             if excel_member_id and excel_member_id in existing_members_by_mid:
                 existing = existing_members_by_mid[excel_member_id]
-            elif name.lower() in existing_members_by_name:
-                existing = existing_members_by_name[name.lower()]
+            elif name in existing_members_by_name:
+                existing = existing_members_by_name[name]
 
             if existing:
                 if duplicate_mode == "update":
@@ -1665,7 +1668,7 @@ async def import_bulk(
                 new_m = Member(**payload).model_dump()
                 new_m["import_batch_id"] = batch_id
                 await db.members.insert_one(new_m)
-                existing_members_by_name[name.lower()] = new_m
+                existing_members_by_name[name] = new_m
                 if new_m.get("member_id"):
                     existing_members_by_mid[str(new_m["member_id"])] = new_m
                 result["members"]["added"] += 1
@@ -1706,7 +1709,8 @@ async def import_bulk(
         except Exception:
             result["events"]["errors"] += 1
 
-    members_by_name = {m["name"].lower(): m for m in await db.members.find({}, {"_id": 0}).to_list(10000) if m.get("name")}
+    # Case-sensitive member lookup for points import (Ecem ≠ ecem).
+    members_by_name = {m["name"]: m for m in await db.members.find({}, {"_id": 0}).to_list(10000) if m.get("name")}
     events_by_name = {e["name"].lower(): e for e in await db.events.find({}, {"_id": 0}).to_list(2000) if e.get("name")}
     existing_points = {}
     for p in await db.points.find({}, {"_id": 0}).to_list(30000):
@@ -1720,7 +1724,7 @@ async def import_bulk(
             if not member_id:
                 mn = _pick(r, "member_name", "üye", "uye", "Oyuncu")
                 if mn:
-                    m = members_by_name.get(str(mn).lower().strip())
+                    m = members_by_name.get(str(mn).strip())
                     if m:
                         member_id = m["id"]
             if not event_id:
