@@ -1086,10 +1086,17 @@ async def export_xlsx():
 async def event_groups(active_only: bool = False):
     pipeline = [{"$group": {"_id": "$group_name", "count": {"$sum": 1}, "active": {"$sum": {"$cond": [{"$eq": ["$archived", False]}, 1, 0]}}}}]
     groups = await db.events.aggregate(pipeline).to_list(100)
-    result = [{"name": g["_id"], "count": g["count"], "active": g["active"]} for g in groups]
+    # Events without a group_name (None or "") are surfaced under the
+    # "Özel Zaman" (Custom Time) label so the chip is never nameless.
+    result = []
+    for g in groups:
+        name = g["_id"]
+        if not name:  # None or empty string
+            name = "Özel Zaman"
+        result.append({"name": name, "count": g["count"], "active": g["active"]})
     if active_only:
         result = [g for g in result if g["active"] > 0]
-    result.sort(key=lambda g: g["name"].lower())
+    result.sort(key=lambda g: (g.get("name") or "").lower())
     return result
 
 

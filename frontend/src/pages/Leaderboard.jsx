@@ -143,16 +143,19 @@ export default function Leaderboard() {
               >
                 {t("all_short")}
               </button>
-              {visibleGroups.map((g) => (
-                <button
-                  key={g.name}
-                  data-testid={`leaderboard-group-${g.name}`}
-                  onClick={() => setGroup(g.name === group ? null : g.name)}
-                  className={`chip ${group === g.name ? "active" : ""}`}
-                >
-                  {g.name}
-                </button>
-              ))}
+              {visibleGroups.map((g) => {
+                const label = (g.name && String(g.name).trim()) || t("group_untitled");
+                return (
+                  <button
+                    key={label}
+                    data-testid={`leaderboard-group-${label}`}
+                    onClick={() => setGroup(g.name === group ? null : g.name)}
+                    className={`chip ${group === g.name ? "active" : ""}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           );
         })()}
