@@ -259,10 +259,10 @@ def make_ocr_router(db, require_edit, require_auth):
         by_name = {_norm_key(m.get("name") or ""): m for m in members_all}
         by_name_keys = list(by_name.keys())
 
-        # Cache existing alliance canonical casing so freshly-created members reuse
-        # the same casing (`gow` / `GoW` / `GOW` → same canonical string).
-        existing_alliances = await db.members.distinct("alliance_name")
-        alliance_by_lc = {str(a).lower(): a for a in existing_alliances if a}
+        # Cache existing alliance names exactly (case-sensitive). GOW, GoW, GOw
+        # are intentionally distinct alliances (main + academies) and must NOT
+        # be merged. OCR must use the exact casing it read from the screenshot.
+        existing_alliances = set(await db.members.distinct("alliance_name"))
 
         def _resolve_alliance(tag: Optional[str]) -> Optional[str]:
             if not tag:
@@ -270,7 +270,8 @@ def make_ocr_router(db, require_edit, require_auth):
             t = str(tag).replace("[", "").replace("]", "").strip()
             if not t:
                 return None
-            return alliance_by_lc.get(t.lower(), t)
+            # Exact-case match keeps GOW/GoW/GOw as separate alliances.
+            return t if t in existing_alliances else t
 
         created = 0
         new_members: list[str] = []
@@ -308,8 +309,8 @@ def make_ocr_router(db, require_edit, require_auth):
                     inner = m_tag.group(0).strip().strip("[]").strip()
                     tag_from_name = inner or None
                 alliance_canonical = _resolve_alliance(tag_from_row or tag_from_name)
-                if alliance_canonical and alliance_canonical.lower() not in alliance_by_lc:
-                    alliance_by_lc[alliance_canonical.lower()] = alliance_canonical
+                if alliance_canonical and alliance_canonical not in existing_alliances:
+                    existing_alliances.add(alliance_canonical)
 
                 new_id = str(_uuid.uuid4())
                 new_member_docs.append({

@@ -360,11 +360,12 @@ async def find_or_create_alliance(raw_input: Optional[str]) -> Optional[str]:
     """Resolve a user-provided alliance tag/name to its canonical existing casing.
 
     - Strips `[TAG]` brackets and outer whitespace.
-    - Case-insensitive lookup against existing distinct `members.alliance_name` values.
-    - Returns the existing canonical string if any member already uses this alliance
-      (so "gow" / "GoW" / "GOW" collapse into a single group), else returns the
-      cleaned string as-is (which effectively "creates" it the moment the member
-      is saved — alliances are not a separate collection in this schema).
+    - **Case-SENSITIVE** exact match against existing distinct
+      `members.alliance_name` values — `GOW`, `GoW`, `GOw` are intentionally
+      distinct alliances (main + academies) and must NOT be collapsed.
+    - Returns the input string as-is if no exact match, so a new alliance
+      is created the moment the member is saved (alliances live inside
+      `members.alliance_name`, not a separate collection).
     """
     if not raw_input:
         return None
@@ -381,11 +382,10 @@ async def find_or_create_alliance(raw_input: Optional[str]) -> Optional[str]:
     if not s:
         return None
     existing = await db.members.distinct("alliance_name")
-    lc = s.lower()
     for e in existing:
-        if e and str(e).lower() == lc:
-            return e  # canonical existing casing
-    return s  # new alliance — first member using this name defines the casing
+        if e and str(e) == s:  # EXACT case-sensitive match
+            return e
+    return s  # new alliance — preserves original casing
 
 
 def _split_alliance_from_name(raw: str) -> tuple[Optional[str], str]:
