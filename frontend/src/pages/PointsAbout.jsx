@@ -29,6 +29,10 @@ const LAVA_BG =
 
 function FlameTab({ tabKey, label, active, disabled, onClick }) {
   const [, bottom] = splitLabel(label);
+  // Thickness of the visible border art (in px). The mask below cuts out a
+  // rectangle this size from the middle so the page's stone texture shows
+  // through, leaving only a frame of the lava artwork on the outside.
+  const FRAME = 22;
   return (
     <motion.button
       type="button"
@@ -42,32 +46,54 @@ function FlameTab({ tabKey, label, active, disabled, onClick }) {
       whileTap={disabled ? undefined : { scale: 0.97 }}
       style={{
         position: "relative",
-        backgroundImage: LAVA_BG,
-        backgroundSize: "100% 100%",
-        backgroundRepeat: "no-repeat",
+        background: "transparent",
         border: "none",
-        padding: "18px 36px",
+        borderRadius: 6,
+        overflow: "hidden",           // crop external glow bleed
+        padding: `${FRAME + 6}px 44px`,
+        minWidth: 190,
         color: "white",
         fontWeight: 900,
         fontSize: 15,
         letterSpacing: "3px",
         cursor: disabled ? "not-allowed" : "pointer",
-        minWidth: 170,
         textShadow: "0 0 12px rgba(255,255,255,0.9)",
         filter: active ? "brightness(1.2)" : "brightness(0.75)",
         transition: "filter 0.3s ease",
         opacity: disabled ? 0.45 : 1,
       }}
     >
-      <span style={{ display: "block", fontSize: 10, letterSpacing: "4px", opacity: 0.85 }}>
+      {/* Lava artwork layer — masked so only the outer FRAME-wide ring is
+          visible. mask-composite:exclude XORs the two masks so the padding-box
+          rectangle (the middle) becomes transparent → page bg shows through. */}
+      <span
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: LAVA_BG,
+          backgroundSize: "100% 100%",
+          backgroundRepeat: "no-repeat",
+          padding: FRAME,
+          WebkitMask:
+            "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+          WebkitMaskComposite: "xor",
+          maskComposite: "exclude",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      />
+
+      {/* Label sits above the frame */}
+      <span style={{ position: "relative", zIndex: 1, display: "block", fontSize: 10, letterSpacing: "4px", opacity: 0.85 }}>
         PUAN
       </span>
-      <span style={{ display: "block", fontSize: 16, letterSpacing: "3px" }}>
+      <span style={{ position: "relative", zIndex: 1, display: "block", fontSize: 16, letterSpacing: "3px" }}>
         {bottom || ""}
       </span>
       {disabled && (
         <Lock
-          style={{ position: "absolute", top: 6, right: 10, width: 14, height: 14, color: "#fff", opacity: 0.85 }}
+          style={{ position: "absolute", top: 6, right: 10, width: 14, height: 14, color: "#fff", opacity: 0.85, zIndex: 2 }}
         />
       )}
     </motion.button>
