@@ -11,8 +11,8 @@ import Header from "@/components/Header";
 // into the image, so the component just paints an <img> and toggles opacity
 // between active (1) and passive (0.55).
 const TAB_IMAGES = {
-  add: "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/6b4408956b748829151946dc73056e9b9b4a3d004cd9bf75fc0717d7403e9ee9.jpeg",
-  list: "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/42f60090e6263319c2d7ca442fcdf65f6de23e8dc0dc3ca81b6dbdc18316132d.jpeg",
+  add: "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/30f68aa118450cbbfbb117d6903be8da3786d0e2eb9ef4599eaf607a95404dbd.jpeg",
+  list: "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/210cdf865c72707ef3b50deff3b282150c46e55d37497c3aaaffafe8f25e9139.jpeg",
 };
 
 const TABS = [
@@ -45,7 +45,7 @@ function TabButton({ tabKey, imgUrl, alt, active, disabled, onClick }) {
       <img
         src={imgUrl}
         alt={alt}
-        style={{ width: 170, height: "auto", display: "block" }}
+        style={{ width: "auto", height: 70, display: "block" }}
       />
       {disabled && (
         <Lock
