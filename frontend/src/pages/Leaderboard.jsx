@@ -178,7 +178,7 @@ export default function Leaderboard() {
                 <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#c0c0c0,#8a8a8a)', color: '#0a0a0a' }}>
                   <Medal className="w-4 h-4" />
                 </div>
-                <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[1].name}>{top3[1].name}</div>
+                <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Rajdhani, sans-serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[1].name}>{top3[1].name}</div>
                 <div
                   data-testid={`podium-alliance-badge-2`}
                   className="text-[9px] font-bold rounded-full mt-1"
@@ -249,7 +249,7 @@ export default function Leaderboard() {
                 <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#8B6914,#A67C00)', color: '#0a0a0a' }}>
                   <Award className="w-4 h-4" />
                 </div>
-                <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[2].name}>{top3[2].name}</div>
+                <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Rajdhani, sans-serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[2].name}>{top3[2].name}</div>
                 <div
                   data-testid={`podium-alliance-badge-3`}
                   className="text-[9px] font-bold rounded-full mt-1"
@@ -348,7 +348,7 @@ export default function Leaderboard() {
                     <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "#D4730A", letterSpacing: "0.14em" }}>
                       {e.group_name || t("event")}
                     </div>
-                    <div className="text-sm font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }} title={e.name}>
+                    <div className="text-sm font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }} title={e.name}>
                       {e.name}
                     </div>
                     {e.subtitle && (
@@ -415,7 +415,7 @@ export default function Leaderboard() {
                 {r.alliance_name || "-"}
               </div>
               <div className="flex-1 min-w-0 flex items-center">
-                <div className="font-bold truncate normal-case text-sm" style={{ color: "#F5F0E8", fontFamily: "Cinzel, Rajdhani, serif", textTransform: "none" }}>{r.name}</div>
+                <div className="font-bold truncate normal-case text-sm" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif", textTransform: "none" }}>{r.name}</div>
               </div>
               <div className="text-right">
                 <div className="font-bold mono text-sm" style={{ color: "#E74C1A" }}>{fmt(r.total_points)}</div>
@@ -463,7 +463,7 @@ export default function Leaderboard() {
                 <div className="text-[10px] uppercase tracking-widest" style={{ color: "#D4730A" }}>
                   {archiveEvent.group_name || t("event")} · ×{archiveEvent.multiplier ?? 1}
                 </div>
-                <div className="text-base font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }} title={archiveEvent.name}>
+                <div className="text-base font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }} title={archiveEvent.name}>
                   {archiveEvent.name}
                 </div>
                 {archiveEvent.subtitle && (
@@ -513,7 +513,7 @@ export default function Leaderboard() {
                         {r.alliance_name || "-"}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold truncate text-sm" style={{ color: "#F5F0E8", fontFamily: "Cinzel, Rajdhani, serif" }}>{r.name}</div>
+                        <div className="font-bold truncate text-sm" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }}>{r.name}</div>
                       </div>
                       <div className="text-right">
                         <div className="font-bold mono text-sm" style={{ color: "#E74C1A" }}>{fmt(r.total_points)}</div>

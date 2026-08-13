@@ -1,5 +1,13 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Sıralamada İsim Fontu Cinzel → Rajdhani — DONE
+- **Sorun**: Cinzel bir "small-caps" fontu → "Ekko" ekranda "EKKO" gibi görünüyordu (küçük harf glifleri büyük harf gibi çiziliyor).
+- **Fix**: `Leaderboard.jsx` içinde 8 isim render eden div'in `fontFamily`'si `"Cinzel, ..."` → `"Rajdhani, sans-serif"` yapıldı. Rajdhani hem `index.css` başında zaten yüklü hem de küçük harf glifleri net.
+- **Etkilenen alanlar**: Podium (top-3) isimleri, aktif grup satırları, full-ranking satırları, archive event kartları + archive row isimleri.
+- **Değişmedi**: İttifak rozetleri, rank pill'leri, section title'ları — bunlarda Cinzel korundu (karakter tasarım kimliği).
+
+
+
 ## [2026-02] Üye Adları Case-Sensitive — DONE & VERIFIED
 - **Kapsam**: "Ali", "ali", "ALI" artık 3 ayrı üye olarak kayıt olabilir (ittifak case-sensitivity kuralıyla aynı — GOW/GoW/GOw).
 - **Değişen dosyalar**:
