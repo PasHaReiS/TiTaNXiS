@@ -812,7 +812,13 @@ export default function Members() {
                     mutate((k) => typeof k === "string" && k.startsWith("/members"));
                     mutate("/alliances");
                     mutate("/alliances/stats");
-                  } catch (e) { toast.error(apiErr(e)); }
+                  } catch (e) {
+                    // Backend 409 → duplicate; show its Turkish message clearly.
+                    const msg = e?.response?.status === 409
+                      ? (e.response.data?.detail || "Bu ittifak zaten var.")
+                      : apiErr(e);
+                    toast.error(msg);
+                  }
                 }}
               >
                 Kaydet
