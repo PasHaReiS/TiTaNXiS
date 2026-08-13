@@ -30,6 +30,8 @@ const tr = {
   nav_add_points: "Puan Ekle",
   nav_members: "Üyeler",
   nav_events: "Etkinlikler",
+  nav_alliances: "İttifaklar",
+  nav_ocr_history: "OCR Geçmişi",
 
   // Common actions
   save: "Kaydet",
@@ -997,6 +999,8 @@ const en = {
   nav_add_points: "Add Points",
   nav_members: "Members",
   nav_events: "Events",
+  nav_alliances: "Alliances",
+  nav_ocr_history: "OCR History",
   save: "Save",
   saving: "Saving...",
   cancel: "Cancel",

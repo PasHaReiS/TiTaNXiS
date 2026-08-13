@@ -8,7 +8,7 @@ import { Users, Pencil, Trash2, GitMerge } from "lucide-react";
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 export default function Alliances() {
-  const { data = [], isLoading } = useSWR("/alliances", fetcher);
+  const { data = [], isLoading } = useSWR("/alliances/stats", fetcher);
   const [renaming, setRenaming] = useState(null); // {name, newName}
   const [merging, setMerging] = useState(false);
   const [selected, setSelected] = useState([]);
@@ -22,6 +22,7 @@ export default function Alliances() {
       const res = await api.post("/alliances/rename", { old_name: renaming.name, new_name: renaming.newName.trim() });
       toast.success(`${res.data.modified} üye güncellendi`);
       setRenaming(null);
+      mutate("/alliances/stats");
       mutate("/alliances");
       mutate((k) => typeof k === "string" && k.startsWith("/members"));
     } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
@@ -32,6 +33,7 @@ export default function Alliances() {
       const res = await api.post("/alliances/merge", { source_names: selected, target_name: mergeTarget });
       toast.success(`${res.data.modified} üye '${mergeTarget}' ittifakına taşındı`);
       setMerging(false); setSelected([]); setMergeTarget("");
+      mutate("/alliances/stats");
       mutate("/alliances");
       mutate((k) => typeof k === "string" && k.startsWith("/members"));
     } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
@@ -41,6 +43,7 @@ export default function Alliances() {
     try {
       const res = await api.post("/alliances/delete", { name });
       toast.success(`${res.data.cleared} üyenin ittifakı temizlendi`);
+      mutate("/alliances/stats");
       mutate("/alliances");
       mutate((k) => typeof k === "string" && k.startsWith("/members"));
     } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
