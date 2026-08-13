@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Lock } from "lucide-react";
 import AddPoints from "@/pages/AddPoints";
@@ -7,62 +6,23 @@ import PointsList from "@/pages/PointsList";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 
-// Pre-rendered tab artwork — the whole button chrome (frame + label) is baked
-// into the image, so the component just paints an <img> and toggles opacity
-// between active (1) and passive (0.55).
-const TAB_IMAGES = {
-  add: "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/30f68aa118450cbbfbb117d6903be8da3786d0e2eb9ef4599eaf607a95404dbd.jpeg",
-  list: "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/210cdf865c72707ef3b50deff3b282150c46e55d37497c3aaaffafe8f25e9139.jpeg",
-};
-
 const TABS = [
-  { key: "add", labelKey: "nav_add_points", requiresEdit: true, imgAlt: "Puan Ekle" },
-  { key: "list", labelKey: "nav_points", requiresEdit: false, imgAlt: "Puan Listesi" },
+  { key: "add", label: "PUAN EKLE", requiresEdit: true },
+  { key: "list", label: "PUAN LİSTESİ", requiresEdit: false },
 ];
 
-function TabButton({ tabKey, imgUrl, alt, active, disabled, onClick }) {
-  return (
-    <motion.button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      aria-disabled={disabled || undefined}
-      disabled={disabled}
-      onClick={disabled ? undefined : onClick}
-      data-testid={`points-about-tab-${tabKey}`}
-      whileHover={disabled ? undefined : { scale: 1.05 }}
-      whileTap={disabled ? undefined : { scale: 0.97 }}
-      style={{
-        background: "none",
-        border: "none",
-        padding: 0,
-        cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.35 : active ? 1 : 0.55,
-        transition: "opacity 0.3s",
-        position: "relative",
-      }}
-    >
-      <img
-        src={imgUrl}
-        alt={alt}
-        style={{ width: "auto", height: 70, display: "block" }}
-      />
-      {disabled && (
-        <Lock
-          style={{
-            position: "absolute",
-            top: 6,
-            right: 8,
-            width: 14,
-            height: 14,
-            color: "#fff",
-            opacity: 0.85,
-          }}
-        />
-      )}
-    </motion.button>
-  );
-}
+const TAB_BTN_STYLE = {
+  background: "transparent",
+  border: "2px solid",
+  borderImage: "linear-gradient(90deg, #9333ea, #38bdf8, #f97316) 1",
+  color: "white",
+  fontWeight: 800,
+  fontSize: 14,
+  letterSpacing: 2,
+  padding: "10px 24px",
+  cursor: "pointer",
+  transition: "opacity 0.3s",
+};
 
 export default function PointsAbout() {
   const { t } = useTranslation();
@@ -75,30 +35,41 @@ export default function PointsAbout() {
         <Header title={t("nav_points_about")} />
 
         <div className="flex flex-col gap-4" data-testid="pa-layout">
-          {/* Tab picker — buttons float centered, no container chrome */}
           <div
-            className="flex flex-row items-center justify-center py-3"
-            style={{ gap: 16 }}
+            style={{ display: "flex", gap: 12, justifyContent: "center", marginBottom: 16 }}
             data-testid="pa-sidebar-list"
             role="tablist"
           >
-            {TABS.map(({ key, requiresEdit, imgAlt }) => {
+            {TABS.map(({ key, label, requiresEdit }) => {
               const disabled = requiresEdit && !canEdit;
               return (
-                <TabButton
+                <button
                   key={key}
-                  tabKey={key}
-                  imgUrl={TAB_IMAGES[key]}
-                  alt={imgAlt}
-                  active={tab === key}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === key}
+                  aria-disabled={disabled || undefined}
                   disabled={disabled}
-                  onClick={() => setTab(key)}
-                />
+                  onClick={disabled ? undefined : () => setTab(key)}
+                  data-testid={`points-about-tab-${key}`}
+                  style={{
+                    ...TAB_BTN_STYLE,
+                    opacity: disabled ? 0.35 : tab === key ? 1 : 0.5,
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    position: "relative",
+                  }}
+                >
+                  {label}
+                  {disabled && (
+                    <Lock
+                      style={{ position: "absolute", top: 4, right: 6, width: 12, height: 12, color: "#fff", opacity: 0.85 }}
+                    />
+                  )}
+                </button>
               );
             })}
           </div>
 
-          {/* Content */}
           <div className="min-w-0" data-testid={`points-about-panel-${tab}`}>
             {tab === "add" ? <AddPoints hideHeader /> : <PointsList hideHeader />}
           </div>
