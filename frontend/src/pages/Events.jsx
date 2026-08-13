@@ -502,6 +502,21 @@ function EventForm({ initial, onClose }) {
           </button>
         </div>
 
+        {(!grouped || !(groupName || "").trim()) && (
+          <div
+            data-testid="event-form-groupless-hint"
+            className="mt-2 rounded p-2 text-[11px] flex items-start gap-2"
+            style={{
+              background: "rgba(245,166,35,0.08)",
+              border: "1px solid rgba(245,166,35,0.35)",
+              color: "#F5A623",
+            }}
+          >
+            <span aria-hidden>ⓘ</span>
+            <span>Bu etkinlik <b>kendi adıyla</b> sıralamada görünecek.</span>
+          </div>
+        )}
+
         {grouped && (
           <>
             <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("group")}</label>
