@@ -134,74 +134,89 @@ export default function Events() {
         </div>
 
         <div
-          className="flex mb-4 rounded-lg overflow-hidden relative"
+          className="flex mb-4 rounded-lg overflow-hidden"
           style={{
-            backgroundImage: "url('https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/aca71ddcfb666b0ec6210e79e8574e4251206880e42d5066f789961fc7b0a41f.jpeg')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            border: "1px solid rgba(120,53,15,0.30)",
-            minHeight: 54,
+            background: "linear-gradient(180deg, rgba(15,8,20,0.85), rgba(10,5,15,0.95))",
+            border: "1px solid rgba(120,53,15,0.35)",
           }}
           data-testid="events-tabs"
         >
           <button
             data-testid="events-tab-reminded"
             onClick={() => setTab("reminded")}
-            className="flex items-center justify-center gap-1.5 text-[11px] uppercase font-black tracking-widest transition-all relative"
+            className="flex items-center justify-center gap-1.5 transition-all"
             style={{
-              flex: "42",
-              background: tab === "reminded" ? "linear-gradient(180deg, rgba(245,158,11,0.25), rgba(180,83,9,0.35))" : "rgba(0,0,0,0.30)",
-              color: tab === "reminded" ? "#FFEDD5" : "rgba(255,237,213,0.55)",
+              flex: "41",
+              padding: "10px 8px",
+              fontSize: "13px",
+              fontWeight: 800,
+              letterSpacing: "1.5px",
+              textTransform: "uppercase",
+              background: tab === "reminded"
+                ? "linear-gradient(180deg, rgba(249,115,22,0.28), rgba(180,83,9,0.45))"
+                : "rgba(20,15,25,0.65)",
+              color: tab === "reminded" ? "#FFEDD5" : "#78716C",
+              border: tab === "reminded" ? "2px solid #f97316" : "2px solid transparent",
               boxShadow: tab === "reminded"
-                ? "inset 0 0 0 2px #F59E0B, inset 0 0 24px rgba(245,158,11,0.35)"
-                : "inset 0 0 0 1px rgba(0,0,0,0.30)",
-              textShadow: "0 1px 4px rgba(0,0,0,0.85)",
-              letterSpacing: "0.12em",
-              backdropFilter: tab === "reminded" ? "none" : "brightness(0.7)",
-              WebkitBackdropFilter: tab === "reminded" ? "none" : "brightness(0.7)",
+                ? "0 0 12px #f97316, 0 0 24px rgba(249,115,22,0.4), inset 0 0 18px rgba(249,115,22,0.20)"
+                : "none",
+              textShadow: tab === "reminded" ? "0 1px 6px rgba(0,0,0,0.75)" : "none",
+              opacity: tab === "reminded" ? 1 : 0.7,
             }}
           >
-            <BellRing className="w-3.5 h-3.5" style={{ color: tab === "reminded" ? "#FCD34D" : "rgba(255,237,213,0.55)", filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.9))" }} />
+            <BellRing className="w-4 h-4" style={{ color: tab === "reminded" ? "#FCD34D" : "#78716C" }} />
             <span>Hatırlatmalı ({remindedCount})</span>
           </button>
           <button
             data-testid="events-tab-unreminded"
             onClick={() => setTab("unreminded")}
-            className="flex items-center justify-center gap-1.5 text-[11px] uppercase font-bold tracking-widest transition-all relative"
+            className="flex items-center justify-center gap-1.5 transition-all"
             style={{
-              flex: "38",
-              background: tab === "unreminded" ? "linear-gradient(180deg, rgba(129,140,248,0.20), rgba(76,29,149,0.30))" : "rgba(0,0,0,0.30)",
-              color: tab === "unreminded" ? "#DDD6FE" : "rgba(221,214,254,0.55)",
+              flex: "41",
+              padding: "10px 8px",
+              fontSize: "13px",
+              fontWeight: 800,
+              letterSpacing: "1.5px",
+              textTransform: "uppercase",
+              background: tab === "unreminded"
+                ? "linear-gradient(180deg, rgba(129,140,248,0.24), rgba(76,29,149,0.38))"
+                : "rgba(20,15,25,0.65)",
+              color: tab === "unreminded" ? "#DDD6FE" : "#6B7280",
+              border: tab === "unreminded" ? "2px solid #818cf8" : "2px solid transparent",
               boxShadow: tab === "unreminded"
-                ? "inset 0 0 0 2px rgba(129,140,248,0.65), inset 0 0 20px rgba(129,140,248,0.20)"
-                : "inset 0 0 0 1px rgba(0,0,0,0.30)",
-              textShadow: "0 1px 4px rgba(0,0,0,0.85)",
-              letterSpacing: "0.10em",
-              backdropFilter: tab === "unreminded" ? "none" : "brightness(0.7)",
-              WebkitBackdropFilter: tab === "unreminded" ? "none" : "brightness(0.7)",
+                ? "0 0 12px #818cf8, 0 0 24px rgba(129,140,248,0.4), inset 0 0 16px rgba(129,140,248,0.18)"
+                : "none",
+              textShadow: tab === "unreminded" ? "0 1px 6px rgba(0,0,0,0.75)" : "none",
+              opacity: tab === "unreminded" ? 1 : 0.7,
             }}
           >
-            <BellOff className="w-3.5 h-3.5" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.9))" }} />
+            <BellOff className="w-4 h-4" />
             <span>Hatırlatmasız ({unremindedCount})</span>
           </button>
           <button
             data-testid={EVENTS.tabArchived}
             onClick={() => setTab("archive")}
-            className="flex items-center justify-center gap-1 text-[10px] uppercase font-bold tracking-wider transition-all relative"
+            className="flex items-center justify-center gap-1 transition-all"
             style={{
-              flex: "20",
-              background: tab === "archive" ? "linear-gradient(180deg, rgba(148,163,184,0.25), rgba(31,41,55,0.40))" : "rgba(0,0,0,0.30)",
-              color: tab === "archive" ? "#E5E7EB" : "rgba(229,231,235,0.55)",
+              flex: "18",
+              padding: "10px 6px",
+              fontSize: "11px",
+              fontWeight: 800,
+              letterSpacing: "1.2px",
+              textTransform: "uppercase",
+              background: tab === "archive"
+                ? "linear-gradient(180deg, rgba(148,163,184,0.28), rgba(31,41,55,0.55))"
+                : "rgba(20,15,25,0.65)",
+              color: tab === "archive" ? "#E5E7EB" : "#6B7280",
+              border: tab === "archive" ? "2px solid #94a3b8" : "2px solid transparent",
               boxShadow: tab === "archive"
-                ? "inset 0 0 0 2px rgba(148,163,184,0.55), inset 0 0 18px rgba(148,163,184,0.20)"
-                : "inset 0 0 0 1px rgba(0,0,0,0.30)",
-              textShadow: "0 1px 4px rgba(0,0,0,0.85)",
-              letterSpacing: "0.08em",
-              backdropFilter: tab === "archive" ? "none" : "brightness(0.7)",
-              WebkitBackdropFilter: tab === "archive" ? "none" : "brightness(0.7)",
+                ? "0 0 10px rgba(148,163,184,0.55), inset 0 0 14px rgba(148,163,184,0.20)"
+                : "none",
+              textShadow: tab === "archive" ? "0 1px 6px rgba(0,0,0,0.75)" : "none",
+              opacity: tab === "archive" ? 1 : 0.7,
             }}
           >
-            <Archive className="w-3 h-3" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.9))" }} />
+            <Archive className="w-3.5 h-3.5" />
             <span>Arşiv ({archivedCount})</span>
           </button>
         </div>
