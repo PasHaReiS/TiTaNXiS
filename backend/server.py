@@ -2850,10 +2850,12 @@ async def push_unsubscribe(body: PushSubscribeBody, _: dict = Depends(require_au
     return {"ok": True}
 
 
-async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "titanxis", group_name: Optional[str] = None, alliance_name: Optional[str] = None, sound: Optional[str] = None):
+async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "titanxis", group_name: Optional[str] = None, alliance_name: Optional[str] = None, country_iso2: Optional[str] = None, event_id: Optional[str] = None, sound: Optional[str] = None):
     """Broadcast a push. When group_name is provided, only send to users whose prefs include this group
     (users without any saved prefs receive everything by default). When alliance_name is provided,
-    only send to subscribers whose linked member document has the matching alliance."""
+    only send to subscribers whose linked member document has the matching alliance.
+    country_iso2 narrows to members with matching country. event_id narrows to users linked to
+    members currently marked as attending that event (attendance-based reminders)."""
     private_pem, _ = await _get_or_create_vapid()
     subs = await db.push_subscriptions.find({}, {"_id": 0}).to_list(1000)
     # Global opt-out — skip subscribers whose user set notification_enabled=False.
@@ -2889,6 +2891,52 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
             if m.get("user_id"):
                 alliance_user_ids.add(m["user_id"])
         allowed_users = alliance_user_ids if allowed_users is None else (allowed_users & alliance_user_ids)
+    # Country-based targeting.
+    country_norm = (country_iso2 or "").strip().upper() or None
+    if country_norm and len(country_norm) == 2:
+        c_member_docs = await db.members.find(
+            {"country": country_norm}, {"_id": 0, "id": 1, "user_id": 1}
+        ).to_list(5000)
+        c_member_ids = {m["id"] for m in c_member_docs if m.get("id")}
+        c_user_ids: set = set()
+        c_user_docs = await db.users.find(
+            {}, {"_id": 0, "id": 1, "member_ids": 1, "member_id": 1, "notification_member_ids": 1}
+        ).to_list(5000)
+        for u in c_user_docs:
+            linked = list(u.get("member_ids") or [])
+            if u.get("member_id"):
+                linked.append(u["member_id"])
+            notif_opt = list(u.get("notification_member_ids") or [])
+            effective = notif_opt if notif_opt else linked
+            if any(mid in c_member_ids for mid in effective):
+                c_user_ids.add(u["id"])
+        for m in c_member_docs:
+            if m.get("user_id"):
+                c_user_ids.add(m["user_id"])
+        allowed_users = c_user_ids if allowed_users is None else (allowed_users & c_user_ids)
+    # Event attendance filter — only DM users linked to members marked attending this event.
+    if event_id:
+        att = await db.event_attendance.find_one({"event_id": event_id}, {"_id": 0, "member_ids": 1})
+        att_member_ids = set(att.get("member_ids") or []) if att else set()
+        att_user_ids: set = set()
+        if att_member_ids:
+            a_user_docs = await db.users.find(
+                {}, {"_id": 0, "id": 1, "member_ids": 1, "member_id": 1, "notification_member_ids": 1}
+            ).to_list(5000)
+            for u in a_user_docs:
+                linked = list(u.get("member_ids") or [])
+                if u.get("member_id"):
+                    linked.append(u["member_id"])
+                notif_opt = list(u.get("notification_member_ids") or [])
+                effective = notif_opt if notif_opt else linked
+                if any(mid in att_member_ids for mid in effective):
+                    att_user_ids.add(u["id"])
+            # Also include members with direct user_id back-link.
+            for mid in att_member_ids:
+                mdoc = await db.members.find_one({"id": mid}, {"_id": 0, "user_id": 1})
+                if mdoc and mdoc.get("user_id"):
+                    att_user_ids.add(mdoc["user_id"])
+        allowed_users = att_user_ids if allowed_users is None else (allowed_users & att_user_ids)
     # Reserve history id up-front so notifications can ping open-tracking with it
     hid = str(uuid.uuid4())
     if not subs:
