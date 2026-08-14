@@ -425,6 +425,26 @@ async def answer_callback_query(cb_id: str, text: str = "", show_alert: bool = F
         return False
 
 
+async def edit_message_text(chat_id: str, message_id: int, text: str,
+                             parse_mode: str = "Markdown",
+                             reply_markup: Optional[dict] = None) -> bool:
+    """Edit a previously-sent message. Used to strike through inline attendance
+    buttons after the user has already answered so the chat stays clean."""
+    if not BOT_TOKEN or not chat_id or not message_id:
+        return False
+    try:
+        payload: dict = {"chat_id": chat_id, "message_id": message_id,
+                         "text": text, "parse_mode": parse_mode}
+        if reply_markup is not None:
+            payload["reply_markup"] = reply_markup
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(f"{TELEGRAM_API}/editMessageText", json=payload)
+            return bool(r.json().get("ok"))
+    except Exception as e:
+        log.warning(f"editMessageText failed: {e}")
+        return False
+
+
 async def send_event_notification(event_name: str, event_date: str,
                                     group_name: str, multiplier: float,
                                     event_id: Optional[str] = None) -> bool:

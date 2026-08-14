@@ -3586,6 +3586,10 @@ async def _handle_attendance_callback(cbq: dict) -> None:
         await _tg_ack(cb_id, "Geçersiz veri")
         return
     _prefix, action, event_id = parts
+    # No-op button on already-answered DMs — silently ack and bail.
+    if action == "noop":
+        await _tg_ack(cb_id, "Zaten cevapladın")
+        return
     if action not in {"yes", "no"} or not event_id:
         await _tg_ack(cb_id, "Geçersiz seçim")
         return
@@ -3621,6 +3625,9 @@ async def _handle_attendance_callback(cbq: dict) -> None:
         return
     # 3) Apply toggle
     now = now_iso()
+    original_text = ((cbq.get("message") or {}).get("text") or "").strip()
+    msg_id = (cbq.get("message") or {}).get("message_id")
+    from telegram_bot import edit_message_text as _tg_edit
     if action == "yes":
         for mid in member_ids:
             await db.event_attendance.update_one(
@@ -3629,10 +3636,23 @@ async def _handle_attendance_callback(cbq: dict) -> None:
                 upsert=True,
             )
         await _tg_ack(cb_id, f"✅ '{ev['name']}' için katılım kaydedildi")
+        # Rewrite the DM with a completed footer + collapsed inline keyboard so
+        # the user sees a clear "already answered" state instead of two live
+        # buttons that could confuse a re-tap.
+        footer = f"\n\n✅ *Cevabın kaydedildi — Katılıyorsun*"
+        stamped = (original_text or f"🔔 {ev['name']}") + footer
+        collapsed = {"inline_keyboard": [[{"text": "✓ Cevaplandı — değiştirmek için admine yaz", "callback_data": "att:noop"}]]}
+        if chat_id and msg_id:
+            await _tg_edit(chat_id, msg_id, stamped, reply_markup=collapsed)
     else:
         for mid in member_ids:
             await db.event_attendance.delete_one({"event_id": event_id, "member_id": mid})
         await _tg_ack(cb_id, f"❌ '{ev['name']}' katılımın kaldırıldı")
+        footer = f"\n\n❌ *Cevabın kaydedildi — Katılamıyorsun*"
+        stamped = (original_text or f"🔔 {ev['name']}") + footer
+        collapsed = {"inline_keyboard": [[{"text": "✓ Cevaplandı — değiştirmek için admine yaz", "callback_data": "att:noop"}]]}
+        if chat_id and msg_id:
+            await _tg_edit(chat_id, msg_id, stamped, reply_markup=collapsed)
 
 
 @api_router.get("/telegram/status")
@@ -3677,6 +3697,112 @@ async def cron_telegram_daily_briefing():
     """Platform cron trigger for the 08:00 TR morning digest."""
     ok = await send_daily_briefing(db)
     return {"sent": ok}
+
+
+@api_router.post("/cron/attendance-chase")
+async def cron_attendance_chase(request: Request):
+    """Auto-chase: DM every not-yet-marked member whose event is 20–24 hours away.
+    Runs every 15 min via .emergent/crons.yml. Uses `attendance_chased_at` on the
+    event doc to avoid duplicate chases inside the same 24h window.
+
+    Flow per candidate event:
+      1) Ensure not chased yet.
+      2) Collect member_ids NOT in event_attendance who have a linked Telegram
+         chat_id (either via users.telegram_chat_id or telegram_chat_map fallback).
+      3) DM each with the "hâlâ katılıyor musun?" prompt + ✅/❌ inline buttons —
+         same callback_data pattern as the reminder DM so the existing webhook
+         handler processes taps identically.
+      4) Stamp `attendance_chased_at` so we don't chase again.
+    """
+    # Optional shared-secret guard so only the platform cron can call this.
+    auth = request.headers.get("X-Cron-Secret", "")
+    expected = os.environ.get("WEBHOOK_CRON_SECRET", "")
+    if expected and not _hmac_cron.compare_digest(auth, expected):
+        raise HTTPException(status_code=401, detail="invalid cron secret")
+
+    from telegram_bot import send_message as _tg_send
+    now_utc = datetime.now(timezone.utc)
+    # Look for events that start between +20h and +24h from now.
+    lo = (now_utc + timedelta(hours=20)).isoformat()
+    hi = (now_utc + timedelta(hours=24)).isoformat()
+    candidates = await db.events.find(
+        {"archived": False, "reminder_enabled": True,
+         "date": {"$gte": lo, "$lte": hi},
+         "$or": [
+             {"attendance_chased_at": {"$exists": False}},
+             {"attendance_chased_at": None},
+         ]},
+        {"_id": 0, "id": 1, "name": 1, "date": 1}
+    ).to_list(100)
+
+    total_dm = 0
+    per_event: List[dict] = []
+    for ev in candidates:
+        ev_id = ev["id"]
+        # Members who already answered
+        att_ids = {
+            d["member_id"] async for d in db.event_attendance.find(
+                {"event_id": ev_id}, {"_id": 0, "member_id": 1}
+            )
+        }
+        # Every member with either a linked user (Login Widget chat_id) OR a
+        # telegram_username that has /start-ed the bot.
+        chat_targets: Dict[str, str] = {}  # member_id → chat_id
+        # 1) Linked-user path
+        async for u in db.users.find(
+            {"telegram_chat_id": {"$exists": True, "$ne": None},
+             "notification_enabled": {"$ne": False}},
+            {"_id": 0, "id": 1, "telegram_chat_id": 1, "member_ids": 1, "member_id": 1}
+        ):
+            linked = list(u.get("member_ids") or [])
+            if u.get("member_id"):
+                linked.append(u["member_id"])
+            for mid in linked:
+                if mid and mid not in att_ids and mid not in chat_targets:
+                    chat_targets[mid] = str(u["telegram_chat_id"])
+        # 2) Username fallback path — members not covered above
+        remaining = await db.members.find(
+            {"telegram_username": {"$exists": True, "$ne": None},
+             "id": {"$nin": list(chat_targets.keys()) + list(att_ids)}},
+            {"_id": 0, "id": 1, "telegram_username": 1}
+        ).to_list(2000)
+        for m in remaining:
+            h = (m.get("telegram_username") or "").strip().lstrip("@").strip()
+            if not h:
+                continue
+            entry = await db.telegram_chat_map.find_one(
+                {"username_lc": h.lower()}, {"_id": 0, "chat_id": 1}
+            )
+            if entry and entry.get("chat_id"):
+                chat_targets[m["id"]] = str(entry["chat_id"])
+        # Compose + send
+        try:
+            ev_ts = datetime.fromisoformat(ev["date"].replace("Z", "+00:00"))
+            hours_left = int((ev_ts - now_utc).total_seconds() // 3600)
+        except Exception:
+            hours_left = 24
+        text = (
+            f"🔔 *{ev['name']}* — {hours_left} saat kaldı\n\n"
+            f"Bu etkinliğe hâlâ katılmayı planlıyor musun? "
+            f"Aşağıdan bir tıkla cevapla, katılım listesi otomatik güncellenir."
+        )
+        markup = {
+            "inline_keyboard": [[
+                {"text": "✅ Katılıyorum", "callback_data": f"att:yes:{ev_id}"},
+                {"text": "❌ Katılamam", "callback_data": f"att:no:{ev_id}"},
+            ]]
+        }
+        sent = 0
+        for _mid, cid in chat_targets.items():
+            ok = await _tg_send(cid, text, reply_markup=markup)
+            if ok:
+                sent += 1
+        total_dm += sent
+        per_event.append({"event_id": ev_id, "name": ev["name"], "dm_sent": sent, "candidates": len(chat_targets)})
+        # Stamp so we skip on next tick
+        await db.events.update_one({"id": ev_id}, {"$set": {"attendance_chased_at": now_iso()}})
+
+    return {"events_processed": len(candidates), "total_dm": total_dm, "per_event": per_event}
 
 
 @api_router.post("/cron/telegram-weekly-summary")

@@ -29,3 +29,9 @@ crons:
     endpoint: "{{BASE_URL}}/api/cron/vip-trash-purge"
     method: POST
     enabled: true
+  - name: attendance-chase
+    description: "DMs members who haven't marked attendance for events 20-24h away. Uses `attendance_chased_at` to skip already-chased events."
+    cron: "*/15 * * * *"
+    endpoint: "{{BASE_URL}}/api/cron/attendance-chase"
+    method: POST
+    enabled: true
