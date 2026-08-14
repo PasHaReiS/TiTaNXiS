@@ -1,5 +1,13 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] FCM Kararı: Mevcut Web Push Kullanılmaya Devam — DONE
+- **Kullanıcı kararı**: FCM (Firebase Cloud Messaging) ek olarak eklenmeyecek. Neden: mevcut Web Push altyapısı zaten tam üretim seviyesinde — VAPID key mgmt, `/api/push/subscribe`, `/api/push/broadcast` (country/alliance/group filtreli), retry-once-after-30s, history audit, sound presets, scheduled/repeated push, per-user opt-in/out.
+- **Gerekli/istenmeyen anahtarlar**: FCM Admin SDK için Service Account JSON + Web Push Certificates VAPID key gerekiyordu — kullanıcı bunları paylaşmadı, gerek de duymadı.
+- **Sağlık kontrolü**: `/api/push/vapid-public-key` → 200 (public key döndü) ✅ · `/api/push/history` → çalışıyor ✅ · `/api/push/broadcast {country_iso2:"US"}` → `{sent:0, removed:0}` (preview'de aktif sub yok, filter mantığı doğru) ✅.
+- **Deploy**: Kullanıcı "Save to GitHub → Deploy" ile push edecek. Herhangi bir ek env var gerekmez (VAPID_PUBLIC_KEY/PRIVATE_KEY zaten preview + prod'da mevcut).
+
+
+
 ## [2026-02] Ülke Bazlı Telegram + Toplu Rütbe Ata — DONE & VERIFIED
 - **Backend — Telegram country broadcast**: Yeni `POST /api/telegram/broadcast {title, body, country_iso2?}` endpoint (`server.py`). `TELEGRAM_CHANNEL_ID` env'ini kullanır, country verilirse üye adlarını da (max 20 + "+N") mesaja ekler. `send_message` fonksiyonu `telegram_bot`'tan import edildi. Curl: `country_iso2:"US"` → HTTP 200, `{sent:true, matched_members:2}` ✅.
 - **Backend — Bulk rank**: Yeni `BulkRankBody` + `POST /api/members/bulk-rank {member_ids, rank}`. Sadece `R1..R5` valid; `require_edit`. Curl: 2 US üyeye R5 atandı → `{matched:2, modified:2}` ✅ (test sonrası R3'e geri alındı).
