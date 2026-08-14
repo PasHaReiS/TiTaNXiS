@@ -116,9 +116,6 @@ export default function UserManagement() {
         </div>
 
         {/* Event Notifications control room — dedicated per-event push reminder panel */}
-        <EventNotificationsPanel />
-
-        {/* Unmatched Users panel — highlights accounts without a linked in-game character */}
         <div
           data-testid="unmatched-users-panel"
           className="rounded-lg p-3 mb-4"
@@ -169,6 +166,8 @@ export default function UserManagement() {
         </div>
 
         <div className="space-y-2">
+          {/* Event Notifications panel — sits directly above the user list */}
+          <EventNotificationsPanel />
           {users.map((u) => {
             const linkedList = (u.member_ids || []).map((mid) => memberById[mid]).filter(Boolean);
             return (
