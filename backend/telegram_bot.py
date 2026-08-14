@@ -161,7 +161,8 @@ def init_bot(db) -> Optional[Application]:
     _app.add_handler(CommandHandler("svs_cancel", svs_cancel_command))  # noqa: F821
     _app.add_handler(CommandHandler("yardim", yardim_command))
     _app.add_handler(CommandHandler("help", yardim_command))
-    _app.add_handler(CommandHandler("link", link_command))
+    # Note: /link handler removed in favour of the Telegram Login Widget (OAuth-style
+    # flow on the web app). /unlink is kept so users can revoke from either side.
     _app.add_handler(CommandHandler("unlink", unlink_command))
     log.info("Telegram bot handlers registered (@TiTaNXiS_BoT).")
     return _app
@@ -191,7 +192,6 @@ async def setup_webhook() -> bool:
                 {"command": "guc",        "description": "Üye güç sorgula"},
                 {"command": "etkinlik",   "description": "Aktif etkinlikler"},
                 {"command": "svs",        "description": "SvS hatırlatma ayarla"},
-                {"command": "link",       "description": "Hesabımı web uygulamasına bağla"},
                 {"command": "unlink",     "description": "Hesap bağlantısını kaldır"},
                 {"command": "yardim",     "description": "Yardım menüsü"},
             ]
@@ -228,6 +228,8 @@ async def start_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
         "Hoş geldin savaşçı! Ben TiTaNXiS loncasının resmi botuyum.\n\n"
         "🏰 Lonca bilgilerini sorgulayabilir, etkinlikleri takip edebilir "
         "ve sıralamadaki yerini görebilirsin.\n\n"
+        "✅ Bu mesajla birlikte artık lonca yöneticileri sana Telegram üzerinden "
+        "bildirim gönderebilir.\n\n"
         "Komutlar için /yardim yaz."
     )
     await reply_ml(update, text)

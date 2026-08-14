@@ -16,7 +16,7 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
  */
 export default function EventAttendance({ eventId, testIdPrefix = "event-att" }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [q, setQ] = useState("");
   const [pending, setPending] = useState(null); // member_id currently toggling
 

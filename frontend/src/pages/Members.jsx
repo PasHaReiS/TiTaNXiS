@@ -1451,6 +1451,9 @@ function MemberForm({ initial, onClose }) {
   const [notePosition, setNotePosition] = useState(initial?.note_position || "inline");
   const [noteColor, setNoteColor] = useState(initial?.note_color || "#DC2626");
   const [country, setCountry] = useState(initial?.country || "");
+  const [telegramUsername, setTelegramUsername] = useState(
+    (initial?.telegram_username || "").replace(/^@+/, "")
+  );
   const [saving, setSaving] = useState(false);
   const { data: alliances = [] } = useSWR("/alliances", fetcher);
   // Category (main/academy) is loaded per-alliance from /alliances/stats so
@@ -1493,6 +1496,8 @@ function MemberForm({ initial, onClose }) {
         kalkanli_t: kalkanliT || null,
         bireysel_guc: bireyselGuc ? parseInt(bireyselGuc, 10) : 0,
         note: note.trim() || null,
+        country: country || null,
+        telegram_username: telegramUsername.trim().replace(/^@+/, "") || null,
       };
       if (initial) {
         await api.patch(`/members/${initial.id}`, body);
@@ -1684,6 +1689,23 @@ function MemberForm({ initial, onClose }) {
             </option>
           ))}
         </select>
+
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-4">{t("member_telegram_label")}</label>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">@</span>
+          <input
+            data-testid="member-form-telegram-username"
+            type="text"
+            value={telegramUsername}
+            onChange={(e) => setTelegramUsername(e.target.value.replace(/^@+/, ""))}
+            placeholder="PasHa"
+            autoComplete="off"
+            className="w-full bg-background border border-border rounded-md pl-7 pr-3 py-2 text-sm text-white mono"
+          />
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-1 leading-snug" data-testid="member-telegram-start-hint">
+          ℹ️ {t("member_telegram_hint")}
+        </p>
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">&nbsp;</label>
         <div className="flex items-center gap-1.5 mb-1.5" data-testid="note-position-toggle">

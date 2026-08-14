@@ -1,59 +1,60 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { Send, ExternalLink, Copy, Unlink2 } from "lucide-react";
+import { Send, Unlink2 } from "lucide-react";
 import { api, apiErr } from "@/lib/api";
 
 const fetcher = (u) => api.get(u).then((r) => r.data);
+// Bot username registered via @BotFather /setdomain (must match production domain).
+const BOT_USERNAME = "TiTaNXiS_BoT";
 
-/** Profile → Telegram DM linking flow.
- *  Users tap "Get Code" → issued a 6-char token → send `/link CODE` in the bot chat →
- *  once handled by telegram_bot.py, /telegram/link/status flips to linked. */
+/** Profile → Telegram Login Widget.
+ *
+ *  Uses the official Telegram widget script — user clicks "Log in with
+ *  Telegram" → confirms in the Telegram app → widget calls our global
+ *  ``window.onTelegramAuth`` handler, which POSTs the signed payload to the
+ *  backend for HMAC verification.
+ */
 export default function TelegramLinkSection() {
   const { t } = useTranslation();
   const { data: status, mutate: refreshStatus } = useSWR("/telegram/link/status", fetcher, {
-    refreshInterval: 5000, // poll every 5s so the UI flips right after the user runs /link
+    refreshInterval: 5000,
   });
-  const [token, setToken] = useState(null);
-  const [botUsername, setBotUsername] = useState(null);
-  const [deepLink, setDeepLink] = useState(null);
-  const [expiresAt, setExpiresAt] = useState(null);
-  const [remaining, setRemaining] = useState(0);
+  const widgetHost = useRef(null);
   const [busy, setBusy] = useState(false);
 
-  // Countdown from expires_at so users see the token expire in real time.
+  const linked = !!status?.linked;
+
+  // Register a global callback for the Telegram widget to invoke. Runs the
+  // HMAC verification via our backend, then refreshes link status on success.
   useEffect(() => {
-    if (!expiresAt) return;
-    const iv = setInterval(() => {
-      const s = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
-      setRemaining(s);
-      if (s <= 0) { setToken(null); setExpiresAt(null); clearInterval(iv); }
-    }, 500);
-    return () => clearInterval(iv);
-  }, [expiresAt]);
+    window.onTelegramAuth = async (userData) => {
+      try {
+        await api.post("/telegram/login", userData);
+        toast.success(t("telegram_link_status_linked"));
+        refreshStatus();
+      } catch (e) {
+        toast.error(apiErr(e));
+      }
+    };
+    return () => { delete window.onTelegramAuth; };
+  }, [t, refreshStatus]);
 
-  const generate = async () => {
-    setBusy(true);
-    try {
-      const res = await api.post("/telegram/link/generate");
-      setToken(res.data.token);
-      setBotUsername(res.data.bot_username);
-      setDeepLink(res.data.deep_link);
-      setExpiresAt(res.data.expires_at);
-    } catch (e) {
-      toast.error(apiErr(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const copyCode = async () => {
-    try {
-      await navigator.clipboard.writeText(`/link ${token}`);
-      toast.success(t("telegram_link_copied"));
-    } catch { /* ignore */ }
-  };
+  // Inject the Telegram widget script into our host div (only when NOT linked).
+  useEffect(() => {
+    if (linked || !widgetHost.current) return;
+    widgetHost.current.innerHTML = ""; // reset if lang change or re-mount
+    const s = document.createElement("script");
+    s.src = "https://telegram.org/js/telegram-widget.js?22";
+    s.async = true;
+    s.setAttribute("data-telegram-login", BOT_USERNAME);
+    s.setAttribute("data-size", "medium");
+    s.setAttribute("data-userpic", "false");
+    s.setAttribute("data-request-access", "write");
+    s.setAttribute("data-onauth", "onTelegramAuth(user)");
+    widgetHost.current.appendChild(s);
+  }, [linked]);
 
   const unlink = async () => {
     setBusy(true);
@@ -67,8 +68,6 @@ export default function TelegramLinkSection() {
       setBusy(false);
     }
   };
-
-  const linked = !!status?.linked;
 
   return (
     <div data-testid="telegram-link-section" className="card-dark p-3 mb-4">
@@ -100,64 +99,13 @@ export default function TelegramLinkSection() {
         >
           <Unlink2 className="w-3.5 h-3.5" /> {t("telegram_link_unlink")}
         </button>
-      ) : token ? (
-        <div className="space-y-2">
-          <p className="text-[11px] text-white/80">{t("telegram_link_instructions")}</p>
-          <div className="flex items-center gap-2">
-            <code
-              data-testid="telegram-link-token"
-              className="flex-1 px-3 py-2 rounded font-bold text-lg tracking-widest text-center"
-              style={{ background: "#1A1210", color: "#F5A623", border: "1px solid rgba(245,166,35,0.4)", fontFamily: "monospace" }}
-            >
-              /link {token}
-            </code>
-            <button
-              type="button"
-              onClick={copyCode}
-              data-testid="telegram-link-copy"
-              className="chip text-xs px-3"
-              title={t("telegram_link_copy")}
-            >
-              <Copy className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-            <span data-testid="telegram-link-countdown">
-              {remaining > 0 ? t("telegram_link_expires_in", { sec: remaining }) : "…"}
-            </span>
-            {deepLink && (
-              <a
-                href={deepLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                data-testid="telegram-link-open-bot"
-                className="flex items-center gap-1"
-                style={{ color: "#259FEB" }}
-              >
-                <ExternalLink className="w-3 h-3" /> @{botUsername || "TiTaNXiS_BoT"}
-              </a>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={generate}
-            disabled={busy}
-            data-testid="telegram-link-regenerate"
-            className="chip text-[10px]"
-          >
-            {t("telegram_link_regen")}
-          </button>
-        </div>
       ) : (
-        <button
-          type="button"
-          onClick={generate}
-          disabled={busy}
-          data-testid="telegram-link-generate"
-          className="btn-gold text-xs flex items-center gap-1.5"
-        >
-          <Send className="w-3.5 h-3.5" /> {t("telegram_link_generate")}
-        </button>
+        <div className="flex items-center gap-2">
+          <div ref={widgetHost} data-testid="telegram-login-widget-host" />
+          <p className="text-[10px] text-muted-foreground max-w-xs">
+            {t("telegram_widget_hint")}
+          </p>
+        </div>
       )}
     </div>
   );

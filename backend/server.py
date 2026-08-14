@@ -62,6 +62,7 @@ class Member(BaseModel):
     note_position: Optional[str] = "inline"  # "inline" | "bottom"
     note_color: Optional[str] = "#DC2626"    # hex color for bottom-position notes
     country: Optional[str] = None            # ISO 3166-1 alpha-2 (uppercase), e.g. "TR", "US"
+    telegram_username: Optional[str] = None  # Telegram @handle for username-based DM fallback (stored without @)
     created_at: str = Field(default_factory=now_iso)
 
 
@@ -85,6 +86,7 @@ class MemberCreate(BaseModel):
     note_position: Optional[str] = "inline"
     note_color: Optional[str] = "#DC2626"
     country: Optional[str] = None
+    telegram_username: Optional[str] = None
 
 
 class MemberUpdate(BaseModel):
@@ -116,6 +118,7 @@ class MemberUpdate(BaseModel):
     note_position: Optional[str] = None
     note_color: Optional[str] = None
     country: Optional[str] = None
+    telegram_username: Optional[str] = None
 
 
 class Event(BaseModel):
@@ -417,6 +420,14 @@ class BatchCreateBody(BaseModel):
     members: list[BatchCreateMemberInput]
 
 
+def _normalize_telegram_username(raw: Optional[str]) -> Optional[str]:
+    """Strip leading @ and whitespace; empty → None. Case preserved for display."""
+    if raw is None:
+        return None
+    s = str(raw).strip().lstrip("@").strip()
+    return s or None
+
+
 @api_router.post("/members")
 async def create_member(body: MemberCreate, _: dict = Depends(require_edit)):
     payload = body.model_dump()
@@ -428,6 +439,7 @@ async def create_member(body: MemberCreate, _: dict = Depends(require_edit)):
         if tag:
             payload["alliance_name"] = await find_or_create_alliance(tag)
             payload["name"] = clean
+    payload["telegram_username"] = _normalize_telegram_username(payload.get("telegram_username"))
     m = Member(**payload)
     await db.members.insert_one(m.model_dump())
     return m.model_dump()
@@ -501,6 +513,10 @@ async def batch_create_members(body: BatchCreateBody, _: dict = Depends(require_
 @api_router.patch("/members/{member_id}")
 async def update_member(member_id: str, body: MemberUpdate, user: dict = Depends(require_edit)):
     update = {k: v for k, v in body.model_dump().items() if v is not None}
+    # Allow explicit clearing of telegram_username by passing empty string.
+    raw = body.model_dump(exclude_unset=True)
+    if "telegram_username" in raw:
+        update["telegram_username"] = _normalize_telegram_username(raw["telegram_username"])
     if not update:
         raise HTTPException(400, "Değişiklik yok")
     # Read the "before" doc so we can log field-level deltas — powers the
@@ -515,7 +531,7 @@ async def update_member(member_id: str, body: MemberUpdate, user: dict = Depends
 
 
 # Fields worth auditing. Note-related edits are noisy; skipped intentionally.
-_AUDITED_MEMBER_FIELDS = {"rank", "alliance_name", "alliance_category", "country", "castle_level", "name"}
+_AUDITED_MEMBER_FIELDS = {"rank", "alliance_name", "alliance_category", "country", "castle_level", "name", "telegram_username"}
 
 
 async def _record_member_changes(member_id: str, before: dict, update: dict, user: dict):
@@ -3253,6 +3269,31 @@ async def telegram_webhook(request: Request):
     storms — errors are logged server-side."""
     try:
         body = await request.json()
+        # Capture chat_id ↔ Telegram @username mapping for username-based DM
+        # fallback. Runs on ANY inbound message (not just /start) so members who
+        # already opened a bot chat once are recognised as soon as they text
+        # anything. Handled at the FastAPI layer (not the PTB command handler)
+        # because it's simpler and doesn't depend on PTB's async lifecycle.
+        try:
+            msg = (body or {}).get("message") or {}
+            frm = msg.get("from") or {}
+            chat = msg.get("chat") or {}
+            uname = (frm.get("username") or chat.get("username") or "").strip()
+            cid = chat.get("id") or frm.get("id")
+            if uname and cid is not None:
+                await db.telegram_chat_map.update_one(
+                    {"username_lc": uname.lower()},
+                    {"$set": {
+                        "username_lc": uname.lower(),
+                        "username": uname,
+                        "chat_id": str(cid),
+                        "first_name": frm.get("first_name") or chat.get("first_name"),
+                        "updated_at": now_iso(),
+                    }},
+                    upsert=True,
+                )
+        except Exception as _e:
+            logging.getLogger("telegram").debug(f"chat_map upsert skipped: {_e}")
         await process_update(body)
     except Exception as e:
         logging.getLogger("telegram").warning(f"webhook processing failed: {e}")
@@ -3267,6 +3308,33 @@ async def telegram_status():
         "configured": bool(_os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()),
         "channel_configured": bool(_os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()),
     }
+
+
+@api_router.get("/telegram/username-status")
+async def telegram_username_status(usernames: str = ""):
+    """Which of the given Telegram @usernames have already `/start`-ed the bot
+    (chat_id captured in `telegram_chat_map`). Returns per-username booleans so
+    the Members UI can show a "DM hazır" badge next to matched handles.
+
+    Query: ?usernames=PasHa,Alice,@Bob (comma-separated, @ optional).
+    """
+    raw = [u.strip().lstrip("@").strip() for u in (usernames or "").split(",")]
+    handles = [h for h in raw if h]
+    if not handles:
+        return {"linked": {}, "pending": []}
+    lc_to_orig: Dict[str, str] = {}
+    for h in handles:
+        lc_to_orig[h.lower()] = h
+    docs = await db.telegram_chat_map.find(
+        {"username_lc": {"$in": list(lc_to_orig.keys())}},
+        {"_id": 0, "username_lc": 1, "chat_id": 1}
+    ).to_list(len(lc_to_orig))
+    hit = {d["username_lc"]: bool(d.get("chat_id")) for d in docs}
+    linked: Dict[str, bool] = {}
+    for lc, orig in lc_to_orig.items():
+        linked[orig] = hit.get(lc, False)
+    pending = [orig for orig, ok in linked.items() if not ok]
+    return {"linked": linked, "pending": pending}
 
 
 @api_router.post("/cron/telegram-daily-briefing")
@@ -3305,8 +3373,13 @@ async def telegram_broadcast(body: TelegramBroadcastBody, _: dict = Depends(requ
     header_lines = [f"📣 *{body.title.strip()}*", "", body.body.strip()]
     matched_names: List[str] = []
     dm_chat_ids: List[str] = []
+    username_dm_hits = 0  # members reached via @username fallback (no linked user)
+    username_dm_pending: List[str] = []  # members with @username set but no /start yet
     if country and len(country) == 2:
-        docs = await db.members.find({"country": country}, {"_id": 0, "id": 1, "name": 1}).to_list(1000)
+        docs = await db.members.find(
+            {"country": country},
+            {"_id": 0, "id": 1, "name": 1, "telegram_username": 1}
+        ).to_list(1000)
         matched_names = sorted([d.get("name") or "?" for d in docs])
         matched_ids = {d["id"] for d in docs if d.get("id")}
         header_lines = [f"📣 *{body.title.strip()}* — 🌍 `{country}` ({len(matched_names)} üye)", "", body.body.strip()]
@@ -3316,12 +3389,13 @@ async def telegram_broadcast(body: TelegramBroadcastBody, _: dict = Depends(requ
             header_lines.append("👥 " + ", ".join(visible))
             if len(matched_names) > 20:
                 header_lines.append(f"…+{len(matched_names) - 20}")
-        # Collect DM chat ids for users linked to any matched member.
+        # 1) Collect DM chat ids for users linked to any matched member (Login Widget path).
         user_docs = await db.users.find(
             {"telegram_chat_id": {"$exists": True, "$ne": None},
              "notification_enabled": {"$ne": False}},
             {"_id": 0, "id": 1, "telegram_chat_id": 1, "member_ids": 1, "member_id": 1}
         ).to_list(5000)
+        linked_member_ids: set = set()
         for u in user_docs:
             linked = list(u.get("member_ids") or [])
             if u.get("member_id"):
@@ -3330,6 +3404,24 @@ async def telegram_broadcast(body: TelegramBroadcastBody, _: dict = Depends(requ
                 cid = u.get("telegram_chat_id")
                 if cid:
                     dm_chat_ids.append(str(cid))
+                    linked_member_ids.update(mid for mid in linked if mid in matched_ids)
+        # 2) Fallback: members that carry a telegram_username but have no linked user
+        #    account — look up the chat_id captured on their /start message.
+        for d in docs:
+            mid = d.get("id")
+            if not mid or mid in linked_member_ids:
+                continue
+            handle = (d.get("telegram_username") or "").strip().lstrip("@").strip()
+            if not handle:
+                continue
+            m = await db.telegram_chat_map.find_one(
+                {"username_lc": handle.lower()}, {"_id": 0, "chat_id": 1}
+            )
+            if m and m.get("chat_id"):
+                dm_chat_ids.append(str(m["chat_id"]))
+                username_dm_hits += 1
+            else:
+                username_dm_pending.append(f"@{handle}")
     text = "\n".join(header_lines)
     channel_sent = False
     if channel:
@@ -3346,6 +3438,8 @@ async def telegram_broadcast(body: TelegramBroadcastBody, _: dict = Depends(requ
         "matched_members": len(matched_names),
         "dm_targets": len(dm_chat_ids),
         "dm_sent": dm_sent,
+        "username_dm_hits": username_dm_hits,
+        "username_dm_pending": username_dm_pending,
     }
 
 
@@ -3399,9 +3493,54 @@ async def telegram_unlink(user: dict = Depends(require_auth)):
     """Remove the caller's telegram_chat_id — undoes /link on the web side."""
     res = await db.users.update_one(
         {"id": user["id"]},
-        {"$unset": {"telegram_chat_id": "", "telegram_linked_at": ""}},
+        {"$unset": {"telegram_chat_id": "", "telegram_linked_at": "", "telegram_username": ""}},
     )
     return {"unlinked": res.modified_count > 0}
+
+
+class TelegramLoginBody(BaseModel):
+    id: int
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    username: Optional[str] = None
+    photo_url: Optional[str] = None
+    auth_date: int
+    hash: str
+
+
+@api_router.post("/telegram/login")
+async def telegram_login_widget(body: TelegramLoginBody, user: dict = Depends(require_auth)):
+    """Verify the Telegram Login Widget payload (HMAC-SHA256) and bind the
+    caller's account to the returned Telegram user id.
+
+    Signature check per https://core.telegram.org/widgets/login#checking-authorization
+    """
+    import hashlib as _hl, hmac as _hm, time as _time, os as _os
+    bot_token = _os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    if not bot_token:
+        raise HTTPException(500, "TELEGRAM_BOT_TOKEN yapılandırılmamış")
+    if abs(_time.time() - body.auth_date) > 86400:
+        raise HTTPException(400, "auth_date süresi dolmuş (24 saatten eski)")
+    data = body.model_dump(exclude_none=True)
+    provided_hash = data.pop("hash")
+    check_string = "\n".join(f"{k}={data[k]}" for k in sorted(data.keys()))
+    secret_key = _hl.sha256(bot_token.encode()).digest()
+    calc_hash = _hm.new(secret_key, check_string.encode(), _hl.sha256).hexdigest()
+    if not _hm.compare_digest(calc_hash, provided_hash):
+        raise HTTPException(401, "İmza doğrulanamadı")
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {
+            "telegram_chat_id": str(body.id),
+            "telegram_username": body.username,
+            "telegram_linked_at": now_iso(),
+        }},
+    )
+    return {
+        "linked": True,
+        "telegram_id": body.id,
+        "telegram_username": body.username,
+    }
 
 
 class BulkAllianceBody(BaseModel):
