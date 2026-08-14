@@ -23,6 +23,9 @@ export default function EventReminderDialog({ event, onClose }) {
   // Body uses the LARGEST selected lead so the copy reads sensibly ("starts in 60 min").
   const largestLead = useMemo(() => Math.max(...Array.from(leadMinSet)), [leadMinSet]);
   const [body, setBody] = useState(t("event_reminder_body_default", { name: event.name, min: 30 }));
+  // Multi-channel fan-out toggles (default: both ON so admins don't miss delivery).
+  const [sendChannel, setSendChannel] = useState(true);
+  const [sendDm, setSendDm] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const toggleLead = (m) => {
@@ -63,6 +66,8 @@ export default function EventReminderDialog({ event, onClose }) {
           repeat: null,
           event_id: event.id,
           sound: "rally",
+          send_channel: sendChannel,
+          send_dm: sendDm,
         });
         ok += 1;
       }
@@ -177,6 +182,36 @@ export default function EventReminderDialog({ event, onClose }) {
             {t("push_sched_past_error")}
           </div>
         )}
+
+        {/* Multi-channel fan-out toggles */}
+        <div className="mt-3 rounded p-2 space-y-1.5" style={{ background: "rgba(148,163,184,0.06)", border: "1px solid rgba(148,163,184,0.20)" }} data-testid="event-reminder-channels">
+          <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">
+            {t("event_reminder_channels_title") || "Nereye Gönderilsin?"}
+          </div>
+          <label className="flex items-center gap-2 text-[11px] cursor-pointer">
+            <input
+              type="checkbox"
+              checked={sendChannel}
+              onChange={(e) => setSendChannel(e.target.checked)}
+              data-testid="event-reminder-send-channel"
+              className="cursor-pointer"
+            />
+            <span className="flex-1">✈️ {t("event_reminder_send_channel") || "Telegram Kanalı"}</span>
+          </label>
+          <label className="flex items-center gap-2 text-[11px] cursor-pointer">
+            <input
+              type="checkbox"
+              checked={sendDm}
+              onChange={(e) => setSendDm(e.target.checked)}
+              data-testid="event-reminder-send-dm"
+              className="cursor-pointer"
+            />
+            <span className="flex-1">📩 {t("event_reminder_send_dm") || "Katılan Üyelere Direkt Mesaj"}</span>
+          </label>
+          <p className="text-[9px] text-muted-foreground leading-tight">
+            🔔 {t("event_reminder_webpush_always") || "Web Push (tarayıcı bildirimi) her durumda gönderilir."}
+          </p>
+        </div>
 
         <div className="mt-4 flex items-center justify-end gap-2">
           <button

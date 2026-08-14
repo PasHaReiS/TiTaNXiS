@@ -3067,6 +3067,8 @@ class PushScheduledBody(BaseModel):
     country_iso2: Optional[str] = None  # optional ISO2 country filter
     event_id: Optional[str] = None      # optional attendance filter (only members marked attending this event)
     sound: Optional[str] = "rally"  # rally | victory | dungeon | alarm
+    send_channel: Optional[bool] = True    # ALSO broadcast to TELEGRAM_CHANNEL_ID when firing (default on)
+    send_dm: Optional[bool] = True         # ALSO DM attending members via linked telegram_chat_id / telegram_username fallback
 
 
 @api_router.get("/push/scheduled")
@@ -3102,6 +3104,8 @@ async def push_scheduled_create(body: PushScheduledBody, _: dict = Depends(requi
         "country_iso2": (body.country_iso2 or None),
         "event_id": (body.event_id or None),
         "sound": sound,
+        "send_channel": bool(body.send_channel) if body.send_channel is not None else True,
+        "send_dm": bool(body.send_dm) if body.send_dm is not None else True,
         "sent": False,
         "created_at": now_iso(),
     }
@@ -3145,6 +3149,75 @@ async def push_scheduled_snooze(sch_id: str, body: PushSnoozeBody, _: dict = Dep
     return updated
 
 
+async def _telegram_forward_scheduled(doc: dict) -> dict:
+    """When a scheduled push fires, mirror it to Telegram: channel broadcast +
+    DM to every attending member (via linked telegram_chat_id, then username→chat
+    map fallback). Runs alongside the Web Push fan-out so users on any channel
+    (Web Push, Telegram channel follower, or DM-linked) get the notification.
+    Controlled by `send_channel` / `send_dm` flags stored on the scheduled doc
+    (both default True). Silently no-ops when TELEGRAM_BOT_TOKEN is unset.
+    """
+    from telegram_bot import send_message as _tg_send
+    stats = {"channel_sent": False, "dm_sent": 0, "dm_username_hits": 0}
+    if not os.environ.get("TELEGRAM_BOT_TOKEN", "").strip():
+        return stats
+    title = (doc.get("title") or "").strip()
+    body_txt = (doc.get("body") or "").strip()
+    text_lines = [f"🔔 *{title}*"] if title else []
+    if body_txt:
+        text_lines.append("")
+        text_lines.append(body_txt)
+    text = "\n".join(text_lines) or "🔔 Etkinlik hatırlatması"
+    # 1) Channel broadcast
+    if doc.get("send_channel", True):
+        channel = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+        if channel:
+            stats["channel_sent"] = await _tg_send(channel, text)
+    # 2) DMs to attending members (only when event_id present)
+    if doc.get("send_dm", True) and doc.get("event_id"):
+        att = await db.event_attendance.find_one({"event_id": doc["event_id"]}, {"_id": 0, "member_ids": 1})
+        att_ids = set(att.get("member_ids") or []) if att else set()
+        if att_ids:
+            chat_ids: set = set()
+            # 2a) users linked via Login Widget (has telegram_chat_id)
+            u_docs = await db.users.find(
+                {"telegram_chat_id": {"$exists": True, "$ne": None},
+                 "notification_enabled": {"$ne": False}},
+                {"_id": 0, "id": 1, "telegram_chat_id": 1, "member_ids": 1, "member_id": 1}
+            ).to_list(5000)
+            linked_member_ids: set = set()
+            for u in u_docs:
+                linked = list(u.get("member_ids") or [])
+                if u.get("member_id"):
+                    linked.append(u["member_id"])
+                if any(mid in att_ids for mid in linked):
+                    if u.get("telegram_chat_id"):
+                        chat_ids.add(str(u["telegram_chat_id"]))
+                        linked_member_ids.update(mid for mid in linked if mid in att_ids)
+            # 2b) fallback: attending members with telegram_username but no linked user
+            remaining = att_ids - linked_member_ids
+            if remaining:
+                m_docs = await db.members.find(
+                    {"id": {"$in": list(remaining)}},
+                    {"_id": 0, "id": 1, "telegram_username": 1}
+                ).to_list(len(remaining))
+                for m in m_docs:
+                    h = (m.get("telegram_username") or "").strip().lstrip("@").strip()
+                    if not h:
+                        continue
+                    entry = await db.telegram_chat_map.find_one(
+                        {"username_lc": h.lower()}, {"_id": 0, "chat_id": 1}
+                    )
+                    if entry and entry.get("chat_id"):
+                        chat_ids.add(str(entry["chat_id"]))
+                        stats["dm_username_hits"] += 1
+            for cid in chat_ids:
+                ok = await _tg_send(cid, text)
+                if ok:
+                    stats["dm_sent"] += 1
+    return stats
+
+
 async def _push_scheduler_loop():
     """Background loop: every 60s, dispatch any due scheduled push broadcasts.
     Recurring items (repeat='daily'/'weekly') are re-armed with a new scheduled_at instead of marked sent.
@@ -3161,7 +3234,7 @@ async def _push_scheduler_loop():
                 except Exception:
                     continue
                 if when <= now:
-                    await _broadcast_push(
+                    push_result = await _broadcast_push(
                         doc["title"], doc["body"], doc.get("url", "/"),
                         tag=f"scheduled-{doc['id']}",
                         group_name=doc.get("group_name"),
@@ -3170,6 +3243,27 @@ async def _push_scheduler_loop():
                         event_id=doc.get("event_id"),
                         sound=doc.get("sound") or "rally",
                     )
+                    # ALSO forward to Telegram channel + attending members' DMs.
+                    # Fire-and-forget so a bot error can't stall the loop.
+                    try:
+                        tg_stats = await _telegram_forward_scheduled(doc)
+                    except Exception as _tge:
+                        logger.warning(f"telegram forward failed for {doc.get('id')}: {_tge}")
+                        tg_stats = {"channel_sent": False, "dm_sent": 0}
+                    # Attach fan-out metrics to push_history for admin visibility.
+                    try:
+                        if push_result and isinstance(push_result, dict):
+                            hid = push_result.get("hid") or None
+                            # push_result may not surface hid; look up latest history row for this tag instead.
+                            hist = await db.push_history.find_one({"tag": f"scheduled-{doc['id']}"}, sort=[("created_at", -1)])
+                            if hist:
+                                await db.push_history.update_one(
+                                    {"id": hist["id"]},
+                                    {"$set": {"telegram_channel_sent": tg_stats.get("channel_sent", False),
+                                              "telegram_dm_sent": tg_stats.get("dm_sent", 0)}}
+                                )
+                    except Exception:
+                        pass
                     repeat = doc.get("repeat")
                     if repeat == "daily":
                         next_at = when + _td(days=1)

@@ -6,78 +6,71 @@ Full-stack Gaming Guild Management App ("TiTaNXiS" / "oyun-loncasi"): Leaderboar
 ## User Preferences (Locked)
 - Language: **Turkish**
 - Theme: Midnight Red dark
-- Auth: JWT + Telegram Login Widget (for member DM linking)
+- Auth: JWT + Telegram Login Widget
 
 ## Tech Stack
 - Frontend: React + react-i18next + SWR + Tailwind + Shadcn/ui + lucide-react + react-simple-maps + recharts
-- Backend: FastAPI + Motor (MongoDB) + openpyxl + JWT (PyJWT) + python-telegram-bot + pywebpush
-- Integrations: OpenAI GPT-4o Vision (Emergent LLM Key), DeepL API (user key), Telegram Bot API (user token), Web Push (VAPID), Emergent Object Storage
+- Backend: FastAPI + Motor (MongoDB) + JWT (PyJWT) + python-telegram-bot + pywebpush
+- Integrations: OpenAI GPT-4o Vision (Emergent LLM Key), DeepL API, Telegram Bot API, Web Push (VAPID), Emergent Object Storage
 
 ---
 
-## [2026-02] Direct DM via Telegram Username Fallback — DONE & VERIFIED
-Fulfils the user's request to DM members using just their Telegram `@handle` when they haven't linked via the Login Widget. Telegram Bot API only accepts `chat_id`, so we capture it the first time the member texts the bot.
+## [2026-02-14] Scheduler Crash Fix + Multi-Channel Reminder Fan-out — DONE ✅
 
-- **Backend `server.py`**:
-  - `Member`, `MemberCreate`, `MemberUpdate` models gained `telegram_username: Optional[str]`. Field is audited (added to `_AUDITED_MEMBER_FIELDS`).
-  - New `_normalize_telegram_username()` helper strips leading `@` and whitespace. POST/PATCH `/members` invoke it.
-  - `POST /telegram/webhook`: FastAPI layer now upserts `telegram_chat_map` (`username_lc → {chat_id, first_name, updated_at}`) on ANY inbound message with a Telegram username — not just `/start` — so members are recognised on any interaction.
-  - `POST /telegram/broadcast?country_iso2=XX`: fan-out extended. Members with `telegram_username` who aren't attached to a linked user get DM'd via `telegram_chat_map` lookup. Response now includes `username_dm_hits` + `username_dm_pending` (members that have a handle but haven't `/start`ed the bot yet — admin visibility).
-  - New `GET /api/telegram/username-status?usernames=a,b,c`: returns `{linked: {name: bool}, pending: [names]}` so the Members UI can show a "DM hazır" badge.
-- **Backend `telegram_bot.py`**: `/start` welcome text updated to mention "Bu mesajla artık lonca yöneticileri sana Telegram üzerinden bildirim gönderebilir." (Empowers member to understand the DM policy contract.)
-- **Frontend `Members.jsx` `MemberForm`**: new "Telegram Kullanıcı Adı" input with leading `@` prefix + hint text ("Üye @TiTaNXiS_BoT'a bir kere `/start` göndermeli — yoksa Telegram politikası gereği bot DM atamaz.") Persists on POST/PATCH. `data-testid="member-form-telegram-username"` + `"member-telegram-start-hint"`.
-- **i18n**: TR/EN keys `member_telegram_label` + `member_telegram_hint`.
-- **Doğrulama (curl E2E)**:
-  - POST /members `{telegram_username:"@TgHandleRenamed"}` → stored as `TgHandleRenamed` (@ stripped) ✅
-  - PATCH → audit entry captured ✅
-  - `/telegram/webhook` /start → `telegram_chat_map` upserted (`TgHandleRenamed → chat_id`) ✅
-  - `/telegram/username-status?usernames=TgHandleRenamed,NeverStarted` → `{TgHandleRenamed:true, NeverStarted:false}` ✅
-  - `/telegram/broadcast {country:"US"}` with member `telegram_username=TgHandleRenamed`, country=US → response `{dm_targets:1, username_dm_hits:1}` ✅
+**Kritik Bug**: `_broadcast_push()` `country_iso2` + `event_id` kwargs kabul etmiyordu → 30+ dakika boyunca scheduler her 60s'de çöktü, hiçbir planlı push (Telegram + Web Push) gitmedi.
 
-**Telegram API constraint documented**: Bot API cannot DM by @username, only chat_id. So we capture chat_id on any inbound message and store it in `telegram_chat_map` (keyed by lowercased username). Admin sees `username_dm_pending` list in broadcast response so they know which handles still need to `/start` the bot.
+**Fix**:
+1. `server.py::_broadcast_push` signature genişletildi + attendance filter (`event_id`) + country filter (`country_iso2`) eklendi.
+2. **YENİ**: `_telegram_forward_scheduled()` — her tetiklenen scheduled push için otomatik Telegram fan-out:
+   - `send_channel=true` → `TELEGRAM_CHANNEL_ID`'e broadcast
+   - `send_dm=true` + `event_id` → attending members'a DM (Login Widget'la bağlı `telegram_chat_id` + `telegram_username` fallback via `telegram_chat_map`)
+3. `PushScheduledBody` model'e `send_channel` + `send_dm` alanları eklendi (default: True).
+4. `EventReminderDialog.jsx` UI: "Nereye Gönderilsin?" alt paneli — 2 checkbox (Telegram Kanalı, Katılan Üyelere DM).
+5. `push_history` kaydına yeni metrikler: `telegram_channel_sent`, `telegram_dm_sent`.
 
-## [2026-02] Attendance List Default Open — DONE
-- `EventAttendance.jsx`: `open` state initial value flipped `false → true`. Attendance list is now always visible under each event by default; users can still collapse via the toggle button. Also causes members fetch to fire on mount (previous: only after expand).
+**Doğrulama (curl E2E)**:
+- TG-TEST push 13:41:48'e planlandı → scheduler 13:42:30'da fire etti → `telegram_channel_sent: true` ✅
+- Backend log: `sendMessage HTTP/1.1 200 OK` ✅
+- Preview'da `push_subscriptions: 0` olduğu için Web Push sent=0 (beklenen — abone yok)
 
----
+**Neden Önemli**: Web Push alıcı sayısı 0 iken bile kullanıcı Telegram kanalını takip ederek bildirim alabiliyor. Bu 3 kanallı fan-out yaklaşım, bildirimin kesin ulaşmasını garantiler.
 
-## [Feb 2026 — prior] Feature history (chronological, most recent first)
-- **Telegram Login Widget** (replaces manual `/link`) — DONE
-- **DeepL Free plan** validated (`:fx` → `api-free.deepl.com`) — DONE
-- **Hybrid push translation** (user's preferred_language → DeepL translated push) — DONE
-- **Multi-reminder scheduling** per event (15/30/60 min) — DONE
-- **EventAttendance panel** (full-width member list) — DONE
-- **Event Audit Trail** (`member_changes` collection) — DONE
-- **Dashboard "Telegram DM aktif" metric** — DONE
-- **Bulk assignment** (country, rank, alliance) — DONE
-- **Country-based Web-Push & Telegram broadcast** — DONE
-- **MemberLocationMap** (react-simple-maps choropleth + drawer) — DONE
-- **VIP Support** (categories, threads, replies, votes, trash 24h, i18n) — DONE
-- **Premium Dashboard v2** (Recharts, activity log, admin-only) — DONE
-- **Case-sensitive member names** (Ali ≠ ali) — DONE
-- **OCR sequential per-image parsing** (Cloudflare 524 workaround) — DONE
-- **Members + Event OCR multi-image + auto-create** — DONE
-- **Object Storage uploads** (VIP + Commander + Event) — DONE
-- **Telegram Bot @TiTaNXiS_BoT** — commands + webhook + weekly summary + daily briefing — DONE
-- **29-language i18n** (DeepL bulk auto-translate) — DONE
+## [2026-02-14] Direct DM via Telegram Username Fallback — DONE
+- `Member.telegram_username` alanı + audit + normalize
+- `POST /telegram/webhook`: chat_map upsert (username → chat_id)
+- `POST /telegram/broadcast`: username fallback + `username_dm_hits` + `username_dm_pending`
+- `GET /api/telegram/username-status?usernames=a,b,c` — badge için
+- Frontend: MemberForm input + `/start` hint
+
+## [2026-02-14] Event Notifications Dedicated Page — DONE
+- Yeni route `/etkinlik-bildirimleri` (RequireAdminOrEditor)
+- Header dropdown menü: Dashboard ↔ VIP Destek arasında 🔔 BellRing
+- `EventNotificationsPanel` mor tema, per-event schedule + delete + snooze
+- User Management'tan tamamen kaldırıldı
+
+## [2026-02-14] Attendance List Under Event Card (Mobile Fix) — DONE
+- `EventAttendance.jsx`: `open = true` default
+- `Events.jsx`: root card `flex-row` → `flex-col` (attendance panel tam-genişlik kartın altında)
 
 ---
 
 ## Backlog / Roadmap (P0 → P2)
 
-### P1 — Server.py Refactoring (in progress)
-- Extract `events`, `attendance`, and `points` route groups from `server.py` (3696 lines) into `routes/events.py`, `routes/attendance.py`, `routes/points.py`.
-- Extract `deepl` translate/detect helpers into a shared `deepl_client.py` (currently duplicated in `telegram_bot.py` + `routes/push.py`).
+### P1 — Server.py Refactoring
+- Extract `events`, `attendance`, `points` route groups from `server.py` (~3900 lines) into `routes/*.py`.
+- Extract `deepl` translate helpers into shared `deepl_client.py`.
 
 ### P2 — OCR Preview Cropping
-- Integrate `react-image-crop` in `OcrDialog.jsx` so admins can trim the noisy borders before AI parse. Cuts token cost + improves accuracy on multi-image sets.
+- Integrate `react-image-crop` in `OcrDialog.jsx`.
 
 ### Future / Nice-to-have
-- **Discord Webhook Mirror**: `/api/push/broadcast` also POSTs to a configured Discord webhook.
-- **OpenAI TTS voice notifications**: `sendVoice` mp3 fan-out via Telegram DM.
-- **Member / Event Point CSV Export**: admin download button on Members + Events pages.
-- **VIP Trash Role-Based Visibility**: editors only see their own deleted items.
-- **Telegram Username DM auto-linking**: when a member `/start`s the bot, look up any `members.telegram_username` matching their handle and auto-attach `member_id` to that member's linked user (removes admin manual step).
+- **Bildirim Analitik Rozeti**: Her planlı hatırlatmaya "gönderildi: N/M · başarı: %K" mini rozeti.
+- **Country Filter in Event Reminder Dialog**: 🌍 dropdown — sadece belirli ülkedeki katılımcılara hatırlat.
+- **SvS Kombo Preset**: Favori lead kombinasyonlarını (60+30+15dk) tek tıkla uygula.
+- **Discord Webhook Mirror**.
+- **OpenAI TTS voice notifications** via Telegram.
+- **Member/Event Point CSV Export**.
+- **VIP Trash Role-Based Visibility**.
 
 ## Test Credentials
 See `/app/memory/test_credentials.md`.
