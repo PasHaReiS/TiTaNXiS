@@ -1,5 +1,13 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] DeepL Key Doğrulaması — NO FIX NEEDED
+- **Test edilen**: `os.environ.get('DEEPL_API_KEY')` doğru okuyor. Key `:fx` ile bitiyor → FREE endpoint (`api-free.deepl.com`) otomatik seçiliyor.
+- **Kullanım**: 220,108 / 1,000,000 karakter (%22, Free plan limit içinde).
+- **Canlı test**: Türkçe metin → EN/DE/JA'ya doğru çevrildi (`_translate_push_text` fonksiyonu üretim davranışıyla test edildi).
+- **Sonuç**: Kod tarafında hiçbir düzeltme gerekmiyor. Push çevirisi zaten çalışıyor. Önceki `Authentication failed` mesajı shell subprocess parse hatasıydı.
+
+
+
 ## [2026-02] Attendance Panel Full-Width Liste — DONE
 - **Sorun**: EventAttendance panel'i chip'lerle `flex-wrap` kullanıyordu; mobilde/dar ekranda üye adları kısa görünüyor, seçim zorlaşıyordu.
 - **Fix (`EventAttendance.jsx`)**: `flex flex-wrap gap-1` → `flex flex-col gap-1` (full-width satırlar). Her satır: (a) 18×18 checkbox kutusu (yeşil ✓ / boş ○), (b) rank badge, (c) truncate isim (textTransform:"none"), (d) ittifak etiketi. `maxHeight: 160` → `320` (2× daha uzun scroll alanı). `slice(0, 200)` → `slice(0, 500)`.
