@@ -387,7 +387,9 @@ export default function Events() {
                     </button>
                   </CanEdit>
                   </div>
-                  <EventAttendance eventId={e.id} testIdPrefix={`event-att-${e.id}`} />
+                  {e.reminder_enabled !== false && (
+                    <EventAttendance eventId={e.id} testIdPrefix={`event-att-${e.id}`} />
+                  )}
                   {new Date(e.date).getTime() < Date.now() && (
                     <EventResultGallery event={e} />
                   )}
