@@ -247,7 +247,7 @@ export default function Events() {
                   key={e.id}
                   id={`event-${e.id}`}
                   data-testid={EVENTS.card(e.id)}
-                  className={`card-dark row-hover ${e.banner_url ? "overflow-hidden" : "p-3 flex items-center gap-3"}`}
+                  className={`card-dark row-hover ${e.banner_url ? "overflow-hidden" : "p-3 flex flex-col gap-2"}`}
                   variants={{
                     hidden: { opacity: 0, y: 14 },
                     visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } },
@@ -284,7 +284,7 @@ export default function Events() {
                       </div>
                     </div>
                   )}
-                  <div className={e.banner_url ? "p-3 flex items-center gap-3" : "flex-1 flex items-center gap-3"}>
+                  <div className={e.banner_url ? "p-3 flex items-center gap-3" : "flex items-center gap-3"}>
                   <div className="tr-flag" />
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-white truncate flex items-center gap-1.5">
