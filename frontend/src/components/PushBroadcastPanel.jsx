@@ -65,6 +65,7 @@ export default function PushBroadcastPanel() {
   const [scheduleCountry, setScheduleCountry] = useState(""); // country ISO2 filter
   const [sendCountry, setSendCountry] = useState(""); // immediate broadcast country ISO2
   const [alsoTelegram, setAlsoTelegram] = useState(false); // mirror the broadcast to Telegram channel
+  const [lastResult, setLastResult] = useState(null); // { at, push, telegram, country } for the fan-out metric strip
   const [tplModal, setTplModal] = useState(null);
   const [tplModalAt, setTplModalAt] = useState("");
   const [tplModalRepeat, setTplModalRepeat] = useState("");
@@ -302,8 +303,6 @@ export default function PushBroadcastPanel() {
       return null;
     } finally { setBusy(false); }
   };
-
-  const [lastResult, setLastResult] = useState(null); // { at, push, telegram, country }
 
   const send = async () => {
     if (!title.trim() || !body.trim()) { toast.error(t("push_bc_required")); return; }

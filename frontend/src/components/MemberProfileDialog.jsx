@@ -29,6 +29,8 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
   const { data: allianceColors = {} } = useSWR(open ? "/alliance-colors" : null, fetcher);
   const { data: m } = useSWR(memberId && open ? `/members/${memberId}` : null, fetcher);
   const { data: history } = useSWR(memberId && open ? `/members/${memberId}/history` : null, fetcher);
+  const { data: changes } = useSWR(memberId && open ? `/members/${memberId}/changes` : null, fetcher);
+  const { data: attendance } = useSWR(memberId && open ? `/members/${memberId}/attendance-stats?days=30` : null, fetcher);
   const { data: allEvents = [] } = useSWR(open ? "/events?archived=false" : null, fetcher);
   const { data: archivedEvents = [] } = useSWR(open ? "/events?archived=true" : null, fetcher);
 
@@ -305,6 +307,62 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
                 </div>
               ))}
             </div>
+
+            {(attendance?.total > 0 || (changes && changes.length > 0)) && (
+              <div className="mt-3" data-testid="profile-attendance-history">
+                {attendance?.total > 0 && (
+                  <div className="flex items-center gap-2 mb-2 px-1">
+                    <span className="text-[10px] uppercase tracking-widest font-bold gold-text">
+                      {t("attendance_last_30d") || "Son 30 gün Katılım"}
+                    </span>
+                    <div className="flex-1 h-2 rounded overflow-hidden" style={{ background: "#0f0f0f" }}>
+                      <div style={{
+                        width: `${attendance.compliance || 0}%`,
+                        height: "100%",
+                        background: attendance.compliance >= 75 ? "#4ADE80" : attendance.compliance >= 50 ? "#F5A623" : "#F87171",
+                        transition: "width 0.5s ease",
+                      }} />
+                    </div>
+                    <span className="mono text-[11px] font-bold text-white" data-testid="profile-attendance-pct">
+                      {attendance.compliance}%
+                    </span>
+                    <span className="mono text-[9px] text-white/50">
+                      {attendance.attended}/{attendance.total}
+                    </span>
+                  </div>
+                )}
+
+                {changes && changes.length > 0 && (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest font-bold gold-text mb-1 px-1">
+                      {t("change_history_title") || "Değişim Geçmişi"}
+                    </div>
+                    <div className="overflow-y-auto pr-1" style={{ maxHeight: "20vh" }} data-testid="profile-change-log">
+                      {changes.slice(0, 25).map((c) => (
+                        <div key={c.id} className="flex items-center gap-2 text-[11px] mb-1"
+                             data-testid={`profile-change-${c.id}`}
+                             style={{ padding: "4px 8px", background: "rgba(139,92,246,0.06)", border: "1px solid rgba(139,92,246,0.2)", borderRadius: 6 }}>
+                          <span className="text-[9px] uppercase font-bold" style={{ color: "#A78BFA", minWidth: 66 }}>
+                            {c.field}
+                          </span>
+                          <span className="line-through opacity-50 truncate" style={{ color: "#F87171" }} title={String(c.old_value ?? "—")}>
+                            {String(c.old_value ?? "—")}
+                          </span>
+                          <span aria-hidden style={{ color: "#94A3B8" }}>→</span>
+                          <span className="font-bold truncate" style={{ color: "#4ADE80" }} title={String(c.new_value ?? "—")}>
+                            {String(c.new_value ?? "—")}
+                          </span>
+                          <span className="ml-auto text-[9px] whitespace-nowrap" style={{ color: "#94A3B8" }}
+                                title={new Date(c.changed_at).toLocaleString(i18n.language || "tr")}>
+                            {relTime(c.changed_at)} · {c.changed_by}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>

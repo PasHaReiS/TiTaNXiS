@@ -499,15 +499,57 @@ async def batch_create_members(body: BatchCreateBody, _: dict = Depends(require_
 
 
 @api_router.patch("/members/{member_id}")
-async def update_member(member_id: str, body: MemberUpdate, _: dict = Depends(require_edit)):
+async def update_member(member_id: str, body: MemberUpdate, user: dict = Depends(require_edit)):
     update = {k: v for k, v in body.model_dump().items() if v is not None}
     if not update:
         raise HTTPException(400, "Değişiklik yok")
-    res = await db.members.update_one({"id": member_id}, {"$set": update})
-    if res.matched_count == 0:
+    # Read the "before" doc so we can log field-level deltas — powers the
+    # per-member audit trail visible in the profile dialog.
+    before = await db.members.find_one({"id": member_id}, {"_id": 0})
+    if not before:
         raise HTTPException(404, "Üye bulunamadı")
+    await db.members.update_one({"id": member_id}, {"$set": update})
+    await _record_member_changes(member_id, before, update, user)
     doc = await db.members.find_one({"id": member_id}, {"_id": 0})
     return doc
+
+
+# Fields worth auditing. Note-related edits are noisy; skipped intentionally.
+_AUDITED_MEMBER_FIELDS = {"rank", "alliance_name", "alliance_category", "country", "castle_level", "name"}
+
+
+async def _record_member_changes(member_id: str, before: dict, update: dict, user: dict):
+    """Append per-field entries to ``member_changes`` for any audited field diff."""
+    who = user.get("username") or user.get("id") or "?"
+    now = now_iso()
+    entries = []
+    for k, new_v in update.items():
+        if k not in _AUDITED_MEMBER_FIELDS:
+            continue
+        old_v = before.get(k)
+        if old_v == new_v:
+            continue
+        entries.append({
+            "id": str(uuid.uuid4()),
+            "member_id": member_id,
+            "field": k,
+            "old_value": old_v,
+            "new_value": new_v,
+            "changed_at": now,
+            "changed_by": who,
+        })
+    if entries:
+        await db.member_changes.insert_many(entries)
+
+
+@api_router.get("/members/{member_id}/changes")
+async def list_member_changes(member_id: str, limit: int = 50):
+    """Return chronological audit entries (newest first) for a member."""
+    limit = max(1, min(int(limit or 50), 500))
+    docs = await db.member_changes.find(
+        {"member_id": member_id}, {"_id": 0}
+    ).sort("changed_at", -1).to_list(limit)
+    return docs
 
 
 class BulkCountryBody(BaseModel):
@@ -516,7 +558,7 @@ class BulkCountryBody(BaseModel):
 
 
 @api_router.post("/members/bulk-country")
-async def bulk_set_country(body: BulkCountryBody, _: dict = Depends(require_edit)):
+async def bulk_set_country(body: BulkCountryBody, user: dict = Depends(require_edit)):
     """Bulk-assign (or clear) the ``country`` field on many members at once.
 
     - Empty / null country clears the field on the selected members.
@@ -528,8 +570,13 @@ async def bulk_set_country(body: BulkCountryBody, _: dict = Depends(require_edit
     country = (body.country or "").strip().upper() or None
     if country and len(country) != 2:
         raise HTTPException(400, "country ISO 3166-1 alpha-2 (2 harfli) olmalı")
+    # Snapshot for audit before bulk update.
+    before_docs = await db.members.find({"id": {"$in": ids}}, {"_id": 0, "id": 1, "country": 1}).to_list(len(ids))
+    before_map = {d["id"]: d for d in before_docs}
     update_op = {"$set": {"country": country}} if country else {"$unset": {"country": ""}}
     res = await db.members.update_many({"id": {"$in": ids}}, update_op)
+    for mid in ids:
+        await _record_member_changes(mid, before_map.get(mid, {}), {"country": country}, user)
     return {"matched": res.matched_count, "modified": res.modified_count, "country": country}
 
 
@@ -542,7 +589,7 @@ _VALID_RANKS = {"R1", "R2", "R3", "R4", "R5"}
 
 
 @api_router.post("/members/bulk-rank")
-async def bulk_set_rank(body: BulkRankBody, _: dict = Depends(require_edit)):
+async def bulk_set_rank(body: BulkRankBody, user: dict = Depends(require_edit)):
     """Bulk-assign a rank (R1..R5) to many members at once."""
     ids = [i for i in (body.member_ids or []) if i]
     if not ids:
@@ -550,7 +597,11 @@ async def bulk_set_rank(body: BulkRankBody, _: dict = Depends(require_edit)):
     rank = (body.rank or "").strip().upper()
     if rank not in _VALID_RANKS:
         raise HTTPException(400, f"rank must be one of {sorted(_VALID_RANKS)}")
+    before_docs = await db.members.find({"id": {"$in": ids}}, {"_id": 0, "id": 1, "rank": 1}).to_list(len(ids))
+    before_map = {d["id"]: d for d in before_docs}
     res = await db.members.update_many({"id": {"$in": ids}}, {"$set": {"rank": rank}})
+    for mid in ids:
+        await _record_member_changes(mid, before_map.get(mid, {}), {"rank": rank}, user)
     return {"matched": res.matched_count, "modified": res.modified_count, "rank": rank}
 
 
@@ -3354,7 +3405,7 @@ class BulkAllianceBody(BaseModel):
 
 
 @api_router.post("/members/bulk-alliance")
-async def bulk_set_alliance(body: BulkAllianceBody, _: dict = Depends(require_edit)):
+async def bulk_set_alliance(body: BulkAllianceBody, user: dict = Depends(require_edit)):
     """Bulk-transfer members to a different alliance (case-sensitive by design)."""
     ids = [i for i in (body.member_ids or []) if i]
     if not ids:
@@ -3365,8 +3416,74 @@ async def bulk_set_alliance(body: BulkAllianceBody, _: dict = Depends(require_ed
     update_set = {"alliance_name": alliance}
     if body.alliance_category in ("Main", "Academy"):
         update_set["alliance_category"] = body.alliance_category
+    before_docs = await db.members.find({"id": {"$in": ids}}, {"_id": 0, "id": 1, "alliance_name": 1, "alliance_category": 1}).to_list(len(ids))
+    before_map = {d["id"]: d for d in before_docs}
     res = await db.members.update_many({"id": {"$in": ids}}, {"$set": update_set})
+    for mid in ids:
+        await _record_member_changes(mid, before_map.get(mid, {}), update_set, user)
     return {"matched": res.matched_count, "modified": res.modified_count, "alliance_name": alliance}
+
+
+# ---------- Event Attendance ----------
+
+class AttendanceToggleBody(BaseModel):
+    member_id: str
+    attended: Optional[bool] = None  # None = toggle, True/False = explicit set
+
+
+@api_router.post("/events/{event_id}/attendance/toggle")
+async def event_attendance_toggle(event_id: str, body: AttendanceToggleBody, user: dict = Depends(require_edit)):
+    """Mark/unmark a member's attendance for an event.
+
+    Storage: separate ``event_attendance`` collection so we can index either way
+    (event → members or member → events) without event-doc bloat.
+    """
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1})
+    if not ev:
+        raise HTTPException(404, "Etkinlik bulunamadı")
+    mem = await db.members.find_one({"id": body.member_id}, {"_id": 0, "id": 1})
+    if not mem:
+        raise HTTPException(404, "Üye bulunamadı")
+    existing = await db.event_attendance.find_one({"event_id": event_id, "member_id": body.member_id})
+    should_attend = (not existing) if body.attended is None else bool(body.attended)
+    if should_attend and not existing:
+        await db.event_attendance.insert_one({
+            "id": str(uuid.uuid4()),
+            "event_id": event_id,
+            "member_id": body.member_id,
+            "marked_at": now_iso(),
+            "marked_by": user.get("username") or "?",
+        })
+    elif not should_attend and existing:
+        await db.event_attendance.delete_one({"_id": existing["_id"]})
+    return {"event_id": event_id, "member_id": body.member_id, "attended": should_attend}
+
+
+@api_router.get("/events/{event_id}/attendance")
+async def event_attendance_list(event_id: str):
+    """Return the list of member_ids marked as attended for an event."""
+    docs = await db.event_attendance.find({"event_id": event_id}, {"_id": 0}).to_list(5000)
+    return {"event_id": event_id, "count": len(docs), "member_ids": [d["member_id"] for d in docs]}
+
+
+@api_router.get("/members/{member_id}/attendance-stats")
+async def member_attendance_stats(member_id: str, days: int = 30):
+    """Return a compliance % for a member: (attended events / total events in window)."""
+    days = max(1, min(int(days or 30), 365))
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
+    events = await db.events.find(
+        {"date": {"$gte": cutoff}}, {"_id": 0, "id": 1}
+    ).to_list(5000)
+    event_ids = {e["id"] for e in events}
+    total = len(event_ids)
+    if total == 0:
+        return {"attended": 0, "total": 0, "compliance": None, "days": days}
+    attended = await db.event_attendance.count_documents({
+        "member_id": member_id,
+        "event_id": {"$in": list(event_ids)},
+    })
+    compliance = round((attended / total) * 100, 1)
+    return {"attended": attended, "total": total, "compliance": compliance, "days": days}
 
 app.include_router(api_router)
 app.include_router(make_auth_router(db))

@@ -1,5 +1,34 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Katılım Takibi + Üye Değişim Geçmişi — DONE & VERIFIED
+- **Backend — Audit trail (`member_changes`)**:
+  - `_record_member_changes(member_id, before, update, user)` helper — field-level diff logging.
+  - Hook eklendi: `PATCH /members/{id}` + `POST /members/bulk-country|rank|alliance` (4 endpoint) her biri "before" snapshot alıp `_record_member_changes` çağırıyor.
+  - Denetim alanları: `rank, alliance_name, alliance_category, country, castle_level, name` (note gürültüsü hariç).
+  - Yeni endpoint `GET /api/members/{id}/changes?limit=50` — kronolojik geçmiş (yenisi üstte).
+- **Backend — Attendance**:
+  - Yeni collection `event_attendance {id, event_id, member_id, marked_at, marked_by}`.
+  - Endpoint'ler: `POST /events/{event_id}/attendance/toggle {member_id, attended?}`, `GET /events/{event_id}/attendance`, `GET /members/{id}/attendance-stats?days=30`.
+  - Compliance % = `attended / total_events_in_window`.
+- **Frontend — MemberProfileDialog**:
+  - Yeni SWR fetches: `/members/{id}/changes` + `/attendance-stats`.
+  - Etkinlik detay listesinin altında **compliance bar** (yeşil ≥75, altın ≥50, kırmızı <50) + **"Değişim Geçmişi" timeline** (violet kart, field label + old→new + relTime + changed_by).
+- **i18n**: 4 yeni TR/EN key.
+- **Doğrulama (curl)**:
+  - PATCH rank R3→R5 → `/changes` entry ✅ `{field:"rank", old_value:"R3", new_value:"R5", changed_by:"admin"}` (test sonrası R3 restore edildi, 2. audit entry oluştu).
+  - attendance-stats → `{attended:0, total:5, compliance:0.0, days:30}` ✅.
+  - Attendance toggle end-to-end (aşağıdaki test curl doğrulayacak).
+
+
+
+## Backlog / Future — TTS Sesli Bildirim (deferred)
+- **Öneri**: OpenAI TTS-1 üzerinden broadcast metnini seslendir + Telegram DM'e sesli dosya olarak gönder (mevcut Emergent LLM key kullanır).
+- **Tahmini maliyet**: ~$0.015 / 1000 karakter (aylık ~$0.20 pratik kullanım için).
+- **Status**: Kullanıcı "sonra eklenecekler arasında olsun" dedi — 2026-02 tarihinde geri planda. İnşaya başlamak için Universal Key balance'ının pozitif olduğundan emin ol.
+- **İlk implementasyon adımı**: `integration_playbook_expert_v2` → OpenAI TTS; PushBroadcastPanel'e "🔊 TTS Sesli DM" checkbox; backend'de `/telegram/broadcast` route'una `use_tts:bool` param; TTS ile üretilen mp3'ü Telegram `sendVoice`/`sendAudio` ile fan-out.
+
+
+
 ## [2026-02] Broadcast DM Fan-out Metric Strip — DONE & VERIFIED
 - **Frontend PushBroadcastPanel**: `doSend` artık response objesini döndürüyor (önce bool). Yeni `lastResult` state — her başarılı broadcast'ten sonra `{at, push, telegram, country}` capture edilir.
 - **UI**: Send butonunun hemen altında purple/blue gradient banner belirir:
