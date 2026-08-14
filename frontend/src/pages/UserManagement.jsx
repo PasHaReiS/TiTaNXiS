@@ -4,6 +4,7 @@ import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
+import EventNotificationsPanel from "@/components/EventNotificationsPanel";
 import { Plus, Trash2, KeyRound, Shield, User, X, ShieldCheck, PencilLine, Link2, AlertTriangle, Upload, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
@@ -113,6 +114,9 @@ export default function UserManagement() {
             </button>
           </div>
         </div>
+
+        {/* Event Notifications control room — dedicated per-event push reminder panel */}
+        <EventNotificationsPanel />
 
         {/* Unmatched Users panel — highlights accounts without a linked in-game character */}
         <div
