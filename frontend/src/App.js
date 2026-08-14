@@ -22,6 +22,7 @@ import PublicPointCalcPage from "@/pages/PublicPointCalcPage";
 import WidgetLibrary from "@/pages/WidgetLibrary";
 import VipSupport from "@/pages/VipSupport";
 import Dashboard from "@/pages/Dashboard";
+import EventNotifications from "@/pages/EventNotifications";
 import AccessDenied from "@/pages/AccessDenied";
 import Members from "@/pages/Members";
 import Events from "@/pages/Events";
@@ -111,6 +112,7 @@ function AppShell() {
           <Route path="/widget-kitapligi" element={<RequireAuth><MotionPage><WidgetLibrary /></MotionPage></RequireAuth>} />
           <Route path="/vip-destek" element={<MotionPage><VipSupport /></MotionPage>} />
           <Route path="/dashboard" element={<RequireAdminOrEditor><MotionPage><Dashboard /></MotionPage></RequireAdminOrEditor>} />
+          <Route path="/etkinlik-bildirimleri" element={<RequireAdminOrEditor><MotionPage><EventNotifications /></MotionPage></RequireAdminOrEditor>} />
           <Route path="/ocr/history" element={<RequireAdminOrEditor><MotionPage><OcrHistory /></MotionPage></RequireAdminOrEditor>} />
           <Route path="/ittifaklar" element={<RequireAdminOrEditor><MotionPage><Alliances /></MotionPage></RequireAdminOrEditor>} />
           <Route path="*" element={<Navigate to="/" replace />} />

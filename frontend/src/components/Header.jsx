@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound, Activity, Sparkles, LayoutGrid, LifeBuoy, LayoutDashboard, History } from "lucide-react";
+import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound, Activity, Sparkles, LayoutGrid, LifeBuoy, LayoutDashboard, History, BellRing } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import LogoVideoModal from "@/components/LogoVideoModal";
@@ -133,6 +133,14 @@ export default function Header({ title }) {
                       label={t("nav_dashboard") || "Dashboard"}
                       onClick={() => goto("/dashboard")}
                       testId="dropdown-dashboard"
+                    />
+                  )}
+                  {canEdit && (
+                    <MenuItem
+                      icon={BellRing}
+                      label={t("nav_event_notifications") || "Etkinlik Bildirimleri"}
+                      onClick={() => goto("/etkinlik-bildirimleri")}
+                      testId="dropdown-event-notifications"
                     />
                   )}
                   <MenuItem

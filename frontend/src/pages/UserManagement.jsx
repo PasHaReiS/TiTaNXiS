@@ -4,7 +4,6 @@ import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
-import EventNotificationsPanel from "@/components/EventNotificationsPanel";
 import { Plus, Trash2, KeyRound, Shield, User, X, ShieldCheck, PencilLine, Link2, AlertTriangle, Upload, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
@@ -166,8 +165,6 @@ export default function UserManagement() {
         </div>
 
         <div className="space-y-2">
-          {/* Event Notifications panel — sits directly above the user list */}
-          <EventNotificationsPanel />
           {users.map((u) => {
             const linkedList = (u.member_ids || []).map((mid) => memberById[mid]).filter(Boolean);
             return (
