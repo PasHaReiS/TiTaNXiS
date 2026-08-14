@@ -3,7 +3,7 @@ import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
 import { scaleLinear } from "d3-scale";
-import { Globe, MapPin } from "lucide-react";
+import { Globe, MapPin, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { COUNTRY_BY_ISON, COUNTRY_BY_ISO2 } from "@/lib/countries";
 
@@ -18,6 +18,7 @@ export default function MemberLocationMap() {
   const { t } = useTranslation();
   const { data: rows = [] } = useSWR("/dashboard/member-locations", fetcher, { refreshInterval: 60000 });
   const [hoverCode, setHoverCode] = useState(null);
+  const [selectedIso2, setSelectedIso2] = useState(null); // opens the side panel
 
   // Build lookup: ISO numeric → count (for map colour) and ISO2 → count (for list).
   const byIsoN = useMemo(() => {
@@ -84,6 +85,9 @@ export default function MemberLocationMap() {
                       geography={geo}
                       onMouseEnter={() => setHoverCode(isoN)}
                       onMouseLeave={() => setHoverCode(null)}
+                      onClick={() => {
+                        if (count > 0 && meta) setSelectedIso2(meta.iso2);
+                      }}
                       style={{
                         default: {
                           fill,
@@ -135,7 +139,14 @@ export default function MemberLocationMap() {
               const meta = COUNTRY_BY_ISO2[r.country];
               const pct = maxCount > 0 ? Math.round((r.count / maxCount) * 100) : 0;
               return (
-                <div key={r.country} className="flex items-center gap-2 text-xs" data-testid={`legend-row-${r.country}`}>
+                <button
+                  key={r.country}
+                  type="button"
+                  onClick={() => setSelectedIso2(r.country)}
+                  className="flex items-center gap-2 text-xs w-full text-left hover:bg-white/5 rounded px-1 py-0.5 transition"
+                  data-testid={`legend-row-${r.country}`}
+                  title={t("dash_click_to_view_members")}
+                >
                   <span className="w-16 text-white/90 flex items-center gap-1">
                     <span>{meta?.flag || "🏳️"}</span>
                     <span className="font-bold">{r.country}</span>
@@ -151,12 +162,105 @@ export default function MemberLocationMap() {
                     />
                   </div>
                   <span className="w-8 text-right font-bold mono text-white/80">{r.count}</span>
-                </div>
+                </button>
               );
             })}
           </div>
         )}
       </div>
+
+      {selectedIso2 && (
+        <CountryMembersDrawer iso2={selectedIso2} onClose={() => setSelectedIso2(null)} />
+      )}
+    </div>
+  );
+}
+
+/** Right-side drawer showing all members from the selected country. */
+function CountryMembersDrawer({ iso2, onClose }) {
+  const { t } = useTranslation();
+  const meta = COUNTRY_BY_ISO2[iso2];
+  const { data: members = [], isLoading } = useSWR(
+    `/members?country=${encodeURIComponent(iso2)}`,
+    fetcher,
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-stretch justify-end"
+      style={{ background: "rgba(0,0,0,0.55)" }}
+      onClick={onClose}
+      data-testid="country-drawer-backdrop"
+    >
+      <aside
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md h-full overflow-y-auto"
+        style={{
+          background: "linear-gradient(180deg,#181818 0%,#0F0F0F 100%)",
+          borderLeft: "1px solid rgba(245,166,35,0.3)",
+          boxShadow: "-8px 0 30px rgba(0,0,0,0.6)",
+        }}
+        data-testid="country-drawer"
+      >
+        <div className="sticky top-0 flex items-center gap-2 px-4 py-3 border-b border-white/5"
+             style={{ background: "rgba(20,12,10,0.95)", backdropFilter: "blur(6px)" }}>
+          <span className="text-2xl">{meta?.flag || "🏳️"}</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold text-white truncate">{meta?.name || iso2}</div>
+            <div className="text-[10px] uppercase tracking-widest text-white/50">
+              {members.length} {t("dash_member_count_suffix")}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1.5 hover:bg-white/10 transition"
+            data-testid="country-drawer-close"
+            aria-label={t("close") || "Close"}
+          >
+            <X className="w-4 h-4 text-white/70" />
+          </button>
+        </div>
+
+        <div className="p-3">
+          {isLoading && (
+            <div className="text-xs text-white/50 text-center py-4">…</div>
+          )}
+          {!isLoading && members.length === 0 && (
+            <div className="text-xs text-white/50 text-center py-6">{t("no_records_dot")}</div>
+          )}
+          <div className="flex flex-col gap-1.5" data-testid="country-drawer-list">
+            {members.map((m) => (
+              <div
+                key={m.id}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                }}
+                data-testid={`country-drawer-member-${m.id}`}
+              >
+                <span
+                  className={`rank-badge rank-${m.rank || "R1"} flex-shrink-0`}
+                  style={{ width: 26, height: 22, fontSize: 10, borderRadius: 4, fontWeight: 800 }}
+                >
+                  {m.rank || "R1"}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-white truncate" style={{ textTransform: "none" }}>{m.name}</div>
+                  <div className="text-[10px] text-white/50 truncate">
+                    {m.alliance_name || "—"}{m.castle_level ? ` · F${m.castle_level}` : ""}
+                  </div>
+                </div>
+                {m.bireysel_guc ? (
+                  <div className="text-[11px] font-bold mono" style={{ color: "#F5A623" }}>
+                    {new Intl.NumberFormat().format(m.bireysel_guc)}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      </aside>
     </div>
   );
 }

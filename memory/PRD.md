@@ -1,5 +1,26 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Konum Bazlı Bildirim + Harita Ülke Tıklama — DONE & VERIFIED
+- **Backend — Push country targeting**:
+  - `PushBroadcastBody` ve `PushScheduledBody`'ye `country_iso2: Optional[str]` alanı eklendi.
+  - `broadcast_push` fonksiyonuna aynı isim/parametre eklendi. Alliance filter'ıyla aynı intersect mekanizması: ülke ISO2 → o ülkedeki üyeler → o üyelere bağlı user_id'ler → sadece o kullanıcılara push. Var olan grup/ittifak filtreleriyle AND-lenir.
+  - Scheduler loop `country_iso2` da geçiriyor. `/push/broadcast` endpoint body'den okuyor.
+- **Backend — Members country filter**: `/api/members` artık `country=XX` query paramını destekliyor (ISO2 upper). Curl doğrulaması: `?country=US` → 2 üye ✅.
+- **Frontend — PushBroadcastPanel**:
+  - Yeni state `sendCountry` (immediate) + `scheduleCountry` (planlı).
+  - URL input'un hemen altında yeni Globe icon'lu "Ülke" dropdown (75 ülke + bayrak). "×" ile temizlenebilir.
+  - Zamanlanmış hedef satırına da country select eklendi.
+  - Send payload'una `country_iso2` eklendi (hem immediate hem scheduled). Broadcast sonrası `sendCountry` sıfırlanır.
+- **Frontend — MemberLocationMap side drawer**:
+  - Harita `Geography.onClick` (count>0 iken) `selectedIso2` state'ini kurar.
+  - Legend'daki top-5 satır button'a dönüştü, tıklanınca aynı drawer açılır.
+  - `CountryMembersDrawer`: sağdan slide-in panel, sticky header (bayrak + ülke adı + üye sayısı + kapat), `GET /api/members?country=XX` fetch ile üye kartları listesi (rank badge + isim + ittifak + kale seviyesi + bireysel güç formatlı).
+  - Backdrop click ile kapanıyor.
+- **i18n**: 5 yeni key (TR + EN) — `dash_click_to_view_members`, `push_sched_country(_all)`, `push_send_country_label`, `push_send_country_all`.
+- **Curl doğrulama**: `/api/members?country=US` → 2 üye ✅; `/api/push/broadcast {country_iso2:"US"}` → server logs push filtering'i doğru şekilde uyguladı ✅.
+
+
+
 ## [2026-02] Konum Filtresi + Toplu Ülke Ata — DONE & VERIFIED
 - **Backend**: Yeni `POST /api/members/bulk-country {member_ids, country?}` endpoint (`server.py`). Boş/null country → `$unset` (temizler); değilse ISO2 büyük harfe çevirip `$set`. Güvenlik: `require_edit`. Doğrulama (curl): 3 üye JP'ye atandı → `{"matched":3, "modified":3}` ✅, `/dashboard/member-locations` anında güncellendi.
 - **Frontend — Konum Filtresi Çubuğu**:

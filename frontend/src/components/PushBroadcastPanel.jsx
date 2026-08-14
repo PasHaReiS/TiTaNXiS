@@ -3,8 +3,10 @@ import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
-import { Send, BellRing, RotateCw, History, Bookmark, Trash2, Plus, Clock, Calendar, Eye, MousePointerClick, Volume2 } from "lucide-react";
+import { Send, BellRing, RotateCw, History, Bookmark, Trash2, Plus, Clock, Calendar, Eye, MousePointerClick, Volume2, Globe } from "lucide-react";
 import { toast } from "sonner";
+// Country list re-used for both immediate broadcast + scheduled broadcast targeting.
+import { COUNTRIES as PUSH_COUNTRIES } from "@/lib/countries";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -60,6 +62,8 @@ export default function PushBroadcastPanel() {
   const [scheduleRepeat, setScheduleRepeat] = useState("");
   const [scheduleGroup, setScheduleGroup] = useState(""); // event group filter
   const [scheduleAlliance, setScheduleAlliance] = useState(""); // alliance filter
+  const [scheduleCountry, setScheduleCountry] = useState(""); // country ISO2 filter
+  const [sendCountry, setSendCountry] = useState(""); // immediate broadcast country ISO2
   const [tplModal, setTplModal] = useState(null);
   const [tplModalAt, setTplModalAt] = useState("");
   const [tplModalRepeat, setTplModalRepeat] = useState("");
@@ -310,16 +314,23 @@ export default function PushBroadcastPanel() {
           scheduled_at: iso, repeat: scheduleRepeat || null,
           group_name: scheduleGroup || null,
           alliance_name: scheduleAlliance || null,
+          country_iso2: scheduleCountry || null,
           sound: testSoundKey,
         });
         toast.success(t("push_sched_created", { at: new Date(scheduleAt).toLocaleString() }));
-        setTitle(""); setBody(""); setScheduleAt(""); setScheduleRepeat(""); setScheduleGroup(""); setScheduleAlliance("");
+        setTitle(""); setBody(""); setScheduleAt(""); setScheduleRepeat(""); setScheduleGroup(""); setScheduleAlliance(""); setScheduleCountry("");
         refreshScheduled();
       } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
       return;
     }
-    const ok = await doSend({ title: title.trim(), body: body.trim(), url: url.trim() || "/", tag: "manual-broadcast" });
-    if (ok) { setTitle(""); setBody(""); }
+    const ok = await doSend({
+      title: title.trim(),
+      body: body.trim(),
+      url: url.trim() || "/",
+      tag: "manual-broadcast",
+      country_iso2: sendCountry || null,
+    });
+    if (ok) { setTitle(""); setBody(""); setSendCountry(""); }
   };
 
   const cancelScheduled = async (id) => {
@@ -625,6 +636,35 @@ export default function PushBroadcastPanel() {
           className="w-full rounded px-3 py-2 text-xs mono"
           style={{ background: "#1A1210", border: "1px solid rgba(255,255,255,0.12)", color: "#F5F0E8" }}
         />
+        <div className="flex items-center gap-1.5" data-testid="push-bc-country-row">
+          <label className="text-[10px] uppercase tracking-widest flex items-center gap-1" style={{ color: "#F5A623" }}>
+            <Globe className="w-3 h-3" /> {t("push_send_country_label")}:
+          </label>
+          <select
+            value={sendCountry}
+            onChange={(e) => setSendCountry(e.target.value)}
+            data-testid="push-bc-country-select"
+            className="flex-1 rounded px-2 py-1.5 text-xs"
+            style={{ background: "#1A1210", border: "1px solid rgba(245,166,35,0.4)", color: "#F5F0E8" }}
+          >
+            <option value="">{t("push_send_country_all")}</option>
+            {PUSH_COUNTRIES.map((c) => (
+              <option key={c.iso2} value={c.iso2}>{c.flag}  {c.name} ({c.iso2})</option>
+            ))}
+          </select>
+          {sendCountry && (
+            <button
+              type="button"
+              onClick={() => setSendCountry("")}
+              data-testid="push-bc-country-clear"
+              className="px-2 py-1.5 rounded text-[10px]"
+              style={{ background: "#1A1210", color: "#F5F0E8", opacity: 0.6 }}
+              title={t("cancel")}
+            >
+              ×
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-1.5">
           <label className="text-[10px] uppercase tracking-widest flex items-center gap-1" style={{ color: "#A855F7" }}>
             <Clock className="w-3 h-3" /> {t("push_sched_when")}:
@@ -700,6 +740,19 @@ export default function PushBroadcastPanel() {
             >
               <option value="">{t("push_sched_alliance_all")}</option>
               {(alliances || []).map((a) => (<option key={a} value={a}>{a}</option>))}
+            </select>
+            <select
+              value={scheduleCountry}
+              onChange={(e) => setScheduleCountry(e.target.value)}
+              data-testid="push-sched-country-select"
+              className="rounded px-2 py-1 text-[10px]"
+              style={{ background: "#1A1210", color: "#F5F0E8", border: "1px solid rgba(236,72,153,0.4)", minWidth: 140 }}
+              title={t("push_sched_country")}
+            >
+              <option value="">{t("push_sched_country_all")}</option>
+              {PUSH_COUNTRIES.map((c) => (
+                <option key={c.iso2} value={c.iso2}>{c.flag} {c.name}</option>
+              ))}
             </select>
             <span
               data-testid="push-sched-sound-dot"

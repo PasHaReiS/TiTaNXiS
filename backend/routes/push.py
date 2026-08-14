@@ -60,6 +60,7 @@ class PushScheduledBody(BaseModel):
     repeat: Optional[str] = None  # 'daily' | 'weekly' | None
     group_name: Optional[str] = None
     alliance_name: Optional[str] = None
+    country_iso2: Optional[str] = None  # 2-letter ISO code; only reaches users linked to members from this country
     sound: Optional[str] = "rally"
 
 
@@ -72,6 +73,7 @@ class PushBroadcastBody(BaseModel):
     body: str
     url: Optional[str] = "/"
     tag: Optional[str] = "titanxis"
+    country_iso2: Optional[str] = None  # Optional country targeting (ISO 3166-1 alpha-2)
 
 
 class PushTestBody(BaseModel):
@@ -179,6 +181,7 @@ def register_push(api_router: APIRouter, db, require_auth, require_admin, logger
     async def broadcast_push(
         title: str, body: str, url: str = "/", tag: str = "titanxis",
         group_name: Optional[str] = None, alliance_name: Optional[str] = None,
+        country_iso2: Optional[str] = None,
         sound: Optional[str] = None,
     ):
         priv_b64, _pub = await get_or_create_vapid(db)
@@ -219,6 +222,31 @@ def register_push(api_router: APIRouter, db, require_auth, require_admin, logger
                 if m.get("user_id"):
                     alliance_user_ids.add(m["user_id"])
             allowed_users = alliance_user_ids if allowed_users is None else (allowed_users & alliance_user_ids)
+
+        # Country-based targeting: same mechanism as alliance — find members with the
+        # requested ISO2, then intersect with users linked to those member ids.
+        country_norm = (country_iso2 or "").strip().upper() or None
+        if country_norm and len(country_norm) == 2:
+            country_member_docs = await db.members.find(
+                {"country": country_norm}, {"_id": 0, "id": 1, "user_id": 1}
+            ).to_list(5000)
+            country_member_ids = {m["id"] for m in country_member_docs if m.get("id")}
+            country_user_ids: set = set()
+            user_docs_c = await db.users.find(
+                {}, {"_id": 0, "id": 1, "member_ids": 1, "member_id": 1, "notification_member_ids": 1}
+            ).to_list(5000)
+            for u in user_docs_c:
+                linked = list(u.get("member_ids") or [])
+                if u.get("member_id"):
+                    linked.append(u["member_id"])
+                notif_opt = list(u.get("notification_member_ids") or [])
+                effective = notif_opt if notif_opt else linked
+                if any(mid in country_member_ids for mid in effective):
+                    country_user_ids.add(u["id"])
+            for m in country_member_docs:
+                if m.get("user_id"):
+                    country_user_ids.add(m["user_id"])
+            allowed_users = country_user_ids if allowed_users is None else (allowed_users & country_user_ids)
 
         hid = str(uuid.uuid4())
         if not subs:
@@ -293,6 +321,7 @@ def register_push(api_router: APIRouter, db, require_auth, require_admin, logger
                             tag=f"scheduled-{doc['id']}",
                             group_name=doc.get("group_name"),
                             alliance_name=doc.get("alliance_name"),
+                            country_iso2=doc.get("country_iso2"),
                             sound=doc.get("sound") or "rally",
                         )
                         repeat = doc.get("repeat")
@@ -477,7 +506,10 @@ def register_push(api_router: APIRouter, db, require_auth, require_admin, logger
 
     @api_router.post("/push/broadcast")
     async def push_broadcast(body: PushBroadcastBody, _: dict = Depends(require_admin)):
-        return await broadcast_push(body.title, body.body, body.url or "/", body.tag or "titanxis")
+        return await broadcast_push(
+            body.title, body.body, body.url or "/", body.tag or "titanxis",
+            country_iso2=body.country_iso2,
+        )
 
     @api_router.post("/push/broadcast/test")
     async def push_broadcast_test(body: PushTestBody, user: dict = Depends(require_admin)):

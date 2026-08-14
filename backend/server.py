@@ -291,7 +291,7 @@ async def health():
 
 # ---------- Members ----------
 @api_router.get("/members")
-async def list_members(search: Optional[str] = None):
+async def list_members(search: Optional[str] = None, country: Optional[str] = None):
     query = {}
     if search:
         query = {"$or": [
@@ -299,6 +299,9 @@ async def list_members(search: Optional[str] = None):
             {"member_id": {"$regex": search, "$options": "i"}},
             {"alliance_name": {"$regex": search, "$options": "i"}}
         ]}
+    if country:
+        # Case-insensitive ISO2 filter; forced upper to match how we persist.
+        query["country"] = (country or "").strip().upper()
     docs = await db.members.find(query, {"_id": 0}).to_list(1000)
     return docs
 
