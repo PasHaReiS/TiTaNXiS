@@ -3221,6 +3221,69 @@ async def push_test(body: PushTestBody, user: dict = Depends(require_admin)):
     return result
 
 
+@api_router.get("/telegram/dm-status")
+async def telegram_dm_status(user: dict = Depends(require_auth)):
+    """Diagnostic: returns exactly WHY the current admin's Telegram DM may or
+    may not work. Powers the "Telegram Kurulum" card so the user can self-fix
+    without waiting on support.
+
+    Returns:
+      bot_configured        — TELEGRAM_BOT_TOKEN set on server
+      bot_username          — human handle for the /start deep-link
+      user_chat_id          — chat_id linked via Login Widget on user profile
+      user_telegram_username — @handle stored on user profile
+      chat_map_hit          — chat_id captured via /start webhook fallback
+      linked_member_ids     — members attached to this user
+      ready_for_dm          — final overall verdict
+      next_step             — human-readable action to unlock DM
+    """
+    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    bot_username = os.environ.get("TELEGRAM_BOT_USERNAME", "TiTaNXiS_BoT").strip()
+    channel = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+
+    udoc = await db.users.find_one(
+        {"id": user["id"]},
+        {"_id": 0, "username": 1, "telegram_chat_id": 1, "telegram_username": 1,
+         "telegram_id": 1, "member_ids": 1, "member_id": 1}
+    ) or {}
+    chat_id = udoc.get("telegram_chat_id")
+    handle = (udoc.get("telegram_username") or "").strip().lstrip("@").strip()
+    chat_map_hit = None
+    if handle:
+        entry = await db.telegram_chat_map.find_one(
+            {"username_lc": handle.lower()}, {"_id": 0, "chat_id": 1, "updated_at": 1}
+        )
+        if entry and entry.get("chat_id"):
+            chat_map_hit = entry["chat_id"]
+    linked = list(udoc.get("member_ids") or [])
+    if udoc.get("member_id"):
+        linked.append(udoc["member_id"])
+    ready = bool(bot_token and (chat_id or chat_map_hit))
+    if not bot_token:
+        step = "Sunucuda TELEGRAM_BOT_TOKEN yapılandırılmamış — admine bildir"
+    elif chat_id:
+        step = "Hazır — DM'ler Telegram Login Widget aracılığıyla gidiyor"
+    elif chat_map_hit:
+        step = "Hazır — DM'ler @kullanıcı adı üzerinden gidiyor"
+    elif handle:
+        step = f"Son adım: @{bot_username}'a Telegram'dan bir kere /start gönder"
+    else:
+        step = "Profil sayfandan Telegram Login Widget'ı ile bağlan VEYA profil sayfasına Telegram @kullanıcı adını yaz ve @{bot} bota /start at".format(bot=bot_username)
+    return {
+        "bot_configured": bool(bot_token),
+        "channel_configured": bool(channel),
+        "bot_username": bot_username,
+        "bot_start_url": f"https://t.me/{bot_username}",
+        "user_chat_id": chat_id,
+        "user_telegram_username": handle or None,
+        "chat_map_hit": chat_map_hit,
+        "chat_map_count_global": await db.telegram_chat_map.count_documents({}),
+        "linked_member_ids": linked,
+        "ready_for_dm": ready,
+        "next_step": step,
+    }
+
+
 class PushSnoozeBody(BaseModel):
     minutes: int = 15
 

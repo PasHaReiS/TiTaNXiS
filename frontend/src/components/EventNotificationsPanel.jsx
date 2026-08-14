@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import useSWR, { mutate } from "swr";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { BellRing, Trash2, Clock, Calendar, Users, ChevronDown, ChevronUp, TestTube2 } from "lucide-react";
+import { BellRing, Trash2, Clock, Calendar, Users, ChevronDown, ChevronUp, TestTube2, AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react";
 import { api, apiErr } from "@/lib/api";
 import EventReminderDialog from "@/components/EventReminderDialog";
 
@@ -27,6 +27,7 @@ export default function EventNotificationsPanel() {
     fetcher,
     { refreshInterval: 30000 }
   );
+  const { data: dmStatus } = useSWR("/telegram/dm-status", fetcher, { refreshInterval: 20000 });
   const [reminderFor, setReminderFor] = useState(null);
 
   // Only active events (not archived) that are also reminder-enabled — the
@@ -169,6 +170,71 @@ export default function EventNotificationsPanel() {
       <p className="text-[11px] text-muted-foreground mb-3 leading-snug">
         {t("event_notif_panel_desc") || "Her aktif etkinlik için önceden hatırlatma kur (5dk, 15dk, 30dk, 1s, 2s, 24s öncesine kadar). Bildirimler sadece etkinliğe katılıyor olarak işaretlenmiş üyelerin bağlı hesaplarına push olarak gider."}
       </p>
+
+      {/* Telegram DM Diagnostic Card — surfaces the exact reason why the
+          current admin might not be receiving Telegram DMs so they can
+          self-fix without opening a support ticket. */}
+      {dmStatus && (
+        <div
+          data-testid="event-notif-dm-status"
+          className="mb-3 rounded p-2.5 text-[11px]"
+          style={{
+            background: dmStatus.ready_for_dm ? "rgba(16,185,129,0.08)" : "rgba(245,158,11,0.10)",
+            border: `1px solid ${dmStatus.ready_for_dm ? "rgba(16,185,129,0.35)" : "rgba(245,158,11,0.45)"}`,
+          }}
+        >
+          <div className="flex items-start gap-2">
+            {dmStatus.ready_for_dm
+              ? <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#6EE7B7" }} />
+              : <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#F5A623" }} />}
+            <div className="flex-1 min-w-0">
+              <div className="font-bold" style={{ color: dmStatus.ready_for_dm ? "#6EE7B7" : "#F5A623" }}>
+                {dmStatus.ready_for_dm
+                  ? (t("dm_ready_title") || "Telegram DM'e hazırsın")
+                  : (t("dm_setup_title") || "Telegram DM'in aktif değil")}
+              </div>
+              <p className="mt-0.5 leading-snug opacity-90" data-testid="event-notif-dm-next-step">
+                {dmStatus.next_step}
+              </p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                <span className={`px-1.5 py-0.5 rounded font-bold text-[9px]`}
+                      style={{ background: dmStatus.bot_configured ? "rgba(16,185,129,0.20)" : "rgba(239,68,68,0.20)",
+                               color: dmStatus.bot_configured ? "#6EE7B7" : "#F87171" }}>
+                  BOT {dmStatus.bot_configured ? "✓" : "✗"}
+                </span>
+                <span className="px-1.5 py-0.5 rounded font-bold text-[9px]"
+                      style={{ background: dmStatus.channel_configured ? "rgba(16,185,129,0.20)" : "rgba(148,163,184,0.15)",
+                               color: dmStatus.channel_configured ? "#6EE7B7" : "#94A3B8" }}>
+                  KANAL {dmStatus.channel_configured ? "✓" : "—"}
+                </span>
+                <span className="px-1.5 py-0.5 rounded font-bold text-[9px]"
+                      style={{ background: dmStatus.user_chat_id ? "rgba(16,185,129,0.20)" : "rgba(148,163,184,0.15)",
+                               color: dmStatus.user_chat_id ? "#6EE7B7" : "#94A3B8" }}>
+                  LOGIN {dmStatus.user_chat_id ? "✓" : "—"}
+                </span>
+                <span className="px-1.5 py-0.5 rounded font-bold text-[9px]"
+                      style={{ background: dmStatus.chat_map_hit ? "rgba(16,185,129,0.20)" : "rgba(148,163,184,0.15)",
+                               color: dmStatus.chat_map_hit ? "#6EE7B7" : "#94A3B8" }}>
+                  /START {dmStatus.chat_map_hit ? "✓" : "—"}
+                </span>
+                {!dmStatus.ready_for_dm && dmStatus.bot_username && (
+                  <a
+                    href={dmStatus.bot_start_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    data-testid="event-notif-dm-start-link"
+                    className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded font-bold text-[10px]"
+                    style={{ background: "rgba(59,130,246,0.20)", color: "#93C5FD", border: "1px solid rgba(59,130,246,0.45)" }}
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    @{dmStatus.bot_username}'a /start at
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Test button — instantly delivers a sanity notification across all channels */}
       <div className="mb-3 flex items-center gap-2 flex-wrap">
