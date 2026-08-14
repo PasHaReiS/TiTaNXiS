@@ -1,5 +1,15 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Çoklu Hatırlatma Seçimi — DONE & VERIFIED
+- **EventReminderDialog**: Tek `leadMin` → çoklu `leadMinSet` (Set). Chip'ler toggle davranışı (✓ ile aktif gösterim). Body kopyası her zaman en büyük seçili lead'e göre güncellenir.
+- **fireTimes memo**: Seçili tüm lead'ler için hesaplanan (min, at, isPast) listesi — panel'de her satırda "−60dk / 21:00" formatında + geçmiş olanlar kırmızı üstü çizili + "geçmiş, atlanacak" etiketi.
+- **Submit loop**: Sıra sıra `/push/scheduled` POST — past olanlar sessizce atlanır. Toast: "{count} hatırlatma planlandı, {skipped} geçmiş atlandı".
+- **Button label**: Dinamik — "3 Hatırlatma Kur" (aktif count).
+- **i18n**: 4 yeni TR/EN key (multi_scheduled, schedule_multi, past_skip, lead_hint).
+- **Curl simülasyonu**: 3 lead (60/30/15) için POST /push/scheduled × 3 → hepsi event_id ile persist ✅. Cleanup temizlendi.
+
+
+
 ## [2026-02] Event Saati + Attendance-Filtreli Hatırlatma — DONE & VERIFIED
 - **Backend**:
   - `routes/push.py`: `PushScheduledBody` + `broadcast_push` fonksiyonu `event_id` alanı kazandı. Yeni filter block — event_attendance collection'ından attending member_id'ler → linked user_id'ler → allowed_users intersect. Diğer filtrelerle AND.
