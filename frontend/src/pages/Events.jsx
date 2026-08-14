@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import ImageDropzone from "@/components/ImageDropzone";
 import OcrDialog from "@/components/OcrDialog";
+import EventAttendance from "@/components/EventAttendance";
 import { groupColor, groupBgTint } from "@/lib/groupColors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -358,6 +359,7 @@ export default function Events() {
                     </button>
                   </CanEdit>
                   </div>
+                  <EventAttendance eventId={e.id} testIdPrefix={`event-att-${e.id}`} />
                 </motion.div>
                 );
               })}

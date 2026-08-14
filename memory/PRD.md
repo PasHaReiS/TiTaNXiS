@@ -1,5 +1,17 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Etkinlik Sayfası Attendance UI — DONE & VERIFIED
+- **Yeni bileşen** `/app/frontend/src/components/EventAttendance.jsx`: Etkinlik kartının altına collapsible attendance kontrolü.
+  - **Collapsed**: Ikonlu "Katılım: N/M · progress bar · N%" toggle satırı (renk yeşil/altın/kırmızı).
+  - **Expanded**: Arama kutusu + `/api/members` üzerinden çekilen tüm üye chip'leri. Katılanlar en üstte, isim alfabetik. Chip'e tıklama → optimistic update + `POST /events/{id}/attendance/toggle`. Hata durumunda revalidate ile geri alma.
+  - `CanEdit` sarmalı — user editor değilse read-only hint gösteriliyor.
+  - Compliance stats cache invalidate (member attendance-stats) her toggle sonrası.
+- **Events.jsx**: `EventAttendance` import + her etkinlik kartına `<EventAttendance eventId={e.id} .../>` eklendi.
+- **i18n**: 2 yeni TR/EN key (`attendance`, `attendance_readonly_hint`).
+- **Doğrulama**: Ekran görüntüsü + curl `/events/{id}/attendance` çalışıyor ✅. Backend endpoint'i önceki turn'de zaten test edildi.
+
+
+
 ## [2026-02] Katılım Takibi + Üye Değişim Geçmişi — DONE & VERIFIED
 - **Backend — Audit trail (`member_changes`)**:
   - `_record_member_changes(member_id, before, update, user)` helper — field-level diff logging.
