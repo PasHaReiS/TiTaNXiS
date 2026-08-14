@@ -64,6 +64,7 @@ export default function PushBroadcastPanel() {
   const [scheduleAlliance, setScheduleAlliance] = useState(""); // alliance filter
   const [scheduleCountry, setScheduleCountry] = useState(""); // country ISO2 filter
   const [sendCountry, setSendCountry] = useState(""); // immediate broadcast country ISO2
+  const [alsoTelegram, setAlsoTelegram] = useState(false); // mirror the broadcast to Telegram channel
   const [tplModal, setTplModal] = useState(null);
   const [tplModalAt, setTplModalAt] = useState("");
   const [tplModalRepeat, setTplModalRepeat] = useState("");
@@ -330,6 +331,24 @@ export default function PushBroadcastPanel() {
       tag: "manual-broadcast",
       country_iso2: sendCountry || null,
     });
+    // Mirror to Telegram channel if the "Also send via Telegram" toggle is on.
+    // Fires in parallel — a Telegram failure doesn't block the push success toast.
+    if (ok && alsoTelegram) {
+      try {
+        const tg = await api.post("/telegram/broadcast", {
+          title: title.trim(),
+          body: body.trim(),
+          country_iso2: sendCountry || null,
+        });
+        if (tg.data?.sent) {
+          toast.success(t("push_bc_telegram_sent", { count: tg.data.matched_members ?? 0 }));
+        } else {
+          toast.error(t("push_bc_telegram_failed"));
+        }
+      } catch (e) {
+        toast.error(e?.response?.data?.detail || e.message);
+      }
+    }
     if (ok) { setTitle(""); setBody(""); setSendCountry(""); }
   };
 
@@ -665,6 +684,23 @@ export default function PushBroadcastPanel() {
             </button>
           )}
         </div>
+        <label
+          className="flex items-center gap-2 text-[11px] cursor-pointer select-none px-2 py-1 rounded"
+          style={{ background: alsoTelegram ? "rgba(37,159,235,0.12)" : "transparent", border: `1px solid ${alsoTelegram ? "rgba(37,159,235,0.5)" : "rgba(255,255,255,0.06)"}` }}
+          data-testid="push-bc-telegram-row"
+        >
+          <input
+            type="checkbox"
+            checked={alsoTelegram}
+            onChange={(e) => setAlsoTelegram(e.target.checked)}
+            data-testid="push-bc-telegram-toggle"
+            className="cursor-pointer"
+            style={{ accentColor: "#259FEB" }}
+          />
+          <span style={{ color: alsoTelegram ? "#8BD3FF" : "#F5F0E8" }}>
+            ✈️ {t("push_bc_also_telegram")}
+          </span>
+        </label>
         <div className="flex items-center gap-1.5">
           <label className="text-[10px] uppercase tracking-widest flex items-center gap-1" style={{ color: "#A855F7" }}>
             <Clock className="w-3 h-3" /> {t("push_sched_when")}:

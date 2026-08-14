@@ -533,6 +533,27 @@ async def bulk_set_country(body: BulkCountryBody, _: dict = Depends(require_edit
     return {"matched": res.matched_count, "modified": res.modified_count, "country": country}
 
 
+class BulkRankBody(BaseModel):
+    member_ids: List[str]
+    rank: str  # one of R1..R5
+
+
+_VALID_RANKS = {"R1", "R2", "R3", "R4", "R5"}
+
+
+@api_router.post("/members/bulk-rank")
+async def bulk_set_rank(body: BulkRankBody, _: dict = Depends(require_edit)):
+    """Bulk-assign a rank (R1..R5) to many members at once."""
+    ids = [i for i in (body.member_ids or []) if i]
+    if not ids:
+        raise HTTPException(400, "Üye seçilmedi")
+    rank = (body.rank or "").strip().upper()
+    if rank not in _VALID_RANKS:
+        raise HTTPException(400, f"rank must be one of {sorted(_VALID_RANKS)}")
+    res = await db.members.update_many({"id": {"$in": ids}}, {"$set": {"rank": rank}})
+    return {"matched": res.matched_count, "modified": res.modified_count, "rank": rank}
+
+
 @api_router.delete("/members/{member_id}")
 async def delete_member(member_id: str, _: dict = Depends(require_edit)):
     res = await db.members.delete_one({"id": member_id})
@@ -3165,7 +3186,7 @@ except Exception as _e:
     logging.getLogger("uploads").warning(f"init_storage at import: {_e}")
 
 # ---------------- Telegram bot webhook -------------------------------------
-from telegram_bot import init_bot, setup_webhook, process_update, send_event_notification, send_daily_briefing, send_weekly_summary  # noqa: E402
+from telegram_bot import init_bot, setup_webhook, process_update, send_event_notification, send_daily_briefing, send_weekly_summary, send_message  # noqa: E402
 init_bot(db)
 
 
@@ -3203,6 +3224,43 @@ async def cron_telegram_weekly_summary():
     """Platform cron trigger for the Monday 08:00 TR weekly summary."""
     ok = await send_weekly_summary(db)
     return {"sent": ok}
+
+
+class TelegramBroadcastBody(BaseModel):
+    title: str
+    body: str
+    country_iso2: Optional[str] = None  # optional ISO2 filter
+
+
+@api_router.post("/telegram/broadcast")
+async def telegram_broadcast(body: TelegramBroadcastBody, _: dict = Depends(require_admin)):
+    """Send a message to the configured Telegram channel, optionally scoped to a country.
+
+    When ``country_iso2`` is provided the message body is prefixed with a country
+    header (flag + name) and appended with the list of member names from that
+    country so the channel context matches the country-based Web-Push broadcast.
+    """
+    import os as _os
+    channel = _os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+    if not channel:
+        raise HTTPException(400, "TELEGRAM_CHANNEL_ID env değeri yapılandırılmamış")
+    country = (body.country_iso2 or "").strip().upper() or None
+    header_lines = [f"📣 *{body.title.strip()}*", "", body.body.strip()]
+    matched_names: List[str] = []
+    if country and len(country) == 2:
+        docs = await db.members.find({"country": country}, {"_id": 0, "name": 1}).to_list(1000)
+        matched_names = sorted([d.get("name") or "?" for d in docs])
+        header_lines = [f"📣 *{body.title.strip()}* — 🌍 `{country}` ({len(matched_names)} üye)", "", body.body.strip()]
+        if matched_names:
+            header_lines.append("")
+            # Show up to 20 names, then "…" summary for the rest.
+            visible = matched_names[:20]
+            header_lines.append("👥 " + ", ".join(visible))
+            if len(matched_names) > 20:
+                header_lines.append(f"…+{len(matched_names) - 20}")
+    text = "\n".join(header_lines)
+    ok = await send_message(channel, text)
+    return {"sent": bool(ok), "country": country, "matched_members": len(matched_names)}
 
 app.include_router(api_router)
 app.include_router(make_auth_router(db))

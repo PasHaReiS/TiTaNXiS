@@ -291,6 +291,23 @@ export default function Members() {
     }
   };
 
+  const [bulkRank, setBulkRank] = useState("R3");
+  const applyBulkRank = async () => {
+    if (selectedIds.size === 0) { toast.error(t("bulk_country_select_first")); return; }
+    try {
+      const res = await api.post("/members/bulk-rank", {
+        member_ids: [...selectedIds],
+        rank: bulkRank,
+      });
+      toast.success(t("bulk_rank_done", { count: res.data?.modified ?? 0, rank: bulkRank }));
+      mutate((k) => typeof k === "string" && k.startsWith("/members"));
+      setSelectedIds(new Set());
+      setSelectionMode(false);
+    } catch (e) {
+      toast.error(apiErr(e));
+    }
+  };
+
   return (
     <div data-testid={MEMBERS.container}>
       <Header title={t("members")} />
@@ -486,6 +503,35 @@ export default function Members() {
                 style={selectedIds.size === 0 ? { opacity: 0.4 } : {}}
               >
                 <Globe className="w-3.5 h-3.5" /> {t("bulk_country_apply")}
+              </button>
+            </div>
+            <div className="flex items-center gap-1.5 w-full sm:w-auto sm:ml-2 pl-2 sm:border-l border-white/10">
+              <label className="text-[10px] uppercase tracking-widest font-bold" style={{ color: "#F5A623" }}>
+                {t("bulk_rank_label")}:
+              </label>
+              <div className="flex gap-1">
+                {RANKS.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    data-testid={`bulk-rank-${r}`}
+                    onClick={() => setBulkRank(r)}
+                    className={`chip text-[10px] ${bulkRank === r ? "active" : ""}`}
+                    style={{ minWidth: 28, justifyContent: "center" }}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                data-testid="bulk-rank-apply"
+                onClick={applyBulkRank}
+                disabled={selectedIds.size === 0}
+                className="btn-gold text-[11px] flex items-center gap-1.5"
+                style={selectedIds.size === 0 ? { opacity: 0.4 } : {}}
+              >
+                <Shield className="w-3.5 h-3.5" /> {t("bulk_rank_apply")}
               </button>
             </div>
           </div>

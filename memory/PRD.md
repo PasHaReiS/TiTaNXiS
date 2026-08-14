@@ -1,5 +1,15 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Ülke Bazlı Telegram + Toplu Rütbe Ata — DONE & VERIFIED
+- **Backend — Telegram country broadcast**: Yeni `POST /api/telegram/broadcast {title, body, country_iso2?}` endpoint (`server.py`). `TELEGRAM_CHANNEL_ID` env'ini kullanır, country verilirse üye adlarını da (max 20 + "+N") mesaja ekler. `send_message` fonksiyonu `telegram_bot`'tan import edildi. Curl: `country_iso2:"US"` → HTTP 200, `{sent:true, matched_members:2}` ✅.
+- **Backend — Bulk rank**: Yeni `BulkRankBody` + `POST /api/members/bulk-rank {member_ids, rank}`. Sadece `R1..R5` valid; `require_edit`. Curl: 2 US üyeye R5 atandı → `{matched:2, modified:2}` ✅ (test sonrası R3'e geri alındı).
+- **Frontend — PushBroadcastPanel**: Ülke dropdown'unun altına ✈️ "Telegram kanalına da gönder" checkbox (mavi Telegram teması). Aktifken send butonuna basınca paralel olarak `/telegram/broadcast` de çağrılır, ayrı toast bilgilendirme.
+- **Frontend — Members bulk toolbar**: Ülke satırının sağında `RANKS` chip'leri (R1-R5) + "Rütbeyi Ata" gold butonu. Selected count > 0 iken aktif, aksi durumda opacity 0.4. Apply sonrası cache invalidation + selection mode kapanır.
+- **i18n**: 6 yeni key TR + EN (`push_bc_also_telegram`, `push_bc_telegram_sent/failed`, `bulk_rank_label`, `bulk_rank_apply`, `bulk_rank_done`).
+- **Not**: Telegram broadcast HERKES için değil KANAL için mesaj gönderiyor çünkü users collection'ında `telegram_chat_id` alanı yok. Country filter mesaj başlığında ve üye listesinde görsel bağlam sağlar; kanalı okuyan herkes ilgili ülke bilgisini görür.
+
+
+
 ## [2026-02] Konum Bazlı Bildirim + Harita Ülke Tıklama — DONE & VERIFIED
 - **Backend — Push country targeting**:
   - `PushBroadcastBody` ve `PushScheduledBody`'ye `country_iso2: Optional[str]` alanı eklendi.
