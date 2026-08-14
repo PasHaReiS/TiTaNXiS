@@ -144,14 +144,15 @@ export default function Events() {
           <button
             data-testid="events-tab-reminded"
             onClick={() => setTab("reminded")}
-            className="flex items-center justify-center gap-1.5 transition-all"
+            className="flex flex-col items-center justify-center transition-all"
             style={{
               flex: "41",
-              padding: "10px 8px",
-              fontSize: "13px",
+              padding: "6px 4px",
+              fontSize: "11px",
               fontWeight: 800,
-              letterSpacing: "1.5px",
+              letterSpacing: "1.2px",
               textTransform: "uppercase",
+              lineHeight: 1.15,
               background: tab === "reminded"
                 ? "linear-gradient(180deg, rgba(249,115,22,0.28), rgba(180,83,9,0.45))"
                 : "rgba(20,15,25,0.65)",
@@ -164,20 +165,24 @@ export default function Events() {
               opacity: tab === "reminded" ? 1 : 0.7,
             }}
           >
-            <BellRing className="w-4 h-4" style={{ color: tab === "reminded" ? "#FCD34D" : "#78716C" }} />
-            <span>Hatırlatmalı ({remindedCount})</span>
+            <span className="flex items-center gap-1">
+              <BellRing className="w-3.5 h-3.5" style={{ color: tab === "reminded" ? "#FCD34D" : "#78716C" }} />
+              <span>Hatırlatmalı</span>
+            </span>
+            <span className="mono text-[10px] opacity-90">({remindedCount})</span>
           </button>
           <button
             data-testid="events-tab-unreminded"
             onClick={() => setTab("unreminded")}
-            className="flex items-center justify-center gap-1.5 transition-all"
+            className="flex flex-col items-center justify-center transition-all"
             style={{
               flex: "41",
-              padding: "10px 8px",
-              fontSize: "13px",
+              padding: "6px 4px",
+              fontSize: "11px",
               fontWeight: 800,
-              letterSpacing: "1.5px",
+              letterSpacing: "1.2px",
               textTransform: "uppercase",
+              lineHeight: 1.15,
               background: tab === "unreminded"
                 ? "linear-gradient(180deg, rgba(129,140,248,0.24), rgba(76,29,149,0.38))"
                 : "rgba(20,15,25,0.65)",
@@ -190,20 +195,24 @@ export default function Events() {
               opacity: tab === "unreminded" ? 1 : 0.7,
             }}
           >
-            <BellOff className="w-4 h-4" />
-            <span>Hatırlatmasız ({unremindedCount})</span>
+            <span className="flex items-center gap-1">
+              <BellOff className="w-3.5 h-3.5" />
+              <span>Hatırlatmasız</span>
+            </span>
+            <span className="mono text-[10px] opacity-90">({unremindedCount})</span>
           </button>
           <button
             data-testid={EVENTS.tabArchived}
             onClick={() => setTab("archive")}
-            className="flex items-center justify-center gap-1 transition-all"
+            className="flex flex-col items-center justify-center transition-all"
             style={{
               flex: "18",
-              padding: "10px 6px",
+              padding: "6px 4px",
               fontSize: "11px",
               fontWeight: 800,
-              letterSpacing: "1.2px",
+              letterSpacing: "1px",
               textTransform: "uppercase",
+              lineHeight: 1.15,
               background: tab === "archive"
                 ? "linear-gradient(180deg, rgba(148,163,184,0.28), rgba(31,41,55,0.55))"
                 : "rgba(20,15,25,0.65)",
@@ -216,8 +225,11 @@ export default function Events() {
               opacity: tab === "archive" ? 1 : 0.7,
             }}
           >
-            <Archive className="w-3.5 h-3.5" />
-            <span>Arşiv ({archivedCount})</span>
+            <span className="flex items-center gap-1">
+              <Archive className="w-3 h-3" />
+              <span>Arşiv</span>
+            </span>
+            <span className="mono text-[10px] opacity-90">({archivedCount})</span>
           </button>
         </div>
 
