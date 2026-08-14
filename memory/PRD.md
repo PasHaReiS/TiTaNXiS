@@ -1,5 +1,35 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Event Saati + Attendance-Filtreli Hatırlatma — DONE & VERIFIED
+- **Backend**:
+  - `routes/push.py`: `PushScheduledBody` + `broadcast_push` fonksiyonu `event_id` alanı kazandı. Yeni filter block — event_attendance collection'ından attending member_id'ler → linked user_id'ler → allowed_users intersect. Diğer filtrelerle AND.
+  - **Kritik bug fix**: `/push/scheduled` endpoint'i hem `server.py:3012` hem `routes/push.py:440`'ta duplicate tanımlıydı; server.py sürümü öncelikliydi ve `event_id/country_iso2` alanlarını persist etmiyordu. server.py'daki `PushScheduledBody` + doc dict + scheduler loop `_broadcast_push` çağrısı `event_id` ve `country_iso2`'yi geçirecek şekilde güncellendi.
+- **Frontend**:
+  - `Events.jsx` date input `type="date"` → `type="datetime-local"` (saat destekli, timezone-aware slice(0,16)).
+  - Her event kartına yeni **BellRing** ikonlu buton (mor tema) → yeni `EventReminderDialog` açıyor.
+  - `EventReminderDialog.jsx` (yeni): 6 lead preset chip (5dk / 15dk / 30dk / 1s / 2s / 24s), otomatik body doldurma, "Gönderilecek: [datetime]" info banner + past-time uyarısı, submit → `/api/push/scheduled {event_id, scheduled_at}`.
+- **i18n**: 6 yeni TR + EN anahtar.
+- **Doğrulama (curl)**: `POST /push/scheduled {event_id:"15926986...", country_iso2:"US"}` → response'ta her iki alan **doğru persist ediliyor** ✅. Test kayıtları temizlendi. Frontend clean compile.
+
+
+
+## [2026-02] Etkinlik Saati + Attendance-Filtreli Push Hatırlatması — DONE & VERIFIED
+- **Backend (`routes/push.py`)**:
+  - `PushScheduledBody` + `broadcast_push` fonksiyonuna `event_id: Optional[str]` alanı eklendi.
+  - Yeni filter block: event_id verildiğinde `event_attendance` collection'ından attending member_ids alınır, o üyelere bağlı user_id'ler `allowed_users` set'ine intersect edilir. Diğer filtreler (country/alliance/group) hâlâ AND'lenerek çalışır.
+  - Scheduler loop `event_id` de iletiyor.
+- **Frontend Events.jsx**:
+  - Event form date input `type="date"` → `type="datetime-local"`. Saat başlangıç değeri local timezone-aware ISO'dan slice(0,16). Submit'te `new Date(date).toISOString()` zaten datetime saklıyordu, dokunulmadı.
+  - Her event kartına yeni **BellRing** butonu (mor tema) → `EventReminderDialog` açıyor.
+- **Yeni component `EventReminderDialog.jsx`**:
+  - Preset lead chip'leri: 5dk / 15dk / 30dk / 1s / 2s / 24s. Chip değişince body otomatik "X {{min}} dk sonra başlıyor" güncelleniyor.
+  - Başlık + gövde düzenlenebilir. "Gönderilecek: [tarih saat]" info banner + geçmiş tarih ise kırmızı hata.
+  - Submit → `POST /api/push/scheduled {event_id, scheduled_at, title, body, sound:"rally"}`.
+- **i18n**: 6 yeni TR/EN key (`event_reminder_title/lead/will_fire/schedule/body_default/scheduled`).
+- **Doğrulama (curl)**: toggle attend → schedule with event_id filter → listed with event_id field ✅. Test cleanup yapıldı.
+
+
+
 ## [2026-02] Etkinlik Sayfası Attendance UI — DONE & VERIFIED
 - **Yeni bileşen** `/app/frontend/src/components/EventAttendance.jsx`: Etkinlik kartının altına collapsible attendance kontrolü.
   - **Collapsed**: Ikonlu "Katılım: N/M · progress bar · N%" toggle satırı (renk yeşil/altın/kırmızı).

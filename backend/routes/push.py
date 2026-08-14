@@ -61,6 +61,7 @@ class PushScheduledBody(BaseModel):
     group_name: Optional[str] = None
     alliance_name: Optional[str] = None
     country_iso2: Optional[str] = None  # 2-letter ISO code; only reaches users linked to members from this country
+    event_id: Optional[str] = None      # Only users linked to members marked "attending" this event
     sound: Optional[str] = "rally"
 
 
@@ -182,6 +183,7 @@ def register_push(api_router: APIRouter, db, require_auth, require_admin, logger
         title: str, body: str, url: str = "/", tag: str = "titanxis",
         group_name: Optional[str] = None, alliance_name: Optional[str] = None,
         country_iso2: Optional[str] = None,
+        event_id: Optional[str] = None,
         sound: Optional[str] = None,
     ):
         priv_b64, _pub = await get_or_create_vapid(db)
@@ -322,6 +324,7 @@ def register_push(api_router: APIRouter, db, require_auth, require_admin, logger
                             group_name=doc.get("group_name"),
                             alliance_name=doc.get("alliance_name"),
                             country_iso2=doc.get("country_iso2"),
+                            event_id=doc.get("event_id"),
                             sound=doc.get("sound") or "rally",
                         )
                         repeat = doc.get("repeat")
@@ -455,6 +458,8 @@ def register_push(api_router: APIRouter, db, require_auth, require_admin, logger
             "repeat": (body.repeat or None),
             "group_name": (body.group_name or None),
             "alliance_name": (body.alliance_name or None),
+            "country_iso2": (body.country_iso2 or None),
+            "event_id": (body.event_id or None),
             "sound": sound,
             "sent": False,
             "created_at": _now_iso(),

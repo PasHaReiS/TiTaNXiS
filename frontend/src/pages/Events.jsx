@@ -11,6 +11,8 @@ import { useTranslation } from "react-i18next";
 import ImageDropzone from "@/components/ImageDropzone";
 import OcrDialog from "@/components/OcrDialog";
 import EventAttendance from "@/components/EventAttendance";
+import EventReminderDialog from "@/components/EventReminderDialog";
+import { BellRing } from "lucide-react";
 import { groupColor, groupBgTint } from "@/lib/groupColors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -23,6 +25,7 @@ export default function Events() {
   const [renamingGroup, setRenamingGroup] = useState(null); // group name being renamed
   const [renameValue, setRenameValue] = useState("");
   const [ocrOpen, setOcrOpen] = useState(false);
+  const [reminderFor, setReminderFor] = useState(null); // event object → opens the reminder dialog
 
   const { data: events = [] } = useSWR(`/events?archived=${tab === "archive"}`, fetcher, { refreshInterval: 6000 });
 
@@ -377,6 +380,10 @@ export default function Events() {
         <EventForm initial={editing} onClose={() => { setShowForm(false); setEditing(null); }} />
       )}
 
+      {reminderFor && (
+        <EventReminderDialog event={reminderFor} onClose={() => setReminderFor(null)} />
+      )}
+
       <OcrDialog
         open={ocrOpen}
         onClose={() => setOcrOpen(false)}
@@ -421,7 +428,16 @@ export default function Events() {
 function EventForm({ initial, onClose }) {
   const { t } = useTranslation();
   const [name, setName] = useState(initial?.name || "");
-  const [date, setDate] = useState(initial?.date?.slice(0, 10) || new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(
+    initial?.date
+      ? (() => {
+          // Normalise stored ISO → local-datetime string acceptable by the input.
+          const d = new Date(initial.date);
+          const tz = d.getTimezoneOffset() * 60000;
+          return new Date(d.getTime() - tz).toISOString().slice(0, 16);
+        })()
+      : new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+  );
   const [multiplier, setMultiplier] = useState(initial?.multiplier || 1);
   const [subtitle, setSubtitle] = useState(initial?.subtitle || "");
   // "Gruplu" vs "Grupsuz" toggle — an event may live inside a group (SvS, Guild Fest…)
@@ -470,7 +486,7 @@ function EventForm({ initial, onClose }) {
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("date")}</label>
-        <input data-testid={EVENTS.formDate} type="date" value={date} onChange={(e) => setDate(e.target.value)}
+        <input data-testid={EVENTS.formDate} type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("multiplier")}</label>

@@ -3000,6 +3000,8 @@ class PushScheduledBody(BaseModel):
     repeat: Optional[str] = None  # 'daily' | 'weekly' | None
     group_name: Optional[str] = None  # optional event group tag for filtering
     alliance_name: Optional[str] = None  # optional alliance filter
+    country_iso2: Optional[str] = None  # optional ISO2 country filter
+    event_id: Optional[str] = None      # optional attendance filter (only members marked attending this event)
     sound: Optional[str] = "rally"  # rally | victory | dungeon | alarm
 
 
@@ -3033,6 +3035,8 @@ async def push_scheduled_create(body: PushScheduledBody, _: dict = Depends(requi
         "repeat": (body.repeat or None),
         "group_name": (body.group_name or None),
         "alliance_name": (body.alliance_name or None),
+        "country_iso2": (body.country_iso2 or None),
+        "event_id": (body.event_id or None),
         "sound": sound,
         "sent": False,
         "created_at": now_iso(),
@@ -3098,6 +3102,8 @@ async def _push_scheduler_loop():
                         tag=f"scheduled-{doc['id']}",
                         group_name=doc.get("group_name"),
                         alliance_name=doc.get("alliance_name"),
+                        country_iso2=doc.get("country_iso2"),
+                        event_id=doc.get("event_id"),
                         sound=doc.get("sound") or "rally",
                     )
                     repeat = doc.get("repeat")
