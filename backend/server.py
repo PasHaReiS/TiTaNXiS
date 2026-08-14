@@ -3239,28 +3239,134 @@ async def telegram_broadcast(body: TelegramBroadcastBody, _: dict = Depends(requ
     When ``country_iso2`` is provided the message body is prefixed with a country
     header (flag + name) and appended with the list of member names from that
     country so the channel context matches the country-based Web-Push broadcast.
+    Additionally, any user with ``telegram_chat_id`` linked to a member from that
+    country receives a personalised DM (best-effort, failures ignored).
     """
     import os as _os
     channel = _os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
-    if not channel:
-        raise HTTPException(400, "TELEGRAM_CHANNEL_ID env değeri yapılandırılmamış")
     country = (body.country_iso2 or "").strip().upper() or None
     header_lines = [f"📣 *{body.title.strip()}*", "", body.body.strip()]
     matched_names: List[str] = []
+    dm_chat_ids: List[str] = []
     if country and len(country) == 2:
-        docs = await db.members.find({"country": country}, {"_id": 0, "name": 1}).to_list(1000)
+        docs = await db.members.find({"country": country}, {"_id": 0, "id": 1, "name": 1}).to_list(1000)
         matched_names = sorted([d.get("name") or "?" for d in docs])
+        matched_ids = {d["id"] for d in docs if d.get("id")}
         header_lines = [f"📣 *{body.title.strip()}* — 🌍 `{country}` ({len(matched_names)} üye)", "", body.body.strip()]
         if matched_names:
             header_lines.append("")
-            # Show up to 20 names, then "…" summary for the rest.
             visible = matched_names[:20]
             header_lines.append("👥 " + ", ".join(visible))
             if len(matched_names) > 20:
                 header_lines.append(f"…+{len(matched_names) - 20}")
+        # Collect DM chat ids for users linked to any matched member.
+        user_docs = await db.users.find(
+            {"telegram_chat_id": {"$exists": True, "$ne": None},
+             "notification_enabled": {"$ne": False}},
+            {"_id": 0, "id": 1, "telegram_chat_id": 1, "member_ids": 1, "member_id": 1}
+        ).to_list(5000)
+        for u in user_docs:
+            linked = list(u.get("member_ids") or [])
+            if u.get("member_id"):
+                linked.append(u["member_id"])
+            if any(mid in matched_ids for mid in linked):
+                cid = u.get("telegram_chat_id")
+                if cid:
+                    dm_chat_ids.append(str(cid))
     text = "\n".join(header_lines)
-    ok = await send_message(channel, text)
-    return {"sent": bool(ok), "country": country, "matched_members": len(matched_names)}
+    channel_sent = False
+    if channel:
+        channel_sent = bool(await send_message(channel, text))
+    # Fan-out DMs (best-effort — a single failure doesn't abort the batch).
+    dm_sent = 0
+    for cid in dm_chat_ids:
+        if await send_message(cid, text):
+            dm_sent += 1
+    return {
+        "channel_sent": channel_sent,
+        "sent": channel_sent,  # legacy alias for existing callers
+        "country": country,
+        "matched_members": len(matched_names),
+        "dm_targets": len(dm_chat_ids),
+        "dm_sent": dm_sent,
+    }
+
+
+# ---------- Telegram /link token management ----------
+
+@api_router.post("/telegram/link/generate")
+async def telegram_generate_link_token(user: dict = Depends(require_auth)):
+    """Issue a short-lived (10 min) uppercase 6-char token the user can send in
+    Telegram DM as ``/link TOKEN`` to bind their chat_id to their account."""
+    import secrets as _secrets, string as _string
+    alphabet = _string.ascii_uppercase + _string.digits
+    # Retry if collision (extremely unlikely).
+    for _ in range(4):
+        token = "".join(_secrets.choice(alphabet) for _ in range(6))
+        exists = await db.telegram_link_tokens.find_one({"token": token})
+        if not exists:
+            break
+    else:
+        raise HTTPException(500, "Token üretilemedi, tekrar dene")
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+    # A user may only have one active link token — clean up any previous ones.
+    await db.telegram_link_tokens.delete_many({"user_id": user["id"]})
+    await db.telegram_link_tokens.insert_one({
+        "token": token,
+        "user_id": user["id"],
+        "expires_at": expires_at,
+        "created_at": now_iso(),
+    })
+    bot_username = os.environ.get("TELEGRAM_BOT_USERNAME", "").strip().lstrip("@") or "TiTaNXiS_BoT"
+    return {
+        "token": token,
+        "expires_at": expires_at,
+        "bot_username": bot_username,
+        "deep_link": f"https://t.me/{bot_username}?start=link_{token}",
+        "instructions": f"@{bot_username} sohbetinde `/link {token}` yaz.",
+    }
+
+
+@api_router.get("/telegram/link/status")
+async def telegram_link_status(user: dict = Depends(require_auth)):
+    """Return whether the caller currently has a Telegram chat linked."""
+    u = await db.users.find_one({"id": user["id"]}, {"_id": 0, "telegram_chat_id": 1, "telegram_linked_at": 1})
+    return {
+        "linked": bool(u and u.get("telegram_chat_id")),
+        "linked_at": (u or {}).get("telegram_linked_at"),
+    }
+
+
+@api_router.post("/telegram/link/unlink")
+async def telegram_unlink(user: dict = Depends(require_auth)):
+    """Remove the caller's telegram_chat_id — undoes /link on the web side."""
+    res = await db.users.update_one(
+        {"id": user["id"]},
+        {"$unset": {"telegram_chat_id": "", "telegram_linked_at": ""}},
+    )
+    return {"unlinked": res.modified_count > 0}
+
+
+class BulkAllianceBody(BaseModel):
+    member_ids: List[str]
+    alliance_name: str
+    alliance_category: Optional[str] = None  # "Main" | "Academy" | None (leave unchanged)
+
+
+@api_router.post("/members/bulk-alliance")
+async def bulk_set_alliance(body: BulkAllianceBody, _: dict = Depends(require_edit)):
+    """Bulk-transfer members to a different alliance (case-sensitive by design)."""
+    ids = [i for i in (body.member_ids or []) if i]
+    if not ids:
+        raise HTTPException(400, "Üye seçilmedi")
+    alliance = (body.alliance_name or "").strip()
+    if not alliance:
+        raise HTTPException(400, "alliance_name boş olamaz")
+    update_set = {"alliance_name": alliance}
+    if body.alliance_category in ("Main", "Academy"):
+        update_set["alliance_category"] = body.alliance_category
+    res = await db.members.update_many({"id": {"$in": ids}}, {"$set": update_set})
+    return {"matched": res.matched_count, "modified": res.modified_count, "alliance_name": alliance}
 
 app.include_router(api_router)
 app.include_router(make_auth_router(db))

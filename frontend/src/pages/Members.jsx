@@ -308,6 +308,26 @@ export default function Members() {
     }
   };
 
+  const [bulkAlliance, setBulkAlliance] = useState("");
+  const applyBulkAlliance = async () => {
+    if (selectedIds.size === 0) { toast.error(t("bulk_country_select_first")); return; }
+    if (!bulkAlliance) { toast.error(t("bulk_alliance_select_first")); return; }
+    try {
+      const res = await api.post("/members/bulk-alliance", {
+        member_ids: [...selectedIds],
+        alliance_name: bulkAlliance,
+      });
+      toast.success(t("bulk_alliance_done", { count: res.data?.modified ?? 0, alliance: bulkAlliance }));
+      mutate((k) => typeof k === "string" && k.startsWith("/members"));
+      mutate("/alliances");
+      mutate("/alliances/stats");
+      setSelectedIds(new Set());
+      setSelectionMode(false);
+    } catch (e) {
+      toast.error(apiErr(e));
+    }
+  };
+
   return (
     <div data-testid={MEMBERS.container}>
       <Header title={t("members")} />
@@ -532,6 +552,33 @@ export default function Members() {
                 style={selectedIds.size === 0 ? { opacity: 0.4 } : {}}
               >
                 <Shield className="w-3.5 h-3.5" /> {t("bulk_rank_apply")}
+              </button>
+            </div>
+            <div className="flex items-center gap-1.5 w-full sm:w-auto sm:ml-2 pl-2 sm:border-l border-white/10">
+              <label className="text-[10px] uppercase tracking-widest font-bold" style={{ color: "#F5A623" }}>
+                {t("bulk_alliance_label")}:
+              </label>
+              <select
+                data-testid="bulk-alliance-select"
+                value={bulkAlliance}
+                onChange={(e) => setBulkAlliance(e.target.value)}
+                className="rounded px-2 py-1.5 text-[11px]"
+                style={{ background: "#1A1210", color: "#F5F0E8", border: "1px solid rgba(139,92,246,0.55)", minWidth: 120 }}
+              >
+                <option value="">— {t("bulk_alliance_pick")} —</option>
+                {(alliancesList || []).map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                data-testid="bulk-alliance-apply"
+                onClick={applyBulkAlliance}
+                disabled={selectedIds.size === 0 || !bulkAlliance}
+                className="btn-gold text-[11px] flex items-center gap-1.5"
+                style={(selectedIds.size === 0 || !bulkAlliance) ? { opacity: 0.4 } : {}}
+              >
+                <GraduationCap className="w-3.5 h-3.5" /> {t("bulk_alliance_apply")}
               </button>
             </div>
           </div>

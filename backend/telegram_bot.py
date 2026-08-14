@@ -161,6 +161,8 @@ def init_bot(db) -> Optional[Application]:
     _app.add_handler(CommandHandler("svs_cancel", svs_cancel_command))  # noqa: F821
     _app.add_handler(CommandHandler("yardim", yardim_command))
     _app.add_handler(CommandHandler("help", yardim_command))
+    _app.add_handler(CommandHandler("link", link_command))
+    _app.add_handler(CommandHandler("unlink", unlink_command))
     log.info("Telegram bot handlers registered (@TiTaNXiS_BoT).")
     return _app
 
@@ -189,6 +191,8 @@ async def setup_webhook() -> bool:
                 {"command": "guc",        "description": "Üye güç sorgula"},
                 {"command": "etkinlik",   "description": "Aktif etkinlikler"},
                 {"command": "svs",        "description": "SvS hatırlatma ayarla"},
+                {"command": "link",       "description": "Hesabımı web uygulamasına bağla"},
+                {"command": "unlink",     "description": "Hesap bağlantısını kaldır"},
                 {"command": "yardim",     "description": "Yardım menüsü"},
             ]
             r2 = await client.post(f"{TELEGRAM_API}/setMyCommands",
@@ -238,10 +242,80 @@ async def yardim_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
         "/etkinlik (veya /event) — Aktif etkinlikler\n"
         "/svs [HH:MM] — SvS başlama hatırlatıcısı planla\n"
         "/svs_iptal (veya /svs_cancel) — Planlanmış hatırlatıcıyı iptal et\n"
+        "/link [token] — Hesabımı web uygulamasına bağla\n"
+        "/unlink — Bağlı hesabı kaldır\n"
         "/yardim (veya /help) — Bu menü\n\n"
         "⚔️ TiTaNXiS Lonca Yönetimi"
     )
     await reply_ml(update, text)
+
+
+async def link_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Bind a Telegram chat to a TiTaNXiS user account via a short-lived token.
+
+    Flow:
+      1) User opens Profile page on titanxis.com, taps "Telegram Bağla",
+         backend issues a 6-char token (stored in ``telegram_link_tokens``).
+      2) User DMs the bot: ``/link 4B7X2P``.
+      3) This handler validates + consumes the token, sets ``user.telegram_chat_id``
+         and deletes the token so it can't be reused.
+    """
+    if _db is None:
+        await reply_ml(update, "⚠️ Veritabanı hazır değil.")
+        return
+    if not context.args:
+        await reply_ml(
+            update,
+            "🔗 *Hesap Bağlama*\n\n"
+            "Web uygulamasında Profil sayfasından bir bağlantı kodu al, ardından\n"
+            "`/link KODUN` şeklinde bana gönder.\n\n"
+            "Örnek: `/link 4B7X2P`"
+        )
+        return
+    token = (context.args[0] or "").strip().upper()
+    if len(token) < 4:
+        await reply_ml(update, "⚠️ Geçersiz kod formatı.")
+        return
+    now_iso = datetime.now(timezone.utc).isoformat()
+    doc = await _db.telegram_link_tokens.find_one({"token": token})
+    if not doc:
+        await reply_ml(update, "❌ Kod bulunamadı ya da süresi dolmuş. Web'den yenisini al.")
+        return
+    if doc.get("expires_at") and doc["expires_at"] < now_iso:
+        await _db.telegram_link_tokens.delete_one({"token": token})
+        await reply_ml(update, "⌛ Kod süresi dolmuş. Web'den yenisini al.")
+        return
+    chat_id = str(update.effective_chat.id)
+    user_id = doc["user_id"]
+    await _db.users.update_one(
+        {"id": user_id},
+        {"$set": {"telegram_chat_id": chat_id, "telegram_linked_at": now_iso}},
+    )
+    await _db.telegram_link_tokens.delete_one({"token": token})
+    u = await _db.users.find_one({"id": user_id}, {"_id": 0, "username": 1})
+    uname = u.get("username") if u else "?"
+    await reply_ml(
+        update,
+        f"✅ Bağlantı başarılı!\n\n"
+        f"Artık *{uname}* hesabıyla bu Telegram sohbetinden bildirim alacaksın.\n"
+        f"İstersen `/unlink` ile her zaman kaldırabilirsin."
+    )
+
+
+async def unlink_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    """Remove telegram_chat_id from the user linked to this DM."""
+    if _db is None:
+        await reply_ml(update, "⚠️ Veritabanı hazır değil.")
+        return
+    chat_id = str(update.effective_chat.id)
+    res = await _db.users.update_many(
+        {"telegram_chat_id": chat_id},
+        {"$unset": {"telegram_chat_id": "", "telegram_linked_at": ""}},
+    )
+    if res.modified_count:
+        await reply_ml(update, "🔓 Bağlantı kaldırıldı. Artık DM bildirim almayacaksın.")
+    else:
+        await reply_ml(update, "ℹ️ Bu sohbetle bağlı hesap bulunamadı.")
 
 
 async def siralama_command(update: Update, _: ContextTypes.DEFAULT_TYPE):

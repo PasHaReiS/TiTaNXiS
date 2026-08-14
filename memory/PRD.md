@@ -1,5 +1,19 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Telegram /link + Toplu Ittifak Ata — DONE & VERIFIED
+- **Backend — Telegram DM linking**:
+  - `telegram_bot.py`: `link_command` (`/link TOKEN`) validates & consumes the 6-char token, sets `user.telegram_chat_id + telegram_linked_at`. `unlink_command` clears it. Both registered + published to setMyCommands menu.
+  - `server.py`: 3 yeni endpoint — `POST /telegram/link/generate` (10-min TTL token, upper-case 6 char), `GET /telegram/link/status`, `POST /telegram/link/unlink`.
+  - `POST /api/telegram/broadcast` genişletildi: country filter matched üyeler + linked user'ların `telegram_chat_id`'lerine DM fan-out. Response `{channel_sent, dm_targets, dm_sent, matched_members}`.
+- **Backend — Toplu ittifak**: Yeni `BulkAllianceBody` + `POST /api/members/bulk-alliance {member_ids, alliance_name, alliance_category?}` — case-sensitive, category isteğe bağlı ("Main"/"Academy"). Curl: 2 US üye → GOW → `{matched:2, modified:0}` (idempotent, zaten aynıydı ✅).
+- **Frontend**:
+  - Yeni `TelegramLinkSection.jsx` (Profile page'de notification bar'ından hemen önce). Rozet: yeşil "Bağlı" veya gri "Henüz bağlı değil". Buton `getCode` → 6-char token box + "Kopyala" + "Bot'u aç" deep-link + geri sayım (10 dk) + "Yeni Kod". `/telegram/link/status` her 5 sn poll'lanır — kullanıcı Telegram'da `/link` gönderince UI 5 sn içinde "Bağlı"ya döner.
+  - `Members.jsx` bulk toolbar rank satırının sağına ittifak dropdown (`/alliances` GET) + "İttifaka Taşı" gold butonu. Apply → cache invalidate `/members* + /alliances + /alliances/stats`.
+- **i18n**: TR + EN'e 17 yeni key (telegram_link_*, bulk_alliance_*).
+- **Curl doğrulama**: `/telegram/link/status` → linked:false ✅ · `/telegram/link/generate` → token+deep_link+bot_username ✅ · `/members/bulk-alliance` → matched:2 ✅.
+
+
+
 ## [2026-02] FCM Kararı: Mevcut Web Push Kullanılmaya Devam — DONE
 - **Kullanıcı kararı**: FCM (Firebase Cloud Messaging) ek olarak eklenmeyecek. Neden: mevcut Web Push altyapısı zaten tam üretim seviyesinde — VAPID key mgmt, `/api/push/subscribe`, `/api/push/broadcast` (country/alliance/group filtreli), retry-once-after-30s, history audit, sound presets, scheduled/repeated push, per-user opt-in/out.
 - **Gerekli/istenmeyen anahtarlar**: FCM Admin SDK için Service Account JSON + Web Push Certificates VAPID key gerekiyordu — kullanıcı bunları paylaşmadı, gerek de duymadı.

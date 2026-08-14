@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { api, apiErr } from "@/lib/api";
 import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
+import TelegramLinkSection from "@/components/TelegramLinkSection";
 import { Switch } from "@/components/ui/switch";
 import { KeyRound, Shield, User, LogOut, AlertTriangle, Link2, Bell, BellOff, X as XIcon, Plus, Trophy, Zap, Castle, Crown, Medal, GitCompare } from "lucide-react";
 import { toast } from "sonner";
@@ -373,6 +374,8 @@ export default function Profile() {
         </div>
 
         {/* Notification opt-in/out */}
+        <TelegramLinkSection />
+
         <div className="section-title flex items-center gap-2">
           {user.notification_enabled ? <Bell className="w-3 h-3" /> : <BellOff className="w-3 h-3" />}
           {t("notification_toggle_title")}
