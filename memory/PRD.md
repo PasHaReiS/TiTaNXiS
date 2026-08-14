@@ -1,5 +1,19 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Broadcast DM Fan-out Metric Strip — DONE & VERIFIED
+- **Frontend PushBroadcastPanel**: `doSend` artık response objesini döndürüyor (önce bool). Yeni `lastResult` state — her başarılı broadcast'ten sonra `{at, push, telegram, country}` capture edilir.
+- **UI**: Send butonunun hemen altında purple/blue gradient banner belirir:
+  - `Push: N` (removed varsa `(-M)` kırmızı)
+  - `✈️ Kanal: ✓/×` (Telegram kanal gönderim durumu)
+  - `DM: sent / targets` (fan-out kaç kişiye ulaştı vs kaç hedef vardı)
+  - `Eşleşen üye: N` (country filtresiyle bulunan üye adedi)
+  - `🌍 US` (aktif country filter)
+  - Sağda gönderim saati.
+- **i18n**: 5 yeni TR/EN key (`push_bc_last_result`, `push_bc_metric_push_sent/channel/dm/matched`).
+- **Doğrulama**: Curl'ler `/push/broadcast` ve `/telegram/broadcast` response'larının frontend'in beklediği alanları (`sent, removed, channel_sent, dm_targets, dm_sent, matched_members`) döndürdüğünü teyit etti.
+
+
+
 ## [2026-02] Dashboard "Telegram DM aktif" Sayacı — DONE & VERIFIED
 - **Backend**: `/api/dashboard/stats` response'una `telegram_linked` alanı eklendi — `telegram_chat_id` var olan + notification_enabled != False kullanıcı sayısı.
 - **Frontend**: Dashboard header'ının hemen altında (SectionTitle "BUGÜN"den önce) yeni compact metric strip — mavi Telegram temalı pill, `✈️ Telegram DM aktif: N`. Hover tooltip country broadcast fan-out'un kapsamını açıklar. i18n TR/EN.

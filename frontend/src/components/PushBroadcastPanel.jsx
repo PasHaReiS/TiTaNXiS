@@ -296,12 +296,14 @@ export default function PushBroadcastPanel() {
       const res = await api.post("/push/broadcast", payload);
       toast.success(t("push_bc_sent", { sent: res.data.sent, removed: res.data.removed }));
       refreshHistory();
-      return true;
+      return res.data; // { sent, removed }
     } catch (e) {
       toast.error(e?.response?.data?.detail || e.message);
-      return false;
+      return null;
     } finally { setBusy(false); }
   };
+
+  const [lastResult, setLastResult] = useState(null); // { at, push, telegram, country }
 
   const send = async () => {
     if (!title.trim() || !body.trim()) { toast.error(t("push_bc_required")); return; }
@@ -324,15 +326,15 @@ export default function PushBroadcastPanel() {
       } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
       return;
     }
-    const ok = await doSend({
+    const pushRes = await doSend({
       title: title.trim(),
       body: body.trim(),
       url: url.trim() || "/",
       tag: "manual-broadcast",
       country_iso2: sendCountry || null,
     });
-    // Mirror to Telegram channel if the "Also send via Telegram" toggle is on.
-    // Fires in parallel — a Telegram failure doesn't block the push success toast.
+    const ok = pushRes !== null;
+    let telegramRes = null;
     if (ok && alsoTelegram) {
       try {
         const tg = await api.post("/telegram/broadcast", {
@@ -340,7 +342,8 @@ export default function PushBroadcastPanel() {
           body: body.trim(),
           country_iso2: sendCountry || null,
         });
-        if (tg.data?.sent) {
+        telegramRes = tg.data; // { channel_sent, dm_targets, dm_sent, matched_members }
+        if (tg.data?.channel_sent || tg.data?.dm_sent) {
           toast.success(t("push_bc_telegram_sent", { count: tg.data.matched_members ?? 0 }));
         } else {
           toast.error(t("push_bc_telegram_failed"));
@@ -349,7 +352,15 @@ export default function PushBroadcastPanel() {
         toast.error(e?.response?.data?.detail || e.message);
       }
     }
-    if (ok) { setTitle(""); setBody(""); setSendCountry(""); }
+    if (ok) {
+      setLastResult({
+        at: new Date().toISOString(),
+        push: pushRes,
+        telegram: telegramRes,
+        country: sendCountry || null,
+      });
+      setTitle(""); setBody(""); setSendCountry("");
+    }
   };
 
   const cancelScheduled = async (id) => {
@@ -882,6 +893,67 @@ export default function PushBroadcastPanel() {
             {busy ? t("push_bc_sending") : (scheduleAt ? t("push_sched_submit") : t("push_bc_send"))}
           </button>
         </div>
+
+        {lastResult && (
+          <div
+            data-testid="push-bc-last-result"
+            className="mt-2 rounded-lg p-2.5 text-[11px] flex flex-wrap items-center gap-x-4 gap-y-1"
+            style={{
+              background: "linear-gradient(180deg, rgba(124,58,237,0.10) 0%, rgba(59,130,246,0.06) 100%)",
+              border: "1px solid rgba(124,58,237,0.35)",
+            }}
+          >
+            <span className="uppercase tracking-widest font-bold" style={{ color: "#C4B5FD" }}>
+              {t("push_bc_last_result")}
+            </span>
+            <span className="flex items-center gap-1" data-testid="push-bc-metric-push">
+              <span style={{ color: "#94A3B8" }}>{t("push_bc_metric_push_sent")}:</span>
+              <span className="mono font-bold text-white">{lastResult.push?.sent ?? 0}</span>
+              {lastResult.push?.removed ? (
+                <span className="mono opacity-70" style={{ color: "#F87171" }}>
+                  (-{lastResult.push.removed})
+                </span>
+              ) : null}
+            </span>
+            {lastResult.telegram && (
+              <>
+                <span className="flex items-center gap-1" data-testid="push-bc-metric-channel">
+                  <span aria-hidden>✈️</span>
+                  <span style={{ color: "#94A3B8" }}>{t("push_bc_metric_channel")}:</span>
+                  <span className="mono font-bold" style={{ color: lastResult.telegram.channel_sent ? "#4ADE80" : "#F87171" }}>
+                    {lastResult.telegram.channel_sent ? "✓" : "×"}
+                  </span>
+                </span>
+                <span className="flex items-center gap-1" data-testid="push-bc-metric-dm">
+                  <span style={{ color: "#94A3B8" }}>{t("push_bc_metric_dm")}:</span>
+                  <span className="mono font-bold text-white">
+                    {lastResult.telegram.dm_sent ?? 0}
+                  </span>
+                  <span className="mono opacity-70" style={{ color: "#94A3B8" }}>
+                    / {lastResult.telegram.dm_targets ?? 0}
+                  </span>
+                </span>
+                {typeof lastResult.telegram.matched_members === "number" && (
+                  <span className="flex items-center gap-1" data-testid="push-bc-metric-matched">
+                    <span style={{ color: "#94A3B8" }}>{t("push_bc_metric_matched")}:</span>
+                    <span className="mono font-bold text-white">
+                      {lastResult.telegram.matched_members}
+                    </span>
+                  </span>
+                )}
+              </>
+            )}
+            {lastResult.country && (
+              <span className="flex items-center gap-1" data-testid="push-bc-metric-country">
+                <span aria-hidden>🌍</span>
+                <span className="mono font-bold" style={{ color: "#F5A623" }}>{lastResult.country}</span>
+              </span>
+            )}
+            <span className="ml-auto opacity-60" style={{ color: "#94A3B8" }}>
+              {new Date(lastResult.at).toLocaleTimeString()}
+            </span>
+          </div>
+        )}
       </div>
 
       {scheduled.length > 0 && (
