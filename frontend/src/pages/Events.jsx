@@ -12,6 +12,7 @@ import ImageDropzone from "@/components/ImageDropzone";
 import OcrDialog from "@/components/OcrDialog";
 import EventAttendance from "@/components/EventAttendance";
 import EventReminderDialog from "@/components/EventReminderDialog";
+import EventCountdown from "@/components/EventCountdown";
 import { BellRing } from "lucide-react";
 import { groupColor, groupBgTint } from "@/lib/groupColors";
 
@@ -19,7 +20,7 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
 
 export default function Events() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState("active");
+  const [tab, setTab] = useState("reminded"); // "reminded" | "unreminded" | "archive"
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [renamingGroup, setRenamingGroup] = useState(null); // group name being renamed
@@ -27,14 +28,23 @@ export default function Events() {
   const [ocrOpen, setOcrOpen] = useState(false);
   const [reminderFor, setReminderFor] = useState(null); // event object → opens the reminder dialog
 
-  const { data: events = [] } = useSWR(`/events?archived=${tab === "archive"}`, fetcher, { refreshInterval: 6000 });
+  const archived = tab === "archive";
+  const { data: events = [] } = useSWR(`/events?archived=${archived}`, fetcher, { refreshInterval: 6000 });
 
-  const activeCount = useSWR("/events?archived=false", fetcher).data?.length || 0;
+  const allActive = useSWR("/events?archived=false", fetcher).data || [];
+  const remindedCount = allActive.filter((e) => e.reminder_enabled !== false).length;
+  const unremindedCount = allActive.filter((e) => e.reminder_enabled === false).length;
   const archivedCount = useSWR("/events?archived=true", fetcher).data?.length || 0;
+
+  const filteredEvents = useMemo(() => {
+    if (archived) return events;
+    if (tab === "reminded") return events.filter((e) => e.reminder_enabled !== false);
+    return events.filter((e) => e.reminder_enabled === false);
+  }, [events, tab, archived]);
 
   const grouped = useMemo(() => {
     const g = {};
-    events.forEach((e) => {
+    filteredEvents.forEach((e) => {
       if (!g[e.group_name]) g[e.group_name] = [];
       g[e.group_name].push(e);
     });
@@ -43,7 +53,7 @@ export default function Events() {
       g[k].sort((a, b) => new Date(a.date) - new Date(b.date));
     });
     return g;
-  }, [events]);
+  }, [filteredEvents]);
 
   const archiveGroup = async (group) => {
     if (!window.confirm(t("confirm_archive_group", { group }))) return;
@@ -100,7 +110,7 @@ export default function Events() {
       <div className="px-4">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-xs text-muted-foreground"><span className="gold-text font-bold mono">{activeCount}</span> {t("active")}</p>
+            <p className="text-xs text-muted-foreground"><span className="gold-text font-bold mono">{remindedCount + unremindedCount}</span> {t("active")}</p>
           </div>
           <CanEdit>
             <button
@@ -122,12 +132,22 @@ export default function Events() {
           </CanEdit>
         </div>
 
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-4 flex-wrap">
           <button
-            data-testid={EVENTS.tabActive}
-            onClick={() => setTab("active")}
-            className={`chip ${tab === "active" ? "active" : ""}`}
-          >{t("active_upper")} ({activeCount})</button>
+            data-testid="events-tab-reminded"
+            onClick={() => setTab("reminded")}
+            className={`chip ${tab === "reminded" ? "active" : ""} flex items-center gap-1`}
+          >
+            <BellRing className="w-3 h-3" />
+            {t("events_tab_reminded") || "Hatırlatmalı"} ({remindedCount})
+          </button>
+          <button
+            data-testid="events-tab-unreminded"
+            onClick={() => setTab("unreminded")}
+            className={`chip ${tab === "unreminded" ? "active" : ""}`}
+          >
+            {t("events_tab_unreminded") || "Hatırlatmasız"} ({unremindedCount})
+          </button>
           <button
             data-testid={EVENTS.tabArchived}
             onClick={() => setTab("archive")}
@@ -304,8 +324,12 @@ export default function Events() {
                         </span>
                       )}
                     </div>
-                    <div className="text-[10px] text-muted-foreground truncate">
-                      Çarpan: <span className="gold-text mono">{e.multiplier}x</span> • {new Date(e.date).toLocaleDateString("tr-TR")} • {e.subtitle}
+                    <div className="text-[10px] text-muted-foreground truncate flex items-center gap-1.5 flex-wrap">
+                      <span>Çarpan: <span className="gold-text mono">{e.multiplier}x</span></span>
+                      <span>•</span>
+                      <span>{new Date(e.date).toLocaleDateString("tr-TR")}</span>
+                      {e.subtitle && <><span>•</span><span>{e.subtitle}</span></>}
+                      {!e.archived && <EventCountdown target={e.date} testId={`event-countdown-${e.id}`} />}
                     </div>
                   </div>
                   <CanEdit>
@@ -431,7 +455,6 @@ function EventForm({ initial, onClose }) {
   const [date, setDate] = useState(
     initial?.date
       ? (() => {
-          // Normalise stored ISO → local-datetime string acceptable by the input.
           const d = new Date(initial.date);
           const tz = d.getTimezoneOffset() * 60000;
           return new Date(d.getTime() - tz).toISOString().slice(0, 16);
@@ -440,13 +463,13 @@ function EventForm({ initial, onClose }) {
   );
   const [multiplier, setMultiplier] = useState(initial?.multiplier || 1);
   const [subtitle, setSubtitle] = useState(initial?.subtitle || "");
-  // "Gruplu" vs "Grupsuz" toggle — an event may live inside a group (SvS, Guild Fest…)
-  // or exist on its own. When switching to "Grupsuz" we clear the group_name so the
-  // backend stores it as ungrouped and the UI shows it under the "Grupsuz" bucket.
   const [grouped, setGrouped] = useState(
     initial ? !!(initial.group_name && String(initial.group_name).trim()) : true,
   );
   const [groupName, setGroupName] = useState(initial?.group_name || "SvS vs 10007");
+  const [reminderEnabled, setReminderEnabled] = useState(
+    initial ? initial.reminder_enabled !== false : true,
+  );
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState(initial?.banner_url ? [{ id: "existing", url: initial.banner_url, filename: "banner" }] : []);
   const { data: activeGroups = [] } = useSWR("/event-groups?active_only=true", fetcher);
@@ -461,6 +484,7 @@ function EventForm({ initial, onClose }) {
         multiplier: Number(multiplier), subtitle: subtitle.trim() || null,
         group_name: grouped ? (groupName || "").trim() || null : "",
         banner_url: banner[0]?.url || null,
+        reminder_enabled: reminderEnabled,
       };
       if (initial) await api.patch(`/events/${initial.id}`, body);
       else await api.post("/events", body);
@@ -562,6 +586,28 @@ function EventForm({ initial, onClose }) {
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Etkinlik Görseli</label>
         <ImageDropzone purpose="event" value={banner} onChange={setBanner} max={1} compact />
+
+        <div className="mt-4 rounded p-3" style={{ background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.30)" }} data-testid="event-form-reminder-toggle">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={reminderEnabled}
+              onChange={(e) => setReminderEnabled(e.target.checked)}
+              data-testid="event-form-reminder-checkbox"
+              className="cursor-pointer"
+            />
+            <span className="flex-1">
+              <span className="block text-sm font-bold text-white">
+                🔔 {t("event_form_reminder_label") || "Bu etkinlik için hatırlatma kurulabilir"}
+              </span>
+              <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
+                {reminderEnabled
+                  ? (t("event_form_reminder_hint_on") || "Etkinlik 'Hatırlatmalı' sekmesinde görünür — Bildirim Kur butonu aktif olur.")
+                  : (t("event_form_reminder_hint_off") || "Etkinlik 'Hatırlatmasız' sekmesine gider — sadece kayıt tutulur, hatırlatma önerilmez.")}
+              </span>
+            </span>
+          </label>
+        </div>
 
         <button data-testid={EVENTS.formSubmit} type="submit" disabled={saving} className="btn-gold w-full mt-5">
           {saving ? t("saving") : initial ? t("update") : t("add_short")}

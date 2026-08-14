@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { X, BellRing, Clock } from "lucide-react";
+import { X, BellRing, Clock, Volume2 } from "lucide-react";
 import { api, apiErr } from "@/lib/api";
+import { playPushSound } from "@/lib/pushSound";
 
 /** Modal that schedules a Web-Push reminder for an event, targeting only the
  *  users linked to members currently marked as attending that event.
@@ -26,6 +27,19 @@ export default function EventReminderDialog({ event, onClose }) {
   // Multi-channel fan-out toggles (default: both ON so admins don't miss delivery).
   const [sendChannel, setSendChannel] = useState(true);
   const [sendDm, setSendDm] = useState(true);
+  const [sound, setSound] = useState("rally");
+  const [previewing, setPreviewing] = useState(null);
+  const SOUNDS = [
+    { key: "rally",   label: "⚔️ Rally",   color: "#E74C1A" },
+    { key: "victory", label: "🏆 Zafer",   color: "#22C55E" },
+    { key: "dungeon", label: "🐉 Zindan",  color: "#A855F7" },
+    { key: "alarm",   label: "🚨 Alarm",   color: "#F5A623" },
+  ];
+  const preview = async (k) => {
+    setPreviewing(k);
+    try { await playPushSound(k); } catch {}
+    setPreviewing(null);
+  };
   const [saving, setSaving] = useState(false);
 
   const toggleLead = (m) => {
@@ -65,7 +79,7 @@ export default function EventReminderDialog({ event, onClose }) {
           scheduled_at: ft.at.toISOString(),
           repeat: null,
           event_id: event.id,
-          sound: "rally",
+          sound: sound,
           send_channel: sendChannel,
           send_dm: sendDm,
         });
@@ -211,6 +225,43 @@ export default function EventReminderDialog({ event, onClose }) {
           <p className="text-[9px] text-muted-foreground leading-tight">
             🔔 {t("event_reminder_webpush_always") || "Web Push (tarayıcı bildirimi) her durumda gönderilir."}
           </p>
+        </div>
+
+        {/* Sound picker with preview */}
+        <div className="mt-3 rounded p-2" style={{ background: "rgba(148,163,184,0.06)", border: "1px solid rgba(148,163,184,0.20)" }} data-testid="event-reminder-sound-picker">
+          <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1.5 flex items-center gap-1">
+            <Volume2 className="w-3 h-3" /> {t("event_reminder_sound_title") || "Bildirim Sesi"}
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {SOUNDS.map((s) => (
+              <div key={s.key} className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setSound(s.key)}
+                  data-testid={`event-reminder-sound-${s.key}`}
+                  className="flex-1 text-[11px] px-2 py-1 rounded font-bold flex items-center justify-center gap-1"
+                  style={{
+                    background: sound === s.key ? `${s.color}22` : "transparent",
+                    color: sound === s.key ? s.color : "#94A3B8",
+                    border: `1px solid ${sound === s.key ? s.color : "rgba(148,163,184,0.30)"}`,
+                  }}
+                >
+                  {sound === s.key && "✓"} {s.label}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => preview(s.key)}
+                  data-testid={`event-reminder-sound-preview-${s.key}`}
+                  disabled={previewing === s.key}
+                  className="px-1.5 py-1 rounded"
+                  style={{ background: "rgba(148,163,184,0.15)", color: s.color, opacity: previewing === s.key ? 0.5 : 1 }}
+                  title={t("event_reminder_sound_preview") || "Dinle"}
+                >
+                  {previewing === s.key ? "…" : "▶"}
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="mt-4 flex items-center justify-end gap-2">

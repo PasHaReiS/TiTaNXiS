@@ -15,62 +15,53 @@ Full-stack Gaming Guild Management App ("TiTaNXiS" / "oyun-loncasi"): Leaderboar
 
 ---
 
-## [2026-02-14] Scheduler Crash Fix + Multi-Channel Reminder Fan-out — DONE ✅
+## [2026-02-14] Reminder Tabs + Test Button + Sound Preview + Countdown — DONE ✅
+- **Event schema**: `reminder_enabled: bool = True` (Event, EventCreate, EventUpdate).
+- **Events page**: 3 tabs (Hatırlatmalı / Hatırlatmasız / Arşiv) — Puanlar sayfası tarzında.
+- **EventForm**: mor `reminder_enabled` checkbox + açıklama; new events default reminded, existing rows without the field also treated as reminded (frontend `!== false`).
+- **Live Countdown** (`EventCountdown.jsx`): her etkinlik kartında canlı sayaç, 60dk kalınca sarı, 10dk kalınca kırmızı+pulse.
+- **Test button** in EventNotificationsPanel: `POST /api/push/test` → çoklu-kanal sanity check (Kanal + DM + Push). E2E: `telegram_channel_sent: true`.
+- **Sound preview** in EventReminderDialog: rally/victory/dungeon/alarm için ▶ dinle butonları (existing `pushSound.js` reuse).
+- Verified: 420px mobile screenshots — both tabs render, countdown tick, katılım list under card.
 
-**Kritik Bug**: `_broadcast_push()` `country_iso2` + `event_id` kwargs kabul etmiyordu → 30+ dakika boyunca scheduler her 60s'de çöktü, hiçbir planlı push (Telegram + Web Push) gitmedi.
-
-**Fix**:
-1. `server.py::_broadcast_push` signature genişletildi + attendance filter (`event_id`) + country filter (`country_iso2`) eklendi.
-2. **YENİ**: `_telegram_forward_scheduled()` — her tetiklenen scheduled push için otomatik Telegram fan-out:
-   - `send_channel=true` → `TELEGRAM_CHANNEL_ID`'e broadcast
-   - `send_dm=true` + `event_id` → attending members'a DM (Login Widget'la bağlı `telegram_chat_id` + `telegram_username` fallback via `telegram_chat_map`)
-3. `PushScheduledBody` model'e `send_channel` + `send_dm` alanları eklendi (default: True).
-4. `EventReminderDialog.jsx` UI: "Nereye Gönderilsin?" alt paneli — 2 checkbox (Telegram Kanalı, Katılan Üyelere DM).
-5. `push_history` kaydına yeni metrikler: `telegram_channel_sent`, `telegram_dm_sent`.
-
-**Doğrulama (curl E2E)**:
-- TG-TEST push 13:41:48'e planlandı → scheduler 13:42:30'da fire etti → `telegram_channel_sent: true` ✅
-- Backend log: `sendMessage HTTP/1.1 200 OK` ✅
-- Preview'da `push_subscriptions: 0` olduğu için Web Push sent=0 (beklenen — abone yok)
-
-**Neden Önemli**: Web Push alıcı sayısı 0 iken bile kullanıcı Telegram kanalını takip ederek bildirim alabiliyor. Bu 3 kanallı fan-out yaklaşım, bildirimin kesin ulaşmasını garantiler.
-
-## [2026-02-14] Direct DM via Telegram Username Fallback — DONE
-- `Member.telegram_username` alanı + audit + normalize
-- `POST /telegram/webhook`: chat_map upsert (username → chat_id)
-- `POST /telegram/broadcast`: username fallback + `username_dm_hits` + `username_dm_pending`
-- `GET /api/telegram/username-status?usernames=a,b,c` — badge için
-- Frontend: MemberForm input + `/start` hint
+## [2026-02-14] Multi-Channel Scheduled Push Fan-out + Analytics Badge — DONE ✅
+- `_broadcast_push` scheduler crash fix (accepts `country_iso2` + `event_id` kwargs).
+- `_telegram_forward_scheduled()`: her scheduled push için otomatik Telegram kanal + attending members DM forward (Login Widget + username_map fallback).
+- `PushScheduledBody.send_channel` + `send_dm` bayrakları (default True).
+- `GET /push/scheduled?include_sent=true` — history merge ile `push_sent`, `telegram_channel_sent`, `telegram_dm_sent` döner.
+- `EventNotificationsPanel` fired reminders'ta compact badge: `✈️✓/— · 📩N · 🔔N`.
 
 ## [2026-02-14] Event Notifications Dedicated Page — DONE
-- Yeni route `/etkinlik-bildirimleri` (RequireAdminOrEditor)
-- Header dropdown menü: Dashboard ↔ VIP Destek arasında 🔔 BellRing
-- `EventNotificationsPanel` mor tema, per-event schedule + delete + snooze
-- User Management'tan tamamen kaldırıldı
+- `/etkinlik-bildirimleri` route (RequireAdminOrEditor) + Header dropdown menüde 🔔 Dashboard ↔ VIP Destek arasında.
+- `EventNotificationsPanel` mor tema, per-event Bildirim Kur + snooze + delete.
 
-## [2026-02-14] Attendance List Under Event Card (Mobile Fix) — DONE
-- `EventAttendance.jsx`: `open = true` default
-- `Events.jsx`: root card `flex-row` → `flex-col` (attendance panel tam-genişlik kartın altında)
+## [2026-02-14] Direct DM via Telegram Username Fallback — DONE
+- `Member.telegram_username` + normalization + audit.
+- `POST /telegram/webhook`: `telegram_chat_map` upsert (username → chat_id).
+- `POST /telegram/broadcast`: username fallback + `username_dm_hits` metric.
+- `GET /telegram/username-status?usernames=` — UI badge helper.
+
+## [2026-02-14] Attendance List Layout Fix — DONE
+- `EventAttendance.jsx`: `open = true` default.
+- `Events.jsx`: card `flex-row` → `flex-col` — attendance panel tam-genişlik kartın altında.
 
 ---
 
-## Backlog / Roadmap (P0 → P2)
+## Backlog / Roadmap
 
 ### P1 — Server.py Refactoring
-- Extract `events`, `attendance`, `points` route groups from `server.py` (~3900 lines) into `routes/*.py`.
-- Extract `deepl` translate helpers into shared `deepl_client.py`.
+- Extract `events`, `attendance`, `points` route groups from `server.py` (~3920 lines) into `routes/*.py`.
 
-### P2 — OCR Preview Cropping
-- Integrate `react-image-crop` in `OcrDialog.jsx`.
+### P2 — Deferred User Requests
+- **Katılım Onayı 1-Tıklık DM Butonları**: DM içinde inline "✅ Katılıyorum / ❌ Katılamam / ⏰ Belki" — attendance otomatik güncelle.
+- **Etkinlik Sonucu Ekran Görüntüsü Arşivi**: event'e post-hoc screenshot upload, member badge'i.
 
 ### Future / Nice-to-have
-- **Bildirim Analitik Rozeti**: Her planlı hatırlatmaya "gönderildi: N/M · başarı: %K" mini rozeti.
-- **Country Filter in Event Reminder Dialog**: 🌍 dropdown — sadece belirli ülkedeki katılımcılara hatırlat.
-- **SvS Kombo Preset**: Favori lead kombinasyonlarını (60+30+15dk) tek tıkla uygula.
-- **Discord Webhook Mirror**.
-- **OpenAI TTS voice notifications** via Telegram.
-- **Member/Event Point CSV Export**.
-- **VIP Trash Role-Based Visibility**.
+- Discord Webhook Mirror.
+- OpenAI TTS voice DM notifications.
+- Member/Event Point CSV Export.
+- VIP Trash Role-Based Visibility.
+- Preferred-language DeepL translation of scheduled push before delivery (currently only broadcast_push in routes/push.py translates).
 
 ## Test Credentials
 See `/app/memory/test_credentials.md`.

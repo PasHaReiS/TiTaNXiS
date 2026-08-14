@@ -131,6 +131,7 @@ class Event(BaseModel):
     subtitle: Optional[str] = None
     banner_url: Optional[str] = None
     archived: bool = False
+    reminder_enabled: bool = True  # False → event hides its Bildirim Kur button & goes to "Hatırlatmasız" tab
     created_at: str = Field(default_factory=now_iso)
 
 
@@ -142,6 +143,7 @@ class EventCreate(BaseModel):
     subtitle: Optional[str] = None
     banner_url: Optional[str] = None
     archived: Optional[bool] = False
+    reminder_enabled: Optional[bool] = True
 
 
 class EventUpdate(BaseModel):
@@ -152,6 +154,7 @@ class EventUpdate(BaseModel):
     subtitle: Optional[str] = None
     banner_url: Optional[str] = None
     archived: Optional[bool] = None
+    reminder_enabled: Optional[bool] = None
 
 
 class Point(BaseModel):
@@ -3145,6 +3148,76 @@ async def push_scheduled_create(body: PushScheduledBody, _: dict = Depends(requi
 async def push_scheduled_delete(sch_id: str, _: dict = Depends(require_admin)):
     r = await db.push_scheduled.delete_one({"id": sch_id})
     return {"deleted": r.deleted_count}
+
+
+class PushTestBody(BaseModel):
+    title: Optional[str] = "🧪 Test Bildirimi"
+    body: Optional[str] = "Bu bir test mesajıdır — kurulumun çalıştığını doğruluyoruz."
+    send_channel: Optional[bool] = True
+    send_dm: Optional[bool] = True
+    send_push: Optional[bool] = True
+
+
+@api_router.post("/push/test")
+async def push_test(body: PushTestBody, user: dict = Depends(require_admin)):
+    """Fire-and-forget SANITY test: instantly delivers a test notification via the
+    three channels (Web Push to admin's subscribed devices, Telegram channel,
+    Telegram DM to caller's linked chat_id). Returns per-channel results so the
+    UI can render a colour-coded receipt. Use this BEFORE relying on scheduled
+    reminders — surfaces mis-configuration in one tap.
+    """
+    from telegram_bot import send_message as _tg_send
+    title = (body.title or "🧪 Test Bildirimi").strip()
+    msg = (body.body or "Test").strip()
+    result: dict = {"push_sent": 0, "telegram_channel_sent": False, "telegram_dm_sent": False, "dm_target": None}
+    # 1) Web Push to admin's own subscribed browsers
+    if body.send_push:
+        try:
+            push_res = await _broadcast_push(
+                title, msg, "/etkinlik-bildirimleri", tag=f"test-{uuid.uuid4()}",
+                sound="alarm",
+            )
+            if isinstance(push_res, dict):
+                result["push_sent"] = int(push_res.get("sent") or 0)
+        except Exception as e:
+            result["push_error"] = str(e)
+    # 2) Telegram channel
+    if body.send_channel and os.environ.get("TELEGRAM_CHANNEL_ID", "").strip():
+        try:
+            result["telegram_channel_sent"] = await _tg_send(
+                os.environ["TELEGRAM_CHANNEL_ID"].strip(),
+                f"🧪 *{title}*\n\n{msg}"
+            )
+        except Exception as e:
+            result["telegram_channel_error"] = str(e)
+    # 3) Telegram DM to caller's linked chat_id
+    if body.send_dm:
+        udoc = await db.users.find_one({"id": user["id"]}, {"_id": 0, "telegram_chat_id": 1, "telegram_username": 1})
+        cid = (udoc or {}).get("telegram_chat_id")
+        if cid:
+            try:
+                ok = await _tg_send(str(cid), f"🧪 *{title}*\n\n{msg}\n\n_(kişisel test — sadece sen görüyorsun)_")
+                result["telegram_dm_sent"] = bool(ok)
+                result["dm_target"] = "chat_id"
+            except Exception as e:
+                result["telegram_dm_error"] = str(e)
+        else:
+            # Fallback: username → chat_map lookup
+            uh = (udoc or {}).get("telegram_username")
+            if uh:
+                entry = await db.telegram_chat_map.find_one(
+                    {"username_lc": uh.lower().lstrip("@")}, {"_id": 0, "chat_id": 1}
+                )
+                if entry and entry.get("chat_id"):
+                    try:
+                        ok = await _tg_send(str(entry["chat_id"]), f"🧪 *{title}*\n\n{msg}")
+                        result["telegram_dm_sent"] = bool(ok)
+                        result["dm_target"] = "username_map"
+                    except Exception as e:
+                        result["telegram_dm_error"] = str(e)
+                else:
+                    result["dm_pending"] = f"@{uh}"
+    return result
 
 
 class PushSnoozeBody(BaseModel):

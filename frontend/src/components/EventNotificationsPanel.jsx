@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import useSWR, { mutate } from "swr";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { BellRing, Trash2, Clock, Calendar, Users, ChevronDown, ChevronUp } from "lucide-react";
+import { BellRing, Trash2, Clock, Calendar, Users, ChevronDown, ChevronUp, TestTube2 } from "lucide-react";
 import { api, apiErr } from "@/lib/api";
 import EventReminderDialog from "@/components/EventReminderDialog";
 
@@ -93,6 +93,29 @@ export default function EventNotificationsPanel() {
     }
   };
 
+  const [testing, setTesting] = useState(false);
+  const [lastTest, setLastTest] = useState(null);
+  const runTest = async () => {
+    setTesting(true);
+    try {
+      const r = await api.post("/push/test", {
+        title: "🧪 Kurulum Testi",
+        body: "Bu bir test bildirimidir. Kanalın, DM'in ve tarayıcı bildirimlerinin çalıştığını doğruluyoruz.",
+      });
+      setLastTest(r.data);
+      const ch = r.data.telegram_channel_sent;
+      const dm = r.data.telegram_dm_sent;
+      const push = r.data.push_sent;
+      const summary = `Kanal:${ch ? "✓" : "✗"} · DM:${dm ? "✓" : "✗"} · Push:${push}`;
+      if (ch || dm || push > 0) toast.success(`Test gönderildi — ${summary}`);
+      else toast.error(`Hiçbir kanal ulaşmadı — ${summary}`);
+    } catch (e) {
+      toast.error(apiErr(e));
+    } finally {
+      setTesting(false);
+    }
+  };
+
   // Compact analytics badge for FIRED scheduled reminders — shows Web Push
   // recipient count + Telegram channel status + DM count. Emerald when Telegram
   // channel delivered, muted when not; renders inline next to the timestamp.
@@ -144,6 +167,37 @@ export default function EventNotificationsPanel() {
       <p className="text-[11px] text-muted-foreground mb-3 leading-snug">
         {t("event_notif_panel_desc") || "Her aktif etkinlik için önceden hatırlatma kur (5dk, 15dk, 30dk, 1s, 2s, 24s öncesine kadar). Bildirimler sadece etkinliğe katılıyor olarak işaretlenmiş üyelerin bağlı hesaplarına push olarak gider."}
       </p>
+
+      {/* Test button — instantly delivers a sanity notification across all channels */}
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          onClick={runTest}
+          disabled={testing}
+          data-testid="event-notif-test-btn"
+          className="chip text-[11px] flex items-center gap-1.5"
+          style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.45)", color: "#C4B5FD", opacity: testing ? 0.5 : 1 }}
+        >
+          <TestTube2 className="w-3.5 h-3.5" />
+          {testing ? (t("event_notif_testing") || "Test gönderiliyor…") : (t("event_notif_test_btn") || "Kanalıma Test At")}
+        </button>
+        {lastTest && (
+          <span data-testid="event-notif-test-result" className="text-[10px] mono flex items-center gap-1.5">
+            <span style={{ color: lastTest.telegram_channel_sent ? "#6EE7B7" : "#F87171" }}>
+              ✈️{lastTest.telegram_channel_sent ? "✓" : "✗"}
+            </span>
+            <span style={{ color: lastTest.telegram_dm_sent ? "#6EE7B7" : "#94A3B8" }}>
+              · 📩{lastTest.telegram_dm_sent ? "✓" : "✗"}
+            </span>
+            <span style={{ color: (lastTest.push_sent > 0) ? "#6EE7B7" : "#94A3B8" }}>
+              · 🔔{lastTest.push_sent}
+            </span>
+            {lastTest.dm_pending && (
+              <span className="opacity-70">· {lastTest.dm_pending} /start bekliyor</span>
+            )}
+          </span>
+        )}
+      </div>
 
       {/* Active events list */}
       {activeEvents.length === 0 ? (
