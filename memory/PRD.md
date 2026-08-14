@@ -1,5 +1,13 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Eşleşme Ekranından admin & pasha Sistem Hesapları Kaldırıldı — DONE
+- **Sorun**: `GET /api/users/unmatched` admin ve pasha'yı da listeye ekliyordu (member_ids boş kalabildiği zamanlarda).
+- **Fix** (`auth.py`): Query'ye `{"username": {"$nin": ["admin", "pasha"]}}` filtresi eklendi. Guild-owner sistem hesapları artık matching ekranında görünmez.
+- **Doğrulama (curl)**: `GET /api/users/unmatched` → count=0 ✅ (öncesi: 2 — admin, pasha).
+- **Not**: seed_admin startup'ta member_ids'i reset etmiyor ama admin/pasha'nın kendi hesap doğası gereği bu kullanıcılar oyuncu üye kartı ile eşleşmemeli — filter kalıcı çözüm.
+
+
+
 ## [2026-02] Admin & Pasha Kullanıcı Eşleştirme (pasha@titanxis.com) — DONE
 - **Amaç**: `admin` ve `pasha` kullanıcılarını `pasha@titanxis.com` ile eşleştir ve her ikisini de `PasHa` üyesine (id `b66ffadc-d2c7-409a-ba27-2c04ff336e99`, alliance GOW/R3) bağla.
 - **Preview DB**: One-shot script ile e-postalar `pasha@titanxis.com` yapıldı; pasha user'ın boş `member_ids` array'ine `PasHa` üye ID'si eklendi; admin user'ın var olan `member_ids` array'ine de aynı ID append edildi.

@@ -329,12 +329,18 @@ def make_auth_router(db):
     # ---------- User Management (admin only) ----------
     @router.get("/users/unmatched")
     async def list_unmatched_users(_: dict = Depends(require_admin)):
-        """Return users with no linked member (empty/missing member_ids AND no legacy member_id)."""
+        """Return users with no linked member (empty/missing member_ids AND no legacy member_id).
+
+        The built-in system accounts ``admin`` and ``pasha`` are excluded from
+        this list — they are the guild-owner accounts and should not appear as
+        matching candidates even when their member_ids happen to be empty.
+        """
         docs = await db.users.find(
             {
                 "$and": [
                     {"$or": [{"member_ids": {"$exists": False}}, {"member_ids": {"$size": 0}}]},
                     {"$or": [{"member_id": None}, {"member_id": ""}, {"member_id": {"$exists": False}}]},
+                    {"username": {"$nin": ["admin", "pasha"]}},
                 ]
             },
             {"_id": 0, "password_hash": 0},
