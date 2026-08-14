@@ -3072,9 +3072,36 @@ class PushScheduledBody(BaseModel):
 
 
 @api_router.get("/push/scheduled")
-async def push_scheduled_list(_: dict = Depends(require_admin)):
-    cursor = db.push_scheduled.find({"sent": False}, {"_id": 0}).sort("scheduled_at", 1).limit(100)
-    return await cursor.to_list(100)
+async def push_scheduled_list(include_sent: bool = False, _: dict = Depends(require_admin)):
+    """List scheduled push reminders. When `include_sent=true`, also return
+    already-fired items (last 100) so admins can audit past delivery.
+    Each item is merged with its `push_history` counterpart (matched by
+    `tag=scheduled-{id}`) so the UI can render a fan-out badge:
+    Web-Push `sent`, `telegram_channel_sent`, `telegram_dm_sent`.
+    """
+    query = {} if include_sent else {"sent": False}
+    docs = await db.push_scheduled.find(query, {"_id": 0}).sort("scheduled_at", -1 if include_sent else 1).limit(200).to_list(200)
+    if not docs:
+        return []
+    # Merge push_history metrics for any doc that has fired.
+    fired_ids = [d["id"] for d in docs if d.get("sent")]
+    hist_by_tag: Dict[str, dict] = {}
+    if fired_ids:
+        tags = [f"scheduled-{i}" for i in fired_ids]
+        async for h in db.push_history.find(
+            {"tag": {"$in": tags}},
+            {"_id": 0, "tag": 1, "sent": 1, "removed": 1,
+             "telegram_channel_sent": 1, "telegram_dm_sent": 1}
+        ):
+            hist_by_tag[h["tag"]] = h
+    for d in docs:
+        h = hist_by_tag.get(f"scheduled-{d['id']}")
+        if h:
+            d["push_sent"] = int(h.get("sent") or 0)
+            d["push_removed"] = int(h.get("removed") or 0)
+            d["telegram_channel_sent"] = bool(h.get("telegram_channel_sent") or False)
+            d["telegram_dm_sent"] = int(h.get("telegram_dm_sent") or 0)
+    return docs
 
 
 @api_router.post("/push/scheduled")

@@ -21,9 +21,13 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
 export default function EventNotificationsPanel() {
   const { t, i18n } = useTranslation();
   const { data: events = [] } = useSWR("/events?archived=false", fetcher);
-  const { data: scheduled = [] } = useSWR("/push/scheduled", fetcher, { refreshInterval: 30000 });
-  const [reminderFor, setReminderFor] = useState(null);
   const [showPast, setShowPast] = useState(false);
+  const { data: scheduled = [] } = useSWR(
+    showPast ? "/push/scheduled?include_sent=true" : "/push/scheduled",
+    fetcher,
+    { refreshInterval: 30000 }
+  );
+  const [reminderFor, setReminderFor] = useState(null);
 
   // Only active events (not archived), sorted by date ascending (nearest first).
   const activeEvents = useMemo(() => {
@@ -72,7 +76,7 @@ export default function EventNotificationsPanel() {
     if (!window.confirm(t("event_notif_delete_confirm") || "Bu hatırlatmayı silmek istediğine emin misin?")) return;
     try {
       await api.delete(`/push/scheduled/${id}`);
-      mutate("/push/scheduled");
+      mutate((k) => typeof k === "string" && k.startsWith("/push/scheduled"));
       toast.success(t("event_notif_deleted") || "Hatırlatma silindi");
     } catch (e) {
       toast.error(apiErr(e));
@@ -82,11 +86,37 @@ export default function EventNotificationsPanel() {
   const snoozeScheduled = async (id, minutes) => {
     try {
       await api.post(`/push/scheduled/${id}/snooze`, { minutes });
-      mutate("/push/scheduled");
+      mutate((k) => typeof k === "string" && k.startsWith("/push/scheduled"));
       toast.success(t("event_notif_snoozed", { minutes }) || `${minutes} dk ertelendi`);
     } catch (e) {
       toast.error(apiErr(e));
     }
+  };
+
+  // Compact analytics badge for FIRED scheduled reminders — shows Web Push
+  // recipient count + Telegram channel status + DM count. Emerald when Telegram
+  // channel delivered, muted when not; renders inline next to the timestamp.
+  const AnalyticsBadge = ({ s }) => {
+    if (!s.sent) return null;
+    const push = Number.isFinite(s.push_sent) ? s.push_sent : null;
+    const dm = Number.isFinite(s.telegram_dm_sent) ? s.telegram_dm_sent : null;
+    const ch = !!s.telegram_channel_sent;
+    return (
+      <span
+        data-testid={`event-notif-analytics-${s.id}`}
+        className="ml-1 px-1.5 py-0.5 rounded font-bold text-[9px] flex items-center gap-1"
+        style={{
+          background: ch ? "rgba(16,185,129,0.15)" : "rgba(148,163,184,0.12)",
+          border: `1px solid ${ch ? "rgba(16,185,129,0.45)" : "rgba(148,163,184,0.30)"}`,
+          color: ch ? "#6EE7B7" : "#94A3B8",
+        }}
+        title={t("event_notif_analytics_tooltip") || "Yayın sonuçları"}
+      >
+        <span>✈️{ch ? "✓" : "—"}</span>
+        {dm !== null && <span>· 📩{dm}</span>}
+        {push !== null && <span>· 🔔{push}</span>}
+      </span>
+    );
   };
 
   return (
@@ -161,11 +191,11 @@ export default function EventNotificationsPanel() {
                       return (
                         <div
                           key={s.id}
-                          className="flex items-center gap-2 text-[10px]"
+                          className="flex items-center gap-2 text-[10px] flex-wrap"
                           data-testid={`event-notif-scheduled-${s.id}`}
                         >
                           <Clock className="w-3 h-3 flex-shrink-0" style={{ color: isPast ? "#6B7280" : "#F5A623" }} />
-                          <span className="mono" style={{ color: isPast ? "#6B7280" : "#F5F5F5", textDecoration: isPast ? "line-through" : "none" }}>
+                          <span className="mono" style={{ color: isPast ? "#6B7280" : "#F5F5F5", textDecoration: isPast && !s.sent ? "line-through" : "none" }}>
                             {localFormat(s.scheduled_at)}
                           </span>
                           <span className="opacity-60">·</span>
@@ -175,8 +205,9 @@ export default function EventNotificationsPanel() {
                               🌍 {s.country_iso2}
                             </span>
                           )}
+                          <AnalyticsBadge s={s} />
                           <div className="flex-1" />
-                          {!isPast && (
+                          {!isPast && !s.sent && (
                             <button
                               type="button"
                               onClick={() => snoozeScheduled(s.id, 10)}
@@ -188,16 +219,18 @@ export default function EventNotificationsPanel() {
                               +10dk
                             </button>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => deleteScheduled(s.id)}
-                            data-testid={`event-notif-delete-${s.id}`}
-                            className="p-0.5 rounded"
-                            style={{ background: "rgba(239,68,68,0.15)", color: "#F87171" }}
-                            title={t("event_notif_delete_tooltip") || "Sil"}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                          {!s.sent && (
+                            <button
+                              type="button"
+                              onClick={() => deleteScheduled(s.id)}
+                              data-testid={`event-notif-delete-${s.id}`}
+                              className="p-0.5 rounded"
+                              style={{ background: "rgba(239,68,68,0.15)", color: "#F87171" }}
+                              title={t("event_notif_delete_tooltip") || "Sil"}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
                         </div>
                       );
                     })}
