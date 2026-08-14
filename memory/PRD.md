@@ -1,5 +1,23 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Dashboard Konum Haritası (Choropleth) — DONE & VERIFIED
+- **Amaç**: Dashboard'a "Üye Konumları" kartı — dünya haritasında üye sayısına göre renklendirilmiş ülkeler.
+- **Backend**:
+  - `Member`, `MemberCreate`, `MemberUpdate` modellerine `country: Optional[str]` alanı (ISO 3166-1 alpha-2, örn. "TR", "US"). Boş bırakılabilir.
+  - `GET /api/dashboard/member-locations` endpoint'i tamamen yeniden yazıldı: artık ülke ISO2'ye göre aggregate ediyor, `[{country, count}]` sorted desc döndürüyor. Blank/invalid country'ler skip.
+- **Frontend**:
+  - Bağımlılık: `react-simple-maps@3.0.0` + `d3-scale@4.0.2` eklendi (yarn).
+  - Yeni dosya `/app/frontend/src/lib/countries.js`: 75 ülke için `{iso2, iso3, isoN, name, flag}` kayıt (Türkiye başta, mobil strateji oyunlarında popüler bölgeler). `COUNTRY_BY_ISO2` ve `COUNTRY_BY_ISON` fast-lookup export'ları.
+  - Yeni bileşen `/app/frontend/src/components/MemberLocationMap.jsx`: TopoJSON `world-atlas@2/countries-110m` CDN'den yüklüyor, üye yoğunluğuna göre `d3-scale linear` (0 → koyu, max → amber #F5A623). Hover tooltip (bayrak + isim + üye sayısı). Alt bölümde top-5 ülke bar-graph legend. `ZoomableGroup` ile pan/zoom (1× → 4×).
+  - `Members.jsx` MemberForm: `<select>` ile ISO2 dropdown (75 seçenek + bayrak emoji + "Belirtilmemiş" boş seçenek). Submit body'e `country` eklendi.
+  - `Dashboard.jsx` DraggableGrid item'lara `{ key: "map", node: <MemberLocationMap /> }` eklendi (varsayılan grid sırasında en sonda).
+- **i18n**: TR + EN için `dash_member_locations`, `dash_top_countries`, `dash_no_country_data`, `dash_placed_x_of_y`, `dash_member_count_suffix`, `member_country_label`, `member_country_none` anahtarları eklendi.
+- **Doğrulama**:
+  - curl: 8 üyeye TR/US/DE/RU/BR atandı → `/dashboard/member-locations` doğru sıralı response ✅
+  - Screenshot: harita choropleth ile renklendi, "8 üye haritada" göstergesi ve altta bar-graph legend görüntülendi ✅
+
+
+
 ## [2026-02] Eşleşme Ekranından admin & pasha Sistem Hesapları Kaldırıldı — DONE
 - **Sorun**: `GET /api/users/unmatched` admin ve pasha'yı da listeye ekliyordu (member_ids boş kalabildiği zamanlarda).
 - **Fix** (`auth.py`): Query'ye `{"username": {"$nin": ["admin", "pasha"]}}` filtresi eklendi. Guild-owner sistem hesapları artık matching ekranında görünmez.

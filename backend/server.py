@@ -61,6 +61,7 @@ class Member(BaseModel):
     note: Optional[str] = None
     note_position: Optional[str] = "inline"  # "inline" | "bottom"
     note_color: Optional[str] = "#DC2626"    # hex color for bottom-position notes
+    country: Optional[str] = None            # ISO 3166-1 alpha-2 (uppercase), e.g. "TR", "US"
     created_at: str = Field(default_factory=now_iso)
 
 
@@ -83,6 +84,7 @@ class MemberCreate(BaseModel):
     note: Optional[str] = None
     note_position: Optional[str] = "inline"
     note_color: Optional[str] = "#DC2626"
+    country: Optional[str] = None
 
 
 class MemberUpdate(BaseModel):
@@ -113,6 +115,7 @@ class MemberUpdate(BaseModel):
     note: Optional[str] = None
     note_position: Optional[str] = None
     note_color: Optional[str] = None
+    country: Optional[str] = None
 
 
 class Event(BaseModel):

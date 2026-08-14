@@ -243,15 +243,17 @@ def register_dashboard(api_router: APIRouter, db, require_edit=None, require_adm
 
     @api_router.get("/dashboard/member-locations")
     async def dashboard_member_locations(_: dict = Depends(_guard)):
-        # Kept for backward compat with previous Dashboard version.
-        by_alliance: Dict[str, int] = {}
-        async for m in db.members.find({}, {"_id": 0, "alliance_name": 1}):
-            a = (m.get("alliance_name") or "?").strip() or "?"
-            by_alliance[a] = by_alliance.get(a, 0) + 1
-        rows = []
-        for a, count in by_alliance.items():
-            h = int(hashlib.md5(a.encode()).hexdigest(), 16)
-            rows.append({"alliance": a, "count": count,
-                         "lat": -55 + (h % 110), "lng": -170 + ((h // 110) % 340)})
+        """Aggregate members by ISO 3166-1 alpha-2 country code.
+
+        Returns: [{country: "TR", count: 12}, ...] sorted by count desc.
+        Members with a missing/blank ``country`` field are skipped.
+        """
+        by_country: Dict[str, int] = {}
+        async for m in db.members.find({}, {"_id": 0, "country": 1}):
+            c = (m.get("country") or "").strip().upper()
+            if not c or len(c) != 2:
+                continue
+            by_country[c] = by_country.get(c, 0) + 1
+        rows = [{"country": c, "count": n} for c, n in by_country.items()]
         rows.sort(key=lambda r: -r["count"])
         return rows

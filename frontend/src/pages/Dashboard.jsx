@@ -12,6 +12,7 @@ import { api, fmt } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useTranslation } from "react-i18next";
 import { isAnalyticsActive, trackEvent } from "@/firebase";
+import MemberLocationMap from "@/components/MemberLocationMap";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 const BG = "#111111";
@@ -950,6 +951,7 @@ export default function Dashboard() {
             { key: "recent",   node: <RecentEvents items={recentEvents} /> },
             { key: "logins",   node: <RecentLogins items={recentLogins} /> },
             { key: "upcoming", node: <Upcoming items={upcoming} /> },
+            { key: "map",      node: <MemberLocationMap /> },
           ]}
         />
       </div>

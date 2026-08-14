@@ -14,6 +14,7 @@ import CountUp from "@/components/CountUp";
 import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { COUNTRIES, COUNTRY_BY_ISO2 } from "@/lib/countries";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -1161,6 +1162,7 @@ function MemberForm({ initial, onClose }) {
   const [note, setNote] = useState(initial?.note || "");
   const [notePosition, setNotePosition] = useState(initial?.note_position || "inline");
   const [noteColor, setNoteColor] = useState(initial?.note_color || "#DC2626");
+  const [country, setCountry] = useState(initial?.country || "");
   const [saving, setSaving] = useState(false);
   const { data: alliances = [] } = useSWR("/alliances", fetcher);
   // Category (main/academy) is loaded per-alliance from /alliances/stats so
@@ -1379,6 +1381,21 @@ function MemberForm({ initial, onClose }) {
             <button key={r} type="button" onClick={() => setRank(r)} className={`chip ${rank === r ? "active" : ""}`}>{r}</button>
           ))}
         </div>
+
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-4">{t("member_country_label")}</label>
+        <select
+          data-testid="member-form-country"
+          value={country}
+          onChange={(e) => setCountry(e.target.value)}
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white outline-none"
+        >
+          <option value="">— {t("member_country_none")} —</option>
+          {COUNTRIES.map((c) => (
+            <option key={c.iso2} value={c.iso2}>
+              {c.flag}  {c.name} ({c.iso2})
+            </option>
+          ))}
+        </select>
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">&nbsp;</label>
         <div className="flex items-center gap-1.5 mb-1.5" data-testid="note-position-toggle">
