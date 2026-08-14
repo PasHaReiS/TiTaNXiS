@@ -1,5 +1,12 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Attendance Panel Full-Width Liste — DONE
+- **Sorun**: EventAttendance panel'i chip'lerle `flex-wrap` kullanıyordu; mobilde/dar ekranda üye adları kısa görünüyor, seçim zorlaşıyordu.
+- **Fix (`EventAttendance.jsx`)**: `flex flex-wrap gap-1` → `flex flex-col gap-1` (full-width satırlar). Her satır: (a) 18×18 checkbox kutusu (yeşil ✓ / boş ○), (b) rank badge, (c) truncate isim (textTransform:"none"), (d) ittifak etiketi. `maxHeight: 160` → `320` (2× daha uzun scroll alanı). `slice(0, 200)` → `slice(0, 500)`.
+- Ekran genişliğinden bağımsız — mobilde ve masaüstünde ayrı ayrı sığar, tap hedefleri büyür.
+
+
+
 ## [2026-02] Push Bildirimlerinin Kullanıcı Diline Otomatik Çevrilmesi — DONE & VERIFIED
 - **Backend `auth.py`**: Yeni `POST /api/auth/preferred-language {lang}` endpoint. Kullanıcının tercih ettiği i18n dilini (`preferred_language`) DB'ye persist eder.
 - **Backend `routes/push.py`**:

@@ -125,11 +125,11 @@ export default function EventAttendance({ eventId, testIdPrefix = "event-att" })
             }
           >
             <div
-              className="flex flex-wrap gap-1 overflow-y-auto pr-1"
-              style={{ maxHeight: 160 }}
+              className="flex flex-col gap-1 overflow-y-auto pr-1"
+              style={{ maxHeight: 320 }}
               data-testid={`${testIdPrefix}-list`}
             >
-              {filtered.slice(0, 200).map((m) => {
+              {filtered.slice(0, 500).map((m) => {
                 const on = attendedSet.has(m.id);
                 return (
                   <button
@@ -138,17 +138,39 @@ export default function EventAttendance({ eventId, testIdPrefix = "event-att" })
                     onClick={() => toggle(m.id)}
                     disabled={pending === m.id}
                     data-testid={`${testIdPrefix}-chip-${m.id}`}
-                    className="text-[10px] px-2 py-1 rounded transition flex items-center gap-1"
+                    className="w-full text-left text-xs px-2 py-1.5 rounded transition flex items-center gap-2"
                     style={{
-                      background: on ? "rgba(74,222,128,0.15)" : "rgba(255,255,255,0.04)",
-                      border: `1px solid ${on ? "rgba(74,222,128,0.55)" : "rgba(255,255,255,0.08)"}`,
-                      color: on ? "#4ADE80" : "#F5F0E8",
+                      background: on ? "rgba(74,222,128,0.12)" : "rgba(255,255,255,0.03)",
+                      border: `1px solid ${on ? "rgba(74,222,128,0.5)" : "rgba(255,255,255,0.08)"}`,
                       opacity: pending === m.id ? 0.5 : 1,
                     }}
                     title={m.name}
                   >
-                    {on && <span aria-hidden>✓</span>}
-                    <span className="max-w-[100px] truncate" style={{ textTransform: "none" }}>{m.name}</span>
+                    <span
+                      className="flex items-center justify-center rounded flex-shrink-0"
+                      style={{
+                        width: 18, height: 18, fontSize: 11,
+                        background: on ? "#4ADE80" : "transparent",
+                        border: on ? "none" : "1px solid rgba(255,255,255,0.25)",
+                        color: on ? "#0F0F0F" : "transparent",
+                      }}
+                    >
+                      {on ? "✓" : "○"}
+                    </span>
+                    <span
+                      className="rank-badge flex-shrink-0"
+                      style={{ width: 22, height: 18, fontSize: 9, borderRadius: 4, fontWeight: 800 }}
+                    >
+                      {m.rank || "R1"}
+                    </span>
+                    <span className="flex-1 truncate font-semibold text-white" style={{ textTransform: "none" }}>
+                      {m.name}
+                    </span>
+                    {m.alliance_name && (
+                      <span className="text-[9px] uppercase tracking-widest opacity-60 truncate max-w-[80px]">
+                        {m.alliance_name}
+                      </span>
+                    )}
                   </button>
                 );
               })}
