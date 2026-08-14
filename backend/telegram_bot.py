@@ -393,7 +393,10 @@ async def send_message(chat_id: str, text: str, parse_mode: str = "Markdown",
                        reply_markup: Optional[dict] = None) -> bool:
     """Fire-and-forget broadcaster used by app hooks. When `reply_markup` is
     provided (e.g. inline keyboard), it's forwarded verbatim to the Bot API so
-    callers can attach ✅/❌ attendance buttons to a DM."""
+    callers can attach ✅/❌ attendance buttons to a DM. On non-ok responses
+    we log Telegram's `description` + `error_code` so failures are debuggable
+    without inspecting httpx status alone (chat not found, blocked by user,
+    markdown parse errors, etc.)"""
     if not BOT_TOKEN or not chat_id:
         return False
     try:
@@ -402,9 +405,16 @@ async def send_message(chat_id: str, text: str, parse_mode: str = "Markdown",
             payload["reply_markup"] = reply_markup
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.post(f"{TELEGRAM_API}/sendMessage", json=payload)
-            return bool(r.json().get("ok"))
+            data = r.json() if r.content else {}
+            if data.get("ok"):
+                return True
+            log.warning(
+                "Telegram sendMessage rejected chat_id=%s code=%s description=%r http_status=%s",
+                chat_id, data.get("error_code"), data.get("description"), r.status_code,
+            )
+            return False
     except Exception as e:
-        log.warning(f"Telegram sendMessage failed: {e}")
+        log.warning(f"Telegram sendMessage exception chat_id={chat_id}: {e}")
         return False
 
 
@@ -419,9 +429,16 @@ async def answer_callback_query(cb_id: str, text: str = "", show_alert: bool = F
                 f"{TELEGRAM_API}/answerCallbackQuery",
                 json={"callback_query_id": cb_id, "text": text, "show_alert": show_alert},
             )
-            return bool(r.json().get("ok"))
+            data = r.json() if r.content else {}
+            if data.get("ok"):
+                return True
+            log.warning(
+                "Telegram answerCallbackQuery rejected cb_id=%s code=%s description=%r",
+                cb_id, data.get("error_code"), data.get("description"),
+            )
+            return False
     except Exception as e:
-        log.warning(f"answerCallbackQuery failed: {e}")
+        log.warning(f"answerCallbackQuery exception cb_id={cb_id}: {e}")
         return False
 
 
@@ -439,9 +456,18 @@ async def edit_message_text(chat_id: str, message_id: int, text: str,
             payload["reply_markup"] = reply_markup
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.post(f"{TELEGRAM_API}/editMessageText", json=payload)
-            return bool(r.json().get("ok"))
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(f"{TELEGRAM_API}/editMessageText", json=payload)
+            data = r.json() if r.content else {}
+            if data.get("ok"):
+                return True
+            log.warning(
+                "Telegram editMessageText rejected chat_id=%s message_id=%s code=%s description=%r",
+                chat_id, message_id, data.get("error_code"), data.get("description"),
+            )
+            return False
     except Exception as e:
-        log.warning(f"editMessageText failed: {e}")
+        log.warning(f"editMessageText exception chat_id={chat_id} message_id={message_id}: {e}")
         return False
 
 

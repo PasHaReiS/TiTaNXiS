@@ -107,7 +107,7 @@ export default function TelegramLinkSection() {
               {t("telegram_widget_hint")}
             </p>
           </div>
-          <ManualLinkFallback onLinked={() => setLinked(true)} />
+          <ManualLinkFallback onLinked={refreshStatus} />
         </>
       )}
     </div>
