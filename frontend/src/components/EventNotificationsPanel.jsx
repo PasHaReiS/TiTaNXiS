@@ -98,19 +98,22 @@ export default function EventNotificationsPanel() {
 
   const [testing, setTesting] = useState(false);
   const [lastTest, setLastTest] = useState(null);
+  const [fanOut, setFanOut] = useState(false);
   const runTest = async () => {
     setTesting(true);
     try {
       const r = await api.post("/push/test", {
         title: "🧪 Kurulum Testi",
         body: "Bu bir test bildirimidir. Kanalın, DM'in ve tarayıcı bildirimlerinin çalıştığını doğruluyoruz.",
+        fan_out: fanOut,
       });
       setLastTest(r.data);
       const ch = r.data.telegram_channel_sent;
       const dm = r.data.telegram_dm_sent;
       const push = r.data.push_sent;
-      const summary = `Kanal:${ch ? "✓" : "✗"} · DM:${dm ? "✓" : "✗"} · Push:${push}`;
-      if (ch || dm || push > 0) toast.success(`Test gönderildi — ${summary}`);
+      const total = r.data.dm_targets_total || 0;
+      const summary = `Kanal:${ch ? "✓" : "✗"} · DM:${dm}/${total} · Push:${push}`;
+      if (ch || dm > 0 || push > 0) toast.success(`Test gönderildi — ${summary}`);
       else toast.error(`Hiçbir kanal ulaşmadı — ${summary}`);
     } catch (e) {
       toast.error(apiErr(e));
@@ -249,23 +252,44 @@ export default function EventNotificationsPanel() {
           <TestTube2 className="w-3.5 h-3.5" />
           {testing ? (t("event_notif_testing") || "Test gönderiliyor…") : (t("event_notif_test_btn") || "Kanalıma Test At")}
         </button>
+        <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
+          <input
+            type="checkbox"
+            checked={fanOut}
+            onChange={(e) => setFanOut(e.target.checked)}
+            data-testid="event-notif-fanout-toggle"
+            className="cursor-pointer"
+          />
+          <span>{t("event_notif_fanout_label") || "Tüm bağlı üyelere gönder"}</span>
+        </label>
         {lastTest && (
           <span data-testid="event-notif-test-result" className="text-[10px] mono flex items-center gap-1.5">
             <span style={{ color: lastTest.telegram_channel_sent ? "#6EE7B7" : "#F87171" }}>
               ✈️{lastTest.telegram_channel_sent ? "✓" : "✗"}
             </span>
-            <span style={{ color: lastTest.telegram_dm_sent ? "#6EE7B7" : "#94A3B8" }}>
-              · 📩{lastTest.telegram_dm_sent ? "✓" : "✗"}
+            <span style={{ color: (lastTest.telegram_dm_sent > 0) ? "#6EE7B7" : "#94A3B8" }}>
+              · 📩{lastTest.telegram_dm_sent}/{lastTest.dm_targets_total || 0}
             </span>
             <span style={{ color: (lastTest.push_sent > 0) ? "#6EE7B7" : "#94A3B8" }}>
               · 🔔{lastTest.push_sent}
             </span>
-            {lastTest.dm_pending && (
-              <span className="opacity-70">· {lastTest.dm_pending} /start bekliyor</span>
-            )}
           </span>
         )}
       </div>
+      {lastTest && Array.isArray(lastTest.dm_details) && lastTest.dm_details.length > 0 && (
+        <div className="mb-3 rounded p-2 text-[10px]" style={{ background: "rgba(0,0,0,0.30)", border: "1px solid rgba(148,163,184,0.20)" }} data-testid="event-notif-test-details">
+          <div className="uppercase font-bold text-muted-foreground tracking-widest mb-1">DM Sonuçları</div>
+          {lastTest.dm_details.map((d, i) => (
+            <div key={i} className="flex items-center gap-2 mono">
+              <span style={{ color: d.sent ? "#6EE7B7" : "#F87171" }}>{d.sent ? "✓" : "✗"}</span>
+              <span className="flex-1">{d.username}</span>
+              <span className="opacity-60">{d.chat_id}</span>
+              <span className="text-[9px] opacity-50 uppercase">{d.source === "chat_map" ? "/start" : "widget"}</span>
+              {d.error && <span className="text-red-400 text-[9px]">{d.error}</span>}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Active events list */}
       {activeEvents.length === 0 ? (

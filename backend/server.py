@@ -3157,21 +3157,19 @@ class PushTestBody(BaseModel):
     send_channel: Optional[bool] = True
     send_dm: Optional[bool] = True
     send_push: Optional[bool] = True
+    fan_out: Optional[bool] = False
 
 
 @api_router.post("/push/test")
 async def push_test(body: PushTestBody, user: dict = Depends(require_admin)):
-    """Fire-and-forget SANITY test: instantly delivers a test notification via the
-    three channels (Web Push to admin's subscribed devices, Telegram channel,
-    Telegram DM to caller's linked chat_id). Returns per-channel results so the
-    UI can render a colour-coded receipt. Use this BEFORE relying on scheduled
-    reminders — surfaces mis-configuration in one tap.
-    """
+    """Sanity test. When ``fan_out=True`` DMs every linked user (Widget or
+    /start capture); otherwise only the caller. Returns per-user delivery
+    details so admins see exactly who received the message."""
     from telegram_bot import send_message as _tg_send
     title = (body.title or "🧪 Test Bildirimi").strip()
     msg = (body.body or "Test").strip()
-    result: dict = {"push_sent": 0, "telegram_channel_sent": False, "telegram_dm_sent": False, "dm_target": None}
-    # 1) Web Push to admin's own subscribed browsers
+    result: dict = {"push_sent": 0, "telegram_channel_sent": False}
+    # 1) Web Push
     if body.send_push:
         try:
             push_res = await _broadcast_push(
@@ -3191,33 +3189,52 @@ async def push_test(body: PushTestBody, user: dict = Depends(require_admin)):
             )
         except Exception as e:
             result["telegram_channel_error"] = str(e)
-    # 3) Telegram DM to caller's linked chat_id
+    # 3) Telegram DM(s) — fan-out when requested
+    result["telegram_dm_sent"] = 0
+    result["telegram_dm_failed"] = 0
+    result["dm_details"] = []
     if body.send_dm:
-        udoc = await db.users.find_one({"id": user["id"]}, {"_id": 0, "telegram_chat_id": 1, "telegram_username": 1})
-        cid = (udoc or {}).get("telegram_chat_id")
-        if cid:
-            try:
-                ok = await _tg_send(str(cid), f"🧪 *{title}*\n\n{msg}\n\n_(kişisel test — sadece sen görüyorsun)_")
-                result["telegram_dm_sent"] = bool(ok)
-                result["dm_target"] = "chat_id"
-            except Exception as e:
-                result["telegram_dm_error"] = str(e)
+        targets: List[Dict[str, str]] = []
+        seen: set = set()
+        if body.fan_out:
+            async for u in db.users.find(
+                {"telegram_chat_id": {"$exists": True, "$ne": None},
+                 "notification_enabled": {"$ne": False}},
+                {"_id": 0, "username": 1, "telegram_chat_id": 1}
+            ):
+                cid = str(u.get("telegram_chat_id") or "")
+                if cid and cid not in seen:
+                    seen.add(cid)
+                    targets.append({"username": u.get("username") or "?", "chat_id": cid, "source": "widget"})
+            async for m in db.telegram_chat_map.find({}, {"_id": 0, "username": 1, "chat_id": 1}):
+                cid = str(m.get("chat_id") or "")
+                if cid and cid not in seen:
+                    seen.add(cid)
+                    targets.append({"username": f"@{m.get('username') or '?'}", "chat_id": cid, "source": "chat_map"})
         else:
-            # Fallback: username → chat_map lookup
-            uh = (udoc or {}).get("telegram_username")
-            if uh:
-                entry = await db.telegram_chat_map.find_one(
-                    {"username_lc": uh.lower().lstrip("@")}, {"_id": 0, "chat_id": 1}
-                )
-                if entry and entry.get("chat_id"):
-                    try:
-                        ok = await _tg_send(str(entry["chat_id"]), f"🧪 *{title}*\n\n{msg}")
-                        result["telegram_dm_sent"] = bool(ok)
-                        result["dm_target"] = "username_map"
-                    except Exception as e:
-                        result["telegram_dm_error"] = str(e)
-                else:
-                    result["dm_pending"] = f"@{uh}"
+            udoc = await db.users.find_one({"id": user["id"]}, {"_id": 0, "username": 1, "telegram_chat_id": 1, "telegram_username": 1})
+            cid = (udoc or {}).get("telegram_chat_id")
+            if cid:
+                targets.append({"username": udoc.get("username") or "?", "chat_id": str(cid), "source": "widget"})
+            else:
+                uh = (udoc or {}).get("telegram_username")
+                if uh:
+                    e = await db.telegram_chat_map.find_one({"username_lc": uh.lower().lstrip("@")}, {"_id": 0, "chat_id": 1})
+                    if e and e.get("chat_id"):
+                        targets.append({"username": udoc.get("username") or "?", "chat_id": str(e["chat_id"]), "source": "chat_map"})
+        for tgt in targets:
+            try:
+                ok = await _tg_send(tgt["chat_id"], f"🧪 *{title}*\n\n{msg}")
+            except Exception as e:
+                ok = False
+                tgt["error"] = str(e)[:80]
+            tgt["sent"] = bool(ok)
+            if ok:
+                result["telegram_dm_sent"] += 1
+            else:
+                result["telegram_dm_failed"] += 1
+            result["dm_details"].append(tgt)
+        result["dm_targets_total"] = len(targets)
     return result
 
 
@@ -4020,6 +4037,42 @@ async def telegram_unlink(user: dict = Depends(require_auth)):
         {"$unset": {"telegram_chat_id": "", "telegram_linked_at": "", "telegram_username": ""}},
     )
     return {"unlinked": res.modified_count > 0}
+
+
+class TelegramManualLinkBody(BaseModel):
+    chat_id: str
+    username: Optional[str] = None
+
+
+@api_router.post("/telegram/manual-link")
+async def telegram_manual_link(body: TelegramManualLinkBody, user: dict = Depends(require_auth)):
+    """Fallback for when the Login Widget can't run (cross-origin denied,
+    mobile browser, etc). User pastes their numeric chat_id (obtainable via
+    @userinfobot on Telegram) and we bind it to their account. No signature
+    check since this requires an authenticated session — the user is proving
+    they OWN that chat_id by using it in a subsequent DM test.
+    """
+    cid = (body.chat_id or "").strip()
+    if not cid.lstrip("-").isdigit():
+        raise HTTPException(400, "chat_id sayısal olmalı — Telegram'da @userinfobot'a mesaj at, sana ID'ni gösterir")
+    uname = (body.username or "").strip().lstrip("@").strip() or None
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {
+            "telegram_chat_id": cid,
+            "telegram_username": uname,
+            "telegram_linked_at": now_iso(),
+            "telegram_link_source": "manual",
+        }},
+    )
+    # Also populate the chat_map so username-based fan-out finds them too.
+    if uname:
+        await db.telegram_chat_map.update_one(
+            {"username_lc": uname.lower()},
+            {"$set": {"username_lc": uname.lower(), "username": uname, "chat_id": cid, "updated_at": now_iso()}},
+            upsert=True,
+        )
+    return {"linked": True, "chat_id": cid, "telegram_username": uname}
 
 
 class TelegramLoginBody(BaseModel):

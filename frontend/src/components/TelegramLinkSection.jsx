@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { Send, Unlink2 } from "lucide-react";
+import { Send, Unlink2, KeyRound } from "lucide-react";
 import { api, apiErr } from "@/lib/api";
 
 const fetcher = (u) => api.get(u).then((r) => r.data);
@@ -100,11 +100,84 @@ export default function TelegramLinkSection() {
           <Unlink2 className="w-3.5 h-3.5" /> {t("telegram_link_unlink")}
         </button>
       ) : (
-        <div className="flex items-center gap-2">
-          <div ref={widgetHost} data-testid="telegram-login-widget-host" />
-          <p className="text-[10px] text-muted-foreground max-w-xs">
-            {t("telegram_widget_hint")}
+        <>
+          <div className="flex items-center gap-2">
+            <div ref={widgetHost} data-testid="telegram-login-widget-host" />
+            <p className="text-[10px] text-muted-foreground max-w-xs">
+              {t("telegram_widget_hint")}
+            </p>
+          </div>
+          <ManualLinkFallback onLinked={() => setLinked(true)} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function ManualLinkFallback({ onLinked }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [chatId, setChatId] = useState("");
+  const [uname, setUname] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    if (!chatId.trim()) return;
+    setBusy(true);
+    try {
+      await api.post("/telegram/manual-link", { chat_id: chatId.trim(), username: uname.trim() || null });
+      toast.success(t("telegram_manual_linked") || "Telegram bağlandı");
+      onLinked && onLinked();
+    } catch (e) {
+      toast.error(apiErr(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="mt-3 border-t border-white/5 pt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        data-testid="telegram-manual-toggle"
+        className="text-[10px] uppercase font-bold text-muted-foreground hover:text-white flex items-center gap-1"
+      >
+        <KeyRound className="w-3 h-3" />
+        {open ? (t("telegram_manual_hide") || "Manuel bağlantıyı gizle") : (t("telegram_manual_show") || "Widget çalışmıyor mu? Manuel bağlan")}
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2">
+          <p className="text-[10px] text-muted-foreground leading-snug">
+            {t("telegram_manual_hint") || "Telegram'da @userinfobot'a herhangi bir mesaj at — sana chat_id'ni verecek. O sayıyı buraya yapıştır."}
           </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={chatId}
+              onChange={(e) => setChatId(e.target.value.replace(/[^0-9-]/g, ""))}
+              placeholder="123456789"
+              data-testid="telegram-manual-chatid"
+              className="flex-1 bg-background border border-border rounded px-2 py-1.5 text-xs text-white mono outline-none"
+            />
+            <input
+              type="text"
+              value={uname}
+              onChange={(e) => setUname(e.target.value.replace(/^@+/, ""))}
+              placeholder="@kullanıcı_adı"
+              data-testid="telegram-manual-username"
+              className="w-32 bg-background border border-border rounded px-2 py-1.5 text-xs text-white outline-none"
+            />
+            <button
+              type="button"
+              onClick={submit}
+              disabled={busy || !chatId.trim()}
+              data-testid="telegram-manual-submit"
+              className="chip text-xs"
+              style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.4)", color: "#93C5FD" }}
+            >
+              {busy ? "…" : (t("telegram_manual_link_btn") || "Bağla")}
+            </button>
+          </div>
         </div>
       )}
     </div>
