@@ -11,7 +11,7 @@ import LinkMemberDialog from "@/components/LinkMemberDialog";
 import OcrDialog from "@/components/OcrDialog";
 import CanEdit from "@/components/CanEdit";
 import CountUp from "@/components/CountUp";
-import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap, CheckSquare, Square, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { COUNTRIES, COUNTRY_BY_ISO2 } from "@/lib/countries";
@@ -92,6 +92,17 @@ export default function Members() {
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [filterAlliances, setFilterAlliances] = useState([]);
   const [filterRanks, setFilterRanks] = useState([]);
+  const [filterCountries, setFilterCountries] = useState(() => {
+    try {
+      const raw = localStorage.getItem("titanxis_members_filter_countries_v1");
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
+  // Bulk-selection mode: when active, cards get a checkbox and a toolbar
+  // appears with quick actions (currently: bulk-assign country).
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkCountry, setBulkCountry] = useState("");
   const [sortMode, setSortMode] = useState("default");
   const [colorPickerAlliance, setColorPickerAlliance] = useState(null);
   const [renamingAlliance, setRenamingAlliance] = useState(null); // { old, next }
@@ -169,6 +180,9 @@ export default function Members() {
     if (filterRanks.length) {
       filtered = filtered.filter((m) => filterRanks.includes(m.rank));
     }
+    if (filterCountries.length) {
+      filtered = filtered.filter((m) => filterCountries.includes((m.country || "").toUpperCase()));
+    }
 
     // 2. Group by alliance
     const NOGROUP = t("no_group");
@@ -215,12 +229,66 @@ export default function Members() {
 
   const totalCount = members.length;
   const shownCount = grouped.reduce((n, g) => n + g.members.length, 0);
-  const activeFilterCount = filterAlliances.length + filterRanks.length + (sortMode !== "default" ? 1 : 0);
+  const activeFilterCount = filterAlliances.length + filterRanks.length + filterCountries.length + (sortMode !== "default" ? 1 : 0);
 
   const clearFilters = () => {
     setFilterAlliances([]);
     setFilterRanks([]);
+    setFilterCountries([]);
     setSortMode("default");
+  };
+
+  // Persist country filter across reloads.
+  useEffect(() => {
+    try {
+      localStorage.setItem("titanxis_members_filter_countries_v1", JSON.stringify(filterCountries));
+    } catch {}
+  }, [filterCountries]);
+
+  // Active countries = ISO2 codes that appear in ≥1 member (memoised).
+  // Sorted by member count desc so the busiest country chip surfaces first.
+  const activeCountries = useMemo(() => {
+    const counts = {};
+    members.forEach((m) => {
+      const c = (m.country || "").toUpperCase();
+      if (c) counts[c] = (counts[c] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([iso, count]) => ({ iso, count, meta: COUNTRY_BY_ISO2[iso] }));
+  }, [members]);
+
+  const toggleCountryFilter = (iso) => {
+    setFilterCountries((prev) => prev.includes(iso) ? prev.filter((x) => x !== iso) : [...prev, iso]);
+  };
+
+  const toggleSelected = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllVisible = () => {
+    setSelectedIds(new Set(grouped.flatMap((g) => g.members.map((m) => m.id))));
+  };
+
+  const applyBulkCountry = async () => {
+    if (selectedIds.size === 0) { toast.error(t("bulk_country_select_first")); return; }
+    try {
+      const res = await api.post("/members/bulk-country", {
+        member_ids: [...selectedIds],
+        country: bulkCountry || null,
+      });
+      toast.success(t("bulk_country_done", { count: res.data?.modified ?? 0 }));
+      mutate((k) => typeof k === "string" && k.startsWith("/members"));
+      mutate("/dashboard/member-locations");
+      setSelectedIds(new Set());
+      setSelectionMode(false);
+    } catch (e) {
+      toast.error(apiErr(e));
+    }
   };
 
   return (
@@ -315,7 +383,113 @@ export default function Members() {
           >
             <Palette className="w-3.5 h-3.5" />
           </button>
+          <CanEdit>
+            <button
+              type="button"
+              data-testid="members-selection-toggle"
+              onClick={() => { setSelectionMode((v) => !v); if (selectionMode) setSelectedIds(new Set()); }}
+              className={`chip ${selectionMode ? "active" : ""}`}
+              style={{ minWidth: 44, justifyContent: "center" }}
+              aria-label={t("bulk_select")}
+              title={t("bulk_select")}
+            >
+              {selectionMode ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
+            </button>
+          </CanEdit>
         </div>
+
+        {activeCountries.length > 0 && (
+          <div
+            data-testid="members-country-filter-bar"
+            className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-1"
+            style={{ scrollbarWidth: "thin" }}
+          >
+            <span className="flex items-center gap-1 text-[10px] uppercase tracking-widest font-bold gold-text flex-shrink-0">
+              <Globe className="w-3 h-3" /> {t("filter_country")}
+            </span>
+            <button
+              type="button"
+              data-testid="filter-country-all"
+              onClick={() => setFilterCountries([])}
+              className={`chip text-[11px] flex-shrink-0 ${filterCountries.length === 0 ? "active" : ""}`}
+            >
+              {t("all_upper")}
+            </button>
+            {activeCountries.map(({ iso, count, meta }) => (
+              <button
+                key={iso}
+                type="button"
+                data-testid={`filter-country-${iso}`}
+                onClick={() => toggleCountryFilter(iso)}
+                className={`chip text-[11px] flex-shrink-0 flex items-center gap-1 ${filterCountries.includes(iso) ? "active" : ""}`}
+                title={meta ? `${meta.name} · ${count}` : iso}
+              >
+                <span>{meta?.flag || "🏳️"}</span>
+                <span className="font-bold">{iso}</span>
+                <span className="opacity-60">·{count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {selectionMode && (
+          <div
+            data-testid="members-bulk-toolbar"
+            className="flex items-center gap-2 mb-3 p-2 rounded-lg flex-wrap"
+            style={{
+              background: "linear-gradient(180deg, rgba(139,92,246,0.15) 0%, rgba(139,92,246,0.05) 100%)",
+              border: "1px solid rgba(139,92,246,0.4)",
+            }}
+          >
+            <span className="text-[11px] font-bold" style={{ color: "#C4B5FD" }}>
+              {t("bulk_selected_count", { count: selectedIds.size })}
+            </span>
+            <button
+              type="button"
+              data-testid="bulk-select-all-visible"
+              onClick={selectAllVisible}
+              className="chip text-[10px]"
+            >
+              {t("bulk_select_all_visible")}
+            </button>
+            <button
+              type="button"
+              data-testid="bulk-clear-selection"
+              onClick={() => setSelectedIds(new Set())}
+              className="chip text-[10px]"
+              disabled={selectedIds.size === 0}
+              style={selectedIds.size === 0 ? { opacity: 0.4 } : {}}
+            >
+              {t("bulk_clear")}
+            </button>
+            <div className="flex items-center gap-1.5 ml-auto">
+              <select
+                data-testid="bulk-country-select"
+                value={bulkCountry}
+                onChange={(e) => setBulkCountry(e.target.value)}
+                className="rounded px-2 py-1.5 text-[11px]"
+                style={{ background: "#1A1210", color: "#F5F0E8", border: "1px solid rgba(139,92,246,0.55)" }}
+              >
+                <option value="">— {t("bulk_country_clear")} —</option>
+                {COUNTRIES.map((c) => (
+                  <option key={c.iso2} value={c.iso2}>
+                    {c.flag}  {c.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                data-testid="bulk-country-apply"
+                onClick={applyBulkCountry}
+                disabled={selectedIds.size === 0}
+                className="btn-gold text-[11px] flex items-center gap-1.5"
+                style={selectedIds.size === 0 ? { opacity: 0.4 } : {}}
+              >
+                <Globe className="w-3.5 h-3.5" /> {t("bulk_country_apply")}
+              </button>
+            </div>
+          </div>
+        )}
 
         {showDisplayPanel && (
           <div
@@ -668,15 +842,36 @@ export default function Members() {
                                 }}
                               >
                                 <button
-                                  onClick={() => setProfileId(m.id)}
-                                  className={`rank-badge rank-${m.rank} flex-shrink-0`}
-                                  style={{ width: 28, height: 28, fontSize: 10, borderRadius: 5, fontWeight: 800 }}
-                                  title={`${t("rank")} ${m.rank}`}
+                                  onClick={() => selectionMode ? toggleSelected(m.id) : setProfileId(m.id)}
+                                  className={`rank-badge rank-${m.rank} flex-shrink-0 ${selectionMode && selectedIds.has(m.id) ? "ring-2 ring-violet-400" : ""}`}
+                                  style={{
+                                    width: 28,
+                                    height: 28,
+                                    fontSize: 10,
+                                    borderRadius: 5,
+                                    fontWeight: 800,
+                                    outline: selectionMode && selectedIds.has(m.id) ? "2px solid #A78BFA" : "none",
+                                    outlineOffset: 1,
+                                  }}
+                                  title={selectionMode ? t("bulk_toggle_row") : `${t("rank")} ${m.rank}`}
+                                  data-testid={selectionMode ? `bulk-toggle-${m.id}` : undefined}
                                 >
-                                  {m.rank}
+                                  {selectionMode
+                                    ? (selectedIds.has(m.id) ? <Check className="w-3 h-3 mx-auto" /> : m.rank)
+                                    : m.rank}
                                 </button>
-                                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setProfileId(m.id)}>
+                                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => selectionMode ? toggleSelected(m.id) : setProfileId(m.id)}>
                                   <div className="flex items-center gap-1.5 min-w-0">
+                                    {m.country && COUNTRY_BY_ISO2[m.country] && (
+                                      <span
+                                        className="flex-shrink-0"
+                                        style={{ fontSize: 11 }}
+                                        title={COUNTRY_BY_ISO2[m.country].name}
+                                        data-testid={`member-flag-${m.id}`}
+                                      >
+                                        {COUNTRY_BY_ISO2[m.country].flag}
+                                      </span>
+                                    )}
                                     <span
                                       className="text-white truncate leading-tight normal-case"
                                       style={{

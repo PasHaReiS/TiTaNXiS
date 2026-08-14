@@ -1,5 +1,22 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Konum Filtresi + Toplu Ülke Ata — DONE & VERIFIED
+- **Backend**: Yeni `POST /api/members/bulk-country {member_ids, country?}` endpoint (`server.py`). Boş/null country → `$unset` (temizler); değilse ISO2 büyük harfe çevirip `$set`. Güvenlik: `require_edit`. Doğrulama (curl): 3 üye JP'ye atandı → `{"matched":3, "modified":3}` ✅, `/dashboard/member-locations` anında güncellendi.
+- **Frontend — Konum Filtresi Çubuğu**:
+  - `Members.jsx` içinde `filterCountries` state + localStorage persist (`titanxis_members_filter_countries_v1`).
+  - `activeCountries` useMemo: sadece en az bir üyesi olan ülkeler, üye sayısına göre desc sıralı.
+  - Search satırının altında yatay scroll chip bar (Globe icon + "KONUM" label + "TÜMÜ" + her aktif ülke için bayrak+ISO+sayı chip'i).
+  - Filter logic `grouped` useMemo'da: `filtered.filter(m => filterCountries.includes(m.country.upper()))`. activeFilterCount rozetine dahil.
+- **Frontend — Toplu Ülke Ata (Selection Mode)**:
+  - `selectionMode` toggle butonu üst araç çubuğunda (Square/CheckSquare icon). CanEdit ile korunuyor.
+  - Aktifken üye kartında rank badge yerine seçim toggle olur (violet outline + Check icon).
+  - Purple bulk-toolbar: "{count} seçili", "Görünenleri seç", "Temizle", country dropdown (75 ülke), "Ülkeyi Ata" butonu.
+  - `applyBulkCountry`: seçili ID'leri backend'e gönder, cache mutate (`/members*` + `/dashboard/member-locations`), toast göster, selection modu kapat.
+- **Kart üzerinde bayrak**: Üye isminin solunda küçük ülke bayrağı emoji'si (varsa) — filtre bar'ından hemen anlaşılır.
+- **i18n**: TR + EN'e 11 yeni anahtar (`filter_country`, `all_upper`, `bulk_select`, `bulk_selected_count`, `bulk_select_all_visible`, `bulk_clear`, `bulk_country_clear`, `bulk_country_apply`, `bulk_country_select_first`, `bulk_country_done`, `bulk_toggle_row`).
+
+
+
 ## [2026-02] Dashboard Konum Haritası (Choropleth) — DONE & VERIFIED
 - **Amaç**: Dashboard'a "Üye Konumları" kartı — dünya haritasında üye sayısına göre renklendirilmiş ülkeler.
 - **Backend**:

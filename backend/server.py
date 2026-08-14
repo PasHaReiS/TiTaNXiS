@@ -507,6 +507,29 @@ async def update_member(member_id: str, body: MemberUpdate, _: dict = Depends(re
     return doc
 
 
+class BulkCountryBody(BaseModel):
+    member_ids: List[str]
+    country: Optional[str] = None  # ISO 3166-1 alpha-2 uppercase; null/empty = clear
+
+
+@api_router.post("/members/bulk-country")
+async def bulk_set_country(body: BulkCountryBody, _: dict = Depends(require_edit)):
+    """Bulk-assign (or clear) the ``country`` field on many members at once.
+
+    - Empty / null country clears the field on the selected members.
+    - Any non-empty country is uppercased before persisting so ISO2 stays canonical.
+    """
+    ids = [i for i in (body.member_ids or []) if i]
+    if not ids:
+        raise HTTPException(400, "Üye seçilmedi")
+    country = (body.country or "").strip().upper() or None
+    if country and len(country) != 2:
+        raise HTTPException(400, "country ISO 3166-1 alpha-2 (2 harfli) olmalı")
+    update_op = {"$set": {"country": country}} if country else {"$unset": {"country": ""}}
+    res = await db.members.update_many({"id": {"$in": ids}}, update_op)
+    return {"matched": res.matched_count, "modified": res.modified_count, "country": country}
+
+
 @api_router.delete("/members/{member_id}")
 async def delete_member(member_id: str, _: dict = Depends(require_edit)):
     res = await db.members.delete_one({"id": member_id})
