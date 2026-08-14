@@ -111,6 +111,12 @@ def register_dashboard(api_router: APIRouter, db, require_edit=None, require_adm
         today = datetime.now(timezone.utc).date().isoformat()
         active_events = await db.events.count_documents({"archived": {"$ne": True}, "date": {"$gte": today}})
         total_power = await _power_sum()
+        # Telegram DM-linked user count: users who ran /link in the bot and thus
+        # have a persisted telegram_chat_id (opt-outs excluded).
+        telegram_linked = await db.users.count_documents({
+            "telegram_chat_id": {"$exists": True, "$ne": None},
+            "notification_enabled": {"$ne": False},
+        })
 
         # Week-over-week trend for members (created_at) & logins & events.
         this_start, last_start, now_iso = await _week_bounds()
@@ -131,6 +137,7 @@ def register_dashboard(api_router: APIRouter, db, require_edit=None, require_adm
             "online_count": online_count,
             "active_events": active_events,
             "total_power": total_power,
+            "telegram_linked": telegram_linked,
             "trends": {
                 "members": pct(this_new_members, last_new_members),
                 "online": pct(this_logins, last_logins),

@@ -928,6 +928,29 @@ export default function Dashboard() {
          data-testid="dashboard-page">
       <DashboardHeader />
 
+      {/* Compact metric strip — surfaces the outbound-DM reach so admins know
+          how many users the country-scoped Telegram broadcast actually hits. */}
+      {stats && (
+        <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="dash-metric-strip">
+          <div
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold"
+            style={{
+              background: "rgba(37,159,235,0.12)",
+              border: "1px solid rgba(37,159,235,0.35)",
+              color: "#8BD3FF",
+            }}
+            data-testid="stat-telegram-linked"
+            title={t("dash_telegram_linked_hint")}
+          >
+            <span aria-hidden>✈️</span>
+            <span>{t("dash_telegram_linked_label")}:</span>
+            <span className="mono" style={{ color: "#FFFFFF", fontSize: 12 }}>
+              {stats.telegram_linked ?? 0}
+            </span>
+          </div>
+        </div>
+      )}
+
       <SectionTitle>{t("dash_today")}</SectionTitle>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {!stats && Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height={128} />)}

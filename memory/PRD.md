@@ -1,5 +1,12 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Dashboard "Telegram DM aktif" Sayacı — DONE & VERIFIED
+- **Backend**: `/api/dashboard/stats` response'una `telegram_linked` alanı eklendi — `telegram_chat_id` var olan + notification_enabled != False kullanıcı sayısı.
+- **Frontend**: Dashboard header'ının hemen altında (SectionTitle "BUGÜN"den önce) yeni compact metric strip — mavi Telegram temalı pill, `✈️ Telegram DM aktif: N`. Hover tooltip country broadcast fan-out'un kapsamını açıklar. i18n TR/EN.
+- **Curl doğrulama**: `/dashboard/stats` response'unda `telegram_linked: 0` ✅ (preview'da henüz DM eşleşmesi yok, yapı doğru).
+
+
+
 ## [2026-02] Telegram /link + Toplu Ittifak Ata — DONE & VERIFIED
 - **Backend — Telegram DM linking**:
   - `telegram_bot.py`: `link_command` (`/link TOKEN`) validates & consumes the 6-char token, sets `user.telegram_chat_id + telegram_linked_at`. `unlink_command` clears it. Both registered + published to setMyCommands menu.
