@@ -3258,6 +3258,31 @@ async def startup():
             logger.info(f"Stripped brackets from alliance_name for {alliance_fixed} members")
     except Exception as _e:
         logger.warning(f"alliance_name migration failed: {_e}")
+    # Idempotent migration: set email=pasha@titanxis.com on admin & pasha users,
+    # and link both accounts to the "PasHa" member document if present.
+    # Runs on every startup but is a no-op once the desired state is reached.
+    try:
+        TARGET_EMAIL = "pasha@titanxis.com"
+        pasha_member = await db.members.find_one({"name": "PasHa"}, {"_id": 0, "id": 1})
+        pasha_mid = pasha_member["id"] if pasha_member else None
+        for uname in ("admin", "pasha"):
+            u = await db.users.find_one({"username": uname})
+            if not u:
+                continue
+            updates = {}
+            if u.get("email") != TARGET_EMAIL:
+                updates["email"] = TARGET_EMAIL
+            if pasha_mid:
+                current_ids = list(u.get("member_ids") or [])
+                if pasha_mid not in current_ids:
+                    current_ids.append(pasha_mid)
+                    updates["member_ids"] = current_ids
+            if updates:
+                await db.users.update_one({"username": uname}, {"$set": updates})
+                logger.info(f"pasha-email migration: updated user '{uname}' fields={list(updates.keys())}")
+    except Exception as _e:
+        logger.warning(f"pasha-email migration failed: {_e}")
+
     # Auto-seed disabled: guild leaders now populate their own members.
     # To manually populate demo data, POST /api/seed?force=true with admin token.
 

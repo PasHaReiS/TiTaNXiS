@@ -1,5 +1,16 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Admin & Pasha Kullanıcı Eşleştirme (pasha@titanxis.com) — DONE
+- **Amaç**: `admin` ve `pasha` kullanıcılarını `pasha@titanxis.com` ile eşleştir ve her ikisini de `PasHa` üyesine (id `b66ffadc-d2c7-409a-ba27-2c04ff336e99`, alliance GOW/R3) bağla.
+- **Preview DB**: One-shot script ile e-postalar `pasha@titanxis.com` yapıldı; pasha user'ın boş `member_ids` array'ine `PasHa` üye ID'si eklendi; admin user'ın var olan `member_ids` array'ine de aynı ID append edildi.
+- **Startup migration** (`server.py` on_event startup içinde): Idempotent — her boot'ta admin+pasha için email='pasha@titanxis.com' + PasHa üye ID'si `member_ids` içinde yoksa ekliyor. `seed_admin` ADMIN_EMAIL'i overrideladığı için migration onun ARDINDAN çalışıyor.
+- **Production'a taşıma**: Kullanıcı "Save to Github" + Deploy düğmesiyle kodu prod'a gönderdiğinde, prod DB'de de aynı migration otomatik uygulanacak (idempotent, güvenli).
+- **Doğrulama (curl preview)**:
+  - `POST /api/auth/login admin/Admin123` → email `pasha@titanxis.com`, 4 üye bağlı ✅
+  - `POST /api/auth/login pasha/pasha123` → email `pasha@titanxis.com`, `member_ids=['b66ffadc-...']` ✅
+
+
+
 ## [2026-02] Sıralamada İsim Fontu Cinzel → Rajdhani — DONE
 - **Sorun**: Cinzel bir "small-caps" fontu → "Ekko" ekranda "EKKO" gibi görünüyordu (küçük harf glifleri büyük harf gibi çiziliyor).
 - **Fix**: `Leaderboard.jsx` içinde 8 isim render eden div'in `fontFamily`'si `"Cinzel, ..."` → `"Rajdhani, sans-serif"` yapıldı. Rajdhani hem `index.css` başında zaten yüklü hem de küçük harf glifleri net.
