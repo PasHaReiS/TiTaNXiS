@@ -8,60 +8,55 @@ Full-stack Gaming Guild Management App ("TiTaNXiS" / "oyun-loncasi"): Leaderboar
 - Theme: Midnight Red dark
 - Auth: JWT + Telegram Login Widget
 
-## Tech Stack
-- Frontend: React + react-i18next + SWR + Tailwind + Shadcn/ui + lucide-react + react-simple-maps + recharts
-- Backend: FastAPI + Motor (MongoDB) + JWT (PyJWT) + python-telegram-bot + pywebpush
-- Integrations: OpenAI GPT-4o Vision (Emergent LLM Key), DeepL API, Telegram Bot API, Web Push (VAPID), Emergent Object Storage
+---
+
+## [2026-02-14] Screenshot Archive + 1-Tap Attendance Callback — DONE ✅
+
+### Screenshot Archive (post-event rank/reward gallery)
+- **Event model**: `result_screenshots: List[str] = []` field
+- **Endpoints**: `POST /events/{id}/screenshots` (idempotent), `DELETE ?url=`
+- **Frontend `EventResultGallery.jsx`**: collapsible under each PAST event card, ImageDropzone reuse (`purpose="event"`), 3-col grid, fullscreen preview, edit-gated delete
+- **Auto-show**: only on events whose date is in the past
+- **E2E verified**: add/duplicate-ignore/second/delete cycle ✅
+
+### 1-Tap Attendance via Telegram Inline Buttons
+- **`send_message` extended**: accepts `reply_markup` param
+- **`answer_callback_query()` helper**: dismisses loading + shows toast
+- **`_telegram_forward_scheduled`**: attaches `✅ Katılıyorum` + `❌ Katılamam` inline keyboard to every event-DM
+- **`/telegram/webhook` handler**: intercepts `callback_query` with `att:{action}:{event_id}` pattern
+  - Resolves tapper's chat_id → member(s) via `users.telegram_chat_id` OR fallback `members.telegram_username`
+  - `att:yes:{event_id}` → upsert `event_attendance` with `source: telegram_dm`
+  - `att:no:{event_id}` → delete `event_attendance` row
+  - Answers callback with toast: *"✅ 'Etkinlik Adı' için katılım kaydedildi"*
+- **E2E verified**: full yes→attendance-inserted, no→attendance-deleted cycle ✅
+
+**Neden Önemli**: Attendance tracking artık **sıfır admin manuel iş** — üye DM'e gelen buton'a tıklar, sistem her şeyi kendi halleder. Screenshot archive lonca hafızasını korur, 6 ay sonra "geçen SvS'te kim ne yapmıştı" bir tık uzakta.
 
 ---
 
-## [2026-02-14] Reminder Tabs + Test Button + Sound Preview + Countdown — DONE ✅
-- **Event schema**: `reminder_enabled: bool = True` (Event, EventCreate, EventUpdate).
-- **Events page**: 3 tabs (Hatırlatmalı / Hatırlatmasız / Arşiv) — Puanlar sayfası tarzında.
-- **EventForm**: mor `reminder_enabled` checkbox + açıklama; new events default reminded, existing rows without the field also treated as reminded (frontend `!== false`).
-- **Live Countdown** (`EventCountdown.jsx`): her etkinlik kartında canlı sayaç, 60dk kalınca sarı, 10dk kalınca kırmızı+pulse.
-- **Test button** in EventNotificationsPanel: `POST /api/push/test` → çoklu-kanal sanity check (Kanal + DM + Push). E2E: `telegram_channel_sent: true`.
-- **Sound preview** in EventReminderDialog: rally/victory/dungeon/alarm için ▶ dinle butonları (existing `pushSound.js` reuse).
-- Verified: 420px mobile screenshots — both tabs render, countdown tick, katılım list under card.
+## Prior Session Work (chronological)
 
-## [2026-02-14] Multi-Channel Scheduled Push Fan-out + Analytics Badge — DONE ✅
-- `_broadcast_push` scheduler crash fix (accepts `country_iso2` + `event_id` kwargs).
-- `_telegram_forward_scheduled()`: her scheduled push için otomatik Telegram kanal + attending members DM forward (Login Widget + username_map fallback).
-- `PushScheduledBody.send_channel` + `send_dm` bayrakları (default True).
-- `GET /push/scheduled?include_sent=true` — history merge ile `push_sent`, `telegram_channel_sent`, `telegram_dm_sent` döner.
-- `EventNotificationsPanel` fired reminders'ta compact badge: `✈️✓/— · 📩N · 🔔N`.
-
-## [2026-02-14] Event Notifications Dedicated Page — DONE
-- `/etkinlik-bildirimleri` route (RequireAdminOrEditor) + Header dropdown menüde 🔔 Dashboard ↔ VIP Destek arasında.
-- `EventNotificationsPanel` mor tema, per-event Bildirim Kur + snooze + delete.
-
-## [2026-02-14] Direct DM via Telegram Username Fallback — DONE
-- `Member.telegram_username` + normalization + audit.
-- `POST /telegram/webhook`: `telegram_chat_map` upsert (username → chat_id).
-- `POST /telegram/broadcast`: username fallback + `username_dm_hits` metric.
-- `GET /telegram/username-status?usernames=` — UI badge helper.
-
-## [2026-02-14] Attendance List Layout Fix — DONE
-- `EventAttendance.jsx`: `open = true` default.
-- `Events.jsx`: card `flex-row` → `flex-col` — attendance panel tam-genişlik kartın altında.
+- **[2026-02-14] Scheduler crash fix + Multi-Channel Fan-out**: `_broadcast_push` kwargs, `_telegram_forward_scheduled`, `PushScheduledBody.send_channel/send_dm`, `push_history` telegram metrics, `GET /push/scheduled?include_sent=true` merge with analytics badge in `EventNotificationsPanel`.
+- **[2026-02-14] Reminder tabs + tests + sound preview + countdown**: 3-tab Events page (Hatırlatmalı/Hatırlatmasız/Arşiv), `reminder_enabled` bool, `EventCountdown.jsx` live tick component, `POST /push/test` sanity endpoint, sound preview buttons.
+- **Direct DM via `telegram_username` fallback**: member schema field, `telegram_chat_map` upsert on webhook, broadcast fan-out fallback, `/api/telegram/username-status`.
+- **Event Notifications dedicated page**: `/etkinlik-bildirimleri` route, header dropdown menu item between Dashboard ↔ VIP Destek.
+- **Attendance list layout fix**: `flex-col` card, `open=true` default.
 
 ---
 
-## Backlog / Roadmap
+## Backlog
 
 ### P1 — Server.py Refactoring
-- Extract `events`, `attendance`, `points` route groups from `server.py` (~3920 lines) into `routes/*.py`.
+- Extract `events`, `attendance`, `points` routes from `server.py` (~4120 lines).
 
-### P2 — Deferred User Requests
-- **Katılım Onayı 1-Tıklık DM Butonları**: DM içinde inline "✅ Katılıyorum / ❌ Katılamam / ⏰ Belki" — attendance otomatik güncelle.
-- **Etkinlik Sonucu Ekran Görüntüsü Arşivi**: event'e post-hoc screenshot upload, member badge'i.
-
-### Future / Nice-to-have
-- Discord Webhook Mirror.
-- OpenAI TTS voice DM notifications.
-- Member/Event Point CSV Export.
-- VIP Trash Role-Based Visibility.
-- Preferred-language DeepL translation of scheduled push before delivery (currently only broadcast_push in routes/push.py translates).
+### P2 — Nice-to-have
+- **Attendance callback for MAYBE state**: `⏰ Belki` third button + separate state.
+- **Callback DM confirmation**: after tap, also edit the original message to strike through the button.
+- **Auto-attendance chase**: 24h before event, DM every member NOT yet marked with the "still coming?" prompt.
+- **Screenshot OCR autofill**: after uploading a rank screen, use OpenAI Vision to auto-extract top participants.
+- **Discord Webhook Mirror**.
+- **OpenAI TTS voice DM notifications**.
+- **Member/Event Point CSV Export**.
 
 ## Test Credentials
 See `/app/memory/test_credentials.md`.

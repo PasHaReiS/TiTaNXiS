@@ -389,18 +389,39 @@ async def etkinlik_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
 
 # ------------------------------ Notifications --------------------------------
 
-async def send_message(chat_id: str, text: str, parse_mode: str = "Markdown") -> bool:
-    """Fire-and-forget broadcaster used by app hooks."""
+async def send_message(chat_id: str, text: str, parse_mode: str = "Markdown",
+                       reply_markup: Optional[dict] = None) -> bool:
+    """Fire-and-forget broadcaster used by app hooks. When `reply_markup` is
+    provided (e.g. inline keyboard), it's forwarded verbatim to the Bot API so
+    callers can attach ✅/❌ attendance buttons to a DM."""
     if not BOT_TOKEN or not chat_id:
         return False
     try:
+        payload: dict = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode}
+        if reply_markup is not None:
+            payload["reply_markup"] = reply_markup
         async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.post(f"{TELEGRAM_API}/sendMessage",
-                                  json={"chat_id": chat_id, "text": text,
-                                        "parse_mode": parse_mode})
+            r = await client.post(f"{TELEGRAM_API}/sendMessage", json=payload)
             return bool(r.json().get("ok"))
     except Exception as e:
         log.warning(f"Telegram sendMessage failed: {e}")
+        return False
+
+
+async def answer_callback_query(cb_id: str, text: str = "", show_alert: bool = False) -> bool:
+    """Acknowledge an inline-button tap so Telegram removes the loading state.
+    Optionally shows a toast/alert to the user."""
+    if not BOT_TOKEN or not cb_id:
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(
+                f"{TELEGRAM_API}/answerCallbackQuery",
+                json={"callback_query_id": cb_id, "text": text, "show_alert": show_alert},
+            )
+            return bool(r.json().get("ok"))
+    except Exception as e:
+        log.warning(f"answerCallbackQuery failed: {e}")
         return False
 
 

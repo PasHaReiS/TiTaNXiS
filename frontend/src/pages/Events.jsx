@@ -13,6 +13,7 @@ import OcrDialog from "@/components/OcrDialog";
 import EventAttendance from "@/components/EventAttendance";
 import EventReminderDialog from "@/components/EventReminderDialog";
 import EventCountdown from "@/components/EventCountdown";
+import EventResultGallery from "@/components/EventResultGallery";
 import { BellRing } from "lucide-react";
 import { groupColor, groupBgTint } from "@/lib/groupColors";
 
@@ -387,6 +388,9 @@ export default function Events() {
                   </CanEdit>
                   </div>
                   <EventAttendance eventId={e.id} testIdPrefix={`event-att-${e.id}`} />
+                  {new Date(e.date).getTime() < Date.now() && (
+                    <EventResultGallery event={e} />
+                  )}
                 </motion.div>
                 );
               })}

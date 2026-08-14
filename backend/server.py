@@ -131,7 +131,8 @@ class Event(BaseModel):
     subtitle: Optional[str] = None
     banner_url: Optional[str] = None
     archived: bool = False
-    reminder_enabled: bool = True  # False → event hides its Bildirim Kur button & goes to "Hatırlatmasız" tab
+    reminder_enabled: bool = True
+    result_screenshots: List[str] = Field(default_factory=list)  # post-hoc rank/reward screenshots
     created_at: str = Field(default_factory=now_iso)
 
 
@@ -3312,7 +3313,16 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
                         chat_ids.add(str(entry["chat_id"]))
                         stats["dm_username_hits"] += 1
             for cid in chat_ids:
-                ok = await _tg_send(cid, text)
+                # Attach inline attendance buttons so recipients can confirm/decline
+                # with a single tap. The webhook processes the callback_query and
+                # updates event_attendance automatically.
+                markup = {
+                    "inline_keyboard": [[
+                        {"text": "✅ Katılıyorum", "callback_data": f"att:yes:{doc['event_id']}"},
+                        {"text": "❌ Katılamam", "callback_data": f"att:no:{doc['event_id']}"},
+                    ]]
+                }
+                ok = await _tg_send(cid, text, reply_markup=markup)
                 if ok:
                     stats["dm_sent"] += 1
     return stats
@@ -3536,10 +3546,93 @@ async def telegram_webhook(request: Request):
                 )
         except Exception as _e:
             logging.getLogger("telegram").debug(f"chat_map upsert skipped: {_e}")
+        # Handle inline attendance button taps ("✅ Katılıyorum" / "❌ Katılamam").
+        # We resolve the tapping user's Telegram chat_id → linked member(s) via
+        # users.telegram_chat_id or (fallback) telegram_chat_map → member
+        # whose telegram_username matches. Then insert/delete an
+        # event_attendance row. Response is a compact toast via
+        # answerCallbackQuery so the user gets instant feedback without cluttering
+        # the chat.
+        try:
+            cbq = (body or {}).get("callback_query")
+            if cbq:
+                await _handle_attendance_callback(cbq)
+                # Skip PTB processing for callback queries since we handled it here.
+                return {"ok": True}
+        except Exception as _cbe:
+            logging.getLogger("telegram").warning(f"callback handler failed: {_cbe}")
         await process_update(body)
     except Exception as e:
         logging.getLogger("telegram").warning(f"webhook processing failed: {e}")
     return {"ok": True}
+
+
+async def _handle_attendance_callback(cbq: dict) -> None:
+    """Process a Telegram inline-button callback for attendance toggling.
+
+    Expected callback_data formats:
+      att:yes:{event_id}   → mark member attending
+      att:no:{event_id}    → unmark
+    Resolves the tapper's chat_id to member(s), updates event_attendance, then
+    answers the callback with a short toast."""
+    from telegram_bot import answer_callback_query as _tg_ack
+    data = (cbq.get("data") or "").strip()
+    cb_id = cbq.get("id") or ""
+    if not data.startswith("att:"):
+        await _tg_ack(cb_id, "Bilinmeyen komut")
+        return
+    parts = data.split(":", 2)
+    if len(parts) != 3:
+        await _tg_ack(cb_id, "Geçersiz veri")
+        return
+    _prefix, action, event_id = parts
+    if action not in {"yes", "no"} or not event_id:
+        await _tg_ack(cb_id, "Geçersiz seçim")
+        return
+    frm = cbq.get("from") or {}
+    chat_id = str((cbq.get("message") or {}).get("chat", {}).get("id") or frm.get("id") or "")
+    uname = (frm.get("username") or "").strip()
+    # 1) Resolve member(s): (a) users with matching telegram_chat_id, then
+    #    (b) fallback: member whose telegram_username == uname.
+    member_ids: List[str] = []
+    if chat_id:
+        u = await db.users.find_one({"telegram_chat_id": chat_id}, {"_id": 0, "member_ids": 1, "member_id": 1})
+        if u:
+            for mid in (u.get("member_ids") or []):
+                if mid and mid not in member_ids:
+                    member_ids.append(mid)
+            if u.get("member_id") and u["member_id"] not in member_ids:
+                member_ids.append(u["member_id"])
+    if not member_ids and uname:
+        import re as _re
+        m = await db.members.find_one(
+            {"telegram_username": {"$regex": f"^{_re.escape(uname)}$", "$options": "i"}},
+            {"_id": 0, "id": 1}
+        )
+        if m and m.get("id"):
+            member_ids.append(m["id"])
+    if not member_ids:
+        await _tg_ack(cb_id, "Hesabın henüz bir üyeye bağlı değil — admine sor", show_alert=True)
+        return
+    # 2) Verify event exists
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "name": 1})
+    if not ev:
+        await _tg_ack(cb_id, "Etkinlik bulunamadı", show_alert=True)
+        return
+    # 3) Apply toggle
+    now = now_iso()
+    if action == "yes":
+        for mid in member_ids:
+            await db.event_attendance.update_one(
+                {"event_id": event_id, "member_id": mid},
+                {"$set": {"event_id": event_id, "member_id": mid, "created_at": now, "source": "telegram_dm"}},
+                upsert=True,
+            )
+        await _tg_ack(cb_id, f"✅ '{ev['name']}' için katılım kaydedildi")
+    else:
+        for mid in member_ids:
+            await db.event_attendance.delete_one({"event_id": event_id, "member_id": mid})
+        await _tg_ack(cb_id, f"❌ '{ev['name']}' katılımın kaldırıldı")
 
 
 @api_router.get("/telegram/status")
@@ -3851,6 +3944,38 @@ async def event_attendance_list(event_id: str):
     """Return the list of member_ids marked as attended for an event."""
     docs = await db.event_attendance.find({"event_id": event_id}, {"_id": 0}).to_list(5000)
     return {"event_id": event_id, "count": len(docs), "member_ids": [d["member_id"] for d in docs]}
+
+
+class EventResultScreenshotBody(BaseModel):
+    url: str
+
+
+@api_router.post("/events/{event_id}/screenshots")
+async def event_screenshot_add(event_id: str, body: EventResultScreenshotBody, _: dict = Depends(require_edit)):
+    """Append a result-screenshot URL to an event's gallery (rank / reward
+    captures uploaded post-event). Idempotent — duplicate URLs are ignored."""
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "result_screenshots": 1})
+    if not ev:
+        raise HTTPException(404, "event not found")
+    urls = list(ev.get("result_screenshots") or [])
+    u = body.url.strip()
+    if not u:
+        raise HTTPException(400, "url required")
+    if u not in urls:
+        urls.append(u)
+    await db.events.update_one({"id": event_id}, {"$set": {"result_screenshots": urls}})
+    return {"result_screenshots": urls}
+
+
+@api_router.delete("/events/{event_id}/screenshots")
+async def event_screenshot_remove(event_id: str, url: str, _: dict = Depends(require_edit)):
+    """Remove a single screenshot URL from an event's gallery."""
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "result_screenshots": 1})
+    if not ev:
+        raise HTTPException(404, "event not found")
+    urls = [u for u in (ev.get("result_screenshots") or []) if u != url]
+    await db.events.update_one({"id": event_id}, {"$set": {"result_screenshots": urls}})
+    return {"result_screenshots": urls}
 
 
 @api_router.get("/members/{member_id}/attendance-stats")
