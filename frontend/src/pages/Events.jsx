@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { EVENTS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
-import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera } from "lucide-react";
+import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera, BellOff } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import ImageDropzone from "@/components/ImageDropzone";
@@ -133,27 +133,53 @@ export default function Events() {
           </CanEdit>
         </div>
 
-        <div className="flex gap-2 mb-4 flex-wrap">
+        <div className="flex mb-4 rounded-lg overflow-hidden" style={{ background: "rgba(15,8,20,0.85)", border: "1px solid rgba(120,53,15,0.30)" }} data-testid="events-tabs">
           <button
             data-testid="events-tab-reminded"
             onClick={() => setTab("reminded")}
-            className={`chip ${tab === "reminded" ? "active" : ""} flex items-center gap-1`}
+            className="flex items-center justify-center gap-1.5 py-2.5 text-[11px] uppercase font-black tracking-widest transition-all"
+            style={{
+              flex: "42",
+              background: tab === "reminded" ? "linear-gradient(180deg, rgba(217,119,6,0.35), rgba(180,83,9,0.55))" : "rgba(20,15,25,0.7)",
+              color: tab === "reminded" ? "#FFEDD5" : "#78716C",
+              boxShadow: tab === "reminded" ? "inset 0 0 0 2px #F59E0B, 0 0 14px rgba(245,158,11,0.55), inset 0 0 22px rgba(251,146,60,0.20)" : "inset 0 0 0 1px rgba(75,65,55,0.35)",
+              textShadow: tab === "reminded" ? "0 1px 6px rgba(0,0,0,0.75)" : "none",
+              letterSpacing: "0.12em",
+            }}
           >
-            <BellRing className="w-3 h-3" />
-            {t("events_tab_reminded") || "Hatırlatmalı"} ({remindedCount})
+            <BellRing className="w-3.5 h-3.5" style={{ color: tab === "reminded" ? "#FCD34D" : "#78716C" }} />
+            <span>Hatırlatmalı ({remindedCount})</span>
           </button>
           <button
             data-testid="events-tab-unreminded"
             onClick={() => setTab("unreminded")}
-            className={`chip ${tab === "unreminded" ? "active" : ""}`}
+            className="flex items-center justify-center gap-1.5 py-2.5 text-[11px] uppercase font-bold tracking-widest transition-all"
+            style={{
+              flex: "38",
+              background: tab === "unreminded" ? "linear-gradient(180deg, rgba(59,130,246,0.25), rgba(76,29,149,0.35))" : "rgba(20,15,25,0.7)",
+              color: tab === "unreminded" ? "#DDD6FE" : "#6B7280",
+              boxShadow: tab === "unreminded" ? "inset 0 0 0 1px rgba(129,140,248,0.55)" : "inset 0 0 0 1px rgba(55,50,65,0.30)",
+              letterSpacing: "0.10em",
+            }}
           >
-            {t("events_tab_unreminded") || "Hatırlatmasız"} ({unremindedCount})
+            <BellOff className="w-3.5 h-3.5" />
+            <span>Hatırlatmasız ({unremindedCount})</span>
           </button>
           <button
             data-testid={EVENTS.tabArchived}
             onClick={() => setTab("archive")}
-            className={`chip ${tab === "archive" ? "active" : ""}`}
-          >{t("archive_upper")} ({archivedCount})</button>
+            className="flex items-center justify-center gap-1 py-2.5 text-[10px] uppercase font-bold tracking-wider transition-all"
+            style={{
+              flex: "20",
+              background: tab === "archive" ? "linear-gradient(180deg, rgba(75,85,99,0.35), rgba(31,41,55,0.55))" : "rgba(20,15,25,0.7)",
+              color: tab === "archive" ? "#E5E7EB" : "#6B7280",
+              boxShadow: tab === "archive" ? "inset 0 0 0 1px rgba(148,163,184,0.45)" : "inset 0 0 0 1px rgba(55,50,65,0.30)",
+              letterSpacing: "0.08em",
+            }}
+          >
+            <Archive className="w-3 h-3" />
+            <span>Arşiv ({archivedCount})</span>
+          </button>
         </div>
 
         {Object.entries(grouped).map(([group, list]) => {

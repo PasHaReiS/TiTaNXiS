@@ -38,9 +38,15 @@ export default function EventAttendance({ eventId, testIdPrefix = "event-att" })
 
   const filtered = useMemo(() => {
     const query = (q || "").trim().toLowerCase();
-    const list = query
-      ? (allMembers || []).filter((m) => (m.name || "").toLowerCase().includes(query))
-      : allMembers || [];
+    // Default view: show only members marked attending. Typing a query
+    // "unlocks" the full roster so admins can quickly toggle a missing name
+    // without scrolling through everyone.
+    let list = allMembers || [];
+    if (query) {
+      list = list.filter((m) => (m.name || "").toLowerCase().includes(query));
+    } else {
+      list = list.filter((m) => attendedSet.has(m.id));
+    }
     // Attended first, then alphabetical.
     return [...list].sort((a, b) => {
       const aa = attendedSet.has(a.id) ? 0 : 1;

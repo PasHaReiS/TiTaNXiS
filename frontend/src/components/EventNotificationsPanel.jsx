@@ -29,11 +29,13 @@ export default function EventNotificationsPanel() {
   );
   const [reminderFor, setReminderFor] = useState(null);
 
-  // Only active events (not archived), sorted by date ascending (nearest first).
+  // Only active events (not archived) that are also reminder-enabled — the
+  // Etkinlik Bildirimleri panel is a scheduler UI, so silent events (marked
+  // Hatırlatmasız in Etkinlikler) should not surface here at all.
   const activeEvents = useMemo(() => {
     const now = Date.now();
     return [...(events || [])]
-      .filter((e) => !e.archived)
+      .filter((e) => !e.archived && e.reminder_enabled !== false)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .map((e) => ({ ...e, _ts: new Date(e.date).getTime(), _isPast: new Date(e.date).getTime() < now }));
   }, [events]);
