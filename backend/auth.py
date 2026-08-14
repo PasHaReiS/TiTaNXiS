@@ -326,6 +326,20 @@ def make_auth_router(db):
         doc = await db.users.find_one({"id": user["id"]}, {"_id": 0})
         return public_user(doc)
 
+    class LanguagePrefBody(BaseModel):
+        lang: str  # ISO 639-1 lowercase (e.g. "tr", "en", "de", "ja")
+
+    @router.post("/auth/preferred-language")
+    async def set_preferred_language(body: LanguagePrefBody, user: dict = Depends(require_auth)):
+        """Persist the caller's preferred UI language. Used by push broadcast
+        to translate outgoing notifications via DeepL per-recipient."""
+        code = (body.lang or "").strip().lower()[:8]
+        if not code:
+            raise HTTPException(400, "lang boş olamaz")
+        await db.users.update_one({"id": user["id"]}, {"$set": {"preferred_language": code}})
+        return {"preferred_language": code}
+
+
     # ---------- User Management (admin only) ----------
     @router.get("/users/unmatched")
     async def list_unmatched_users(_: dict = Depends(require_admin)):

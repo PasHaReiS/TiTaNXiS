@@ -5,6 +5,7 @@ import { Check, Globe, ChevronDown, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { LANGUAGES } from "@/i18n";
 import { ensureLanguageTranslated } from "@/lib/deeplTranslate";
+import { api } from "@/lib/api";
 
 export default function LanguageSwitcher() {
   const { i18n, t } = useTranslation();

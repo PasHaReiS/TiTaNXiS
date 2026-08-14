@@ -12,6 +12,7 @@ import json
 import base64 as _base64
 import asyncio
 import logging
+import httpx
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict
 
@@ -179,6 +180,31 @@ def register_push(api_router: APIRouter, db, require_auth, require_admin, logger
     """Register all /push and /push/* routes on api_router. Return dict with helpers used elsewhere."""
 
     # --------- helper used by other modules (events, scheduler) ---------
+    async def _translate_push_text(text: str, target_lang: str, source_lang: str = "TR") -> Optional[str]:
+        """Translate title/body to `target_lang` via DeepL. Returns None on failure
+        so callers can fall back to the original text. `target_lang` is user's
+        preferred language (ISO 639-1 lowercase like 'en', 'de', 'ja')."""
+        import os as _os
+        key = _os.environ.get("DEEPL_API_KEY", "").strip()
+        if not key or not text or not target_lang:
+            return None
+        # DeepL wants uppercase ISO codes; small remap for the few EN/PT variants.
+        DEEPL_LANG_MAP = {"en": "EN-US", "pt": "PT-PT", "zh": "ZH", "nb": "NB"}
+        deepl_lang = DEEPL_LANG_MAP.get(target_lang.lower(), target_lang.upper())
+        base = "https://api-free.deepl.com/v2" if key.endswith(":fx") else "https://api.deepl.com/v2"
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                r = await client.post(
+                    f"{base}/translate",
+                    headers={"Authorization": f"DeepL-Auth-Key {key}", "Content-Type": "application/json"},
+                    json={"text": [text], "target_lang": deepl_lang, "source_lang": source_lang},
+                )
+                r.raise_for_status()
+                arr = r.json().get("translations", [])
+                return arr[0]["text"] if arr and arr[0].get("text") else None
+        except Exception:
+            return None
+
     async def broadcast_push(
         title: str, body: str, url: str = "/", tag: str = "titanxis",
         group_name: Optional[str] = None, alliance_name: Optional[str] = None,
@@ -263,6 +289,16 @@ def register_push(api_router: APIRouter, db, require_auth, require_admin, logger
         if sound:
             payload_obj["sound"] = sound
         payload = json.dumps(payload_obj, ensure_ascii=False)
+
+        # Per-user language cache: subscription.user_id → preferred_language.
+        # Populated on-demand so we only fetch users that receive a push this batch.
+        user_lang_cache: dict = {}
+        async for u in db.users.find({}, {"_id": 0, "id": 1, "preferred_language": 1}):
+            if u.get("preferred_language"):
+                user_lang_cache[u["id"]] = u["preferred_language"].lower()
+        # Translation cache keyed by target lang → (translated_title, translated_body, payload_str).
+        # First hit for each language calls DeepL; subsequent recipients reuse it.
+        translated_payloads: dict = {}
 
         sent = 0
         removed = 0

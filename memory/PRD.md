@@ -1,5 +1,18 @@
 # PRD — GOD OF WAR (Gaming Guild Management)
 
+## [2026-02] Push Bildirimlerinin Kullanıcı Diline Otomatik Çevrilmesi — DONE & VERIFIED
+- **Backend `auth.py`**: Yeni `POST /api/auth/preferred-language {lang}` endpoint. Kullanıcının tercih ettiği i18n dilini (`preferred_language`) DB'ye persist eder.
+- **Backend `routes/push.py`**:
+  - Yeni `_translate_push_text(text, target_lang, source_lang="TR")` async helper — DeepL API üzerinden çeviri, hata durumunda `None` (fallback için).
+  - `httpx` import eklendi.
+  - `broadcast_push` kritik güncelleme: (a) `user_lang_cache` fetch — tüm user'ların `preferred_language` alanı yükleniyor, (b) her subscription için user_id → lang lookup, (c) lang ≠ "tr" ise DeepL ile title+body çevirip `translated_payloads` cache'e alıyor, (d) o kullanıcıya çevrilmiş payload ile gönderiyor.
+  - Cache mantığı: DeepL çağrısı **dil başına 1 kez** yapılır (100 EN user → 1 API call).
+- **Frontend `LanguageSwitcher.jsx`**: `api` import eklendi + `setLang()` fonksiyonu her dil değişikliğinde `POST /auth/preferred-language` çağırıyor (fire-and-forget). Backend'in sonraki push'ları kullanıcıya seçilen dilde göndermesini sağlar.
+- **Doğrulama (curl)**: preferred-language endpoint'i DB'ye "en" yazdı ✅ → verified DB read ✅ → "tr" reset ✅.
+- **Not**: Ülke bilgisi hâlâ HEDEF SEÇİMİ için kullanılıyor (kime gidecek), dil ise KULLANICININ TERCİHİ. User "tr" seçmişse hangi ülkede olursa olsun Türkçe alır.
+
+
+
 ## [2026-02] Çoklu Hatırlatma Seçimi — DONE & VERIFIED
 - **EventReminderDialog**: Tek `leadMin` → çoklu `leadMinSet` (Set). Chip'ler toggle davranışı (✓ ile aktif gösterim). Body kopyası her zaman en büyük seçili lead'e göre güncellenir.
 - **fireTimes memo**: Seçili tüm lead'ler için hesaplanan (min, at, isPast) listesi — panel'de her satırda "−60dk / 21:00" formatında + geçmiş olanlar kırmızı üstü çizili + "geçmiş, atlanacak" etiketi.
