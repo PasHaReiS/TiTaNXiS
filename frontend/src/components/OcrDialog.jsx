@@ -1,10 +1,11 @@
 import React, { useRef, useState } from "react";
 import useSWR from "swr";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Camera, Loader2, Check, AlertTriangle, Upload } from "lucide-react";
+import { X, Camera, Loader2, Check, AlertTriangle, Upload, Scissors } from "lucide-react";
 import { api, apiErr } from "@/lib/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import CropDialog from "@/components/CropDialog";
 
 const _fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -40,13 +41,14 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
     const m = /^\s*\[[^\]]+\]\s*(.+)$/.exec(String(n || ""));
     return (m ? m[1] : String(n || "")).trim();
   };
-  const [previews, setPreviews] = useState([]); // [{file, url}]
+  const [previews, setPreviews] = useState([]); // [{file, url, cropped?}]
   const [parsing, setParsing] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, errors: 0 });
   const [result, setResult] = useState(null);
   const [applying, setApplying] = useState(false);
   const [selection, setSelection] = useState("");
   const [mergeStrategy, setMergeStrategy] = useState("sum"); // sum | max | first
+  const [cropIdx, setCropIdx] = useState(-1); // index of image currently being cropped, -1 = none
 
   // Progress-UI heuristic: for 2+ images we show a live X/N counter and bar.
   // Every image is always dispatched as its own /ocr/parse request (below) —
@@ -294,6 +296,25 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                   <div key={i} className="relative flex-shrink-0" style={{ width: 90, height: 60 }}>
                     <img src={p.url} alt={`preview-${i}`} className="w-full h-full object-cover rounded border border-white/10"
                       data-testid={`ocr-image-preview-${i}`} />
+                    {p.cropped && (
+                      <span
+                        className="absolute top-0.5 left-0.5 px-1 rounded text-[8px] font-bold uppercase tracking-widest flex items-center gap-0.5"
+                        style={{ background: "rgba(245,166,35,0.85)", color: "#0A0806" }}
+                        data-testid={`ocr-cropped-badge-${i}`}
+                        title="Kırpıldı"
+                      >
+                        <Scissors className="w-2 h-2" /> KIRP
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setCropIdx(i)}
+                      className="absolute bottom-0.5 left-0.5 w-5 h-5 rounded-full bg-black/80 hover:bg-amber-500/90 text-amber-400 hover:text-black flex items-center justify-center transition-colors"
+                      data-testid={`ocr-crop-${i}`}
+                      title="Kırp"
+                    >
+                      <Scissors className="w-3 h-3" />
+                    </button>
                     <button
                       type="button"
                       onClick={() => removePreview(i)}
@@ -541,6 +562,18 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
           )}
         </motion.div>
       </motion.div>
+      <CropDialog
+        open={cropIdx >= 0 && cropIdx < previews.length}
+        imageUrl={cropIdx >= 0 ? previews[cropIdx]?.url : null}
+        originalFile={cropIdx >= 0 ? previews[cropIdx]?.file : null}
+        onCancel={() => setCropIdx(-1)}
+        onConfirm={(file, url) => {
+          setPreviews((prev) => prev.map((p, i) => (i === cropIdx ? { file, url, cropped: true } : p)));
+          setResult(null); // invalidate any previous OCR result since input changed
+          setCropIdx(-1);
+          toast.success("Kırpma uygulandı");
+        }}
+      />
     </AnimatePresence>
   );
 }
