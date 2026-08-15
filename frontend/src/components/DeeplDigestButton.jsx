@@ -143,6 +143,7 @@ export default function DeeplDigestButton() {
                 </button>
               ))}
             </div>
+            <BulkTranslateSection />
             <div className="overflow-y-auto flex-1 p-4 space-y-4 text-sm">
               {loading && (<div className="text-center py-6 text-muted-foreground">{t("loading")}…</div>)}
               {data && !data.error && !loading && (
@@ -393,5 +394,87 @@ export default function DeeplDigestButton() {
         document.body,
       )}
     </>
+  );
+}
+
+
+// Bulk TR → 29-language translation via DeepL. Admin pastes N lines of TR text
+// (one per row), hits Çevir, and gets a per-language JSON they can copy or
+// paste into i18n/index.js as missing keys.
+function BulkTranslateSection() {
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+
+  const run = async () => {
+    const lines = input.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (lines.length === 0) return;
+    setBusy(true); setError(null); setResult(null);
+    try {
+      const r = await api.post("/deepl/bulk-translate", { texts: lines });
+      setResult(r.data.translations || {});
+    } catch (e) {
+      setError(e?.response?.data?.detail || e.message);
+    } finally { setBusy(false); }
+  };
+
+  const copyJson = () => {
+    if (!result) return;
+    navigator.clipboard.writeText(JSON.stringify(result, null, 2));
+  };
+
+  return (
+    <div className="px-4 pt-3 pb-1" data-testid="deepl-bulk-section">
+      <div className="text-[10px] uppercase tracking-widest mb-1.5" style={{ color: "#C4B5FD" }}>
+        Toplu Çeviri (TR → 29 dil)
+      </div>
+      <textarea
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        data-testid="deepl-bulk-input"
+        placeholder="Her satıra bir TR metin yaz…"
+        rows={4}
+        className="w-full text-xs bg-black/40 border rounded p-2 outline-none text-white mono"
+        style={{ borderColor: "rgba(139,92,246,0.35)" }}
+      />
+      <div className="flex items-center gap-2 mt-1.5">
+        <button
+          type="button"
+          onClick={run}
+          disabled={busy || !input.trim()}
+          data-testid="deepl-bulk-submit"
+          className="px-3 py-1 rounded text-[11px] font-bold uppercase"
+          style={{
+            background: busy ? "rgba(75,65,55,0.4)" : "linear-gradient(135deg,#6366F1,#8B5CF6)",
+            color: "#fff",
+            opacity: busy ? 0.6 : 1,
+          }}
+        >
+          {busy ? "Çevriliyor…" : "Çevir"}
+        </button>
+        {result && (
+          <button
+            type="button"
+            onClick={copyJson}
+            data-testid="deepl-bulk-copy"
+            className="px-3 py-1 rounded text-[11px] font-bold"
+            style={{ background: "rgba(16,185,129,0.20)", color: "#6EE7B7", border: "1px solid rgba(16,185,129,0.45)" }}
+          >
+            JSON Kopyala
+          </button>
+        )}
+      </div>
+      {error && <p className="text-[10px] text-red-400 mt-1" data-testid="deepl-bulk-error">{error}</p>}
+      {result && (
+        <pre
+          data-testid="deepl-bulk-result"
+          className="mt-2 max-h-40 overflow-auto text-[9px] p-2 rounded mono"
+          style={{ background: "rgba(0,0,0,0.55)", border: "1px solid rgba(139,92,246,0.25)", color: "#E5E7EB" }}
+        >
+          {JSON.stringify(result, null, 2)}
+        </pre>
+      )}
+    </div>
   );
 }

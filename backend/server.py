@@ -2540,6 +2540,36 @@ async def _deepl_translate_one(text: str, target_langs=None):
     return out
 
 
+class DeeplBulkBody(BaseModel):
+    texts: List[str]
+    target_langs: Optional[List[str]] = None
+
+
+@api_router.post("/deepl/bulk-translate")
+async def deepl_bulk_translate(body: DeeplBulkBody, _: dict = Depends(require_admin)):
+    """Bulk TR → multi-language translation for ad-hoc content. Powers the
+    'Toplu Çeviri' button in the DeepL admin panel — admin pastes N lines,
+    receives a {text: {lang: translation}} map for the enabled languages.
+    Skips empty/whitespace-only lines. Deduplicates identical inputs."""
+    if not DEEPL_API_KEY:
+        raise HTTPException(503, "DEEPL_API_KEY not configured")
+    cleaned = []
+    seen: set = set()
+    for t in (body.texts or []):
+        s = (t or "").strip()
+        if s and s not in seen:
+            seen.add(s)
+            cleaned.append(s)
+    if not cleaned:
+        raise HTTPException(400, "texts required")
+    if len(cleaned) > 100:
+        raise HTTPException(400, "max 100 metin per çağrı")
+    result: Dict[str, Dict[str, str]] = {}
+    for text in cleaned:
+        result[text] = await _deepl_translate_one(text, target_langs=body.target_langs)
+    return {"count": len(result), "translations": result}
+
+
 @api_router.post("/point-calc/translate-all")
 async def translate_all_pc(kind: str = Query(...), _: dict = Depends(require_admin)):
     if kind not in ("pre", "diger"):
