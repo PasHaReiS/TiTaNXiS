@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import useSWR from "swr";
-import { Megaphone, Send, Trash2, Loader2, Radio, Users, MessageCircle, Bell } from "lucide-react";
+import { Megaphone, Send, Trash2, Loader2, Radio, Users, MessageCircle, Bell, History, ChevronDown } from "lucide-react";
 import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -13,9 +13,16 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
  * Web Push + Telegram Group + Telegram DMs (country-translated) + in-app
  * bell in a single action. Non-admin visitors just see the list of active
  * announcements below the create form (which is hidden for them).
+ *
+ * When `embedded` is true (rendered inside the /etkinlik-bildirimleri hub)
+ * we skip the page-level max-width wrapper and title so the parent tab
+ * layout owns the vertical rhythm.
  */
-export default function Announcements() {
+export default function Announcements({ embedded = false }) {
   const { isAdmin } = useAuth();
+  // History drawer is collapsed by default so the admin sees the compose
+  // form first; toggling reveals the list which is now more compact.
+  const [historyOpen, setHistoryOpen] = useState(false);
   const { data, mutate, isLoading } = useSWR("/announcements?limit=50", fetcher, { refreshInterval: 60000 });
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -59,12 +66,23 @@ export default function Announcements() {
 
   const items = data?.items || [];
 
-  return (
-    <div className="max-w-4xl mx-auto py-6 px-4 space-y-6" data-testid="announcements-page">
-      <div className="flex items-center gap-2">
-        <Megaphone className="w-6 h-6 gold-text" />
-        <h1 className="text-2xl font-bold uppercase gold-text tracking-widest">Duyurular</h1>
+  const Wrapper = ({ children }) =>
+    embedded ? (
+      <div className="space-y-4" data-testid="announcements-page">{children}</div>
+    ) : (
+      <div className="max-w-4xl mx-auto py-6 px-4 space-y-6" data-testid="announcements-page">
+        {children}
       </div>
+    );
+
+  return (
+    <Wrapper>
+      {!embedded && (
+        <div className="flex items-center gap-2">
+          <Megaphone className="w-6 h-6 gold-text" />
+          <h1 className="text-2xl font-bold uppercase gold-text tracking-widest">Duyurular</h1>
+        </div>
+      )}
 
       {isAdmin && (
         <form onSubmit={submit} className="card-red-gold p-4 space-y-3" data-testid="announcement-form">
@@ -145,7 +163,30 @@ export default function Announcements() {
         </form>
       )}
 
-      <div className="space-y-2" data-testid="announcements-list">
+      {/* Gönderim geçmişi — default kapalı, tıklanarak açılan drawer.
+          Uzun listeler compose formunun altında yer kaplamasın diye böyle
+          tasarlandı. Her satırın Trash butonu her admin için görünür. */}
+      <div className="rounded-lg overflow-hidden" style={{ border: "1px solid rgba(245,166,35,0.25)" }}>
+        <button
+          type="button"
+          onClick={() => setHistoryOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-3 py-2 text-xs uppercase font-bold gold-text tracking-widest hover:bg-amber-500/5 transition-colors"
+          style={{ background: "rgba(15,8,20,0.55)" }}
+          data-testid="announcements-history-toggle"
+          aria-expanded={historyOpen}
+        >
+          <span className="flex items-center gap-2">
+            <History className="w-3.5 h-3.5" />
+            <span>Gönderim Geçmişi</span>
+            <span className="text-[10px] mono opacity-70">({items.length})</span>
+          </span>
+          <ChevronDown
+            className="w-3.5 h-3.5 transition-transform"
+            style={{ transform: historyOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+          />
+        </button>
+        {historyOpen && (
+      <div className="space-y-1.5 p-2" data-testid="announcements-list">
         {isLoading && <div className="text-center text-xs text-muted-foreground py-6">Yükleniyor…</div>}
         {!isLoading && items.length === 0 && (
           <div className="text-center text-sm text-muted-foreground py-8" data-testid="announcements-empty">
@@ -154,42 +195,45 @@ export default function Announcements() {
         )}
         {items.map((a) => (
           <div key={a.id}
-               className="card-red-gold p-3"
+               className="card-red-gold p-2"
                style={{ opacity: a.active ? 1 : 0.5, borderColor: a.urgent ? "#EF4444" : undefined }}
                data-testid={`announcement-item-${a.id}`}>
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   {a.urgent
-                    ? <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ background: "#EF4444", color: "white" }} data-testid={`announcement-urgent-${a.id}`}>ACİL</span>
-                    : <Megaphone className="w-3.5 h-3.5 gold-text flex-shrink-0" />}
-                  <h3 className={`text-sm font-bold ${a.active ? (a.urgent ? "text-red-300" : "text-white") : "text-muted-foreground line-through"}`}>{a.title}</h3>
+                    ? <span className="text-[9px] px-1 py-0.5 rounded font-bold" style={{ background: "#EF4444", color: "white" }} data-testid={`announcement-urgent-${a.id}`}>ACİL</span>
+                    : <Megaphone className="w-3 h-3 gold-text flex-shrink-0" />}
+                  <h3 className={`text-xs font-bold ${a.active ? (a.urgent ? "text-red-300" : "text-white") : "text-muted-foreground line-through"}`}>{a.title}</h3>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{a.body}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5 whitespace-pre-wrap line-clamp-2">{a.body}</p>
                 {a.image_url && (
                   <img src={a.image_url} alt={a.title}
                        data-testid={`announcement-image-${a.id}`}
-                       className="mt-2 max-h-56 rounded border border-border object-contain"
+                       className="mt-1.5 max-h-32 rounded border border-border object-contain"
                        onError={(e) => { e.target.style.display = "none"; }} />
                 )}
-                <div className="text-[10px] text-muted-foreground mt-2 flex items-center gap-2">
+                <div className="text-[9px] text-muted-foreground mt-1 flex items-center gap-1.5">
                   <span>{a.created_by_username || "sistem"}</span>
                   <span>·</span>
                   <span>{new Date(a.created_at).toLocaleString("tr-TR")}</span>
                   {!a.active && <span className="px-1 rounded bg-red-500/20 text-red-300">arşiv</span>}
                 </div>
               </div>
-              {isAdmin && a.active && (
+              {isAdmin && (
                 <button onClick={() => remove(a.id)}
-                        className="p-1.5 rounded hover:bg-red-500/20 text-red-400"
+                        className="p-1 rounded hover:bg-red-500/20 text-red-400 flex-shrink-0"
+                        title="Duyuruyu sil"
                         data-testid={`announcement-delete-${a.id}`}>
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-3 h-3" />
                 </button>
               )}
             </div>
           </div>
         ))}
       </div>
-    </div>
+        )}
+      </div>
+    </Wrapper>
   );
 }

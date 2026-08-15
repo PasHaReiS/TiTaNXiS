@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import useSWR, { mutate } from "swr";
 import { motion } from "framer-motion";
 import { api } from "@/lib/api";
@@ -14,7 +14,7 @@ import EventAttendance from "@/components/EventAttendance";
 import EventReminderDialog from "@/components/EventReminderDialog";
 import EventCountdown from "@/components/EventCountdown";
 import EventResultGallery from "@/components/EventResultGallery";
-import { BellRing } from "lucide-react";
+import { BellRing, GripVertical } from "lucide-react";
 import { groupColor, groupBgTint } from "@/lib/groupColors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -22,6 +22,26 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
 export default function Events() {
   const { t } = useTranslation();
   const [tab, setTab] = useState("reminded"); // "reminded" | "unreminded" | "archive"
+  // Sub-filter picked from the chip row that lives under the tabs. "all"
+  // keeps the current mixed view; "grouped" / "ungrouped" narrow it down
+  // so admins can focus on one flavour at a time.
+  const [subFilter, setSubFilter] = useState(() => {
+    try { return localStorage.getItem("events_subfilter") || "all"; } catch { return "all"; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("events_subfilter", subFilter); } catch { /* private mode */ }
+  }, [subFilter]);
+  // Local drag-order overrides — persisted per tab in localStorage so a
+  // reorder survives reloads even without a backend round-trip. Keyed by
+  // event.id so DB re-fetches don't clobber user intent.
+  const ORDER_KEY = "events_manual_order_v1";
+  const [manualOrder, setManualOrder] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(ORDER_KEY) || "{}"); } catch { return {}; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(ORDER_KEY, JSON.stringify(manualOrder)); } catch { /* private mode */ }
+  }, [manualOrder]);
+  const [dragId, setDragId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [renamingGroup, setRenamingGroup] = useState(null); // group name being renamed
@@ -68,6 +88,36 @@ export default function Events() {
     () => Object.values(groupedMap).reduce((n, arr) => n + arr.length, 0),
     [groupedMap],
   );
+
+  // Apply the user's manual drag-drop reorder on top of the date-sorted
+  // lists. Any event not yet touched by drag keeps its original position.
+  const applyManualOrder = (list, bucketKey) => {
+    const order = manualOrder[bucketKey] || [];
+    if (!order.length) return list;
+    const rank = new Map(order.map((id, i) => [id, i]));
+    return [...list].sort((a, b) => {
+      const ra = rank.has(a.id) ? rank.get(a.id) : 9999;
+      const rb = rank.has(b.id) ? rank.get(b.id) : 9999;
+      if (ra !== rb) return ra - rb;
+      return new Date(a.date) - new Date(b.date);
+    });
+  };
+
+  // Persist a new order for a bucket after a drop event resolves.
+  const reorderBucket = (bucketKey, sourceId, targetId) => {
+    if (!sourceId || !targetId || sourceId === targetId) return;
+    setManualOrder((prev) => {
+      const bucket = groupedMap[bucketKey.replace("group:", "")] || (bucketKey === "ungrouped" ? ungrouped : []);
+      const currentIds = applyManualOrder(bucket, bucketKey).map((e) => e.id);
+      const from = currentIds.indexOf(sourceId);
+      const to = currentIds.indexOf(targetId);
+      if (from < 0 || to < 0) return prev;
+      const next = [...currentIds];
+      next.splice(from, 1);
+      next.splice(to, 0, sourceId);
+      return { ...prev, [bucketKey]: next };
+    });
+  };
 
   const archiveGroup = async (group) => {
     if (!window.confirm(t("confirm_archive_group", { group }))) return;
@@ -120,7 +170,9 @@ export default function Events() {
   // Extracted so the same card JSX renders inside a group AND inside the
   // stand-alone "Grupsuz" column. `gc` is the group tint colour; for ungrouped
   // events we pass a neutral violet so the left border still reads as visible.
-  const renderEventCard = (e, gc, group) => {
+  // `bucketKey` (e.g. "ungrouped" or "group:SvS") scopes the drag-drop reorder
+  // — dropping a card only shuffles cards inside the same bucket.
+  const renderEventCard = (e, gc, group, bucketKey) => {
     const evMs = new Date(e.date).getTime();
     const nowMs = Date.now();
     const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
@@ -133,7 +185,12 @@ export default function Events() {
         key={e.id}
         id={`event-${e.id}`}
         data-testid={EVENTS.card(e.id)}
-        className={`card-dark row-hover ${e.banner_url ? "overflow-hidden" : "p-3 flex flex-col gap-2"}`}
+        draggable={!!bucketKey}
+        onDragStart={(ev) => { if (bucketKey) { setDragId(e.id); ev.dataTransfer.effectAllowed = "move"; } }}
+        onDragOver={(ev) => { if (bucketKey && dragId && dragId !== e.id) { ev.preventDefault(); ev.dataTransfer.dropEffect = "move"; } }}
+        onDrop={(ev) => { if (bucketKey && dragId) { ev.preventDefault(); reorderBucket(bucketKey, dragId, e.id); setDragId(null); } }}
+        onDragEnd={() => setDragId(null)}
+        className={`card-dark row-hover ${e.banner_url ? "overflow-hidden" : "p-3 flex flex-col gap-2"} ${dragId === e.id ? "opacity-50" : ""}`}
         variants={{
           hidden: { opacity: 0, y: 14 },
           visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } },
@@ -154,6 +211,16 @@ export default function Events() {
           </div>
         )}
         <div className={e.banner_url ? "p-3 flex items-center gap-3" : "flex items-center gap-3"}>
+          {bucketKey && (
+            <span
+              className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-white"
+              title="Sürükle-bırak ile sırayı değiştir"
+              data-testid={`event-drag-handle-${e.id}`}
+              style={{ touchAction: "none" }}
+            >
+              <GripVertical className="w-3.5 h-3.5" />
+            </span>
+          )}
           <div className="tr-flag" />
           <div className="flex-1 min-w-0">
             <div className="font-bold text-white truncate flex items-center gap-1.5">
@@ -337,12 +404,15 @@ export default function Events() {
         </div>
 
         <motion.div
-          className="space-y-1.5"
+          className="grid grid-cols-1 md:grid-cols-2 gap-1.5"
           initial="hidden"
           animate="visible"
           variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
+          data-testid={`event-group-grid-${group}`}
         >
-          {list.map((e) => renderEventCard(e, gc, group))}
+          {applyManualOrder(list, `group:${group}`).map((e) =>
+            renderEventCard(e, gc, group, `group:${group}`)
+          )}
         </motion.div>
       </div>
     );
@@ -478,10 +548,54 @@ export default function Events() {
         </div>
 
 
-        {/* Two-column split: grouped events on the left, ungrouped ones on
-            the right so the two flavours never mix. Collapses to single
-            column on <lg for phone/tablet readability. */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="events-two-col-grid">
+        {/* Sub-filter chips — sit UNDER the primary tabs so the admin can
+            narrow the active tab down to just "Gruplu" or "Grupsuz" events
+            side-by-side. Default = "Tümü" restores the full split view. */}
+        <div
+          className="flex gap-1.5 mb-4 flex-wrap"
+          data-testid="events-subfilter-bar"
+        >
+          {[
+            { key: "all",       label: "Tümü",     color: "#F5A623" },
+            { key: "grouped",   label: "Gruplu",   color: "#F5A623" },
+            { key: "ungrouped", label: "Grupsuz",  color: "#A78BFA" },
+          ].map((opt) => {
+            const active = subFilter === opt.key;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                data-testid={`events-subfilter-${opt.key}`}
+                onClick={() => setSubFilter(opt.key)}
+                className="chip text-[10px] flex-1 justify-center"
+                style={active ? {
+                  borderColor: opt.color,
+                  color: opt.color,
+                  background: `${opt.color}18`,
+                  boxShadow: `0 0 8px ${opt.color}55, inset 0 0 8px ${opt.color}22`,
+                } : {
+                  opacity: 0.7,
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Filtered content — respects the sub-filter chip above. When
+            "all", both grouped + ungrouped columns render side-by-side; when
+            "grouped" or "ungrouped" only that column shows full-width. */}
+        {(() => {
+          const showGrouped = subFilter === "all" || subFilter === "grouped";
+          const showUngrouped = subFilter === "all" || subFilter === "ungrouped";
+          const twoCol = showGrouped && showUngrouped;
+          return (
+        <div
+          className={twoCol ? "grid grid-cols-1 lg:grid-cols-2 gap-4" : ""}
+          data-testid="events-two-col-grid"
+        >
+          {showGrouped && (
           <section data-testid="events-grouped-column">
             <div
               className="flex items-center gap-2 mb-3 pb-2"
@@ -510,7 +624,9 @@ export default function Events() {
               Object.entries(groupedMap).map(([group, list]) => renderGroupBlock(group, list))
             )}
           </section>
+          )}
 
+          {showUngrouped && (
           <section data-testid="events-ungrouped-column">
             <div
               className="flex items-center gap-2 mb-3 pb-2"
@@ -540,16 +656,22 @@ export default function Events() {
               </div>
             ) : (
               <motion.div
-                className="space-y-1.5"
+                className="grid grid-cols-1 md:grid-cols-2 gap-1.5"
                 initial="hidden"
                 animate="visible"
                 variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
+                data-testid="events-ungrouped-grid"
               >
-                {ungrouped.map((e) => renderEventCard(e, "#818cf8", ""))}
+                {applyManualOrder(ungrouped, "ungrouped").map((e) =>
+                  renderEventCard(e, "#818cf8", "", "ungrouped")
+                )}
               </motion.div>
             )}
           </section>
+          )}
         </div>
+          );
+        })()}
 
         {events.length === 0 && (
           <div className="card-dark p-6 text-center text-muted-foreground">{t("no_events")}</div>

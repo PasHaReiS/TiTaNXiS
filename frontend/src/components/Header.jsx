@@ -149,7 +149,7 @@ export default function Header({ title }) {
                   {canEdit && (
                     <MenuItem
                       icon={BellRing}
-                      label={t("nav_event_notifications") || "Etkinlik Bildirimleri"}
+                      label={t("nav_notifications_hub") || "Bildirimler"}
                       onClick={() => goto("/etkinlik-bildirimleri")}
                       testId="dropdown-event-notifications"
                     />

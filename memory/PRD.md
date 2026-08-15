@@ -215,6 +215,35 @@ curl -X POST $API/api/auth/unlock-user -H "Authorization: Bearer $ADMIN_TOKEN" \
   resolve `env()` to 0 → visual behaviour unchanged.
 
 columns via a responsive `grid grid-cols-1 lg:grid-cols-2 gap-4` at
+
+## Phase 1+2+3 Refactor — Feb 15, 2026
+**Faz 1 (küçük rötuşlar)**:
+- MusicButton floating pill: 48×48 → 36×36, icon 22 → 16px, shadow trimmed.
+- Announcement list rows: `p-3 → p-2`, gap tightened, thumbnails capped at `max-h-32`, meta text `text-[9px]`. `line-clamp-2` on body for scannable rows.
+- "Etkinlik Bildirimleri" → **"Bildirimler"** rename (header dropdown label, page `<Header title>`).
+
+**Faz 2 (Bildirimler hub konsolidasyonu)**:
+- `pages/EventNotifications.jsx` rewritten as a tabbed hub with `?tab=events|announcements` query state.
+  - Tab 1: `<EventNotificationsPanel/>` (scheduler-driven event reminders)
+  - Tab 2: `<Announcements embedded/>` (one-shot broadcast form + history)
+  - `data-testid`: `notif-tab-events`, `notif-tab-announcements`, `notif-tab-content-*`.
+- `pages/Announcements.jsx` gained `embedded` prop so it renders header-less inside the hub tab. History moved into a collapsible drawer (`announcements-history-toggle`, default closed, `<History>` icon + ChevronDown flip) — each row keeps its `Trash2` delete button (even after archive) so history can be pruned.
+- ImageDropzone already integrated (Feb 14) — device pick + URL fallback both supported.
+
+**Faz 3 (Events UI)**:
+- Sub-filter chip row (`events-subfilter-bar`) sits UNDER the Hatırlatmalı/Hatırlatmasız/Arşiv tabs with 3 chips (`Tümü`/`Gruplu`/`Grupsuz`, persisted to `localStorage.events_subfilter`). "Grupsuz" or "Gruplu" collapses the layout to one full-width column; "Tümü" keeps the 2-column split.
+- Event cards inside every bucket now render in a `grid grid-cols-1 md:grid-cols-2 gap-1.5` — 2-per-row on desktop.
+- HTML5 native drag-drop reorder: every card has a `GripVertical` handle, `draggable`, `onDragStart/Over/Drop/End`. Reorder scope is bucket-keyed (`ungrouped` or `group:{name}`) so a card only shuffles inside its own bucket. Order is persisted to `localStorage.events_manual_order_v1` and layered on top of the date sort via `applyManualOrder(list, bucketKey)`.
+- `data-testid`: `events-subfilter-{all|grouped|ungrouped}`, `event-drag-handle-{id}`, `event-group-grid-{name}`, `events-ungrouped-grid`.
+
+**Deferred to next iteration**:
+- Etkinlik Takvimi (monthly calendar view)
+- İki-kolon resizable width split
+- Widget panel move
+- DeepL weekly report + cache clear button move to Dashboard
+- Emoji migration (Lucide → colored emojis) — large scope
+
+
 `data-testid="events-two-col-grid"`:
 
 - **Left — GRUPLU ETKİNLİKLER** (`events-grouped-column`, amber accent):

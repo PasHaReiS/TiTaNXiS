@@ -54,22 +54,22 @@ export default function MusicButton() {
         position: "fixed",
         bottom: 80,
         left: 16,
-        width: 48,
-        height: 48,
+        width: 36,
+        height: 36,
         borderRadius: "50%",
         background: "linear-gradient(135deg, #C0392B 0%, #E74C1A 100%)",
         border: "none",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        boxShadow: "0 4px 12px rgba(231,76,26,0.5)",
+        boxShadow: "0 3px 10px rgba(231,76,26,0.5)",
         zIndex: 9000,
         cursor: "pointer",
         animation: isPlaying ? "musicPulse 2s infinite" : "none",
         transition: "all 0.3s ease",
       }}
     >
-      {isPlaying ? <Volume2 size={22} color="#fff" /> : <VolumeX size={22} color="#fff" />}
+      {isPlaying ? <Volume2 size={16} color="#fff" /> : <VolumeX size={16} color="#fff" />}
     </button>
   );
 }
