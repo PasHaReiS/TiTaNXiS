@@ -32,7 +32,7 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 
 ### Telegram DM auto-translate architecture (Feb 2026)
 All Telegram **DM** send sites now route through a single helper
-`_dm_translate_and_send(chat_id, text, ...)` defined at `backend/server.py:3258`.
+`_dm_translate_and_send(chat_id, text, ...)` defined at `backend/server.py:3287`.
 The helper:
 1. Resolves `preferred_language` for the chat_id via `_resolve_preferred_lang_for_chat` — walks 3 paths:
    - (A) `users.telegram_chat_id` (Login Widget / manual link)
@@ -41,11 +41,15 @@ The helper:
 2. If lang ≠ tr, calls DeepL (cached per broadcast so N recipients sharing a language = 1 DeepL call)
 3. Dispatches via `telegram_bot.send_message`
 4. Traces every branch to `backend.err.log` under logger `telegram`:
-   - `dm_translate ok chat=X lang=Y src_len=... out_len=...`
+   - `dm_translate enter chat=X text_len=N` — every DM attempt
+   - `dm_translate resolved chat=X user=... via widget → lang=Y` — lang resolution outcome + owner hint
+   - `dm_translate call chat=X ... lang=Y src_len=N → calling DeepL` — right before DeepL call
+   - `dm_translate ok chat=X lang=Y src_len=N out_len=M`
    - `dm_translate cache_hit chat=X lang=Y`
-   - `dm_translate none chat=X — TR fallback (no preferred_language resolved)`
-   - `dm_translate empty chat=X lang=Y — DeepL returned no text`
-   - `dm_translate skip chat=X lang=Y: <err>`
+   - `dm_translate empty chat=X lang=Y — DeepL API error: no translation returned (check DEEPL_API_KEY + quota + supported lang)`
+   - `dm_translate skip chat=X lang=Y — DeepL API error: <ExceptionType>: <message>`
+   - `dm_translate none chat=X ... — User has no lang set (preferred_language empty/TR) → sending original TR text`
+   - `dm_translate sent chat=X lang=Y translated=bool telegram_ok=bool out_len=M`
 
 **All 5 DM entry points wired to the helper:**
 1. `_telegram_forward_scheduled` — scheduled push fan-out (line 3488)

@@ -3255,6 +3255,32 @@ async def _resolve_preferred_lang_for_chat(chat_id: str) -> Optional[str]:
     return None
 
 
+async def _lookup_chat_owner_hint(chat_id: str) -> str:
+    """Return a short human-readable owner hint for a chat_id used only in
+    log lines (e.g. "user=pasha via widget" or "handle=@benselim via chat_map").
+    Never raises — falls back to "unknown" on any DB error."""
+    try:
+        cid = str(chat_id)
+        try:
+            cid_or = [cid, int(cid)]
+        except Exception:
+            cid_or = [cid]
+        u = await db.users.find_one(
+            {"telegram_chat_id": {"$in": cid_or}},
+            {"_id": 0, "username": 1}
+        )
+        if u and u.get("username"):
+            return f"user={u['username']} via widget"
+        m = await db.telegram_chat_map.find_one(
+            {"chat_id": {"$in": cid_or}}, {"_id": 0, "username_lc": 1}
+        )
+        if m and m.get("username_lc"):
+            return f"handle=@{m['username_lc']} via chat_map"
+    except Exception:
+        pass
+    return "unknown"
+
+
 async def _dm_translate_and_send(chat_id: str, text: str,
                                   reply_markup: Optional[dict] = None,
                                   cache: Optional[Dict[str, str]] = None,
@@ -3266,6 +3292,17 @@ async def _dm_translate_and_send(chat_id: str, text: str,
     is traced via the `telegram` logger so prod issues can be diagnosed from
     backend.err.log — search for `dm_translate` to see the resolution path.
 
+    Log grammar (all prefixed `dm_translate`):
+      • enter    — every DM attempt (chat_id + payload length)
+      • resolved — language resolution outcome + owner hint
+      • call     — RIGHT BEFORE hitting DeepL (proves we tried to translate)
+      • ok       — DeepL succeeded, source/output length
+      • cache_hit — served from per-broadcast cache
+      • empty    — DeepL responded but returned no text (rare)
+      • skip     — DeepL threw (network / quota / auth)
+      • none     — recipient has no preferred_language set → TR fallback
+      • sent     — Telegram sendMessage HTTP outcome
+
     `cache` is a per-broadcast dict {lang → translated_text} so fan-outs to
     multiple recipients sharing the same language hit DeepL only once.
 
@@ -3276,16 +3313,23 @@ async def _dm_translate_and_send(chat_id: str, text: str,
     from telegram_bot import send_message as _tg_send
     _tglog = logging.getLogger("telegram")
     if not chat_id:
+        _tglog.warning("dm_translate enter — empty chat_id, aborting")
         return (False, False, None)
+    _tglog.info(f"dm_translate enter chat={chat_id} text_len={len(text)}")
     target_lang = precomputed_lang if precomputed_lang is not None else await _resolve_preferred_lang_for_chat(chat_id)
+    owner_hint = await _lookup_chat_owner_hint(chat_id)
     out_text = text
     translated = False
     if target_lang:
+        _tglog.info(f"dm_translate resolved chat={chat_id} {owner_hint} → lang={target_lang}")
         if cache is not None and target_lang in cache:
             out_text = cache[target_lang]
             translated = True
             _tglog.info(f"dm_translate cache_hit chat={chat_id} lang={target_lang}")
         else:
+            # Explicit pre-call trace — proves the DeepL branch was entered even
+            # if DeepL later returns an error or empty body (Emmy's requested log).
+            _tglog.info(f"dm_translate call chat={chat_id} {owner_hint} lang={target_lang} src_len={len(text)} → calling DeepL")
             try:
                 tr_map = await _deepl_translate_one(text, target_langs=[target_lang])
                 got = tr_map.get(target_lang)
@@ -3296,12 +3340,29 @@ async def _dm_translate_and_send(chat_id: str, text: str,
                         cache[target_lang] = got
                     _tglog.info(f"dm_translate ok chat={chat_id} lang={target_lang} src_len={len(text)} out_len={len(got)}")
                 else:
-                    _tglog.warning(f"dm_translate empty chat={chat_id} lang={target_lang} — DeepL returned no text")
+                    # DeepL API error: reached the service but got no usable text
+                    # back. Usually means quota exceeded silently or free tier
+                    # rejected the target language.
+                    _tglog.warning(
+                        f"dm_translate empty chat={chat_id} lang={target_lang} — "
+                        f"DeepL API error: no translation returned (check DEEPL_API_KEY + quota + supported lang)"
+                    )
             except Exception as _e:
-                _tglog.warning(f"dm_translate skip chat={chat_id} lang={target_lang}: {_e}")
+                _tglog.warning(
+                    f"dm_translate skip chat={chat_id} lang={target_lang} — "
+                    f"DeepL API error: {type(_e).__name__}: {_e}"
+                )
     else:
-        _tglog.info(f"dm_translate none chat={chat_id} — TR fallback (no preferred_language resolved)")
+        # Recipient has no preferred_language set — no translation attempted.
+        _tglog.info(
+            f"dm_translate none chat={chat_id} {owner_hint} — "
+            f"User has no lang set (preferred_language empty/TR) → sending original TR text"
+        )
     ok = await _tg_send(chat_id, out_text, reply_markup=reply_markup)
+    _tglog.info(
+        f"dm_translate sent chat={chat_id} lang={target_lang or 'tr'} translated={translated} "
+        f"telegram_ok={ok} out_len={len(out_text)}"
+    )
     return (bool(ok), translated, target_lang)
 
 
