@@ -3432,7 +3432,25 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
                 if is_att:
                     stats["dm_username_hits"] += 1
             chat_ids[cid] = is_att
-        # 2c) send
+        # 2c) Build per-chat_id language map so we can auto-translate the DM into
+        # each recipient's preferred language on the fly (no manual button).
+        # Users with no preferred_language keep the original TR text. Translations
+        # are cached per language for the duration of this call to avoid hitting
+        # DeepL N times for the same {lang, text}.
+        chat_lang: Dict[str, str] = {}  # chat_id → lang code (lowercase)
+        async for u in db.users.find(
+            {"telegram_chat_id": {"$in": [c for c in chat_ids.keys()]},
+             "preferred_language": {"$exists": True, "$ne": None}},
+            {"_id": 0, "telegram_chat_id": 1, "preferred_language": 1}
+        ):
+            cid = str(u.get("telegram_chat_id") or "")
+            lang = (u.get("preferred_language") or "").strip().lower()
+            if cid and lang and lang != "tr":
+                chat_lang[cid] = lang
+        # Chat_map fallback users get TR (they haven't linked a profile with language pref).
+        # Cache: lang → translated text
+        tr_cache: Dict[str, str] = {}
+        # 2d) send with per-recipient translation
         for cid, is_att in chat_ids.items():
             markup = None
             if event_id and is_att:
@@ -3442,7 +3460,22 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
                         {"text": "❌ Katılamam", "callback_data": f"att:no:{event_id}"},
                     ]]
                 }
-            ok = await _tg_send(cid, text, reply_markup=markup)
+            # Auto-translate per user's preferred_language via DeepL.
+            target_lang = chat_lang.get(cid)
+            out_text = text
+            if target_lang:
+                if target_lang in tr_cache:
+                    out_text = tr_cache[target_lang]
+                else:
+                    try:
+                        tr_map = await _deepl_translate_one(text, target_langs=[target_lang])
+                        translated = tr_map.get(target_lang)
+                        if translated:
+                            out_text = translated
+                            tr_cache[target_lang] = translated
+                    except Exception as _e:
+                        logging.getLogger("telegram").warning(f"auto-translate skip chat={cid} lang={target_lang}: {_e}")
+            ok = await _tg_send(cid, out_text, reply_markup=markup)
             if ok:
                 stats["dm_sent"] += 1
     return stats
