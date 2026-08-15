@@ -112,7 +112,16 @@ export default function EventNotificationsPanel() {
       const dm = r.data.telegram_dm_sent;
       const push = r.data.push_sent;
       const total = r.data.dm_targets_total || 0;
-      const summary = `Kanal:${ch ? "✓" : "✗"} · DM:${dm}/${total} · Push:${push}`;
+      const translated = r.data.telegram_dm_translated || 0;
+      const langs = r.data.telegram_dm_langs || {};
+      // Human-readable lang breakdown for the toast — matches the AnalyticsBadge
+      // chip format so admin sees the same summary in two places.
+      const langStr = Object.entries(langs)
+        .sort((a, b) => b[1] - a[1])
+        .map(([code, n]) => `${code}:${n}`)
+        .join(" ");
+      const langTail = translated > 0 ? ` · 🌐${translated}${langStr ? ` (${langStr})` : ""}` : "";
+      const summary = `Kanal:${ch ? "✓" : "✗"} · DM:${dm}/${total} · Push:${push}${langTail}`;
       if (ch || dm > 0 || push > 0) toast.success(`Test gönderildi — ${summary}`);
       else toast.error(`Hiçbir kanal ulaşmadı — ${summary}`);
     } catch (e) {
@@ -123,17 +132,24 @@ export default function EventNotificationsPanel() {
   };
 
   // Compact analytics badge for FIRED scheduled reminders — shows Web Push
-  // recipient count + Telegram channel status + DM count. Emerald when Telegram
-  // channel delivered, muted when not; renders inline next to the timestamp.
+  // recipient count + Telegram channel status + DM count + per-language
+  // breakdown chips (e.g. `ru:3 · pt-br:2 · en:5`) so admin can visually
+  // confirm the country-based DeepL translation layer is actually firing.
+  // Emerald when Telegram channel delivered, muted when not.
   const AnalyticsBadge = ({ s }) => {
     if (!s.sent) return null;
     const push = Number.isFinite(s.push_sent) ? s.push_sent : null;
     const dm = Number.isFinite(s.telegram_dm_sent) ? s.telegram_dm_sent : null;
+    const dmTranslated = Number.isFinite(s.telegram_dm_translated) ? s.telegram_dm_translated : 0;
     const ch = !!s.telegram_channel_sent;
+    // Order languages by descending recipient count so the biggest audience
+    // reads first. Cap at 6 chips to keep the badge compact on mobile.
+    const langs = s.telegram_dm_langs && typeof s.telegram_dm_langs === "object" ? s.telegram_dm_langs : {};
+    const langEntries = Object.entries(langs).sort((a, b) => b[1] - a[1]).slice(0, 6);
     return (
       <span
         data-testid={`event-notif-analytics-${s.id}`}
-        className="ml-1 px-1.5 py-0.5 rounded font-bold text-[9px] flex items-center gap-1"
+        className="ml-1 px-1.5 py-0.5 rounded font-bold text-[9px] flex items-center gap-1 flex-wrap"
         style={{
           background: ch ? "rgba(16,185,129,0.15)" : "rgba(148,163,184,0.12)",
           border: `1px solid ${ch ? "rgba(16,185,129,0.45)" : "rgba(148,163,184,0.30)"}`,
@@ -144,6 +160,26 @@ export default function EventNotificationsPanel() {
         <span>✈️{ch ? "✓" : "—"}</span>
         {dm !== null && <span>· 📩{dm}</span>}
         {push !== null && <span>· 🔔{push}</span>}
+        {dmTranslated > 0 && (
+          <span
+            className="px-1 rounded"
+            style={{ background: "rgba(245,166,35,0.20)", color: "#F5A623" }}
+            data-testid={`event-notif-translated-${s.id}`}
+            title="DeepL tarafından otomatik çevrilen DM sayısı"
+          >
+            🌐{dmTranslated}
+          </span>
+        )}
+        {langEntries.map(([code, n]) => (
+          <span
+            key={code}
+            className="px-1 rounded lowercase"
+            style={{ background: "rgba(59,130,246,0.18)", color: "#93C5FD" }}
+            data-testid={`event-notif-lang-${s.id}-${code}`}
+          >
+            {code}:{n}
+          </span>
+        ))}
       </span>
     );
   };

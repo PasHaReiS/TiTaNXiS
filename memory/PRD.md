@@ -75,10 +75,30 @@ Log grammar (all prefixed `dm_translate`, logger name `telegram`):
 - `none chat=X ... — no linked member OR member has no country set → sending original text`
 - `sent chat=X country=RU lang=ru translated=bool telegram_ok=bool out_len=M`
 
-**Test verification (preview, Feb 2026)**: 34 countries + 29 unique
-DeepL translations validated end-to-end. RU/PT-BR/PT-PT/EN specifically
-diff-checked to confirm distinct outputs (BR "às 20h", PT "às 20:00").
-Cache dedup confirmed: shared-language recipients hit DeepL once.
+### Fan-out Summary Widget (Feb 2026)
+Every scheduled push + test push now returns a `telegram_dm_langs` breakdown
+alongside `telegram_dm_sent` / `telegram_dm_translated`. The map has the
+shape `{"ru": 3, "pt-br": 2, "en": 5, "src": 1}` — `"src"` bucket counts
+recipients on the source language (TR) that received the original text
+without translation. Increments only fire on **successful** Telegram
+delivery so the widget reflects actual reach, not attempted sends.
+
+Persisted to `push_history.telegram_dm_langs` by the scheduler loop; exposed
+via `GET /api/push/scheduled` for each fired doc, and via `POST /api/push/test`
+JSON response.
+
+Frontend `AnalyticsBadge` at `EventNotificationsPanel.jsx:~128` renders it
+as inline chips: `✈️✓ · 📩5 · 🔔12 · 🌐4 · ru:2 · pt-br:1 · en:1`. The
+🌐N chip = auto-translated count (amber-tinted); the per-lang chips are
+blue-tinted and sorted by descending recipient count, capped at 6 for
+mobile. The runTest toast summary shares the same format so admins see
+"Kanal:✓ · DM:5/5 · Push:12 · 🌐4 (ru:2 pt-br:1 en:1)" after every test.
+
+**Test verification (preview, Feb 2026, mocked Telegram delivery)**:
+5 recipients across RU/DE/EN/TR + 1 unrelated selim record → stats
+returned `dm_lang_breakdown={ru:2, de:1, en:1, src:2}`, `dm_sent=6`,
+`dm_translated=4`. Cache dedup verified: RU-2 hit cache instead of a
+second DeepL call. Test data automatically cleaned up.
 
 Channel broadcasts (TELEGRAM_CHANNEL_ID) stay in source Turkish — the
 channel is shared across all languages.

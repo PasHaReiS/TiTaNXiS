@@ -3125,7 +3125,8 @@ async def push_scheduled_list(include_sent: bool = False, _: dict = Depends(requ
         async for h in db.push_history.find(
             {"tag": {"$in": tags}},
             {"_id": 0, "tag": 1, "sent": 1, "removed": 1,
-             "telegram_channel_sent": 1, "telegram_dm_sent": 1}
+             "telegram_channel_sent": 1, "telegram_dm_sent": 1,
+             "telegram_dm_translated": 1, "telegram_dm_langs": 1}
         ):
             hist_by_tag[h["tag"]] = h
     for d in docs:
@@ -3135,6 +3136,8 @@ async def push_scheduled_list(include_sent: bool = False, _: dict = Depends(requ
             d["push_removed"] = int(h.get("removed") or 0)
             d["telegram_channel_sent"] = bool(h.get("telegram_channel_sent") or False)
             d["telegram_dm_sent"] = int(h.get("telegram_dm_sent") or 0)
+            d["telegram_dm_translated"] = int(h.get("telegram_dm_translated") or 0)
+            d["telegram_dm_langs"] = h.get("telegram_dm_langs") or {}
     return docs
 
 
@@ -3478,6 +3481,8 @@ async def push_test(body: PushTestBody, user: dict = Depends(require_admin)):
     # 3) Telegram DM(s) — fan-out when requested
     result["telegram_dm_sent"] = 0
     result["telegram_dm_failed"] = 0
+    result["telegram_dm_translated"] = 0
+    result["telegram_dm_langs"] = {}
     result["dm_details"] = []
     if body.send_dm:
         targets: List[Dict[str, str]] = []
@@ -3527,6 +3532,10 @@ async def push_test(body: PushTestBody, user: dict = Depends(require_admin)):
                 tgt["translated"] = lang
             if ok:
                 result["telegram_dm_sent"] += 1
+                lang_key = lang if lang else "src"
+                result["telegram_dm_langs"][lang_key] = result["telegram_dm_langs"].get(lang_key, 0) + 1
+                if translated:
+                    result["telegram_dm_translated"] += 1
             else:
                 result["telegram_dm_failed"] += 1
             result["dm_details"].append(tgt)
@@ -3636,7 +3645,8 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
     """
     from telegram_bot import send_message as _tg_send
     _tglog = logging.getLogger("telegram")
-    stats = {"channel_sent": False, "dm_sent": 0, "dm_username_hits": 0, "dm_translated": 0}
+    stats = {"channel_sent": False, "dm_sent": 0, "dm_username_hits": 0,
+             "dm_translated": 0, "dm_lang_breakdown": {}}
     if not os.environ.get("TELEGRAM_BOT_TOKEN", "").strip():
         return stats
     title = (doc.get("title") or "").strip()
@@ -3720,6 +3730,14 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
             )
             if ok:
                 stats["dm_sent"] += 1
+                # Track per-language counts so the admin panel can render
+                # "ru:3 · pt-br:2 · en:5" chips proving the translation layer
+                # is doing its job. Recipients on the source language (TR) get
+                # bucketed under "src" so the total stays honest.
+                lang_key = _lang if _lang else "src"
+                stats["dm_lang_breakdown"][lang_key] = (
+                    stats["dm_lang_breakdown"].get(lang_key, 0) + 1
+                )
                 if translated:
                     stats["dm_translated"] += 1
     return stats
@@ -3768,7 +3786,8 @@ async def _push_scheduler_loop():
                                     {"id": hist["id"]},
                                     {"$set": {"telegram_channel_sent": tg_stats.get("channel_sent", False),
                                               "telegram_dm_sent": tg_stats.get("dm_sent", 0),
-                                              "telegram_dm_translated": tg_stats.get("dm_translated", 0)}}
+                                              "telegram_dm_translated": tg_stats.get("dm_translated", 0),
+                                              "telegram_dm_langs": tg_stats.get("dm_lang_breakdown") or {}}}
                                 )
                     except Exception:
                         pass
