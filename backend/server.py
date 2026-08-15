@@ -2230,8 +2230,8 @@ DEEPL_LANG_MAP = {
     "en": "EN-GB", "ru": "RU", "de": "DE", "fr": "FR", "es": "ES", "ko": "KO",
     "bg": "BG", "cs": "CS", "da": "DA", "el": "EL", "et": "ET", "fi": "FI", "hu": "HU",
     "id": "ID", "it": "IT", "ja": "JA", "lt": "LT", "lv": "LV", "nb": "NB", "nl": "NL",
-    "pl": "PL", "pt": "PT-PT", "ro": "RO", "sk": "SK", "sl": "SL", "sv": "SV", "uk": "UK",
-    "zh": "ZH",
+    "pl": "PL", "pt": "PT-PT", "pt-br": "PT-BR", "ro": "RO", "sk": "SK", "sl": "SL",
+    "sv": "SV", "uk": "UK", "zh": "ZH",
 }
 
 
@@ -3211,8 +3211,10 @@ COUNTRY_TO_LANG = {
     "CR": "es", "GT": "es", "HN": "es", "NI": "es", "PA": "es", "SV": "es",
     # Italian
     "IT": "it", "SM": "it", "VA": "it",
-    # Portuguese (Portugal + Brazil — DeepL PT-PT is default; BR uses same map)
-    "PT": "pt", "BR": "pt", "AO": "pt", "MZ": "pt",
+    # Portuguese — European (PT/AO/MZ) uses "pt"→PT-PT, Brazilian (BR) uses
+    # "pt-br"→PT-BR. DeepL supports both variants natively.
+    "PT": "pt", "AO": "pt", "MZ": "pt",
+    "BR": "pt-br",
     # Dutch
     "NL": "nl",
     # Polish

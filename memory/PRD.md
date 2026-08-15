@@ -40,9 +40,10 @@ Russian DMs regardless of their profile settings.
 Mapping lives in `COUNTRY_TO_LANG` (`backend/server.py:~3198`). Extend as
 new countries appear. Current coverage: RU/BY/KZ/KG/TJ/UZ→ru, DE/AT/CH/LI→de,
 US/GB/UK/CA/AU/NZ/IE/IN/ZA/SG/PH→en, FR/BE/LU/MC→fr, ES + all LATAM→es,
-IT/SM/VA→it, PT/BR/AO/MZ→pt, NL→nl, PL→pl, UA→uk, JP→ja, KR→ko,
-CN/TW/HK/MO→zh, SE→sv, DK→da, NO→nb, FI→fi, CZ→cs, SK→sk, SI→sl,
-HU→hu, RO/MD→ro, BG→bg, GR/CY→el, EE→et, LV→lv, LT→lt, ID→id, TR→tr (source).
+IT/SM/VA→it, PT/AO/MZ→pt (PT-PT European), **BR→pt-br (PT-BR Brazilian)**,
+NL→nl, PL→pl, UA→uk, JP→ja, KR→ko, CN/TW/HK/MO→zh, SE→sv, DK→da, NO→nb,
+FI→fi, CZ→cs, SK→sk, SI→sl, HU→hu, RO/MD→ro, BG→bg, GR/CY→el, EE→et,
+LV→lv, LT→lt, ID→id, TR→tr (source).
 
 `_resolve_dm_lang_for_chat(chat_id) → (lang, country)` walks 3 paths, first match wins:
   A) `users.telegram_chat_id` → `users.member_ids` → `members.country`
