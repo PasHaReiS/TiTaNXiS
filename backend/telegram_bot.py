@@ -439,6 +439,40 @@ async def send_message(chat_id: str, text: str, parse_mode: Optional[str] = "Mar
         return False
 
 
+
+async def send_photo(chat_id: str, photo_url: str, caption: Optional[str] = None,
+                     parse_mode: Optional[str] = "Markdown",
+                     reply_markup: Optional[dict] = None) -> bool:
+    """Send an image with an optional caption. `photo_url` is a public URL
+    (Telegram fetches it server-side). Falls back to plain text sendMessage
+    when Telegram rejects the photo (invalid URL, size limit, etc.) so the
+    caption still reaches the recipient."""
+    if not BOT_TOKEN or not chat_id or not photo_url:
+        return False
+    caption = (caption or "")[:1024]  # Telegram caption cap
+    payload: dict = {"chat_id": chat_id, "photo": photo_url}
+    if caption:
+        payload["caption"] = caption
+        if parse_mode:
+            payload["parse_mode"] = parse_mode
+    if reply_markup is not None:
+        payload["reply_markup"] = reply_markup
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(f"{TELEGRAM_API}/sendPhoto", json=payload)
+            data = r.json() if r.content else {}
+            if data.get("ok"):
+                return True
+            log.warning("Telegram sendPhoto rejected chat_id=%s code=%s desc=%r → fallback to sendMessage",
+                        chat_id, data.get("error_code"), data.get("description"))
+    except Exception as e:
+        log.warning("Telegram sendPhoto error chat_id=%s: %s → fallback to sendMessage", chat_id, e)
+    # Photo failed — deliver the caption as plain message so the announcement isn't lost.
+    if caption:
+        return await send_message(chat_id, caption, parse_mode=parse_mode, reply_markup=reply_markup)
+    return False
+
+
 async def answer_callback_query(cb_id: str, text: str = "", show_alert: bool = False) -> bool:
     """Acknowledge an inline-button tap so Telegram removes the loading state.
     Optionally shows a toast/alert to the user."""

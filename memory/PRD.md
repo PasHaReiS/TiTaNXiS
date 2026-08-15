@@ -180,6 +180,28 @@ Channel broadcasts (`TELEGRAM_CHANNEL_ID` sends) are NOT translated — they rem
 - DeepL usage: ~220K / 1M chars (~22%), resets 2026-09-01.
 - Preview ≠ Prod: fixes must be Deployed via "Save to GitHub → Deploy".
 
+## Events page — Gruplu/Grupsuz 2-Column Split (Feb 15, 2026)
+`/etkinlikler` (`Events.jsx`) now separates events into two side-by-side
+columns via a responsive `grid grid-cols-1 lg:grid-cols-2 gap-4` at
+`data-testid="events-two-col-grid"`:
+
+- **Left — GRUPLU ETKİNLİKLER** (`events-grouped-column`, amber accent):
+  header shows `<N grup> · <M etkinlik>` chip. Renders `renderGroupBlock(group, list)`
+  per named group (existing group header + rename/archive/delete + event cards).
+  Empty state: `Gruplu etkinlik yok`.
+
+- **Right — GRUPSUZ ETKİNLİKLER** (`events-ungrouped-column`, violet accent):
+  flat list of events whose `group_name` is falsy or whitespace-only.
+  Uses same `renderEventCard(e, gc, group)` helper as the grouped column.
+  Empty state: `Grupsuz etkinlik yok`.
+
+Data split lives in a single `useMemo` (`groupedMap`, `ungrouped`).
+Card rendering extracted into `renderEventCard` + `renderGroupBlock` helpers
+so both columns share the same JSX and attendance/gallery behaviour.
+
+Verified in preview (Hatırlatmalı + Hatırlatmasız tabs) — screenshots show
+clean separation with correct counts and no visual regressions.
+
 ## Key Files
 - `/app/backend/server.py` — helpers at 3193-3341; `_telegram_forward_scheduled` at 3488
 - `/app/backend/auth.py` — `preferred-language` endpoint + public_user

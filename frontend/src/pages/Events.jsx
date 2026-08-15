@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { EVENTS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
-import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera, BellOff } from "lucide-react";
+import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera, BellOff, Users, User } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import ImageDropzone from "@/components/ImageDropzone";
@@ -43,18 +43,31 @@ export default function Events() {
     return events.filter((e) => e.reminder_enabled === false);
   }, [events, tab, archived]);
 
-  const grouped = useMemo(() => {
+  // Split events into (a) grouped-by-name and (b) ungrouped so the page can
+  // render two clean side-by-side columns instead of mixing them together.
+  // A group_name of "", null, undefined or whitespace-only counts as ungrouped.
+  const { groupedMap, ungrouped } = useMemo(() => {
     const g = {};
+    const un = [];
     filteredEvents.forEach((e) => {
-      if (!g[e.group_name]) g[e.group_name] = [];
-      g[e.group_name].push(e);
+      const gn = (e.group_name || "").trim();
+      if (gn) {
+        if (!g[gn]) g[gn] = [];
+        g[gn].push(e);
+      } else {
+        un.push(e);
+      }
     });
-    // Sort each group's events by date ascending (oldest first, newest last)
     Object.keys(g).forEach((k) => {
       g[k].sort((a, b) => new Date(a.date) - new Date(b.date));
     });
-    return g;
+    un.sort((a, b) => new Date(a.date) - new Date(b.date));
+    return { groupedMap: g, ungrouped: un };
   }, [filteredEvents]);
+  const groupedEventCount = useMemo(
+    () => Object.values(groupedMap).reduce((n, arr) => n + arr.length, 0),
+    [groupedMap],
+  );
 
   const archiveGroup = async (group) => {
     if (!window.confirm(t("confirm_archive_group", { group }))) return;
@@ -102,6 +115,237 @@ export default function Events() {
     } catch (e) {
       toast.error(e?.response?.data?.detail || e.message);
     }
+  };
+
+  // Extracted so the same card JSX renders inside a group AND inside the
+  // stand-alone "Grupsuz" column. `gc` is the group tint colour; for ungrouped
+  // events we pass a neutral violet so the left border still reads as visible.
+  const renderEventCard = (e, gc, group) => {
+    const evMs = new Date(e.date).getTime();
+    const nowMs = Date.now();
+    const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = startOfToday.getTime() + 86400000;
+    const isTodayEvent = !e.archived && evMs >= startOfToday.getTime() && evMs < endOfToday;
+    const isPastActive = !e.archived && evMs <= nowMs && (nowMs - evMs) < 6 * 3600 * 1000;
+    const highlight = isTodayEvent || isPastActive;
+    return (
+      <motion.div
+        key={e.id}
+        id={`event-${e.id}`}
+        data-testid={EVENTS.card(e.id)}
+        className={`card-dark row-hover ${e.banner_url ? "overflow-hidden" : "p-3 flex flex-col gap-2"}`}
+        variants={{
+          hidden: { opacity: 0, y: 14 },
+          visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } },
+        }}
+        style={highlight ? {
+          backgroundImage: "repeating-linear-gradient(45deg, rgba(220,38,38,0.14), rgba(220,38,38,0.14) 6px, transparent 6px, transparent 14px)",
+          borderColor: "rgba(220,38,38,0.55)",
+          boxShadow: "0 0 12px rgba(220,38,38,0.25), inset 0 0 12px rgba(220,38,38,0.1)",
+        } : { borderLeft: `3px solid ${gc}`, background: group ? groupBgTint(group, 0.06) : "rgba(129,140,248,0.05)" }}
+      >
+        {e.banner_url && (
+          <div className="relative w-full" style={{ height: 120 }} data-testid={`event-hero-${e.id}`}>
+            <img src={e.banner_url} alt={e.name} className="absolute inset-0 w-full h-full object-cover" />
+            <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(10,0,21,0) 0%, rgba(10,0,21,0.55) 65%, rgba(10,0,21,0.92) 100%)" }} />
+            <div className="absolute left-3 bottom-2 right-3 text-white font-black uppercase tracking-widest truncate" style={{ fontFamily: "Cinzel, serif", textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}>
+              {e.name}
+            </div>
+          </div>
+        )}
+        <div className={e.banner_url ? "p-3 flex items-center gap-3" : "flex items-center gap-3"}>
+          <div className="tr-flag" />
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-white truncate flex items-center gap-1.5">
+              {e.name}
+              {highlight && (
+                <span
+                  data-testid={`event-today-badge-${e.id}`}
+                  className="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase"
+                  style={{
+                    background: "linear-gradient(135deg,#DC2626,#F97316)",
+                    color: "#fff",
+                    letterSpacing: "0.08em",
+                    animation: "pulse 2s ease-in-out infinite",
+                  }}
+                >
+                  {isTodayEvent ? t("event_today_badge") : t("event_active_badge")}
+                </span>
+              )}
+            </div>
+            <div className="text-[10px] text-muted-foreground truncate flex items-center gap-1.5 flex-wrap">
+              <span>Çarpan: <span className="gold-text mono">{e.multiplier}x</span></span>
+              <span>•</span>
+              <span>{new Date(e.date).toLocaleDateString("tr-TR")}</span>
+              {e.subtitle && <><span>•</span><span>{e.subtitle}</span></>}
+              {!e.archived && <EventCountdown target={e.date} testId={`event-countdown-${e.id}`} />}
+            </div>
+          </div>
+          <CanEdit>
+            {!e.archived ? (
+              <button
+                data-testid={EVENTS.archiveBtn(e.id)}
+                onClick={async () => {
+                  await api.patch(`/events/${e.id}`, { archived: true });
+                  mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                  toast.success(t("archived"));
+                }}
+                className="w-8 h-8 rounded-md bg-yellow-500/15 hover:bg-yellow-500/30 gold-text flex items-center justify-center"
+                aria-label={t("archive")}
+                title={t("archive")}
+              >
+                <Archive className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <button
+                data-testid={`event-unarchive-${e.id}`}
+                onClick={async () => {
+                  await api.patch(`/events/${e.id}`, { archived: false });
+                  mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                  toast.success(t("group_unarchived") || "Etkinlik aktife alındı");
+                }}
+                className="w-8 h-8 rounded-md bg-green-500/15 hover:bg-green-500/30 text-green-400 flex items-center justify-center"
+                aria-label={t("group_unarchive")}
+                title={t("group_unarchive")}
+              >
+                <ArchiveRestore className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              data-testid={EVENTS.editBtn(e.id)}
+              onClick={() => { setEditing(e); setShowForm(true); }}
+              className="w-8 h-8 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
+              title={t("edit")}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button
+              data-testid={EVENTS.deleteBtn(e.id)}
+              onClick={async () => {
+                if (!window.confirm(t("confirm_delete_generic", { name: e.name }))) return;
+                await api.delete(`/events/${e.id}`);
+                mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                mutate("/stats");
+                toast.success(t("event_deleted"));
+              }}
+              className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
+              title={t("delete")}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </CanEdit>
+        </div>
+        {e.reminder_enabled !== false && (
+          <EventAttendance eventId={e.id} testIdPrefix={`event-att-${e.id}`} />
+        )}
+        {new Date(e.date).getTime() < Date.now() && (
+          <EventResultGallery event={e} />
+        )}
+      </motion.div>
+    );
+  };
+
+  // Full group block (header + rename controls + archive/delete + event list)
+  const renderGroupBlock = (group, list) => {
+    const gc = groupColor(group);
+    return (
+      <div key={group} className="mb-5" data-testid={`event-group-block-${group}`}>
+        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span
+              data-testid={`event-group-dot-${group}`}
+              style={{ display: "inline-block", width: 10, height: 10, borderRadius: 5, background: gc, boxShadow: `0 0 6px ${gc}80` }}
+            />
+            {renamingGroup === group ? (
+              <input
+                autoFocus
+                data-testid={`event-group-rename-input-${group}`}
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitRenameGroup(group);
+                  if (e.key === "Escape") setRenamingGroup(null);
+                }}
+                className="px-2 py-0.5 text-sm rounded"
+                style={{ background: "#1A1210", color: "#F5F0E8", border: `1px solid ${gc}88`, minWidth: 120 }}
+              />
+            ) : (
+              <h3 className="text-sm font-bold uppercase tracking-wider truncate" style={{ color: gc, textShadow: `0 0 6px ${gc}55` }}>{group}</h3>
+            )}
+            <span className="chip" style={{ borderColor: `${gc}55`, color: gc }}>{list.length}</span>
+          </div>
+          <CanEdit>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {renamingGroup === group ? (
+                <>
+                  <button
+                    onClick={() => commitRenameGroup(group)}
+                    data-testid={`event-group-rename-commit-${group}`}
+                    className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25 flex items-center gap-1"
+                  >
+                    <Check className="w-3 h-3" /> {t("save")}
+                  </button>
+                  <button
+                    onClick={() => setRenamingGroup(null)}
+                    data-testid={`event-group-rename-cancel-${group}`}
+                    className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-neutral-500/15 text-neutral-300 border border-neutral-500/30 hover:bg-neutral-500/25 flex items-center gap-1"
+                  >
+                    <X className="w-3 h-3" /> {t("cancel")}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => startRenameGroup(group)}
+                    data-testid={`event-group-rename-${group}`}
+                    className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25 flex items-center gap-1"
+                    title={t("group_rename")}
+                  >
+                    <Pencil className="w-3 h-3" /> {t("group_rename")}
+                  </button>
+                  {tab === "active" ? (
+                    <button
+                      onClick={() => archiveGroup(group)}
+                      data-testid={`event-group-archive-${group}`}
+                      className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-yellow-500/15 gold-text border border-yellow-500/30 hover:bg-yellow-500/25 flex items-center gap-1"
+                      title={t("archive_group")}
+                    >
+                      <Archive className="w-3 h-3" /> {t("group_move_archive")}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => unarchiveGroup(group)}
+                      data-testid={`event-group-unarchive-${group}`}
+                      className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25 flex items-center gap-1"
+                      title={t("group_unarchive")}
+                    >
+                      <ArchiveRestore className="w-3 h-3" /> {t("group_unarchive")}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => deleteGroup(group)}
+                    data-testid={`event-group-delete-${group}`}
+                    className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-red-500/15 red-text border border-red-500/30 hover:bg-red-500/25 flex items-center gap-1"
+                    title={t("group_delete")}
+                  >
+                    <Trash2 className="w-3 h-3" /> {t("group_delete")}
+                  </button>
+                </>
+              )}
+            </div>
+          </CanEdit>
+        </div>
+
+        <motion.div
+          className="space-y-1.5"
+          initial="hidden"
+          animate="visible"
+          variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
+        >
+          {list.map((e) => renderEventCard(e, gc, group))}
+        </motion.div>
+      </div>
+    );
   };
 
   return (
@@ -233,250 +477,79 @@ export default function Events() {
           </button>
         </div>
 
-        {Object.entries(grouped).map(([group, list]) => {
-          const gc = groupColor(group);
-          return (
-          <div key={group} className="mb-5">
-            <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <span
-                  data-testid={`event-group-dot-${group}`}
-                  style={{ display: "inline-block", width: 10, height: 10, borderRadius: 5, background: gc, boxShadow: `0 0 6px ${gc}80` }}
-                />
-                {renamingGroup === group ? (
-                  <input
-                    autoFocus
-                    data-testid={`event-group-rename-input-${group}`}
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") commitRenameGroup(group);
-                      if (e.key === "Escape") setRenamingGroup(null);
-                    }}
-                    className="px-2 py-0.5 text-sm rounded"
-                    style={{ background: "#1A1210", color: "#F5F0E8", border: `1px solid ${gc}88`, minWidth: 120 }}
-                  />
-                ) : (
-                  <h3 className="text-sm font-bold uppercase tracking-wider truncate" style={{ color: gc, textShadow: `0 0 6px ${gc}55` }}>{group}</h3>
-                )}
-                <span className="chip" style={{ borderColor: `${gc}55`, color: gc }}>{list.length}</span>
-              </div>
-              <CanEdit>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  {renamingGroup === group ? (
-                    <>
-                      <button
-                        onClick={() => commitRenameGroup(group)}
-                        data-testid={`event-group-rename-commit-${group}`}
-                        className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25 flex items-center gap-1"
-                      >
-                        <Check className="w-3 h-3" /> {t("save")}
-                      </button>
-                      <button
-                        onClick={() => setRenamingGroup(null)}
-                        data-testid={`event-group-rename-cancel-${group}`}
-                        className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-neutral-500/15 text-neutral-300 border border-neutral-500/30 hover:bg-neutral-500/25 flex items-center gap-1"
-                      >
-                        <X className="w-3 h-3" /> {t("cancel")}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => startRenameGroup(group)}
-                        data-testid={`event-group-rename-${group}`}
-                        className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25 flex items-center gap-1"
-                        title={t("group_rename")}
-                      >
-                        <Pencil className="w-3 h-3" /> {t("group_rename")}
-                      </button>
-                      {tab === "active" ? (
-                        <button
-                          onClick={() => archiveGroup(group)}
-                          data-testid={`event-group-archive-${group}`}
-                          className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-yellow-500/15 gold-text border border-yellow-500/30 hover:bg-yellow-500/25 flex items-center gap-1"
-                          title={t("archive_group")}
-                        >
-                          <Archive className="w-3 h-3" /> {t("group_move_archive")}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => unarchiveGroup(group)}
-                          data-testid={`event-group-unarchive-${group}`}
-                          className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25 flex items-center gap-1"
-                          title={t("group_unarchive")}
-                        >
-                          <ArchiveRestore className="w-3 h-3" /> {t("group_unarchive")}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => deleteGroup(group)}
-                        data-testid={`event-group-delete-${group}`}
-                        className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-red-500/15 red-text border border-red-500/30 hover:bg-red-500/25 flex items-center gap-1"
-                        title={t("group_delete")}
-                      >
-                        <Trash2 className="w-3 h-3" /> {t("group_delete")}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </CanEdit>
-            </div>
 
-            <motion.div
-              className="space-y-1.5"
-              initial="hidden"
-              animate="visible"
-              variants={{
-                hidden: {},
-                visible: { transition: { staggerChildren: 0.05 } },
-              }}
+        {/* Two-column split: grouped events on the left, ungrouped ones on
+            the right so the two flavours never mix. Collapses to single
+            column on <lg for phone/tablet readability. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="events-two-col-grid">
+          <section data-testid="events-grouped-column">
+            <div
+              className="flex items-center gap-2 mb-3 pb-2"
+              style={{ borderBottom: "1px solid rgba(245,166,35,0.22)" }}
             >
-              {list.map((e) => {
-                const evMs = new Date(e.date).getTime();
-                const nowMs = Date.now();
-                const startOfToday = new Date(); startOfToday.setHours(0,0,0,0);
-                const endOfToday = startOfToday.getTime() + 86400000;
-                const isTodayEvent = !e.archived && evMs >= startOfToday.getTime() && evMs < endOfToday;
-                const isPastActive = !e.archived && evMs <= nowMs && (nowMs - evMs) < 6 * 3600 * 1000; // within 6h
-                const highlight = isTodayEvent || isPastActive;
-                return (
-                <motion.div
-                  key={e.id}
-                  id={`event-${e.id}`}
-                  data-testid={EVENTS.card(e.id)}
-                  className={`card-dark row-hover ${e.banner_url ? "overflow-hidden" : "p-3 flex flex-col gap-2"}`}
-                  variants={{
-                    hidden: { opacity: 0, y: 14 },
-                    visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } },
-                  }}
-                  style={highlight ? {
-                    backgroundImage: "repeating-linear-gradient(45deg, rgba(220,38,38,0.14), rgba(220,38,38,0.14) 6px, transparent 6px, transparent 14px)",
-                    borderColor: "rgba(220,38,38,0.55)",
-                    boxShadow: "0 0 12px rgba(220,38,38,0.25), inset 0 0 12px rgba(220,38,38,0.1)",
-                  } : { borderLeft: `3px solid ${gc}`, background: groupBgTint(group, 0.06) }}
-                >
-                  {e.banner_url && (
-                    <div
-                      className="relative w-full"
-                      style={{ height: 120 }}
-                      data-testid={`event-hero-${e.id}`}
-                    >
-                      <img
-                        src={e.banner_url}
-                        alt={e.name}
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
-                      <div
-                        className="absolute inset-0"
-                        style={{
-                          background:
-                            "linear-gradient(180deg, rgba(10,0,21,0) 0%, rgba(10,0,21,0.55) 65%, rgba(10,0,21,0.92) 100%)",
-                        }}
-                      />
-                      <div
-                        className="absolute left-3 bottom-2 right-3 text-white font-black uppercase tracking-widest truncate"
-                        style={{ fontFamily: "Cinzel, serif", textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}
-                      >
-                        {e.name}
-                      </div>
-                    </div>
-                  )}
-                  <div className={e.banner_url ? "p-3 flex items-center gap-3" : "flex items-center gap-3"}>
-                  <div className="tr-flag" />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-white truncate flex items-center gap-1.5">
-                      {e.name}
-                      {highlight && (
-                        <span
-                          data-testid={`event-today-badge-${e.id}`}
-                          className="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase"
-                          style={{
-                            background: "linear-gradient(135deg,#DC2626,#F97316)",
-                            color: "#fff",
-                            letterSpacing: "0.08em",
-                            animation: "pulse 2s ease-in-out infinite",
-                          }}
-                        >
-                          {isTodayEvent ? t("event_today_badge") : t("event_active_badge")}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground truncate flex items-center gap-1.5 flex-wrap">
-                      <span>Çarpan: <span className="gold-text mono">{e.multiplier}x</span></span>
-                      <span>•</span>
-                      <span>{new Date(e.date).toLocaleDateString("tr-TR")}</span>
-                      {e.subtitle && <><span>•</span><span>{e.subtitle}</span></>}
-                      {!e.archived && <EventCountdown target={e.date} testId={`event-countdown-${e.id}`} />}
-                    </div>
-                  </div>
-                  <CanEdit>
-                    {!e.archived ? (
-                      <button
-                        data-testid={EVENTS.archiveBtn(e.id)}
-                        onClick={async () => {
-                          await api.patch(`/events/${e.id}`, { archived: true });
-                          mutate((k) => typeof k === "string" && k.startsWith("/events"));
-                          toast.success(t("archived"));
-                        }}
-                        className="w-8 h-8 rounded-md bg-yellow-500/15 hover:bg-yellow-500/30 gold-text flex items-center justify-center"
-                        aria-label={t("archive")}
-                        title={t("archive")}
-                      >
-                        <Archive className="w-3.5 h-3.5" />
-                      </button>
-                    ) : (
-                      <button
-                        data-testid={`event-unarchive-${e.id}`}
-                        onClick={async () => {
-                          await api.patch(`/events/${e.id}`, { archived: false });
-                          mutate((k) => typeof k === "string" && k.startsWith("/events"));
-                          toast.success(t("group_unarchived") || "Etkinlik aktife alındı");
-                        }}
-                        className="w-8 h-8 rounded-md bg-green-500/15 hover:bg-green-500/30 text-green-400 flex items-center justify-center"
-                        aria-label={t("group_unarchive")}
-                        title={t("group_unarchive")}
-                      >
-                        <ArchiveRestore className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    <button
-                      data-testid={EVENTS.editBtn(e.id)}
-                      onClick={() => { setEditing(e); setShowForm(true); }}
-                      className="w-8 h-8 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
-                      title={t("edit")}
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      data-testid={EVENTS.deleteBtn(e.id)}
-                      onClick={async () => {
-                        if (!window.confirm(t("confirm_delete_generic", { name: e.name }))) return;
-                        await api.delete(`/events/${e.id}`);
-                        mutate((k) => typeof k === "string" && k.startsWith("/events"));
-                        mutate("/stats");
-                        toast.success(t("event_deleted"));
-                      }}
-                      className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
-                      title={t("delete")}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </CanEdit>
-                  </div>
-                  {e.reminder_enabled !== false && (
-                    <EventAttendance eventId={e.id} testIdPrefix={`event-att-${e.id}`} />
-                  )}
-                  {new Date(e.date).getTime() < Date.now() && (
-                    <EventResultGallery event={e} />
-                  )}
-                </motion.div>
-                );
-              })}
-            </motion.div>
-          </div>
-          );
-        })}
+              <Users className="w-4 h-4" style={{ color: "#F5A623" }} />
+              <h2 className="text-xs font-bold uppercase tracking-widest gold-text">
+                Gruplu Etkinlikler
+              </h2>
+              <span
+                className="ml-auto chip text-[10px]"
+                style={{ borderColor: "rgba(245,166,35,0.45)", color: "#F5A623" }}
+                data-testid="events-grouped-count"
+              >
+                {Object.keys(groupedMap).length} grup · {groupedEventCount}
+              </span>
+            </div>
+            {Object.keys(groupedMap).length === 0 ? (
+              <div
+                data-testid="events-grouped-empty"
+                className="card-dark p-4 text-center text-xs text-muted-foreground"
+              >
+                Gruplu etkinlik yok
+              </div>
+            ) : (
+              Object.entries(groupedMap).map(([group, list]) => renderGroupBlock(group, list))
+            )}
+          </section>
+
+          <section data-testid="events-ungrouped-column">
+            <div
+              className="flex items-center gap-2 mb-3 pb-2"
+              style={{ borderBottom: "1px solid rgba(139,92,246,0.28)" }}
+            >
+              <User className="w-4 h-4" style={{ color: "#A78BFA" }} />
+              <h2
+                className="text-xs font-bold uppercase tracking-widest"
+                style={{ color: "#C4B5FD", textShadow: "0 0 6px rgba(139,92,246,0.35)" }}
+              >
+                Grupsuz Etkinlikler
+              </h2>
+              <span
+                className="ml-auto chip text-[10px]"
+                style={{ borderColor: "rgba(139,92,246,0.45)", color: "#C4B5FD" }}
+                data-testid="events-ungrouped-count"
+              >
+                {ungrouped.length}
+              </span>
+            </div>
+            {ungrouped.length === 0 ? (
+              <div
+                data-testid="events-ungrouped-empty"
+                className="card-dark p-4 text-center text-xs text-muted-foreground"
+              >
+                Grupsuz etkinlik yok
+              </div>
+            ) : (
+              <motion.div
+                className="space-y-1.5"
+                initial="hidden"
+                animate="visible"
+                variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
+              >
+                {ungrouped.map((e) => renderEventCard(e, "#818cf8", ""))}
+              </motion.div>
+            )}
+          </section>
+        </div>
 
         {events.length === 0 && (
           <div className="card-dark p-6 text-center text-muted-foreground">{t("no_events")}</div>

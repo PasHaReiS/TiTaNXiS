@@ -18,6 +18,7 @@ export default function Announcements() {
   const { data, mutate, isLoading } = useSWR("/announcements?limit=50", fetcher, { refreshInterval: 60000 });
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [broadcast, setBroadcast] = useState(true);
   const [urgent, setUrgent] = useState(false);
   const [sending, setSending] = useState(false);
@@ -28,10 +29,10 @@ export default function Announcements() {
     if (!title.trim() || !body.trim()) { toast.error("Başlık ve içerik zorunlu"); return; }
     setSending(true);
     try {
-      const r = await api.post("/announcements", { title, body, broadcast, urgent });
+      const r = await api.post("/announcements", { title, body, image_url: imageUrl || undefined, broadcast, urgent });
       toast.success(urgent ? "🚨 Acil duyuru dağıtıldı" : "Duyuru gönderildi");
       setLastResult(r.data.fanout || null);
-      setTitle(""); setBody(""); setUrgent(false);
+      setTitle(""); setBody(""); setImageUrl(""); setUrgent(false);
       mutate();
     } catch (err) {
       toast.error(apiErr(err));
@@ -76,6 +77,20 @@ export default function Announcements() {
             rows={4}
             className="w-full px-3 py-2 rounded bg-black/40 border border-border text-white text-sm resize-y"
           />
+          <div>
+            <input
+              data-testid="announcement-image-url"
+              value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="🖼️ Resim URL'i (opsiyonel — https://... .jpg / .png)"
+              className="w-full px-3 py-2 rounded bg-black/40 border border-border text-white text-xs"
+            />
+            {imageUrl && (
+              <img src={imageUrl} alt="preview"
+                   data-testid="announcement-image-preview"
+                   className="mt-2 max-h-40 rounded border border-border object-contain"
+                   onError={(e) => { e.target.style.display = "none"; }} />
+            )}
+          </div>
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input type="checkbox" checked={broadcast} onChange={(e) => setBroadcast(e.target.checked)}
                    data-testid="announcement-broadcast" />
@@ -131,6 +146,12 @@ export default function Announcements() {
                   <h3 className={`text-sm font-bold ${a.active ? (a.urgent ? "text-red-300" : "text-white") : "text-muted-foreground line-through"}`}>{a.title}</h3>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{a.body}</p>
+                {a.image_url && (
+                  <img src={a.image_url} alt={a.title}
+                       data-testid={`announcement-image-${a.id}`}
+                       className="mt-2 max-h-56 rounded border border-border object-contain"
+                       onError={(e) => { e.target.style.display = "none"; }} />
+                )}
                 <div className="text-[10px] text-muted-foreground mt-2 flex items-center gap-2">
                   <span>{a.created_by_username || "sistem"}</span>
                   <span>·</span>

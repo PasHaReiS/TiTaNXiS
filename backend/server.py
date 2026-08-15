@@ -3357,7 +3357,8 @@ async def _dm_translate_and_send(chat_id: str, text: str,
                                   reply_markup: Optional[dict] = None,
                                   cache: Optional[Dict[str, str]] = None,
                                   *, precomputed_lang: Optional[str] = None,
-                                  precomputed_country: Optional[str] = None) -> tuple:
+                                  precomputed_country: Optional[str] = None,
+                                  image_url: Optional[str] = None) -> tuple:
     """Central helper: resolve recipient's DM language from the linked
     Member's COUNTRY field, translate the body via DeepL if the mapped
     target language differs from the source, then dispatch via Telegram
@@ -3387,7 +3388,7 @@ async def _dm_translate_and_send(chat_id: str, text: str,
     `precomputed_lang` / `precomputed_country` let batch callers skip the
     per-chat DB round-trip when they've already resolved everything upstream.
     """
-    from telegram_bot import send_message as _tg_send
+    from telegram_bot import send_message as _tg_send, send_photo as _tg_photo
     _tglog = logging.getLogger("telegram")
     if not chat_id:
         _tglog.warning("dm_translate enter — empty chat_id, aborting")
@@ -3441,7 +3442,10 @@ async def _dm_translate_and_send(chat_id: str, text: str,
             "no linked member OR member has no country set → sending original text"
         )
         _tglog.info(f"dm_translate none chat={chat_id} {owner_hint} — {reason}")
-    ok = await _tg_send(chat_id, out_text, reply_markup=reply_markup)
+    if image_url:
+        ok = await _tg_photo(chat_id, image_url, caption=out_text, reply_markup=reply_markup)
+    else:
+        ok = await _tg_send(chat_id, out_text, reply_markup=reply_markup)
     _tglog.info(
         f"dm_translate sent chat={chat_id} country={country_str} lang={target_lang or 'src'} "
         f"translated={translated} telegram_ok={ok} out_len={len(out_text)}"
@@ -3638,8 +3642,12 @@ async def push_scheduled_snooze(sch_id: str, body: PushSnoozeBody, _: dict = Dep
 async def _send_tg_channel(doc: dict) -> dict:
     """Broadcast the scheduled push to the Telegram GROUP channel only.
     Isolated from DM fan-out so the scheduler can run both concurrently via
-    `asyncio.gather` — a slow/failing channel call no longer delays DMs."""
-    from telegram_bot import send_message as _tg_send
+    `asyncio.gather` — a slow/failing channel call no longer delays DMs.
+
+    When `doc.image_url` is provided we use `sendPhoto` (caption up to 1024
+    chars) so announcements render as a rich card in the group; otherwise
+    fall back to plain `sendMessage`."""
+    from telegram_bot import send_message as _tg_send, send_photo as _tg_photo
     out = {"channel_sent": False}
     if not os.environ.get("TELEGRAM_BOT_TOKEN", "").strip():
         return out
@@ -3655,7 +3663,11 @@ async def _send_tg_channel(doc: dict) -> dict:
         text_lines.append("")
         text_lines.append(body_txt)
     text = "\n".join(text_lines) or "🔔 Etkinlik hatırlatması"
-    out["channel_sent"] = await _tg_send(channel, text)
+    img = (doc.get("image_url") or "").strip()
+    if img:
+        out["channel_sent"] = await _tg_photo(channel, img, caption=text)
+    else:
+        out["channel_sent"] = await _tg_send(channel, text)
     return out
 
 
@@ -3728,6 +3740,7 @@ async def _send_tg_dms(doc: dict) -> dict:
             }
         ok, translated, _lang = await _dm_translate_and_send(
             cid, text, reply_markup=markup, cache=tr_cache,
+            image_url=doc.get("image_url"),
         )
         if ok:
             stats["dm_sent"] += 1
@@ -4665,6 +4678,7 @@ class AnnouncementBody(BaseModel):
     title: str
     body: str
     url: Optional[str] = None
+    image_url: Optional[str] = None
     broadcast: Optional[bool] = True
     urgent: Optional[bool] = False
 
@@ -4681,6 +4695,7 @@ async def announcements_create(body: AnnouncementBody, user: dict = Depends(requ
         "body": body.body.strip(),
         "url": (body.url or "/duyurular").strip(),
         "urgent": bool(body.urgent),
+        "image_url": (body.image_url or "").strip() or None,
         "created_by": user["id"],
         "created_by_username": user.get("username") or "",
         "created_at": now_iso(),
@@ -4696,7 +4711,8 @@ async def announcements_create(body: AnnouncementBody, user: dict = Depends(requ
         # a fired scheduled reminder. `event_id=None` means every notification-
         # enabled user receives the in-app row.
         push_doc = {"id": doc["id"], "title": doc["title"], "body": doc["body"],
-                    "url": doc["url"], "send_channel": True, "send_dm": True,
+                    "url": doc["url"], "image_url": doc.get("image_url"),
+                    "send_channel": True, "send_dm": True,
                     "send_app": True, "event_id": None}
         push_task = _broadcast_push(
             doc["title"], doc["body"], doc["url"],
