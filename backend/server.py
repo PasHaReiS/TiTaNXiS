@@ -3369,7 +3369,8 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
     (both default True). Silently no-ops when TELEGRAM_BOT_TOKEN is unset.
     """
     from telegram_bot import send_message as _tg_send
-    stats = {"channel_sent": False, "dm_sent": 0, "dm_username_hits": 0}
+    _tglog = logging.getLogger("telegram")
+    stats = {"channel_sent": False, "dm_sent": 0, "dm_username_hits": 0, "dm_translated": 0}
     if not os.environ.get("TELEGRAM_BOT_TOKEN", "").strip():
         return stats
     title = (doc.get("title") or "").strip()
@@ -3399,13 +3400,18 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
                 {"event_id": event_id}, {"_id": 0, "member_ids": 1}
             )
             att_ids = set(att.get("member_ids") or []) if att else set()
-        # Collect (chat_id, is_attending) targets
+        # Collect (chat_id, is_attending) targets + per-chat language preferences.
+        # We build both maps in ONE pass to avoid a second $in query that misses
+        # users when telegram_chat_id is stored as int (Telegram webhook path)
+        # while our query uses str (Widget path). Inline capture is bulletproof.
         chat_ids: Dict[str, bool] = {}
-        # 2a) linked users
+        chat_lang: Dict[str, str] = {}  # chat_id → lang code (lowercase, non-TR)
+        # 2a) Users with telegram_chat_id (Login Widget or manual link)
         async for u in db.users.find(
             {"telegram_chat_id": {"$exists": True, "$ne": None},
              "notification_enabled": {"$ne": False}},
-            {"_id": 0, "telegram_chat_id": 1, "member_ids": 1, "member_id": 1}
+            {"_id": 0, "telegram_chat_id": 1, "member_ids": 1, "member_id": 1,
+             "preferred_language": 1}
         ):
             cid = str(u.get("telegram_chat_id") or "")
             if not cid:
@@ -3415,42 +3421,62 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
                 linked.append(u["member_id"])
             is_att = bool(att_ids and any(mid in att_ids for mid in linked))
             chat_ids[cid] = chat_ids.get(cid, False) or is_att
-        # 2b) chat_map (users that /start-ed the bot but not linked via Widget)
+            lang = (u.get("preferred_language") or "").strip().lower()
+            if lang and lang != "tr":
+                chat_lang[cid] = lang
+        # 2b) chat_map fallback (users that /start-ed the bot). Resolve their
+        # Telegram @handle → members.telegram_username → users.member_ids to
+        # inherit preferred_language. Without this hop, /start users always
+        # got the TR fallback even after setting a language in the UI.
         async for m in db.telegram_chat_map.find({}, {"_id": 0, "username_lc": 1, "chat_id": 1}):
             cid = str(m.get("chat_id") or "")
             if not cid or cid in chat_ids:
                 continue
-            # Is this handle attending? Look up member with matching telegram_username
+            username_lc = (m.get("username_lc") or "").strip()
+            # attendance check via members.telegram_username
             is_att = False
-            if att_ids:
+            matched_member_id: Optional[str] = None
+            if username_lc:
                 mem = await db.members.find_one(
-                    {"telegram_username": {"$regex": f"^{m.get('username_lc','')}$", "$options": "i"},
-                     "id": {"$in": list(att_ids)}},
+                    {"telegram_username": {"$regex": f"^{username_lc}$", "$options": "i"}},
                     {"_id": 0, "id": 1}
                 )
-                is_att = bool(mem)
-                if is_att:
-                    stats["dm_username_hits"] += 1
+                if mem:
+                    matched_member_id = mem.get("id")
+                    if att_ids and matched_member_id in att_ids:
+                        is_att = True
+                        stats["dm_username_hits"] += 1
             chat_ids[cid] = is_att
-        # 2c) Build per-chat_id language map so we can auto-translate the DM into
-        # each recipient's preferred language on the fly (no manual button).
-        # Users with no preferred_language keep the original TR text. Translations
-        # are cached per language for the duration of this call to avoid hitting
-        # DeepL N times for the same {lang, text}.
-        chat_lang: Dict[str, str] = {}  # chat_id → lang code (lowercase)
-        async for u in db.users.find(
-            {"telegram_chat_id": {"$in": [c for c in chat_ids.keys()]},
-             "preferred_language": {"$exists": True, "$ne": None}},
-            {"_id": 0, "telegram_chat_id": 1, "preferred_language": 1}
-        ):
-            cid = str(u.get("telegram_chat_id") or "")
-            lang = (u.get("preferred_language") or "").strip().lower()
-            if cid and lang and lang != "tr":
-                chat_lang[cid] = lang
-        # Chat_map fallback users get TR (they haven't linked a profile with language pref).
-        # Cache: lang → translated text
+            # Resolve preferred_language via linked user account.
+            # Prefer a user that has the matched member_id in member_ids; fall back
+            # to any user whose telegram_username matches the handle (rare, when
+            # users store their Telegram handle directly on their profile).
+            if cid not in chat_lang:
+                u2 = None
+                if matched_member_id:
+                    u2 = await db.users.find_one(
+                        {"member_ids": matched_member_id,
+                         "notification_enabled": {"$ne": False}},
+                        {"_id": 0, "preferred_language": 1}
+                    )
+                if not u2 and username_lc:
+                    u2 = await db.users.find_one(
+                        {"telegram_username": {"$regex": f"^{username_lc}$", "$options": "i"},
+                         "notification_enabled": {"$ne": False}},
+                        {"_id": 0, "preferred_language": 1}
+                    )
+                if u2:
+                    lang = (u2.get("preferred_language") or "").strip().lower()
+                    if lang and lang != "tr":
+                        chat_lang[cid] = lang
+        # 2c) Trace what we resolved so prod issues can be diagnosed from logs.
+        _tglog.info(
+            f"forward_scheduled sched_id={doc.get('id')} chat_ids={len(chat_ids)} "
+            f"chat_lang={len(chat_lang)} langs={sorted(set(chat_lang.values()))}"
+        )
+        # 2d) send with per-recipient translation. tr_cache dedupes DeepL calls
+        # when multiple recipients share the same target language.
         tr_cache: Dict[str, str] = {}
-        # 2d) send with per-recipient translation
         for cid, is_att in chat_ids.items():
             markup = None
             if event_id and is_att:
@@ -3460,12 +3486,13 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
                         {"text": "❌ Katılamam", "callback_data": f"att:no:{event_id}"},
                     ]]
                 }
-            # Auto-translate per user's preferred_language via DeepL.
             target_lang = chat_lang.get(cid)
             out_text = text
+            translated_flag = False
             if target_lang:
                 if target_lang in tr_cache:
                     out_text = tr_cache[target_lang]
+                    translated_flag = True
                 else:
                     try:
                         tr_map = await _deepl_translate_one(text, target_langs=[target_lang])
@@ -3473,11 +3500,17 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
                         if translated:
                             out_text = translated
                             tr_cache[target_lang] = translated
+                            translated_flag = True
+                            _tglog.info(f"auto-translate ok chat={cid} lang={target_lang} src_len={len(text)} out_len={len(translated)}")
+                        else:
+                            _tglog.warning(f"auto-translate empty chat={cid} lang={target_lang} — DeepL returned no text")
                     except Exception as _e:
-                        logging.getLogger("telegram").warning(f"auto-translate skip chat={cid} lang={target_lang}: {_e}")
+                        _tglog.warning(f"auto-translate skip chat={cid} lang={target_lang}: {_e}")
             ok = await _tg_send(cid, out_text, reply_markup=markup)
             if ok:
                 stats["dm_sent"] += 1
+                if translated_flag:
+                    stats["dm_translated"] += 1
     return stats
 
 
@@ -3523,7 +3556,8 @@ async def _push_scheduler_loop():
                                 await db.push_history.update_one(
                                     {"id": hist["id"]},
                                     {"$set": {"telegram_channel_sent": tg_stats.get("channel_sent", False),
-                                              "telegram_dm_sent": tg_stats.get("dm_sent", 0)}}
+                                              "telegram_dm_sent": tg_stats.get("dm_sent", 0),
+                                              "telegram_dm_translated": tg_stats.get("dm_translated", 0)}}
                                 )
                     except Exception:
                         pass

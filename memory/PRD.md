@@ -12,6 +12,10 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - Emergent Object Storage for image uploads
 - Resend (weekly digest email)
 
+## Environments
+- **Preview**: `https://oyun-loncasi.preview.emergentagent.com` (dev, agent-writable)
+- **Production**: `https://titanxis.com` (live, agent read-only — user must redeploy for changes)
+
 ## Users
 - **Admin** (`admin` / `Admin123`) — full control
 - **Editor** (`pasha` / `pasha123`) — content edit, no user mgmt
@@ -21,15 +25,21 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - 29-language i18n with DeepL bulk translate + on-the-fly DM translation
 - Leaderboard, Commanders, Points, Events, Members CRUD
 - OCR (OpenAI Vision) for member list + event score screenshots
-- **NEW (Feb 2026)**: OCR **Preview Cropping** — every uploaded thumbnail has a Scissors button that opens `CropDialog.jsx` (react-image-crop). Users trim edges/ads/UI chrome before sending to `/ocr/parse`. Cropped images get a gold "KIRP" badge. Reduces token cost + boosts recognition accuracy.
+- **Feb 2026**: OCR **Preview Cropping** via `CropDialog.jsx` (react-image-crop) with Scissors button + "KIRP" badge on every thumbnail
 - Web Push (VAPID) + scheduled broadcasts w/ recurrence
-- Telegram fan-out on scheduled push: channel + DM (linked users + `/start` fallback)
+- Telegram fan-out on scheduled push: channel + DM (linked users + `/start` fallback via chat_map)
 - Inline ✅/❌ attendance callbacks + auto-chase cron
 - Event Screenshot Gallery (Object Storage)
 - Telegram diagnostic panel + manual chat ID link
 - Header dil menüsü + DeepL bulk translate modal
 - Open Graph / SEO meta tags
-- **NEW (Feb 2026)**: DM auto-translate on scheduled push — recipient's `preferred_language` triggers per-user DeepL translation of the DM body. UI dil değişikliği artık `preferred_language`'ı DB'ye yazıyor (`POST /api/auth/preferred-language`), `auth/me` alanı geri döndürüyor, refresh sonrası UI hydrate ediyor. Indentation bug fixed (`_telegram_forward_scheduled` no longer crashes on `send_dm=False`).
+- **Feb 2026 (critical fix)**: DM auto-translate on scheduled push. Full chain now works:
+  1. UI dil menüsünden değişim → `POST /api/auth/preferred-language` DB'ye yazıyor
+  2. `auth/me` yanıtı `preferred_language`'ı döndürüyor → AppShell login'de i18n'i hydrate ediyor
+  3. `_telegram_forward_scheduled` her iki yolu da izler: (a) `users.telegram_chat_id` (Widget), (b) `telegram_chat_map` (`/start`) → `members.telegram_username` → `users.member_ids` → `preferred_language`
+  4. Trace log: `forward_scheduled sched_id=X chat_ids=N chat_lang=M langs=[...]`
+  5. Her başarılı çeviri log'lanıyor: `auto-translate ok chat=X lang=Y src_len=N out_len=M`
+  6. `push_history` dokümanına `telegram_dm_translated` sayacı ekleniyor
 
 ## Backlog
 - **P1**: `server.py` refactor — extract `events`, `calc`, `deepl` routes into `/app/backend/routes/`
@@ -45,11 +55,18 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - Preview ≠ Prod: every fix must be Deployed via "Save to GitHub → Deploy" before user sees it live.
 
 ## Key Files
-- `/app/backend/server.py` — huge, needs refactor. `_telegram_forward_scheduled` at line 3363.
-- `/app/backend/auth.py` — auth + preferred_language endpoint (line 332), `public_user()` now exposes `preferred_language` + `telegram_chat_id`.
+- `/app/backend/server.py` — `_telegram_forward_scheduled` at line 3363 (now has trace logging + inline chat_lang build)
+- `/app/backend/auth.py` — auth + preferred_language endpoint (line 332), `public_user()` exposes `preferred_language` + `telegram_chat_id`
 - `/app/backend/telegram_bot.py` — send_message w/ HTTP-level logging
 - `/app/backend/routes/push.py`, `/app/backend/routes/cron.py`
-- `/app/frontend/src/components/CropDialog.jsx` — NEW: react-image-crop wrapper, canvas → File.
-- `/app/frontend/src/components/OcrDialog.jsx` — Scissors button per thumb, replaces `previews[i]` with cropped File.
-- `/app/frontend/src/components/LanguageSwitcher.jsx` — persists preferred_language on switch.
-- `/app/frontend/src/App.js` — AppShell hydrates i18n from user.preferred_language.
+- `/app/frontend/src/components/CropDialog.jsx` — react-image-crop wrapper (NEW)
+- `/app/frontend/src/components/OcrDialog.jsx` — Scissors button per thumb
+- `/app/frontend/src/components/LanguageSwitcher.jsx` — persists preferred_language on switch
+- `/app/frontend/src/App.js` — AppShell hydrates i18n from user.preferred_language
+
+## Diagnostics — how to trace DM auto-translation in prod
+After deploy, admin can watch `backend.err.log` for these lines:
+- `forward_scheduled sched_id=X chat_ids=N chat_lang=M langs=[...]` — if `chat_lang=0` no user has preferred_language matching a linked chat_id
+- `auto-translate ok chat=X lang=en src_len=73 out_len=75` — DeepL succeeded
+- `auto-translate empty chat=X lang=Y — DeepL returned no text` — API responded but translation empty
+- `auto-translate skip chat=X lang=Y: <err>` — DeepL threw (network/quota)
