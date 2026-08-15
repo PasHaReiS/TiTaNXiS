@@ -15,6 +15,7 @@ import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, Rot
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { COUNTRIES, COUNTRY_BY_ISO2 } from "@/lib/countries";
+import InlineCountryPicker from "@/components/InlineCountryPicker";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -955,16 +956,24 @@ export default function Members() {
                                 </button>
                                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => selectionMode ? toggleSelected(m.id) : setProfileId(m.id)}>
                                   <div className="flex items-center gap-1.5 min-w-0">
-                                    {m.country && COUNTRY_BY_ISO2[m.country] && (
-                                      <span
-                                        className="flex-shrink-0"
-                                        style={{ fontSize: 11 }}
-                                        title={COUNTRY_BY_ISO2[m.country].name}
-                                        data-testid={`member-flag-${m.id}`}
-                                      >
-                                        {COUNTRY_BY_ISO2[m.country].flag}
-                                      </span>
-                                    )}
+                                    <CanEdit
+                                      fallback={m.country && COUNTRY_BY_ISO2[m.country] ? (
+                                        <span
+                                          className="flex-shrink-0"
+                                          style={{ fontSize: 11 }}
+                                          title={COUNTRY_BY_ISO2[m.country].name}
+                                          data-testid={`member-flag-${m.id}`}
+                                        >
+                                          {COUNTRY_BY_ISO2[m.country].flag}
+                                        </span>
+                                      ) : null}
+                                    >
+                                      <InlineCountryPicker
+                                        memberId={m.id}
+                                        currentIso={m.country}
+                                        size={11}
+                                      />
+                                    </CanEdit>
                                     <span
                                       className="text-white truncate leading-tight normal-case"
                                       style={{

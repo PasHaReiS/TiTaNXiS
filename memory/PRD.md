@@ -177,8 +177,24 @@ Channel broadcasts (`TELEGRAM_CHANNEL_ID` sends) are NOT translated — they rem
 
 ## Known Ops Notes
 - Selim (`chat_id=5528595771`) — Telegram returns `chat not found`. Needs `/start` again.
+- Selim's login username is **`selim@titanxis.com`** (not bare `selim`). Typing bare `selim` never matches → 401 → 8 fails → 15-min brute-force lock on the `selim` bucket. Feb 15 2026: cleared and admin unlock endpoint added.
 - DeepL usage: ~220K / 1M chars (~22%), resets 2026-09-01.
 - Preview ≠ Prod: fixes must be Deployed via "Save to GitHub → Deploy".
+
+## Admin unlock endpoint (Feb 15, 2026)
+`POST /api/auth/unlock-user` (admin-only, body `{"username": "..."}`).
+Case-insensitive: `selim`, `Selim`, `selim@titanxis.com` all resolve to the
+same lockout bucket. Wipes:
+1. `login_attempts` rows matching the lowercased username exactly
+2. `login_attempts` rows matching the case-insensitive regex (variants)
+3. `users` doc `$unset` of any legacy lockout fields (`failed_login_attempts`,
+   `locked_until`, `lockout_until`, `login_locked`, `brute_force_locked_until`)
+Response: `{ok, username, failed_attempts_cleared, user_docs_touched, matched_users}`.
+Post-deploy usage from admin console:
+```
+curl -X POST $API/api/auth/unlock-user -H "Authorization: Bearer $ADMIN_TOKEN" \\
+  -H "Content-Type: application/json" -d '{"username":"selim"}'
+```
 
 ## Events page — Gruplu/Grupsuz 2-Column Split (Feb 15, 2026)
 `/etkinlikler` (`Events.jsx`) now separates events into two side-by-side

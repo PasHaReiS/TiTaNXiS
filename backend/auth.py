@@ -241,6 +241,50 @@ def make_auth_router(db):
         )
         return {"ok": True}
 
+    # ---------- Admin: manual account unlock ----------
+    # Wipes all failed login_attempts within the 15-min brute-force window for a
+    # given username so an operator can rescue a locked-out user without waiting
+    # out the timer. Also defensively unsets any per-user lockout fields that
+    # older schemas may have written (`failed_login_attempts`, `locked_until`,
+    # `lockout_until`, `login_locked`, `brute_force_locked_until`).
+    #
+    # Matches case-insensitively so `selim`, `Selim`, `selim@titanxis.com` all
+    # map to the same lockout record and stored user doc.
+    @router.post("/auth/unlock-user")
+    async def unlock_user(body: dict, _: dict = Depends(require_admin)):
+        raw = (body or {}).get("username") or ""
+        uname = raw.strip().lower()
+        if not uname:
+            raise HTTPException(400, "username gerekli")
+        import re as _re
+        pat = _re.compile(_re.escape(uname), _re.IGNORECASE)
+        # Clear failed attempts by exact lowercased username AND by regex so
+        # variants like `selim` vs `selim@titanxis.com` both get drained.
+        r1 = await db.login_attempts.delete_many({"username": uname, "success": False})
+        r2 = await db.login_attempts.delete_many({
+            "username": {"$regex": pat},
+            "success": False,
+        })
+        # Unset any stored lockout fields on matching user docs (defensive —
+        # older schemas may have written these; current schema does not).
+        r3 = await db.users.update_many(
+            {"username": {"$regex": pat}},
+            {"$unset": {
+                "failed_login_attempts": "",
+                "locked_until": "",
+                "lockout_until": "",
+                "login_locked": "",
+                "brute_force_locked_until": "",
+            }},
+        )
+        return {
+            "ok": True,
+            "username": uname,
+            "failed_attempts_cleared": r1.deleted_count + r2.deleted_count,
+            "user_docs_touched": r3.modified_count,
+            "matched_users": r3.matched_count,
+        }
+
     # ---------- Member Matching (user self-service) ----------
     @router.post("/auth/link-members")
     async def set_linked_members(body: LinkMembersBody, user: dict = Depends(require_auth)):

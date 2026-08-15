@@ -4,6 +4,7 @@ import { Megaphone, Send, Trash2, Loader2, Radio, Users, MessageCircle, Bell } f
 import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import ImageDropzone from "@/components/ImageDropzone";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -19,20 +20,26 @@ export default function Announcements() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  // Local file(s) uploaded via ImageDropzone. When set, its .url wins over
+  // the manual URL field below so admins can either paste a link or pick
+  // a file from their device — whichever is faster in the moment.
+  const [imageFiles, setImageFiles] = useState([]);
   const [broadcast, setBroadcast] = useState(true);
   const [urgent, setUrgent] = useState(false);
   const [sending, setSending] = useState(false);
   const [lastResult, setLastResult] = useState(null);
+
+  const finalImageUrl = imageFiles[0]?.url || imageUrl.trim();
 
   const submit = async (e) => {
     e.preventDefault();
     if (!title.trim() || !body.trim()) { toast.error("Başlık ve içerik zorunlu"); return; }
     setSending(true);
     try {
-      const r = await api.post("/announcements", { title, body, image_url: imageUrl || undefined, broadcast, urgent });
+      const r = await api.post("/announcements", { title, body, image_url: finalImageUrl || undefined, broadcast, urgent });
       toast.success(urgent ? "🚨 Acil duyuru dağıtıldı" : "Duyuru gönderildi");
       setLastResult(r.data.fanout || null);
-      setTitle(""); setBody(""); setImageUrl(""); setUrgent(false);
+      setTitle(""); setBody(""); setImageUrl(""); setImageFiles([]); setUrgent(false);
       mutate();
     } catch (err) {
       toast.error(apiErr(err));
@@ -77,17 +84,30 @@ export default function Announcements() {
             rows={4}
             className="w-full px-3 py-2 rounded bg-black/40 border border-border text-white text-sm resize-y"
           />
-          <div>
+          <div className="space-y-2">
+            <div className="text-[11px] uppercase font-bold text-muted-foreground tracking-wider">
+              Görsel (opsiyonel)
+            </div>
+            <ImageDropzone
+              purpose="misc"
+              value={imageFiles}
+              onChange={setImageFiles}
+              max={1}
+              compact
+            />
+            <div className="text-[10px] text-muted-foreground text-center">— veya —</div>
             <input
               data-testid="announcement-image-url"
-              value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="🖼️ Resim URL'i (opsiyonel — https://... .jpg / .png)"
-              className="w-full px-3 py-2 rounded bg-black/40 border border-border text-white text-xs"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="Resim URL'i (https://... .jpg / .png)"
+              disabled={imageFiles.length > 0}
+              className="w-full px-3 py-2 rounded bg-black/40 border border-border text-white text-xs disabled:opacity-40"
             />
-            {imageUrl && (
-              <img src={imageUrl} alt="preview"
+            {finalImageUrl && imageFiles.length === 0 && (
+              <img src={finalImageUrl} alt="preview"
                    data-testid="announcement-image-preview"
-                   className="mt-2 max-h-40 rounded border border-border object-contain"
+                   className="max-h-40 rounded border border-border object-contain mx-auto"
                    onError={(e) => { e.target.style.display = "none"; }} />
             )}
           </div>
