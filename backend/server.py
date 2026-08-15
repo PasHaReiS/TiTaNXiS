@@ -3190,6 +3190,121 @@ class PushTestBody(BaseModel):
     fan_out: Optional[bool] = False
 
 
+async def _resolve_preferred_lang_for_chat(chat_id: str) -> Optional[str]:
+    """Resolve a Telegram chat_id → recipient's preferred UI language code
+    (lowercase, e.g. 'en', 'ru') by walking every known path:
+       (1) users.telegram_chat_id (Login Widget or manual link)
+       (2) chat_map (username_lc → members.telegram_username → users.member_ids)
+       (3) chat_map (username_lc → users.telegram_username)
+
+    Returns the code if it exists and is non-TR (translation-worthy), else
+    None (caller keeps the original text). Chat_ids stored as int on some
+    documents are normalised to str via `$in: [str, int]` so both write
+    paths hit.
+    """
+    if not chat_id:
+        return None
+    cid_str = str(chat_id)
+    # Try to also match int-typed writes (rare, but happened on prod).
+    try:
+        cid_int = int(cid_str)
+        cid_or = [cid_str, cid_int]
+    except Exception:
+        cid_or = [cid_str]
+    # 1) direct link
+    u = await db.users.find_one(
+        {"telegram_chat_id": {"$in": cid_or},
+         "notification_enabled": {"$ne": False}},
+        {"_id": 0, "preferred_language": 1}
+    )
+    if u:
+        lang = (u.get("preferred_language") or "").strip().lower()
+        if lang and lang != "tr":
+            return lang
+    # 2) chat_map fallback → find handle → members → users
+    m = await db.telegram_chat_map.find_one(
+        {"chat_id": {"$in": cid_or}}, {"_id": 0, "username_lc": 1}
+    )
+    if m:
+        handle = (m.get("username_lc") or "").strip()
+        if handle:
+            # 2a) via members.telegram_username → users.member_ids
+            mem = await db.members.find_one(
+                {"telegram_username": {"$regex": f"^{handle}$", "$options": "i"}},
+                {"_id": 0, "id": 1}
+            )
+            if mem and mem.get("id"):
+                u2 = await db.users.find_one(
+                    {"member_ids": mem["id"], "notification_enabled": {"$ne": False}},
+                    {"_id": 0, "preferred_language": 1}
+                )
+                if u2:
+                    lang = (u2.get("preferred_language") or "").strip().lower()
+                    if lang and lang != "tr":
+                        return lang
+            # 2b) via users.telegram_username directly
+            u3 = await db.users.find_one(
+                {"telegram_username": {"$regex": f"^{handle}$", "$options": "i"},
+                 "notification_enabled": {"$ne": False}},
+                {"_id": 0, "preferred_language": 1}
+            )
+            if u3:
+                lang = (u3.get("preferred_language") or "").strip().lower()
+                if lang and lang != "tr":
+                    return lang
+    return None
+
+
+async def _dm_translate_and_send(chat_id: str, text: str,
+                                  reply_markup: Optional[dict] = None,
+                                  cache: Optional[Dict[str, str]] = None,
+                                  *, precomputed_lang: Optional[str] = None) -> tuple:
+    """Central helper: resolve recipient's preferred language, translate the
+    body via DeepL if non-TR, then dispatch via Telegram send_message.
+
+    Returns (ok: bool, translated: bool, lang: Optional[str]). Every branch
+    is traced via the `telegram` logger so prod issues can be diagnosed from
+    backend.err.log — search for `dm_translate` to see the resolution path.
+
+    `cache` is a per-broadcast dict {lang → translated_text} so fan-outs to
+    multiple recipients sharing the same language hit DeepL only once.
+
+    `precomputed_lang` lets callers that already looked up the language
+    (e.g. `_telegram_forward_scheduled` which does a batch pass) skip the
+    per-chat DB round-trip.
+    """
+    from telegram_bot import send_message as _tg_send
+    _tglog = logging.getLogger("telegram")
+    if not chat_id:
+        return (False, False, None)
+    target_lang = precomputed_lang if precomputed_lang is not None else await _resolve_preferred_lang_for_chat(chat_id)
+    out_text = text
+    translated = False
+    if target_lang:
+        if cache is not None and target_lang in cache:
+            out_text = cache[target_lang]
+            translated = True
+            _tglog.info(f"dm_translate cache_hit chat={chat_id} lang={target_lang}")
+        else:
+            try:
+                tr_map = await _deepl_translate_one(text, target_langs=[target_lang])
+                got = tr_map.get(target_lang)
+                if got:
+                    out_text = got
+                    translated = True
+                    if cache is not None:
+                        cache[target_lang] = got
+                    _tglog.info(f"dm_translate ok chat={chat_id} lang={target_lang} src_len={len(text)} out_len={len(got)}")
+                else:
+                    _tglog.warning(f"dm_translate empty chat={chat_id} lang={target_lang} — DeepL returned no text")
+            except Exception as _e:
+                _tglog.warning(f"dm_translate skip chat={chat_id} lang={target_lang}: {_e}")
+    else:
+        _tglog.info(f"dm_translate none chat={chat_id} — TR fallback (no preferred_language resolved)")
+    ok = await _tg_send(chat_id, out_text, reply_markup=reply_markup)
+    return (bool(ok), translated, target_lang)
+
+
 @api_router.post("/push/test")
 async def push_test(body: PushTestBody, user: dict = Depends(require_admin)):
     """Sanity test. When ``fan_out=True`` DMs every linked user (Widget or
@@ -3252,13 +3367,23 @@ async def push_test(body: PushTestBody, user: dict = Depends(require_admin)):
                     e = await db.telegram_chat_map.find_one({"username_lc": uh.lower().lstrip("@")}, {"_id": 0, "chat_id": 1})
                     if e and e.get("chat_id"):
                         targets.append({"username": udoc.get("username") or "?", "chat_id": str(e["chat_id"]), "source": "chat_map"})
+        # DM fan-out with per-recipient DeepL translation. Same shared helper
+        # (`_dm_translate_and_send`) as scheduled/attendance/country broadcast
+        # so a test push behaves identically to a real one.
+        _tr_cache: Dict[str, str] = {}
         for tgt in targets:
             try:
-                ok = await _tg_send(tgt["chat_id"], f"🧪 *{title}*\n\n{msg}")
+                ok, translated, lang = await _dm_translate_and_send(
+                    tgt["chat_id"], f"🧪 *{title}*\n\n{msg}", cache=_tr_cache,
+                )
             except Exception as e:
                 ok = False
+                translated = False
+                lang = None
                 tgt["error"] = str(e)[:80]
             tgt["sent"] = bool(ok)
+            if translated:
+                tgt["translated"] = lang
             if ok:
                 result["telegram_dm_sent"] += 1
             else:
@@ -3474,8 +3599,8 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
             f"forward_scheduled sched_id={doc.get('id')} chat_ids={len(chat_ids)} "
             f"chat_lang={len(chat_lang)} langs={sorted(set(chat_lang.values()))}"
         )
-        # 2d) send with per-recipient translation. tr_cache dedupes DeepL calls
-        # when multiple recipients share the same target language.
+        # 2d) send with per-recipient translation via the shared helper.
+        # tr_cache dedupes DeepL calls when multiple recipients share a language.
         tr_cache: Dict[str, str] = {}
         for cid, is_att in chat_ids.items():
             markup = None
@@ -3486,30 +3611,13 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
                         {"text": "❌ Katılamam", "callback_data": f"att:no:{event_id}"},
                     ]]
                 }
-            target_lang = chat_lang.get(cid)
-            out_text = text
-            translated_flag = False
-            if target_lang:
-                if target_lang in tr_cache:
-                    out_text = tr_cache[target_lang]
-                    translated_flag = True
-                else:
-                    try:
-                        tr_map = await _deepl_translate_one(text, target_langs=[target_lang])
-                        translated = tr_map.get(target_lang)
-                        if translated:
-                            out_text = translated
-                            tr_cache[target_lang] = translated
-                            translated_flag = True
-                            _tglog.info(f"auto-translate ok chat={cid} lang={target_lang} src_len={len(text)} out_len={len(translated)}")
-                        else:
-                            _tglog.warning(f"auto-translate empty chat={cid} lang={target_lang} — DeepL returned no text")
-                    except Exception as _e:
-                        _tglog.warning(f"auto-translate skip chat={cid} lang={target_lang}: {_e}")
-            ok = await _tg_send(cid, out_text, reply_markup=markup)
+            ok, translated, _lang = await _dm_translate_and_send(
+                cid, text, reply_markup=markup, cache=tr_cache,
+                precomputed_lang=chat_lang.get(cid),
+            )
             if ok:
                 stats["dm_sent"] += 1
-                if translated_flag:
+                if translated:
                     stats["dm_translated"] += 1
     return stats
 
@@ -3980,8 +4088,11 @@ async def cron_attendance_chase(request: Request):
             ]]
         }
         sent = 0
+        _tr_cache: Dict[str, str] = {}
         for _mid, cid in chat_targets.items():
-            ok = await _tg_send(cid, text, reply_markup=markup)
+            ok, _translated, _lang = await _dm_translate_and_send(
+                cid, text, reply_markup=markup, cache=_tr_cache,
+            )
             if ok:
                 sent += 1
         total_dm += sent
@@ -4075,9 +4186,13 @@ async def telegram_broadcast(body: TelegramBroadcastBody, _: dict = Depends(requ
     if channel:
         channel_sent = bool(await send_message(channel, text))
     # Fan-out DMs (best-effort — a single failure doesn't abort the batch).
+    # Uses the shared translate-and-send helper so recipients on EN/RU/DE etc.
+    # get the country broadcast in their preferred UI language.
     dm_sent = 0
+    _tr_cache: Dict[str, str] = {}
     for cid in dm_chat_ids:
-        if await send_message(cid, text):
+        ok, _t, _l = await _dm_translate_and_send(cid, text, cache=_tr_cache)
+        if ok:
             dm_sent += 1
     return {
         "channel_sent": channel_sent,
