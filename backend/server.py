@@ -4651,6 +4651,84 @@ async def cron_telegram_dm_health():
     return results
 
 
+@api_router.get("/announcements")
+async def announcements_list(user: dict = Depends(require_auth), limit: int = 30):
+    """Public list of active announcements, newest first. No auth required —
+    shown in the app's Duyurular page to every visitor. Admins/editors see
+    inactive rows too so they can un-archive."""
+    q = {} if (user and user.get("role") in ("admin", "editor")) else {"active": True}
+    cursor = db.announcements.find(q, {"_id": 0}).sort("created_at", -1).limit(max(1, min(limit, 100)))
+    return {"items": [r async for r in cursor]}
+
+
+class AnnouncementBody(BaseModel):
+    title: str
+    body: str
+    url: Optional[str] = None
+    broadcast: Optional[bool] = True
+
+
+@api_router.post("/announcements")
+async def announcements_create(body: AnnouncementBody, user: dict = Depends(require_admin)):
+    """Create an announcement and (optionally) fan it out across all 4
+    notification channels the moment it's inserted. `broadcast=False` stores
+    the record without pushing — useful for drafting scheduled announcements
+    that only surface in the app's Duyurular list."""
+    doc = {
+        "id": str(uuid.uuid4()),
+        "title": body.title.strip(),
+        "body": body.body.strip(),
+        "url": (body.url or "/duyurular").strip(),
+        "created_by": user["id"],
+        "created_by_username": user.get("username") or "",
+        "created_at": now_iso(),
+        "active": True,
+    }
+    await db.announcements.insert_one(doc)
+    result = {"item": {k: v for k, v in doc.items() if k != "_id"}}
+    if body.broadcast:
+        import asyncio as _asyncio_ann
+        # Reuse the 4-channel scheduler-style dispatch so a manual admin
+        # announcement lands via Web Push, Telegram Group, Telegram DMs (with
+        # country-based DeepL translation), AND the in-app bell — identical to
+        # a fired scheduled reminder. `event_id=None` means every notification-
+        # enabled user receives the in-app row.
+        push_doc = {"id": doc["id"], "title": doc["title"], "body": doc["body"],
+                    "url": doc["url"], "send_channel": True, "send_dm": True,
+                    "send_app": True, "event_id": None}
+        push_task = _broadcast_push(
+            doc["title"], doc["body"], doc["url"],
+            tag=f"announcement-{doc['id']}",
+            sound="rally",
+        )
+        channel_task = _send_tg_channel(push_doc)
+        dm_task = _send_tg_dms(push_doc)
+        app_task = _broadcast_in_app(push_doc)
+        results = await _asyncio_ann.gather(
+            push_task, channel_task, dm_task, app_task,
+            return_exceptions=True,
+        )
+        push_r, ch_r, dm_r, app_r = [
+            (r if not isinstance(r, Exception) else {}) for r in results
+        ]
+        result["fanout"] = {
+            "push_sent": (push_r or {}).get("sent", 0) if isinstance(push_r, dict) else 0,
+            "telegram_channel_sent": (ch_r or {}).get("channel_sent", False),
+            "telegram_dm_sent": (dm_r or {}).get("dm_sent", 0),
+            "telegram_dm_translated": (dm_r or {}).get("dm_translated", 0),
+            "telegram_dm_langs": (dm_r or {}).get("dm_lang_breakdown", {}),
+            "app_notif_sent": (app_r or {}).get("app_notif_sent", 0),
+        }
+    return result
+
+
+@api_router.delete("/announcements/{aid}")
+async def announcements_delete(aid: str, user: dict = Depends(require_admin)):
+    """Soft-delete: flip `active=False` so admins/editors still see it."""
+    await db.announcements.update_one({"id": aid}, {"$set": {"active": False}})
+    return {"ok": True}
+
+
 @api_router.get("/admin/country-coverage")
 async def admin_country_coverage(_: dict = Depends(require_admin)):
     """Return coverage stats so the admin panel can render a warning banner
