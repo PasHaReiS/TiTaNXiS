@@ -75,6 +75,30 @@ Log grammar (all prefixed `dm_translate`, logger name `telegram`):
 - `none chat=X ... — no linked member OR member has no country set → sending original text`
 - `sent chat=X country=RU lang=ru translated=bool telegram_ok=bool out_len=M`
 
+### 4-Channel Parallel Notification Engine (Feb 2026)
+The scheduler loop dispatches **every** fired scheduled push across 4
+independent channels via `asyncio.gather(..., return_exceptions=True)` so
+no single slow / failing backend can stall the others:
+
+1. **Web Push** — `_broadcast_push(...)` → browser push via VAPID
+2. **Telegram Group** — `_send_tg_channel(doc)` → TELEGRAM_CHANNEL_ID broadcast
+3. **Telegram DM** — `_send_tg_dms(doc)` → per-linked-user with country-based DeepL translation
+4. **In-App Notifications** — `_broadcast_in_app(doc)` → inserts one `in_app_notifications` row per targeted user
+
+Per-channel failures are logged and coalesced to safe defaults, letting the
+scheduler continue. Runtime: 1.4s for 4 recipients (was ~3-4s sequential).
+Doc-level flags: `send_push` / `send_channel` / `send_dm` / `send_app` (all default True).
+
+**In-app notifications collection** (`in_app_notifications`):
+- Schema: `{id, user_id, title, body, url, event_id, sched_id, created_at, read}`
+- Target selection: attending users when `event_id` present, otherwise ALL
+  `notification_enabled != False` users. Admins/editors always receive.
+- Endpoints:
+  - `GET /api/notifications?limit=30` → `{items, unread, total}`
+  - `POST /api/notifications/{id}/read` → idempotent mark-read
+  - `POST /api/notifications/read-all` → mark all read for current user
+- **Frontend bell icon NOT YET IMPLEMENTED** — backend ready for consumption.
+
 ### Fan-out Summary Widget (Feb 2026)
 Every scheduled push + test push now returns a `telegram_dm_langs` breakdown
 alongside `telegram_dm_sent` / `telegram_dm_translated`. The map has the

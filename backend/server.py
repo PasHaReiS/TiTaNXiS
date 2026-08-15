@@ -3635,6 +3635,170 @@ async def push_scheduled_snooze(sch_id: str, body: PushSnoozeBody, _: dict = Dep
     return updated
 
 
+async def _send_tg_channel(doc: dict) -> dict:
+    """Broadcast the scheduled push to the Telegram GROUP channel only.
+    Isolated from DM fan-out so the scheduler can run both concurrently via
+    `asyncio.gather` — a slow/failing channel call no longer delays DMs."""
+    from telegram_bot import send_message as _tg_send
+    out = {"channel_sent": False}
+    if not os.environ.get("TELEGRAM_BOT_TOKEN", "").strip():
+        return out
+    if not doc.get("send_channel", True):
+        return out
+    channel = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+    if not channel:
+        return out
+    title = (doc.get("title") or "").strip()
+    body_txt = (doc.get("body") or "").strip()
+    text_lines = [f"🔔 *{title}*"] if title else []
+    if body_txt:
+        text_lines.append("")
+        text_lines.append(body_txt)
+    text = "\n".join(text_lines) or "🔔 Etkinlik hatırlatması"
+    out["channel_sent"] = await _tg_send(channel, text)
+    return out
+
+
+async def _send_tg_dms(doc: dict) -> dict:
+    """DM fan-out to every linked user (Widget + chat_map fallback). Sits
+    behind the same country-based DeepL translation helper as before but is
+    now callable independently of the channel broadcast so the scheduler can
+    run both in parallel via `asyncio.gather`."""
+    _tglog = logging.getLogger("telegram")
+    stats = {"dm_sent": 0, "dm_username_hits": 0,
+             "dm_translated": 0, "dm_lang_breakdown": {}}
+    if not os.environ.get("TELEGRAM_BOT_TOKEN", "").strip():
+        return stats
+    if not doc.get("send_dm", True):
+        return stats
+    title = (doc.get("title") or "").strip()
+    body_txt = (doc.get("body") or "").strip()
+    text_lines = [f"🔔 *{title}*"] if title else []
+    if body_txt:
+        text_lines.append("")
+        text_lines.append(body_txt)
+    text = "\n".join(text_lines) or "🔔 Etkinlik hatırlatması"
+    event_id = doc.get("event_id")
+    att_ids: set = set()
+    if event_id:
+        att = await db.event_attendance.find_one(
+            {"event_id": event_id}, {"_id": 0, "member_ids": 1}
+        )
+        att_ids = set(att.get("member_ids") or []) if att else set()
+    chat_ids: Dict[str, bool] = {}
+    async for u in db.users.find(
+        {"telegram_chat_id": {"$exists": True, "$ne": None},
+         "notification_enabled": {"$ne": False}},
+        {"_id": 0, "telegram_chat_id": 1, "member_ids": 1, "member_id": 1}
+    ):
+        cid = str(u.get("telegram_chat_id") or "")
+        if not cid:
+            continue
+        linked = list(u.get("member_ids") or [])
+        if u.get("member_id"):
+            linked.append(u["member_id"])
+        is_att = bool(att_ids and any(mid in att_ids for mid in linked))
+        chat_ids[cid] = chat_ids.get(cid, False) or is_att
+    async for m in db.telegram_chat_map.find({}, {"_id": 0, "username_lc": 1, "chat_id": 1}):
+        cid = str(m.get("chat_id") or "")
+        if not cid or cid in chat_ids:
+            continue
+        username_lc = (m.get("username_lc") or "").strip()
+        is_att = False
+        if username_lc and att_ids:
+            mem = await db.members.find_one(
+                {"telegram_username": {"$regex": f"^{username_lc}$", "$options": "i"},
+                 "id": {"$in": list(att_ids)}},
+                {"_id": 0, "id": 1}
+            )
+            if mem:
+                is_att = True
+                stats["dm_username_hits"] += 1
+        chat_ids[cid] = is_att
+    _tglog.info(f"send_tg_dms sched_id={doc.get('id')} chat_ids={len(chat_ids)} (country-based translation)")
+    tr_cache: Dict[str, str] = {}
+    for cid, is_att in chat_ids.items():
+        markup = None
+        if event_id and is_att:
+            markup = {
+                "inline_keyboard": [[
+                    {"text": "✅ Katılıyorum", "callback_data": f"att:yes:{event_id}"},
+                    {"text": "❌ Katılamam", "callback_data": f"att:no:{event_id}"},
+                ]]
+            }
+        ok, translated, _lang = await _dm_translate_and_send(
+            cid, text, reply_markup=markup, cache=tr_cache,
+        )
+        if ok:
+            stats["dm_sent"] += 1
+            lang_key = _lang if _lang else "src"
+            stats["dm_lang_breakdown"][lang_key] = (
+                stats["dm_lang_breakdown"].get(lang_key, 0) + 1
+            )
+            if translated:
+                stats["dm_translated"] += 1
+    return stats
+
+
+async def _broadcast_in_app(doc: dict) -> dict:
+    """Fan-out to the in-app notification centre. Inserts one document per
+    linked user into `in_app_notifications` — the header bell icon polls
+    this collection and renders unread rows with a red badge. Independent
+    of every other channel so a Telegram outage never blocks users who
+    have the app open."""
+    stats = {"app_notif_sent": 0}
+    if not doc.get("send_app", True):
+        return stats
+    title = (doc.get("title") or "").strip() or "🔔 Bildirim"
+    body_txt = (doc.get("body") or "").strip()
+    url = doc.get("url") or "/etkinlik-bildirimleri"
+    event_id = doc.get("event_id")
+    # Target set: attending users if event_id given, else every user with
+    # notification_enabled != False. Editors + admins always receive so ops
+    # get feedback that the notification actually fired.
+    target_user_ids: set = set()
+    if event_id:
+        att = await db.event_attendance.find_one(
+            {"event_id": event_id}, {"_id": 0, "member_ids": 1}
+        )
+        att_member_ids = set(att.get("member_ids") or []) if att else set()
+        async for u in db.users.find(
+            {"notification_enabled": {"$ne": False}},
+            {"_id": 0, "id": 1, "member_ids": 1, "member_id": 1, "role": 1}
+        ):
+            linked = list(u.get("member_ids") or [])
+            if u.get("member_id"):
+                linked.append(u["member_id"])
+            if (u.get("role") in ("admin", "editor") or
+                any(mid in att_member_ids for mid in linked)):
+                target_user_ids.add(u["id"])
+    else:
+        async for u in db.users.find(
+            {"notification_enabled": {"$ne": False}}, {"_id": 0, "id": 1}
+        ):
+            target_user_ids.add(u["id"])
+    if not target_user_ids:
+        return stats
+    now = now_iso()
+    rows = [{
+        "id": str(uuid.uuid4()),
+        "user_id": uid,
+        "title": title,
+        "body": body_txt,
+        "url": url,
+        "event_id": event_id,
+        "sched_id": doc.get("id"),
+        "created_at": now,
+        "read": False,
+    } for uid in target_user_ids]
+    try:
+        await db.in_app_notifications.insert_many(rows)
+        stats["app_notif_sent"] = len(rows)
+    except Exception as _e:
+        logger.warning(f"in-app notif insert failed for sched {doc.get('id')}: {_e}")
+    return stats
+
+
 async def _telegram_forward_scheduled(doc: dict) -> dict:
     """When a scheduled push fires, mirror it to Telegram: channel broadcast +
     DM to every attending member (via linked telegram_chat_id, then username→chat
@@ -3743,6 +3907,37 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
     return stats
 
 
+@api_router.get("/notifications")
+async def notifications_list(user: dict = Depends(require_auth), limit: int = 30):
+    """List the current user's in-app notifications, newest first. The bell
+    icon in the header polls this every 30s. Rows include the `read` flag
+    so the client can show an unread badge."""
+    cursor = db.in_app_notifications.find(
+        {"user_id": user["id"]}, {"_id": 0}
+    ).sort("created_at", -1).limit(max(1, min(limit, 100)))
+    rows = [r async for r in cursor]
+    unread = sum(1 for r in rows if not r.get("read"))
+    return {"items": rows, "unread": unread, "total": len(rows)}
+
+
+@api_router.post("/notifications/{nid}/read")
+async def notifications_mark_read(nid: str, user: dict = Depends(require_auth)):
+    """Mark one in-app notification as read. Idempotent."""
+    await db.in_app_notifications.update_one(
+        {"id": nid, "user_id": user["id"]}, {"$set": {"read": True}}
+    )
+    return {"ok": True}
+
+
+@api_router.post("/notifications/read-all")
+async def notifications_mark_all_read(user: dict = Depends(require_auth)):
+    """Mark every notification for the current user as read."""
+    r = await db.in_app_notifications.update_many(
+        {"user_id": user["id"], "read": False}, {"$set": {"read": True}}
+    )
+    return {"updated": r.modified_count}
+
+
 async def _push_scheduler_loop():
     """Background loop: every 60s, dispatch any due scheduled push broadcasts.
     Recurring items (repeat='daily'/'weekly') are re-armed with a new scheduled_at instead of marked sent.
@@ -3759,7 +3954,11 @@ async def _push_scheduler_loop():
                 except Exception:
                     continue
                 if when <= now:
-                    push_result = await _broadcast_push(
+                    # Dispatch all 4 channels concurrently so no single slow
+                    # backend (DeepL, Telegram API, WebPush endpoint) can stall
+                    # the others. `return_exceptions=True` guarantees a failure
+                    # in one channel never aborts the rest.
+                    push_task = _broadcast_push(
                         doc["title"], doc["body"], doc.get("url", "/"),
                         tag=f"scheduled-{doc['id']}",
                         group_name=doc.get("group_name"),
@@ -3768,18 +3967,42 @@ async def _push_scheduler_loop():
                         event_id=doc.get("event_id"),
                         sound=doc.get("sound") or "rally",
                     )
-                    # ALSO forward to Telegram channel + attending members' DMs.
-                    # Fire-and-forget so a bot error can't stall the loop.
-                    try:
-                        tg_stats = await _telegram_forward_scheduled(doc)
-                    except Exception as _tge:
-                        logger.warning(f"telegram forward failed for {doc.get('id')}: {_tge}")
-                        tg_stats = {"channel_sent": False, "dm_sent": 0}
+                    channel_task = _send_tg_channel(doc)
+                    dm_task = _send_tg_dms(doc)
+                    app_task = _broadcast_in_app(doc)
+                    results = await asyncio.gather(
+                        push_task, channel_task, dm_task, app_task,
+                        return_exceptions=True,
+                    )
+                    push_result, channel_stats, dm_stats, app_stats = results
+                    # Coalesce exceptions into safe defaults so later code can
+                    # index into the stats dicts without a crash.
+                    if isinstance(push_result, Exception):
+                        logger.warning(f"web push failed for {doc.get('id')}: {push_result}")
+                        push_result = None
+                    if isinstance(channel_stats, Exception):
+                        logger.warning(f"telegram channel failed for {doc.get('id')}: {channel_stats}")
+                        channel_stats = {"channel_sent": False}
+                    if isinstance(dm_stats, Exception):
+                        logger.warning(f"telegram dm failed for {doc.get('id')}: {dm_stats}")
+                        dm_stats = {"dm_sent": 0, "dm_translated": 0, "dm_lang_breakdown": {}}
+                    if isinstance(app_stats, Exception):
+                        logger.warning(f"in-app broadcast failed for {doc.get('id')}: {app_stats}")
+                        app_stats = {"app_notif_sent": 0}
+                    tg_stats = {
+                        "channel_sent": channel_stats.get("channel_sent", False),
+                        "dm_sent": dm_stats.get("dm_sent", 0),
+                        "dm_translated": dm_stats.get("dm_translated", 0),
+                        "dm_lang_breakdown": dm_stats.get("dm_lang_breakdown") or {},
+                    }
+                    logger.info(
+                        f"scheduler fired {doc.get('id')} → push={getattr(push_result,'get',lambda k,d:d)('sent',0) if push_result else 0} "
+                        f"channel={tg_stats['channel_sent']} dm={tg_stats['dm_sent']} "
+                        f"app={app_stats.get('app_notif_sent', 0)}"
+                    )
                     # Attach fan-out metrics to push_history for admin visibility.
                     try:
                         if push_result and isinstance(push_result, dict):
-                            hid = push_result.get("hid") or None
-                            # push_result may not surface hid; look up latest history row for this tag instead.
                             hist = await db.push_history.find_one({"tag": f"scheduled-{doc['id']}"}, sort=[("created_at", -1)])
                             if hist:
                                 await db.push_history.update_one(
@@ -3787,7 +4010,8 @@ async def _push_scheduler_loop():
                                     {"$set": {"telegram_channel_sent": tg_stats.get("channel_sent", False),
                                               "telegram_dm_sent": tg_stats.get("dm_sent", 0),
                                               "telegram_dm_translated": tg_stats.get("dm_translated", 0),
-                                              "telegram_dm_langs": tg_stats.get("dm_lang_breakdown") or {}}}
+                                              "telegram_dm_langs": tg_stats.get("dm_lang_breakdown") or {},
+                                              "app_notif_sent": app_stats.get("app_notif_sent", 0)}}
                                 )
                     except Exception:
                         pass
