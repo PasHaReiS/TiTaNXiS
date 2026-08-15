@@ -13,7 +13,7 @@ import random
 import mimetypes
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, field_validator
-from typing import List, Optional, Dict, Union
+from typing import List, Optional, Dict, Union, Tuple
 import uuid
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
@@ -3190,69 +3190,136 @@ class PushTestBody(BaseModel):
     fan_out: Optional[bool] = False
 
 
-async def _resolve_preferred_lang_for_chat(chat_id: str) -> Optional[str]:
-    """Resolve a Telegram chat_id → recipient's preferred UI language code
-    (lowercase, e.g. 'en', 'ru') by walking every known path:
-       (1) users.telegram_chat_id (Login Widget or manual link)
-       (2) chat_map (username_lc → members.telegram_username → users.member_ids)
-       (3) chat_map (username_lc → users.telegram_username)
+# Country ISO 3166-1 alpha-2 → DeepL i18n target language code (matches
+# DEEPL_LANG_MAP keys so `_deepl_translate_one` routes to the correct DeepL
+# language). Extend as new member countries appear. Countries mapped to "tr"
+# are the source language — no translation is attempted. Countries missing
+# from this map fall through to TR (safe default).
+COUNTRY_TO_LANG = {
+    # Russian (RU + CIS neighbours that primarily read Russian)
+    "RU": "ru", "BY": "ru", "KZ": "ru", "KG": "ru", "TJ": "ru", "UZ": "ru",
+    # German
+    "DE": "de", "AT": "de", "CH": "de", "LI": "de",
+    # English (US + Commonwealth + other English-primary markets)
+    "US": "en", "GB": "en", "UK": "en", "CA": "en", "AU": "en", "NZ": "en",
+    "IE": "en", "IN": "en", "ZA": "en", "SG": "en", "PH": "en",
+    # French
+    "FR": "fr", "BE": "fr", "LU": "fr", "MC": "fr",
+    # Spanish (Spain + LATAM)
+    "ES": "es", "MX": "es", "AR": "es", "CO": "es", "CL": "es", "PE": "es",
+    "VE": "es", "UY": "es", "PY": "es", "EC": "es", "BO": "es", "DO": "es",
+    "CR": "es", "GT": "es", "HN": "es", "NI": "es", "PA": "es", "SV": "es",
+    # Italian
+    "IT": "it", "SM": "it", "VA": "it",
+    # Portuguese (Portugal + Brazil — DeepL PT-PT is default; BR uses same map)
+    "PT": "pt", "BR": "pt", "AO": "pt", "MZ": "pt",
+    # Dutch
+    "NL": "nl",
+    # Polish
+    "PL": "pl",
+    # Ukrainian
+    "UA": "uk",
+    # Turkish — source language, no translation attempted
+    "TR": "tr",
+    # East Asia
+    "JP": "ja",
+    "KR": "ko",
+    "CN": "zh", "TW": "zh", "HK": "zh", "MO": "zh",
+    # Scandinavian
+    "SE": "sv", "DK": "da", "NO": "nb", "FI": "fi",
+    # Central/Eastern Europe
+    "CZ": "cs", "SK": "sk", "SI": "sl", "HU": "hu",
+    "RO": "ro", "MD": "ro", "BG": "bg",
+    "GR": "el", "CY": "el",
+    # Baltic
+    "EE": "et", "LV": "lv", "LT": "lt",
+    # SE Asia
+    "ID": "id",
+}
 
-    Returns the code if it exists and is non-TR (translation-worthy), else
-    None (caller keeps the original text). Chat_ids stored as int on some
-    documents are normalised to str via `$in: [str, int]` so both write
-    paths hit.
+
+async def _resolve_dm_lang_for_chat(chat_id: str) -> Tuple[Optional[str], Optional[str]]:
+    """Resolve a Telegram chat_id → (deepl_lang_code, country_iso2) based on
+    the LINKED MEMBER's country field in the Members table. Country-based
+    routing overrides any user-profile language preference; a member marked
+    country="RU" always receives Russian DMs regardless of their UI settings.
+
+    Walks 3 paths, first match wins:
+      A) users.telegram_chat_id (Widget) → users.member_ids → members.country
+      B) chat_map.username_lc → members.telegram_username → members.country
+      C) chat_map.username_lc → users.telegram_username → users.member_ids → members.country
+
+    Returns (None, None) when the chat_id resolves to no member, no country
+    field, or a country whose mapped language is TR (source). The country is
+    still returned when known so callers can log 'country=X → source lang'.
     """
     if not chat_id:
-        return None
+        return (None, None)
     cid_str = str(chat_id)
-    # Try to also match int-typed writes (rare, but happened on prod).
     try:
-        cid_int = int(cid_str)
-        cid_or = [cid_str, cid_int]
+        cid_or = [cid_str, int(cid_str)]
     except Exception:
         cid_or = [cid_str]
-    # 1) direct link
+
+    async def _country_from_member_ids(ids) -> Optional[str]:
+        if not ids:
+            return None
+        async for m in db.members.find(
+            {"id": {"$in": list(ids)}, "country": {"$exists": True, "$ne": None}},
+            {"_id": 0, "country": 1}
+        ):
+            c = (m.get("country") or "").strip().upper()
+            if c:
+                return c
+        return None
+
+    country: Optional[str] = None
+    # (A) Widget-linked user → member_ids → country
     u = await db.users.find_one(
         {"telegram_chat_id": {"$in": cid_or},
          "notification_enabled": {"$ne": False}},
-        {"_id": 0, "preferred_language": 1}
+        {"_id": 0, "member_ids": 1, "member_id": 1}
     )
     if u:
-        lang = (u.get("preferred_language") or "").strip().lower()
-        if lang and lang != "tr":
-            return lang
-    # 2) chat_map fallback → find handle → members → users
-    m = await db.telegram_chat_map.find_one(
-        {"chat_id": {"$in": cid_or}}, {"_id": 0, "username_lc": 1}
-    )
-    if m:
-        handle = (m.get("username_lc") or "").strip()
-        if handle:
-            # 2a) via members.telegram_username → users.member_ids
+        ids = list(u.get("member_ids") or [])
+        if u.get("member_id"):
+            ids.append(u["member_id"])
+        country = await _country_from_member_ids(ids)
+    # (B/C) chat_map fallback → member (direct) or user (via handle)
+    if not country:
+        m = await db.telegram_chat_map.find_one(
+            {"chat_id": {"$in": cid_or}}, {"_id": 0, "username_lc": 1}
+        )
+        if m and m.get("username_lc"):
+            handle = m["username_lc"].strip()
+            # (B) direct match via members.telegram_username
             mem = await db.members.find_one(
                 {"telegram_username": {"$regex": f"^{handle}$", "$options": "i"}},
-                {"_id": 0, "id": 1}
+                {"_id": 0, "country": 1}
             )
-            if mem and mem.get("id"):
-                u2 = await db.users.find_one(
-                    {"member_ids": mem["id"], "notification_enabled": {"$ne": False}},
-                    {"_id": 0, "preferred_language": 1}
+            if mem:
+                c = (mem.get("country") or "").strip().upper()
+                if c:
+                    country = c
+            # (C) users.telegram_username → member_ids → country
+            if not country:
+                u3 = await db.users.find_one(
+                    {"telegram_username": {"$regex": f"^{handle}$", "$options": "i"},
+                     "notification_enabled": {"$ne": False}},
+                    {"_id": 0, "member_ids": 1, "member_id": 1}
                 )
-                if u2:
-                    lang = (u2.get("preferred_language") or "").strip().lower()
-                    if lang and lang != "tr":
-                        return lang
-            # 2b) via users.telegram_username directly
-            u3 = await db.users.find_one(
-                {"telegram_username": {"$regex": f"^{handle}$", "$options": "i"},
-                 "notification_enabled": {"$ne": False}},
-                {"_id": 0, "preferred_language": 1}
-            )
-            if u3:
-                lang = (u3.get("preferred_language") or "").strip().lower()
-                if lang and lang != "tr":
-                    return lang
-    return None
+                if u3:
+                    ids = list(u3.get("member_ids") or [])
+                    if u3.get("member_id"):
+                        ids.append(u3["member_id"])
+                    country = await _country_from_member_ids(ids)
+
+    if not country:
+        return (None, None)
+    lang = COUNTRY_TO_LANG.get(country)
+    if not lang or lang == "tr":
+        return (None, country)
+    return (lang, country)
 
 
 async def _lookup_chat_owner_hint(chat_id: str) -> str:
@@ -3284,9 +3351,14 @@ async def _lookup_chat_owner_hint(chat_id: str) -> str:
 async def _dm_translate_and_send(chat_id: str, text: str,
                                   reply_markup: Optional[dict] = None,
                                   cache: Optional[Dict[str, str]] = None,
-                                  *, precomputed_lang: Optional[str] = None) -> tuple:
-    """Central helper: resolve recipient's preferred language, translate the
-    body via DeepL if non-TR, then dispatch via Telegram send_message.
+                                  *, precomputed_lang: Optional[str] = None,
+                                  precomputed_country: Optional[str] = None) -> tuple:
+    """Central helper: resolve recipient's DM language from the linked
+    Member's COUNTRY field, translate the body via DeepL if non-TR, then
+    dispatch via Telegram send_message.
+
+    Country-based routing: `members.country` = "RU" → Russian DM, regardless
+    of the user's UI language preference. See `COUNTRY_TO_LANG` above.
 
     Returns (ok: bool, translated: bool, lang: Optional[str]). Every branch
     is traced via the `telegram` logger so prod issues can be diagnosed from
@@ -3294,21 +3366,20 @@ async def _dm_translate_and_send(chat_id: str, text: str,
 
     Log grammar (all prefixed `dm_translate`):
       • enter    — every DM attempt (chat_id + payload length)
-      • resolved — language resolution outcome + owner hint
+      • resolved — country+lang resolution outcome + owner hint
       • call     — RIGHT BEFORE hitting DeepL (proves we tried to translate)
       • ok       — DeepL succeeded, source/output length
       • cache_hit — served from per-broadcast cache
       • empty    — DeepL responded but returned no text (rare)
       • skip     — DeepL threw (network / quota / auth)
-      • none     — recipient has no preferred_language set → TR fallback
+      • none     — recipient's member has no country / country → TR / unknown
       • sent     — Telegram sendMessage HTTP outcome
 
     `cache` is a per-broadcast dict {lang → translated_text} so fan-outs to
     multiple recipients sharing the same language hit DeepL only once.
 
-    `precomputed_lang` lets callers that already looked up the language
-    (e.g. `_telegram_forward_scheduled` which does a batch pass) skip the
-    per-chat DB round-trip.
+    `precomputed_lang` / `precomputed_country` let batch callers skip the
+    per-chat DB round-trip when they've already resolved everything upstream.
     """
     from telegram_bot import send_message as _tg_send
     _tglog = logging.getLogger("telegram")
@@ -3316,20 +3387,30 @@ async def _dm_translate_and_send(chat_id: str, text: str,
         _tglog.warning("dm_translate enter — empty chat_id, aborting")
         return (False, False, None)
     _tglog.info(f"dm_translate enter chat={chat_id} text_len={len(text)}")
-    target_lang = precomputed_lang if precomputed_lang is not None else await _resolve_preferred_lang_for_chat(chat_id)
+    if precomputed_lang is not None or precomputed_country is not None:
+        target_lang, country = precomputed_lang, precomputed_country
+    else:
+        target_lang, country = await _resolve_dm_lang_for_chat(chat_id)
     owner_hint = await _lookup_chat_owner_hint(chat_id)
+    country_str = country or "unknown"
     out_text = text
     translated = False
     if target_lang:
-        _tglog.info(f"dm_translate resolved chat={chat_id} {owner_hint} → lang={target_lang}")
+        _tglog.info(
+            f"dm_translate resolved chat={chat_id} {owner_hint} "
+            f"country={country_str} → lang={target_lang}"
+        )
         if cache is not None and target_lang in cache:
             out_text = cache[target_lang]
             translated = True
             _tglog.info(f"dm_translate cache_hit chat={chat_id} lang={target_lang}")
         else:
             # Explicit pre-call trace — proves the DeepL branch was entered even
-            # if DeepL later returns an error or empty body (Emmy's requested log).
-            _tglog.info(f"dm_translate call chat={chat_id} {owner_hint} lang={target_lang} src_len={len(text)} → calling DeepL")
+            # if DeepL later returns an error or empty body.
+            _tglog.info(
+                f"dm_translate call chat={chat_id} {owner_hint} country={country_str} "
+                f"lang={target_lang} src_len={len(text)} → calling DeepL"
+            )
             try:
                 tr_map = await _deepl_translate_one(text, target_langs=[target_lang])
                 got = tr_map.get(target_lang)
@@ -3340,9 +3421,6 @@ async def _dm_translate_and_send(chat_id: str, text: str,
                         cache[target_lang] = got
                     _tglog.info(f"dm_translate ok chat={chat_id} lang={target_lang} src_len={len(text)} out_len={len(got)}")
                 else:
-                    # DeepL API error: reached the service but got no usable text
-                    # back. Usually means quota exceeded silently or free tier
-                    # rejected the target language.
                     _tglog.warning(
                         f"dm_translate empty chat={chat_id} lang={target_lang} — "
                         f"DeepL API error: no translation returned (check DEEPL_API_KEY + quota + supported lang)"
@@ -3353,15 +3431,18 @@ async def _dm_translate_and_send(chat_id: str, text: str,
                     f"DeepL API error: {type(_e).__name__}: {_e}"
                 )
     else:
-        # Recipient has no preferred_language set — no translation attempted.
-        _tglog.info(
-            f"dm_translate none chat={chat_id} {owner_hint} — "
-            f"User has no lang set (preferred_language empty/TR) → sending original TR text"
+        # No translation attempted. Distinguish "no linked member/country"
+        # from "country resolved but maps to TR" for diagnostics.
+        reason = (
+            f"country={country} maps to TR (source language) → sending original TR text"
+            if country else
+            "no linked member OR member has no country set → sending original TR text"
         )
+        _tglog.info(f"dm_translate none chat={chat_id} {owner_hint} — {reason}")
     ok = await _tg_send(chat_id, out_text, reply_markup=reply_markup)
     _tglog.info(
-        f"dm_translate sent chat={chat_id} lang={target_lang or 'tr'} translated={translated} "
-        f"telegram_ok={ok} out_len={len(out_text)}"
+        f"dm_translate sent chat={chat_id} country={country_str} lang={target_lang or 'tr'} "
+        f"translated={translated} telegram_ok={ok} out_len={len(out_text)}"
     )
     return (bool(ok), translated, target_lang)
 
@@ -3586,18 +3667,16 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
                 {"event_id": event_id}, {"_id": 0, "member_ids": 1}
             )
             att_ids = set(att.get("member_ids") or []) if att else set()
-        # Collect (chat_id, is_attending) targets + per-chat language preferences.
-        # We build both maps in ONE pass to avoid a second $in query that misses
-        # users when telegram_chat_id is stored as int (Telegram webhook path)
-        # while our query uses str (Widget path). Inline capture is bulletproof.
+        # Collect (chat_id, is_attending) targets. Language resolution is now
+        # 100% country-driven (members.country → COUNTRY_TO_LANG map) so we
+        # no longer need to walk preferred_language during target collection —
+        # the shared helper handles it per-recipient with its own logging.
         chat_ids: Dict[str, bool] = {}
-        chat_lang: Dict[str, str] = {}  # chat_id → lang code (lowercase, non-TR)
         # 2a) Users with telegram_chat_id (Login Widget or manual link)
         async for u in db.users.find(
             {"telegram_chat_id": {"$exists": True, "$ne": None},
              "notification_enabled": {"$ne": False}},
-            {"_id": 0, "telegram_chat_id": 1, "member_ids": 1, "member_id": 1,
-             "preferred_language": 1}
+            {"_id": 0, "telegram_chat_id": 1, "member_ids": 1, "member_id": 1}
         ):
             cid = str(u.get("telegram_chat_id") or "")
             if not cid:
@@ -3607,61 +3686,26 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
                 linked.append(u["member_id"])
             is_att = bool(att_ids and any(mid in att_ids for mid in linked))
             chat_ids[cid] = chat_ids.get(cid, False) or is_att
-            lang = (u.get("preferred_language") or "").strip().lower()
-            if lang and lang != "tr":
-                chat_lang[cid] = lang
-        # 2b) chat_map fallback (users that /start-ed the bot). Resolve their
-        # Telegram @handle → members.telegram_username → users.member_ids to
-        # inherit preferred_language. Without this hop, /start users always
-        # got the TR fallback even after setting a language in the UI.
+        # 2b) chat_map fallback — attendance check via members.telegram_username
         async for m in db.telegram_chat_map.find({}, {"_id": 0, "username_lc": 1, "chat_id": 1}):
             cid = str(m.get("chat_id") or "")
             if not cid or cid in chat_ids:
                 continue
             username_lc = (m.get("username_lc") or "").strip()
-            # attendance check via members.telegram_username
             is_att = False
-            matched_member_id: Optional[str] = None
-            if username_lc:
+            if username_lc and att_ids:
                 mem = await db.members.find_one(
-                    {"telegram_username": {"$regex": f"^{username_lc}$", "$options": "i"}},
+                    {"telegram_username": {"$regex": f"^{username_lc}$", "$options": "i"},
+                     "id": {"$in": list(att_ids)}},
                     {"_id": 0, "id": 1}
                 )
                 if mem:
-                    matched_member_id = mem.get("id")
-                    if att_ids and matched_member_id in att_ids:
-                        is_att = True
-                        stats["dm_username_hits"] += 1
+                    is_att = True
+                    stats["dm_username_hits"] += 1
             chat_ids[cid] = is_att
-            # Resolve preferred_language via linked user account.
-            # Prefer a user that has the matched member_id in member_ids; fall back
-            # to any user whose telegram_username matches the handle (rare, when
-            # users store their Telegram handle directly on their profile).
-            if cid not in chat_lang:
-                u2 = None
-                if matched_member_id:
-                    u2 = await db.users.find_one(
-                        {"member_ids": matched_member_id,
-                         "notification_enabled": {"$ne": False}},
-                        {"_id": 0, "preferred_language": 1}
-                    )
-                if not u2 and username_lc:
-                    u2 = await db.users.find_one(
-                        {"telegram_username": {"$regex": f"^{username_lc}$", "$options": "i"},
-                         "notification_enabled": {"$ne": False}},
-                        {"_id": 0, "preferred_language": 1}
-                    )
-                if u2:
-                    lang = (u2.get("preferred_language") or "").strip().lower()
-                    if lang and lang != "tr":
-                        chat_lang[cid] = lang
-        # 2c) Trace what we resolved so prod issues can be diagnosed from logs.
-        _tglog.info(
-            f"forward_scheduled sched_id={doc.get('id')} chat_ids={len(chat_ids)} "
-            f"chat_lang={len(chat_lang)} langs={sorted(set(chat_lang.values()))}"
-        )
-        # 2d) send with per-recipient translation via the shared helper.
-        # tr_cache dedupes DeepL calls when multiple recipients share a language.
+        _tglog.info(f"forward_scheduled sched_id={doc.get('id')} chat_ids={len(chat_ids)} (country-based DM translation)")
+        # 2c) send with per-recipient country-based translation via the shared
+        # helper. tr_cache dedupes DeepL calls across recipients sharing a lang.
         tr_cache: Dict[str, str] = {}
         for cid, is_att in chat_ids.items():
             markup = None
@@ -3674,7 +3718,6 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
                 }
             ok, translated, _lang = await _dm_translate_and_send(
                 cid, text, reply_markup=markup, cache=tr_cache,
-                precomputed_lang=chat_lang.get(cid),
             )
             if ok:
                 stats["dm_sent"] += 1

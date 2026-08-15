@@ -30,26 +30,41 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - Telegram diagnostic panel + manual chat ID link
 - Open Graph / SEO meta
 
-### Telegram DM auto-translate architecture (Feb 2026)
-All Telegram **DM** send sites now route through a single helper
-`_dm_translate_and_send(chat_id, text, ...)` defined at `backend/server.py:3287`.
-The helper:
-1. Resolves `preferred_language` for the chat_id via `_resolve_preferred_lang_for_chat` — walks 3 paths:
-   - (A) `users.telegram_chat_id` (Login Widget / manual link)
-   - (B) `telegram_chat_map.username_lc` → `members.telegram_username` → `users.member_ids`
-   - (C) `telegram_chat_map.username_lc` → `users.telegram_username`
-2. If lang ≠ tr, calls DeepL (cached per broadcast so N recipients sharing a language = 1 DeepL call)
-3. Dispatches via `telegram_bot.send_message`
-4. Traces every branch to `backend.err.log` under logger `telegram`:
-   - `dm_translate enter chat=X text_len=N` — every DM attempt
-   - `dm_translate resolved chat=X user=... via widget → lang=Y` — lang resolution outcome + owner hint
-   - `dm_translate call chat=X ... lang=Y src_len=N → calling DeepL` — right before DeepL call
-   - `dm_translate ok chat=X lang=Y src_len=N out_len=M`
-   - `dm_translate cache_hit chat=X lang=Y`
-   - `dm_translate empty chat=X lang=Y — DeepL API error: no translation returned (check DEEPL_API_KEY + quota + supported lang)`
-   - `dm_translate skip chat=X lang=Y — DeepL API error: <ExceptionType>: <message>`
-   - `dm_translate none chat=X ... — User has no lang set (preferred_language empty/TR) → sending original TR text`
-   - `dm_translate sent chat=X lang=Y translated=bool telegram_ok=bool out_len=M`
+### Telegram DM auto-translate architecture (Feb 2026 — country-based)
+All Telegram **DM** send sites route through `_dm_translate_and_send(chat_id, text, ...)`
+at `backend/server.py:~3370`. **Language selection is now driven by the
+linked Member's `country` field (ISO 3166-1 alpha-2), not the user's UI
+`preferred_language`.** A member marked `country="RU"` always receives
+Russian DMs regardless of their profile settings.
+
+Mapping lives in `COUNTRY_TO_LANG` (`backend/server.py:~3198`). Extend as
+new countries appear. Current coverage: RU/BY/KZ/KG/TJ/UZ→ru, DE/AT/CH/LI→de,
+US/GB/UK/CA/AU/NZ/IE/IN/ZA/SG/PH→en, FR/BE/LU/MC→fr, ES + all LATAM→es,
+IT/SM/VA→it, PT/BR/AO/MZ→pt, NL→nl, PL→pl, UA→uk, JP→ja, KR→ko,
+CN/TW/HK/MO→zh, SE→sv, DK→da, NO→nb, FI→fi, CZ→cs, SK→sk, SI→sl,
+HU→hu, RO/MD→ro, BG→bg, GR/CY→el, EE→et, LV→lv, LT→lt, ID→id, TR→tr (source).
+
+`_resolve_dm_lang_for_chat(chat_id) → (lang, country)` walks 3 paths, first match wins:
+  A) `users.telegram_chat_id` → `users.member_ids` → `members.country`
+  B) `telegram_chat_map.username_lc` → `members.telegram_username` → `members.country`
+  C) `telegram_chat_map.username_lc` → `users.telegram_username` → `users.member_ids` → `members.country`
+
+Returns `(None, country)` when a country is known but maps to TR (source) —
+no translation attempted. Returns `(None, None)` when no linked member.
+
+Log grammar (all prefixed `dm_translate`, logger name `telegram`):
+- `enter chat=X text_len=N` — every DM attempt
+- `resolved chat=X user=... via widget country=RU → lang=ru` — country + lang resolved
+- `call chat=X ... country=RU lang=ru src_len=N → calling DeepL` — right before DeepL
+- `ok chat=X lang=ru src_len=N out_len=M` — DeepL succeeded
+- `cache_hit chat=X lang=ru` — served from per-broadcast cache
+- `empty chat=X lang=ru — DeepL API error: no translation returned...`
+- `skip chat=X lang=ru — DeepL API error: <ExceptionType>: <message>`
+- `none chat=X ... — country=TR maps to TR (source language) → sending original TR text`
+- `none chat=X ... — no linked member OR member has no country set → sending original TR text`
+- `sent chat=X country=RU lang=ru translated=bool telegram_ok=bool out_len=M`
+
+Channel broadcasts (TELEGRAM_CHANNEL_ID) stay TR — the channel is shared.
 
 **All 5 DM entry points wired to the helper:**
 1. `_telegram_forward_scheduled` — scheduled push fan-out (line 3488)
