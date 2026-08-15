@@ -50,6 +50,12 @@ export default function LanguageSwitcher() {
     // already exist show through, missing ones fall back to TR while DeepL
     // hydrates the rest in the background.
     await i18n.changeLanguage(code);
+    // Persist to the user profile so Telegram DM notifications can auto-
+    // translate outgoing messages via DeepL. Silently ignored for guests
+    // (401 from the endpoint — /api/auth/preferred-language requires auth).
+    if (localStorage.getItem("ol_token")) {
+      api.post("/auth/preferred-language", { lang: code }).catch(() => {});
+    }
     setOpen(false);
     const label = LANGUAGES.find((l) => l.code === code)?.name || code;
     const tid = toast.loading(t("lang_switching", { name: label }));

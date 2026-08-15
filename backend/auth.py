@@ -132,6 +132,8 @@ def public_user(u: dict) -> dict:
         "member_ids": ids,
         "notification_member_ids": notif_ids,
         "notification_enabled": bool(u.get("notification_enabled", True)),
+        "preferred_language": (u.get("preferred_language") or None),
+        "telegram_chat_id": (u.get("telegram_chat_id") or None),
         "password_updated_at": u.get("password_updated_at"),
         "password_updated_by": u.get("password_updated_by"),
         "created_at": u.get("created_at"),

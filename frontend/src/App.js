@@ -86,11 +86,21 @@ function RequireAdminOrEditor({ children }) {
 }
 
 function AppShell() {
-  const { loading } = useAuth();
+  const { loading, user } = useAuth();
   const location = useLocation();
   React.useEffect(() => {
     trackPageView(location.pathname, document.title);
   }, [location.pathname]);
+  // Hydrate UI language from the logged-in user's saved preferred_language so
+  // the header switcher, i18n bundle, and backend DeepL DM auto-translate all
+  // agree on the same code without the user having to re-select on every device.
+  React.useEffect(() => {
+    const pref = (user?.preferred_language || "").trim().toLowerCase();
+    if (pref && pref !== i18n.language) {
+      localStorage.setItem("ol_lang", pref);
+      i18n.changeLanguage(pref).catch(() => {});
+    }
+  }, [user?.preferred_language]);
   if (loading) return <div className="app-shell"><LoadingScreen /></div>;
   return (
     <div className="app-shell">

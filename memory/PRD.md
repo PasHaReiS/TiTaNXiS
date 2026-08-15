@@ -1,58 +1,53 @@
-# PRD — TiTaNXiS Gaming Guild Management
+# TiTaNXiS — Gaming Guild Management (oyun-loncasi)
 
 ## Original Problem Statement
-Full-stack Gaming Guild Management App ("TiTaNXiS"). Leaderboard, Commanders, Points, Members, Events, 29-language i18n, Premium Dashboard, VIP Support, Web Push, Telegram Bot, OCR, Object Storage.
+Build and extend a full-stack Gaming Guild Management App. Advanced 29-language i18n via DeepL, complex Leaderboard, Web Push, Premium Admin Dashboard, VIP Support tickets, and deep Telegram Bot / Object Storage integrations. **User language: Turkish** (respond in TR).
 
-## User Preferences (Locked)
-- Language: **Turkish**
-- Theme: Midnight Red dark
+## Tech Stack
+- React (CRA) + Tailwind + shadcn/ui + i18next
+- FastAPI + Motor (MongoDB) + APScheduler-less internal loops
+- Telegram Bot API (webhooks, inline keyboards, callback queries)
+- DeepL API (Free tier — `:fx`)
+- Web Push (VAPID, pywebpush)
+- Emergent Object Storage for image uploads
+- Resend (weekly digest)
 
----
+## Users
+- **Admin** (`admin` / `Admin123`) — full control
+- **Editor** (`pasha` / `pasha123`) — content edit, no user mgmt
+- **Members** — leaderboard viewers, some link Telegram to receive event DMs
 
-## [2026-02-14] Telegram DM Diagnostic Panel — DONE ✅
-
-**Kullanıcı Sorunu**: "Telegram DM bildirimleri gelmiyor" — debug talebi.
-
-**Bulgular** (curl E2E):
-- `TELEGRAM_BOT_TOKEN` ✅ set edildi (`8982244615:...`)
-- `TELEGRAM_CHANNEL_ID` ✅ set edildi (`-1003597221954`)
-- Webhook URL ✅ doğru (`emergent.host/api/telegram/webhook`)
-- Test kanalda çalışıyor: `telegram_channel_sent: true` ✅
-- **Sorun**: `chat_map_count_global: 0` — hiç kimse `@TiTaNXiS_BoT`'a `/start` atmamış
-- **Sonuç**: DM yapılamaz çünkü Telegram Bot API sadece chat_id ile DM gönderir, ilk `/start` mesajı zorunlu
-
-**Fix**: Diagnostic UI paneli — kullanıcı sorunun tam sebebini anında görüyor ve fix'liyor:
-- Yeni endpoint `GET /api/telegram/dm-status` — self-user için full teşhis raporu (bot_configured / channel_configured / user_chat_id / chat_map_hit / linked_member_ids / ready_for_dm / next_step)
-- `EventNotificationsPanel.jsx` üstünde compact diagnostic card:
-  - Ready-for-dm yeşil / not-ready sarı uyarı
-  - 4 rozet: BOT / KANAL / LOGIN / /START (✓ veya —)
-  - Human-readable next step açıklama satırı
-  - Ready değilse "@TiTaNXiS_BoT'a /start at" tek-tık dış link (t.me deep-link)
-
-**Bu Bir Bug DEĞİL — Telegram Politika Constraint'i**: Kullanıcı bot ile ilk temasa geçmeden bot ona DM yollayamaz. UI artık bu constraint'i kullanıcıya net şekilde iletiyor.
-
-## Prior Session Timeline (chronological)
-
-- **JPEG background tabs**: fantasy stone tab wrapper on Events page (42/38/20 ratio) with JPEG background-image + transparent overlay buttons.
-- **Fantasy 3-Tab Style + Notif Filter + Attendance Default**: 3-tab pill (orange-gold/blue-purple/gray), Etkinlik Bildirimleri filters out unreminded events, EventAttendance default shows only attended.
-- **Auto-Chase Cron + Callback UX**: `/api/cron/attendance-chase` every 15 min, DM rewrite with "Cevaplandı" state.
-- **Screenshot Archive + 1-Tap Attendance**: `result_screenshots` gallery, inline ✅/❌ buttons + webhook callback.
-- **Reminder Tabs + Test + Sound Preview + Countdown**: `reminder_enabled`, EventCountdown, `/push/test`, sound preview.
-- **Scheduler Fix + Multi-Channel Fan-out + Analytics Badge**.
-- **Direct DM via `telegram_username` fallback** with `telegram_chat_map`.
-- **Event Notifications dedicated page** at `/etkinlik-bildirimleri`.
+## What's Implemented
+- 29-language i18n with DeepL bulk translate
+- Leaderboard, Commanders, Points, Events, Members CRUD
+- OCR (OpenAI Vision) for member list + event score screenshots
+- Web Push (VAPID) + scheduled broadcasts w/ recurrence
+- Telegram fan-out on scheduled push: channel + DM (linked users + `/start` fallback)
+- Inline ✅/❌ attendance callbacks
+- Auto-chase cron for unresponded attendance
+- Event Screenshot Gallery (Object Storage)
+- Telegram diagnostic panel + manual chat ID link
+- Header dil menüsü + DeepL bulk translate modal
+- Open Graph / SEO meta tags
+- **NEW (Feb 2026)**: DM auto-translate on scheduled push — recipient's `preferred_language` triggers per-user DeepL translation of the DM body. UI dil değişikliği artık `preferred_language`'ı DB'ye yazıyor, `auth/me` alanı geri döndürüyor, refresh sonrası UI hydrate ediyor.
 
 ## Backlog
+- **P1**: `server.py` refactor — extract `events`, `calc`, `deepl` routes into `/app/backend/routes/`
+- **P2**: OCR Preview Cropping (react-image-crop)
+- **P3**: Discord Webhook Mirror for push broadcasts
+- **P3**: OpenAI TTS Voice Notifications for Telegram DMs
+- **P3**: Member / Event Point CSV Export
+- **P3**: VIP Trash role-based visibility (editors → own deletions only)
 
-### P1
-- Extract `events`, `attendance`, `points`, `cron` routes from `server.py` (~4300 lines).
+## Known Ops Notes
+- Selim (`chat_id=5528595771`) has a stale chat_id — Telegram returns `chat not found`. Needs `/start` again or manual cleanup.
+- DeepL usage: 220K / 1M chars (22%), resets 2026-09-01.
+- Preview ≠ Prod: every fix must be Deployed via "Save to GitHub → Deploy" before user sees it live.
 
-### P2
-- Attendance MAYBE state.
-- Screenshot OCR autofill.
-- Discord Webhook Mirror.
-- OpenAI TTS voice DM.
-- Point CSV Export.
-
-## Test Credentials
-See `/app/memory/test_credentials.md`.
+## Key Files
+- `/app/backend/server.py` — huge, needs refactor
+- `/app/backend/auth.py` — auth + preferred_language endpoint (line 332)
+- `/app/backend/telegram_bot.py` — send_message w/ HTTP-level logging
+- `/app/backend/routes/push.py`, `/app/backend/routes/cron.py`
+- `/app/frontend/src/components/LanguageSwitcher.jsx` — persists preferred_language on switch
+- `/app/frontend/src/App.js` — AppShell hydrates i18n from user.preferred_language
