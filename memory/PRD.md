@@ -101,6 +101,18 @@ Doc-level flags: `send_push` / `send_channel` / `send_dm` / `send_app` (all defa
 
 ### 4-Channel Parallel Notification Engine (Feb 2026)
 
+**Real-time SSE push** (`GET /api/notifications/stream?token=...`): backend
+maintains an in-memory `SSE_NOTIF_SUBSCRIBERS` dict keyed by user_id with a
+list of `asyncio.Queue` per open connection. `_broadcast_in_app` publishes
+to every matching queue right after the DB insert. The endpoint streams
+`event: hello` on connect and `event: notification` per publish, with a
+`: keep-alive` comment every 25s to survive proxy timeouts. Auth via query
+param since `EventSource` can't set headers. `NotificationBell.jsx` opens
+one EventSource on mount, prepends new payloads into the SWR cache, and
+lets the browser handle auto-reconnect. The 30s poll stays as a safety
+net for missed frames. End-to-end preview test: payload arrived in the
+subscriber queue within milliseconds of `insert_many`.
+
 **Country Coverage Widget** (`frontend/src/components/CountryCoverageBadge.jsx`):
 Admin-only chip mounted inside `EventNotificationsPanel` header. Polls
 `GET /api/admin/country-coverage` every 2 min. Green when 100% covered

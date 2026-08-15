@@ -13,7 +13,7 @@ import random
 import mimetypes
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, field_validator
-from typing import List, Optional, Dict, Union, Tuple
+from typing import List, Optional, Dict, Union, Tuple, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
@@ -3740,6 +3740,27 @@ async def _send_tg_dms(doc: dict) -> dict:
     return stats
 
 
+# In-memory SSE pubsub for real-time notification push. One queue per open
+# EventSource connection, indexed by user_id. Publisher (`_publish_notif`)
+# fans out from `_broadcast_in_app` right after the DB insert so subscribers
+# see the row within milliseconds instead of waiting for the 30s poll.
+SSE_NOTIF_SUBSCRIBERS: Dict[str, List[Any]] = {}
+
+
+def _publish_notif(user_id: str, payload: dict) -> None:
+    """Fire-and-forget: push a notification payload to every open SSE queue
+    for this user. Dead queues (full/closed) are silently dropped."""
+    queues = SSE_NOTIF_SUBSCRIBERS.get(user_id) or []
+    for q in list(queues):
+        try:
+            q.put_nowait(payload)
+        except Exception:
+            try:
+                queues.remove(q)
+            except ValueError:
+                pass
+
+
 async def _broadcast_in_app(doc: dict) -> dict:
     """Fan-out to the in-app notification centre. Inserts one document per
     linked user into `in_app_notifications` — the header bell icon polls
@@ -3794,6 +3815,17 @@ async def _broadcast_in_app(doc: dict) -> dict:
     try:
         await db.in_app_notifications.insert_many(rows)
         stats["app_notif_sent"] = len(rows)
+        # Real-time push: notify every open SSE subscriber for these users so
+        # the header bell badge updates within milliseconds rather than at the
+        # next 30s poll interval. Skipped users (no active SSE) simply pick it
+        # up on their next poll — the SWR cache reconciles either way.
+        for r in rows:
+            _publish_notif(r["user_id"], {
+                "id": r["id"], "title": r["title"], "body": r["body"],
+                "url": r["url"], "event_id": r.get("event_id"),
+                "sched_id": r.get("sched_id"), "created_at": r["created_at"],
+                "read": False,
+            })
     except Exception as _e:
         logger.warning(f"in-app notif insert failed for sched {doc.get('id')}: {_e}")
     return stats
@@ -3905,6 +3937,57 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
                 if translated:
                     stats["dm_translated"] += 1
     return stats
+
+
+@api_router.get("/notifications/stream")
+async def notifications_stream(token: str = Query(...)):
+    """Server-Sent Events stream that pushes new notifications the moment
+    they're inserted by `_broadcast_in_app`. The client sends its JWT via
+    the `token` query param (EventSource doesn't allow custom headers).
+
+    Emits keep-alive comments every 25s to keep the connection open through
+    proxies. Auto-cleans the subscriber queue on disconnect.
+    """
+    from auth import decode_token as _decode
+    try:
+        payload = _decode(token)
+        user_id = payload.get("sub")
+    except Exception:
+        raise HTTPException(status_code=401, detail="invalid token")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="invalid token")
+
+    import asyncio as _asyncio_sse
+    q: "_asyncio_sse.Queue" = _asyncio_sse.Queue(maxsize=100)
+    SSE_NOTIF_SUBSCRIBERS.setdefault(user_id, []).append(q)
+
+    async def _gen():
+        try:
+            # Initial hello — tells the client the stream is live so it can
+            # clear any "reconnecting" UI state.
+            yield f"event: hello\ndata: {{\"ok\":true}}\n\n"
+            while True:
+                try:
+                    payload = await _asyncio_sse.wait_for(q.get(), timeout=25.0)
+                    import json as _json
+                    yield f"event: notification\ndata: {_json.dumps(payload, ensure_ascii=False)}\n\n"
+                except _asyncio_sse.TimeoutError:
+                    yield ": keep-alive\n\n"  # SSE comment ping
+        finally:
+            try:
+                SSE_NOTIF_SUBSCRIBERS.get(user_id, []).remove(q)
+            except ValueError:
+                pass
+
+    return StreamingResponse(
+        _gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @api_router.get("/notifications")

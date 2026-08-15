@@ -33,6 +33,44 @@ export default function NotificationBell() {
     { refreshInterval: 30000, revalidateOnFocus: true }
   );
 
+  // Real-time SSE stream — the moment the backend inserts a notification for
+  // this user, we get it via `notification` event and prepend it to the SWR
+  // cache. The 30s poll above becomes a safety net (reconciles state after
+  // a reconnect / missed frame). Falls back gracefully if EventSource fails.
+  useEffect(() => {
+    if (!user) return;
+    const token = localStorage.getItem("ol_token");
+    if (!token) return;
+    const base = process.env.REACT_APP_BACKEND_URL || "";
+    const url = `${base}/api/notifications/stream?token=${encodeURIComponent(token)}`;
+    let es;
+    try {
+      es = new EventSource(url);
+    } catch {
+      return;
+    }
+    es.addEventListener("notification", (ev) => {
+      try {
+        const payload = JSON.parse(ev.data);
+        mutate((prev) => {
+          const items = prev?.items || [];
+          // Dedup: if the id already exists, no-op (poll may have raced us).
+          if (items.some((x) => x.id === payload.id)) return prev;
+          return {
+            items: [payload, ...items].slice(0, 30),
+            unread: (prev?.unread || 0) + 1,
+            total: (prev?.total || 0) + 1,
+          };
+        }, { revalidate: false });
+      } catch {}
+    });
+    es.onerror = () => {
+      // Browser auto-reconnects EventSource with exponential backoff; we just
+      // let it retry. The 30s poll will keep the badge accurate meanwhile.
+    };
+    return () => { try { es.close(); } catch {} };
+  }, [user, mutate]);
+
   // Close on Escape for keyboard users.
   useEffect(() => {
     if (!open) return;
