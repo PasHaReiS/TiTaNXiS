@@ -3354,57 +3354,67 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
         channel = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
         if channel:
             stats["channel_sent"] = await _tg_send(channel, text)
-    # 2) DMs to attending members (only when event_id present)
-    if doc.get("send_dm", True) and doc.get("event_id"):
-        att = await db.event_attendance.find_one({"event_id": doc["event_id"]}, {"_id": 0, "member_ids": 1})
-        att_ids = set(att.get("member_ids") or []) if att else set()
-        if att_ids:
-            chat_ids: set = set()
-            # 2a) users linked via Login Widget (has telegram_chat_id)
-            u_docs = await db.users.find(
-                {"telegram_chat_id": {"$exists": True, "$ne": None},
-                 "notification_enabled": {"$ne": False}},
-                {"_id": 0, "id": 1, "telegram_chat_id": 1, "member_ids": 1, "member_id": 1}
-            ).to_list(5000)
-            linked_member_ids: set = set()
-            for u in u_docs:
-                linked = list(u.get("member_ids") or [])
-                if u.get("member_id"):
-                    linked.append(u["member_id"])
-                if any(mid in att_ids for mid in linked):
-                    if u.get("telegram_chat_id"):
-                        chat_ids.add(str(u["telegram_chat_id"]))
-                        linked_member_ids.update(mid for mid in linked if mid in att_ids)
-            # 2b) fallback: attending members with telegram_username but no linked user
-            remaining = att_ids - linked_member_ids
-            if remaining:
-                m_docs = await db.members.find(
-                    {"id": {"$in": list(remaining)}},
-                    {"_id": 0, "id": 1, "telegram_username": 1}
-                ).to_list(len(remaining))
-                for m in m_docs:
-                    h = (m.get("telegram_username") or "").strip().lstrip("@").strip()
-                    if not h:
-                        continue
-                    entry = await db.telegram_chat_map.find_one(
-                        {"username_lc": h.lower()}, {"_id": 0, "chat_id": 1}
-                    )
-                    if entry and entry.get("chat_id"):
-                        chat_ids.add(str(entry["chat_id"]))
-                        stats["dm_username_hits"] += 1
-            for cid in chat_ids:
-                # Attach inline attendance buttons so recipients can confirm/decline
-                # with a single tap. The webhook processes the callback_query and
-                # updates event_attendance automatically.
+    # 2) DM fan-out — reach every linked user, not just attending members.
+    #    Previous logic gated on `event_attendance` which meant reminders never
+    #    fired for events without prior attendance marks. Now we fan out to
+    #    (a) EVERY user with a telegram_chat_id (Widget/manual), plus
+    #    (b) EVERY chat_map entry (users that /start-ed the bot), and skip
+    #    global opt-out users. Attendance-linked members still receive the
+    #    inline ✅/❌ buttons; unlinked users receive the plain reminder text.
+    if doc.get("send_dm", True):
+        event_id = doc.get("event_id")
+        att_ids: set = set()
+        if event_id:
+            att = await db.event_attendance.find_one(
+                {"event_id": event_id}, {"_id": 0, "member_ids": 1}
+            )
+            att_ids = set(att.get("member_ids") or []) if att else set()
+        # Collect (chat_id, is_attending) targets
+        chat_ids: Dict[str, bool] = {}
+        # 2a) linked users
+        async for u in db.users.find(
+            {"telegram_chat_id": {"$exists": True, "$ne": None},
+             "notification_enabled": {"$ne": False}},
+            {"_id": 0, "telegram_chat_id": 1, "member_ids": 1, "member_id": 1}
+        ):
+            cid = str(u.get("telegram_chat_id") or "")
+            if not cid:
+                continue
+            linked = list(u.get("member_ids") or [])
+            if u.get("member_id"):
+                linked.append(u["member_id"])
+            is_att = bool(att_ids and any(mid in att_ids for mid in linked))
+            chat_ids[cid] = chat_ids.get(cid, False) or is_att
+        # 2b) chat_map (users that /start-ed the bot but not linked via Widget)
+        async for m in db.telegram_chat_map.find({}, {"_id": 0, "username_lc": 1, "chat_id": 1}):
+            cid = str(m.get("chat_id") or "")
+            if not cid or cid in chat_ids:
+                continue
+            # Is this handle attending? Look up member with matching telegram_username
+            is_att = False
+            if att_ids:
+                mem = await db.members.find_one(
+                    {"telegram_username": {"$regex": f"^{m.get('username_lc','')}$", "$options": "i"},
+                     "id": {"$in": list(att_ids)}},
+                    {"_id": 0, "id": 1}
+                )
+                is_att = bool(mem)
+                if is_att:
+                    stats["dm_username_hits"] += 1
+            chat_ids[cid] = is_att
+        # 2c) send
+        for cid, is_att in chat_ids.items():
+            markup = None
+            if event_id and is_att:
                 markup = {
                     "inline_keyboard": [[
-                        {"text": "✅ Katılıyorum", "callback_data": f"att:yes:{doc['event_id']}"},
-                        {"text": "❌ Katılamam", "callback_data": f"att:no:{doc['event_id']}"},
+                        {"text": "✅ Katılıyorum", "callback_data": f"att:yes:{event_id}"},
+                        {"text": "❌ Katılamam", "callback_data": f"att:no:{event_id}"},
                     ]]
                 }
-                ok = await _tg_send(cid, text, reply_markup=markup)
-                if ok:
-                    stats["dm_sent"] += 1
+            ok = await _tg_send(cid, text, reply_markup=markup)
+            if ok:
+                stats["dm_sent"] += 1
     return stats
 
 

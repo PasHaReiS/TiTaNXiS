@@ -19,6 +19,7 @@ export default function Alliances() {
   const [merging, setMerging] = useState(false);
   const [selected, setSelected] = useState([]);
   const [mergeTarget, setMergeTarget] = useState("");
+  const [creating, setCreating] = useState(null); // { name, category } object when "Yeni İttifak" modal open
   const existingNames = useMemo(() => new Set(data.map((a) => a.name)), [data]);
 
   const grouped = useMemo(() => {

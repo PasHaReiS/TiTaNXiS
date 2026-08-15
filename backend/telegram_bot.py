@@ -389,30 +389,49 @@ async def etkinlik_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
 
 # ------------------------------ Notifications --------------------------------
 
-async def send_message(chat_id: str, text: str, parse_mode: str = "Markdown",
+async def send_message(chat_id: str, text: str, parse_mode: Optional[str] = "Markdown",
                        reply_markup: Optional[dict] = None) -> bool:
-    """Fire-and-forget broadcaster used by app hooks. When `reply_markup` is
-    provided (e.g. inline keyboard), it's forwarded verbatim to the Bot API so
-    callers can attach ✅/❌ attendance buttons to a DM. On non-ok responses
-    we log Telegram's `description` + `error_code` so failures are debuggable
-    without inspecting httpx status alone (chat not found, blocked by user,
-    markdown parse errors, etc.)"""
+    """Fire-and-forget broadcaster. When Markdown parsing fails (unbalanced
+    `_` `*` `[` in dynamic content), we retry ONCE without parse_mode so the
+    plain text still delivers. Non-ok responses log Telegram's `description`
+    + `error_code` for debuggability."""
     if not BOT_TOKEN or not chat_id:
         return False
-    try:
-        payload: dict = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode}
+    async def _post(pmode: Optional[str]) -> dict:
+        payload: dict = {"chat_id": chat_id, "text": text}
+        if pmode:
+            payload["parse_mode"] = pmode
         if reply_markup is not None:
             payload["reply_markup"] = reply_markup
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.post(f"{TELEGRAM_API}/sendMessage", json=payload)
-            data = r.json() if r.content else {}
-            if data.get("ok"):
+            return {"status": r.status_code, "body": (r.json() if r.content else {})}
+    try:
+        first = await _post(parse_mode)
+        data = first["body"]
+        if data.get("ok"):
+            return True
+        desc = str(data.get("description") or "")
+        # Retry as plain text when Markdown parser rejects the payload.
+        if parse_mode and "can't parse entities" in desc.lower():
+            log.warning(
+                "Telegram sendMessage markdown parse failed chat_id=%s description=%r — retrying as plain text",
+                chat_id, desc,
+            )
+            second = await _post(None)
+            sd = second["body"]
+            if sd.get("ok"):
                 return True
             log.warning(
-                "Telegram sendMessage rejected chat_id=%s code=%s description=%r http_status=%s",
-                chat_id, data.get("error_code"), data.get("description"), r.status_code,
+                "Telegram sendMessage plain-text retry also failed chat_id=%s code=%s description=%r",
+                chat_id, sd.get("error_code"), sd.get("description"),
             )
             return False
+        log.warning(
+            "Telegram sendMessage rejected chat_id=%s code=%s description=%r http_status=%s",
+            chat_id, data.get("error_code"), desc, first["status"],
+        )
+        return False
     except Exception as e:
         log.warning(f"Telegram sendMessage exception chat_id={chat_id}: {e}")
         return False
