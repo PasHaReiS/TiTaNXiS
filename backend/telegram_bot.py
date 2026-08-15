@@ -152,6 +152,8 @@ def init_bot(db) -> Optional[Application]:
     _app.add_handler(CommandHandler("start", start_command))
     _app.add_handler(CommandHandler("siralama", siralama_command))
     _app.add_handler(CommandHandler("ranking", siralama_command))
+    _app.add_handler(CommandHandler("siralamatop5", siralama_command))
+    _app.add_handler(CommandHandler("top5", siralama_command))
     _app.add_handler(CommandHandler("guc", guc_command))
     _app.add_handler(CommandHandler("power", guc_command))
     _app.add_handler(CommandHandler("etkinlik", etkinlik_command))
@@ -239,7 +241,7 @@ async def yardim_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
     text = (
         "📖 *TiTaNXiS Bot Komutları*\n\n"
         "/start — Karşılama mesajı\n"
-        "/siralama (veya /ranking) — En güçlü 5 üye\n"
+        "/siralama (veya /ranking, /siralamatop5, /top5) — En güçlü 5 üye\n"
         "/guc [isim] (veya /power) — Üye güç sorgulama\n"
         "/etkinlik (veya /event) — Aktif etkinlikler\n"
         "/svs [HH:MM] — SvS başlama hatırlatıcısı planla\n"
