@@ -9,6 +9,7 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 import LogoVideoModal from "@/components/LogoVideoModal";
 import DeeplUsageBadge from "@/components/DeeplUsageBadge";
 import DeeplDigestButton from "@/components/DeeplDigestButton";
+import NotificationBell from "@/components/NotificationBell";
 import { LEADERBOARD } from "@/constants/testIds";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -82,6 +83,7 @@ export default function Header({ title }) {
         <LanguageSwitcher />
         <DeeplUsageBadge />
         <DeeplDigestButton />
+        <NotificationBell />
 
         <button
           data-testid={LEADERBOARD.themeToggle}

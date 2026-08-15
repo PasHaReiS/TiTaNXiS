@@ -97,7 +97,7 @@ Doc-level flags: `send_push` / `send_channel` / `send_dm` / `send_app` (all defa
   - `GET /api/notifications?limit=30` → `{items, unread, total}`
   - `POST /api/notifications/{id}/read` → idempotent mark-read
   - `POST /api/notifications/read-all` → mark all read for current user
-- **Frontend bell icon NOT YET IMPLEMENTED** — backend ready for consumption.
+- **Frontend bell icon: `NotificationBell.jsx`** at Header'da LanguageSwitcher + DeeplBadge + DeeplDigest'in yanında. 30s SWR polling, kırmızı unread badge (`99+` cap), portal-based dropdown with per-row mark-read + read-all footer button. `data-testid` selectors: `notif-bell-btn`, `notif-bell-badge`, `notif-bell-dropdown`, `notif-bell-item-{id}`, `notif-bell-read-all`, `notif-bell-empty`.
 
 ### Fan-out Summary Widget (Feb 2026)
 Every scheduled push + test push now returns a `telegram_dm_langs` breakdown
