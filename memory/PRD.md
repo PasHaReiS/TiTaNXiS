@@ -198,6 +198,22 @@ curl -X POST $API/api/auth/unlock-user -H "Authorization: Bearer $ADMIN_TOKEN" \
 
 ## Events page — Gruplu/Grupsuz 2-Column Split (Feb 15, 2026)
 `/etkinlikler` (`Events.jsx`) now separates events into two side-by-side
+
+## Mobile safe-area (iPhone notch / dynamic island / home indicator) — Feb 15, 2026
+- `public/index.html` viewport meta now includes `viewport-fit=cover` (required
+  to expose `env(safe-area-inset-*)` on iOS). Combined with the existing
+  `apple-mobile-web-app-status-bar-style: black-translucent` this means the
+  page paints edge-to-edge and every fixed/sticky bar must pad itself.
+- `components/Header.jsx` sticky wrapper: `padding-top: max(8px, env(safe-area-inset-top))`
+  plus L/R safe-area padding for landscape notches. `header-profile-dropdown`
+  top anchor is now `calc(60px + env(safe-area-inset-top))` so the menu
+  doesn't slip under the dynamic island.
+- `index.css .bottom-nav` bottom padding is now `calc(12px + env(safe-area-inset-bottom))`
+  so the tab bar sits above the home indicator; L/R padding also opts into
+  the horizontal insets.
+- Non-notched devices (desktop, Android without gestures, older iPhones)
+  resolve `env()` to 0 → visual behaviour unchanged.
+
 columns via a responsive `grid grid-cols-1 lg:grid-cols-2 gap-4` at
 `data-testid="events-two-col-grid"`:
 

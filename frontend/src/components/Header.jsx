@@ -60,12 +60,21 @@ export default function Header({ title }) {
 
   return (
     <header
-      className="px-4 pt-0 pb-1 fade-in sticky top-0 z-50"
+      className="px-4 pb-1 fade-in sticky top-0 z-50"
       style={{
         background:
           "linear-gradient(180deg, rgba(15,10,10,0.96) 0%, rgba(20,12,12,0.92) 70%, rgba(20,12,12,0.85) 100%)",
         backdropFilter: "blur(6px)",
         WebkitBackdropFilter: "blur(6px)",
+        // Push the whole bar below the phone's notch / dynamic island / status
+        // bar. `env(safe-area-inset-top)` is 0 on desktop / non-notched devices
+        // so nothing changes there; on iPhone 14+ it becomes 47-59px.
+        // The `max(8px, ...)` floor keeps a small breathing room even when the
+        // inset is 0 so the logo never kisses the very top edge.
+        paddingTop: "max(8px, env(safe-area-inset-top))",
+        // Same treatment for landscape notches so left/right icons stay clear.
+        paddingLeft: "max(16px, env(safe-area-inset-left))",
+        paddingRight: "max(16px, env(safe-area-inset-right))",
       }}
     >
       <div className="flex items-center gap-2">

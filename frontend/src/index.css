@@ -270,7 +270,10 @@ select:focus, textarea:focus {
     box-shadow: 0 -6px 22px rgba(231,76,26,0.15);
     display: grid;
     grid-template-columns: repeat(6, 1fr);
-    padding: 8px 4px 12px;
+    /* Base padding (8 top, 4 sides, 12 bottom) PLUS the home-indicator inset
+       on iPhones so the bar sits above the swipe handle. Non-notched devices
+       resolve the env() to 0 so nothing changes there. */
+    padding: 8px max(4px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left));
     z-index: 40;
 }
 @media (min-width: 768px)  { .bottom-nav { max-width: 100%; } }
