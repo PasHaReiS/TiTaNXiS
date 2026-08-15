@@ -4666,6 +4666,7 @@ class AnnouncementBody(BaseModel):
     body: str
     url: Optional[str] = None
     broadcast: Optional[bool] = True
+    urgent: Optional[bool] = False
 
 
 @api_router.post("/announcements")
@@ -4676,9 +4677,10 @@ async def announcements_create(body: AnnouncementBody, user: dict = Depends(requ
     that only surface in the app's Duyurular list."""
     doc = {
         "id": str(uuid.uuid4()),
-        "title": body.title.strip(),
+        "title": (("🚨 " + body.title.strip()) if body.urgent else body.title.strip()),
         "body": body.body.strip(),
         "url": (body.url or "/duyurular").strip(),
+        "urgent": bool(body.urgent),
         "created_by": user["id"],
         "created_by_username": user.get("username") or "",
         "created_at": now_iso(),

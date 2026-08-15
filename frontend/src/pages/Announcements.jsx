@@ -19,6 +19,7 @@ export default function Announcements() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [broadcast, setBroadcast] = useState(true);
+  const [urgent, setUrgent] = useState(false);
   const [sending, setSending] = useState(false);
   const [lastResult, setLastResult] = useState(null);
 
@@ -27,10 +28,10 @@ export default function Announcements() {
     if (!title.trim() || !body.trim()) { toast.error("Başlık ve içerik zorunlu"); return; }
     setSending(true);
     try {
-      const r = await api.post("/announcements", { title, body, broadcast });
-      toast.success("Duyuru gönderildi");
+      const r = await api.post("/announcements", { title, body, broadcast, urgent });
+      toast.success(urgent ? "🚨 Acil duyuru dağıtıldı" : "Duyuru gönderildi");
       setLastResult(r.data.fanout || null);
-      setTitle(""); setBody("");
+      setTitle(""); setBody(""); setUrgent(false);
       mutate();
     } catch (err) {
       toast.error(apiErr(err));
@@ -80,6 +81,11 @@ export default function Announcements() {
                    data-testid="announcement-broadcast" />
             <span>Tüm kanallara dağıt (Telegram Kanal + DM + Web Push + Uygulama)</span>
           </label>
+          <label className="flex items-center gap-2 text-xs font-bold" style={{ color: urgent ? "#F87171" : "#94A3B8" }}>
+            <input type="checkbox" checked={urgent} onChange={(e) => setUrgent(e.target.checked)}
+                   data-testid="announcement-urgent" />
+            <span>🚨 ACİL — başlığa alarm ikonu ekle, kırmızı rozetle işaretle</span>
+          </label>
           <button type="submit" disabled={sending}
                   className="btn-gold px-4 py-2 flex items-center gap-2 text-sm justify-center"
                   data-testid="announcement-submit">
@@ -114,13 +120,15 @@ export default function Announcements() {
         {items.map((a) => (
           <div key={a.id}
                className="card-red-gold p-3"
-               style={{ opacity: a.active ? 1 : 0.5 }}
+               style={{ opacity: a.active ? 1 : 0.5, borderColor: a.urgent ? "#EF4444" : undefined }}
                data-testid={`announcement-item-${a.id}`}>
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <Megaphone className="w-3.5 h-3.5 gold-text flex-shrink-0" />
-                  <h3 className={`text-sm font-bold ${a.active ? "text-white" : "text-muted-foreground line-through"}`}>{a.title}</h3>
+                  {a.urgent
+                    ? <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ background: "#EF4444", color: "white" }} data-testid={`announcement-urgent-${a.id}`}>ACİL</span>
+                    : <Megaphone className="w-3.5 h-3.5 gold-text flex-shrink-0" />}
+                  <h3 className={`text-sm font-bold ${a.active ? (a.urgent ? "text-red-300" : "text-white") : "text-muted-foreground line-through"}`}>{a.title}</h3>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{a.body}</p>
                 <div className="text-[10px] text-muted-foreground mt-2 flex items-center gap-2">
