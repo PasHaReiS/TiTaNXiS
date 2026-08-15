@@ -4,7 +4,7 @@ import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
-import { Plus, Trash2, KeyRound, Shield, User, X, ShieldCheck, PencilLine, Link2, AlertTriangle, Upload, Clock } from "lucide-react";
+import { Plus, Trash2, KeyRound, Shield, User, X, ShieldCheck, PencilLine, Link2, AlertTriangle, Upload, Clock, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "react-i18next";
@@ -247,6 +247,30 @@ export default function UserManagement() {
                   className="chip flex-1 justify-center text-[10px]"
                 >
                   <KeyRound className="w-3 h-3" /> {t("reset_password")}
+                </button>
+                <button
+                  data-testid={`user-unlock-${u.id}`}
+                  onClick={async () => {
+                    try {
+                      // Idempotent — clears any failed login_attempts + legacy
+                      // lockout fields for every case-insensitive variant of
+                      // this username (e.g. `selim` + `selim@titanxis.com`).
+                      const res = await api.post("/auth/unlock-user", { username: u.username });
+                      const n = res.data?.failed_attempts_cleared ?? 0;
+                      if (n > 0) {
+                        toast.success(`Kilit kaldırıldı — ${n} başarısız deneme silindi`);
+                      } else {
+                        toast.info("Kilit yoktu — kullanıcı zaten giriş yapabilir");
+                      }
+                    } catch (e) {
+                      toast.error(apiErr(e));
+                    }
+                  }}
+                  className="chip justify-center text-[10px]"
+                  style={{ borderColor: "rgba(34,197,94,0.35)", color: "#86EFAC" }}
+                  title="15 dakikalık brute-force kilidini kaldır"
+                >
+                  <Unlock className="w-3 h-3" /> Kilidi Kaldır
                 </button>
                 {u.id !== me.id && u.username !== "admin" && (
                   <button
