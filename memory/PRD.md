@@ -30,37 +30,58 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - Telegram diagnostic panel + manual chat ID link
 - Open Graph / SEO meta
 
-### Telegram DM notifications (Feb 2026 — English-only, simplified)
-DeepL translation + country-based routing were removed after prod
-verification kept failing. All DM notifications now send raw English text
-via `_dm_translate_and_send` (name kept for call-site compatibility; body
-simplified to a straight `send_message`). Admins author notifications in
-English; no per-recipient rewriting happens.
+### Telegram DM auto-translate architecture (Feb 2026 — country-based, RESTORED)
+All Telegram **DM** send sites route through `_dm_translate_and_send(chat_id, text, ...)`
+at `backend/server.py:~3352`. **Language selection is driven by the linked
+Member's `country` field (ISO 3166-1 alpha-2).** A member marked
+`country="RU"` receives Russian DMs; `country="BR"` receives Brazilian
+Portuguese via DeepL PT-BR; `country="PT"` receives European Portuguese
+via PT-PT; `country="TR"` (source) gets the original text without a DeepL
+round-trip.
 
-`_dm_translate_and_send(chat_id, text, reply_markup=None, cache=..., precomputed_*=...)`
-at `backend/server.py:~3352`:
-- No DeepL, no chat_map traversal for language, no country lookup
-- Kwargs `cache` / `precomputed_lang` / `precomputed_country` retained as
-  no-ops so existing call sites compile unchanged
-- Owner hint still looked up for log context via `_lookup_chat_owner_hint`
-- Returns `(ok: bool, translated: bool=False, lang: Optional[str]=None)` to
-  keep the caller contract
+Mapping (`backend/server.py:~3199`, extend as needed):
+- Russian family: RU/BY/KZ/KG/TJ/UZ → ru
+- German family: DE/AT/CH/LI → de
+- English family: US/GB/UK/CA/AU/NZ/IE/IN/ZA/SG/PH → en (DeepL EN-GB)
+- French family: FR/BE/LU/MC → fr
+- Spanish (incl. LATAM): ES/MX/AR/CO/CL/PE/VE/UY/PY/EC/BO/DO/CR/GT/HN/NI/PA/SV → es
+- Italian: IT/SM/VA → it
+- Portuguese: PT/AO/MZ → pt (DeepL PT-PT), **BR → pt-br (DeepL PT-BR)**
+- Dutch: NL → nl
+- Polish: PL → pl
+- Ukrainian: UA → uk
+- Turkish (source): TR → tr (no translation)
+- East Asia: JP → ja, KR → ko, CN/TW/HK/MO → zh
+- Scandinavian: SE → sv, DK → da, NO → nb, FI → fi
+- Central/Eastern Europe: CZ → cs, SK → sk, SI → sl, HU → hu, RO/MD → ro, BG → bg
+- Greek: GR/CY → el
+- Baltic: EE → et, LV → lv, LT → lt
+- SE Asia: ID → id
 
-Log grammar (logger `telegram`):
-- `dm_send chat=X user=... text_len=N → EN direct` — every DM attempt
-- `dm_send done chat=X telegram_ok=bool` — post-dispatch
+`_resolve_dm_lang_for_chat(chat_id) → (lang, country)` walks 3 paths, first match wins:
+  A) `users.telegram_chat_id` → `users.member_ids` → `members.country`
+  B) `telegram_chat_map.username_lc` → `members.telegram_username` → `members.country`
+  C) `telegram_chat_map.username_lc` → `users.telegram_username` → `users.member_ids` → `members.country`
 
-Button labels (attendance callback inline keyboards):
-- `✅ I'm attending` (`att:yes:{event_id}`)
-- `❌ Can't attend` (`att:no:{event_id}`)
+Log grammar (all prefixed `dm_translate`, logger name `telegram`):
+- `enter chat=X text_len=N` — every DM attempt
+- `resolved chat=X user=... country=RU → lang=ru` — resolution outcome
+- `call chat=X ... country=RU lang=ru src_len=N → calling DeepL` — right before DeepL
+- `ok chat=X lang=ru src_len=N out_len=M`
+- `cache_hit chat=X lang=ru`
+- `empty chat=X lang=ru — DeepL API error: ...`
+- `skip chat=X lang=ru — DeepL API error: <ExceptionType>: <message>`
+- `none chat=X ... — country=TR maps to source language (TR) → sending original text`
+- `none chat=X ... — no linked member OR member has no country set → sending original text`
+- `sent chat=X country=RU lang=ru translated=bool telegram_ok=bool out_len=M`
 
-Fallback strings (only used when admin leaves body empty):
-- `🔔 Event reminder`
-- `🧪 Test Notification` / `This is a test message — verifying the setup works.`
+**Test verification (preview, Feb 2026)**: 34 countries + 29 unique
+DeepL translations validated end-to-end. RU/PT-BR/PT-PT/EN specifically
+diff-checked to confirm distinct outputs (BR "às 20h", PT "às 20:00").
+Cache dedup confirmed: shared-language recipients hit DeepL once.
 
-DEAD CODE (kept for optional re-enable): `COUNTRY_TO_LANG` map and
-`_resolve_dm_lang_for_chat` at `backend/server.py:~3199`. No callers.
-Safe to delete once English-only policy is stable in production.
+Channel broadcasts (TELEGRAM_CHANNEL_ID) stay in source Turkish — the
+channel is shared across all languages.
 
 **All 5 DM entry points wired to the helper:**
 1. `_telegram_forward_scheduled` — scheduled push fan-out (line 3488)
