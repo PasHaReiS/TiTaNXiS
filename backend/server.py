@@ -3182,8 +3182,8 @@ async def push_scheduled_delete(sch_id: str, _: dict = Depends(require_admin)):
 
 
 class PushTestBody(BaseModel):
-    title: Optional[str] = "🧪 Test Bildirimi"
-    body: Optional[str] = "Bu bir test mesajıdır — kurulumun çalıştığını doğruluyoruz."
+    title: Optional[str] = "🧪 Test Notification"
+    body: Optional[str] = "This is a test message — verifying the setup works."
     send_channel: Optional[bool] = True
     send_dm: Optional[bool] = True
     send_push: Optional[bool] = True
@@ -3355,98 +3355,27 @@ async def _dm_translate_and_send(chat_id: str, text: str,
                                   cache: Optional[Dict[str, str]] = None,
                                   *, precomputed_lang: Optional[str] = None,
                                   precomputed_country: Optional[str] = None) -> tuple:
-    """Central helper: resolve recipient's DM language from the linked
-    Member's COUNTRY field, translate the body via DeepL if non-TR, then
-    dispatch via Telegram send_message.
+    """Simplified DM sender — dispatches `text` as-is over Telegram.
 
-    Country-based routing: `members.country` = "RU" → Russian DM, regardless
-    of the user's UI language preference. See `COUNTRY_TO_LANG` above.
+    Translation and country-based routing were removed per operator request
+    after prod verification kept failing. All notifications are now authored
+    in English by admins; no per-recipient rewriting happens. `cache` /
+    `precomputed_lang` / `precomputed_country` kwargs are retained purely so
+    every existing call site continues to compile — they are ignored.
 
-    Returns (ok: bool, translated: bool, lang: Optional[str]). Every branch
-    is traced via the `telegram` logger so prod issues can be diagnosed from
-    backend.err.log — search for `dm_translate` to see the resolution path.
-
-    Log grammar (all prefixed `dm_translate`):
-      • enter    — every DM attempt (chat_id + payload length)
-      • resolved — country+lang resolution outcome + owner hint
-      • call     — RIGHT BEFORE hitting DeepL (proves we tried to translate)
-      • ok       — DeepL succeeded, source/output length
-      • cache_hit — served from per-broadcast cache
-      • empty    — DeepL responded but returned no text (rare)
-      • skip     — DeepL threw (network / quota / auth)
-      • none     — recipient's member has no country / country → TR / unknown
-      • sent     — Telegram sendMessage HTTP outcome
-
-    `cache` is a per-broadcast dict {lang → translated_text} so fan-outs to
-    multiple recipients sharing the same language hit DeepL only once.
-
-    `precomputed_lang` / `precomputed_country` let batch callers skip the
-    per-chat DB round-trip when they've already resolved everything upstream.
+    Returns (ok: bool, translated: bool=False, lang: Optional[str]=None) to
+    keep the shared caller contract stable.
     """
     from telegram_bot import send_message as _tg_send
     _tglog = logging.getLogger("telegram")
     if not chat_id:
-        _tglog.warning("dm_translate enter — empty chat_id, aborting")
+        _tglog.warning("dm_send — empty chat_id, aborting")
         return (False, False, None)
-    _tglog.info(f"dm_translate enter chat={chat_id} text_len={len(text)}")
-    if precomputed_lang is not None or precomputed_country is not None:
-        target_lang, country = precomputed_lang, precomputed_country
-    else:
-        target_lang, country = await _resolve_dm_lang_for_chat(chat_id)
     owner_hint = await _lookup_chat_owner_hint(chat_id)
-    country_str = country or "unknown"
-    out_text = text
-    translated = False
-    if target_lang:
-        _tglog.info(
-            f"dm_translate resolved chat={chat_id} {owner_hint} "
-            f"country={country_str} → lang={target_lang}"
-        )
-        if cache is not None and target_lang in cache:
-            out_text = cache[target_lang]
-            translated = True
-            _tglog.info(f"dm_translate cache_hit chat={chat_id} lang={target_lang}")
-        else:
-            # Explicit pre-call trace — proves the DeepL branch was entered even
-            # if DeepL later returns an error or empty body.
-            _tglog.info(
-                f"dm_translate call chat={chat_id} {owner_hint} country={country_str} "
-                f"lang={target_lang} src_len={len(text)} → calling DeepL"
-            )
-            try:
-                tr_map = await _deepl_translate_one(text, target_langs=[target_lang])
-                got = tr_map.get(target_lang)
-                if got:
-                    out_text = got
-                    translated = True
-                    if cache is not None:
-                        cache[target_lang] = got
-                    _tglog.info(f"dm_translate ok chat={chat_id} lang={target_lang} src_len={len(text)} out_len={len(got)}")
-                else:
-                    _tglog.warning(
-                        f"dm_translate empty chat={chat_id} lang={target_lang} — "
-                        f"DeepL API error: no translation returned (check DEEPL_API_KEY + quota + supported lang)"
-                    )
-            except Exception as _e:
-                _tglog.warning(
-                    f"dm_translate skip chat={chat_id} lang={target_lang} — "
-                    f"DeepL API error: {type(_e).__name__}: {_e}"
-                )
-    else:
-        # No translation attempted. Distinguish "no linked member/country"
-        # from "country resolved but maps to TR" for diagnostics.
-        reason = (
-            f"country={country} maps to TR (source language) → sending original TR text"
-            if country else
-            "no linked member OR member has no country set → sending original TR text"
-        )
-        _tglog.info(f"dm_translate none chat={chat_id} {owner_hint} — {reason}")
-    ok = await _tg_send(chat_id, out_text, reply_markup=reply_markup)
-    _tglog.info(
-        f"dm_translate sent chat={chat_id} country={country_str} lang={target_lang or 'tr'} "
-        f"translated={translated} telegram_ok={ok} out_len={len(out_text)}"
-    )
-    return (bool(ok), translated, target_lang)
+    _tglog.info(f"dm_send chat={chat_id} {owner_hint} text_len={len(text)} → EN direct")
+    ok = await _tg_send(chat_id, text, reply_markup=reply_markup)
+    _tglog.info(f"dm_send done chat={chat_id} telegram_ok={ok}")
+    return (bool(ok), False, None)
 
 
 @api_router.post("/push/test")
@@ -3455,7 +3384,7 @@ async def push_test(body: PushTestBody, user: dict = Depends(require_admin)):
     /start capture); otherwise only the caller. Returns per-user delivery
     details so admins see exactly who received the message."""
     from telegram_bot import send_message as _tg_send
-    title = (body.title or "🧪 Test Bildirimi").strip()
+    title = (body.title or "🧪 Test Notification").strip()
     msg = (body.body or "Test").strip()
     result: dict = {"push_sent": 0, "telegram_channel_sent": False}
     # 1) Web Push
@@ -3648,7 +3577,7 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
     if body_txt:
         text_lines.append("")
         text_lines.append(body_txt)
-    text = "\n".join(text_lines) or "🔔 Etkinlik hatırlatması"
+    text = "\n".join(text_lines) or "🔔 Event reminder"
     # 1) Channel broadcast
     if doc.get("send_channel", True):
         channel = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
@@ -3714,8 +3643,8 @@ async def _telegram_forward_scheduled(doc: dict) -> dict:
             if event_id and is_att:
                 markup = {
                     "inline_keyboard": [[
-                        {"text": "✅ Katılıyorum", "callback_data": f"att:yes:{event_id}"},
-                        {"text": "❌ Katılamam", "callback_data": f"att:no:{event_id}"},
+                        {"text": "✅ I'm attending", "callback_data": f"att:yes:{event_id}"},
+                        {"text": "❌ Can't attend", "callback_data": f"att:no:{event_id}"},
                     ]]
                 }
             ok, translated, _lang = await _dm_translate_and_send(
@@ -3947,7 +3876,7 @@ async def telegram_webhook(request: Request):
                 )
         except Exception as _e:
             logging.getLogger("telegram").debug(f"chat_map upsert skipped: {_e}")
-        # Handle inline attendance button taps ("✅ Katılıyorum" / "❌ Katılamam").
+        # Handle inline attendance button taps ("✅ I'm attending" / "❌ Can't attend").
         # We resolve the tapping user's Telegram chat_id → linked member(s) via
         # users.telegram_chat_id or (fallback) telegram_chat_map → member
         # whose telegram_username matches. Then insert/delete an
@@ -4189,8 +4118,8 @@ async def cron_attendance_chase(request: Request):
         )
         markup = {
             "inline_keyboard": [[
-                {"text": "✅ Katılıyorum", "callback_data": f"att:yes:{ev_id}"},
-                {"text": "❌ Katılamam", "callback_data": f"att:no:{ev_id}"},
+                {"text": "✅ I'm attending", "callback_data": f"att:yes:{ev_id}"},
+                {"text": "❌ Can't attend", "callback_data": f"att:no:{ev_id}"},
             ]]
         }
         sent = 0

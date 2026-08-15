@@ -30,42 +30,37 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - Telegram diagnostic panel + manual chat ID link
 - Open Graph / SEO meta
 
-### Telegram DM auto-translate architecture (Feb 2026 — country-based)
-All Telegram **DM** send sites route through `_dm_translate_and_send(chat_id, text, ...)`
-at `backend/server.py:~3370`. **Language selection is now driven by the
-linked Member's `country` field (ISO 3166-1 alpha-2), not the user's UI
-`preferred_language`.** A member marked `country="RU"` always receives
-Russian DMs regardless of their profile settings.
+### Telegram DM notifications (Feb 2026 — English-only, simplified)
+DeepL translation + country-based routing were removed after prod
+verification kept failing. All DM notifications now send raw English text
+via `_dm_translate_and_send` (name kept for call-site compatibility; body
+simplified to a straight `send_message`). Admins author notifications in
+English; no per-recipient rewriting happens.
 
-Mapping lives in `COUNTRY_TO_LANG` (`backend/server.py:~3198`). Extend as
-new countries appear. Current coverage: RU/BY/KZ/KG/TJ/UZ→ru, DE/AT/CH/LI→de,
-US/GB/UK/CA/AU/NZ/IE/IN/ZA/SG/PH→en, FR/BE/LU/MC→fr, ES + all LATAM→es,
-IT/SM/VA→it, PT/AO/MZ→pt (PT-PT European), **BR→pt-br (PT-BR Brazilian)**,
-NL→nl, PL→pl, UA→uk, JP→ja, KR→ko, CN/TW/HK/MO→zh, SE→sv, DK→da, NO→nb,
-FI→fi, CZ→cs, SK→sk, SI→sl, HU→hu, RO/MD→ro, BG→bg, GR/CY→el, EE→et,
-LV→lv, LT→lt, ID→id, TR→tr (source).
+`_dm_translate_and_send(chat_id, text, reply_markup=None, cache=..., precomputed_*=...)`
+at `backend/server.py:~3352`:
+- No DeepL, no chat_map traversal for language, no country lookup
+- Kwargs `cache` / `precomputed_lang` / `precomputed_country` retained as
+  no-ops so existing call sites compile unchanged
+- Owner hint still looked up for log context via `_lookup_chat_owner_hint`
+- Returns `(ok: bool, translated: bool=False, lang: Optional[str]=None)` to
+  keep the caller contract
 
-`_resolve_dm_lang_for_chat(chat_id) → (lang, country)` walks 3 paths, first match wins:
-  A) `users.telegram_chat_id` → `users.member_ids` → `members.country`
-  B) `telegram_chat_map.username_lc` → `members.telegram_username` → `members.country`
-  C) `telegram_chat_map.username_lc` → `users.telegram_username` → `users.member_ids` → `members.country`
+Log grammar (logger `telegram`):
+- `dm_send chat=X user=... text_len=N → EN direct` — every DM attempt
+- `dm_send done chat=X telegram_ok=bool` — post-dispatch
 
-Returns `(None, country)` when a country is known but maps to TR (source) —
-no translation attempted. Returns `(None, None)` when no linked member.
+Button labels (attendance callback inline keyboards):
+- `✅ I'm attending` (`att:yes:{event_id}`)
+- `❌ Can't attend` (`att:no:{event_id}`)
 
-Log grammar (all prefixed `dm_translate`, logger name `telegram`):
-- `enter chat=X text_len=N` — every DM attempt
-- `resolved chat=X user=... via widget country=RU → lang=ru` — country + lang resolved
-- `call chat=X ... country=RU lang=ru src_len=N → calling DeepL` — right before DeepL
-- `ok chat=X lang=ru src_len=N out_len=M` — DeepL succeeded
-- `cache_hit chat=X lang=ru` — served from per-broadcast cache
-- `empty chat=X lang=ru — DeepL API error: no translation returned...`
-- `skip chat=X lang=ru — DeepL API error: <ExceptionType>: <message>`
-- `none chat=X ... — country=TR maps to TR (source language) → sending original TR text`
-- `none chat=X ... — no linked member OR member has no country set → sending original TR text`
-- `sent chat=X country=RU lang=ru translated=bool telegram_ok=bool out_len=M`
+Fallback strings (only used when admin leaves body empty):
+- `🔔 Event reminder`
+- `🧪 Test Notification` / `This is a test message — verifying the setup works.`
 
-Channel broadcasts (TELEGRAM_CHANNEL_ID) stay TR — the channel is shared.
+DEAD CODE (kept for optional re-enable): `COUNTRY_TO_LANG` map and
+`_resolve_dm_lang_for_chat` at `backend/server.py:~3199`. No callers.
+Safe to delete once English-only policy is stable in production.
 
 **All 5 DM entry points wired to the helper:**
 1. `_telegram_forward_scheduled` — scheduled push fan-out (line 3488)
