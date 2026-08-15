@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { BellRing, Trash2, Clock, Calendar, Users, ChevronDown, ChevronUp, TestTube2, AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react";
 import { api, apiErr } from "@/lib/api";
 import EventReminderDialog from "@/components/EventReminderDialog";
+import CountryCoverageBadge from "@/components/CountryCoverageBadge";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -198,6 +199,7 @@ export default function EventNotificationsPanel() {
           <BellRing className="w-3.5 h-3.5" />
           {t("event_notif_panel_title") || "Etkinlik Bildirimleri"}
         </div>
+        <CountryCoverageBadge />
         <span
           className="text-[10px] px-2 py-0.5 rounded-full font-bold"
           style={{ background: "rgba(168,85,247,0.25)", color: "#C4B5FD" }}

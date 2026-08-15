@@ -99,7 +99,25 @@ Doc-level flags: `send_push` / `send_channel` / `send_dm` / `send_app` (all defa
   - `POST /api/notifications/read-all` → mark all read for current user
 - **Frontend bell icon: `NotificationBell.jsx`** at Header'da LanguageSwitcher + DeeplBadge + DeeplDigest'in yanında. 30s SWR polling, kırmızı unread badge (`99+` cap), portal-based dropdown with per-row mark-read + read-all footer button. `data-testid` selectors: `notif-bell-btn`, `notif-bell-badge`, `notif-bell-dropdown`, `notif-bell-item-{id}`, `notif-bell-read-all`, `notif-bell-empty`.
 
-### Fan-out Summary Widget (Feb 2026)
+### 4-Channel Parallel Notification Engine (Feb 2026)
+
+**Country Coverage Widget** (`frontend/src/components/CountryCoverageBadge.jsx`):
+Admin-only chip mounted inside `EventNotificationsPanel` header. Polls
+`GET /api/admin/country-coverage` every 2 min. Green when 100% covered
+and every ISO2 is mapped; amber warning otherwise, showing "%X · N/T
+üyenin country'si boş" plus a list of unmapped ISO2 chips. Backend
+returns `{total_members, with_country, missing_country, coverage_pct,
+per_country, unmapped_countries}`.
+
+**Telegram DM Health Cron** (`POST /api/cron/telegram-dm-health`):
+Weekly Sunday 04:00 UTC via `/app/.emergent/crons.yml`. Probes every
+`users.telegram_chat_id` + `telegram_chat_map.chat_id` via Telegram's
+`getChat` API. Dead chat_ids (400 "chat not found" / 403 "bot blocked" /
+"user deactivated") get `telegram_dead_since` + `telegram_dead_reason`
+flagged. Revived ids clear the flag automatically. Rate-limited to
+~20 req/s. Returns `{users_checked, chat_map_checked, newly_dead_users,
+newly_dead_chat_map, already_dead, revived, alive}`.
+
 Every scheduled push + test push now returns a `telegram_dm_langs` breakdown
 alongside `telegram_dm_sent` / `telegram_dm_translated`. The map has the
 shape `{"ru": 3, "pt-br": 2, "en": 5, "src": 1}` — `"src"` bucket counts

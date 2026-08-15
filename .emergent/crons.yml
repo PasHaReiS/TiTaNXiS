@@ -35,3 +35,9 @@ crons:
     endpoint: "{{BASE_URL}}/api/cron/attendance-chase"
     method: POST
     enabled: true
+  - name: telegram-dm-health
+    description: "Weekly probe of every stored Telegram chat_id via getChat. Flags dead ids (blocked/deleted) with `dead_since` so DM fan-outs skip them."
+    cron: "0 4 * * 0"
+    endpoint: "{{BASE_URL}}/api/cron/telegram-dm-health"
+    method: POST
+    enabled: true

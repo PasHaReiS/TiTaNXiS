@@ -4456,6 +4456,147 @@ async def cron_telegram_weekly_summary():
     return {"sent": ok}
 
 
+@api_router.post("/cron/telegram-dm-health")
+async def cron_telegram_dm_health():
+    """Weekly health check: probe every stored Telegram chat_id via getChat
+    and flag the ones that no longer respond (user blocked bot, deleted
+    account, or invalid id). Dead ids get `dead_since` written back to the
+    source collection so the admin panel can filter them out and prod DM
+    fan-outs stop attempting them silently.
+
+    Runs Sunday 04:00 UTC via `/app/.emergent/crons.yml`. Idempotent; already-
+    flagged ids get their `last_checked_at` refreshed but aren't re-flagged.
+    """
+    import httpx
+    import asyncio as _asyncio
+    _tglog = logging.getLogger("telegram")
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    if not token:
+        return {"skipped": "no TELEGRAM_BOT_TOKEN"}
+    api_base = f"https://api.telegram.org/bot{token}"
+    now = now_iso()
+    results = {"users_checked": 0, "chat_map_checked": 0,
+               "newly_dead_users": 0, "newly_dead_chat_map": 0,
+               "already_dead": 0, "revived": 0, "alive": 0}
+
+    async def _probe(chat_id: str) -> tuple:
+        """Return (alive: bool, description: str). Rate-limited via a small
+        sleep between calls to stay under Telegram's ~30 req/s limit."""
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                r = await client.get(f"{api_base}/getChat", params={"chat_id": chat_id})
+                data = r.json() if r.content else {}
+                if data.get("ok"):
+                    return (True, "")
+                desc = str(data.get("description") or "").lower()
+                # 400 chat not found / 403 forbidden — user blocked bot / deleted account
+                if any(k in desc for k in ("chat not found", "bot was blocked", "user is deactivated",
+                                            "forbidden", "chat_id_invalid")):
+                    return (False, desc)
+                # Rate limit / 5xx — treat as alive to avoid false positives
+                return (True, desc)
+        except Exception as e:
+            _tglog.warning(f"dm_health probe error chat_id={chat_id}: {e}")
+            return (True, "probe-error")
+
+    # 1) users.telegram_chat_id
+    async for u in db.users.find(
+        {"telegram_chat_id": {"$exists": True, "$ne": None}},
+        {"_id": 0, "id": 1, "telegram_chat_id": 1, "telegram_dead_since": 1}
+    ):
+        cid = str(u.get("telegram_chat_id") or "")
+        if not cid:
+            continue
+        results["users_checked"] += 1
+        was_dead = bool(u.get("telegram_dead_since"))
+        alive, desc = await _probe(cid)
+        if alive:
+            if was_dead:
+                await db.users.update_one({"id": u["id"]},
+                    {"$unset": {"telegram_dead_since": "", "telegram_dead_reason": ""},
+                     "$set": {"telegram_last_checked_at": now}})
+                results["revived"] += 1
+            else:
+                await db.users.update_one({"id": u["id"]},
+                    {"$set": {"telegram_last_checked_at": now}})
+                results["alive"] += 1
+        else:
+            if not was_dead:
+                await db.users.update_one({"id": u["id"]},
+                    {"$set": {"telegram_dead_since": now, "telegram_dead_reason": desc[:120],
+                              "telegram_last_checked_at": now}})
+                results["newly_dead_users"] += 1
+                _tglog.warning(f"dm_health flagged user chat_id={cid} desc={desc!r}")
+            else:
+                await db.users.update_one({"id": u["id"]},
+                    {"$set": {"telegram_last_checked_at": now}})
+                results["already_dead"] += 1
+        await _asyncio.sleep(0.05)  # ~20 req/s ceiling
+
+    # 2) telegram_chat_map
+    async for m in db.telegram_chat_map.find({}, {"_id": 0, "username_lc": 1, "chat_id": 1, "dead_since": 1}):
+        cid = str(m.get("chat_id") or "")
+        if not cid:
+            continue
+        results["chat_map_checked"] += 1
+        was_dead = bool(m.get("dead_since"))
+        alive, desc = await _probe(cid)
+        if alive:
+            if was_dead:
+                await db.telegram_chat_map.update_one({"username_lc": m["username_lc"]},
+                    {"$unset": {"dead_since": "", "dead_reason": ""},
+                     "$set": {"last_checked_at": now}})
+                results["revived"] += 1
+            else:
+                await db.telegram_chat_map.update_one({"username_lc": m["username_lc"]},
+                    {"$set": {"last_checked_at": now}})
+                results["alive"] += 1
+        else:
+            if not was_dead:
+                await db.telegram_chat_map.update_one({"username_lc": m["username_lc"]},
+                    {"$set": {"dead_since": now, "dead_reason": desc[:120],
+                              "last_checked_at": now}})
+                results["newly_dead_chat_map"] += 1
+                _tglog.warning(f"dm_health flagged chat_map @{m.get('username_lc')} chat_id={cid} desc={desc!r}")
+            else:
+                await db.telegram_chat_map.update_one({"username_lc": m["username_lc"]},
+                    {"$set": {"last_checked_at": now}})
+                results["already_dead"] += 1
+        await _asyncio.sleep(0.05)
+
+    _tglog.info(f"dm_health complete: {results}")
+    return results
+
+
+@api_router.get("/admin/country-coverage")
+async def admin_country_coverage(_: dict = Depends(require_admin)):
+    """Return coverage stats so the admin panel can render a warning banner
+    when a chunk of members lack the `country` field — those members will
+    receive DM notifications in the source language (TR) instead of their
+    localised variant. Also surfaces ISO2 codes present in the DB that
+    aren't in `COUNTRY_TO_LANG` (silent TR fallback risk)."""
+    total = 0
+    with_country = 0
+    per_country: Dict[str, int] = {}
+    async for m in db.members.find({}, {"_id": 0, "country": 1}):
+        total += 1
+        c = (m.get("country") or "").strip().upper()
+        if c:
+            with_country += 1
+            per_country[c] = per_country.get(c, 0) + 1
+    missing = total - with_country
+    unmapped = {c: n for c, n in per_country.items() if c not in COUNTRY_TO_LANG}
+    coverage_pct = round((with_country / total) * 100, 1) if total else 0.0
+    return {
+        "total_members": total,
+        "with_country": with_country,
+        "missing_country": missing,
+        "coverage_pct": coverage_pct,
+        "per_country": dict(sorted(per_country.items(), key=lambda x: -x[1])),
+        "unmapped_countries": unmapped,
+    }
+
+
 class TelegramBroadcastBody(BaseModel):
     title: str
     body: str
