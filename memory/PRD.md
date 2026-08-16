@@ -557,3 +557,27 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Recovery cycle: seeded 5 events × 254 attendings + `pending_recovery=True` (25h ago) → `alert-state` `streak=0, last_ma=90.2%, pending_recovery=True` → `check-alerts` → `fired:true, kind:"trend_recovery", bell_sent=7`. Retry cleared `pending_recovery`. 7 DB rows with title "🎯 Hedef Geri Kazanıldı — Son 7 günlük ortalama %90.2 — hedef %60 yeniden aşıldı". Cleanup restored preview DB.
 - Playwright: target=99 → red strip "4 gündür …" + 3 snooze chips → click "🔕 1 hafta sessize al" → grey snooze strip + toast "Uyarılar 7 gün sessize alındı → 23.08.2026" → "Sessize almayı kaldır" reverts.
 
+
+## Weekly Trend Digest (Feb 16, 2026)
+
+### Backend
+- **`trend_alert_history` collection** — every alert fan-out (`kind=trend_alert|trend_recovery`) and every snooze POST logs a row with `{id, kind, streak, last_ma, target, member_pool, timestamp}` (+`snoozed_by_username`, `days`, `snoozed_until` for snoozes).
+- **`_trend_digest_compose(days=7)`** — reads history from the window, headline current MA7 via `_compute_trend_items`, computes rolling `avg_ma` + slope-based direction (`yükseliyor 📈 / düşüyor 📉 / sabit ➖`), builds a Telegram-ready markdown block with counts, snooze detail (last 3), recent breaches (last 3).
+- **`_trend_digest_dispatch(days=7)`** — sends the markdown to every admin's `telegram_chat_id` via `_send_tg_message`, drops a plain-text "📊 Haftalık Katılım Özeti" bell (`kind="trend_digest"`) into `in_app_notifications` for every admin (so the digest is visible even without a linked Telegram), stamps `guild_settings.trend_digest_state = {last_sent_at, last_tg_sent, last_bell_sent, breaches, recoveries, snoozes}`.
+- **Weekly cadence**: `_trend_alert_loop()` reuses its hourly tick to also call `_trend_digest_dispatch(7)` whenever `last_sent_at` is ≥ 167 hours old (small drift tolerance).
+- **Endpoints**:
+  - `GET /api/reports/trend/digest/preview?days=7|14|30` — full payload + `last_state`.
+  - `POST /api/reports/trend/digest/send?days=7` — manual trigger (admin).
+
+### Frontend — `TrendChart` digest modal
+- New "📊 Özet" chip in the trend chart toolbar (`trend-digest-open`) opens `TrendDigestModal`.
+- Modal shows 7G / 14G / 30G window toggles + a 3-stat mini grid (⚠️ Uyarı / 🎯 Toparlanma / 🔕 Sessize) + a monospace preview of the exact markdown that would be sent to Telegram. When a prior send exists, `last_state` line renders the timestamp + Telegram/Bell counts.
+- **"Şimdi Gönder"** button (`trend-digest-send`) fires the manual dispatch, toasts "Özet gönderildi — Telegram N · Bell M" and revalidates.
+- **Testids**: `trend-digest-open`, `trend-digest-modal`, `trend-digest-close`, `trend-digest-days-{7|14|30}`, `trend-digest-loading`, `trend-digest-preview`, `trend-digest-send`.
+
+### Verified (curl + Playwright)
+- After a breach + recovery + snooze on the seeded 5-event window:
+  - `preview` returned `breaches=0 recoveries=1 snoozes=1 avg_ma=90.4 last_ma=90.2 direction="düşüyor 📉"` with a Turkish markdown body ending in "*Sessize alma detayı:* • 2026-08-16 15:29 — admin · 3g".
+  - `send` returned `tg_sent=0 bell_sent=7` (admins have no linked chat_id in preview) and the second preview showed the populated `last_state`.
+- Playwright: `trend-digest-open` renders, modal preview markdown block visible, "Şimdi Gönder" button + last-send metadata all lit. Cleanup restored preview DB.
+

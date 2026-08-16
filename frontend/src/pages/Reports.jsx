@@ -378,6 +378,8 @@ function TrendChart({ alliance, country }) {
   const snoozed = !!alertState?.snoozed;
   const snoozedUntil = alertState?.snoozed_until;
   const showSnoozeStrip = streak >= 3 || snoozed;
+  // Weekly digest preview + manual send.
+  const [digestOpen, setDigestOpen] = useState(false);
   const snoozeAlert = async (days) => {
     try {
       const r = await api.post("/reports/trend/alert-snooze", { days });
@@ -478,6 +480,12 @@ function TrendChart({ alliance, country }) {
               >{d}G</button>
             ))}
           </div>
+          <button
+            onClick={() => setDigestOpen(true)}
+            className="chip text-[10px]"
+            title="Haftalık Telegram özetini gör"
+            data-testid="trend-digest-open"
+          >📊 Özet</button>
         </div>
       </div>
       {isLoading || chart.length === 0 ? (
@@ -627,6 +635,101 @@ function TrendChart({ alliance, country }) {
           )}
         </div>
       )}
+      {digestOpen && <TrendDigestModal onClose={() => setDigestOpen(false)} />}
+    </div>
+  );
+}
+
+function TrendDigestModal({ onClose }) {
+  const [days, setDays] = useState(7);
+  const { data, isLoading, mutate } = useSWR(`/reports/trend/digest/preview?days=${days}`, fetcher);
+  const [sending, setSending] = useState(false);
+  const send = async () => {
+    if (!window.confirm("Özet tüm admin Telegram DM'lerine ve bell'ine gönderilecek. Devam?")) return;
+    setSending(true);
+    try {
+      const r = await api.post(`/reports/trend/digest/send?days=${days}`);
+      toast.success(`Özet gönderildi — Telegram ${r.data.tg_sent} · Bell ${r.data.bell_sent}`);
+      mutate();
+    } catch (e) { toast.error(apiErr(e)); }
+    finally { setSending(false); }
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+         style={{ background: "rgba(0,0,0,0.85)" }}
+         onClick={onClose}
+         data-testid="trend-digest-modal">
+      <div className="card-red-gold p-4 max-w-lg w-full max-h-[90vh] overflow-auto space-y-3"
+           onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] uppercase tracking-widest gold-text font-bold">
+            📊 Haftalık Katılım Özeti
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-white"
+                  data-testid="trend-digest-close">
+            ✕
+          </button>
+        </div>
+        <div className="flex items-center gap-1">
+          {[7, 14, 30].map((d) => (
+            <button key={d}
+                    onClick={() => setDays(d)}
+                    className="chip text-[10px]"
+                    style={{
+                      background: days === d ? "rgba(245,166,35,0.25)" : "rgba(20,15,25,0.65)",
+                      color: days === d ? "#FFEDD5" : "#78716C",
+                      borderColor: days === d ? "#F5A623" : "rgba(120,53,15,0.35)",
+                    }}
+                    data-testid={`trend-digest-days-${d}`}>
+              {d}G
+            </button>
+          ))}
+        </div>
+        {isLoading ? (
+          <div className="text-center text-xs text-muted-foreground py-6"
+               data-testid="trend-digest-loading">Yükleniyor…</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <StatMini emoji="⚠️" label="Uyarı" n={data?.breaches ?? 0} color="#FCA5A5" />
+              <StatMini emoji="🎯" label="Toparlanma" n={data?.recoveries ?? 0} color="#86EFAC" />
+              <StatMini emoji="🔕" label="Sessize" n={data?.snoozes ?? 0} color="#D6D3D1" />
+            </div>
+            <div className="rounded p-3 text-xs whitespace-pre-wrap font-mono"
+                 style={{ background: "rgba(0,0,0,0.5)", border: "1px solid rgba(120,53,15,0.35)",
+                          color: "#E7E5E4", lineHeight: 1.4 }}
+                 data-testid="trend-digest-preview">
+              {data?.text || "—"}
+            </div>
+            {data?.last_state?.last_sent_at && (
+              <div className="text-[10px] text-muted-foreground">
+                Son gönderim: {new Date(data.last_state.last_sent_at).toLocaleString("tr-TR")}
+                {" · "}Telegram {data.last_state.last_tg_sent ?? 0} · Bell {data.last_state.last_bell_sent ?? 0}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={send}
+              disabled={sending}
+              className="btn-gold w-full py-2 flex items-center justify-center gap-2 text-sm"
+              data-testid="trend-digest-send"
+            >
+              {sending ? "Gönderiliyor…" : "Şimdi Gönder"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatMini({ emoji, label, n, color }) {
+  return (
+    <div className="rounded py-2"
+         style={{ background: `${color}15`, border: `1px solid ${color}44` }}>
+      <div className="text-lg" aria-hidden>{emoji}</div>
+      <div className="text-xl font-bold" style={{ color }}>{n}</div>
+      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">{label}</div>
     </div>
   );
 }

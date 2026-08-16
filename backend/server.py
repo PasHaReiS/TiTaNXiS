@@ -5936,6 +5936,20 @@ async def _trend_alert_evaluate() -> dict:
         ])
     result["bell_sent"] = len(admin_ids)
 
+    # History log for the weekly digest.
+    try:
+        await db.trend_alert_history.insert_one({
+            "id": str(uuid.uuid4()),
+            "kind": kind,
+            "streak": streak,
+            "last_ma": last_ma,
+            "target": target,
+            "member_pool": trend["member_pool"],
+            "timestamp": now.isoformat(),
+        })
+    except Exception as ex:
+        logger.warning(f"trend alert history log: {ex}")
+
     tg_sent = 0
     try:
         from telegram_bot import _send_tg_message
@@ -5981,16 +5995,35 @@ async def _trend_alert_evaluate() -> dict:
 
 
 async def _trend_alert_loop():
-    """Hourly monitor. Cheap: aggregation covers 30 days × ~5 events."""
+    """Hourly monitor. Cheap: aggregation covers 30 days × ~5 events. Also
+    fires the weekly digest when `last_sent_at` is ≥ 7 days ago."""
     import asyncio
-    # Short warm-up so the first tick doesn't race the app's own startup work.
+    from datetime import datetime as _dt_l, timezone as _tz_l
     await asyncio.sleep(120)
     while True:
         try:
             await _trend_alert_evaluate()
         except Exception as ex:
             logger.warning(f"trend alert loop error: {ex}")
-        await asyncio.sleep(60 * 60)  # 1h cadence — plenty for a daily metric.
+        # Weekly digest tick — piggyback on the same hourly cadence.
+        try:
+            state = await db.guild_settings.find_one({"key": "trend_digest_state"}, {"_id": 0})
+            last_at = ((state or {}).get("value") or {}).get("last_sent_at")
+            due = True
+            if last_at:
+                try:
+                    when = _dt_l.fromisoformat(last_at.replace("Z", "+00:00"))
+                    if when.tzinfo is None:
+                        when = when.replace(tzinfo=_tz_l.utc)
+                    hours = (_dt_l.now(_tz_l.utc) - when).total_seconds() / 3600.0
+                    due = hours >= (7 * 24) - 1  # ~7 days, small drift tolerance
+                except Exception:
+                    due = True
+            if due:
+                await _trend_digest_dispatch(7)
+        except Exception as ex:
+            logger.warning(f"trend digest tick: {ex}")
+        await asyncio.sleep(60 * 60)
 
 
 @api_router.post("/reports/trend/check-alerts")
@@ -6063,6 +6096,18 @@ async def reports_trend_alert_snooze(body: TrendSnoozeBody, user: dict = Depends
         {"$set": {"key": "trend_alert_state", "value": state, "updated_at": now_iso()}},
         upsert=True,
     )
+    # Log snooze to history for the digest.
+    try:
+        await db.trend_alert_history.insert_one({
+            "id": str(uuid.uuid4()),
+            "kind": "snooze",
+            "snoozed_until": until,
+            "snoozed_by_username": user.get("username"),
+            "days": days,
+            "timestamp": now_iso(),
+        })
+    except Exception:
+        pass
     return {"ok": True, "snoozed_until": until, "days": days}
 
 
@@ -6080,6 +6125,160 @@ async def reports_trend_alert_unsnooze(_: dict = Depends(require_admin)):
         upsert=True,
     )
     return {"ok": True}
+
+
+# ---------- Weekly Trend Digest ----------
+
+async def _trend_digest_compose(days: int = 7) -> dict:
+    """Compose a Telegram digest summarizing trend activity across the last
+    `days` days. Reads from `trend_alert_history` (populated in the alert
+    fan-out) and re-uses `_compute_trend_items` for the headline MA number.
+
+    Returns a dict with `text` (Telegram-ready markdown) + counts so the
+    admin preview endpoint can render a card without re-serializing."""
+    from datetime import datetime as _dt_d, timezone as _tz_d, timedelta as _td_d
+    now = _dt_d.now(_tz_d.utc)
+    since = (now - _td_d(days=days)).isoformat()
+    history = await db.trend_alert_history.find(
+        {"timestamp": {"$gte": since}}, {"_id": 0}
+    ).sort("timestamp", 1).to_list(500)
+    breaches = [h for h in history if h.get("kind") == "trend_alert"]
+    recoveries = [h for h in history if h.get("kind") == "trend_recovery"]
+    snoozes = [h for h in history if h.get("kind") == "snooze"]
+
+    # Current headline metrics.
+    target_doc = await db.guild_settings.find_one({"key": "guild_target"}, {"_id": 0})
+    target = int((target_doc or {}).get("value", 60))
+    trend = await _compute_trend_items(days)
+    ma = _trend_ma7_series(trend["items"]) if trend["items"] else []
+    last_ma = next((r["ma"] for r in reversed(ma) if r["ma"] is not None), None)
+    non_null = [r["ma"] for r in ma if r["ma"] is not None]
+    avg_ma = round(sum(non_null) / len(non_null), 1) if non_null else None
+
+    # Slope over the digest window to describe direction.
+    pts = [(i, r["ma"]) for i, r in enumerate(ma) if r["ma"] is not None]
+    slope = 0.0
+    if len(pts) >= 2:
+        n = len(pts)
+        sx = sum(p[0] for p in pts); sy = sum(p[1] for p in pts)
+        sxy = sum(p[0] * p[1] for p in pts); sxx = sum(p[0] * p[0] for p in pts)
+        denom = n * sxx - sx * sx
+        if denom:
+            slope = (n * sxy - sx * sy) / denom
+    direction = "yükseliyor 📈" if slope > 0.2 else "düşüyor 📉" if slope < -0.2 else "sabit ➖"
+
+    lines = [
+        f"📊 *TiTaNXiS Haftalık Katılım Özeti*",
+        f"_{(now - _td_d(days=days)).strftime('%d.%m')} - {now.strftime('%d.%m.%Y')}_",
+        "",
+        f"🎯 Hedef: %{target}",
+        f"📉 Son MA7: {'%'+str(last_ma) if last_ma is not None else '—'}"
+        + (f"  ({'✅ hedefin üzerinde' if last_ma is not None and last_ma >= target else '⚠️ hedefin altında'})" if last_ma is not None else ""),
+        f"📊 {days}g ortalaması: {'%'+str(avg_ma) if avg_ma is not None else '—'} · trend {direction}",
+        "",
+        f"⚠️  Uyarılar: *{len(breaches)}*",
+        f"🎯  Toparlanma: *{len(recoveries)}*",
+        f"🔕  Sessize alma: *{len(snoozes)}*",
+    ]
+    if snoozes:
+        lines.append("")
+        lines.append("*Sessize alma detayı:*")
+        for s in snoozes[-3:]:  # last 3
+            when = s.get("timestamp", "")[:16].replace("T", " ")
+            who = s.get("snoozed_by_username") or "admin"
+            d = s.get("days") or "?"
+            lines.append(f"  • {when} — {who} · {d}g")
+    if breaches:
+        lines.append("")
+        lines.append("*Son uyarılar:*")
+        for b in breaches[-3:]:
+            when = b.get("timestamp", "")[:16].replace("T", " ")
+            lines.append(f"  • {when} — {b.get('streak','?')}g streak · MA %{b.get('last_ma','?')}")
+    text = "\n".join(lines)
+    return {
+        "text": text,
+        "target": target,
+        "last_ma": last_ma,
+        "avg_ma": avg_ma,
+        "direction": direction,
+        "breaches": len(breaches),
+        "recoveries": len(recoveries),
+        "snoozes": len(snoozes),
+        "since": since,
+        "until": now.isoformat(),
+    }
+
+
+async def _trend_digest_dispatch(days: int = 7) -> dict:
+    """Send the digest to every admin with a linked `telegram_chat_id`, then
+    stamp the run into `guild_settings.trend_digest_state`."""
+    from datetime import datetime as _dt_x, timezone as _tz_x
+    digest = await _trend_digest_compose(days)
+    admins = await db.users.find(
+        {"role": "admin", "notification_enabled": {"$ne": False}},
+        {"_id": 0, "id": 1, "telegram_chat_id": 1, "username": 1}
+    ).to_list(500)
+    tg_sent = 0
+    tg_err = 0
+    try:
+        from telegram_bot import _send_tg_message
+        for u in admins:
+            cid = u.get("telegram_chat_id")
+            if not cid:
+                continue
+            try:
+                ok = await _send_tg_message(str(cid), digest["text"])
+                if ok:
+                    tg_sent += 1
+                else:
+                    tg_err += 1
+            except Exception:
+                tg_err += 1
+    except Exception as ex:
+        logger.warning(f"digest telegram import: {ex}")
+    # Also drop a bell for every admin so it's visible in-app even without TG.
+    now = _dt_x.now(_tz_x.utc)
+    admin_ids = [u["id"] for u in admins]
+    if admin_ids:
+        await db.in_app_notifications.insert_many([
+            {"id": str(uuid.uuid4()), "user_id": uid,
+             "title": "📊 Haftalık Katılım Özeti",
+             "body": (digest["text"][:180].replace("*", "") + "…") if len(digest["text"]) > 180 else digest["text"].replace("*", ""),
+             "url": "/raporlar", "read": False,
+             "created_at": now_iso(), "kind": "trend_digest"}
+            for uid in admin_ids
+        ])
+    await db.guild_settings.update_one(
+        {"key": "trend_digest_state"},
+        {"$set": {"key": "trend_digest_state",
+                  "value": {"last_sent_at": now.isoformat(),
+                            "last_tg_sent": tg_sent, "last_bell_sent": len(admin_ids),
+                            "breaches": digest["breaches"], "recoveries": digest["recoveries"],
+                            "snoozes": digest["snoozes"]},
+                  "updated_at": now_iso()}},
+        upsert=True,
+    )
+    return {"ok": True, "tg_sent": tg_sent, "tg_err": tg_err,
+            "bell_sent": len(admin_ids), "days": days,
+            "breaches": digest["breaches"], "recoveries": digest["recoveries"],
+            "snoozes": digest["snoozes"], "text": digest["text"]}
+
+
+@api_router.get("/reports/trend/digest/preview")
+async def reports_trend_digest_preview(days: int = 7, _: dict = Depends(require_admin)):
+    """Preview the digest without sending it — useful for a "Bu haftaki
+    özeti gör" admin button before firing to Telegram."""
+    days = max(1, min(int(days or 7), 90))
+    d = await _trend_digest_compose(days)
+    state = await db.guild_settings.find_one({"key": "trend_digest_state"}, {"_id": 0})
+    return {**d, "last_state": (state or {}).get("value") or {}}
+
+
+@api_router.post("/reports/trend/digest/send")
+async def reports_trend_digest_send(days: int = 7, _: dict = Depends(require_admin)):
+    """Manual digest send — bypasses the weekly cadence."""
+    days = max(1, min(int(days or 7), 90))
+    return await _trend_digest_dispatch(days)
 
 
 @api_router.get("/reports/events")
