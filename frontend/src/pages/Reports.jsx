@@ -788,13 +788,35 @@ function TrendDigestModal({ onClose }) {
                   <span className="hidden group-hover:inline" style={{ color: "#FCA5A5" }}>🔓 Bağlantıyı kaldır</span>
                 </button>
               ) : (
-                <span
-                  className="normal-case tracking-normal text-[10px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1"
-                  style={{ background: "rgba(120,113,108,0.2)", color: "#D6D3D1", border: "1px solid rgba(120,113,108,0.4)" }}
-                  title="Test Mesajı ile bağlantı linkini al"
-                  data-testid="digest-link-chip-unlinked"
-                >
-                  🔗 Bot bağlı değil
+                <span className="flex items-center gap-1">
+                  <span
+                    className="normal-case tracking-normal text-[10px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1"
+                    style={{ background: "rgba(120,113,108,0.2)", color: "#D6D3D1", border: "1px solid rgba(120,113,108,0.4)" }}
+                    title="Test Mesajı ile bağlantı linkini al"
+                    data-testid="digest-link-chip-unlinked"
+                  >
+                    🔗 Bot bağlı değil
+                  </span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const r = await api.post("/telegram/link/generate");
+                        // Open the freshly-minted deep link so admins land in
+                        // the Telegram chat with the /start payload prefilled.
+                        window.open(r.data.deep_link, "_blank", "noreferrer");
+                        toast.success(`🔗 Link üretildi (10dk geçerli) — Telegram açıldı`);
+                        // Poll shortly for status flip after the user taps Start.
+                        setTimeout(() => mutateLinkStatus(), 8000);
+                      } catch (e) { toast.error(apiErr(e)); }
+                    }}
+                    className="normal-case tracking-normal text-[10px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1 hover:ring-2 hover:ring-sky-400 transition"
+                    style={{ background: "rgba(52,152,219,0.2)", color: "#93C5FD", border: "1px solid rgba(52,152,219,0.5)" }}
+                    title="Yeni deep link üret ve Telegram'ı aç"
+                    data-testid="digest-link-rebind"
+                  >
+                    🔗 Şimdi yeniden bağla
+                  </button>
                 </span>
               )
             )}
