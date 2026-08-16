@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { BellRing, Megaphone } from "lucide-react";
 import Header from "@/components/Header";
 import EventNotificationsPanel from "@/components/EventNotificationsPanel";
+import PushBroadcastPanel from "@/components/PushBroadcastPanel";
 import Announcements from "@/pages/Announcements";
 
 /**
@@ -84,8 +85,9 @@ export default function EventNotifications() {
         </div>
 
         {tab === "events" && (
-          <div data-testid="notif-tab-content-events">
+          <div className="space-y-3" data-testid="notif-tab-content-events">
             <EventNotificationsPanel />
+            <PushBroadcastPanel />
           </div>
         )}
         {tab === "announcements" && (

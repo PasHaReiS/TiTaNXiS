@@ -298,6 +298,17 @@ Card rendering extracted into `renderEventCard` + `renderGroupBlock` helpers
 
   `calendar-day-event-{id}`.
 
+
+## Panel Sadeleştirme + PushBroadcastPanel → Bildirimler Hub (Feb 16, 2026)
+- `pages/LiveDashboardPage.jsx` slimmed: PushBroadcastPanel import + JSX removed.
+  Panel now surfaces PushSubscribeCard + PushPrefsCard + WidgetGrid + BulkAdminActions
+  only. Users see personal push controls, widgets, and bulk admin actions — nothing else.
+- `pages/EventNotifications.jsx` Etkinlik Bildirimleri tab now stacks
+  `EventNotificationsPanel` + `PushBroadcastPanel` in a `space-y-3` column so
+  broadcast tooling sits next to the scheduler where the menu label suggests.
+- Verified: `/gosterge-paneli` has no `[data-testid*=broadcast]`; the events
+  tab of `/etkinlik-bildirimleri` has both panels rendered.
+
 so both columns share the same JSX and attendance/gallery behaviour.
 
 Verified in preview (Hatırlatmalı + Hatırlatmasız tabs) — screenshots show
