@@ -119,6 +119,41 @@ export default function Announcements({ embedded = false }) {
     } catch (e) { toast.error(apiErr(e)); }
   };
 
+  // Word-level diff — splits both strings on whitespace-preserving tokens
+  // and marks tokens that don't appear in the other side. Naive but
+  // enough to make small typo fixes visually obvious without an LCS lib.
+  const wordDiff = (a, b) => {
+    const toks = (s) => (s || "").split(/(\s+)/);
+    const wa = toks(a), wb = toks(b);
+    const setB = new Set(wb.filter((w) => w.trim()));
+    const setA = new Set(wa.filter((w) => w.trim()));
+    return {
+      a: wa.map((w) => ({ text: w, changed: !!w.trim() && !setB.has(w) })),
+      b: wb.map((w) => ({ text: w, changed: !!w.trim() && !setA.has(w) })),
+    };
+  };
+  const DiffText = ({ tokens, tone }) => (
+    <span>
+      {tokens.map((tk, i) =>
+        tk.changed ? (
+          <mark
+            key={i}
+            style={{
+              background: tone === "removed" ? "rgba(239,68,68,0.35)" : "rgba(34,197,94,0.35)",
+              color: tone === "removed" ? "#FCA5A5" : "#86EFAC",
+              padding: "0 2px",
+              borderRadius: 2,
+            }}
+          >
+            {tk.text}
+          </mark>
+        ) : (
+          <span key={i}>{tk.text}</span>
+        ),
+      )}
+    </span>
+  );
+
   const items = data?.items || [];
 
   const Wrapper = ({ children }) =>
@@ -334,18 +369,44 @@ export default function Announcements({ embedded = false }) {
               <span className="chip text-[10px] ml-auto">{revertPreview.historyCount} önceki sürüm</span>
             </div>
             <div className="grid grid-cols-2 gap-3 mb-3">
-              <div className="p-3 rounded border" style={{ borderColor: "rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.05)" }} data-testid="revert-current-pane">
-                <div className="text-[10px] uppercase font-bold text-red-300 mb-1">Şu anki (silinecek)</div>
-                <div className="text-sm font-bold text-white break-words">{revertPreview.current.title}</div>
-                <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap break-words">{revertPreview.current.body}</div>
-                {revertPreview.current.urgent && <div className="mt-2 text-[9px] font-bold text-red-400">ACİL</div>}
-              </div>
-              <div className="p-3 rounded border" style={{ borderColor: "rgba(34,197,94,0.4)", background: "rgba(34,197,94,0.06)" }} data-testid="revert-prev-pane">
-                <div className="text-[10px] uppercase font-bold text-green-300 mb-1">Geri gelecek</div>
-                <div className="text-sm font-bold text-white break-words">{revertPreview.prev.title}</div>
-                <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap break-words">{revertPreview.prev.body}</div>
-                {revertPreview.prev.urgent && <div className="mt-2 text-[9px] font-bold text-red-400">ACİL</div>}
-              </div>
+              {(() => {
+                const titleDiff = wordDiff(revertPreview.prev.title, revertPreview.current.title);
+                const bodyDiff = wordDiff(revertPreview.prev.body, revertPreview.current.body);
+                const prevTs = revertPreview.prev.edited_at
+                  ? new Date(revertPreview.prev.edited_at).toLocaleString("tr-TR")
+                  : "Sürüm zamanı yok";
+                const nowTs = new Date().toLocaleString("tr-TR");
+                return (
+                  <>
+                    <div className="p-3 rounded border" style={{ borderColor: "rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.05)" }} data-testid="revert-current-pane">
+                      <div className="text-[10px] uppercase font-bold text-red-300 mb-1 flex items-center justify-between gap-2">
+                        <span>Şu anki (silinecek)</span>
+                        <span className="mono text-[9px] opacity-70" data-testid="revert-current-ts">{nowTs}</span>
+                      </div>
+                      <div className="text-sm font-bold text-white break-words">
+                        <DiffText tokens={titleDiff.b} tone="removed" />
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap break-words">
+                        <DiffText tokens={bodyDiff.b} tone="removed" />
+                      </div>
+                      {revertPreview.current.urgent && <div className="mt-2 text-[9px] font-bold text-red-400">ACİL</div>}
+                    </div>
+                    <div className="p-3 rounded border" style={{ borderColor: "rgba(34,197,94,0.4)", background: "rgba(34,197,94,0.06)" }} data-testid="revert-prev-pane">
+                      <div className="text-[10px] uppercase font-bold text-green-300 mb-1 flex items-center justify-between gap-2">
+                        <span>Geri gelecek</span>
+                        <span className="mono text-[9px] opacity-70" data-testid="revert-prev-ts">{prevTs}</span>
+                      </div>
+                      <div className="text-sm font-bold text-white break-words">
+                        <DiffText tokens={titleDiff.a} tone="added" />
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap break-words">
+                        <DiffText tokens={bodyDiff.a} tone="added" />
+                      </div>
+                      {revertPreview.prev.urgent && <div className="mt-2 text-[9px] font-bold text-red-400">ACİL</div>}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
             <div className="flex gap-2 justify-end">
               <button
