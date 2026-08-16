@@ -701,6 +701,44 @@ function TrendDigestModal({ onClose }) {
       const r = await api.post(`/reports/trend/digest/test-send?days=${days}`);
       if (r.data.tg_sent) {
         toast.success("🧪 Telegram DM ve bell'ine gönderildi");
+      } else if (r.data.link_url) {
+        // Offer one-tap Telegram binding when chat_id is missing.
+        toast.custom(
+          (id) => (
+            <div className="card-red-gold p-3 max-w-sm shadow-lg"
+                 data-testid="trend-digest-link-toast">
+              <div className="text-xs font-bold gold-text mb-1">
+                🔗 Telegram bağlı değil
+              </div>
+              <div className="text-[11px] text-white mb-2">
+                Test mesajı yalnızca bell'e düştü. Botla bağlanmak için tıkla —
+                Telegram açıldığında Başlat'a bas, hesabın otomatik bağlanır.
+              </div>
+              <div className="flex items-center gap-1">
+                <a
+                  href={r.data.link_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => toast.dismiss(id)}
+                  className="chip text-[10px] flex-1 justify-center"
+                  style={{ background: "rgba(52,152,219,0.25)", borderColor: "#3498DB", color: "#93C5FD" }}
+                  data-testid="trend-digest-telegram-bind"
+                >
+                  🔗 Telegram Bağla
+                </a>
+                <button
+                  type="button"
+                  onClick={() => toast.dismiss(id)}
+                  className="chip text-[10px]"
+                >Kapat</button>
+              </div>
+              <div className="text-[9px] text-muted-foreground mt-1 break-all font-mono">
+                {r.data.link_url}
+              </div>
+            </div>
+          ),
+          { duration: 30000 }
+        );
       } else {
         toast.warning(`🧪 Bell'e düştü. Telegram: ${r.data.tg_err_reason || "başarısız"}`);
       }

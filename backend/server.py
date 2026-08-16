@@ -6406,12 +6406,17 @@ async def reports_trend_digest_test_send(days: int = 7, user: dict = Depends(req
     """Mini test dispatch — sends the current digest ONLY to the requesting
     admin's own Telegram DM (if linked) + a personal bell. Does NOT touch
     the schedule, `trend_digest_state`, or the configured recipient list —
-    so admins can preview delivery formatting without spamming leadership."""
+    so admins can preview delivery formatting without spamming leadership.
+
+    When the caller has no `telegram_chat_id`, we also mint a fresh link
+    token and return `link_url` so the UI can offer a one-tap deep link to
+    the Telegram bot for instant account binding."""
     days = max(1, min(int(days or 7), 90))
     digest = await _trend_digest_compose(days)
     body = "🧪 *[TEST]*\n" + digest["text"]
     tg_sent = 0
     tg_err_reason = None
+    link_url = None
     udoc = await db.users.find_one({"id": user["id"]}, {"_id": 0, "telegram_chat_id": 1})
     chat_id = (udoc or {}).get("telegram_chat_id")
     if chat_id:
@@ -6424,7 +6429,24 @@ async def reports_trend_digest_test_send(days: int = 7, user: dict = Depends(req
         except Exception as ex:
             tg_err_reason = str(ex)
     else:
-        tg_err_reason = "telegram_chat_id yok — Profil > Telegram bağla"
+        tg_err_reason = "telegram_chat_id yok — aşağıdaki butonla bağla"
+        # Mint a short-lived link token + deep link so the UI can offer a
+        # one-tap "Telegram Bağla" button. Cleans up any stale tokens the
+        # user might have from a prior attempt so only the freshest one lives.
+        import secrets as _s, string as _st
+        alphabet = _st.ascii_uppercase + _st.digits
+        for _ in range(4):
+            token = "".join(_s.choice(alphabet) for _ in range(6))
+            if not await db.telegram_link_tokens.find_one({"token": token}):
+                break
+        expires_at = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+        await db.telegram_link_tokens.delete_many({"user_id": user["id"]})
+        await db.telegram_link_tokens.insert_one({
+            "token": token, "user_id": user["id"],
+            "expires_at": expires_at, "created_at": now_iso(),
+        })
+        bot_username = os.environ.get("TELEGRAM_BOT_USERNAME", "").strip().lstrip("@") or "TiTaNXiS_BoT"
+        link_url = f"https://t.me/{bot_username}?start=link_{token}"
     # Personal bell.
     await db.in_app_notifications.insert_one({
         "id": str(uuid.uuid4()), "user_id": user["id"],
@@ -6434,7 +6456,8 @@ async def reports_trend_digest_test_send(days: int = 7, user: dict = Depends(req
         "created_at": now_iso(), "kind": "trend_digest_test",
     })
     return {"ok": True, "tg_sent": tg_sent, "tg_err_reason": tg_err_reason,
-            "bell_sent": 1, "chat_id_linked": bool(chat_id), "text": body}
+            "bell_sent": 1, "chat_id_linked": bool(chat_id),
+            "link_url": link_url, "text": body}
 
 
 @api_router.get("/reports/trend/digest/preview")

@@ -224,7 +224,39 @@ async def process_update(update_data: dict) -> None:
 
 # ------------------------------ Commands ------------------------------------
 
-async def start_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handles `/start` and Telegram deep-link payloads like
+    `/start link_ABC123` — used by the "Telegram Bağla" button on
+    Reports > Digest to bind the chat_id in one tap."""
+    # Deep-link auto-link: `t.me/BOT?start=link_TOKEN` arrives here.
+    args = getattr(context, "args", None) or []
+    if args and args[0].startswith("link_") and _db is not None:
+        token = args[0][5:].strip().upper()
+        if len(token) >= 4:
+            now_iso_str = datetime.now(timezone.utc).isoformat()
+            doc = await _db.telegram_link_tokens.find_one({"token": token})
+            if not doc:
+                await reply_ml(update, "❌ Kod bulunamadı ya da süresi dolmuş. Web'den yenisini al.")
+                return
+            if doc.get("expires_at") and doc["expires_at"] < now_iso_str:
+                await _db.telegram_link_tokens.delete_one({"token": token})
+                await reply_ml(update, "⌛ Kod süresi dolmuş. Web'den yenisini al.")
+                return
+            chat_id = str(update.effective_chat.id)
+            await _db.users.update_one(
+                {"id": doc["user_id"]},
+                {"$set": {"telegram_chat_id": chat_id, "telegram_linked_at": now_iso_str}},
+            )
+            await _db.telegram_link_tokens.delete_one({"token": token})
+            u = await _db.users.find_one({"id": doc["user_id"]}, {"_id": 0, "username": 1})
+            uname = (u or {}).get("username") or "?"
+            await reply_ml(
+                update,
+                f"✅ Bağlantı başarılı!\n\n"
+                f"*{uname}* hesabıyla bu sohbet artık bağlı — tüm bildirimleri buradan alacaksın.\n"
+                f"İstersen /unlink ile her zaman kaldırabilirsin."
+            )
+            return
     text = (
         "⚔️ *TiTaNXiS Lonca Yönetim Botu*\n\n"
         "Hoş geldin savaşçı! Ben TiTaNXiS loncasının resmi botuyum.\n\n"

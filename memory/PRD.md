@@ -640,6 +640,25 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Distinct toasts: success when Telegram delivery lands; warning when only the bell fires (with the exact reason string from backend).
 - **Testid**: `trend-digest-test-send`.
 
+
+## Telegram Link Reminder (Feb 16, 2026)
+
+### Backend
+- **`telegram_bot.start_command` extended** — parses `context.args` for a `link_TOKEN` deep-link payload. Matching token binds `telegram_chat_id` inline (mirrors `/link TOKEN` flow) and confirms with "✅ Bağlantı başarılı!" — one tap from the digest modal to a fully bound account.
+- **`POST /api/reports/trend/digest/test-send`** — when the caller has no `telegram_chat_id`:
+  - Mints a 6-char uppercase token (10-min TTL) in `telegram_link_tokens`, dedupes prior tokens for the same user.
+  - Returns `link_url: "https://t.me/{TELEGRAM_BOT_USERNAME}?start=link_{TOKEN}"` alongside `chat_id_linked: false` + friendly TR reason.
+- Personal bell still fires; schedule / recipients / digest state untouched.
+
+### Frontend — `TrendDigestModal`
+- `testSend()` branches on the response:
+  - `tg_sent > 0` → success toast.
+  - `link_url` present → renders a **custom sticky toast** (30s duration) with `🔗 Telegram Bağla` chip pointing to `link_url` (`target="_blank"`, `rel=noreferrer`), a "Kapat" chip, and the raw URL in mono for admins who prefer copy-paste.
+- **Testids**: `trend-digest-link-toast`, `trend-digest-telegram-bind`.
+
+### Verified (curl)
+- Test-send without chat_id → `link_url="https://t.me/TiTaNXiS_BoT?start=link_XXXXXX"` (shape ✓) + `chat_id_linked=false` + TR reason. `telegram_link_tokens` row inserted with user_id + expires_at. Cleanup restored preview DB.
+
 ### Verified (curl)
 - Captured `last_state.last_sent_at` before test → `test-send` returned `tg_sent=0 bell_sent=1 reason="telegram_chat_id yok — Profil > Telegram bağla" text_prefix="🧪 *[TEST]*"` → post-test `last_sent_at` unchanged (✅). Bell row inserted with `kind="trend_digest_test"` and cleaned. State + schedule + recipients untouched.
 
