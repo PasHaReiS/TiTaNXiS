@@ -30,11 +30,18 @@ export default function Events() {
   useEffect(() => {
     try { localStorage.setItem("events_view", view); } catch { /* private mode */ }
   }, [view]);
-  // Sub-filter picked from the chip row that lives under the tabs. "all"
-  // keeps the current mixed view; "grouped" / "ungrouped" narrow it down
-  // so admins can focus on one flavour at a time.
+  // Sub-filter chips — Kolektif (grouped) / Bireysel (ungrouped). Default =
+  // "all" renders both side-by-side; clicking a chip narrows to just that
+  // column; clicking the active chip again toggles back to "all". Persisted
+  // to localStorage so admins land on their preferred view next visit.
   const [subFilter, setSubFilter] = useState(() => {
-    try { return localStorage.getItem("events_subfilter") || "all"; } catch { return "all"; }
+    try {
+      const v = localStorage.getItem("events_subfilter") || "all";
+      // Legacy values from before rename → normalise
+      if (v === "grouped") return "kolektif";
+      if (v === "ungrouped") return "bireysel";
+      return v;
+    } catch { return "all"; }
   });
   useEffect(() => {
     try { localStorage.setItem("events_subfilter", subFilter); } catch { /* private mode */ }
@@ -123,9 +130,122 @@ export default function Events() {
       const next = [...currentIds];
       next.splice(from, 1);
       next.splice(to, 0, sourceId);
+      // Fire-and-forget: sync per-user order to backend so a reorder on
+      // desktop survives on the phone. Server is authoritative on next load.
+      api.put("/users/me/event-order", { bucket_key: bucketKey, ids: next }).catch(() => { /* offline OK */ });
       return { ...prev, [bucketKey]: next };
     });
   };
+
+  // Hydrate manual order from the backend once per mount.
+  useEffect(() => {
+    let cancelled = false;
+    api.get("/users/me/event-order").then((r) => {
+      if (cancelled) return;
+      const remote = r?.data?.order || {};
+      if (Object.keys(remote).length === 0) return;
+      setManualOrder((prev) => ({ ...remote, ...prev }));
+    }).catch(() => { /* not logged in / no order yet */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Column split percentage — persisted to localStorage. Clamped to [20,80]
+  // so neither Kolektif nor Bireysel collapses to nothing.
+  const [splitPct, setSplitPct] = useState(() => {
+    try { return Number(localStorage.getItem("events_split_pct")) || 50; } catch { return 50; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("events_split_pct", String(splitPct)); } catch { /* private */ }
+  }, [splitPct]);
+  const startResize = (ev) => {
+    ev.preventDefault();
+    const startX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+    const startPct = splitPct;
+    const container = ev.currentTarget.parentElement;
+    const w = container?.getBoundingClientRect().width || 800;
+    const move = (mv) => {
+      const cx = mv.touches ? mv.touches[0].clientX : mv.clientX;
+      const dx = cx - startX;
+      const nextPct = Math.min(80, Math.max(20, startPct + (dx / w) * 100));
+      setSplitPct(nextPct);
+    };
+    const stop = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", stop);
+      window.removeEventListener("touchmove", move);
+      window.removeEventListener("touchend", stop);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", stop);
+    window.addEventListener("touchmove", move, { passive: false });
+    window.addEventListener("touchend", stop);
+  };
+
+  const renderGroupedCol = () => (
+    <section data-testid="events-grouped-column">
+      <div
+        className="flex items-center gap-2 mb-3 pb-2"
+        style={{ borderBottom: "1px solid rgba(245,166,35,0.22)" }}
+      >
+        <Users className="w-4 h-4" style={{ color: "#F5A623" }} />
+        <h2 className="text-xs font-bold uppercase tracking-widest gold-text">
+          Kolektif Etkinlikler
+        </h2>
+        <span
+          className="ml-auto chip text-[10px]"
+          style={{ borderColor: "rgba(245,166,35,0.45)", color: "#F5A623" }}
+          data-testid="events-grouped-count"
+        >
+          {Object.keys(groupedMap).length} grup · {groupedEventCount}
+        </span>
+      </div>
+      {Object.keys(groupedMap).length === 0 ? (
+        <div data-testid="events-grouped-empty" className="card-dark p-4 text-center text-xs text-muted-foreground">
+          Kolektif etkinlik yok
+        </div>
+      ) : (
+        Object.entries(groupedMap).map(([group, list]) => renderGroupBlock(group, list))
+      )}
+    </section>
+  );
+
+  const renderUngroupedCol = () => (
+    <section data-testid="events-ungrouped-column">
+      <div
+        className="flex items-center gap-2 mb-3 pb-2"
+        style={{ borderBottom: "1px solid rgba(139,92,246,0.28)" }}
+      >
+        <User className="w-4 h-4" style={{ color: "#A78BFA" }} />
+        <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#C4B5FD", textShadow: "0 0 6px rgba(139,92,246,0.35)" }}>
+          Bireysel Etkinlikler
+        </h2>
+        <span
+          className="ml-auto chip text-[10px]"
+          style={{ borderColor: "rgba(139,92,246,0.45)", color: "#C4B5FD" }}
+          data-testid="events-ungrouped-count"
+        >
+          {ungrouped.length}
+        </span>
+      </div>
+      {ungrouped.length === 0 ? (
+        <div data-testid="events-ungrouped-empty" className="card-dark p-4 text-center text-xs text-muted-foreground">
+          Bireysel etkinlik yok
+        </div>
+      ) : (
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 gap-1.5"
+          initial="hidden"
+          animate="visible"
+          variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
+          data-testid="events-ungrouped-grid"
+        >
+          {applyManualOrder(ungrouped, "ungrouped").map((e) =>
+            renderEventCard(e, "#818cf8", "", "ungrouped")
+          )}
+        </motion.div>
+      )}
+    </section>
+  );
 
   const archiveGroup = async (group) => {
     if (!window.confirm(t("confirm_archive_group", { group }))) return;
@@ -598,16 +718,16 @@ export default function Events() {
 
 
         {/* Sub-filter chips — sit UNDER the primary tabs so the admin can
-            narrow the active tab down to just "Gruplu" or "Grupsuz" events
-            side-by-side. Default = "Tümü" restores the full split view. */}
+            narrow the active tab down to just "Kolektif" (grouped) or
+            "Bireysel" (ungrouped). Clicking the active chip toggles back
+            to the 2-column split. */}
         <div
           className="flex gap-1.5 mb-4 flex-wrap"
           data-testid="events-subfilter-bar"
         >
           {[
-            { key: "all",       label: "Tümü",     color: "#F5A623" },
-            { key: "grouped",   label: "Gruplu",   color: "#F5A623" },
-            { key: "ungrouped", label: "Grupsuz",  color: "#A78BFA" },
+            { key: "kolektif", label: "Kolektif", color: "#F5A623" },
+            { key: "bireysel", label: "Bireysel", color: "#A78BFA" },
           ].map((opt) => {
             const active = subFilter === opt.key;
             return (
@@ -615,7 +735,7 @@ export default function Events() {
                 key={opt.key}
                 type="button"
                 data-testid={`events-subfilter-${opt.key}`}
-                onClick={() => setSubFilter(opt.key)}
+                onClick={() => setSubFilter(active ? "all" : opt.key)}
                 className="chip text-[10px] flex-1 justify-center"
                 style={active ? {
                   borderColor: opt.color,
@@ -633,90 +753,54 @@ export default function Events() {
         </div>
 
         {/* Filtered content — respects the sub-filter chip above. When
-            "all", both grouped + ungrouped columns render side-by-side; when
-            "grouped" or "ungrouped" only that column shows full-width. */}
+            "all", both columns render side-by-side with a resizable split
+            handle; otherwise only that column shows full-width. */}
         {(() => {
-          const showGrouped = subFilter === "all" || subFilter === "grouped";
-          const showUngrouped = subFilter === "all" || subFilter === "ungrouped";
+          const showGrouped = subFilter === "all" || subFilter === "kolektif";
+          const showUngrouped = subFilter === "all" || subFilter === "bireysel";
           const twoCol = showGrouped && showUngrouped;
           return (
         <div
-          className={twoCol ? "grid grid-cols-1 lg:grid-cols-2 gap-4" : ""}
+          className={twoCol ? "hidden lg:grid gap-0" : ""}
+          style={twoCol ? { gridTemplateColumns: `${splitPct}fr 8px ${100 - splitPct}fr` } : undefined}
           data-testid="events-two-col-grid"
         >
-          {showGrouped && (
-          <section data-testid="events-grouped-column">
-            <div
-              className="flex items-center gap-2 mb-3 pb-2"
-              style={{ borderBottom: "1px solid rgba(245,166,35,0.22)" }}
-            >
-              <Users className="w-4 h-4" style={{ color: "#F5A623" }} />
-              <h2 className="text-xs font-bold uppercase tracking-widest gold-text">
-                Gruplu Etkinlikler
-              </h2>
-              <span
-                className="ml-auto chip text-[10px]"
-                style={{ borderColor: "rgba(245,166,35,0.45)", color: "#F5A623" }}
-                data-testid="events-grouped-count"
-              >
-                {Object.keys(groupedMap).length} grup · {groupedEventCount}
-              </span>
+          {/* Mobile / narrow-viewport fallback for 2-col — plain stacked */}
+          {twoCol && (
+            <div className="grid grid-cols-1 gap-4 lg:hidden col-span-full">
+              {renderGroupedCol()}
+              {renderUngroupedCol()}
             </div>
-            {Object.keys(groupedMap).length === 0 ? (
-              <div
-                data-testid="events-grouped-empty"
-                className="card-dark p-4 text-center text-xs text-muted-foreground"
-              >
-                Gruplu etkinlik yok
-              </div>
-            ) : (
-              Object.entries(groupedMap).map(([group, list]) => renderGroupBlock(group, list))
-            )}
-          </section>
           )}
-
-          {showUngrouped && (
-          <section data-testid="events-ungrouped-column">
-            <div
-              className="flex items-center gap-2 mb-3 pb-2"
-              style={{ borderBottom: "1px solid rgba(139,92,246,0.28)" }}
-            >
-              <User className="w-4 h-4" style={{ color: "#A78BFA" }} />
-              <h2
-                className="text-xs font-bold uppercase tracking-widest"
-                style={{ color: "#C4B5FD", textShadow: "0 0 6px rgba(139,92,246,0.35)" }}
-              >
-                Grupsuz Etkinlikler
-              </h2>
-              <span
-                className="ml-auto chip text-[10px]"
-                style={{ borderColor: "rgba(139,92,246,0.45)", color: "#C4B5FD" }}
-                data-testid="events-ungrouped-count"
-              >
-                {ungrouped.length}
-              </span>
-            </div>
-            {ungrouped.length === 0 ? (
+          {twoCol ? (
+            <>
+              {renderGroupedCol()}
               <div
-                data-testid="events-ungrouped-empty"
-                className="card-dark p-4 text-center text-xs text-muted-foreground"
+                data-testid="events-column-resize-handle"
+                onMouseDown={(ev) => startResize(ev)}
+                onTouchStart={(ev) => startResize(ev)}
+                className="hidden lg:block cursor-col-resize group"
+                style={{ position: "relative" }}
+                title="Sürükle-bırak ile kolon genişliğini ayarla"
               >
-                Grupsuz etkinlik yok
+                <div
+                  className="absolute inset-y-0"
+                  style={{
+                    left: 2,
+                    width: 4,
+                    background: "linear-gradient(180deg, rgba(245,166,35,0.35), rgba(139,92,246,0.35))",
+                    borderRadius: 2,
+                    transition: "opacity 0.15s",
+                  }}
+                />
               </div>
-            ) : (
-              <motion.div
-                className="grid grid-cols-1 md:grid-cols-2 gap-1.5"
-                initial="hidden"
-                animate="visible"
-                variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
-                data-testid="events-ungrouped-grid"
-              >
-                {applyManualOrder(ungrouped, "ungrouped").map((e) =>
-                  renderEventCard(e, "#818cf8", "", "ungrouped")
-                )}
-              </motion.div>
-            )}
-          </section>
+              {renderUngroupedCol()}
+            </>
+          ) : (
+            <>
+              {showGrouped && renderGroupedCol()}
+              {showUngrouped && renderUngroupedCol()}
+            </>
           )}
         </div>
           );
@@ -860,7 +944,7 @@ function EventForm({ initial, onClose }) {
             className={`chip justify-center py-2 ${grouped ? "active" : ""}`}
             aria-pressed={grouped}
           >
-            Gruplu
+            Kolektif
           </button>
           <button
             type="button"
@@ -869,7 +953,7 @@ function EventForm({ initial, onClose }) {
             className={`chip justify-center py-2 ${!grouped ? "active" : ""}`}
             aria-pressed={!grouped}
           >
-            Grupsuz
+            Bireysel
           </button>
         </div>
 

@@ -314,6 +314,33 @@ so both columns share the same JSX and attendance/gallery behaviour.
 Verified in preview (Hatırlatmalı + Hatırlatmasız tabs) — screenshots show
 clean separation with correct counts and no visual regressions.
 
+## Kolektif/Bireysel + Kolon Resize + Backend Order Sync + Emoji Bottom Nav (Feb 16, 2026)
+- **Rename** Gruplu → **Kolektif**, Grupsuz → **Bireysel** across Events.jsx
+  (column headers, empty states, EventForm group-type toggle, comments).
+  Sub-filter chips are now `[Kolektif] [Bireysel]` with `events-subfilter-kolektif`
+  / `events-subfilter-bireysel` testids. **Tümü chip removed** — clicking an
+  active chip toggles back to the default 2-column split.
+- **Resizable column split** — the 2-column layout now uses a dynamic
+  `gridTemplateColumns: {splitPct}fr 8px {100-splitPct}fr` with an 8px
+  drag handle in the middle (`events-column-resize-handle`). Mouse + touch
+  drag both work, clamped to `[20%, 80%]`, persisted to
+  `localStorage.events_split_pct`. Handle only shows on `lg+` viewports;
+  mobile collapses to stacked columns as before.
+- **Backend order sync** — new endpoints on `auth.py`:
+    - `GET /api/users/me/event-order` → `{order: {bucket_key: [ids]}}`
+    - `PUT /api/users/me/event-order` → body `{bucket_key, ids}` merges one
+      bucket at a time so buckets don't clobber each other. `[:500]` cap.
+  Frontend `Events.jsx` fires `useEffect` on mount to hydrate remote order,
+  and fires-and-forgets `api.put` on every reorder so any device sees the
+  latest arrangement. LocalStorage remains an offline fallback.
+- **Bottom nav emoji preview** — `BottomNav.jsx` rewritten to swap Lucide
+  icons for matching colored emojis: 🏆 Sıralama · ⚔️ Loj Hakkında ·
+  🧮 Puan Hesaplama · 📊 Puanlar Hakkında · 👥 Üyeler · 📅 Etkinlikler.
+  Fixed 22×22 box keeps the layout identical; active state uses the same
+  drop-shadow glow, inactive gets slight grayscale to match the muted look.
+- Backend endpoints roundtrip-verified via curl (empty → PUT → 3 ids stored).
+
+
 ## Key Files
 - `/app/backend/server.py` — helpers at 3193-3341; `_telegram_forward_scheduled` at 3488
 - `/app/backend/auth.py` — `preferred-language` endpoint + public_user

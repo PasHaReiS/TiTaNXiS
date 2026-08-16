@@ -1,18 +1,27 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Lock, Trophy, Swords, BarChart2, Calculator, Users, Flag } from "lucide-react";
+import { Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NAV } from "@/constants/testIds";
 import { useAuth } from "@/context/AuthContext";
 
+/**
+ * Bottom nav — swapped Lucide icons for matching colored emojis as a
+ * design preview. The emojis are wrapped in a fixed-size box so the icon
+ * footprint stays consistent with the previous Lucide layout.
+ *
+ * Emoji ↔ label mapping is intentionally domain-flavoured:
+ *   🏆 Sıralama · ⚔️ Loj Hakkında · 🧮 Puan Hesaplama
+ *   📊 Puanlar Hakkında · 👥 Üyeler · 📅 Etkinlikler
+ */
 const buildItems = () => [
-  { to: "/", labelKey: "nav_leaderboard", Icon: Trophy, testId: NAV.leaderboard, guest: true },
-  { to: "/komutanlar", labelKey: "nav_commanders", Icon: Swords, testId: NAV.commanders, guest: true },
-  { to: "/puan-hesaplama", labelKey: "nav_point_calc", Icon: Calculator, testId: NAV.pointCalc, guest: true },
-  { to: "/puanlar-hakkinda", labelKey: "nav_points_about", Icon: BarChart2, testId: NAV.pointsAbout, guest: false },
-  { to: "/uyeler", labelKey: "nav_members", Icon: Users, testId: NAV.members, guest: false },
-  { to: "/etkinlikler", labelKey: "nav_events", Icon: Flag, testId: NAV.events, guest: false },
+  { to: "/", labelKey: "nav_leaderboard", emoji: "🏆", testId: NAV.leaderboard, guest: true },
+  { to: "/komutanlar", labelKey: "nav_commanders", emoji: "⚔️", testId: NAV.commanders, guest: true },
+  { to: "/puan-hesaplama", labelKey: "nav_point_calc", emoji: "🧮", testId: NAV.pointCalc, guest: true },
+  { to: "/puanlar-hakkinda", labelKey: "nav_points_about", emoji: "📊", testId: NAV.pointsAbout, guest: false },
+  { to: "/uyeler", labelKey: "nav_members", emoji: "👥", testId: NAV.members, guest: false },
+  { to: "/etkinlikler", labelKey: "nav_events", emoji: "📅", testId: NAV.events, guest: false },
 ];
 
 const ACTIVE = "#E74C1A";
@@ -62,13 +71,22 @@ export default function BottomNav() {
           >
             {({ isActive }) => {
               const color = isActive ? ACTIVE : INACTIVE;
-              const iconStyle = isActive
-                ? { color, filter: "drop-shadow(0 0 6px rgba(231,76,26,0.5))" }
-                : { color };
               return (
                 <>
-                  <div className="relative" style={iconStyle}>
-                    <it.Icon className="w-[22px] h-[22px]" strokeWidth={2} />
+                  <div
+                    className="relative flex items-center justify-center"
+                    style={{
+                      width: 22,
+                      height: 22,
+                      fontSize: 20,
+                      lineHeight: 1,
+                      filter: isActive
+                        ? "drop-shadow(0 0 6px rgba(231,76,26,0.5))"
+                        : "grayscale(0.15) opacity(0.92)",
+                      transition: "filter 0.2s",
+                    }}
+                  >
+                    <span aria-hidden="true">{it.emoji}</span>
                     {disabledEdit && <Lock className="w-2.5 h-2.5 absolute -top-1 -right-1 gold-text" />}
                   </div>
                   <span

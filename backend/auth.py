@@ -241,7 +241,29 @@ def make_auth_router(db):
         )
         return {"ok": True}
 
-    # ---------- Admin: manual account unlock ----------
+    # ---------- Per-user manual event drag-drop order ----------
+    # Stores the drag-drop reorder from the Etkinlikler page in a per-user
+    # dict so a reorder done on desktop lives on the phone too. Bucket keys
+    # look like "ungrouped" or "group:SvS" (whatever Events.jsx sends).
+    # Body: {"bucket_key": str, "ids": [str]}
+    @router.get("/users/me/event-order")
+    async def get_event_order(user: dict = Depends(require_auth)):
+        return {"order": user.get("event_manual_order") or {}}
+
+    @router.put("/users/me/event-order")
+    async def put_event_order(body: dict, user: dict = Depends(require_auth)):
+        bucket = (body or {}).get("bucket_key") or ""
+        ids = (body or {}).get("ids") or []
+        if not bucket or not isinstance(ids, list):
+            raise HTTPException(400, "bucket_key ve ids gerekli")
+        # Merge into existing dict — one bucket at a time, don't clobber others
+        current = user.get("event_manual_order") or {}
+        current[bucket] = [str(x) for x in ids][:500]  # bounded to keep doc small
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$set": {"event_manual_order": current}},
+        )
+        return {"ok": True, "bucket_key": bucket, "count": len(current[bucket])}
     # Wipes all failed login_attempts within the 15-min brute-force window for a
     # given username so an operator can rescue a locked-out user without waiting
     # out the timer. Also defensively unsets any per-user lockout fields that
