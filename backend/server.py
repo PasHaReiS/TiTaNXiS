@@ -6401,6 +6401,42 @@ async def digest_recipients_test(chat_id: str, _: dict = Depends(require_admin))
         raise HTTPException(500, f"Telegram test hatası: {ex}")
 
 
+@api_router.post("/reports/trend/digest/test-send")
+async def reports_trend_digest_test_send(days: int = 7, user: dict = Depends(require_admin)):
+    """Mini test dispatch — sends the current digest ONLY to the requesting
+    admin's own Telegram DM (if linked) + a personal bell. Does NOT touch
+    the schedule, `trend_digest_state`, or the configured recipient list —
+    so admins can preview delivery formatting without spamming leadership."""
+    days = max(1, min(int(days or 7), 90))
+    digest = await _trend_digest_compose(days)
+    body = "🧪 *[TEST]*\n" + digest["text"]
+    tg_sent = 0
+    tg_err_reason = None
+    udoc = await db.users.find_one({"id": user["id"]}, {"_id": 0, "telegram_chat_id": 1})
+    chat_id = (udoc or {}).get("telegram_chat_id")
+    if chat_id:
+        try:
+            from telegram_bot import _send_tg_message
+            ok = await _send_tg_message(str(chat_id), body)
+            tg_sent = 1 if ok else 0
+            if not ok:
+                tg_err_reason = "bot delivery failed"
+        except Exception as ex:
+            tg_err_reason = str(ex)
+    else:
+        tg_err_reason = "telegram_chat_id yok — Profil > Telegram bağla"
+    # Personal bell.
+    await db.in_app_notifications.insert_one({
+        "id": str(uuid.uuid4()), "user_id": user["id"],
+        "title": "🧪 Digest Test Mesajı",
+        "body": (digest["text"][:180].replace("*", "") + "…") if len(digest["text"]) > 180 else digest["text"].replace("*", ""),
+        "url": "/raporlar", "read": False,
+        "created_at": now_iso(), "kind": "trend_digest_test",
+    })
+    return {"ok": True, "tg_sent": tg_sent, "tg_err_reason": tg_err_reason,
+            "bell_sent": 1, "chat_id_linked": bool(chat_id), "text": body}
+
+
 @api_router.get("/reports/trend/digest/preview")
 async def reports_trend_digest_preview(days: int = 7, _: dict = Depends(require_admin)):
     """Preview the digest without sending it — useful for a "Bu haftaki

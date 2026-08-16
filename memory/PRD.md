@@ -625,3 +625,21 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 
 
 
+
+## Digest Test Send (Feb 16, 2026)
+
+### Backend
+- **`POST /api/reports/trend/digest/test-send?days=7`** (admin) — mini dispatch scoped to the caller only:
+  - Composes the same digest via `_trend_digest_compose`, prefixes it with `🧪 *[TEST]*\n`.
+  - Sends to the requesting admin's own `telegram_chat_id` if linked (else `tg_err_reason: "telegram_chat_id yok — Profil > Telegram bağla"`).
+  - Drops a personal bell (`kind="trend_digest_test"`, title "🧪 Digest Test Mesajı").
+  - **Does NOT** touch `trend_digest_state`, `trend_digest_schedule`, or the recipients list — so admins can rehearse formatting without spamming leadership.
+
+### Frontend — `TrendDigestModal`
+- Adds a `🧪 Test Mesajı` chip next to "Şimdi Gönder" (side-by-side flex row). Loading state disables both.
+- Distinct toasts: success when Telegram delivery lands; warning when only the bell fires (with the exact reason string from backend).
+- **Testid**: `trend-digest-test-send`.
+
+### Verified (curl)
+- Captured `last_state.last_sent_at` before test → `test-send` returned `tg_sent=0 bell_sent=1 reason="telegram_chat_id yok — Profil > Telegram bağla" text_prefix="🧪 *[TEST]*"` → post-test `last_sent_at` unchanged (✅). Bell row inserted with `kind="trend_digest_test"` and cleaned. State + schedule + recipients untouched.
+

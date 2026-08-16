@@ -649,6 +649,7 @@ function TrendDigestModal({ onClose }) {
   const [newChatId, setNewChatId] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [sending, setSending] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [savingRec, setSavingRec] = useState(false);
   const [testingId, setTestingId] = useState(null);
 
@@ -691,6 +692,20 @@ function TrendDigestModal({ onClose }) {
       mutate();
     } catch (e) { toast.error(apiErr(e)); }
     finally { setSending(false); }
+  };
+
+  const testSend = async () => {
+    // Personal preview — no schedule/state touched, only me gets the ping.
+    setTesting(true);
+    try {
+      const r = await api.post(`/reports/trend/digest/test-send?days=${days}`);
+      if (r.data.tg_sent) {
+        toast.success("🧪 Telegram DM ve bell'ine gönderildi");
+      } else {
+        toast.warning(`🧪 Bell'e düştü. Telegram: ${r.data.tg_err_reason || "başarısız"}`);
+      }
+    } catch (e) { toast.error(apiErr(e)); }
+    finally { setTesting(false); }
   };
 
   const saveSchedule = async (weekday, hour, tz) => {
@@ -873,15 +888,25 @@ function TrendDigestModal({ onClose }) {
               </form>
             </div>
 
-            <button
-              type="button"
-              onClick={send}
-              disabled={sending}
-              className="btn-gold w-full py-2 flex items-center justify-center gap-2 text-sm"
-              data-testid="trend-digest-send"
-            >
-              {sending ? "Gönderiliyor…" : "Şimdi Gönder"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={testSend}
+                disabled={testing}
+                className="chip text-[11px] flex-shrink-0"
+                title="Sadece sana gönderir — program/liste dokunulmaz"
+                data-testid="trend-digest-test-send"
+              >{testing ? "…" : "🧪 Test Mesajı"}</button>
+              <button
+                type="button"
+                onClick={send}
+                disabled={sending}
+                className="btn-gold flex-1 py-2 flex items-center justify-center gap-2 text-sm"
+                data-testid="trend-digest-send"
+              >
+                {sending ? "Gönderiliyor…" : "Şimdi Gönder"}
+              </button>
+            </div>
           </>
         )}
       </div>
