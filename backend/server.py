@@ -5839,34 +5839,37 @@ def _trend_ma7_series(items: list) -> list:
 async def _trend_alert_evaluate() -> dict:
     """Compute the current MA7 breach streak and (if warranted) fan out
     alerts. Returns a diagnostic dict so the manual-trigger endpoint can
-    surface what happened."""
+    surface what happened.
+
+    Also fires a green "🎯 Hedef geri kazanıldı" recovery bell exactly once
+    per breach cycle when the MA climbs back above the target — tracked via
+    `pending_recovery` flag inside `guild_settings.trend_alert_state`.
+    """
     from datetime import datetime as _dt_a, timezone as _tz_a
     target_doc = await db.guild_settings.find_one({"key": "guild_target"}, {"_id": 0})
     target = int((target_doc or {}).get("value", 60))
     trend = await _compute_trend_items(30)
+    state_doc = await db.guild_settings.find_one({"key": "trend_alert_state"}, {"_id": 0})
+    state = (state_doc or {}).get("value") or {}
+    last_dispatched_at = state.get("last_dispatched_at")
+    last_streak = int(state.get("last_streak") or 0)
+    snoozed_until = state.get("snoozed_until")
+    pending_recovery = bool(state.get("pending_recovery"))
+
     if not trend["items"] or trend["member_pool"] == 0:
-        return {"fired": False, "reason": "no-data", "streak": 0, "target": target}
+        return {"fired": False, "reason": "no-data", "streak": 0, "target": target,
+                "snoozed_until": snoozed_until, "pending_recovery": pending_recovery}
     ma = _trend_ma7_series(trend["items"])
-    # Trailing streak: count consecutive most-recent days where MA is known AND < target.
     streak = 0
-    breach_days: list = []
     for row in reversed(ma):
         if row["ma"] is None:
             break
         if row["ma"] < target:
             streak += 1
-            breach_days.append(row)
         else:
             break
     last_ma = next((r["ma"] for r in reversed(ma) if r["ma"] is not None), None)
 
-    state_doc = await db.guild_settings.find_one({"key": "trend_alert_state"}, {"_id": 0})
-    state = (state_doc or {}).get("value") or {}
-    last_dispatched_at = state.get("last_dispatched_at")
-    last_streak = int(state.get("last_streak") or 0)
-
-    # Fire when the streak reaches 3+ AND either (a) we haven't alerted in >20h,
-    # or (b) the streak grew from last time (worse) so admins get updated news.
     now = _dt_a.now(_tz_a.utc)
     hours_since_last = 999.0
     if last_dispatched_at:
@@ -5877,43 +5880,65 @@ async def _trend_alert_evaluate() -> dict:
             hours_since_last = (now - when).total_seconds() / 3600.0
         except Exception:
             pass
-    should_fire = streak >= 3 and (hours_since_last >= 20 or streak > last_streak)
+    # Honor active snooze.
+    snoozed = False
+    if snoozed_until:
+        try:
+            su = _dt_a.fromisoformat(snoozed_until.replace("Z", "+00:00"))
+            if su.tzinfo is None:
+                su = su.replace(tzinfo=_tz_a.utc)
+            snoozed = su > now
+        except Exception:
+            pass
+
+    should_fire = (streak >= 3) and (not snoozed) and (hours_since_last >= 20 or streak > last_streak)
+    # Recovery: streak just dropped to 0 AND we previously fired a breach alert.
+    should_recover = (streak == 0) and pending_recovery and (last_ma is not None) and (last_ma >= target) and (not snoozed)
 
     result = {
         "fired": False, "streak": streak, "last_streak": last_streak,
-        "target": target, "last_ma": last_ma, "hours_since_last": round(hours_since_last, 1),
+        "target": target, "last_ma": last_ma,
+        "hours_since_last": round(hours_since_last, 1),
         "member_pool": trend["member_pool"],
+        "snoozed_until": snoozed_until, "snoozed": snoozed,
+        "pending_recovery": pending_recovery,
     }
-    if not should_fire:
-        result["reason"] = "no-alert" if streak < 3 else "throttled"
+    if not should_fire and not should_recover:
+        if snoozed:
+            result["reason"] = "snoozed"
+        elif streak < 3:
+            result["reason"] = "no-alert"
+        else:
+            result["reason"] = "throttled"
         return result
 
-    title = "⚠️ Katılım Uyarısı"
-    body = (f"Son 7 günlük ortalama %{last_ma if last_ma is not None else '?'} — "
-            f"hedef %{target}. {streak} gündür hedefin altında.")
-    url = "/raporlar"
+    if should_fire:
+        title = "⚠️ Katılım Uyarısı"
+        body = (f"Son 7 günlük ortalama %{last_ma if last_ma is not None else '?'} — "
+                f"hedef %{target}. {streak} gündür hedefin altında.")
+        url = "/raporlar"
+        kind = "trend_alert"
+    else:
+        title = "🎯 Hedef Geri Kazanıldı"
+        body = (f"Son 7 günlük ortalama %{last_ma} — hedef %{target} yeniden aşıldı. "
+                f"Uyarı otomatik kapatıldı.")
+        url = "/raporlar"
+        kind = "trend_recovery"
 
-    # Only alert admins — noisy pings for regular members would erode trust.
     admin_users = await db.users.find({"role": "admin", "notification_enabled": {"$ne": False}},
                                       {"_id": 0, "id": 1, "telegram_chat_id": 1}).to_list(500)
     admin_ids = [u["id"] for u in admin_users]
-
-    # Bell: insert directly so we don't get filtered by attendance rules in _broadcast_in_app.
-    from datetime import datetime as _dt_b
     if admin_ids:
         await db.in_app_notifications.insert_many([
             {"id": str(uuid.uuid4()), "user_id": uid, "title": title, "body": body,
-             "url": url, "read": False, "created_at": now_iso(),
-             "kind": "trend_alert"}
+             "url": url, "read": False, "created_at": now_iso(), "kind": kind}
             for uid in admin_ids
         ])
     result["bell_sent"] = len(admin_ids)
 
-    # Telegram DMs — reuse _send_tg_dms with admin-only targeting: it will
-    # filter to users w/ telegram_chat_id and role admin via a synthetic doc.
     tg_sent = 0
     try:
-        from telegram_bot import _send_tg_message  # existing low-level sender
+        from telegram_bot import _send_tg_message
         for u in admin_users:
             cid = u.get("telegram_chat_id")
             if not cid:
@@ -5926,26 +5951,32 @@ async def _trend_alert_evaluate() -> dict:
         logger.warning(f"trend alert telegram: {ex}")
     result["tg_sent"] = tg_sent
 
-    # Web push — targets all admin subscriptions.
     try:
-        push_r = await _broadcast_push(title, body, url, tag=f"trend-alert-{now.date().isoformat()}", sound="rally")
+        push_r = await _broadcast_push(title, body, url, tag=f"{kind}-{now.date().isoformat()}", sound="rally")
         result["push_sent"] = (push_r or {}).get("sent", 0)
     except Exception as ex:
         logger.warning(f"trend alert push: {ex}")
         result["push_sent"] = 0
 
+    # State flips: breach → pending_recovery=True; recovery → False.
+    new_state = {
+        "last_dispatched_at": now.isoformat(),
+        "last_streak": streak,
+        "last_ma": last_ma,
+        "target": target,
+        "snoozed_until": snoozed_until if snoozed else None,
+        "pending_recovery": True if should_fire else False,
+    }
+    if should_recover:
+        new_state["last_recovery_at"] = now.isoformat()
     await db.guild_settings.update_one(
         {"key": "trend_alert_state"},
-        {"$set": {"key": "trend_alert_state",
-                  "value": {"last_dispatched_at": now.isoformat(),
-                            "last_streak": streak,
-                            "last_ma": last_ma,
-                            "target": target},
-                  "updated_at": now_iso()}},
+        {"$set": {"key": "trend_alert_state", "value": new_state, "updated_at": now_iso()}},
         upsert=True,
     )
     result["fired"] = True
-    logger.info(f"trend_alert fired: streak={streak} ma={last_ma} target={target} → {result}")
+    result["kind"] = kind
+    logger.info(f"trend_alert fired kind={kind}: streak={streak} ma={last_ma} target={target}")
     return result
 
 
@@ -5987,12 +6018,68 @@ async def reports_trend_alert_state(_: dict = Depends(require_admin)):
         else:
             break
     last_ma = next((r["ma"] for r in reversed(ma) if r["ma"] is not None), None)
+    state = (doc or {}).get("value") or {}
+    # Compute is-currently-snoozed flag so the frontend doesn't have to parse timestamps.
+    from datetime import datetime as _dt_s, timezone as _tz_s
+    snoozed = False
+    if state.get("snoozed_until"):
+        try:
+            su = _dt_s.fromisoformat(state["snoozed_until"].replace("Z", "+00:00"))
+            if su.tzinfo is None:
+                su = su.replace(tzinfo=_tz_s.utc)
+            snoozed = su > _dt_s.now(_tz_s.utc)
+        except Exception:
+            pass
     return {
         "target": target,
         "streak": streak,
         "last_ma": last_ma,
-        "state": (doc or {}).get("value") or {},
+        "snoozed": snoozed,
+        "snoozed_until": state.get("snoozed_until") if snoozed else None,
+        "pending_recovery": bool(state.get("pending_recovery")),
+        "state": state,
     }
+
+
+class TrendSnoozeBody(BaseModel):
+    days: int = 7
+
+
+@api_router.post("/reports/trend/alert-snooze")
+async def reports_trend_alert_snooze(body: TrendSnoozeBody, user: dict = Depends(require_admin)):
+    """Silence trend alerts for `days` days (default 7). The evaluator still
+    computes streak — it just skips fan-out until the snooze window expires.
+    Prevents a known dip from spamming the guild every hour."""
+    from datetime import datetime as _dt_sn, timezone as _tz_sn, timedelta as _td_sn
+    days = max(1, min(int(body.days or 7), 30))
+    until = (_dt_sn.now(_tz_sn.utc) + _td_sn(days=days)).isoformat()
+    doc = await db.guild_settings.find_one({"key": "trend_alert_state"}, {"_id": 0})
+    state = (doc or {}).get("value") or {}
+    state["snoozed_until"] = until
+    state["snoozed_by_username"] = user.get("username")
+    state["snoozed_at"] = now_iso()
+    await db.guild_settings.update_one(
+        {"key": "trend_alert_state"},
+        {"$set": {"key": "trend_alert_state", "value": state, "updated_at": now_iso()}},
+        upsert=True,
+    )
+    return {"ok": True, "snoozed_until": until, "days": days}
+
+
+@api_router.delete("/reports/trend/alert-snooze")
+async def reports_trend_alert_unsnooze(_: dict = Depends(require_admin)):
+    """Cancel an active snooze so alerts can fire again on the next tick."""
+    doc = await db.guild_settings.find_one({"key": "trend_alert_state"}, {"_id": 0})
+    state = (doc or {}).get("value") or {}
+    state.pop("snoozed_until", None)
+    state.pop("snoozed_by_username", None)
+    state.pop("snoozed_at", None)
+    await db.guild_settings.update_one(
+        {"key": "trend_alert_state"},
+        {"$set": {"key": "trend_alert_state", "value": state, "updated_at": now_iso()}},
+        upsert=True,
+    )
+    return {"ok": True}
 
 
 @api_router.get("/reports/events")

@@ -324,6 +324,7 @@ function TrendChart({ alliance, country }) {
   if (country) qs.set("country", country);
   const { data, isLoading } = useSWR(`/reports/trend?${qs.toString()}`, fetcher);
   const { data: targetResp, mutate: mutateTarget } = useSWR("/settings/guild-target", fetcher);
+  const { data: alertState, mutate: mutateAlertState } = useSWR("/reports/trend/alert-state", fetcher, { refreshInterval: 60000 });
   const target = targetResp?.target ?? 60;
 
   const items = data?.items || [];
@@ -368,6 +369,28 @@ function TrendChart({ alliance, country }) {
       toast.success(`Hedef %${t} olarak kaydedildi`);
       setEditingTarget(false);
       mutateTarget();
+    } catch (e) { toast.error(apiErr(e)); }
+  };
+
+  // Snooze controls — hidden unless there's an active breach OR an active
+  // snooze so the chart doesn't get cluttered on healthy days.
+  const streak = alertState?.streak ?? 0;
+  const snoozed = !!alertState?.snoozed;
+  const snoozedUntil = alertState?.snoozed_until;
+  const showSnoozeStrip = streak >= 3 || snoozed;
+  const snoozeAlert = async (days) => {
+    try {
+      const r = await api.post("/reports/trend/alert-snooze", { days });
+      const until = new Date(r.data.snoozed_until).toLocaleString("tr-TR");
+      toast.success(`Uyarılar ${days} gün sessize alındı (→ ${until})`);
+      mutateAlertState();
+    } catch (e) { toast.error(apiErr(e)); }
+  };
+  const unsnoozeAlert = async () => {
+    try {
+      await api.delete("/reports/trend/alert-snooze");
+      toast.success("Sessize alma iptal edildi");
+      mutateAlertState();
     } catch (e) { toast.error(apiErr(e)); }
   };
 
@@ -539,6 +562,68 @@ function TrendChart({ alliance, country }) {
               <span className="inline-block w-2.5 h-0.5 border-dashed border-t" style={{ borderColor: "#22C55E" }} />
               Hedef %{target}
             </span>
+          )}
+        </div>
+      )}
+      {/* Alert snooze strip — only rendered on active breach or active snooze. */}
+      {showSnoozeStrip && (
+        <div
+          className="mt-2 rounded p-2 flex items-center gap-2 flex-wrap"
+          style={{
+            background: snoozed
+              ? "rgba(120,113,108,0.15)"
+              : "rgba(239,68,68,0.12)",
+            border: `1px solid ${snoozed ? "rgba(120,113,108,0.4)" : "rgba(239,68,68,0.4)"}`,
+          }}
+          data-testid="trend-alert-strip"
+        >
+          {snoozed ? (
+            <>
+              <span className="text-xs" aria-hidden>🔕</span>
+              <span className="text-xs text-white flex-1">
+                Uyarılar sessize alındı →{" "}
+                <span className="gold-text font-bold">
+                  {new Date(snoozedUntil).toLocaleString("tr-TR")}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={unsnoozeAlert}
+                className="chip text-[10px]"
+                data-testid="trend-alert-unsnooze"
+              >Sessize almayı kaldır</button>
+            </>
+          ) : (
+            <>
+              <span className="text-sm" aria-hidden>⚠️</span>
+              <span className="text-xs text-white flex-1">
+                <span className="font-bold" style={{ color: "#FCA5A5" }}>
+                  {streak} gündür
+                </span>{" "}
+                7-günlük ortalama hedefin altında. Uyarılar admin bell/Telegram/Push'a düşecek.
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => snoozeAlert(1)}
+                  className="chip text-[10px]"
+                  data-testid="trend-alert-snooze-1d"
+                >🔕 1G</button>
+                <button
+                  type="button"
+                  onClick={() => snoozeAlert(7)}
+                  className="chip text-[10px]"
+                  style={{ background: "rgba(245,166,35,0.2)", borderColor: "#F5A623", color: "#FFEDD5" }}
+                  data-testid="trend-alert-snooze-7d"
+                >🔕 1 hafta sessize al</button>
+                <button
+                  type="button"
+                  onClick={() => snoozeAlert(30)}
+                  className="chip text-[10px]"
+                  data-testid="trend-alert-snooze-30d"
+                >🔕 30G</button>
+              </div>
+            </>
           )}
         </div>
       )}

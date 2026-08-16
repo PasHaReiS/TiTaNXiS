@@ -534,3 +534,26 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 
 ### Verified (curl)
 - Seeded 5 consecutive daily events with zero attendance → `alert-state` reported `streak=4, last_ma=0.2%` → `check-alerts` returned `fired: true, bell_sent=7`. Retry returned `fired: false, reason: throttled`. Cleanup script removed 5 seed events + 7 bell rows + alert state.
+
+## Alert Snooze + Recovery Ping (Feb 16, 2026)
+
+### Backend
+- **Snooze state**: `guild_settings.trend_alert_state` now carries `snoozed_until`, `snoozed_by_username`, `snoozed_at`. `_trend_alert_evaluate` honors an active window (`reason="snoozed"`) and skips fan-out — streak still computed for the state snapshot.
+- **Recovery cycle**: State also carries `pending_recovery`. When a breach alert fires we set it to `True`. On the next tick, if `streak==0 && pending_recovery && last_ma>=target && !snoozed` we fire the green "🎯 Hedef Geri Kazanıldı" bell + push + TG DMs, `kind="trend_recovery"`, then flip `pending_recovery` back to `False`.
+- **Endpoints**:
+  - `POST /api/reports/trend/alert-snooze` `{days:int}` (1-30, default 7) — sets `snoozed_until=now+days`.
+  - `DELETE /api/reports/trend/alert-snooze` — clears snooze.
+- **`GET /api/reports/trend/alert-state`** — now returns `snoozed:bool` + `snoozed_until` (only when live) + `pending_recovery`.
+
+### Frontend — `TrendChart` alert strip
+- Renders under the legend only when `streak >= 3` (red breach strip) or `snoozed` (grey snooze strip). Healthy days keep the chart uncluttered.
+- **Breach strip**: message "N gündür 7-günlük ortalama hedefin altında" + three snooze CTAs (`🔕 1G`, `🔕 1 hafta sessize al` — highlighted, `🔕 30G`). Each POSTs to `/reports/trend/alert-snooze` and toasts "Uyarılar 7 gün sessize alındı → {date}".
+- **Snooze strip**: shows the active snooze window in TR locale + "Sessize almayı kaldır" button that DELETEs the snooze.
+- **SWR polling** for `/reports/trend/alert-state` at 60s so the strip auto-appears/disappears without a manual refresh.
+- **Testids**: `trend-alert-strip`, `trend-alert-snooze-{1d|7d|30d}`, `trend-alert-unsnooze`.
+
+### Verified (curl + Playwright)
+- Snooze cycle: fire breach → `snooze days=7` → 200 → `check-alerts` → `fired:false, reason:"snoozed"` → `unsnooze` 200.
+- Recovery cycle: seeded 5 events × 254 attendings + `pending_recovery=True` (25h ago) → `alert-state` `streak=0, last_ma=90.2%, pending_recovery=True` → `check-alerts` → `fired:true, kind:"trend_recovery", bell_sent=7`. Retry cleared `pending_recovery`. 7 DB rows with title "🎯 Hedef Geri Kazanıldı — Son 7 günlük ortalama %90.2 — hedef %60 yeniden aşıldı". Cleanup restored preview DB.
+- Playwright: target=99 → red strip "4 gündür …" + 3 snooze chips → click "🔕 1 hafta sessize al" → grey snooze strip + toast "Uyarılar 7 gün sessize alındı → 23.08.2026" → "Sessize almayı kaldır" reverts.
+
