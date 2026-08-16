@@ -27,7 +27,7 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
 
 
-def create_token(user_id: str, username: str, role: str) -> str:
+def create_token(user_id: str, username: str, role: str, sid: Optional[str] = None) -> str:
     payload = {
         "sub": user_id,
         "username": username,
@@ -35,11 +35,54 @@ def create_token(user_id: str, username: str, role: str) -> str:
         "exp": datetime.now(timezone.utc) + timedelta(days=JWT_EXP_DAYS),
         "iat": datetime.now(timezone.utc),
     }
+    if sid:
+        payload["sid"] = sid
     return jwt.encode(payload, _secret(), algorithm=JWT_ALGO)
 
 
 def decode_token(token: str) -> dict:
     return jwt.decode(token, _secret(), algorithms=[JWT_ALGO])
+
+
+def parse_user_agent(ua: str) -> dict:
+    """Cheap UA parser — no external dep. Returns {browser, os, device}.
+    Enough for the Oturum Yönetimi table; not spec-perfect."""
+    ua = (ua or "").strip()
+    if not ua:
+        return {"browser": "Bilinmiyor", "os": "Bilinmiyor", "device": "desktop"}
+    low = ua.lower()
+    # Order matters — Edge string contains "Chrome"; check Edge first.
+    if "edg/" in low or "edge/" in low:
+        browser = "Edge"
+    elif "opr/" in low or "opera" in low:
+        browser = "Opera"
+    elif "firefox/" in low:
+        browser = "Firefox"
+    elif "chrome/" in low and "chromium" not in low:
+        browser = "Chrome"
+    elif "safari/" in low:
+        browser = "Safari"
+    else:
+        browser = "Bilinmiyor"
+    if "windows" in low:
+        osn = "Windows"
+    elif "iphone" in low or "ipad" in low or "ipod" in low:
+        osn = "iOS"
+    elif "android" in low:
+        osn = "Android"
+    elif "mac os" in low or "macintosh" in low:
+        osn = "macOS"
+    elif "linux" in low:
+        osn = "Linux"
+    else:
+        osn = "Bilinmiyor"
+    if "mobi" in low or "iphone" in low or "android" in low:
+        device = "mobile"
+    elif "ipad" in low or "tablet" in low:
+        device = "tablet"
+    else:
+        device = "desktop"
+    return {"browser": browser, "os": osn, "device": device}
 
 
 # ---------- Models ----------
@@ -155,7 +198,32 @@ def make_auth_deps(db):
             return None
         except jwt.InvalidTokenError:
             return None
+        # Session-aware auth: if the token carries a `sid` claim, the matching
+        # session doc must still be alive. Revoked sessions (remote logout) or
+        # deleted sessions immediately invalidate the token even though the JWT
+        # itself would otherwise still be valid for JWT_EXP_DAYS.
+        sid = payload.get("sid")
+        if sid:
+            sess = await db.sessions.find_one({"id": sid}, {"_id": 0, "revoked": 1})
+            if not sess or sess.get("revoked"):
+                return None
+            # Refresh last_active_at at most once per 60s to keep writes cheap.
+            try:
+                from datetime import datetime as _dt_a, timezone as _tz_a
+                await db.sessions.update_one(
+                    {"id": sid, "$or": [
+                        {"last_active_at": {"$exists": False}},
+                        {"last_active_at": {"$lt": (_dt_a.now(_tz_a.utc) - timedelta(seconds=60)).isoformat()}},
+                    ]},
+                    {"$set": {"last_active_at": now_iso()}},
+                )
+            except Exception:
+                pass
         user = await db.users.find_one({"id": payload.get("sub")}, {"_id": 0})
+        if user is not None and sid:
+            # Stash the sid so endpoints can identify the current session (e.g.
+            # to mark it as "bu cihaz" or skip it in revoke-others).
+            user["_current_sid"] = sid
         return user
 
     async def require_auth(user: Optional[dict] = Depends(optional_auth)) -> dict:
@@ -217,7 +285,27 @@ def make_auth_router(db):
             })
         except Exception:
             pass
-        token = create_token(user["id"], user["username"], user.get("role", "user"))
+        # Create a session row — token carries `sid` so we can revoke it
+        # remotely from the Yönetim > Oturum Yönetimi tab without waiting
+        # for the JWT to naturally expire.
+        ua = (request.headers.get("user-agent") or "")[:400]
+        ua_info = parse_user_agent(ua)
+        sid = uuid.uuid4().hex
+        await db.sessions.insert_one({
+            "id": sid,
+            "user_id": user["id"],
+            "username": user["username"],
+            "role": user.get("role", "user"),
+            "ip": client_ip,
+            "user_agent": ua,
+            "ua_browser": ua_info["browser"],
+            "ua_os": ua_info["os"],
+            "ua_device": ua_info["device"],
+            "created_at": now_iso(),
+            "last_active_at": now_iso(),
+            "revoked": False,
+        })
+        token = create_token(user["id"], user["username"], user.get("role", "user"), sid=sid)
         return {"token": token, "user": public_user(user)}
 
     @router.get("/auth/me")
@@ -350,6 +438,109 @@ def make_auth_router(db):
             "user_docs_touched": r3.modified_count,
             "matched_users": r3.matched_count,
         }
+
+    # ---------- Sessions (Oturum Yönetimi / Phase 2) ----------
+    def _session_public(s: dict, current_sid: Optional[str] = None) -> dict:
+        return {
+            "id": s.get("id"),
+            "user_id": s.get("user_id"),
+            "username": s.get("username"),
+            "role": s.get("role"),
+            "ip": s.get("ip"),
+            "ua_browser": s.get("ua_browser") or "Bilinmiyor",
+            "ua_os": s.get("ua_os") or "Bilinmiyor",
+            "ua_device": s.get("ua_device") or "desktop",
+            "user_agent": s.get("user_agent") or "",
+            "created_at": s.get("created_at"),
+            "last_active_at": s.get("last_active_at"),
+            "revoked": bool(s.get("revoked")),
+            "revoked_at": s.get("revoked_at"),
+            "current": bool(current_sid and s.get("id") == current_sid),
+        }
+
+    @router.get("/sessions/me")
+    async def list_my_sessions(user: dict = Depends(require_auth)):
+        """Every active session for the current user, most-recent first."""
+        current_sid = user.get("_current_sid")
+        cursor = db.sessions.find(
+            {"user_id": user["id"], "revoked": False},
+            {"_id": 0},
+        ).sort("last_active_at", -1)
+        items = [_session_public(s, current_sid) async for s in cursor]
+        return {"items": items, "current_sid": current_sid}
+
+    @router.get("/sessions/all")
+    async def list_all_sessions(
+        include_revoked: bool = False,
+        limit: int = 500,
+        user: dict = Depends(require_admin),
+    ):
+        """Admin — every session across all users, grouped-ready payload.
+        include_revoked=true also returns revoked rows for audit."""
+        q = {} if include_revoked else {"revoked": False}
+        current_sid = user.get("_current_sid")
+        cursor = db.sessions.find(q, {"_id": 0}).sort("last_active_at", -1).limit(max(1, min(limit, 2000)))
+        items = [_session_public(s, current_sid) async for s in cursor]
+        return {"items": items, "current_sid": current_sid}
+
+    @router.post("/sessions/{sid}/revoke")
+    async def revoke_session(sid: str, user: dict = Depends(require_auth)):
+        """Revoke a specific session. Users can only revoke their own; admins
+        can revoke any. Immediately invalidates the JWT via `sid` check in
+        `optional_auth`."""
+        sess = await db.sessions.find_one({"id": sid}, {"_id": 0})
+        if not sess:
+            raise HTTPException(404, "Oturum bulunamadı")
+        if user.get("role") != "admin" and sess.get("user_id") != user["id"]:
+            raise HTTPException(403, "Bu oturumu sonlandırma yetkiniz yok")
+        if sess.get("revoked"):
+            return {"ok": True, "already": True}
+        await db.sessions.update_one(
+            {"id": sid},
+            {"$set": {"revoked": True, "revoked_at": now_iso(),
+                      "revoked_by": user["id"], "revoked_by_username": user.get("username")}},
+        )
+        return {"ok": True}
+
+    @router.post("/sessions/revoke-others")
+    async def revoke_other_sessions(user: dict = Depends(require_auth)):
+        """Kill every session for the current user EXCEPT the one making the
+        request. Requires a session-aware token (JWT with `sid` claim)."""
+        current_sid = user.get("_current_sid")
+        q = {"user_id": user["id"], "revoked": False}
+        if current_sid:
+            q["id"] = {"$ne": current_sid}
+        r = await db.sessions.update_many(
+            q,
+            {"$set": {"revoked": True, "revoked_at": now_iso(),
+                      "revoked_by": user["id"], "revoked_reason": "self-revoke-others"}},
+        )
+        return {"ok": True, "revoked": r.modified_count}
+
+    @router.post("/sessions/revoke-user/{user_id}")
+    async def revoke_all_user_sessions(user_id: str, admin: dict = Depends(require_admin)):
+        """Admin — revoke every active session for a user in one shot."""
+        r = await db.sessions.update_many(
+            {"user_id": user_id, "revoked": False},
+            {"$set": {"revoked": True, "revoked_at": now_iso(),
+                      "revoked_by": admin["id"],
+                      "revoked_by_username": admin.get("username"),
+                      "revoked_reason": "admin-revoke-user"}},
+        )
+        return {"ok": True, "revoked": r.modified_count}
+
+    @router.post("/auth/logout")
+    async def logout(user: dict = Depends(require_auth)):
+        """Revoke the current session (logout on THIS device only). The client
+        should also drop the token from localStorage."""
+        sid = user.get("_current_sid")
+        if sid:
+            await db.sessions.update_one(
+                {"id": sid, "revoked": False},
+                {"$set": {"revoked": True, "revoked_at": now_iso(),
+                          "revoked_reason": "user-logout"}},
+            )
+        return {"ok": True}
 
     # ---------- Member Matching (user self-service) ----------
     @router.post("/auth/link-members")
@@ -733,6 +924,10 @@ async def ensure_indexes(db):
     await db.login_attempts.create_index([("username", 1), ("created_at", -1)])
     # Member matching lookup (sparse — some users have no linked member).
     await db.users.create_index("member_ids", sparse=True)
+    # Sessions collection — Oturum Yönetimi queries.
+    await db.sessions.create_index("id", unique=True)
+    await db.sessions.create_index([("user_id", 1), ("revoked", 1), ("last_active_at", -1)])
+    await db.sessions.create_index([("revoked", 1), ("last_active_at", -1)])
     # One-shot migration: users with legacy `member_id` string but no `member_ids` array.
     async for u in db.users.find(
         {"member_id": {"$exists": True, "$nin": [None, ""]},

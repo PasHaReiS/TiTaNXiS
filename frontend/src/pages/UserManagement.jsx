@@ -4,6 +4,7 @@ import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
+import SessionManagement from "@/components/SessionManagement";
 import { Plus, Trash2, KeyRound, Shield, User, X, ShieldCheck, PencilLine, Link2, AlertTriangle, Upload, Clock, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
@@ -148,15 +149,8 @@ export default function UserManagement() {
         </div>
 
         {subtab === "sessions" ? (
-          <div
-            className="card-red-gold p-6 text-center"
-            data-testid="user-mgmt-sessions-placeholder"
-          >
-            <div className="text-4xl mb-2">🚧</div>
-            <div className="text-sm font-bold gold-text uppercase tracking-widest">Oturum Yönetimi</div>
-            <div className="text-[11px] text-muted-foreground mt-1">
-              Aktif oturumlar, uzaktan çıkış ve cihaz listesi Faz 2'de gelecek.
-            </div>
+          <div data-testid="user-mgmt-sessions-content">
+            <SessionManagement />
           </div>
         ) : (<>
         <div className="flex items-center justify-between mb-3">

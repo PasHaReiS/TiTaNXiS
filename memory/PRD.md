@@ -424,3 +424,32 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - **Cross-Bucket Drop Zone**: Both `renderGroupedCol` and `renderUngroupedCol` add `onDragOver` that only accepts a source from the OTHER bucket, plus a dashed outline (amber / violet) that only shows while a foreign card is being dragged. `renderUngroupedCol` handles the section-level drop to convert to Bireysel (`group_name: ""`).
 - **Announcement Version History**: `PATCH /api/announcements/{aid}` snapshots previous title/body/image/urgent into `history` array (`$push` with `$slice: -20` cap) BEFORE writing new values. New `POST /api/announcements/{aid}/revert` pops the last history entry. `DELETE` remains hard-delete.
 - Curl round-trip: create v1 → PATCH v2 (history=1, title=v2) → revert (history=0, title=v1) ✅
+
+
+## Phase 2 — Oturum Yönetimi (Session Management) (Feb 16, 2026)
+
+### Backend
+- **JWT `sid` claim**: `create_token(user_id, username, role, sid=?)` now optionally embeds a session id. `optional_auth` requires the matching `sessions` doc to exist and NOT be revoked — a revoked session yields 401 immediately, even though the underlying JWT is otherwise valid until `JWT_EXP_DAYS` (7d).
+- **Sessions collection**: `sessions` doc = `{id, user_id, username, role, ip, user_agent, ua_browser, ua_os, ua_device, created_at, last_active_at, revoked, revoked_at, revoked_by, revoked_reason}`. Indexes: `(id)`, `(user_id, revoked, last_active_at)`, `(revoked, last_active_at)`.
+- **`parse_user_agent()`** cheap regex UA parser — no external dep. Extracts browser (Edge/Opera/Firefox/Chrome/Safari), OS (Windows/iOS/Android/macOS/Linux), device (mobile/tablet/desktop).
+- **Login flow**: `POST /api/auth/login` now creates a session row (captures X-Forwarded-For IP + User-Agent) and mints a JWT carrying that `sid`. Response shape unchanged.
+- **`last_active_at` refresh**: `optional_auth` opportunistically bumps the session's `last_active_at` when >60s stale — write-throttled to keep it cheap.
+- **Endpoints**:
+  - `GET /api/sessions/me` → own active sessions + `current_sid`.
+  - `GET /api/sessions/all` (admin) → every active session, includes admin's own `current_sid` for UI highlighting. `?include_revoked=true` for audit.
+  - `POST /api/sessions/{sid}/revoke` — self-owned OR admin — flips `revoked=true`.
+  - `POST /api/sessions/revoke-others` — kill every own session except the current one.
+  - `POST /api/sessions/revoke-user/{user_id}` (admin) — revoke every active session for a user.
+  - `POST /api/auth/logout` — revoke current session (device logout).
+
+### Frontend
+- **`components/SessionManagement.jsx`** — new component rendered inside the Yönetim > Oturum Yönetimi tab. SWR `/sessions/all` (admin) or `/sessions/me` (non-admin) with 30s poll.
+- **Admin view**: sessions grouped by user card. Header shows `username · role chip · N oturum` and a red "Tüm Oturumları Kes" button (`sessions-revoke-user-{uid}`) that fires the admin bulk-revoke endpoint.
+- **Row layout**: device icon (💻/📱/📟) + `Browser · OS`, a green "BU CİHAZ" chip when `s.id === current_sid`, IP + relative "giriş X dk önce · son aktif Y dk önce" metadata, and a red Sonlandır button. Revoking the current session redirects to `/login` after a 500ms grace so the invalidated JWT stops firing.
+- **Non-admin view**: flat list of own sessions + "Diğerlerini Sonlandır" button (`sessions-revoke-others`) when `items.length > 1`.
+- **Testids**: `session-mgmt`, `sessions-refresh`, `sessions-revoke-others`, `sessions-user-{uid}`, `sessions-revoke-user-{uid}`, `session-row-{sid}`, `session-current-{sid}`, `session-revoke-{sid}`, `sessions-loading`, `sessions-error`, `sessions-empty`, `user-mgmt-sessions-content`.
+
+### Verified (curl + Playwright)
+- Two curl logins with distinct UAs (`Safari/iOS`, `Chrome/Android`) both created session docs.
+- `revoke-others` from Safari/iOS → `{revoked:2}`, then `/auth/me` with Safari/iOS → 200, `/auth/me` with Android → **401**. JWT invalidation lands within one request.
+- Admin UI screenshot: 4 sessions visible under `admin`, `BU CİHAZ` chip pinned on the Chrome/Linux Playwright session, per-row Sonlandır + "Tüm Oturumları Kes" bulk button all render.
