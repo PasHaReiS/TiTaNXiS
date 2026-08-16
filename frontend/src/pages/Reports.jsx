@@ -769,14 +769,24 @@ function TrendDigestModal({ onClose }) {
             <span>📊 Haftalık Katılım Özeti</span>
             {linkStatus && (
               linkStatus.linked ? (
-                <span
-                  className="normal-case tracking-normal text-[10px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1"
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!window.confirm("Telegram bağlantısını kaldırmak istediğine emin misin? Sonra yeniden bağlaman gerekir.")) return;
+                    try {
+                      await api.post("/telegram/link/unlink");
+                      toast.success("Telegram bağlantısı kaldırıldı");
+                      mutateLinkStatus();
+                    } catch (e) { toast.error(apiErr(e)); }
+                  }}
+                  className="normal-case tracking-normal text-[10px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1 hover:ring-2 hover:ring-red-400 transition group"
                   style={{ background: "rgba(34,197,94,0.2)", color: "#86EFAC", border: "1px solid rgba(34,197,94,0.4)" }}
-                  title={linkStatus.linked_at ? `Bağlanma: ${new Date(linkStatus.linked_at).toLocaleString("tr-TR")}` : "Telegram DM aktif"}
+                  title={`Bağlanma: ${linkStatus.linked_at ? new Date(linkStatus.linked_at).toLocaleString("tr-TR") : "aktif"} — tıkla → bağlantıyı kaldır`}
                   data-testid="digest-link-chip-linked"
                 >
-                  🔗 Bot bağlı ✓
-                </span>
+                  <span className="group-hover:hidden">🔗 Bot bağlı ✓</span>
+                  <span className="hidden group-hover:inline" style={{ color: "#FCA5A5" }}>🔓 Bağlantıyı kaldır</span>
+                </button>
               ) : (
                 <span
                   className="normal-case tracking-normal text-[10px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1"
