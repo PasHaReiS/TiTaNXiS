@@ -5,7 +5,7 @@ import { api, apiErr } from "@/lib/api";
 import Header from "@/components/Header";
 import { toast } from "sonner";
 import { Loader2, Download, Users, CalendarDays, RefreshCw, Filter } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, LineChart, Line, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, LineChart, Line, Legend, ReferenceLine, ReferenceArea } from "recharts";
 import { useTranslation } from "react-i18next";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -313,21 +313,40 @@ function MembersReport({ period }) {
 // ----------- Etkinlik Katılım Tab -----------
 function TrendChart({ alliance, country }) {
   const [days, setDays] = useState(30);
+  // Client-side smoothing window: 7-day for 30/90d views, 3-day for 7d so
+  // the MA still varies across the shorter x-axis. Users can toggle it off.
+  const [maOn, setMaOn] = useState(true);
+  const [targetOn, setTargetOn] = useState(true);
+  const [editingTarget, setEditingTarget] = useState(false);
+  const [draftTarget, setDraftTarget] = useState(60);
   const qs = new URLSearchParams({ days: String(days) });
   if (alliance) qs.set("alliance", alliance);
   if (country) qs.set("country", country);
   const { data, isLoading } = useSWR(`/reports/trend?${qs.toString()}`, fetcher);
+  const { data: targetResp, mutate: mutateTarget } = useSWR("/settings/guild-target", fetcher);
+  const target = targetResp?.target ?? 60;
+
   const items = data?.items || [];
-  // Recharts needs numeric or null values — nulls create a broken line on
-  // event-less days rather than a misleading dive to zero.
-  const chart = items.map((d) => ({
-    date: d.date.slice(5), // MM-DD for compact x labels
-    rate: d.participation_rate,
-    event_count: d.event_count,
-    attending: d.attending,
-  }));
-  // Simple linear-regression slope over non-null datapoints so we can flag
-  // "yükselişte" / "düşüşte" without dragging in a stats lib.
+  const window = days === 7 ? 3 : 7;
+  // Trailing moving average — null when there aren't enough non-null points
+  // in the window so the smoothed curve doesn't fabricate data.
+  const chart = items.map((d, i, arr) => {
+    let ma = null;
+    if (maOn) {
+      const start = Math.max(0, i - window + 1);
+      const slice = arr.slice(start, i + 1).map((x) => x.participation_rate).filter((v) => v != null);
+      if (slice.length >= Math.min(window, 2)) {
+        ma = Math.round((slice.reduce((s, v) => s + v, 0) / slice.length) * 10) / 10;
+      }
+    }
+    return {
+      date: d.date.slice(5),
+      rate: d.participation_rate,
+      ma,
+      event_count: d.event_count,
+      attending: d.attending,
+    };
+  });
   const slope = (() => {
     const pts = chart.map((c, i) => (c.rate == null ? null : [i, c.rate])).filter(Boolean);
     if (pts.length < 2) return 0;
@@ -342,10 +361,20 @@ function TrendChart({ alliance, country }) {
   const trendColor = slope > 0.2 ? "#22C55E" : slope < -0.2 ? "#EF4444" : "#F5A623";
   const trendLabel = slope > 0.2 ? "▲ Yükselişte" : slope < -0.2 ? "▼ Düşüşte" : "→ Sabit";
 
+  const saveTarget = async () => {
+    const t = Math.max(0, Math.min(100, parseInt(draftTarget, 10) || 0));
+    try {
+      await api.put("/settings/guild-target", { target: t });
+      toast.success(`Hedef %${t} olarak kaydedildi`);
+      setEditingTarget(false);
+      mutateTarget();
+    } catch (e) { toast.error(apiErr(e)); }
+  };
+
   return (
     <div className="card-red-gold p-3" data-testid="trend-chart">
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-        <div className="text-[11px] uppercase font-bold tracking-widest gold-text flex items-center gap-2">
+        <div className="text-[11px] uppercase font-bold tracking-widest gold-text flex items-center gap-2 flex-wrap">
           <span>Katılım Trendi · Son {days} Gün</span>
           <span className="px-1.5 py-0.5 rounded text-[9px]"
                 style={{ background: `${trendColor}22`, color: trendColor }}
@@ -353,22 +382,79 @@ function TrendChart({ alliance, country }) {
             {trendLabel}
           </span>
         </div>
-        <div className="flex items-center gap-1">
-          {[7, 30, 90].map((d) => (
+        <div className="flex items-center gap-1 flex-wrap">
+          {/* Target editor — admin sets the guild-wide participation goal. */}
+          {editingTarget ? (
+            <div className="flex items-center gap-1"
+                 data-testid="trend-target-editor">
+              <input
+                type="number" min="0" max="100"
+                value={draftTarget}
+                onChange={(e) => setDraftTarget(e.target.value)}
+                className="w-14 px-1.5 py-0.5 rounded bg-black/40 border border-border text-white text-[11px]"
+                data-testid="trend-target-input"
+                autoFocus
+              />
+              <button onClick={saveTarget}
+                      className="chip text-[10px]"
+                      style={{ borderColor: "#22C55E", color: "#86EFAC" }}
+                      data-testid="trend-target-save">Kaydet</button>
+              <button onClick={() => setEditingTarget(false)}
+                      className="chip text-[10px]">İptal</button>
+            </div>
+          ) : (
             <button
-              key={d}
-              onClick={() => setDays(d)}
+              type="button"
+              onClick={() => { setDraftTarget(target); setEditingTarget(true); }}
               className="chip text-[10px]"
               style={{
-                background: days === d
-                  ? "linear-gradient(180deg, rgba(245,166,35,0.28), rgba(180,83,9,0.45))"
-                  : "rgba(20,15,25,0.65)",
-                color: days === d ? "#FFEDD5" : "#78716C",
-                borderColor: days === d ? "#F5A623" : "rgba(120,53,15,0.35)",
+                background: targetOn ? "rgba(34,197,94,0.15)" : "rgba(20,15,25,0.65)",
+                color: targetOn ? "#86EFAC" : "#78716C",
+                borderColor: targetOn ? "#22C55E" : "rgba(120,53,15,0.35)",
               }}
-              data-testid={`trend-days-${d}`}
-            >{d}G</button>
-          ))}
+              title="Hedefi düzenle"
+              data-testid="trend-target-edit"
+            >
+              🎯 Hedef %{target}
+            </button>
+          )}
+          <button
+            onClick={() => setTargetOn((v) => !v)}
+            className="chip text-[10px]"
+            style={{
+              background: targetOn ? "rgba(34,197,94,0.15)" : "rgba(20,15,25,0.65)",
+              color: targetOn ? "#86EFAC" : "#78716C",
+            }}
+            title="Hedef bandını göster/gizle"
+            data-testid="trend-target-toggle"
+          >{targetOn ? "◉" : "○"} Hedef</button>
+          <button
+            onClick={() => setMaOn((v) => !v)}
+            className="chip text-[10px]"
+            style={{
+              background: maOn ? "rgba(59,130,246,0.15)" : "rgba(20,15,25,0.65)",
+              color: maOn ? "#93C5FD" : "#78716C",
+            }}
+            title={`${window}-günlük hareketli ortalama`}
+            data-testid="trend-ma-toggle"
+          >{maOn ? "◉" : "○"} MA{window}</button>
+          <div className="flex items-center gap-1 ml-1">
+            {[7, 30, 90].map((d) => (
+              <button
+                key={d}
+                onClick={() => setDays(d)}
+                className="chip text-[10px]"
+                style={{
+                  background: days === d
+                    ? "linear-gradient(180deg, rgba(245,166,35,0.28), rgba(180,83,9,0.45))"
+                    : "rgba(20,15,25,0.65)",
+                  color: days === d ? "#FFEDD5" : "#78716C",
+                  borderColor: days === d ? "#F5A623" : "rgba(120,53,15,0.35)",
+                }}
+                data-testid={`trend-days-${d}`}
+              >{d}G</button>
+            ))}
+          </div>
         </div>
       </div>
       {isLoading || chart.length === 0 ? (
@@ -376,7 +462,7 @@ function TrendChart({ alliance, country }) {
           {isLoading ? "Yükleniyor…" : "Bu aralıkta etkinlik yok"}
         </div>
       ) : (
-        <div style={{ width: "100%", height: 180 }}>
+        <div style={{ width: "100%", height: 200 }}>
           <ResponsiveContainer>
             <LineChart data={chart} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(120,53,15,0.25)" />
@@ -385,11 +471,41 @@ function TrendChart({ alliance, country }) {
               <Tooltip
                 contentStyle={{ background: "#1C1917", border: "1px solid #78350F", borderRadius: 6, fontSize: 11 }}
                 formatter={(v, name, p) => {
-                  if (v == null) return ["—", "Katılım"];
+                  if (v == null) return ["—", name === "ma" ? `MA${window}` : "Katılım"];
+                  if (name === "ma") return [`${v}%`, `MA${window}`];
                   const ev = p?.payload?.event_count || 0;
                   return [`${v}% (${ev} etk.)`, "Katılım"];
                 }}
               />
+              {/* Benchmark band — subtle green tint above target so
+                  "on-goal" days visually pop above the red-tinted danger
+                  zone below. */}
+              {targetOn && (
+                <>
+                  <ReferenceArea y1={target} y2={100} fill="#22C55E" fillOpacity={0.06} />
+                  <ReferenceArea y1={0} y2={target} fill="#EF4444" fillOpacity={0.04} />
+                  <ReferenceLine
+                    y={target}
+                    stroke="#22C55E"
+                    strokeDasharray="4 3"
+                    strokeWidth={1.5}
+                    label={{ value: `Hedef %${target}`, fontSize: 9, fill: "#86EFAC", position: "insideTopRight" }}
+                    data-testid="trend-target-line"
+                  />
+                </>
+              )}
+              {maOn && (
+                <Line
+                  type="monotone"
+                  dataKey="ma"
+                  stroke="#3B82F6"
+                  strokeWidth={2}
+                  strokeDasharray="5 3"
+                  dot={false}
+                  connectNulls
+                  isAnimationActive
+                />
+              )}
               <Line
                 type="monotone"
                 dataKey="rate"
@@ -402,6 +518,28 @@ function TrendChart({ alliance, country }) {
               />
             </LineChart>
           </ResponsiveContainer>
+        </div>
+      )}
+      {/* Compact legend so the meaning of each colored line is obvious. */}
+      {(targetOn || maOn) && chart.length > 0 && (
+        <div className="text-[9px] text-muted-foreground flex items-center gap-3 mt-1 flex-wrap"
+             data-testid="trend-legend">
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2.5 h-0.5" style={{ background: trendColor }} />
+            Günlük
+          </span>
+          {maOn && (
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-2.5 h-0.5 border-dashed border-t" style={{ borderColor: "#3B82F6" }} />
+              {window}-gün ort.
+            </span>
+          )}
+          {targetOn && (
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-2.5 h-0.5 border-dashed border-t" style={{ borderColor: "#22C55E" }} />
+              Hedef %{target}
+            </span>
+          )}
         </div>
       )}
     </div>

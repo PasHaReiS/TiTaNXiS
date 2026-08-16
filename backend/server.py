@@ -5740,6 +5740,31 @@ async def reports_trend(
     return {"days": days, "member_pool": member_pool, "items": items}
 
 
+# ---------- Guild settings (Trend Overlays) ----------
+class GuildTargetBody(BaseModel):
+    target: int  # 0-100 percentage benchmark
+
+
+@api_router.get("/settings/guild-target")
+async def settings_get_guild_target(user: dict = Depends(require_auth)):
+    """Return the guild's target participation percentage. Used by the
+    Katılım Trendi chart to draw a benchmark line. Default 60% if unset."""
+    doc = await db.guild_settings.find_one({"key": "guild_target"}, {"_id": 0})
+    return {"target": int((doc or {}).get("value", 60))}
+
+
+@api_router.put("/settings/guild-target")
+async def settings_set_guild_target(body: GuildTargetBody, user: dict = Depends(require_admin)):
+    t = max(0, min(100, int(body.target)))
+    await db.guild_settings.update_one(
+        {"key": "guild_target"},
+        {"$set": {"key": "guild_target", "value": t, "updated_at": now_iso(),
+                  "updated_by": user["id"], "updated_by_username": user.get("username")}},
+        upsert=True,
+    )
+    return {"target": t}
+
+
 @api_router.get("/reports/events")
 async def reports_events(period: str = "all", user: dict = Depends(require_admin)):
     """Per-event stats — counts by status + attendance rate. Includes a

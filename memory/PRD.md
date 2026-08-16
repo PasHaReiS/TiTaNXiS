@@ -496,3 +496,22 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 ### Verified
 - Curl: `/reports/trend?days=30` → `days=30 pool=254 items=30 nonnull_days=1` (single dated event at 1.6%). `?days=7&alliance=GOW` → `pool=157`.
 - Playwright: invite QR buttons rendered (2), modal opens with download button, `trend-chart` root + `trend-direction "→ Sabit"` chip + 3 day toggles all live; 7G ↔ 90G x-axis rescales correctly.
+
+
+## Trend Overlays — Benchmark Band + Moving Average (Feb 16, 2026)
+
+### Backend
+- **`guild_settings` collection** — first entry stores the guild-wide participation target.
+- **`GET /api/settings/guild-target`** → `{target: int}` (default 60).
+- **`PUT /api/settings/guild-target`** (admin) → clamps to 0-100, upserts `{key:"guild_target", value, updated_at, updated_by}`.
+
+### Frontend — `TrendChart` overhauled
+- **Benchmark band** — Recharts `ReferenceArea` splits the y-axis into a green tinted "on-goal" zone (`target → 100`, 6% opacity) and a red tinted "danger" zone (`0 → target`, 4% opacity), with a dashed `ReferenceLine` at the target labeled `Hedef %N`. Toggleable via `trend-target-toggle`.
+- **Inline target editor** — `trend-target-edit` opens a number input + Kaydet/İptal so admins bump the goal without leaving the report. PUT to `/settings/guild-target` and revalidate SWR.
+- **Moving-average curve** — client-side trailing MA (7-day for 30/90G views, 3-day for 7G so it still varies across a short axis). Rendered as a blue dashed `Line` with `connectNulls` so gaps get bridged for smoothness. Toggle via `trend-ma-toggle`.
+- **Compact legend** — under the chart, three chips distinguish daily / N-day avg / target lines.
+- **Testids**: `trend-target-edit`, `trend-target-editor`, `trend-target-input`, `trend-target-save`, `trend-target-toggle`, `trend-ma-toggle`, `trend-legend`.
+
+### Verified
+- Curl: GET default 60 → PUT 75 → GET 75 → PUT 150 → clamped to 100 → reset 60. All 200.
+- Playwright: chart renders, target chip reads `🎯 Hedef %60`, edit → 80 → chip updates to `🎯 Hedef %80` + toast "Hedef %80 olarak kaydedildi", MA toggle flips state ○/◉ + legend hides its 7-gün ort. chip, benchmark band + dashed target line visible on screenshot.
