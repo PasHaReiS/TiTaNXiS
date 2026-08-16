@@ -13,6 +13,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useTranslation } from "react-i18next";
 import { isAnalyticsActive, trackEvent } from "@/firebase";
 import MemberLocationMap from "@/components/MemberLocationMap";
+import DeeplUsageBadge from "@/components/DeeplUsageBadge";
+import DeeplDigestButton from "@/components/DeeplDigestButton";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 const BG = "#111111";
@@ -986,6 +988,25 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3" data-testid="dashboard-firebase-grid">
         <FirebaseAnalyticsCard />
         <TrashPurgeCard />
+      </div>
+
+      {/* Admin Tools — DeepL usage/cache + weekly translation digest live
+          here now (relocated from the header cluster) so header stays lean
+          and admins find these ops next to Trash Purge. */}
+      <SectionTitle>Admin Araçları</SectionTitle>
+      <div
+        className="p-4 rounded-lg flex flex-wrap items-center gap-3"
+        style={{ background: CARD, border: "1px solid rgba(245,166,35,0.25)" }}
+        data-testid="dashboard-admin-tools"
+      >
+        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">DeepL Cache</span>
+          <DeeplUsageBadge />
+        </div>
+        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Haftalık Rapor</span>
+          <DeeplDigestButton />
+        </div>
       </div>
 
       <div className="h-8" />

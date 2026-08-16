@@ -7,8 +7,6 @@ import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download,
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import LogoVideoModal from "@/components/LogoVideoModal";
-import DeeplUsageBadge from "@/components/DeeplUsageBadge";
-import DeeplDigestButton from "@/components/DeeplDigestButton";
 import NotificationBell from "@/components/NotificationBell";
 import { LEADERBOARD } from "@/constants/testIds";
 import { api } from "@/lib/api";
@@ -90,8 +88,6 @@ export default function Header({ title }) {
         </div>
 
         <LanguageSwitcher />
-        <DeeplUsageBadge />
-        <DeeplDigestButton />
         <NotificationBell />
 
         <button

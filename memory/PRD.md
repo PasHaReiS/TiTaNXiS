@@ -281,6 +281,21 @@ Card rendering extracted into `renderEventCard` + `renderGroupBlock` helpers
 - Data-testids: `event-calendar`, `calendar-grid`, `calendar-month-label`,
   `calendar-prev-month`, `calendar-next-month`, `calendar-today-btn`,
   `calendar-cell-{Y-M-D}`, `calendar-event-{id}`, `calendar-day-dialog`,
+
+## DeepL + Cache → Dashboard Admin Araçları (Feb 16, 2026)
+- `DeeplUsageBadge` and `DeeplDigestButton` imports + JSX removed from
+  `components/Header.jsx` (lines 10-11, 93-94) so the header cluster stops
+  competing with the notification bell / language switcher for horizontal
+  space.
+- Both components re-mounted in `pages/Dashboard.jsx` under a new
+  **"Admin Araçları"** section (`data-testid="dashboard-admin-tools"`),
+  rendered right below Firebase Analitik + VIP Trash Purge. Labelled rows
+  (`DEEPL CACHE` + `HAFTALIK RAPOR`) so admins see what each control does
+  without hovering.
+- Zero behaviour change — same components, same endpoints, same tooltips.
+- Verified: header no longer has `[data-testid=deepl-clear-cache]`;
+  dashboard admin-tools does. Screenshot captured.
+
   `calendar-day-event-{id}`.
 
 so both columns share the same JSX and attendance/gallery behaviour.
