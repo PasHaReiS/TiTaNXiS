@@ -646,6 +646,7 @@ function TrendDigestModal({ onClose }) {
   const { data: recData, mutate: mutateRecipients } = useSWR("/reports/trend/digest/recipients", fetcher);
   const recipients = recData?.items || [];
   const { data: schedule, mutate: mutateSchedule } = useSWR("/reports/trend/digest/schedule", fetcher);
+  const { data: linkStatus, mutate: mutateLinkStatus } = useSWR("/telegram/link/status", fetcher, { refreshInterval: 30000 });
   const [newChatId, setNewChatId] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [sending, setSending] = useState(false);
@@ -701,6 +702,7 @@ function TrendDigestModal({ onClose }) {
       const r = await api.post(`/reports/trend/digest/test-send?days=${days}`);
       if (r.data.tg_sent) {
         toast.success("🧪 Telegram DM ve bell'ine gönderildi");
+        mutateLinkStatus();
       } else if (r.data.link_url) {
         // Offer one-tap Telegram binding when chat_id is missing.
         toast.custom(
@@ -763,8 +765,29 @@ function TrendDigestModal({ onClose }) {
       <div className="card-red-gold p-4 max-w-lg w-full max-h-[90vh] overflow-auto space-y-3"
            onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <div className="text-[11px] uppercase tracking-widest gold-text font-bold">
-            📊 Haftalık Katılım Özeti
+          <div className="text-[11px] uppercase tracking-widest gold-text font-bold flex items-center gap-2 flex-wrap">
+            <span>📊 Haftalık Katılım Özeti</span>
+            {linkStatus && (
+              linkStatus.linked ? (
+                <span
+                  className="normal-case tracking-normal text-[10px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1"
+                  style={{ background: "rgba(34,197,94,0.2)", color: "#86EFAC", border: "1px solid rgba(34,197,94,0.4)" }}
+                  title={linkStatus.linked_at ? `Bağlanma: ${new Date(linkStatus.linked_at).toLocaleString("tr-TR")}` : "Telegram DM aktif"}
+                  data-testid="digest-link-chip-linked"
+                >
+                  🔗 Bot bağlı ✓
+                </span>
+              ) : (
+                <span
+                  className="normal-case tracking-normal text-[10px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1"
+                  style={{ background: "rgba(120,113,108,0.2)", color: "#D6D3D1", border: "1px solid rgba(120,113,108,0.4)" }}
+                  title="Test Mesajı ile bağlantı linkini al"
+                  data-testid="digest-link-chip-unlinked"
+                >
+                  🔗 Bot bağlı değil
+                </span>
+              )
+            )}
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-white"
                   data-testid="trend-digest-close">
