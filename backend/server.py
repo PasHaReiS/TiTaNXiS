@@ -4230,6 +4230,68 @@ async def _push_scheduler_loop():
 async def _start_push_scheduler():
     import asyncio
     asyncio.create_task(_push_scheduler_loop())
+    asyncio.create_task(_announcement_scheduler_loop())
+
+
+async def _announcement_scheduler_loop():
+    """Fire scheduled announcements: every 60s scan for docs where
+    `pending_broadcast=True` and `scheduled_at <= now`, then run the same
+    4-channel fan-out that `announcements_create` uses for instant sends."""
+    import asyncio
+    from datetime import datetime as _dt_a, timezone as _tz_a
+    while True:
+        try:
+            now = _dt_a.now(_tz_a.utc)
+            cursor = db.announcements.find({"pending_broadcast": True})
+            async for doc in cursor:
+                try:
+                    when = _dt_a.fromisoformat((doc.get("scheduled_at") or "").replace("Z", "+00:00"))
+                except Exception:
+                    continue
+                if when.tzinfo is None:
+                    when = when.replace(tzinfo=_tz_a.utc)
+                if when > now:
+                    continue
+                push_doc = {"id": doc["id"], "title": doc["title"], "body": doc["body"],
+                            "url": doc.get("url") or "/duyurular",
+                            "image_url": doc.get("image_url"),
+                            "send_channel": True, "send_dm": True,
+                            "send_app": True, "event_id": None}
+                push_task = _broadcast_push(
+                    doc["title"], doc["body"], doc.get("url") or "/duyurular",
+                    tag=f"announcement-{doc['id']}", sound="rally",
+                )
+                channel_task = _send_tg_channel(push_doc)
+                dm_task = _send_tg_dms(push_doc)
+                app_task = _broadcast_in_app(push_doc)
+                results = await asyncio.gather(
+                    push_task, channel_task, dm_task, app_task,
+                    return_exceptions=True,
+                )
+                push_r, ch_r, dm_r, app_r = [
+                    (r if not isinstance(r, Exception) else {}) for r in results
+                ]
+                fanout = {
+                    "push_sent": (push_r or {}).get("sent", 0) if isinstance(push_r, dict) else 0,
+                    "telegram_channel_sent": (ch_r or {}).get("channel_sent", False),
+                    "telegram_dm_sent": (dm_r or {}).get("dm_sent", 0),
+                    "telegram_dm_translated": (dm_r or {}).get("dm_translated", 0),
+                    "telegram_dm_langs": (dm_r or {}).get("dm_lang_breakdown", {}),
+                    "app_notif_sent": (app_r or {}).get("app_notif_sent", 0),
+                }
+                await db.announcements.update_one(
+                    {"id": doc["id"]},
+                    {"$set": {
+                        "active": True,
+                        "pending_broadcast": False,
+                        "broadcast_fired_at": now_iso(),
+                        "fanout": fanout,
+                    }},
+                )
+                logger.info(f"announcement_scheduler fired {doc['id']} → {fanout}")
+        except Exception as ex:
+            logger.warning(f"announcement scheduler loop error: {ex}")
+        await asyncio.sleep(60)
 
 
 class PushBroadcastBody(BaseModel):
@@ -4778,6 +4840,7 @@ class AnnouncementBody(BaseModel):
     image_url: Optional[str] = None
     broadcast: Optional[bool] = True
     urgent: Optional[bool] = False
+    scheduled_at: Optional[str] = None  # ISO8601 UTC — future time defers fan-out until due
 
 
 @api_router.post("/announcements")
@@ -4785,7 +4848,28 @@ async def announcements_create(body: AnnouncementBody, user: dict = Depends(requ
     """Create an announcement and (optionally) fan it out across all 4
     notification channels the moment it's inserted. `broadcast=False` stores
     the record without pushing — useful for drafting scheduled announcements
-    that only surface in the app's Duyurular list."""
+    that only surface in the app's Duyurular list.
+
+    When `scheduled_at` is a future ISO8601 timestamp, the announcement is
+    stored with `pending_broadcast=True` and `active=False` so it stays
+    hidden from the public list. The background `_announcement_scheduler_loop`
+    dispatches the 4-channel fan-out once the timestamp is due.
+    """
+    from datetime import datetime as _dt_ann, timezone as _tz_ann
+    scheduled_at_iso: Optional[str] = None
+    is_scheduled = False
+    if body.scheduled_at:
+        try:
+            when = _dt_ann.fromisoformat(body.scheduled_at.replace("Z", "+00:00"))
+        except Exception:
+            raise HTTPException(400, "invalid scheduled_at (must be ISO8601)")
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=_tz_ann.utc)
+        if when <= _dt_ann.now(_tz_ann.utc):
+            raise HTTPException(400, "scheduled_at must be in the future")
+        scheduled_at_iso = when.isoformat()
+        is_scheduled = True
+
     doc = {
         "id": str(uuid.uuid4()),
         "title": (("🚨 " + body.title.strip()) if body.urgent else body.title.strip()),
@@ -4796,11 +4880,15 @@ async def announcements_create(body: AnnouncementBody, user: dict = Depends(requ
         "created_by": user["id"],
         "created_by_username": user.get("username") or "",
         "created_at": now_iso(),
-        "active": True,
+        # Scheduled announcements stay inactive until the loop fires them so
+        # they don't leak into the public /announcements list early.
+        "active": (not is_scheduled),
+        "scheduled_at": scheduled_at_iso,
+        "pending_broadcast": is_scheduled and bool(body.broadcast),
     }
     await db.announcements.insert_one(doc)
     result = {"item": {k: v for k, v in doc.items() if k != "_id"}}
-    if body.broadcast:
+    if body.broadcast and not is_scheduled:
         import asyncio as _asyncio_ann
         # Reuse the 4-channel scheduler-style dispatch so a manual admin
         # announcement lands via Web Push, Telegram Group, Telegram DMs (with

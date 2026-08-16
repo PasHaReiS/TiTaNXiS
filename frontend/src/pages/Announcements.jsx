@@ -37,6 +37,7 @@ export default function Announcements({ embedded = false }) {
   const [imageFiles, setImageFiles] = useState([]);
   const [broadcast, setBroadcast] = useState(true);
   const [urgent, setUrgent] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState(""); // local yyyy-MM-ddTHH:mm; empty = anlık gönder
   const [sending, setSending] = useState(false);
   const [lastResult, setLastResult] = useState(null);
   // When set, submit issues PATCH /announcements/{editingId} instead of POST
@@ -48,6 +49,14 @@ export default function Announcements({ embedded = false }) {
   const submit = async (e) => {
     e.preventDefault();
     if (!title.trim() || !body.trim()) { toast.error("Başlık ve içerik zorunlu"); return; }
+    // Convert local datetime-local string to ISO with local timezone offset.
+    let scheduledIso = null;
+    if (scheduledAt && !editingId) {
+      const d = new Date(scheduledAt);
+      if (isNaN(d.getTime())) { toast.error("Geçersiz zaman"); return; }
+      if (d.getTime() <= Date.now()) { toast.error("Zamanlanmış tarih gelecekte olmalı"); return; }
+      scheduledIso = d.toISOString();
+    }
     setSending(true);
     try {
       if (editingId) {
@@ -57,11 +66,22 @@ export default function Announcements({ embedded = false }) {
         });
         toast.success("Duyuru güncellendi");
       } else {
-        const r = await api.post("/announcements", { title, body, image_url: finalImageUrl || undefined, broadcast, urgent });
-        toast.success(urgent ? "🚨 Acil duyuru dağıtıldı" : "Duyuru gönderildi");
-        setLastResult(r.data.fanout || null);
+        const r = await api.post("/announcements", {
+          title, body,
+          image_url: finalImageUrl || undefined,
+          broadcast, urgent,
+          scheduled_at: scheduledIso || undefined,
+        });
+        if (scheduledIso) {
+          toast.success(`⏰ Duyuru zamanlandı — ${new Date(scheduledIso).toLocaleString("tr-TR")}`);
+          setLastResult(null);
+        } else {
+          toast.success(urgent ? "🚨 Acil duyuru dağıtıldı" : "Duyuru gönderildi");
+          setLastResult(r.data.fanout || null);
+        }
       }
       setTitle(""); setBody(""); setImageUrl(""); setImageFiles([]); setUrgent(false);
+      setScheduledAt("");
       setEditingId(null);
       mutate();
     } catch (err) {
@@ -229,11 +249,44 @@ export default function Announcements({ embedded = false }) {
                    data-testid="announcement-urgent" />
             <span>🚨 ACİL — başlığa alarm ikonu ekle, kırmızı rozetle işaretle</span>
           </label>
+
+          {/* Zamanlama — boş bırakılırsa anlık gönderim yapılır. Sadece yeni
+              duyurularda görünür (edit modunda gizli). */}
+          {!editingId && (
+            <div className="space-y-1" data-testid="announcement-schedule-row">
+              <div className="text-[11px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1.5">
+                <span aria-hidden style={{ fontSize: 12 }}>⏰</span>
+                <span>Zamanla (opsiyonel)</span>
+                {scheduledAt && (
+                  <button
+                    type="button"
+                    onClick={() => setScheduledAt("")}
+                    className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 hover:bg-red-500/25"
+                    data-testid="announcement-schedule-clear"
+                  >
+                    Temizle
+                  </button>
+                )}
+              </div>
+              <input
+                type="datetime-local"
+                data-testid="announcement-scheduled-at"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+                className="w-full px-3 py-2 rounded bg-black/40 border border-border text-white text-xs"
+              />
+              <div className="text-[10px] text-muted-foreground">
+                {scheduledAt
+                  ? `Bu duyuru ${new Date(scheduledAt).toLocaleString("tr-TR")} tarihinde gönderilecek.`
+                  : "Boş bırakılırsa duyuru hemen gönderilir."}
+              </div>
+            </div>
+          )}
           <button type="submit" disabled={sending}
                   className="btn-gold px-4 py-2 flex items-center gap-2 text-sm justify-center"
                   data-testid="announcement-submit">
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {sending ? "Gönderiliyor…" : "Duyur ve Kaydet"}
+            {sending ? "Gönderiliyor…" : (scheduledAt && !editingId ? "Zamanla" : "Duyur ve Kaydet")}
           </button>
 
           {lastResult && (

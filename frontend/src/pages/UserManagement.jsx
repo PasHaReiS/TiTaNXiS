@@ -48,6 +48,7 @@ export default function UserManagement() {
   const { t } = useTranslation();
   const relTime = useRelativeTime();
   const actorLabel = useActorLabel();
+  const [subtab, setSubtab] = useState("users"); // 'users' | 'sessions'
   const { data: users = [] } = useSWR("/users", fetcher);
   const { data: unmatched = [] } = useSWR("/users/unmatched", fetcher);
   const { data: members = [] } = useSWR("/members", fetcher);
@@ -91,6 +92,73 @@ export default function UserManagement() {
     <div data-testid="user-management-page">
       <Header title={t("users_page_title")} />
       <div className="px-4">
+        {/* Sub-nav: Kullanıcılar / Oturum Yönetimi. Sessions is Phase 2;
+            for now it renders a placeholder card so the nav slot is live. */}
+        <div
+          className="flex mb-3 rounded-lg overflow-hidden"
+          style={{
+            background: "linear-gradient(180deg, rgba(15,8,20,0.85), rgba(10,5,15,0.95))",
+            border: "1px solid rgba(120,53,15,0.35)",
+          }}
+          data-testid="user-mgmt-subnav"
+        >
+          <button
+            data-testid="user-mgmt-tab-users"
+            onClick={() => setSubtab("users")}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 transition-all"
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: "1.2px",
+              textTransform: "uppercase",
+              background: subtab === "users"
+                ? "linear-gradient(180deg, rgba(249,115,22,0.28), rgba(180,83,9,0.45))"
+                : "rgba(20,15,25,0.65)",
+              color: subtab === "users" ? "#FFEDD5" : "#78716C",
+              borderRight: "1px solid rgba(120,53,15,0.35)",
+              boxShadow: subtab === "users"
+                ? "0 0 10px #f97316, inset 0 0 16px rgba(249,115,22,0.20)"
+                : "none",
+            }}
+          >
+            <span aria-hidden="true" style={{ fontSize: 14, filter: subtab === "users" ? "none" : "grayscale(0.5)" }}>👥</span>
+            <span>{t("user_mgmt_users_tab")}</span>
+          </button>
+          <button
+            data-testid="user-mgmt-tab-sessions"
+            onClick={() => setSubtab("sessions")}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 transition-all"
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: "1.2px",
+              textTransform: "uppercase",
+              background: subtab === "sessions"
+                ? "linear-gradient(180deg, rgba(245,166,35,0.28), rgba(180,83,9,0.45))"
+                : "rgba(20,15,25,0.65)",
+              color: subtab === "sessions" ? "#FFEDD5" : "#78716C",
+              boxShadow: subtab === "sessions"
+                ? "0 0 10px #F5A623, inset 0 0 16px rgba(245,166,35,0.20)"
+                : "none",
+            }}
+          >
+            <span aria-hidden="true" style={{ fontSize: 14, filter: subtab === "sessions" ? "none" : "grayscale(0.5)" }}>🖥️</span>
+            <span>{t("user_mgmt_sessions_tab")}</span>
+          </button>
+        </div>
+
+        {subtab === "sessions" ? (
+          <div
+            className="card-red-gold p-6 text-center"
+            data-testid="user-mgmt-sessions-placeholder"
+          >
+            <div className="text-4xl mb-2">🚧</div>
+            <div className="text-sm font-bold gold-text uppercase tracking-widest">Oturum Yönetimi</div>
+            <div className="text-[11px] text-muted-foreground mt-1">
+              Aktif oturumlar, uzaktan çıkış ve cihaz listesi Faz 2'de gelecek.
+            </div>
+          </div>
+        ) : (<>
         <div className="flex items-center justify-between mb-3">
           <div>
             <p className="text-xs text-muted-foreground">{t("users_total", { count: users.length })}</p>
@@ -293,6 +361,7 @@ export default function UserManagement() {
             );
           })}
         </div>
+        </>)}
       </div>
 
       {showForm && <UserForm onClose={() => setShowForm(false)} />}

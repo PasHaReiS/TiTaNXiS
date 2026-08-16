@@ -19,7 +19,6 @@ import AddPoints from "@/pages/AddPoints";
 import PointsAbout from "@/pages/PointsAbout";
 import PointCalcPage from "@/pages/PointCalcPage";
 import PublicPointCalcPage from "@/pages/PublicPointCalcPage";
-import WidgetLibrary from "@/pages/WidgetLibrary";
 import VipSupport from "@/pages/VipSupport";
 import Dashboard from "@/pages/Dashboard";
 import EventNotifications from "@/pages/EventNotifications";
@@ -121,7 +120,6 @@ function AppShell() {
           <Route path="/kullanicilar" element={<RequireAdmin><MotionPage><UserManagement /></MotionPage></RequireAdmin>} />
           <Route path="/profil" element={<RequireAuth><MotionPage><Profile /></MotionPage></RequireAuth>} />
           <Route path="/gosterge-paneli" element={<RequireAuth><MotionPage><LiveDashboardPage /></MotionPage></RequireAuth>} />
-          <Route path="/widget-kitapligi" element={<RequireAuth><MotionPage><WidgetLibrary /></MotionPage></RequireAuth>} />
           <Route path="/vip-destek" element={<MotionPage><VipSupport /></MotionPage>} />
           <Route path="/dashboard" element={<RequireAdminOrEditor><MotionPage><Dashboard /></MotionPage></RequireAdminOrEditor>} />
           <Route path="/etkinlik-bildirimleri" element={<RequireAdminOrEditor><MotionPage><EventNotifications /></MotionPage></RequireAdminOrEditor>} />

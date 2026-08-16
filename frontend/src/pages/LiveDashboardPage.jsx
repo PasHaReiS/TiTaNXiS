@@ -1,17 +1,14 @@
 import React from "react";
 import Header from "@/components/Header";
-import WidgetGrid from "@/components/WidgetGrid";
 import BulkAdminActions from "@/components/BulkAdminActions";
 import PushSubscribeCard from "@/components/PushSubscribeCard";
-import PushPrefsCard from "@/components/PushPrefsCard";
 import NotificationSetupWizard from "@/components/NotificationSetupWizard";
 import { useTranslation } from "react-i18next";
 
 /**
- * Panel (LiveDashboard) — simplified per user request. Broadcast + announcement
- * tooling now lives inside the Bildirimler hub (matching the menu label);
- * Panel is scoped to the user's own push subscription + prefs, the widget
- * board, and quick bulk admin actions.
+ * Panel (LiveDashboard) — trimmed to the user's own push subscription +
+ * bulk admin actions. Event notification preferences moved to Bildirimler >
+ * Etkinlik Bildirimleri; widget board removed entirely per user request.
  */
 export default function LiveDashboardPage() {
   const { t } = useTranslation();
@@ -20,8 +17,6 @@ export default function LiveDashboardPage() {
       <Header title={t("live_dashboard")} />
       <div className="px-4 space-y-3">
         <PushSubscribeCard />
-        <PushPrefsCard />
-        <WidgetGrid />
         <BulkAdminActions />
       </div>
       <NotificationSetupWizard />

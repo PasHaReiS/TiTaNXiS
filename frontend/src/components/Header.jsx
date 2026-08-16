@@ -173,12 +173,6 @@ export default function Header({ title }) {
                     testId="dropdown-live-dashboard"
                   />
                   <MenuItem
-                    emoji="🧩"
-                    label={t("nav_widget_library")}
-                    onClick={() => goto("/widget-kitapligi")}
-                    testId="dropdown-widget-library"
-                  />
-                  <MenuItem
                     emoji="🙂"
                     label={t("my_profile")}
                     onClick={() => goto("/profil")}
