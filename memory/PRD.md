@@ -515,3 +515,22 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 ### Verified
 - Curl: GET default 60 → PUT 75 → GET 75 → PUT 150 → clamped to 100 → reset 60. All 200.
 - Playwright: chart renders, target chip reads `🎯 Hedef %60`, edit → 80 → chip updates to `🎯 Hedef %80` + toast "Hedef %80 olarak kaydedildi", MA toggle flips state ○/◉ + legend hides its 7-gün ort. chip, benchmark band + dashed target line visible on screenshot.
+
+
+## Trend Alerts — MA7 Below Target × 3 Days (Feb 16, 2026)
+
+### Backend
+- **Shared aggregation**: `_compute_trend_items(days, member_query)` extracted from `/api/reports/trend` so the alert path uses the exact numbers admins see on the chart.
+- **`_trend_ma7_series(items)`** — trailing 7-day MA matching the frontend's smoothing (min 2 non-null points).
+- **`_trend_alert_evaluate()`** — computes current MA7 breach streak, fires bell + Telegram DM + Web Push only when `streak >= 3` AND (`>20h since last alert` OR `streak grew`). Idempotent via `guild_settings.trend_alert_state = {last_dispatched_at, last_streak, last_ma, target}`.
+- **Delivery**:
+  - Bell → direct `in_app_notifications.insert_many` for `role="admin"` users, `kind="trend_alert"`.
+  - Telegram → `_send_tg_message` per admin with a linked `telegram_chat_id`.
+  - Web push → `_broadcast_push(title, body, "/raporlar", tag=f"trend-alert-{today}", sound="rally")`.
+- **`_trend_alert_loop()`** — hourly background task launched in `_start_push_scheduler` after a 120s warm-up.
+- **Endpoints**:
+  - `POST /api/reports/trend/check-alerts` — admin manual trigger.
+  - `GET /api/reports/trend/alert-state` — snapshot `{target, streak, last_ma, state}`.
+
+### Verified (curl)
+- Seeded 5 consecutive daily events with zero attendance → `alert-state` reported `streak=4, last_ma=0.2%` → `check-alerts` returned `fired: true, bell_sent=7`. Retry returned `fired: false, reason: throttled`. Cleanup script removed 5 seed events + 7 bell rows + alert state.

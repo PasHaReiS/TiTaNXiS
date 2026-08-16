@@ -4231,6 +4231,7 @@ async def _start_push_scheduler():
     import asyncio
     asyncio.create_task(_push_scheduler_loop())
     asyncio.create_task(_announcement_scheduler_loop())
+    asyncio.create_task(_trend_alert_loop())
 
 
 async def _announcement_scheduler_loop():
@@ -5763,6 +5764,235 @@ async def settings_set_guild_target(body: GuildTargetBody, user: dict = Depends(
         upsert=True,
     )
     return {"target": t}
+
+
+# ---------- Trend Alerts (bell + Telegram when MA breaches target for 3d) ----------
+
+async def _compute_trend_items(days: int, member_query: Optional[dict] = None) -> dict:
+    """Shared trend aggregation used by `/api/reports/trend` and the
+    `_trend_alert_loop`. Kept as a plain helper (no request/deps) so the
+    alert loop can call it without going through FastAPI's dep injection."""
+    from datetime import datetime as _dt_t, timezone as _tz_t, timedelta as _td_t
+    days = max(1, min(int(days or 30), 180))
+    end = _dt_t.now(_tz_t.utc)
+    start = end - _td_t(days=days - 1)
+    start_iso = start.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    mq = member_query or {}
+    member_ids = [m["id"] for m in await db.members.find(mq, {"_id": 0, "id": 1}).to_list(20000)]
+    member_pool = len(member_ids)
+    events = await db.events.find(
+        {"archived": False, "date": {"$gte": start_iso}},
+        {"_id": 0, "id": 1, "date": 1},
+    ).to_list(20000)
+    if not events or not member_pool:
+        return {"days": days, "member_pool": member_pool, "items": []}
+    ev_ids = [e["id"] for e in events]
+    att = await db.event_attendance.find(
+        {"event_id": {"$in": ev_ids}, "member_id": {"$in": member_ids}},
+        {"_id": 0, "event_id": 1, "status": 1},
+    ).to_list(200000)
+    att_by_event: dict = {}
+    for a in att:
+        s = (a.get("status") or "attending").lower()
+        if s in ("attending", "late"):
+            att_by_event[a["event_id"]] = att_by_event.get(a["event_id"], 0) + 1
+    by_day: dict = {}
+    for e in events:
+        d = (e.get("date") or "")[:10]
+        if not d:
+            continue
+        b = by_day.setdefault(d, {"attending": 0, "event_count": 0})
+        b["attending"] += att_by_event.get(e["id"], 0)
+        b["event_count"] += 1
+    items = []
+    end_date = end.date()
+    for i in range(days):
+        d = (end_date - _td_t(days=days - 1 - i)).isoformat()
+        bucket = by_day.get(d)
+        if bucket and bucket["event_count"]:
+            rate = round(bucket["attending"] / (member_pool * bucket["event_count"]) * 100, 1)
+            items.append({"date": d, "participation_rate": rate,
+                          "attending": bucket["attending"],
+                          "event_count": bucket["event_count"],
+                          "member_pool": member_pool})
+        else:
+            items.append({"date": d, "participation_rate": None,
+                          "attending": 0, "event_count": 0,
+                          "member_pool": member_pool})
+    return {"days": days, "member_pool": member_pool, "items": items}
+
+
+def _trend_ma7_series(items: list) -> list:
+    """Trailing 7-day moving average matching the frontend's smoothing so
+    admins never see one number in the chart and a different one in the
+    alert. Returns list of {date, ma} — `ma` can be None on cold-start days."""
+    win = 7
+    out = []
+    for i, d in enumerate(items):
+        start = max(0, i - win + 1)
+        slice_ = [x["participation_rate"] for x in items[start:i + 1] if x["participation_rate"] is not None]
+        ma = round(sum(slice_) / len(slice_), 1) if len(slice_) >= min(win, 2) else None
+        out.append({"date": d["date"], "ma": ma})
+    return out
+
+
+async def _trend_alert_evaluate() -> dict:
+    """Compute the current MA7 breach streak and (if warranted) fan out
+    alerts. Returns a diagnostic dict so the manual-trigger endpoint can
+    surface what happened."""
+    from datetime import datetime as _dt_a, timezone as _tz_a
+    target_doc = await db.guild_settings.find_one({"key": "guild_target"}, {"_id": 0})
+    target = int((target_doc or {}).get("value", 60))
+    trend = await _compute_trend_items(30)
+    if not trend["items"] or trend["member_pool"] == 0:
+        return {"fired": False, "reason": "no-data", "streak": 0, "target": target}
+    ma = _trend_ma7_series(trend["items"])
+    # Trailing streak: count consecutive most-recent days where MA is known AND < target.
+    streak = 0
+    breach_days: list = []
+    for row in reversed(ma):
+        if row["ma"] is None:
+            break
+        if row["ma"] < target:
+            streak += 1
+            breach_days.append(row)
+        else:
+            break
+    last_ma = next((r["ma"] for r in reversed(ma) if r["ma"] is not None), None)
+
+    state_doc = await db.guild_settings.find_one({"key": "trend_alert_state"}, {"_id": 0})
+    state = (state_doc or {}).get("value") or {}
+    last_dispatched_at = state.get("last_dispatched_at")
+    last_streak = int(state.get("last_streak") or 0)
+
+    # Fire when the streak reaches 3+ AND either (a) we haven't alerted in >20h,
+    # or (b) the streak grew from last time (worse) so admins get updated news.
+    now = _dt_a.now(_tz_a.utc)
+    hours_since_last = 999.0
+    if last_dispatched_at:
+        try:
+            when = _dt_a.fromisoformat(last_dispatched_at.replace("Z", "+00:00"))
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=_tz_a.utc)
+            hours_since_last = (now - when).total_seconds() / 3600.0
+        except Exception:
+            pass
+    should_fire = streak >= 3 and (hours_since_last >= 20 or streak > last_streak)
+
+    result = {
+        "fired": False, "streak": streak, "last_streak": last_streak,
+        "target": target, "last_ma": last_ma, "hours_since_last": round(hours_since_last, 1),
+        "member_pool": trend["member_pool"],
+    }
+    if not should_fire:
+        result["reason"] = "no-alert" if streak < 3 else "throttled"
+        return result
+
+    title = "⚠️ Katılım Uyarısı"
+    body = (f"Son 7 günlük ortalama %{last_ma if last_ma is not None else '?'} — "
+            f"hedef %{target}. {streak} gündür hedefin altında.")
+    url = "/raporlar"
+
+    # Only alert admins — noisy pings for regular members would erode trust.
+    admin_users = await db.users.find({"role": "admin", "notification_enabled": {"$ne": False}},
+                                      {"_id": 0, "id": 1, "telegram_chat_id": 1}).to_list(500)
+    admin_ids = [u["id"] for u in admin_users]
+
+    # Bell: insert directly so we don't get filtered by attendance rules in _broadcast_in_app.
+    from datetime import datetime as _dt_b
+    if admin_ids:
+        await db.in_app_notifications.insert_many([
+            {"id": str(uuid.uuid4()), "user_id": uid, "title": title, "body": body,
+             "url": url, "read": False, "created_at": now_iso(),
+             "kind": "trend_alert"}
+            for uid in admin_ids
+        ])
+    result["bell_sent"] = len(admin_ids)
+
+    # Telegram DMs — reuse _send_tg_dms with admin-only targeting: it will
+    # filter to users w/ telegram_chat_id and role admin via a synthetic doc.
+    tg_sent = 0
+    try:
+        from telegram_bot import _send_tg_message  # existing low-level sender
+        for u in admin_users:
+            cid = u.get("telegram_chat_id")
+            if not cid:
+                continue
+            full_body = f"{body}\n{os.environ.get('PUBLIC_BASE_URL', '')}{url}"
+            ok = await _send_tg_message(str(cid), f"{title}\n\n{full_body}")
+            if ok:
+                tg_sent += 1
+    except Exception as ex:
+        logger.warning(f"trend alert telegram: {ex}")
+    result["tg_sent"] = tg_sent
+
+    # Web push — targets all admin subscriptions.
+    try:
+        push_r = await _broadcast_push(title, body, url, tag=f"trend-alert-{now.date().isoformat()}", sound="rally")
+        result["push_sent"] = (push_r or {}).get("sent", 0)
+    except Exception as ex:
+        logger.warning(f"trend alert push: {ex}")
+        result["push_sent"] = 0
+
+    await db.guild_settings.update_one(
+        {"key": "trend_alert_state"},
+        {"$set": {"key": "trend_alert_state",
+                  "value": {"last_dispatched_at": now.isoformat(),
+                            "last_streak": streak,
+                            "last_ma": last_ma,
+                            "target": target},
+                  "updated_at": now_iso()}},
+        upsert=True,
+    )
+    result["fired"] = True
+    logger.info(f"trend_alert fired: streak={streak} ma={last_ma} target={target} → {result}")
+    return result
+
+
+async def _trend_alert_loop():
+    """Hourly monitor. Cheap: aggregation covers 30 days × ~5 events."""
+    import asyncio
+    # Short warm-up so the first tick doesn't race the app's own startup work.
+    await asyncio.sleep(120)
+    while True:
+        try:
+            await _trend_alert_evaluate()
+        except Exception as ex:
+            logger.warning(f"trend alert loop error: {ex}")
+        await asyncio.sleep(60 * 60)  # 1h cadence — plenty for a daily metric.
+
+
+@api_router.post("/reports/trend/check-alerts")
+async def reports_trend_check_alerts(_: dict = Depends(require_admin)):
+    """Manual trigger — admins can force an evaluation without waiting for
+    the hourly loop. Useful for smoke-testing the alert path after tweaking
+    the target."""
+    return await _trend_alert_evaluate()
+
+
+@api_router.get("/reports/trend/alert-state")
+async def reports_trend_alert_state(_: dict = Depends(require_admin)):
+    """Current alert snapshot — target, current MA7 streak, last-dispatch metadata."""
+    doc = await db.guild_settings.find_one({"key": "trend_alert_state"}, {"_id": 0})
+    target_doc = await db.guild_settings.find_one({"key": "guild_target"}, {"_id": 0})
+    target = int((target_doc or {}).get("value", 60))
+    trend = await _compute_trend_items(30)
+    ma = _trend_ma7_series(trend["items"]) if trend["items"] else []
+    streak = 0
+    for row in reversed(ma):
+        if row["ma"] is None:
+            break
+        if row["ma"] < target:
+            streak += 1
+        else:
+            break
+    last_ma = next((r["ma"] for r in reversed(ma) if r["ma"] is not None), None)
+    return {
+        "target": target,
+        "streak": streak,
+        "last_ma": last_ma,
+        "state": (doc or {}).get("value") or {},
+    }
 
 
 @api_router.get("/reports/events")
