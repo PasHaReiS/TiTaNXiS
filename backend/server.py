@@ -36,6 +36,15 @@ app = FastAPI(title="GOD OF WAR Yönetim API")
 api_router = APIRouter(prefix="/api")
 
 
+# ---------- Kubernetes health probe (no /api prefix) ----------
+# The deployment platform hits `GET /health` (not `/api/health`) as its
+# liveness/readiness check. Return 200 fast, without a DB round-trip, so the
+# pod doesn't get killed on cold start when Mongo hasn't finished handshaking.
+@app.get("/health")
+async def _kube_health():
+    return {"status": "ok"}
+
+
 # ---------- Models ----------
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
