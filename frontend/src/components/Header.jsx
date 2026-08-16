@@ -151,12 +151,6 @@ export default function Header({ title }) {
                     />
                   )}
                   <MenuItem
-                    icon={Megaphone}
-                    label={t("nav_announcements") || "Duyurular"}
-                    onClick={() => goto("/duyurular")}
-                    testId="dropdown-announcements"
-                  />
-                  <MenuItem
                     icon={LifeBuoy}
                     label={t("nav_vip_support") || "VIP Destek"}
                     onClick={() => goto("/vip-destek")}
@@ -197,7 +191,7 @@ export default function Header({ title }) {
                   {(isAdmin || canEdit) && (
                     <MenuItem
                       icon={History}
-                      label={t("nav_ocr_history")}
+                      label={t("nav_ocr_history") || "OCR Geçmişi"}
                       onClick={() => goto("/ocr/history")}
                       testId="dropdown-ocr-history"
                     />
