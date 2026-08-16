@@ -33,6 +33,7 @@ import Alliances from "@/pages/Alliances";
 import Profile from "@/pages/Profile";
 import Reports from "@/pages/Reports";
 import Polls from "@/pages/Polls";
+import Signup from "@/pages/Signup";
 import PushSoundListener from "@/components/PushSoundListener";
 import MotionPage from "@/components/MotionPage";
 
@@ -129,6 +130,7 @@ function AppShell() {
           <Route path="/ittifaklar" element={<RequireAdminOrEditor><MotionPage><Alliances /></MotionPage></RequireAdminOrEditor>} />
           <Route path="/raporlar" element={<RequireAdmin><MotionPage><Reports /></MotionPage></RequireAdmin>} />
           <Route path="/anketler" element={<RequireAuth><MotionPage><Polls /></MotionPage></RequireAuth>} />
+          <Route path="/kayit/:token" element={<MotionPage><Signup /></MotionPage>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </AnimatePresence>

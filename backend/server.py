@@ -5790,10 +5790,37 @@ async def reports_events_csv(period: str = "all", user: dict = Depends(require_a
     )
 
 
+async def _poll_broadcast(question: str, poll_id: str):
+    """Fan out a new-poll notification across Web Push + Telegram DMs + in-app
+    bell. Fired by the polls router the moment a poll is created."""
+    import asyncio
+    title = "🗳️ Yeni Anket"
+    body = question[:180] + ("…" if len(question) > 180 else "")
+    url = "/anketler"
+    doc = {"id": f"poll-{poll_id}", "title": title, "body": body, "url": url,
+           "image_url": None, "event_id": None,
+           "send_channel": False, "send_dm": True, "send_app": True}
+    try:
+        await asyncio.gather(
+            _broadcast_push(title, body, url, tag=f"poll-{poll_id}", sound="rally"),
+            _send_tg_dms(doc),
+            _broadcast_in_app(doc),
+            return_exceptions=True,
+        )
+    except Exception as ex:
+        logger.warning(f"poll broadcast: {ex}")
+
+
 app.include_router(api_router)
 app.include_router(make_auth_router(db))
 from routes.polls import make_polls_router
-app.include_router(make_polls_router(db, require_auth, require_admin), prefix="/api")
+app.include_router(make_polls_router(db, require_auth, require_admin, on_poll_created=_poll_broadcast), prefix="/api")
+from routes.invites import make_invites_router
+from auth import hash_password as _hash_password, create_token as _create_token, parse_user_agent as _parse_user_agent, public_user as _public_user
+app.include_router(
+    make_invites_router(db, require_admin, _hash_password, _create_token, _parse_user_agent, now_iso, _public_user),
+    prefix="/api",
+)
 from routes.ocr import make_ocr_router
 app.include_router(make_ocr_router(db, require_edit, require_auth), prefix="/api")
 from routes.alliances import make_alliances_router
@@ -5823,6 +5850,12 @@ async def startup():
         await ensure_polls_indexes(db)
     except Exception as _e:
         logging.getLogger("server").warning(f"polls index ensure: {_e}")
+    # Invites indexes — Faz 5
+    try:
+        from routes.invites import ensure_invites_indexes
+        await ensure_invites_indexes(db)
+    except Exception as _e:
+        logging.getLogger("server").warning(f"invites index ensure: {_e}")
 
     # Backfill missing `status` field on legacy attendance docs → "attending".
     try:

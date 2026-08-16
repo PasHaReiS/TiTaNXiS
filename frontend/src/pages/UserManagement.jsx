@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
 import SessionManagement from "@/components/SessionManagement";
+import InviteManagement from "@/components/InviteManagement";
 import { Plus, Trash2, KeyRound, Shield, User, X, ShieldCheck, PencilLine, Link2, AlertTriangle, Upload, Clock, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
@@ -103,54 +104,39 @@ export default function UserManagement() {
           }}
           data-testid="user-mgmt-subnav"
         >
-          <button
-            data-testid="user-mgmt-tab-users"
-            onClick={() => setSubtab("users")}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 transition-all"
-            style={{
-              fontSize: 11,
-              fontWeight: 800,
-              letterSpacing: "1.2px",
-              textTransform: "uppercase",
-              background: subtab === "users"
-                ? "linear-gradient(180deg, rgba(249,115,22,0.28), rgba(180,83,9,0.45))"
-                : "rgba(20,15,25,0.65)",
-              color: subtab === "users" ? "#FFEDD5" : "#78716C",
-              borderRight: "1px solid rgba(120,53,15,0.35)",
-              boxShadow: subtab === "users"
-                ? "0 0 10px #f97316, inset 0 0 16px rgba(249,115,22,0.20)"
-                : "none",
-            }}
-          >
-            <span aria-hidden="true" style={{ fontSize: 14, filter: subtab === "users" ? "none" : "grayscale(0.5)" }}>👥</span>
-            <span>{t("user_mgmt_users_tab")}</span>
-          </button>
-          <button
-            data-testid="user-mgmt-tab-sessions"
-            onClick={() => setSubtab("sessions")}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 transition-all"
-            style={{
-              fontSize: 11,
-              fontWeight: 800,
-              letterSpacing: "1.2px",
-              textTransform: "uppercase",
-              background: subtab === "sessions"
-                ? "linear-gradient(180deg, rgba(245,166,35,0.28), rgba(180,83,9,0.45))"
-                : "rgba(20,15,25,0.65)",
-              color: subtab === "sessions" ? "#FFEDD5" : "#78716C",
-              boxShadow: subtab === "sessions"
-                ? "0 0 10px #F5A623, inset 0 0 16px rgba(245,166,35,0.20)"
-                : "none",
-            }}
-          >
-            <span aria-hidden="true" style={{ fontSize: 14, filter: subtab === "sessions" ? "none" : "grayscale(0.5)" }}>🖥️</span>
-            <span>{t("user_mgmt_sessions_tab")}</span>
-          </button>
+          {[
+            { key: "users", emoji: "👥", label: t("user_mgmt_users_tab") },
+            { key: "sessions", emoji: "🖥️", label: t("user_mgmt_sessions_tab") },
+            { key: "invites", emoji: "🔗", label: "Davet Linkleri" },
+          ].map((tab, i, arr) => (
+            <button
+              key={tab.key}
+              data-testid={`user-mgmt-tab-${tab.key}`}
+              onClick={() => setSubtab(tab.key)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 transition-all"
+              style={{
+                fontSize: 11, fontWeight: 800, letterSpacing: "1.2px", textTransform: "uppercase",
+                background: subtab === tab.key
+                  ? "linear-gradient(180deg, rgba(245,166,35,0.28), rgba(180,83,9,0.45))"
+                  : "rgba(20,15,25,0.65)",
+                color: subtab === tab.key ? "#FFEDD5" : "#78716C",
+                borderRight: i < arr.length - 1 ? "1px solid rgba(120,53,15,0.35)" : "none",
+                boxShadow: subtab === tab.key ? "0 0 10px #F5A623, inset 0 0 16px rgba(245,166,35,0.20)" : "none",
+              }}
+            >
+              <span aria-hidden style={{ fontSize: 14, filter: subtab === tab.key ? "none" : "grayscale(0.5)" }}>{tab.emoji}</span>
+              <span>{tab.label}</span>
+            </button>
+          ))}
         </div>
 
         {subtab === "sessions" ? (
           <div data-testid="user-mgmt-sessions-content">
             <SessionManagement />
+          </div>
+        ) : subtab === "invites" ? (
+          <div data-testid="user-mgmt-invites-content">
+            <InviteManagement />
           </div>
         ) : (<>
         <div className="flex items-center justify-between mb-3">

@@ -41,6 +41,17 @@ export function AuthProvider({ children }) {
     return data.user;
   }, [setAxiosToken]);
 
+  // Adopt an already-issued token + user (used by the invite-signup flow so
+  // /kayit/:token can auto-login without a second /auth/login round-trip).
+  const adoptSession = useCallback((token, u) => {
+    localStorage.setItem(TOKEN_KEY, token);
+    setAxiosToken(token);
+    setUser(u);
+    identifyUser(u);
+    trackEvent("user_login", { method: "invite", role: u?.role || "member" });
+    return u;
+  }, [setAxiosToken]);
+
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     setAxiosToken(null);
@@ -59,7 +70,7 @@ export function AuthProvider({ children }) {
   const canEdit = !!user && (isAdmin || !!user.can_edit);
 
   return (
-    <AuthContext.Provider value={{ user, loading, isAdmin, canEdit, login, logout, refreshMe, setUser }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, canEdit, login, logout, refreshMe, setUser, adoptSession }}>
       {children}
     </AuthContext.Provider>
   );

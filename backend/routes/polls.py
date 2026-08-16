@@ -92,7 +92,10 @@ async def _poll_public(db, poll: dict, viewer_id: Optional[str]) -> dict:
     }
 
 
-def make_polls_router(db, require_auth, require_admin):
+def make_polls_router(db, require_auth, require_admin, on_poll_created=None):
+    """`on_poll_created` — optional async callback invoked with
+    `(question:str, poll_id:str)` right after a poll is inserted. Wired by
+    server.py to fan out Web Push + TG DM + in-app bell (Faz 5 broadcast)."""
     router = APIRouter(prefix="/polls", tags=["polls"])
 
     @router.get("")
@@ -145,6 +148,13 @@ def make_polls_router(db, require_auth, require_admin):
             "created_by_username": admin.get("username") or "",
         }
         await db.polls.insert_one(doc)
+        # Fan out the announcement across all channels — non-blocking, best-effort.
+        if on_poll_created is not None:
+            try:
+                import asyncio as _asyncio
+                _asyncio.create_task(on_poll_created(doc["question"], doc["id"]))
+            except Exception:
+                pass
         return await _poll_public(db, doc, admin["id"])
 
     @router.post("/{poll_id}/vote")
