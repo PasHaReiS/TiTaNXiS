@@ -5398,6 +5398,17 @@ class AttendanceToggleBody(BaseModel):
     attended: Optional[bool] = None  # None = toggle, True/False = explicit set
 
 
+# Valid attendance status values. `attending` = ✅ (default when a member is
+# marked present). `declined` = ❌ won't attend. `maybe` = ❔ tentative.
+# `late` = 🕒 attended but arrived late (still counted toward participation
+# rate in reports). Missing / no doc = ⚪ no-response.
+ATTENDANCE_STATUSES = {"attending", "declined", "maybe", "late"}
+
+
+class AttendanceStatusBody(BaseModel):
+    status: Optional[str] = None  # one of ATTENDANCE_STATUSES or None to clear (no-response)
+
+
 @api_router.post("/events/{event_id}/attendance/toggle")
 async def event_attendance_toggle(event_id: str, body: AttendanceToggleBody, user: dict = Depends(require_edit)):
     """Mark/unmark a member's attendance for an event.
@@ -5418,12 +5429,50 @@ async def event_attendance_toggle(event_id: str, body: AttendanceToggleBody, use
             "id": str(uuid.uuid4()),
             "event_id": event_id,
             "member_id": body.member_id,
+            "status": "attending",
             "marked_at": now_iso(),
             "marked_by": user.get("username") or "?",
         })
     elif not should_attend and existing:
         await db.event_attendance.delete_one({"_id": existing["_id"]})
     return {"event_id": event_id, "member_id": body.member_id, "attended": should_attend}
+
+
+@api_router.patch("/events/{event_id}/attendance/{member_id}")
+async def event_attendance_set_status(
+    event_id: str,
+    member_id: str,
+    body: AttendanceStatusBody,
+    user: dict = Depends(require_edit),
+):
+    """Set a member's attendance status for an event to one of
+    `attending / declined / maybe / late`, or pass `status=null` to clear
+    (i.e. the member is back to no-response). Powers the editable-status
+    dropdown in the Raporlar Merkezi > Etkinlik Katılım İstatistikleri tab.
+    """
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1})
+    if not ev:
+        raise HTTPException(404, "Etkinlik bulunamadı")
+    mem = await db.members.find_one({"id": member_id}, {"_id": 0, "id": 1})
+    if not mem:
+        raise HTTPException(404, "Üye bulunamadı")
+    status = (body.status or "").strip().lower() or None
+    if status is not None and status not in ATTENDANCE_STATUSES:
+        raise HTTPException(400, f"invalid status; expected one of {sorted(ATTENDANCE_STATUSES)}")
+    if status is None:
+        await db.event_attendance.delete_one({"event_id": event_id, "member_id": member_id})
+        return {"event_id": event_id, "member_id": member_id, "status": None}
+    await db.event_attendance.update_one(
+        {"event_id": event_id, "member_id": member_id},
+        {"$set": {
+            "event_id": event_id, "member_id": member_id,
+            "status": status,
+            "marked_at": now_iso(),
+            "marked_by": user.get("username") or "?",
+        }, "$setOnInsert": {"id": str(uuid.uuid4())}},
+        upsert=True,
+    )
+    return {"event_id": event_id, "member_id": member_id, "status": status}
 
 
 @api_router.get("/events/{event_id}/attendance")
@@ -5484,6 +5533,219 @@ async def member_attendance_stats(member_id: str, days: int = 30):
     compliance = round((attended / total) * 100, 1)
     return {"attended": attended, "total": total, "compliance": compliance, "days": days}
 
+
+# ---------- Raporlar Merkezi (Phase 3) ----------
+
+def _reports_period_cutoff(period: str) -> Optional[str]:
+    """Return an ISO date string cutoff for the given `period` selector, or
+    None for `all`. `30d` / `90d` / `180d` supported. Any other value falls
+    back to `all`."""
+    from datetime import datetime as _dt_r, timezone as _tz_r, timedelta as _td_r
+    p = (period or "all").lower()
+    if p == "all":
+        return None
+    m = {"30d": 30, "90d": 90, "180d": 180, "1y": 365}
+    days = m.get(p)
+    if not days:
+        return None
+    return (_dt_r.now(_tz_r.utc) - _td_r(days=days)).isoformat()
+
+
+@api_router.get("/reports/members")
+async def reports_members(period: str = "all", user: dict = Depends(require_admin)):
+    """Member performance aggregation. For each member, compute:
+      - attending / declined / maybe / late counts + no_response count
+      - total_events in period (all non-archived)
+      - participation_rate = (attending + late) / total_events * 100
+      - by_group breakdown = {group_name: {attending, declined, maybe, late}}
+
+    Missing `status` on legacy attendance rows is treated as `attending` for
+    backward compatibility (see startup migration below)."""
+    cutoff = _reports_period_cutoff(period)
+    ev_query: dict = {"archived": False}
+    if cutoff:
+        ev_query["date"] = {"$gte": cutoff}
+    events = await db.events.find(ev_query, {"_id": 0, "id": 1, "group_name": 1, "date": 1}).to_list(20000)
+    event_map = {e["id"]: e for e in events}
+    total_events = len(event_map)
+
+    att_query: dict = {}
+    if event_map:
+        att_query["event_id"] = {"$in": list(event_map.keys())}
+    else:
+        att_query["event_id"] = {"$in": []}
+    attendance = await db.event_attendance.find(att_query, {"_id": 0}).to_list(200000)
+
+    members = await db.members.find({}, {"_id": 0, "id": 1, "name": 1, "country": 1,
+                                         "alliance_name": 1, "rank": 1}).to_list(20000)
+    per_member: dict = {}
+    for m in members:
+        per_member[m["id"]] = {
+            "member_id": m["id"],
+            "name": m.get("name") or "?",
+            "country": m.get("country"),
+            "alliance_name": m.get("alliance_name"),
+            "rank": m.get("rank"),
+            "attending": 0, "declined": 0, "maybe": 0, "late": 0,
+            "no_response": 0,
+            "by_group": {},
+        }
+    for a in attendance:
+        mid = a.get("member_id")
+        row = per_member.get(mid)
+        if not row:
+            continue
+        status = (a.get("status") or "attending").lower()
+        if status not in ATTENDANCE_STATUSES:
+            status = "attending"
+        row[status] = row.get(status, 0) + 1
+        ev = event_map.get(a.get("event_id"))
+        gn = (ev or {}).get("group_name") or "—"
+        g = row["by_group"].setdefault(gn, {"attending": 0, "declined": 0, "maybe": 0, "late": 0})
+        g[status] = g.get(status, 0) + 1
+
+    for row in per_member.values():
+        responded = row["attending"] + row["declined"] + row["maybe"] + row["late"]
+        row["no_response"] = max(0, total_events - responded)
+        # Participation rate — treat attending + late as "showed up".
+        showed_up = row["attending"] + row["late"]
+        row["participation_rate"] = round(showed_up / total_events * 100, 1) if total_events else 0.0
+
+    rows = sorted(per_member.values(), key=lambda r: (-r["participation_rate"], -r["attending"], r["name"]))
+    return {"period": period, "total_events": total_events, "items": rows}
+
+
+@api_router.get("/reports/events")
+async def reports_events(period: str = "all", user: dict = Depends(require_admin)):
+    """Per-event stats — counts by status + attendance rate. Includes a
+    lightweight `by_status` breakdown that the frontend renders as chips
+    next to each event row."""
+    cutoff = _reports_period_cutoff(period)
+    ev_query: dict = {"archived": False}
+    if cutoff:
+        ev_query["date"] = {"$gte": cutoff}
+    events = await db.events.find(ev_query, {"_id": 0}).sort("date", -1).to_list(20000)
+    if not events:
+        return {"period": period, "items": [], "member_pool": 0}
+    member_pool = await db.members.count_documents({})
+    ev_ids = [e["id"] for e in events]
+    attendance = await db.event_attendance.find({"event_id": {"$in": ev_ids}},
+                                                {"_id": 0}).to_list(200000)
+    per_event: dict = {eid: {"attending": 0, "declined": 0, "maybe": 0, "late": 0}
+                       for eid in ev_ids}
+    for a in attendance:
+        eid = a.get("event_id")
+        b = per_event.get(eid)
+        if not b:
+            continue
+        status = (a.get("status") or "attending").lower()
+        if status not in ATTENDANCE_STATUSES:
+            status = "attending"
+        b[status] = b.get(status, 0) + 1
+    items = []
+    for e in events:
+        stats = per_event.get(e["id"], {"attending": 0, "declined": 0, "maybe": 0, "late": 0})
+        showed_up = stats["attending"] + stats["late"]
+        responded = showed_up + stats["declined"] + stats["maybe"]
+        rate = round(showed_up / member_pool * 100, 1) if member_pool else 0.0
+        items.append({
+            "id": e["id"],
+            "name": e.get("name"),
+            "group_name": e.get("group_name"),
+            "date": e.get("date"),
+            "series_id": e.get("series_id"),
+            "attending": stats["attending"],
+            "declined": stats["declined"],
+            "maybe": stats["maybe"],
+            "late": stats["late"],
+            "no_response": max(0, member_pool - responded),
+            "responded": responded,
+            "member_pool": member_pool,
+            "participation_rate": rate,
+        })
+    return {"period": period, "items": items, "member_pool": member_pool}
+
+
+@api_router.get("/reports/events/{event_id}/attendance")
+async def reports_event_attendance_detail(event_id: str, user: dict = Depends(require_admin)):
+    """Per-member attendance rows for a single event so the frontend can
+    render the editable status dropdown. Returns every member (even those
+    without a doc) so admins can promote a no-response to a status inline."""
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0})
+    if not ev:
+        raise HTTPException(404, "Etkinlik bulunamadı")
+    members = await db.members.find({}, {"_id": 0, "id": 1, "name": 1,
+                                         "country": 1, "alliance_name": 1,
+                                         "rank": 1}).sort("name", 1).to_list(20000)
+    docs = await db.event_attendance.find({"event_id": event_id}, {"_id": 0}).to_list(20000)
+    by_member = {d["member_id"]: d for d in docs}
+    items = []
+    for m in members:
+        d = by_member.get(m["id"])
+        status = (d.get("status") if d else None) or ("attending" if d else None)
+        items.append({
+            "member_id": m["id"],
+            "name": m.get("name"),
+            "country": m.get("country"),
+            "alliance_name": m.get("alliance_name"),
+            "rank": m.get("rank"),
+            "status": status,
+            "marked_at": (d or {}).get("marked_at"),
+            "marked_by": (d or {}).get("marked_by"),
+        })
+    return {"event": {"id": ev["id"], "name": ev.get("name"), "date": ev.get("date"),
+                      "group_name": ev.get("group_name")},
+            "items": items}
+
+
+@api_router.get("/reports/members/export.csv")
+async def reports_members_csv(period: str = "all", user: dict = Depends(require_admin)):
+    """CSV export of the /reports/members payload — same rows, flattened for
+    Excel / Sheets. Response streamed as text/csv with a filename hint."""
+    from fastapi.responses import PlainTextResponse
+    import csv, io
+    data = await reports_members(period=period, user=user)  # reuse aggregation
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["member_id", "name", "alliance_name", "rank", "country",
+                "attending", "late", "declined", "maybe", "no_response",
+                "participation_rate_pct", "total_events", "period"])
+    total = data["total_events"]
+    for r in data["items"]:
+        w.writerow([r["member_id"], r["name"], r.get("alliance_name") or "",
+                    r.get("rank") or "", r.get("country") or "",
+                    r["attending"], r["late"], r["declined"], r["maybe"],
+                    r["no_response"], r["participation_rate"], total, period])
+    return PlainTextResponse(
+        buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="member-perf-{period}.csv"'},
+    )
+
+
+@api_router.get("/reports/events/export.csv")
+async def reports_events_csv(period: str = "all", user: dict = Depends(require_admin)):
+    """CSV export of the /reports/events payload."""
+    from fastapi.responses import PlainTextResponse
+    import csv, io
+    data = await reports_events(period=period, user=user)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["event_id", "name", "group_name", "date",
+                "attending", "late", "declined", "maybe", "no_response",
+                "responded", "member_pool", "participation_rate_pct", "period"])
+    for r in data["items"]:
+        w.writerow([r["id"], r["name"], r["group_name"], r["date"],
+                    r["attending"], r["late"], r["declined"], r["maybe"],
+                    r["no_response"], r["responded"], r["member_pool"],
+                    r["participation_rate"], period])
+    return PlainTextResponse(
+        buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="event-attendance-{period}.csv"'},
+    )
+
+
 app.include_router(api_router)
 app.include_router(make_auth_router(db))
 from routes.ocr import make_ocr_router
@@ -5509,6 +5771,19 @@ logger = logging.getLogger(__name__)
 async def startup():
     await ensure_indexes(db)
     await seed_admin(db)
+
+    # Backfill missing `status` field on legacy attendance docs → "attending".
+    try:
+        r = await db.event_attendance.update_many(
+            {"status": {"$exists": False}},
+            {"$set": {"status": "attending"}},
+        )
+        if r.modified_count:
+            logging.getLogger("server").info(
+                f"attendance status backfill: set 'attending' on {r.modified_count} legacy rows"
+            )
+    except Exception as _e:
+        logging.getLogger("server").warning(f"attendance backfill: {_e}")
 
     # Register the Telegram webhook (no-ops if TELEGRAM_BOT_TOKEN is unset).
     try:

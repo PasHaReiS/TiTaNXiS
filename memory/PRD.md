@@ -453,3 +453,30 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Two curl logins with distinct UAs (`Safari/iOS`, `Chrome/Android`) both created session docs.
 - `revoke-others` from Safari/iOS → `{revoked:2}`, then `/auth/me` with Safari/iOS → 200, `/auth/me` with Android → **401**. JWT invalidation lands within one request.
 - Admin UI screenshot: 4 sessions visible under `admin`, `BU CİHAZ` chip pinned on the Chrome/Linux Playwright session, per-row Sonlandır + "Tüm Oturumları Kes" bulk button all render.
+
+## Phase 3 — Raporlar Merkezi (Reports Center) (Feb 16, 2026)
+
+### Backend
+- **Attendance status vocabulary**: `ATTENDANCE_STATUSES = {attending, declined, maybe, late}`. Legacy rows without a `status` field are auto-migrated to `attending` on startup (`event_attendance.update_many({status:{$exists:false}}, {$set:{status:"attending"}})`).
+- **`PATCH /api/events/{event_id}/attendance/{member_id}`** — sets a member's attendance status. Upsert semantics: passing `status=null` deletes the row (member back to no-response). Invalid status → 400.
+- **`GET /api/reports/members?period=all|30d|90d|180d|1y`** — full member performance aggregation. Returns `total_events`, per-member `{attending, late, maybe, declined, no_response, participation_rate, by_group}`. Rate = `(attending + late) / total_events`.
+- **`GET /api/reports/events?period=…`** — per-event stats: counts by status, `responded`, `member_pool`, `participation_rate`.
+- **`GET /api/reports/events/{event_id}/attendance`** — every member (present or absent) for one event so the frontend can render inline status dropdowns.
+- **CSV exports**: `/api/reports/members/export.csv?period=…` and `/api/reports/events/export.csv?period=…` — text/csv with attachment filename hints; reuses the JSON aggregators.
+- **Startup migration** wired into `startup()`; logs modified count.
+
+### Frontend
+- **`pages/Reports.jsx`** — new admin-only page at `/raporlar`. Two-tab layout (Üye Performansı / Etkinlik Katılım) sharing a period selector (`Tümü / 30 Gün / 90 Gün / 180 Gün`) and a CSV download button.
+- **Üye Performansı**: Recharts BarChart (top-15 members) colored by tier (≥75% green, ≥50% amber, else red) + full sortable table with country flag, klan, per-status counts, and % rate.
+- **Etkinlik Katılım**: Each event row shows status chips (`✅🕒❔❌⚪`), pool ratio, expand toggle. Expanded panel calls `/reports/events/{id}/attendance` and shows a 2-col grid of every member with an inline status `<select>` (⚪/✅/🕒/❔/❌). PATCH is optimistic — success → toast + revalidate.
+- **CSV button** (`reports-download-csv`) — fetches blob, triggers browser download with period-aware filename (`uye-performans-90d.csv`, etc.).
+- **Route + nav**: `/raporlar` route wrapped in `RequireAdmin`; header profile dropdown gets a `📊 Raporlar` entry (testid `dropdown-reports`).
+- **Testids** (main): `reports-page`, `reports-tabs`, `reports-tab-members`, `reports-tab-events`, `reports-period-{key}`, `reports-download-csv`, `members-report`, `members-report-table`, `members-report-row-{id}`, `events-report`, `events-report-row-{id}`, `events-report-toggle-{id}`, `event-detail-{id}`, `event-detail-status-{member_id}`.
+
+### Verified (curl + Playwright)
+- `/reports/members?period=all` → `total_events=5, items=254` with correct 20% rate on 4 attendees.
+- `/reports/events?period=all` → 5 events, pool=254.
+- CSV export 200 / 19KB with proper header row.
+- `PATCH .../attendance/{mid}` — `status=late` persists, `status=null` clears, `status="unknown"` → 400.
+- Playwright: 254 members table, 5 event rows, expand → 254 status dropdowns rendered, BarChart visible with tiered colors, tab switching + period filter functional.
+

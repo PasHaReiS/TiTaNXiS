@@ -186,6 +186,14 @@ export default function Header({ title }) {
                       testId="dropdown-users"
                     />
                   )}
+                  {isAdmin && (
+                    <MenuItem
+                      emoji="📊"
+                      label="Raporlar"
+                      onClick={() => goto("/raporlar")}
+                      testId="dropdown-reports"
+                    />
+                  )}
                   <MenuItem
                     emoji="🔑"
                     label={t("change_password_title")}

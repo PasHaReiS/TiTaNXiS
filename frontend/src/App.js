@@ -31,6 +31,7 @@ import UserManagement from "@/pages/UserManagement";
 import OcrHistory from "@/pages/OcrHistory";
 import Alliances from "@/pages/Alliances";
 import Profile from "@/pages/Profile";
+import Reports from "@/pages/Reports";
 import PushSoundListener from "@/components/PushSoundListener";
 import MotionPage from "@/components/MotionPage";
 
@@ -125,6 +126,7 @@ function AppShell() {
           <Route path="/etkinlik-bildirimleri" element={<RequireAdminOrEditor><MotionPage><EventNotifications /></MotionPage></RequireAdminOrEditor>} />
           <Route path="/ocr/history" element={<RequireAdminOrEditor><MotionPage><OcrHistory /></MotionPage></RequireAdminOrEditor>} />
           <Route path="/ittifaklar" element={<RequireAdminOrEditor><MotionPage><Alliances /></MotionPage></RequireAdminOrEditor>} />
+          <Route path="/raporlar" element={<RequireAdmin><MotionPage><Reports /></MotionPage></RequireAdmin>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </AnimatePresence>
