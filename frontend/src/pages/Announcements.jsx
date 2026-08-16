@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import useSWR from "swr";
-import { Megaphone, Send, Trash2, Loader2, Radio, Users, MessageCircle, Bell, History, ChevronDown, Undo2 } from "lucide-react";
+import { Megaphone, Send, Trash2, Loader2, Radio, Users, MessageCircle, Bell, History, ChevronDown, Undo2, Search, Filter } from "lucide-react";
 import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -27,7 +27,11 @@ export default function Announcements({ embedded = false }) {
   // clicks the ⟲ button; a two-column dialog compares old vs new and
   // confirms the pop-from-history call.
   const [revertPreview, setRevertPreview] = useState(null);
-  const { data, mutate, isLoading } = useSWR("/announcements?limit=50", fetcher, { refreshInterval: 60000 });
+  // Search + filter for the announcement history list.
+  const [searchQ, setSearchQ] = useState("");
+  const [filterKind, setFilterKind] = useState("all"); // all | urgent | scheduled | normal
+  const listUrl = `/announcements?limit=50${searchQ.trim() ? `&search=${encodeURIComponent(searchQ.trim())}` : ""}${filterKind !== "all" ? `&filter=${filterKind}` : ""}`;
+  const { data, mutate, isLoading } = useSWR(listUrl, fetcher, { refreshInterval: 60000 });
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -330,10 +334,54 @@ export default function Announcements({ embedded = false }) {
         </button>
         {historyOpen && (
       <div className="space-y-1.5 p-2" data-testid="announcements-list">
+        {/* Search + filter bar — client sends q/filter query params so
+            /announcements does the heavy lifting (regex on title+body). */}
+        <div className="flex items-center gap-1.5 flex-wrap" data-testid="announcements-search-bar">
+          <div className="relative flex-1 min-w-[160px]">
+            <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              value={searchQ}
+              onChange={(e) => setSearchQ(e.target.value)}
+              placeholder="Başlık / içerikte ara…"
+              className="w-full pl-7 pr-2 py-1.5 rounded bg-black/40 border border-border text-white text-xs"
+              data-testid="announcements-search-input"
+            />
+            {searchQ && (
+              <button type="button" onClick={() => setSearchQ("")}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white text-[10px]"
+                      data-testid="announcements-search-clear">✕</button>
+            )}
+          </div>
+          <div className="flex items-center gap-1 text-[10px]">
+            <Filter className="w-3 h-3 gold-text" />
+            {[
+              { key: "all", label: "Tümü" },
+              { key: "urgent", label: "🚨 Acil" },
+              { key: "scheduled", label: "⏰ Zamanlı" },
+              { key: "normal", label: "Normal" },
+            ].map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setFilterKind(f.key)}
+                className="chip text-[10px]"
+                style={{
+                  background: filterKind === f.key
+                    ? "linear-gradient(180deg, rgba(245,166,35,0.28), rgba(180,83,9,0.45))"
+                    : "rgba(20,15,25,0.65)",
+                  color: filterKind === f.key ? "#FFEDD5" : "#78716C",
+                  borderColor: filterKind === f.key ? "#F5A623" : "rgba(120,53,15,0.35)",
+                }}
+                data-testid={`announcements-filter-${f.key}`}
+              >{f.label}</button>
+            ))}
+          </div>
+        </div>
         {isLoading && <div className="text-center text-xs text-muted-foreground py-6">Yükleniyor…</div>}
         {!isLoading && items.length === 0 && (
           <div className="text-center text-sm text-muted-foreground py-8" data-testid="announcements-empty">
-            Henüz duyuru yok.
+            {searchQ || filterKind !== "all" ? "Filtreye uyan duyuru yok." : "Henüz duyuru yok."}
           </div>
         )}
         {items.map((a) => (

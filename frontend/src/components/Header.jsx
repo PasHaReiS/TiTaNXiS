@@ -195,6 +195,12 @@ export default function Header({ title }) {
                     />
                   )}
                   <MenuItem
+                    emoji="🗳️"
+                    label="Anketler"
+                    onClick={() => goto("/anketler")}
+                    testId="dropdown-polls"
+                  />
+                  <MenuItem
                     emoji="🔑"
                     label={t("change_password_title")}
                     onClick={() => goto("/profil")}

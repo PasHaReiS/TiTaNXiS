@@ -154,9 +154,22 @@ function PeriodBar({ period, setPeriod, tab }) {
 
 // ----------- Üye Performansı Tab -----------
 function MembersReport({ period }) {
-  const { data, isLoading, error, mutate } = useSWR(`/reports/members?period=${period}`, fetcher);
+  const [alliance, setAlliance] = useState("");
+  const [country, setCountry] = useState("");
+  const qs = new URLSearchParams({ period });
+  if (alliance) qs.set("alliance", alliance);
+  if (country) qs.set("country", country);
+  const { data, isLoading, error, mutate } = useSWR(`/reports/members?${qs.toString()}`, fetcher);
+  const { data: alliancesList = [] } = useSWR("/alliances", fetcher);
   const rows = data?.items || [];
   const total_events = data?.total_events || 0;
+  // Derive country list from the current (unfiltered by country) rows so
+  // admins can only pick countries that actually appear in the pool.
+  const countryChoices = useMemo(() => {
+    const set = new Set();
+    rows.forEach((r) => { if (r.country) set.add(r.country); });
+    return Array.from(set).sort();
+  }, [rows]);
   const chartData = useMemo(
     () => rows.slice(0, 15).map((r) => ({
       name: r.name.length > 12 ? r.name.slice(0, 11) + "…" : r.name,
@@ -166,9 +179,54 @@ function MembersReport({ period }) {
   );
   if (isLoading) return <LoadingCard testId="members-report-loading" />;
   if (error) return <ErrorCard e={error} testId="members-report-error" />;
-  if (rows.length === 0) return <EmptyCard label="Üye yok" testId="members-report-empty" />;
   return (
     <div className="space-y-3" data-testid="members-report">
+      {/* Klan + ülke filtre çubuğu — Faz 3.5 Report Filters */}
+      <div className="card-red-gold p-2 flex items-center gap-2 flex-wrap"
+           data-testid="members-report-filters">
+        <div className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground flex items-center gap-1">
+          <Filter className="w-3 h-3" /> Klan
+        </div>
+        <select
+          value={alliance}
+          onChange={(e) => setAlliance(e.target.value)}
+          className="px-2 py-1 rounded bg-black/40 border border-border text-white text-[11px]"
+          data-testid="members-report-alliance-filter"
+        >
+          <option value="">Tümü ({alliancesList.length})</option>
+          {alliancesList.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <div className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground flex items-center gap-1">
+          <span aria-hidden>🌍</span> Ülke
+        </div>
+        <select
+          value={country}
+          onChange={(e) => setCountry(e.target.value)}
+          className="px-2 py-1 rounded bg-black/40 border border-border text-white text-[11px]"
+          data-testid="members-report-country-filter"
+        >
+          <option value="">Tümü</option>
+          {countryChoices.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        {(alliance || country) && (
+          <button type="button"
+                  onClick={() => { setAlliance(""); setCountry(""); }}
+                  className="chip text-[10px] ml-auto"
+                  style={{ borderColor: "rgba(239,68,68,0.4)", color: "#FCA5A5" }}
+                  data-testid="members-report-filters-clear">
+            Temizle
+          </button>
+        )}
+        <span className="text-[10px] text-muted-foreground ml-auto"
+              data-testid="members-report-count">
+          {rows.length} üye
+        </span>
+      </div>
+
+      {rows.length === 0 ? (
+        <EmptyCard label="Filtreye uyan üye yok" testId="members-report-empty" />
+      ) : (
+        <>
       <div className="card-red-gold p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="text-[11px] uppercase font-bold tracking-widest gold-text">
@@ -245,6 +303,8 @@ function MembersReport({ period }) {
           </tbody>
         </table>
       </div>
+        </>
+      )}
     </div>
   );
 }

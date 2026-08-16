@@ -32,6 +32,7 @@ import OcrHistory from "@/pages/OcrHistory";
 import Alliances from "@/pages/Alliances";
 import Profile from "@/pages/Profile";
 import Reports from "@/pages/Reports";
+import Polls from "@/pages/Polls";
 import PushSoundListener from "@/components/PushSoundListener";
 import MotionPage from "@/components/MotionPage";
 
@@ -127,6 +128,7 @@ function AppShell() {
           <Route path="/ocr/history" element={<RequireAdminOrEditor><MotionPage><OcrHistory /></MotionPage></RequireAdminOrEditor>} />
           <Route path="/ittifaklar" element={<RequireAdminOrEditor><MotionPage><Alliances /></MotionPage></RequireAdminOrEditor>} />
           <Route path="/raporlar" element={<RequireAdmin><MotionPage><Reports /></MotionPage></RequireAdmin>} />
+          <Route path="/anketler" element={<RequireAuth><MotionPage><Polls /></MotionPage></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </AnimatePresence>

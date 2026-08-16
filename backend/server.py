@@ -4824,11 +4824,35 @@ async def cron_telegram_dm_health():
 
 
 @api_router.get("/announcements")
-async def announcements_list(user: dict = Depends(require_auth), limit: int = 30):
-    """Public list of active announcements, newest first. No auth required —
-    shown in the app's Duyurular page to every visitor. Admins/editors see
-    inactive rows too so they can un-archive."""
-    q = {} if (user and user.get("role") in ("admin", "editor")) else {"active": True}
+async def announcements_list(
+    user: dict = Depends(require_auth),
+    limit: int = 30,
+    search: Optional[str] = None,
+    filter: Optional[str] = None,  # "all" | "urgent" | "scheduled" | "normal"
+):
+    """Public list of active announcements, newest first. Admins/editors see
+    inactive rows too so they can un-archive.
+
+    `search` — case-insensitive match against title/body.
+    `filter` — restrict to `urgent`, `scheduled` (pending_broadcast=true) or
+    `normal` (non-urgent, already broadcast). `all` / missing = no filter.
+    """
+    q: dict = {} if (user and user.get("role") in ("admin", "editor")) else {"active": True}
+    if search:
+        s = search.strip()
+        if s:
+            q["$or"] = [
+                {"title": {"$regex": s, "$options": "i"}},
+                {"body": {"$regex": s, "$options": "i"}},
+            ]
+    f = (filter or "").strip().lower()
+    if f == "urgent":
+        q["urgent"] = True
+    elif f == "scheduled":
+        q["pending_broadcast"] = True
+    elif f == "normal":
+        q["urgent"] = {"$ne": True}
+        q["pending_broadcast"] = {"$ne": True}
     cursor = db.announcements.find(q, {"_id": 0}).sort("created_at", -1).limit(max(1, min(limit, 100)))
     return {"items": [r async for r in cursor]}
 
@@ -5552,7 +5576,12 @@ def _reports_period_cutoff(period: str) -> Optional[str]:
 
 
 @api_router.get("/reports/members")
-async def reports_members(period: str = "all", user: dict = Depends(require_admin)):
+async def reports_members(
+    period: str = "all",
+    alliance: Optional[str] = None,
+    country: Optional[str] = None,
+    user: dict = Depends(require_admin),
+):
     """Member performance aggregation. For each member, compute:
       - attending / declined / maybe / late counts + no_response count
       - total_events in period (all non-archived)
@@ -5560,7 +5589,12 @@ async def reports_members(period: str = "all", user: dict = Depends(require_admi
       - by_group breakdown = {group_name: {attending, declined, maybe, late}}
 
     Missing `status` on legacy attendance rows is treated as `attending` for
-    backward compatibility (see startup migration below)."""
+    backward compatibility (see startup migration below).
+
+    Optional `alliance` and `country` query params restrict the member pool
+    (case-insensitive for alliance name; forced uppercase ISO2 for country)
+    so guild leaders can slice performance by squad or region.
+    """
     cutoff = _reports_period_cutoff(period)
     ev_query: dict = {"archived": False}
     if cutoff:
@@ -5576,8 +5610,13 @@ async def reports_members(period: str = "all", user: dict = Depends(require_admi
         att_query["event_id"] = {"$in": []}
     attendance = await db.event_attendance.find(att_query, {"_id": 0}).to_list(200000)
 
-    members = await db.members.find({}, {"_id": 0, "id": 1, "name": 1, "country": 1,
-                                         "alliance_name": 1, "rank": 1}).to_list(20000)
+    member_query: dict = {}
+    if alliance:
+        member_query["alliance_name"] = {"$regex": f"^{__import__('re').escape(alliance)}$", "$options": "i"}
+    if country:
+        member_query["country"] = country.strip().upper()
+    members = await db.members.find(member_query, {"_id": 0, "id": 1, "name": 1, "country": 1,
+                                                   "alliance_name": 1, "rank": 1}).to_list(20000)
     per_member: dict = {}
     for m in members:
         per_member[m["id"]] = {
@@ -5699,12 +5738,17 @@ async def reports_event_attendance_detail(event_id: str, user: dict = Depends(re
 
 
 @api_router.get("/reports/members/export.csv")
-async def reports_members_csv(period: str = "all", user: dict = Depends(require_admin)):
+async def reports_members_csv(
+    period: str = "all",
+    alliance: Optional[str] = None,
+    country: Optional[str] = None,
+    user: dict = Depends(require_admin),
+):
     """CSV export of the /reports/members payload — same rows, flattened for
     Excel / Sheets. Response streamed as text/csv with a filename hint."""
     from fastapi.responses import PlainTextResponse
     import csv, io
-    data = await reports_members(period=period, user=user)  # reuse aggregation
+    data = await reports_members(period=period, alliance=alliance, country=country, user=user)
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["member_id", "name", "alliance_name", "rank", "country",
@@ -5748,6 +5792,8 @@ async def reports_events_csv(period: str = "all", user: dict = Depends(require_a
 
 app.include_router(api_router)
 app.include_router(make_auth_router(db))
+from routes.polls import make_polls_router
+app.include_router(make_polls_router(db, require_auth, require_admin), prefix="/api")
 from routes.ocr import make_ocr_router
 app.include_router(make_ocr_router(db, require_edit, require_auth), prefix="/api")
 from routes.alliances import make_alliances_router
@@ -5771,6 +5817,12 @@ logger = logging.getLogger(__name__)
 async def startup():
     await ensure_indexes(db)
     await seed_admin(db)
+    # Polls indexes — Faz 4
+    try:
+        from routes.polls import ensure_polls_indexes
+        await ensure_polls_indexes(db)
+    except Exception as _e:
+        logging.getLogger("server").warning(f"polls index ensure: {_e}")
 
     # Backfill missing `status` field on legacy attendance docs → "attending".
     try:
