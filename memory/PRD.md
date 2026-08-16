@@ -581,3 +581,27 @@ After redeploy, tail `backend.err.log` while triggering a notification:
   - `send` returned `tg_sent=0 bell_sent=7` (admins have no linked chat_id in preview) and the second preview showed the populated `last_state`.
 - Playwright: `trend-digest-open` renders, modal preview markdown block visible, "Şimdi Gönder" button + last-send metadata all lit. Cleanup restored preview DB.
 
+## Digest Recipients — Channel Broadcast (Feb 16, 2026)
+
+### Backend
+- **`guild_settings.trend_digest_recipients.value = [{chat_id, label, added_by_username, added_at}]`** — list of Telegram groups/channels the digest is fanned out to alongside admin DMs.
+- **Endpoints** (all admin-only):
+  - `GET /api/reports/trend/digest/recipients` → `{items:[…]}`.
+  - `POST /api/reports/trend/digest/recipients` `{chat_id, label?}` — dedupe check (400 on duplicate).
+  - `DELETE /api/reports/trend/digest/recipients/{chat_id:path}` — path-param handles `-100…` group ids and `@channel` handles.
+  - `POST /api/reports/trend/digest/recipients/{chat_id:path}/test` — fires a `🧪 TiTaNXiS Digest Bağlantı Testi` ping so admins can verify the bot has access before Sunday.
+- **`_trend_digest_dispatch`** now iterates configured recipients after admin DMs, tracks `channels_sent` / `channels_err`, and persists `last_channels_sent` into `trend_digest_state` for the UI.
+
+### Frontend
+- **`TrendDigestModal`** grows a new **📡 Telegram Alıcıları** section under the last-send strip:
+  - Row per recipient: label (bold) + monospace `chat_id` shadow + `🧪 Test` button + `Sil` button.
+  - Inline form (`chat_id` + `Etiket`) POSTs to `/recipients`, toasts `Alıcı eklendi: {label}`.
+  - Empty-state hint: "Sadece admin DM'lerine gidiyor. Kanal/grup ekleyerek liderlik sohbetine de düşürebilirsin."
+  - "Şimdi Gönder" confirm text now shows the recipient count.
+- **Testids**: `trend-digest-recipients`, `trend-digest-recipient-chatid`, `trend-digest-recipient-label`, `trend-digest-recipient-add`, `trend-digest-recipient-{chat_id}`, `trend-digest-recipient-test-{chat_id}`, `trend-digest-recipient-remove-{chat_id}`.
+
+### Verified (curl + Playwright)
+- Curl cycle: add → dedupe 400 → add second → dispatch `bell_sent=7 channels_sent=0` (dummy ids so bot correctly reports 0 delivery, no crash) → delete → list narrowed → cleanup.
+- Playwright: open modal → recipient section renders → add form creates a `-1009876543210 (Ops)` row → remove via confirm dialog cleans up. Screenshot captured.
+
+

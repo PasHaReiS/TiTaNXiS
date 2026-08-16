@@ -6210,8 +6210,9 @@ async def _trend_digest_compose(days: int = 7) -> dict:
 
 
 async def _trend_digest_dispatch(days: int = 7) -> dict:
-    """Send the digest to every admin with a linked `telegram_chat_id`, then
-    stamp the run into `guild_settings.trend_digest_state`."""
+    """Send the digest to every admin with a linked `telegram_chat_id`, plus
+    every configured broadcast channel (Telegram groups/channels admins have
+    opted in), then stamp the run into `guild_settings.trend_digest_state`."""
     from datetime import datetime as _dt_x, timezone as _tz_x
     digest = await _trend_digest_compose(days)
     admins = await db.users.find(
@@ -6220,8 +6221,11 @@ async def _trend_digest_dispatch(days: int = 7) -> dict:
     ).to_list(500)
     tg_sent = 0
     tg_err = 0
+    channels_sent = 0
+    channels_err = 0
     try:
         from telegram_bot import _send_tg_message
+        # 1) Admin DMs.
         for u in admins:
             cid = u.get("telegram_chat_id")
             if not cid:
@@ -6234,9 +6238,23 @@ async def _trend_digest_dispatch(days: int = 7) -> dict:
                     tg_err += 1
             except Exception:
                 tg_err += 1
+        # 2) Configured broadcast channels (groups / supergroups / channels).
+        recipients_doc = await db.guild_settings.find_one({"key": "trend_digest_recipients"}, {"_id": 0})
+        recipients = ((recipients_doc or {}).get("value") or [])
+        for r in recipients:
+            cid = str(r.get("chat_id") or "").strip()
+            if not cid:
+                continue
+            try:
+                ok = await _send_tg_message(cid, digest["text"])
+                if ok:
+                    channels_sent += 1
+                else:
+                    channels_err += 1
+            except Exception:
+                channels_err += 1
     except Exception as ex:
         logger.warning(f"digest telegram import: {ex}")
-    # Also drop a bell for every admin so it's visible in-app even without TG.
     now = _dt_x.now(_tz_x.utc)
     admin_ids = [u["id"] for u in admins]
     if admin_ids:
@@ -6253,15 +6271,79 @@ async def _trend_digest_dispatch(days: int = 7) -> dict:
         {"$set": {"key": "trend_digest_state",
                   "value": {"last_sent_at": now.isoformat(),
                             "last_tg_sent": tg_sent, "last_bell_sent": len(admin_ids),
+                            "last_channels_sent": channels_sent,
                             "breaches": digest["breaches"], "recoveries": digest["recoveries"],
                             "snoozes": digest["snoozes"]},
                   "updated_at": now_iso()}},
         upsert=True,
     )
     return {"ok": True, "tg_sent": tg_sent, "tg_err": tg_err,
+            "channels_sent": channels_sent, "channels_err": channels_err,
             "bell_sent": len(admin_ids), "days": days,
             "breaches": digest["breaches"], "recoveries": digest["recoveries"],
             "snoozes": digest["snoozes"], "text": digest["text"]}
+
+
+class DigestRecipientBody(BaseModel):
+    chat_id: str            # numeric group id or @channelname
+    label: Optional[str] = None
+
+
+@api_router.get("/reports/trend/digest/recipients")
+async def digest_recipients_list(_: dict = Depends(require_admin)):
+    """List Telegram broadcast recipients (channels/groups) that receive the
+    weekly digest in addition to admin DMs."""
+    doc = await db.guild_settings.find_one({"key": "trend_digest_recipients"}, {"_id": 0})
+    return {"items": ((doc or {}).get("value") or [])}
+
+
+@api_router.post("/reports/trend/digest/recipients")
+async def digest_recipients_add(body: DigestRecipientBody, user: dict = Depends(require_admin)):
+    cid = (body.chat_id or "").strip()
+    if not cid:
+        raise HTTPException(400, "chat_id zorunlu")
+    doc = await db.guild_settings.find_one({"key": "trend_digest_recipients"}, {"_id": 0})
+    items = ((doc or {}).get("value") or [])
+    if any(str(r.get("chat_id")) == cid for r in items):
+        raise HTTPException(400, "Bu alıcı zaten ekli")
+    items.append({
+        "chat_id": cid,
+        "label": (body.label or "").strip() or cid,
+        "added_by_username": user.get("username"),
+        "added_at": now_iso(),
+    })
+    await db.guild_settings.update_one(
+        {"key": "trend_digest_recipients"},
+        {"$set": {"key": "trend_digest_recipients", "value": items, "updated_at": now_iso()}},
+        upsert=True,
+    )
+    return {"ok": True, "items": items}
+
+
+@api_router.delete("/reports/trend/digest/recipients/{chat_id:path}")
+async def digest_recipients_remove(chat_id: str, _: dict = Depends(require_admin)):
+    doc = await db.guild_settings.find_one({"key": "trend_digest_recipients"}, {"_id": 0})
+    items = ((doc or {}).get("value") or [])
+    new_items = [r for r in items if str(r.get("chat_id")) != chat_id]
+    await db.guild_settings.update_one(
+        {"key": "trend_digest_recipients"},
+        {"$set": {"key": "trend_digest_recipients", "value": new_items, "updated_at": now_iso()}},
+        upsert=True,
+    )
+    return {"ok": True, "removed": len(items) - len(new_items)}
+
+
+@api_router.post("/reports/trend/digest/recipients/{chat_id:path}/test")
+async def digest_recipients_test(chat_id: str, _: dict = Depends(require_admin)):
+    """Fire a tiny ping to a specific recipient so admins can verify the bot
+    has access before the real Sunday digest lands."""
+    try:
+        from telegram_bot import _send_tg_message
+        ok = await _send_tg_message(str(chat_id),
+            "🧪 TiTaNXiS Digest Bağlantı Testi — bu alıcı haftalık özeti alacak.")
+        return {"ok": bool(ok), "chat_id": chat_id}
+    except Exception as ex:
+        raise HTTPException(500, f"Telegram test hatası: {ex}")
 
 
 @api_router.get("/reports/trend/digest/preview")

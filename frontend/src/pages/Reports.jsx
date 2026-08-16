@@ -643,13 +643,50 @@ function TrendChart({ alliance, country }) {
 function TrendDigestModal({ onClose }) {
   const [days, setDays] = useState(7);
   const { data, isLoading, mutate } = useSWR(`/reports/trend/digest/preview?days=${days}`, fetcher);
+  const { data: recData, mutate: mutateRecipients } = useSWR("/reports/trend/digest/recipients", fetcher);
+  const recipients = recData?.items || [];
+  const [newChatId, setNewChatId] = useState("");
+  const [newLabel, setNewLabel] = useState("");
   const [sending, setSending] = useState(false);
+  const [savingRec, setSavingRec] = useState(false);
+  const [testingId, setTestingId] = useState(null);
+
+  const addRecipient = async (e) => {
+    e.preventDefault();
+    const cid = newChatId.trim();
+    if (!cid) return;
+    setSavingRec(true);
+    try {
+      await api.post("/reports/trend/digest/recipients", { chat_id: cid, label: newLabel.trim() || cid });
+      toast.success(`Alıcı eklendi: ${newLabel.trim() || cid}`);
+      setNewChatId(""); setNewLabel("");
+      mutateRecipients();
+    } catch (e) { toast.error(apiErr(e)); }
+    finally { setSavingRec(false); }
+  };
+  const removeRecipient = async (cid, label) => {
+    if (!window.confirm(`"${label}" alıcısını çıkarmak istediğine emin misin?`)) return;
+    try {
+      await api.delete(`/reports/trend/digest/recipients/${encodeURIComponent(cid)}`);
+      toast.success("Alıcı çıkarıldı");
+      mutateRecipients();
+    } catch (e) { toast.error(apiErr(e)); }
+  };
+  const testRecipient = async (cid, label) => {
+    setTestingId(cid);
+    try {
+      const r = await api.post(`/reports/trend/digest/recipients/${encodeURIComponent(cid)}/test`);
+      if (r.data.ok) toast.success(`✅ Test mesajı gönderildi → ${label}`);
+      else toast.error(`❌ Test başarısız → ${label} (bot erişemedi)`);
+    } catch (e) { toast.error(apiErr(e)); }
+    finally { setTestingId(null); }
+  };
   const send = async () => {
-    if (!window.confirm("Özet tüm admin Telegram DM'lerine ve bell'ine gönderilecek. Devam?")) return;
+    if (!window.confirm(`Özet ${recipients.length} kanal + tüm admin DM'lerine gönderilecek. Devam?`)) return;
     setSending(true);
     try {
       const r = await api.post(`/reports/trend/digest/send?days=${days}`);
-      toast.success(`Özet gönderildi — Telegram ${r.data.tg_sent} · Bell ${r.data.bell_sent}`);
+      toast.success(`Özet gönderildi — DM ${r.data.tg_sent} · Kanal ${r.data.channels_sent} · Bell ${r.data.bell_sent}`);
       mutate();
     } catch (e) { toast.error(apiErr(e)); }
     finally { setSending(false); }
@@ -704,9 +741,78 @@ function TrendDigestModal({ onClose }) {
             {data?.last_state?.last_sent_at && (
               <div className="text-[10px] text-muted-foreground">
                 Son gönderim: {new Date(data.last_state.last_sent_at).toLocaleString("tr-TR")}
-                {" · "}Telegram {data.last_state.last_tg_sent ?? 0} · Bell {data.last_state.last_bell_sent ?? 0}
+                {" · "}DM {data.last_state.last_tg_sent ?? 0}
+                {" · "}Kanal {data.last_state.last_channels_sent ?? 0}
+                {" · "}Bell {data.last_state.last_bell_sent ?? 0}
               </div>
             )}
+
+            {/* Alıcı yönetimi — Telegram kanalı/grubu ekleme. */}
+            <div className="rounded p-2 space-y-2"
+                 style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(120,53,15,0.35)" }}
+                 data-testid="trend-digest-recipients">
+              <div className="text-[10px] uppercase tracking-widest gold-text font-bold flex items-center gap-1">
+                <span>📡 Telegram Alıcıları</span>
+                <span className="text-muted-foreground">· {recipients.length}</span>
+              </div>
+              {recipients.length === 0 && (
+                <div className="text-[10px] text-muted-foreground italic">
+                  Sadece admin DM'lerine gidiyor. Kanal/grup ekleyerek liderlik sohbetine de düşürebilirsin.
+                </div>
+              )}
+              {recipients.map((r) => (
+                <div key={r.chat_id}
+                     className="flex items-center gap-1 text-xs"
+                     data-testid={`trend-digest-recipient-${r.chat_id}`}>
+                  <span className="flex-1 min-w-0 truncate">
+                    <span className="text-white font-bold">{r.label || r.chat_id}</span>
+                    {r.label && r.label !== r.chat_id && (
+                      <span className="text-muted-foreground ml-1 font-mono text-[10px]">{r.chat_id}</span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => testRecipient(r.chat_id, r.label || r.chat_id)}
+                    disabled={testingId === r.chat_id}
+                    className="chip text-[10px]"
+                    data-testid={`trend-digest-recipient-test-${r.chat_id}`}
+                  >{testingId === r.chat_id ? "…" : "🧪 Test"}</button>
+                  <button
+                    type="button"
+                    onClick={() => removeRecipient(r.chat_id, r.label || r.chat_id)}
+                    className="chip text-[10px]"
+                    style={{ borderColor: "rgba(239,68,68,0.5)", color: "#FCA5A5" }}
+                    data-testid={`trend-digest-recipient-remove-${r.chat_id}`}
+                  >Sil</button>
+                </div>
+              ))}
+              <form onSubmit={addRecipient} className="flex items-center gap-1 pt-1"
+                    style={{ borderTop: recipients.length ? "1px solid rgba(120,53,15,0.25)" : "none" }}>
+                <input
+                  type="text"
+                  value={newChatId}
+                  onChange={(e) => setNewChatId(e.target.value)}
+                  placeholder="chat_id (örn: -1001234567890 veya @kanal)"
+                  className="flex-1 min-w-0 px-2 py-1 rounded bg-black/40 border border-border text-white text-[11px] font-mono"
+                  data-testid="trend-digest-recipient-chatid"
+                />
+                <input
+                  type="text"
+                  value={newLabel}
+                  onChange={(e) => setNewLabel(e.target.value)}
+                  placeholder="Etiket"
+                  className="w-24 px-2 py-1 rounded bg-black/40 border border-border text-white text-[11px]"
+                  data-testid="trend-digest-recipient-label"
+                />
+                <button
+                  type="submit"
+                  disabled={savingRec || !newChatId.trim()}
+                  className="chip text-[10px]"
+                  data-testid="trend-digest-recipient-add"
+                >{savingRec ? "…" : "+ Ekle"}</button>
+              </form>
+            </div>
+
             <button
               type="button"
               onClick={send}
