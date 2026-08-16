@@ -645,6 +645,7 @@ function TrendDigestModal({ onClose }) {
   const { data, isLoading, mutate } = useSWR(`/reports/trend/digest/preview?days=${days}`, fetcher);
   const { data: recData, mutate: mutateRecipients } = useSWR("/reports/trend/digest/recipients", fetcher);
   const recipients = recData?.items || [];
+  const { data: schedule, mutate: mutateSchedule } = useSWR("/reports/trend/digest/schedule", fetcher);
   const [newChatId, setNewChatId] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [sending, setSending] = useState(false);
@@ -691,6 +692,16 @@ function TrendDigestModal({ onClose }) {
     } catch (e) { toast.error(apiErr(e)); }
     finally { setSending(false); }
   };
+
+  const saveSchedule = async (weekday, hour, tz) => {
+    try {
+      await api.put("/reports/trend/digest/schedule", { weekday, hour, tz });
+      toast.success("Program güncellendi");
+      mutateSchedule();
+    } catch (e) { toast.error(apiErr(e)); }
+  };
+
+  const DAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
          style={{ background: "rgba(0,0,0,0.85)" }}
@@ -746,6 +757,55 @@ function TrendDigestModal({ onClose }) {
                 {" · "}Bell {data.last_state.last_bell_sent ?? 0}
               </div>
             )}
+
+            {/* Program — hangi gün / saat / zaman dilimi. */}
+            <div className="rounded p-2 space-y-2"
+                 style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(120,53,15,0.35)" }}
+                 data-testid="trend-digest-schedule">
+              <div className="text-[10px] uppercase tracking-widest gold-text font-bold flex items-center gap-1">
+                <span>🗓️ Otomatik Program</span>
+                {schedule && (
+                  <span className="text-muted-foreground normal-case tracking-normal">
+                    · {DAYS[schedule.weekday]} {String(schedule.hour).padStart(2, "0")}:00 · {schedule.tz}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1 flex-wrap">
+                <select
+                  value={schedule?.weekday ?? 6}
+                  onChange={(e) => saveSchedule(parseInt(e.target.value), schedule?.hour ?? 20, schedule?.tz || "Europe/Istanbul")}
+                  className="px-2 py-1 rounded bg-black/40 border border-border text-white text-[11px]"
+                  data-testid="trend-digest-schedule-weekday"
+                >
+                  {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                </select>
+                <select
+                  value={schedule?.hour ?? 20}
+                  onChange={(e) => saveSchedule(schedule?.weekday ?? 6, parseInt(e.target.value), schedule?.tz || "Europe/Istanbul")}
+                  className="px-2 py-1 rounded bg-black/40 border border-border text-white text-[11px]"
+                  data-testid="trend-digest-schedule-hour"
+                >
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <option key={i} value={i}>{String(i).padStart(2, "0")}:00</option>
+                  ))}
+                </select>
+                <select
+                  value={schedule?.tz || "Europe/Istanbul"}
+                  onChange={(e) => saveSchedule(schedule?.weekday ?? 6, schedule?.hour ?? 20, e.target.value)}
+                  className="px-2 py-1 rounded bg-black/40 border border-border text-white text-[11px]"
+                  data-testid="trend-digest-schedule-tz"
+                >
+                  <option value="Europe/Istanbul">TR (Istanbul)</option>
+                  <option value="UTC">UTC</option>
+                  <option value="Europe/London">London</option>
+                  <option value="Europe/Berlin">Berlin</option>
+                  <option value="America/New_York">New York</option>
+                </select>
+              </div>
+              <div className="text-[9px] text-muted-foreground">
+                Değişiklikler anında kaydedilir. Sonraki tetikleme belirtilen gün + saatte gerçekleşir.
+              </div>
+            </div>
 
             {/* Alıcı yönetimi — Telegram kanalı/grubu ekleme. */}
             <div className="rounded p-2 space-y-2"

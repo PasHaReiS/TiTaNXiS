@@ -604,4 +604,24 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Curl cycle: add → dedupe 400 → add second → dispatch `bell_sent=7 channels_sent=0` (dummy ids so bot correctly reports 0 delivery, no crash) → delete → list narrowed → cleanup.
 - Playwright: open modal → recipient section renders → add form creates a `-1009876543210 (Ops)` row → remove via confirm dialog cleans up. Screenshot captured.
 
+## Digest Schedule Picker (Feb 16, 2026)
+
+### Backend
+- **`guild_settings.trend_digest_schedule.value = {weekday:0-6, hour:0-23, tz:str}`** — default `weekday=6 (Pazar), hour=20, tz=Europe/Istanbul`. Timezone validated via `zoneinfo.ZoneInfo` at PUT time (typos → 400).
+- **`GET /api/reports/trend/digest/schedule`** — returns current triple (falls back to defaults).
+- **`PUT /api/reports/trend/digest/schedule` `{weekday, hour, tz}`** — clamps weekday 0-6 & hour 0-23, persists timestamp + `updated_by_username`.
+- **`_trend_alert_loop` digest tick reworked**: reads the schedule doc each tick, computes `datetime.now(ZoneInfo(tz))`, fires when `local.weekday()==weekday && local.hour==hour && last_sent<12h ago is False`. Falls back to UTC if the stored TZ ever becomes invalid.
+
+### Frontend
+- **`TrendDigestModal`** grows a new **🗓️ Otomatik Program** section above the recipients form:
+  - 3 selects: `weekday` (Pazartesi…Pazar), `hour` (00:00…23:00), `tz` (TR / UTC / London / Berlin / New York).
+  - Each `onChange` PUTs the full triple; toasts "Program güncellendi" and revalidates SWR.
+  - Header shows the current cadence inline: `🗓️ Otomatik Program · Pazar 20:00 · Europe/Istanbul`.
+- **Testids**: `trend-digest-schedule`, `trend-digest-schedule-{weekday|hour|tz}`.
+
+### Verified
+- Curl: default `Pazar 20:00 Europe/Istanbul` → PUT `Not/AZone` → 400 → PUT `weekday=99 hour=42 tz=UTC` → clamped to `6/23/UTC` → reset.
+- Playwright: modal → schedule section renders, changing weekday→Perşembe + hour→18:00 persists (GET confirms `weekday=3 hour=18`). Screenshot captured. Preview DB restored.
+
+
 

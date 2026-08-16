@@ -5996,7 +5996,8 @@ async def _trend_alert_evaluate() -> dict:
 
 async def _trend_alert_loop():
     """Hourly monitor. Cheap: aggregation covers 30 days × ~5 events. Also
-    fires the weekly digest when `last_sent_at` is ≥ 7 days ago."""
+    fires the weekly digest at the configured weekday+hour in the chosen
+    timezone (default Sunday 20:00 Europe/Istanbul)."""
     import asyncio
     from datetime import datetime as _dt_l, timezone as _tz_l
     await asyncio.sleep(120)
@@ -6005,25 +6006,79 @@ async def _trend_alert_loop():
             await _trend_alert_evaluate()
         except Exception as ex:
             logger.warning(f"trend alert loop error: {ex}")
-        # Weekly digest tick — piggyback on the same hourly cadence.
+        # Weekly digest tick — fires on configured weekday+hour, dedup by
+        # `last_sent_at within last 12h` so multiple ticks within the target
+        # hour still only send once.
         try:
+            sched_doc = await db.guild_settings.find_one({"key": "trend_digest_schedule"}, {"_id": 0})
+            sched = ((sched_doc or {}).get("value") or {})
+            weekday = int(sched.get("weekday", 6))  # 0=Mon … 6=Sun (default Sun)
+            hour = int(sched.get("hour", 20))       # 0-23 (default 20:00)
+            tz_name = sched.get("tz", "Europe/Istanbul")
+            try:
+                from zoneinfo import ZoneInfo
+                local = _dt_l.now(ZoneInfo(tz_name))
+            except Exception:
+                local = _dt_l.now(_tz_l.utc)
             state = await db.guild_settings.find_one({"key": "trend_digest_state"}, {"_id": 0})
             last_at = ((state or {}).get("value") or {}).get("last_sent_at")
-            due = True
+            recently_sent = False
             if last_at:
                 try:
                     when = _dt_l.fromisoformat(last_at.replace("Z", "+00:00"))
                     if when.tzinfo is None:
                         when = when.replace(tzinfo=_tz_l.utc)
                     hours = (_dt_l.now(_tz_l.utc) - when).total_seconds() / 3600.0
-                    due = hours >= (7 * 24) - 1  # ~7 days, small drift tolerance
+                    recently_sent = hours < 12
                 except Exception:
-                    due = True
+                    pass
+            due = (local.weekday() == weekday) and (local.hour == hour) and (not recently_sent)
             if due:
                 await _trend_digest_dispatch(7)
         except Exception as ex:
             logger.warning(f"trend digest tick: {ex}")
         await asyncio.sleep(60 * 60)
+
+
+class DigestScheduleBody(BaseModel):
+    weekday: int  # 0=Monday … 6=Sunday
+    hour: int     # 0-23
+    tz: Optional[str] = "Europe/Istanbul"
+
+
+@api_router.get("/reports/trend/digest/schedule")
+async def digest_schedule_get(_: dict = Depends(require_admin)):
+    """Current digest cadence: weekday (0=Mon, 6=Sun), hour (0-23), tz name.
+    Defaults to Sunday 20:00 Europe/Istanbul when unset."""
+    doc = await db.guild_settings.find_one({"key": "trend_digest_schedule"}, {"_id": 0})
+    val = (doc or {}).get("value") or {}
+    return {
+        "weekday": int(val.get("weekday", 6)),
+        "hour": int(val.get("hour", 20)),
+        "tz": val.get("tz", "Europe/Istanbul"),
+    }
+
+
+@api_router.put("/reports/trend/digest/schedule")
+async def digest_schedule_set(body: DigestScheduleBody, user: dict = Depends(require_admin)):
+    weekday = max(0, min(6, int(body.weekday)))
+    hour = max(0, min(23, int(body.hour)))
+    tz_name = (body.tz or "Europe/Istanbul").strip()
+    # Validate timezone before persisting so a typo doesn't kill the loop.
+    try:
+        from zoneinfo import ZoneInfo
+        ZoneInfo(tz_name)
+    except Exception:
+        raise HTTPException(400, f"Geçersiz zaman dilimi: {tz_name}")
+    await db.guild_settings.update_one(
+        {"key": "trend_digest_schedule"},
+        {"$set": {"key": "trend_digest_schedule",
+                  "value": {"weekday": weekday, "hour": hour, "tz": tz_name,
+                            "updated_by_username": user.get("username"),
+                            "updated_at": now_iso()}}},
+        upsert=True,
+    )
+    return {"weekday": weekday, "hour": hour, "tz": tz_name}
 
 
 @api_router.post("/reports/trend/check-alerts")
