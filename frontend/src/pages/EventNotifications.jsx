@@ -58,7 +58,7 @@ export default function EventNotifications() {
                 : "none",
             }}
           >
-            <BellRing className="w-3.5 h-3.5" style={{ color: tab === "events" ? "#FCD34D" : "#78716C" }} />
+            <span aria-hidden="true" style={{ fontSize: 14, filter: tab === "events" ? "none" : "grayscale(0.5)" }}>🔔</span>
             <span>Etkinlik Bildirimleri</span>
           </button>
           <button
@@ -79,7 +79,7 @@ export default function EventNotifications() {
                 : "none",
             }}
           >
-            <Megaphone className="w-3.5 h-3.5" style={{ color: tab === "announcements" ? "#FCD34D" : "#78716C" }} />
+            <span aria-hidden="true" style={{ fontSize: 14, filter: tab === "announcements" ? "none" : "grayscale(0.5)" }}>📢</span>
             <span>Duyurular</span>
           </button>
         </div>

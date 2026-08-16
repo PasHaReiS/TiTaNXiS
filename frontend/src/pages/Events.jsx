@@ -591,7 +591,7 @@ export default function Events() {
               boxShadow: "0 0 8px rgba(245,166,35,0.35)",
             } : { opacity: 0.7 }}
           >
-            <LayoutGrid className="w-3 h-3" /> Liste
+            <span aria-hidden="true" style={{ fontSize: 12 }}>📋</span> Liste
           </button>
           <button
             type="button"
@@ -605,7 +605,7 @@ export default function Events() {
               boxShadow: "0 0 8px rgba(139,92,246,0.35)",
             } : { opacity: 0.7 }}
           >
-            <CalendarDays className="w-3 h-3" /> Takvim
+            <span aria-hidden="true" style={{ fontSize: 12 }}>📅</span> Takvim
           </button>
         </div>
 
@@ -649,7 +649,7 @@ export default function Events() {
             }}
           >
             <span className="flex items-center gap-1">
-              <BellRing className="w-3.5 h-3.5" style={{ color: tab === "reminded" ? "#FCD34D" : "#78716C" }} />
+              <span aria-hidden="true" style={{ fontSize: 14, filter: tab === "reminded" ? "none" : "grayscale(0.6)" }}>🔔</span>
               <span>Hatırlatmalı</span>
             </span>
             <span className="mono text-[10px] opacity-90">({remindedCount})</span>
@@ -679,7 +679,7 @@ export default function Events() {
             }}
           >
             <span className="flex items-center gap-1">
-              <BellOff className="w-3.5 h-3.5" />
+              <span aria-hidden="true" style={{ fontSize: 14, filter: tab === "unreminded" ? "none" : "grayscale(0.6)" }}>🔕</span>
               <span>Hatırlatmasız</span>
             </span>
             <span className="mono text-[10px] opacity-90">({unremindedCount})</span>
@@ -709,7 +709,7 @@ export default function Events() {
             }}
           >
             <span className="flex items-center gap-1">
-              <Archive className="w-3 h-3" />
+              <span aria-hidden="true" style={{ fontSize: 12, filter: tab === "archive" ? "none" : "grayscale(0.6)" }}>📦</span>
               <span>Arşiv</span>
             </span>
             <span className="mono text-[10px] opacity-90">({archivedCount})</span>
@@ -726,8 +726,8 @@ export default function Events() {
           data-testid="events-subfilter-bar"
         >
           {[
-            { key: "kolektif", label: "Kolektif", color: "#F5A623" },
-            { key: "bireysel", label: "Bireysel", color: "#A78BFA" },
+            { key: "kolektif", label: "Kolektif", color: "#F5A623", emoji: "🤝" },
+            { key: "bireysel", label: "Bireysel", color: "#A78BFA", emoji: "🧍" },
           ].map((opt) => {
             const active = subFilter === opt.key;
             return (
@@ -746,11 +746,46 @@ export default function Events() {
                   opacity: 0.7,
                 }}
               >
-                {opt.label}
+                <span aria-hidden="true" style={{ fontSize: 12 }}>{opt.emoji}</span> {opt.label}
               </button>
             );
           })}
         </div>
+
+        {/* Split preset chips — only visible when both columns show (Tümü
+            mode). Quick 30/70, 50/50, 70/30 buttons for admins who prefer
+            snap-to-preset over dragging the middle handle. */}
+        {subFilter === "all" && (
+          <div className="hidden lg:flex gap-1.5 mb-3" data-testid="events-split-presets">
+            <span className="text-[9px] uppercase tracking-widest text-muted-foreground font-bold self-center mr-1">
+              Kolon
+            </span>
+            {[
+              { pct: 30, label: "30 / 70" },
+              { pct: 50, label: "50 / 50" },
+              { pct: 70, label: "70 / 30" },
+            ].map((p) => {
+              const active = Math.abs(splitPct - p.pct) < 1;
+              return (
+                <button
+                  key={p.pct}
+                  type="button"
+                  data-testid={`events-split-preset-${p.pct}`}
+                  onClick={() => setSplitPct(p.pct)}
+                  className="chip text-[10px]"
+                  style={active ? {
+                    borderColor: "#FCD34D",
+                    color: "#FCD34D",
+                    background: "rgba(245,166,35,0.15)",
+                    boxShadow: "0 0 6px rgba(245,166,35,0.35)",
+                  } : { opacity: 0.75 }}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Filtered content — respects the sub-filter chip above. When
             "all", both columns render side-by-side with a resizable split

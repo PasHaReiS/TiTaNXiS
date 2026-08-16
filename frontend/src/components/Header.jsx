@@ -14,7 +14,7 @@ import { toast } from "sonner";
 
 const BRAND_LOGO_URL = "/brand/titanxis-logo.jpg";
 
-function MenuItem({ icon: Icon, label, onClick, testId }) {
+function MenuItem({ icon: Icon, emoji, label, onClick, testId }) {
   return (
     <button
       type="button"
@@ -23,7 +23,17 @@ function MenuItem({ icon: Icon, label, onClick, testId }) {
       className="w-full flex items-center gap-2 px-3 py-2 text-xs text-white hover:bg-primary/15 text-left transition-colors"
       style={{ fontFamily: "Cinzel, Rajdhani, serif", letterSpacing: "0.06em" }}
     >
-      <Icon className="w-3.5 h-3.5 gold-text flex-shrink-0" />
+      {emoji ? (
+        <span
+          aria-hidden="true"
+          className="flex-shrink-0 flex items-center justify-center"
+          style={{ width: 14, height: 14, fontSize: 13, lineHeight: 1 }}
+        >
+          {emoji}
+        </span>
+      ) : Icon ? (
+        <Icon className="w-3.5 h-3.5 gold-text flex-shrink-0" />
+      ) : null}
       <span className="truncate">{label}</span>
     </button>
   );
@@ -136,7 +146,7 @@ export default function Header({ title }) {
                 >
                   {canEdit && (
                     <MenuItem
-                      icon={LayoutDashboard}
+                      emoji="📊"
                       label={t("nav_dashboard") || "Dashboard"}
                       onClick={() => goto("/dashboard")}
                       testId="dropdown-dashboard"
@@ -144,53 +154,53 @@ export default function Header({ title }) {
                   )}
                   {canEdit && (
                     <MenuItem
-                      icon={BellRing}
+                      emoji="🔔"
                       label={t("nav_notifications_hub") || "Bildirimler"}
                       onClick={() => goto("/etkinlik-bildirimleri")}
                       testId="dropdown-event-notifications"
                     />
                   )}
                   <MenuItem
-                    icon={LifeBuoy}
+                    emoji="🎟️"
                     label={t("nav_vip_support") || "VIP Destek"}
                     onClick={() => goto("/vip-destek")}
                     testId="dropdown-vip-support"
                   />
                   <MenuItem
-                    icon={Activity}
+                    emoji="🎛️"
                     label={t("live_dashboard")}
                     onClick={() => goto("/gosterge-paneli")}
                     testId="dropdown-live-dashboard"
                   />
                   <MenuItem
-                    icon={LayoutGrid}
+                    emoji="🧩"
                     label={t("nav_widget_library")}
                     onClick={() => goto("/widget-kitapligi")}
                     testId="dropdown-widget-library"
                   />
                   <MenuItem
-                    icon={UserIcon}
+                    emoji="🙂"
                     label={t("my_profile")}
                     onClick={() => goto("/profil")}
                     testId="dropdown-profile"
                   />
                   {isAdmin && (
                     <MenuItem
-                      icon={Settings}
+                      emoji="👤"
                       label={t("user_mgmt")}
                       onClick={() => goto("/kullanicilar")}
                       testId="dropdown-users"
                     />
                   )}
                   <MenuItem
-                    icon={KeyRound}
+                    emoji="🔑"
                     label={t("change_password_title")}
                     onClick={() => goto("/profil")}
                     testId="dropdown-password"
                   />
                   {(isAdmin || canEdit) && (
                     <MenuItem
-                      icon={History}
+                      emoji="📸"
                       label={t("nav_ocr_history") || "OCR Geçmişi"}
                       onClick={() => goto("/ocr/history")}
                       testId="dropdown-ocr-history"
@@ -198,7 +208,7 @@ export default function Header({ title }) {
                   )}
                   {isAdmin && (
                     <MenuItem
-                      icon={Download}
+                      emoji="📥"
                       label={t("detailed_report")}
                       onClick={downloadXlsx}
                       testId="dropdown-export"
@@ -206,7 +216,7 @@ export default function Header({ title }) {
                   )}
                   {isAdmin && (
                     <MenuItem
-                      icon={Sparkles}
+                      emoji="✨"
                       label={t("wiz_reopen")}
                       onClick={() => {
                         try { localStorage.removeItem("titanxis_notif_wizard_seen_v1"); } catch {}
@@ -218,7 +228,7 @@ export default function Header({ title }) {
                   )}
                   <div style={{ height: 1, background: "rgba(231,76,26,0.3)" }} />
                   <MenuItem
-                    icon={LogOut}
+                    emoji="🚪"
                     label={t("logout")}
                     onClick={() => {
                       logout();

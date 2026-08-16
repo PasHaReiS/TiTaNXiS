@@ -342,6 +342,29 @@ clean separation with correct counts and no visual regressions.
 
 
 ## Key Files
+
+## Emoji Partial Migration + Split Presets (Feb 16, 2026)
+- **Header dropdown** — `MenuItem` gained an optional `emoji` prop that
+  wins over `icon`. All 12 dropdown rows migrated: 📊 Dashboard · 🔔 Bildirimler ·
+  🎟️ VIP Destek · 🎛️ Panel · 🧩 Widget'lar · 🙂 Profilim · 👤 Kullanıcı Yönetimi ·
+  🔑 Şifre Değiştir · 📸 OCR Geçmişi · 📥 Detaylı Rapor · ✨ Kurulumu tekrar göster ·
+  🚪 Çıkış Yap. Icons stay fixed at a 14×14 box so alignment matches the
+  Lucide baseline; no layout shift.
+- **Events tabs** — 🔔 Hatırlatmalı, 🔕 Hatırlatmasız, 📦 Arşiv (grayscale
+  when inactive).
+- **Events sub-filter** — 🤝 Kolektif, 🧍 Bireysel (chip emoji prefix).
+- **View toggle** — 📋 Liste, 📅 Takvim.
+- **Bildirimler hub tabs** — 🔔 Etkinlik Bildirimleri, 📢 Duyurular.
+- **Split preset chips** — new row `data-testid="events-split-presets"`
+  visible only on `lg+` and only when both columns show (subFilter=all).
+  30/70, 50/50, 70/30 buttons update `splitPct` state (same underlying
+  variable as the drag handle), persisted to `localStorage.events_split_pct`.
+  Active preset highlighted in amber. `data-testid="events-split-preset-{30|50|70}"`.
+- Untouched (deferred): card action buttons (Pencil/Trash2/Archive/etc)
+  and page-title h1 icons — icons there communicate destructive intent
+  more clearly than an emoji, and swapping them wholesale would introduce
+  more regression risk than value.
+
 - `/app/backend/server.py` — helpers at 3193-3341; `_telegram_forward_scheduled` at 3488
 - `/app/backend/auth.py` — `preferred-language` endpoint + public_user
 - `/app/backend/telegram_bot.py` — send_message w/ HTTP-level logging
