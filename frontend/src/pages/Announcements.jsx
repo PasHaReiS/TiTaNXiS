@@ -23,6 +23,10 @@ export default function Announcements({ embedded = false }) {
   // History drawer is collapsed by default so the admin sees the compose
   // form first; toggling reveals the list which is now more compact.
   const [historyOpen, setHistoryOpen] = useState(false);
+  // Revert diff modal — populated with {id, prev, current} when the admin
+  // clicks the ⟲ button; a two-column dialog compares old vs new and
+  // confirms the pop-from-history call.
+  const [revertPreview, setRevertPreview] = useState(null);
   const { data, mutate, isLoading } = useSWR("/announcements?limit=50", fetcher, { refreshInterval: 60000 });
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -98,11 +102,20 @@ export default function Announcements({ embedded = false }) {
   };
 
   const revert = async (id, historyCount) => {
-    if (!window.confirm(`Bu duyuru ${historyCount} kez düzenlenmiş. Son sürüme geri dönmek istiyor musun?`)) return;
+    // Load the latest history entry so we can render a diff before the
+    // admin commits. `history` is already on the announcement doc.
+    const a = items.find((x) => x.id === id);
+    const prev = a?.history?.[a.history.length - 1];
+    if (!prev) { toast.error("Geri alınacak sürüm yok"); return; }
+    setRevertPreview({ id, historyCount, prev, current: { title: a.title, body: a.body, image_url: a.image_url, urgent: a.urgent } });
+  };
+  const commitRevert = async () => {
+    if (!revertPreview) return;
     try {
-      await api.post(`/announcements/${id}/revert`);
+      await api.post(`/announcements/${revertPreview.id}/revert`);
       mutate();
       toast.success("Önceki sürüme dönüldü");
+      setRevertPreview(null);
     } catch (e) { toast.error(apiErr(e)); }
   };
 
@@ -298,6 +311,63 @@ export default function Announcements({ embedded = false }) {
       </div>
         )}
       </div>
+
+      {/* Revert diff dialog — side-by-side comparison of the current title/body
+          vs the most recent history snapshot. Admins hit ↩ to confirm the
+          revert or × to cancel without any DB write. */}
+      {revertPreview && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.72)" }}
+          onClick={() => setRevertPreview(null)}
+          data-testid="revert-diff-backdrop"
+        >
+          <div
+            className="card-red-gold p-4 max-w-3xl w-full max-h-[80vh] overflow-y-auto"
+            style={{ background: "#150911" }}
+            onClick={(ev) => ev.stopPropagation()}
+            data-testid="revert-diff-dialog"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <History className="w-4 h-4 gold-text" />
+              <h3 className="text-sm font-bold uppercase tracking-widest gold-text">Sürüm Karşılaştır</h3>
+              <span className="chip text-[10px] ml-auto">{revertPreview.historyCount} önceki sürüm</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="p-3 rounded border" style={{ borderColor: "rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.05)" }} data-testid="revert-current-pane">
+                <div className="text-[10px] uppercase font-bold text-red-300 mb-1">Şu anki (silinecek)</div>
+                <div className="text-sm font-bold text-white break-words">{revertPreview.current.title}</div>
+                <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap break-words">{revertPreview.current.body}</div>
+                {revertPreview.current.urgent && <div className="mt-2 text-[9px] font-bold text-red-400">ACİL</div>}
+              </div>
+              <div className="p-3 rounded border" style={{ borderColor: "rgba(34,197,94,0.4)", background: "rgba(34,197,94,0.06)" }} data-testid="revert-prev-pane">
+                <div className="text-[10px] uppercase font-bold text-green-300 mb-1">Geri gelecek</div>
+                <div className="text-sm font-bold text-white break-words">{revertPreview.prev.title}</div>
+                <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap break-words">{revertPreview.prev.body}</div>
+                {revertPreview.prev.urgent && <div className="mt-2 text-[9px] font-bold text-red-400">ACİL</div>}
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setRevertPreview(null)}
+                className="chip text-[11px]"
+                data-testid="revert-cancel"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={commitRevert}
+                className="btn-gold text-[11px] flex items-center gap-1"
+                data-testid="revert-confirm"
+              >
+                <Undo2 className="w-3 h-3" /> Geri Dön
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Wrapper>
   );
 }

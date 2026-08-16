@@ -4955,6 +4955,27 @@ async def patch_event_series(series_id: str, body: SeriesPatchBody, _: dict = De
     if body.from_date:
         q["date"] = {"$gte": body.from_date}
     res = await db.events.update_many(q, {"$set": update})
+    # Fire-and-forget in-app notification to every subscribed user so members
+    # who were counting on the old schedule/name see a heads-up in the bell.
+    try:
+        sample = await db.events.find_one({"series_id": series_id}, {"_id": 0, "name": 1})
+        label = (update.get("name") or (sample or {}).get("name") or "Etkinlik serisi")
+        notif_docs = []
+        now = now_iso()
+        async for u in db.users.find({}, {"_id": 0, "id": 1}):
+            notif_docs.append({
+                "id": uuid.uuid4().hex,
+                "user_id": u["id"],
+                "title": "Etkinlik Serisi Güncellendi",
+                "body": f"'{label}' serisindeki {res.modified_count} etkinlik güncellendi.",
+                "url": "/etkinlikler",
+                "read": False,
+                "created_at": now,
+            })
+        if notif_docs:
+            await db.in_app_notifications.insert_many(notif_docs)
+    except Exception as ex:
+        logger.warning(f"series notify failed: {ex}")
     return {"ok": True, "matched": res.matched_count, "modified": res.modified_count}
 
 
