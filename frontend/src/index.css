@@ -259,6 +259,15 @@ select:focus, textarea:focus {
     box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }
 
+/* Keyframes for the multi-bucket drag drop zones — a gentle pulse that
+   only plays while a foreign-bucket card is being dragged. Reuses the
+   built-in Tailwind `pulse` name for the series-count preview chip. */
+@keyframes dropzone-pulse {
+  0%, 100% { outline-color: rgba(245,166,35,0.85); outline-offset: 4px; }
+  50%      { outline-color: rgba(245,166,35,0.35); outline-offset: 8px; }
+}
+
+
 .bottom-nav {
     position: fixed; bottom: 0; left: 50%;
     transform: translateX(-50%);

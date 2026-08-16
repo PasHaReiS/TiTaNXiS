@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import useSWR from "swr";
-import { Megaphone, Send, Trash2, Loader2, Radio, Users, MessageCircle, Bell, History, ChevronDown } from "lucide-react";
+import { Megaphone, Send, Trash2, Loader2, Radio, Users, MessageCircle, Bell, History, ChevronDown, Undo2 } from "lucide-react";
 import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -94,6 +94,15 @@ export default function Announcements({ embedded = false }) {
       await api.delete(`/announcements/${id}`);
       mutate();
       toast.success("Duyuru silindi");
+    } catch (e) { toast.error(apiErr(e)); }
+  };
+
+  const revert = async (id, historyCount) => {
+    if (!window.confirm(`Bu duyuru ${historyCount} kez düzenlenmiş. Son sürüme geri dönmek istiyor musun?`)) return;
+    try {
+      await api.post(`/announcements/${id}/revert`);
+      mutate();
+      toast.success("Önceki sürüme dönüldü");
     } catch (e) { toast.error(apiErr(e)); }
   };
 
@@ -255,6 +264,20 @@ export default function Announcements({ embedded = false }) {
               </div>
               {isAdmin && (
                 <div className="flex flex-col gap-1 flex-shrink-0">
+                  {(a.history?.length || 0) > 0 && (
+                    <button onClick={() => revert(a.id, a.history.length)}
+                            className="p-1 rounded hover:bg-amber-500/20 gold-text relative"
+                            title={`Son sürüme geri dön (${a.history.length} kayıt)`}
+                            data-testid={`announcement-revert-${a.id}`}>
+                      <Undo2 className="w-3 h-3" />
+                      <span
+                        className="absolute -top-1 -right-1 text-[8px] font-bold rounded-full px-1 leading-none"
+                        style={{ background: "#F5A623", color: "#0A0004" }}
+                      >
+                        {a.history.length}
+                      </span>
+                    </button>
+                  )}
                   <button onClick={() => copyToForm(a)}
                           className="p-1 rounded hover:bg-blue-500/20 text-blue-400"
                           title="Bu duyuruyu forma yükle"

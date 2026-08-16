@@ -194,7 +194,12 @@ export default function Events() {
       }}
       style={
         dragSourceBucket && !dragSourceBucket.startsWith("group:")
-          ? { outline: "2px dashed rgba(245,166,35,0.55)", outlineOffset: 6, borderRadius: 8 }
+          ? {
+              outline: "2px dashed rgba(245,166,35,0.75)",
+              outlineOffset: 6,
+              borderRadius: 8,
+              animation: "dropzone-pulse 1.1s ease-in-out infinite",
+            }
           : undefined
       }
     >
@@ -243,7 +248,12 @@ export default function Events() {
       }}
       style={
         dragSourceBucket && dragSourceBucket !== "ungrouped"
-          ? { outline: "2px dashed rgba(139,92,246,0.55)", outlineOffset: 6, borderRadius: 8 }
+          ? {
+              outline: "2px dashed rgba(139,92,246,0.75)",
+              outlineOffset: 6,
+              borderRadius: 8,
+              animation: "dropzone-pulse 1.1s ease-in-out infinite",
+            }
           : undefined
       }
     >
@@ -1007,6 +1017,21 @@ function EventForm({ initial, onClose }) {
   // save to the series-level PATCH so every occurrence in the series gets
   // the same update (name / multiplier / subtitle / reminder).
   const [applyToSeries, setApplyToSeries] = useState(false);
+  // Live count of occurrences in this series so the "Tüm seride uygula"
+  // toggle shows an accurate blast-radius chip before the admin saves.
+  const [seriesCount, setSeriesCount] = useState(0);
+  useEffect(() => {
+    if (!initial?.series_id) { setSeriesCount(0); return; }
+    let cancelled = false;
+    api.get(`/events?series_id=${encodeURIComponent(initial.series_id)}`)
+      .then((r) => {
+        if (cancelled) return;
+        const list = Array.isArray(r?.data) ? r.data : (r?.data?.items || []);
+        setSeriesCount(list.filter((e) => e.series_id === initial.series_id).length);
+      })
+      .catch(() => { /* fallback: just don't show count */ });
+    return () => { cancelled = true; };
+  }, [initial?.series_id]);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState(initial?.banner_url ? [{ id: "existing", url: initial.banner_url, filename: "banner" }] : []);
   const { data: activeGroups = [] } = useSWR("/event-groups?active_only=true", fetcher);
@@ -1140,6 +1165,20 @@ function EventForm({ initial, onClose }) {
             <span className="text-[11px] uppercase tracking-widest font-bold" style={{ color: "#C4B5FD" }}>
               🔗 Tüm seride uygula
             </span>
+            {applyToSeries && seriesCount > 1 && (
+              <span
+                className="chip text-[10px]"
+                style={{
+                  borderColor: "rgba(139,92,246,0.55)",
+                  color: "#DDD6FE",
+                  background: "rgba(139,92,246,0.20)",
+                  animation: "pulse 1.6s ease-in-out infinite",
+                }}
+                data-testid="event-form-series-preview"
+              >
+                ⚠️ {seriesCount} etkinlik güncellenecek
+              </span>
+            )}
             <span className="text-[10px] text-muted-foreground ml-auto mono">series {(initial.series_id || "").slice(0, 6)}</span>
           </label>
         )}
