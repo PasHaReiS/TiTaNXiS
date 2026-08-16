@@ -239,6 +239,61 @@ def make_polls_router(db, require_auth, require_admin, on_poll_created=None):
         await db.poll_votes.delete_many({"poll_id": poll_id})
         return {"ok": True}
 
+    @router.get("/{poll_id}/results")
+    async def poll_results(poll_id: str, user: dict = Depends(require_auth)):
+        """Live per-option tally including Telegram voters. Merges app
+        `poll_votes` with the `polls.tg_votes` map populated by the
+        PollAnswerHandler. Admins also see the raw list of Telegram
+        voter usernames so they can chase up non-responders."""
+        p = await db.polls.find_one({"id": poll_id}, {"_id": 0})
+        if not p:
+            raise HTTPException(404, "Anket bulunamadı")
+        options = p.get("options", [])
+        opt_index = {o["id"]: i for i, o in enumerate(options)}
+        per_option_app: dict = {o["id"]: 0 for o in options}
+        per_option_tg: dict = {o["id"]: 0 for o in options}
+        app_voters = 0
+        async for v in db.poll_votes.find({"poll_id": poll_id}, {"_id": 0, "option_ids": 1}):
+            app_voters += 1
+            for oid in v.get("option_ids") or []:
+                if oid in per_option_app:
+                    per_option_app[oid] += 1
+        tg_votes = p.get("tg_votes") or {}
+        tg_voter_details = []
+        is_admin = user.get("role") == "admin"
+        for tg_uid, vote in tg_votes.items():
+            for oid in vote.get("option_ids") or []:
+                if oid in per_option_tg:
+                    per_option_tg[oid] += 1
+            if is_admin:
+                tg_voter_details.append({
+                    "username": vote.get("username"),
+                    "options": [options[opt_index[oid]]["text"]
+                                for oid in vote.get("option_ids") or []
+                                if oid in opt_index],
+                    "voted_at": vote.get("voted_at"),
+                })
+        merged = [
+            {"id": o["id"], "text": o["text"],
+             "app_votes": per_option_app.get(o["id"], 0),
+             "tg_votes": per_option_tg.get(o["id"], 0),
+             "total": per_option_app.get(o["id"], 0) + per_option_tg.get(o["id"], 0)}
+            for o in options
+        ]
+        return {
+            "poll_id": poll_id,
+            "question": p.get("question"),
+            "closed": _poll_is_closed(p),
+            "tg_broadcast": bool(p.get("tg_poll_id")),
+            "tg_chat_id": p.get("tg_chat_id"),
+            "tg_message_id": p.get("tg_message_id"),
+            "app_voters": app_voters,
+            "tg_voters": len(tg_votes),
+            "total_voters": app_voters + len(tg_votes),
+            "options": merged,
+            "tg_voter_details": tg_voter_details if is_admin else [],
+        }
+
     return router
 
 

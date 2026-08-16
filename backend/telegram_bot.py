@@ -182,7 +182,7 @@ async def setup_webhook() -> bool:
         async with httpx.AsyncClient(timeout=15) as client:
             r = await client.post(f"{TELEGRAM_API}/setWebhook",
                                   json={"url": url,
-                                        "allowed_updates": ["message"]})
+                                        "allowed_updates": ["message", "poll_answer", "poll", "callback_query"]})
             data = r.json()
             if data.get("ok"):
                 log.info(f"Telegram webhook set → {url}")
