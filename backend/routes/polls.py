@@ -53,7 +53,10 @@ def _poll_is_closed(poll: dict) -> bool:
 async def _poll_public(db, poll: dict, viewer_id: Optional[str]) -> dict:
     """Serialize a poll for API consumption. Adds vote tallies per option,
     total_votes, closed flag (with auto-close-on-time), and the viewer's
-    own vote (`my_option_ids`) so the UI can restore selection state."""
+    own vote (`my_option_ids`) so the UI can restore selection state.
+
+    Merges Telegram votes from `poll.tg_votes` (populated by
+    `_poll_answer_handler`) so app + group members share a single tally."""
     poll_id = poll["id"]
     option_ids = [o["id"] for o in poll.get("options", [])]
     tallies = {oid: 0 for oid in option_ids}
@@ -67,7 +70,19 @@ async def _poll_public(db, poll: dict, viewer_id: Optional[str]) -> dict:
                 tallies[oid] += 1
         if viewer_id and v.get("user_id") == viewer_id:
             my_options = list(v.get("option_ids") or [])
-    total_choices = sum(tallies.values()) or 1  # avoid div/0 for %
+    # Merge Telegram voters — each is one voter regardless of multi-choice.
+    tg_votes = poll.get("tg_votes") or {}
+    tg_voter_count = 0
+    for _tg_uid, vote in tg_votes.items():
+        opts = vote.get("option_ids") or []
+        if not opts:
+            continue
+        tg_voter_count += 1
+        for oid in opts:
+            if oid in tallies:
+                tallies[oid] += 1
+    total_voters += tg_voter_count
+    total_choices = sum(tallies.values()) or 1
     options = [
         {
             "id": o["id"],
@@ -87,6 +102,8 @@ async def _poll_public(db, poll: dict, viewer_id: Optional[str]) -> dict:
         "created_at": poll.get("created_at"),
         "created_by_username": poll.get("created_by_username"),
         "total_voters": total_voters,
+        "tg_voters": tg_voter_count,
+        "tg_broadcast": bool(poll.get("tg_poll_id")),
         "my_option_ids": my_options,
         "has_voted": bool(my_options),
     }
@@ -149,10 +166,15 @@ def make_polls_router(db, require_auth, require_admin, on_poll_created=None):
         }
         await db.polls.insert_one(doc)
         # Fan out the announcement across all channels — non-blocking, best-effort.
+        # We pass the full options list so the callback can also mint a native
+        # Telegram poll via sendPoll for inline group voting.
         if on_poll_created is not None:
             try:
                 import asyncio as _asyncio
-                _asyncio.create_task(on_poll_created(doc["question"], doc["id"]))
+                _asyncio.create_task(on_poll_created(
+                    doc["question"], doc["id"],
+                    doc["options"], bool(doc.get("multi_choice")),
+                ))
             except Exception:
                 pass
         return await _poll_public(db, doc, admin["id"])

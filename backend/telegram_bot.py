@@ -25,7 +25,7 @@ from typing import Optional
 import httpx
 
 from telegram import Update, BotCommand
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes, PollAnswerHandler
 
 log = logging.getLogger("telegram")
 
@@ -166,6 +166,7 @@ def init_bot(db) -> Optional[Application]:
     # Note: /link handler removed in favour of the Telegram Login Widget (OAuth-style
     # flow on the web app). /unlink is kept so users can revoke from either side.
     _app.add_handler(CommandHandler("unlink", unlink_command))
+    _app.add_handler(PollAnswerHandler(_poll_answer_handler))
     log.info("Telegram bot handlers registered (@TiTaNXiS_BoT).")
     return _app
 
@@ -336,6 +337,75 @@ async def link_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Artık *{uname}* hesabıyla bu Telegram sohbetinden bildirim alacaksın.\n"
         f"İstersen `/unlink` ile her zaman kaldırabilirsin."
     )
+
+async def _send_tg_poll(chat_id: str, question: str, options: list,
+                         is_anonymous: bool = False,
+                         allows_multiple_answers: bool = False) -> Optional[dict]:
+    """Send a native Telegram poll via `sendPoll`. Non-anonymous so we can
+    process `poll_answer` updates and merge votes into the app tallies."""
+    if not BOT_TOKEN:
+        return None
+    payload = {
+        "chat_id": chat_id,
+        "question": question[:300],
+        "options": [str(o)[:100] for o in options][:10],  # Telegram limits
+        "is_anonymous": bool(is_anonymous),
+        "allows_multiple_answers": bool(allows_multiple_answers),
+        "type": "regular",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.post(f"{TELEGRAM_API}/sendPoll", json=payload)
+            if r.status_code == 200:
+                data = r.json().get("result") or {}
+                return {
+                    "tg_poll_id": (data.get("poll") or {}).get("id"),
+                    "message_id": data.get("message_id"),
+                    "chat_id": (data.get("chat") or {}).get("id"),
+                }
+            log.warning(f"sendPoll {r.status_code}: {r.text[:200]}")
+    except Exception as ex:
+        log.warning(f"sendPoll error: {ex}")
+    return None
+
+
+async def _poll_answer_handler(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    """Fired when a Telegram user casts / retracts a vote on a non-anonymous
+    poll we published via `sendPoll`. Updates our app poll doc's `tg_votes`
+    map so the frontend UI reflects Telegram voters alongside app voters."""
+    if _db is None or update.poll_answer is None:
+        return
+    ans = update.poll_answer
+    tg_poll_id = str(ans.poll_id)
+    tg_user_id = str(ans.user.id) if ans.user else None
+    option_ids = list(ans.option_ids or [])
+    poll = await _db.polls.find_one({"tg_poll_id": tg_poll_id}, {"_id": 0})
+    if not poll:
+        return
+    options = poll.get("options", [])
+    # Map Telegram option indexes → our internal option ids.
+    picked = [options[i]["id"] for i in option_ids if 0 <= i < len(options)]
+    if not tg_user_id:
+        return
+    if not picked:
+        # Retraction — user cleared their vote.
+        await _db.polls.update_one(
+            {"id": poll["id"]},
+            {"$unset": {f"tg_votes.{tg_user_id}": ""}},
+        )
+        return
+    await _db.polls.update_one(
+        {"id": poll["id"]},
+        {"$set": {
+            f"tg_votes.{tg_user_id}": {
+                "option_ids": picked,
+                "username": (ans.user.username or ans.user.first_name or "tg") if ans.user else "tg",
+                "voted_at": datetime.now(timezone.utc).isoformat(),
+            },
+        }},
+    )
+
+
 
 
 async def unlink_command(update: Update, _: ContextTypes.DEFAULT_TYPE):

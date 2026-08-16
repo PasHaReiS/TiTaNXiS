@@ -6613,9 +6613,14 @@ async def reports_events_csv(period: str = "all", user: dict = Depends(require_a
     )
 
 
-async def _poll_broadcast(question: str, poll_id: str):
+async def _poll_broadcast(question: str, poll_id: str, options: Optional[list] = None,
+                          multi_choice: bool = False):
     """Fan out a new-poll notification across Web Push + Telegram DMs + in-app
-    bell. Fired by the polls router the moment a poll is created."""
+    bell. Also publishes a native Telegram poll to the configured leadership
+    group (`TELEGRAM_POLL_CHAT_ID` env, default -1003597221954) via `sendPoll`
+    so Telegram members can vote inline — `poll_answer` updates merge back
+    into the app tallies. Fired by the polls router the moment a poll is
+    created."""
     import asyncio
     title = "🗳️ Yeni Anket"
     body = question[:180] + ("…" if len(question) > 180 else "")
@@ -6623,7 +6628,26 @@ async def _poll_broadcast(question: str, poll_id: str):
     doc = {"id": f"poll-{poll_id}", "title": title, "body": body, "url": url,
            "image_url": None, "event_id": None,
            "send_channel": False, "send_dm": True, "send_app": True}
+    tg_poll_meta = None
     try:
+        # Native Telegram poll to the guild group.
+        if options:
+            from telegram_bot import _send_tg_poll
+            group_chat = os.environ.get("TELEGRAM_POLL_CHAT_ID", "-1003597221954").strip()
+            tg_poll_meta = await _send_tg_poll(
+                group_chat, question, [o["text"] for o in options],
+                is_anonymous=False,
+                allows_multiple_answers=bool(multi_choice),
+            )
+            if tg_poll_meta:
+                await db.polls.update_one(
+                    {"id": poll_id},
+                    {"$set": {
+                        "tg_poll_id": tg_poll_meta["tg_poll_id"],
+                        "tg_message_id": tg_poll_meta["message_id"],
+                        "tg_chat_id": tg_poll_meta["chat_id"],
+                    }},
+                )
         await asyncio.gather(
             _broadcast_push(title, body, url, tag=f"poll-{poll_id}", sound="rally"),
             _send_tg_dms(doc),

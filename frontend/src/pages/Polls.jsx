@@ -249,6 +249,14 @@ function PollCard({ poll, onChanged, isAdmin }) {
             <span>{poll.created_by_username || "sistem"}</span>
             <span>·</span>
             <span>{new Date(poll.created_at).toLocaleString("tr-TR")}</span>
+            {poll.tg_broadcast && (
+              <span className="px-1 py-0.5 rounded text-[9px] font-bold flex items-center gap-0.5"
+                    style={{ background: "rgba(52,152,219,0.2)", color: "#93C5FD" }}
+                    title={`Telegram grubunda ${poll.tg_voters || 0} oy`}
+                    data-testid={`poll-tg-badge-${poll.id}`}>
+                📡 TG · {poll.tg_voters || 0}
+              </span>
+            )}
             {poll.multi_choice && (
               <span className="px-1 py-0.5 rounded text-[9px] font-bold"
                     style={{ background: "rgba(59,130,246,0.2)", color: "#93C5FD" }}>
