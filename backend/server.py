@@ -4858,21 +4858,63 @@ class AnnouncementPatch(BaseModel):
 @api_router.patch("/announcements/{aid}")
 async def announcements_patch(aid: str, body: AnnouncementPatch, _: dict = Depends(require_admin)):
     """In-place edit so admins can fix a typo without spawning a new fan-out.
-    Does NOT re-broadcast — silent update."""
+    Does NOT re-broadcast — silent update. Previous title/body is pushed
+    into the `history` array so an accidental edit can be reverted."""
     update = {k: v for k, v in body.model_dump().items() if v is not None}
     if not update:
         raise HTTPException(400, "Değişiklik yok")
+    current = await db.announcements.find_one({"id": aid}, {"_id": 0})
+    if not current:
+        raise HTTPException(404, "Duyuru bulunamadı")
     if "title" in update:
-        # Keep 🚨 prefix in sync with urgent flag (matches create behaviour)
-        u = update.get("urgent") if "urgent" in update else None
+        u = update.get("urgent") if "urgent" in update else current.get("urgent")
         clean = update["title"].lstrip("🚨 ").strip()
         update["title"] = ("🚨 " + clean) if u else clean
+    # Snapshot previous title+body BEFORE the write if either is changing
+    snap = None
+    if ("title" in update and update["title"] != current.get("title")) or \
+       ("body" in update and update["body"] != current.get("body")):
+        snap = {
+            "title": current.get("title"),
+            "body": current.get("body"),
+            "image_url": current.get("image_url"),
+            "urgent": current.get("urgent"),
+            "edited_at": now_iso(),
+        }
     update["updated_at"] = now_iso()
-    r = await db.announcements.update_one({"id": aid}, {"$set": update})
-    if r.matched_count == 0:
-        raise HTTPException(404, "Duyuru bulunamadı")
+    ops = {"$set": update}
+    if snap:
+        ops["$push"] = {"history": {"$each": [snap], "$slice": -20}}  # keep last 20
+    await db.announcements.update_one({"id": aid}, ops)
     doc = await db.announcements.find_one({"id": aid}, {"_id": 0})
     return {"ok": True, "item": doc}
+
+
+@api_router.post("/announcements/{aid}/revert")
+async def announcements_revert(aid: str, _: dict = Depends(require_admin)):
+    """Revert to the most recent history snapshot (pop the last entry).
+    Returns the updated announcement. 400 if no history exists."""
+    doc = await db.announcements.find_one({"id": aid}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Duyuru bulunamadı")
+    hist = doc.get("history") or []
+    if not hist:
+        raise HTTPException(400, "Geri alınacak sürüm yok")
+    prev = hist[-1]
+    await db.announcements.update_one(
+        {"id": aid},
+        {
+            "$set": {
+                "title": prev.get("title"),
+                "body": prev.get("body"),
+                "image_url": prev.get("image_url"),
+                "urgent": prev.get("urgent"),
+                "reverted_at": now_iso(),
+            },
+            "$pop": {"history": 1},
+        },
+    )
+    return {"ok": True, "item": await db.announcements.find_one({"id": aid}, {"_id": 0})}
 
 
 # ---------- Recurring event series: bulk edit + bulk delete ----------

@@ -415,3 +415,12 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - If you see `dm_translate none chat=X — TR fallback` for a user you set to EN, then:
   - User's preferred_language was not persisted (check `auth/me` returns non-null pref)
   - OR user's chat_id / handle doesn't match ANY of the 3 resolution paths
+
+
+## Series UI Toggle + 3-Way Delete + Drop Zone + Version History (Feb 16, 2026)
+
+- **Series UI Toggle**: EventForm detects `initial.series_id`; renders a violet "🔗 Tüm seride uygula" checkbox (`event-form-apply-series`). When checked, submit routes to `PATCH /events/series/{id}` instead of `/events/{id}` with a subset of fields (no date/banner). Toast: "Seri güncellendi (N etkinlik)".
+- **Series Delete Confirm**: Delete button on series-anchored cards opens a 3-option prompt: `1` bu occurrence · `2` bu ve gelecek (via `?from_date=`) · `3` tüm seri. Solo events keep the simple confirm dialog.
+- **Cross-Bucket Drop Zone**: Both `renderGroupedCol` and `renderUngroupedCol` add `onDragOver` that only accepts a source from the OTHER bucket, plus a dashed outline (amber / violet) that only shows while a foreign card is being dragged. `renderUngroupedCol` handles the section-level drop to convert to Bireysel (`group_name: ""`).
+- **Announcement Version History**: `PATCH /api/announcements/{aid}` snapshots previous title/body/image/urgent into `history` array (`$push` with `$slice: -20` cap) BEFORE writing new values. New `POST /api/announcements/{aid}/revert` pops the last history entry. `DELETE` remains hard-delete.
+- Curl round-trip: create v1 → PATCH v2 (history=1, title=v2) → revert (history=0, title=v1) ✅

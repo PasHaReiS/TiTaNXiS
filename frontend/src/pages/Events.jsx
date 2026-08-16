@@ -183,7 +183,21 @@ export default function Events() {
   };
 
   const renderGroupedCol = () => (
-    <section data-testid="events-grouped-column">
+    <section
+      data-testid="events-grouped-column"
+      onDragOver={(ev) => {
+        // Accept drops from any card that started in a different bucket so
+        // admins can drop onto empty header space to convert to a Kolektif.
+        if (dragSourceBucket && !dragSourceBucket.startsWith("group:")) {
+          ev.preventDefault();
+        }
+      }}
+      style={
+        dragSourceBucket && !dragSourceBucket.startsWith("group:")
+          ? { outline: "2px dashed rgba(245,166,35,0.55)", outlineOffset: 6, borderRadius: 8 }
+          : undefined
+      }
+    >
       <div
         className="flex items-center gap-2 mb-3 pb-2"
         style={{ borderBottom: "1px solid rgba(245,166,35,0.22)" }}
@@ -211,7 +225,28 @@ export default function Events() {
   );
 
   const renderUngroupedCol = () => (
-    <section data-testid="events-ungrouped-column">
+    <section
+      data-testid="events-ungrouped-column"
+      onDragOver={(ev) => {
+        if (dragSourceBucket && dragSourceBucket !== "ungrouped") ev.preventDefault();
+      }}
+      onDrop={(ev) => {
+        if (!dragId || !dragSourceBucket || dragSourceBucket === "ungrouped") return;
+        ev.preventDefault();
+        api.patch(`/events/${dragId}`, { group_name: "" })
+          .then(() => {
+            mutate((k) => typeof k === "string" && k.startsWith("/events"));
+            toast.success("→ Bireysel");
+          })
+          .catch((err) => toast.error(err?.response?.data?.detail || err.message));
+        setDragId(null); setDragSourceBucket(null);
+      }}
+      style={
+        dragSourceBucket && dragSourceBucket !== "ungrouped"
+          ? { outline: "2px dashed rgba(139,92,246,0.55)", outlineOffset: 6, borderRadius: 8 }
+          : undefined
+      }
+    >
       <div
         className="flex items-center gap-2 mb-3 pb-2"
         style={{ borderBottom: "1px solid rgba(139,92,246,0.28)" }}
@@ -438,11 +473,38 @@ export default function Events() {
             <button
               data-testid={EVENTS.deleteBtn(e.id)}
               onClick={async () => {
-                if (!window.confirm(t("confirm_delete_generic", { name: e.name }))) return;
-                await api.delete(`/events/${e.id}`);
-                mutate((k) => typeof k === "string" && k.startsWith("/events"));
-                mutate("/stats");
-                toast.success(t("event_deleted"));
+                // Series-aware delete: if this event is part of a series,
+                // ask WHICH scope (this / future / whole series). Solo events
+                // get the plain single-confirm.
+                if (e.series_id) {
+                  const scope = window.prompt(
+                    `Bu etkinlik bir seriye ait (${e.series_id.slice(0,6)}). Ne silmek istersin?\n\n` +
+                    `1 = Sadece bu etkinlik\n` +
+                    `2 = Bu ve gelecek olan hepsi\n` +
+                    `3 = Tüm seri (geçmiş dahil)\n\n` +
+                    `İptal için boş bırak:`,
+                    "1",
+                  );
+                  if (!scope || !["1","2","3"].includes(scope.trim())) return;
+                  try {
+                    if (scope.trim() === "1") {
+                      await api.delete(`/events/${e.id}`);
+                    } else if (scope.trim() === "2") {
+                      await api.delete(`/events/series/${e.series_id}?from_date=${encodeURIComponent(e.date)}`);
+                    } else {
+                      await api.delete(`/events/series/${e.series_id}`);
+                    }
+                    mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                    mutate("/stats");
+                    toast.success(t("event_deleted"));
+                  } catch (err) { toast.error(err?.response?.data?.detail || err.message); }
+                } else {
+                  if (!window.confirm(t("confirm_delete_generic", { name: e.name }))) return;
+                  await api.delete(`/events/${e.id}`);
+                  mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                  mutate("/stats");
+                  toast.success(t("event_deleted"));
+                }
               }}
               className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
               title={t("delete")}
@@ -941,6 +1003,10 @@ function EventForm({ initial, onClose }) {
   );
   const [recurInterval, setRecurInterval] = useState("none");
   const [recurCount, setRecurCount] = useState(4);
+  // When editing an event that belongs to a series, this toggle routes the
+  // save to the series-level PATCH so every occurrence in the series gets
+  // the same update (name / multiplier / subtitle / reminder).
+  const [applyToSeries, setApplyToSeries] = useState(false);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState(initial?.banner_url ? [{ id: "existing", url: initial.banner_url, filename: "banner" }] : []);
   const { data: activeGroups = [] } = useSWR("/event-groups?active_only=true", fetcher);
@@ -959,14 +1025,30 @@ function EventForm({ initial, onClose }) {
         recurrence_interval: recurInterval,
         recurrence_count: Number(recurCount) || 1,
       };
-      const res = initial
-        ? await api.patch(`/events/${initial.id}`, body)
-        : await api.post("/events", body);
+      let res;
+      if (initial) {
+        if (applyToSeries && initial.series_id) {
+          // Series-level bulk edit — subset of fields (no date, no banner).
+          const seriesBody = {
+            name: body.name, multiplier: body.multiplier,
+            subtitle: body.subtitle, reminder_enabled: body.reminder_enabled,
+            group_name: body.group_name,
+          };
+          res = await api.patch(`/events/series/${initial.series_id}`, seriesBody);
+        } else {
+          res = await api.patch(`/events/${initial.id}`, body);
+        }
+      } else {
+        res = await api.post("/events", body);
+      }
       mutate((k) => typeof k === "string" && (k.startsWith("/events") || k.startsWith("/event-groups")));
       mutate("/stats");
       const spawned = res?.data?.recurrence_created || 0;
+      const matched = res?.data?.matched || 0;
       if (spawned > 1) {
         toast.success(`${spawned} etkinlik oluşturuldu (${recurInterval})`);
+      } else if (applyToSeries && matched > 1) {
+        toast.success(`Seri güncellendi (${matched} etkinlik)`);
       } else {
         toast.success(initial ? t("updated") : t("event_added"));
       }
@@ -1042,6 +1124,26 @@ function EventForm({ initial, onClose }) {
             this generates `count` copies starting at the picked date; on
             EDIT it spawns `count-1` future copies AFTER the current event
             (the current one stays untouched). Interval "none" = single. */}
+        {initial?.series_id && (
+          <label
+            className="flex items-center gap-2 mb-2 p-2 rounded cursor-pointer"
+            style={{ background: "rgba(139,92,246,0.10)", border: "1px solid rgba(139,92,246,0.35)" }}
+            data-testid="event-form-apply-series-label"
+          >
+            <input
+              type="checkbox"
+              checked={applyToSeries}
+              onChange={(e) => setApplyToSeries(e.target.checked)}
+              data-testid="event-form-apply-series"
+              className="accent-violet-400"
+            />
+            <span className="text-[11px] uppercase tracking-widest font-bold" style={{ color: "#C4B5FD" }}>
+              🔗 Tüm seride uygula
+            </span>
+            <span className="text-[10px] text-muted-foreground ml-auto mono">series {(initial.series_id || "").slice(0, 6)}</span>
+          </label>
+        )}
+
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-4">
           Tekrarlama {initial && <span className="text-[9px] opacity-70">(bu etkinlikten sonra ek etkinlikler oluşturur)</span>}
         </label>
