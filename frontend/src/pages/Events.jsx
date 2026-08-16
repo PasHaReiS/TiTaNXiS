@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { EVENTS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
-import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera, BellOff, Users, User } from "lucide-react";
+import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera, BellOff, Users, User, LayoutGrid, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import ImageDropzone from "@/components/ImageDropzone";
@@ -14,6 +14,7 @@ import EventAttendance from "@/components/EventAttendance";
 import EventReminderDialog from "@/components/EventReminderDialog";
 import EventCountdown from "@/components/EventCountdown";
 import EventResultGallery from "@/components/EventResultGallery";
+import EventCalendar from "@/components/EventCalendar";
 import { BellRing, GripVertical } from "lucide-react";
 import { groupColor, groupBgTint } from "@/lib/groupColors";
 
@@ -22,6 +23,13 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
 export default function Events() {
   const { t } = useTranslation();
   const [tab, setTab] = useState("reminded"); // "reminded" | "unreminded" | "archive"
+  // Top-level view mode — Liste (existing list layout) vs Takvim (monthly grid).
+  const [view, setView] = useState(() => {
+    try { return localStorage.getItem("events_view") || "list"; } catch { return "list"; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("events_view", view); } catch { /* private mode */ }
+  }, [view]);
   // Sub-filter picked from the chip row that lives under the tabs. "all"
   // keeps the current mixed view; "grouped" / "ungrouped" narrow it down
   // so admins can focus on one flavour at a time.
@@ -447,6 +455,47 @@ export default function Events() {
           </CanEdit>
         </div>
 
+        {/* View toggle — Liste vs Takvim. Sits above the tab bar so it
+            switches the whole page mode; localStorage-persisted so admins
+            return to their last view on next visit. */}
+        <div className="flex gap-1.5 mb-3" data-testid="events-view-toggle">
+          <button
+            type="button"
+            data-testid="events-view-list"
+            onClick={() => setView("list")}
+            className="chip flex-1 justify-center text-[10px]"
+            style={view === "list" ? {
+              borderColor: "#F5A623",
+              color: "#F5A623",
+              background: "rgba(245,166,35,0.15)",
+              boxShadow: "0 0 8px rgba(245,166,35,0.35)",
+            } : { opacity: 0.7 }}
+          >
+            <LayoutGrid className="w-3 h-3" /> Liste
+          </button>
+          <button
+            type="button"
+            data-testid="events-view-calendar"
+            onClick={() => setView("calendar")}
+            className="chip flex-1 justify-center text-[10px]"
+            style={view === "calendar" ? {
+              borderColor: "#A78BFA",
+              color: "#C4B5FD",
+              background: "rgba(139,92,246,0.15)",
+              boxShadow: "0 0 8px rgba(139,92,246,0.35)",
+            } : { opacity: 0.7 }}
+          >
+            <CalendarDays className="w-3 h-3" /> Takvim
+          </button>
+        </div>
+
+        {view === "calendar" ? (
+          <EventCalendar
+            events={allActive}
+            onEventClick={(e) => { setEditing(e); setShowForm(true); }}
+          />
+        ) : (
+        <>
         <div
           className="flex mb-4 rounded-lg overflow-hidden"
           style={{
@@ -675,6 +724,8 @@ export default function Events() {
 
         {events.length === 0 && (
           <div className="card-dark p-6 text-center text-muted-foreground">{t("no_events")}</div>
+        )}
+        </>
         )}
       </div>
 

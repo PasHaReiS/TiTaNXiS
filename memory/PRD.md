@@ -258,6 +258,31 @@ columns via a responsive `grid grid-cols-1 lg:grid-cols-2 gap-4` at
 
 Data split lives in a single `useMemo` (`groupedMap`, `ungrouped`).
 Card rendering extracted into `renderEventCard` + `renderGroupBlock` helpers
+
+## Etkinlik Takvimi (Monthly Grid) — Feb 16, 2026
+- New component `components/EventCalendar.jsx` — pure presentational monthly
+  grid (6 rows × 7 cols, Monday-first for TR locale). Props: `events`,
+  `onEventClick`. Uses `groupColor()` to tint event pills by group and shows
+  up to 3 pills per cell with a "+N daha" overflow chip.
+- Cell click opens a portal-hosted dialog with the full day's events, each
+  row shows time / group / multiplier / countdown. Row click bubbles to
+  `onEventClick` so the parent can open the edit form.
+- Integrated into `pages/Events.jsx` behind a new **Liste / Takvim** view
+  toggle above the tab bar (`data-testid="events-view-{list|calendar}"`),
+  persisted to `localStorage.events_view`. Calendar view suppresses the
+  tab/sub-filter bars and drag-drop list; toggling back restores everything.
+- Data source: `allActive` (both reminded + unreminded) so admins see the
+  whole active pipeline on one screen; the "Bugün" chip snaps the cursor
+  back to today's month.
+- Safe-area coexistence verified: on a simulated iPhone 15 Pro (393×852
+  with `--sim-top:47px --sim-bottom:34px`), the header still resolves
+  `padding-top: 47px`, `.bottom-nav` still resolves `padding-bottom: 46px`,
+  and the calendar renders cleanly between them (rect 359×463 at y=278).
+- Data-testids: `event-calendar`, `calendar-grid`, `calendar-month-label`,
+  `calendar-prev-month`, `calendar-next-month`, `calendar-today-btn`,
+  `calendar-cell-{Y-M-D}`, `calendar-event-{id}`, `calendar-day-dialog`,
+  `calendar-day-event-{id}`.
+
 so both columns share the same JSX and attendance/gallery behaviour.
 
 Verified in preview (Hatırlatmalı + Hatırlatmasız tabs) — screenshots show
