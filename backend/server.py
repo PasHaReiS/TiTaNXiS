@@ -5654,6 +5654,92 @@ async def reports_members(
     return {"period": period, "total_events": total_events, "items": rows}
 
 
+@api_router.get("/reports/trend")
+async def reports_trend(
+    days: int = 30,
+    alliance: Optional[str] = None,
+    country: Optional[str] = None,
+    user: dict = Depends(require_admin),
+):
+    """Daily participation trend over the last N days. Each datapoint carries
+    the per-day participation rate — computed as `(attending+late) /
+    member_pool * 100` across every event whose `date` falls on that day.
+
+    Days without an event stay as null so the chart draws a broken line
+    instead of a misleading flat-zero. `alliance` and `country` narrow the
+    member pool so the trend reflects a specific squad or region.
+    """
+    from datetime import datetime as _dt_t, timezone as _tz_t, timedelta as _td_t, date as _date_t
+    days = max(1, min(int(days or 30), 180))
+    end = _dt_t.now(_tz_t.utc)
+    start = end - _td_t(days=days - 1)
+    start_iso = start.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+    member_query: dict = {}
+    if alliance:
+        member_query["alliance_name"] = {"$regex": f"^{__import__('re').escape(alliance)}$", "$options": "i"}
+    if country:
+        member_query["country"] = country.strip().upper()
+    member_ids = [m["id"] for m in await db.members.find(member_query, {"_id": 0, "id": 1}).to_list(20000)]
+    member_pool = len(member_ids)
+
+    events = await db.events.find(
+        {"archived": False, "date": {"$gte": start_iso}},
+        {"_id": 0, "id": 1, "date": 1},
+    ).to_list(20000)
+    if not events or not member_pool:
+        return {"days": days, "member_pool": member_pool, "items": []}
+
+    ev_ids = [e["id"] for e in events]
+    # Only count attendance rows scoped to the current alliance/country pool.
+    att = await db.event_attendance.find(
+        {"event_id": {"$in": ev_ids}, "member_id": {"$in": member_ids}},
+        {"_id": 0, "event_id": 1, "status": 1},
+    ).to_list(200000)
+    att_by_event: dict = {}
+    for a in att:
+        s = (a.get("status") or "attending").lower()
+        if s in ("attending", "late"):
+            att_by_event[a["event_id"]] = att_by_event.get(a["event_id"], 0) + 1
+
+    # Group events by ISO date (YYYY-MM-DD) and compute per-day totals.
+    by_day: dict = {}
+    for e in events:
+        d = (e.get("date") or "")[:10]
+        if not d:
+            continue
+        b = by_day.setdefault(d, {"attending": 0, "event_count": 0})
+        b["attending"] += att_by_event.get(e["id"], 0)
+        b["event_count"] += 1
+
+    # Fill every day in the window (null rate on empty days) so the chart
+    # always has `days` datapoints across the x-axis.
+    items = []
+    end_date = end.date()
+    for i in range(days):
+        d = (end_date - _td_t(days=days - 1 - i)).isoformat()
+        bucket = by_day.get(d)
+        if bucket and bucket["event_count"]:
+            # rate = attending / (member_pool * event_count) * 100
+            rate = round(bucket["attending"] / (member_pool * bucket["event_count"]) * 100, 1)
+            items.append({
+                "date": d,
+                "participation_rate": rate,
+                "attending": bucket["attending"],
+                "event_count": bucket["event_count"],
+                "member_pool": member_pool,
+            })
+        else:
+            items.append({
+                "date": d,
+                "participation_rate": None,
+                "attending": 0,
+                "event_count": 0,
+                "member_pool": member_pool,
+            })
+    return {"days": days, "member_pool": member_pool, "items": items}
+
+
 @api_router.get("/reports/events")
 async def reports_events(period: str = "all", user: dict = Depends(require_admin)):
     """Per-event stats — counts by status + attendance rate. Includes a

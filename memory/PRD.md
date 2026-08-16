@@ -480,3 +480,19 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - `PATCH .../attendance/{mid}` — `status=late` persists, `status=null` clears, `status="unknown"` → 400.
 - Playwright: 254 members table, 5 event rows, expand → 254 status dropdowns rendered, BarChart visible with tiered colors, tab switching + period filter functional.
 
+
+
+## Invite QR + Report Trends (Feb 16, 2026)
+
+### Invite QR
+- **Frontend**: Installed `qrcode.react` (v4). `InviteManagement.jsx` row now leads with a 68×68 white-bg QR (`SVG`, level "M"), click opens a modal (`invite-qr-modal`) with a 256×256 large version, the URL beneath, and a "PNG olarak indir" button that rasterizes the SVG to a 512×512 canvas and triggers a `image/png` blob download named `titanxis-davet-qr.png`.
+- **Testids**: `invite-qr-{id}`, `invite-qr-modal`, `invite-qr-modal-close`, `invite-qr-download`.
+
+### Report Trends (Katılım Trendi)
+- **Backend**: New `GET /api/reports/trend?days=7|30|90|180&alliance=&country=`. For every day in the window, aggregates `(attending+late) / (member_pool × event_count) × 100`. Event-less days emit `participation_rate: null` so the line breaks rather than dips to zero. Alliance/country restrict the member pool same as `/reports/members`.
+- **Frontend**: New `TrendChart` component rendered above the bar chart in the Üye Performansı tab. Recharts `LineChart` with `connectNulls={false}`. A linear regression slope classifies the trend into `▲ Yükselişte` (>0.2), `▼ Düşüşte` (<-0.2), or `→ Sabit`; the chip + line stroke share the color. Day toggles: 7G / 30G / 90G. Legend inherits the alliance+country filters from the parent MembersReport.
+- **Testids**: `trend-chart`, `trend-direction`, `trend-days-{7|30|90}`, `trend-empty`.
+
+### Verified
+- Curl: `/reports/trend?days=30` → `days=30 pool=254 items=30 nonnull_days=1` (single dated event at 1.6%). `?days=7&alliance=GOW` → `pool=157`.
+- Playwright: invite QR buttons rendered (2), modal opens with download button, `trend-chart` root + `trend-direction "→ Sabit"` chip + 3 day toggles all live; 7G ↔ 90G x-axis rescales correctly.

@@ -5,7 +5,7 @@ import { api, apiErr } from "@/lib/api";
 import Header from "@/components/Header";
 import { toast } from "sonner";
 import { Loader2, Download, Users, CalendarDays, RefreshCw, Filter } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, LineChart, Line, Legend } from "recharts";
 import { useTranslation } from "react-i18next";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -227,6 +227,7 @@ function MembersReport({ period }) {
         <EmptyCard label="Filtreye uyan üye yok" testId="members-report-empty" />
       ) : (
         <>
+      <TrendChart alliance={alliance} country={country} />
       <div className="card-red-gold p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="text-[11px] uppercase font-bold tracking-widest gold-text">
@@ -310,6 +311,103 @@ function MembersReport({ period }) {
 }
 
 // ----------- Etkinlik Katılım Tab -----------
+function TrendChart({ alliance, country }) {
+  const [days, setDays] = useState(30);
+  const qs = new URLSearchParams({ days: String(days) });
+  if (alliance) qs.set("alliance", alliance);
+  if (country) qs.set("country", country);
+  const { data, isLoading } = useSWR(`/reports/trend?${qs.toString()}`, fetcher);
+  const items = data?.items || [];
+  // Recharts needs numeric or null values — nulls create a broken line on
+  // event-less days rather than a misleading dive to zero.
+  const chart = items.map((d) => ({
+    date: d.date.slice(5), // MM-DD for compact x labels
+    rate: d.participation_rate,
+    event_count: d.event_count,
+    attending: d.attending,
+  }));
+  // Simple linear-regression slope over non-null datapoints so we can flag
+  // "yükselişte" / "düşüşte" without dragging in a stats lib.
+  const slope = (() => {
+    const pts = chart.map((c, i) => (c.rate == null ? null : [i, c.rate])).filter(Boolean);
+    if (pts.length < 2) return 0;
+    const n = pts.length;
+    const sx = pts.reduce((s, p) => s + p[0], 0);
+    const sy = pts.reduce((s, p) => s + p[1], 0);
+    const sxy = pts.reduce((s, p) => s + p[0] * p[1], 0);
+    const sxx = pts.reduce((s, p) => s + p[0] * p[0], 0);
+    const denom = n * sxx - sx * sx;
+    return denom === 0 ? 0 : (n * sxy - sx * sy) / denom;
+  })();
+  const trendColor = slope > 0.2 ? "#22C55E" : slope < -0.2 ? "#EF4444" : "#F5A623";
+  const trendLabel = slope > 0.2 ? "▲ Yükselişte" : slope < -0.2 ? "▼ Düşüşte" : "→ Sabit";
+
+  return (
+    <div className="card-red-gold p-3" data-testid="trend-chart">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+        <div className="text-[11px] uppercase font-bold tracking-widest gold-text flex items-center gap-2">
+          <span>Katılım Trendi · Son {days} Gün</span>
+          <span className="px-1.5 py-0.5 rounded text-[9px]"
+                style={{ background: `${trendColor}22`, color: trendColor }}
+                data-testid="trend-direction">
+            {trendLabel}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          {[7, 30, 90].map((d) => (
+            <button
+              key={d}
+              onClick={() => setDays(d)}
+              className="chip text-[10px]"
+              style={{
+                background: days === d
+                  ? "linear-gradient(180deg, rgba(245,166,35,0.28), rgba(180,83,9,0.45))"
+                  : "rgba(20,15,25,0.65)",
+                color: days === d ? "#FFEDD5" : "#78716C",
+                borderColor: days === d ? "#F5A623" : "rgba(120,53,15,0.35)",
+              }}
+              data-testid={`trend-days-${d}`}
+            >{d}G</button>
+          ))}
+        </div>
+      </div>
+      {isLoading || chart.length === 0 ? (
+        <div className="text-center text-xs text-muted-foreground py-8" data-testid="trend-empty">
+          {isLoading ? "Yükleniyor…" : "Bu aralıkta etkinlik yok"}
+        </div>
+      ) : (
+        <div style={{ width: "100%", height: 180 }}>
+          <ResponsiveContainer>
+            <LineChart data={chart} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(120,53,15,0.25)" />
+              <XAxis dataKey="date" stroke="#A8A29E" tick={{ fontSize: 9 }} interval={Math.max(0, Math.floor(chart.length / 10) - 1)} />
+              <YAxis stroke="#A8A29E" tick={{ fontSize: 9 }} unit="%" domain={[0, 100]} />
+              <Tooltip
+                contentStyle={{ background: "#1C1917", border: "1px solid #78350F", borderRadius: 6, fontSize: 11 }}
+                formatter={(v, name, p) => {
+                  if (v == null) return ["—", "Katılım"];
+                  const ev = p?.payload?.event_count || 0;
+                  return [`${v}% (${ev} etk.)`, "Katılım"];
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="rate"
+                stroke={trendColor}
+                strokeWidth={2}
+                dot={{ r: 2, fill: trendColor }}
+                activeDot={{ r: 4 }}
+                connectNulls={false}
+                isAnimationActive
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EventsReport({ period }) {
   const { data, isLoading, error, mutate } = useSWR(`/reports/events?period=${period}`, fetcher);
   const [expandedId, setExpandedId] = useState(null);
