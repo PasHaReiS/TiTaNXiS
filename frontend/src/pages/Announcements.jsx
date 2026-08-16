@@ -35,6 +35,9 @@ export default function Announcements({ embedded = false }) {
   const [urgent, setUrgent] = useState(false);
   const [sending, setSending] = useState(false);
   const [lastResult, setLastResult] = useState(null);
+  // When set, submit issues PATCH /announcements/{editingId} instead of POST
+  // (silent edit-in-place, no re-broadcast).
+  const [editingId, setEditingId] = useState(null);
 
   const finalImageUrl = imageFiles[0]?.url || imageUrl.trim();
 
@@ -43,10 +46,19 @@ export default function Announcements({ embedded = false }) {
     if (!title.trim() || !body.trim()) { toast.error("Başlık ve içerik zorunlu"); return; }
     setSending(true);
     try {
-      const r = await api.post("/announcements", { title, body, image_url: finalImageUrl || undefined, broadcast, urgent });
-      toast.success(urgent ? "🚨 Acil duyuru dağıtıldı" : "Duyuru gönderildi");
-      setLastResult(r.data.fanout || null);
+      if (editingId) {
+        // In-place edit — no re-broadcast, silent update.
+        await api.patch(`/announcements/${editingId}`, {
+          title, body, image_url: finalImageUrl || null, urgent,
+        });
+        toast.success("Duyuru güncellendi");
+      } else {
+        const r = await api.post("/announcements", { title, body, image_url: finalImageUrl || undefined, broadcast, urgent });
+        toast.success(urgent ? "🚨 Acil duyuru dağıtıldı" : "Duyuru gönderildi");
+        setLastResult(r.data.fanout || null);
+      }
       setTitle(""); setBody(""); setImageUrl(""); setImageFiles([]); setUrgent(false);
+      setEditingId(null);
       mutate();
     } catch (err) {
       toast.error(apiErr(err));
@@ -55,6 +67,27 @@ export default function Announcements({ embedded = false }) {
     }
   };
 
+  // Load an existing announcement for IN-PLACE edit. Sets editingId so the
+  // next submit fires PATCH (silent, no re-broadcast) instead of POST.
+  const copyToForm = (a) => {
+    setEditingId(a.id);
+    setTitle((a.title || "").replace(/^🚨\s*/, ""));
+    setBody(a.body || "");
+    setImageUrl(a.image_url || "");
+    setImageFiles([]);
+    setUrgent(!!a.urgent);
+    setBroadcast(true);
+    setHistoryOpen(false);
+    toast.info("Düzenleme modu — Kaydet'e basınca yayınlanmadan güncellenir");
+    try {
+      document.querySelector('[data-testid="announcement-form"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch { /* noop */ }
+  };
+
+  // Load an existing announcement back into the compose form so the admin
+  // can tweak it and re-send. We do NOT auto-delete the source — the admin
+  // can hit the 🗑️ button on the original row afterwards if they want.
+
   const remove = async (id) => {
     if (!window.confirm("Duyuruyu tamamen silmek istiyor musun? Geri alınamaz.")) return;
     try {
@@ -62,24 +95,6 @@ export default function Announcements({ embedded = false }) {
       mutate();
       toast.success("Duyuru silindi");
     } catch (e) { toast.error(apiErr(e)); }
-  };
-
-  // Load an existing announcement back into the compose form so the admin
-  // can tweak it and re-send. We do NOT auto-delete the source — the admin
-  // can hit the 🗑️ button on the original row afterwards if they want.
-  const copyToForm = (a) => {
-    setTitle(a.title || "");
-    setBody(a.body || "");
-    setImageUrl(a.image_url || "");
-    setImageFiles([]);
-    setUrgent(!!a.urgent);
-    setBroadcast(true);
-    setHistoryOpen(false);
-    toast.info("Forma yüklendi — düzenleyip yeni duyuru olarak gönder");
-    // scroll form into view
-    try {
-      document.querySelector('[data-testid="announcement-form"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } catch { /* noop */ }
   };
 
   const items = data?.items || [];

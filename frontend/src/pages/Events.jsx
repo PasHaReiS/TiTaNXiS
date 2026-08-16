@@ -57,6 +57,7 @@ export default function Events() {
     try { localStorage.setItem(ORDER_KEY, JSON.stringify(manualOrder)); } catch { /* private mode */ }
   }, [manualOrder]);
   const [dragId, setDragId] = useState(null);
+  const [dragSourceBucket, setDragSourceBucket] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [renamingGroup, setRenamingGroup] = useState(null); // group name being renamed
@@ -299,7 +300,9 @@ export default function Events() {
   // stand-alone "Grupsuz" column. `gc` is the group tint colour; for ungrouped
   // events we pass a neutral violet so the left border still reads as visible.
   // `bucketKey` (e.g. "ungrouped" or "group:SvS") scopes the drag-drop reorder
-  // — dropping a card only shuffles cards inside the same bucket.
+  // — dropping a card within the same bucket reorders; dropping onto a card
+  // in a DIFFERENT bucket moves the event across (Kolektif ↔ Bireysel or
+  // between groups) by PATCH-ing its group_name.
   const renderEventCard = (e, gc, group, bucketKey) => {
     const evMs = new Date(e.date).getTime();
     const nowMs = Date.now();
@@ -314,10 +317,28 @@ export default function Events() {
         id={`event-${e.id}`}
         data-testid={EVENTS.card(e.id)}
         draggable={!!bucketKey}
-        onDragStart={(ev) => { if (bucketKey) { setDragId(e.id); ev.dataTransfer.effectAllowed = "move"; } }}
+        onDragStart={(ev) => { if (bucketKey) { setDragId(e.id); setDragSourceBucket(bucketKey); ev.dataTransfer.effectAllowed = "move"; } }}
         onDragOver={(ev) => { if (bucketKey && dragId && dragId !== e.id) { ev.preventDefault(); ev.dataTransfer.dropEffect = "move"; } }}
-        onDrop={(ev) => { if (bucketKey && dragId) { ev.preventDefault(); reorderBucket(bucketKey, dragId, e.id); setDragId(null); } }}
-        onDragEnd={() => setDragId(null)}
+        onDrop={(ev) => {
+          if (!bucketKey || !dragId) return;
+          ev.preventDefault();
+          // Cross-bucket drop → change the event's group_name to match the
+          // destination bucket. "ungrouped" empties group_name; "group:X"
+          // sets it to X. Same-bucket drop keeps existing reorder logic.
+          if (dragSourceBucket && dragSourceBucket !== bucketKey) {
+            const newGroup = bucketKey === "ungrouped" ? "" : bucketKey.replace(/^group:/, "");
+            api.patch(`/events/${dragId}`, { group_name: newGroup })
+              .then(() => {
+                mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                toast.success(newGroup ? `→ ${newGroup}` : "→ Bireysel");
+              })
+              .catch((err) => toast.error(err?.response?.data?.detail || err.message));
+          } else {
+            reorderBucket(bucketKey, dragId, e.id);
+          }
+          setDragId(null); setDragSourceBucket(null);
+        }}
+        onDragEnd={() => { setDragId(null); setDragSourceBucket(null); }}
         className={`card-dark row-hover ${e.banner_url ? "overflow-hidden" : "p-3 flex flex-col gap-2"} ${dragId === e.id ? "opacity-50" : ""}`}
         variants={{
           hidden: { opacity: 0, y: 14 },

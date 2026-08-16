@@ -394,6 +394,17 @@ clean separation with correct counts and no visual regressions.
 - `/app/backend/routes/push.py`, `/app/backend/routes/cron.py`
 - `/app/frontend/src/components/CropDialog.jsx` — react-image-crop wrapper
 - `/app/frontend/src/components/OcrDialog.jsx` — Scissors button per thumb
+
+## Series Anchor + Multi-Bucket Drag + PATCH Announcement + Purge Cron (Feb 16, 2026)
+
+- **Series Anchor**: `Event` model gained optional `series_id`. Create-time recurrence stamps every spawned copy with a shared uuid; PATCH-time recurrence back-fills the anchor id onto the parent too. Two new endpoints:
+  - `PATCH /api/events/series/{series_id}` — bulk update every occurrence in a series (name, group_name, multiplier, subtitle, reminder_enabled). Accepts `from_date` for "this and future only" semantics.
+  - `DELETE /api/events/series/{series_id}` — cascades to `points` then removes every occurrence. `from_date` narrows to future.
+- **Multi-Bucket Drag**: Event cards now track `dragSourceBucket` on drag start. Drop onto a card in a DIFFERENT bucket → PATCH the source event's `group_name` (empty for Bireysel, group name for Kolektif). Same-bucket drop keeps existing reorder logic. Toast: "→ Bireysel" or "→ SvS".
+- **Announcement PATCH**: New `PATCH /api/announcements/{aid}` (admin-only) for silent in-place edit — no re-broadcast. DELETE is now hard-delete (was soft-delete). Frontend `Announcements.jsx` now flips between POST (new) and PATCH (edit) based on `editingId`; toast changes to "Duyuru güncellendi". Copy-to-form button uses this path.
+- **Purge Cron**: New no-auth `POST /api/cron/purge-stale-event-order` endpoint mirrors the admin one. Wired into `.emergent/crons.yml` as `purge-stale-event-order` running every Sunday at 04:30 UTC (30 minutes after telegram-dm-health).
+- Curl round-trip verified: series create → PATCH matched=3, DELETE deleted=3, cron 200 OK, announcement PATCH updates title/body, hard-delete removes row.
+
 - `/app/frontend/src/components/LanguageSwitcher.jsx` — persists preferred_language
 - `/app/frontend/src/App.js` — AppShell hydrates i18n from user.preferred_language
 

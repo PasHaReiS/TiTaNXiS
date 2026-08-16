@@ -41,3 +41,9 @@ crons:
     endpoint: "{{BASE_URL}}/api/cron/telegram-dm-health"
     method: POST
     enabled: true
+  - name: purge-stale-event-order
+    description: "Weekly sweep of per-user event_manual_order — drops ids that no longer point at a live event so the dict stays lean."
+    cron: "30 4 * * 0"
+    endpoint: "{{BASE_URL}}/api/cron/purge-stale-event-order"
+    method: POST
+    enabled: true
