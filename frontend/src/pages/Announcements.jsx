@@ -56,12 +56,30 @@ export default function Announcements({ embedded = false }) {
   };
 
   const remove = async (id) => {
-    if (!window.confirm("Duyuruyu arşivle?")) return;
+    if (!window.confirm("Duyuruyu tamamen silmek istiyor musun? Geri alınamaz.")) return;
     try {
       await api.delete(`/announcements/${id}`);
       mutate();
-      toast.success("Arşivlendi");
+      toast.success("Duyuru silindi");
     } catch (e) { toast.error(apiErr(e)); }
+  };
+
+  // Load an existing announcement back into the compose form so the admin
+  // can tweak it and re-send. We do NOT auto-delete the source — the admin
+  // can hit the 🗑️ button on the original row afterwards if they want.
+  const copyToForm = (a) => {
+    setTitle(a.title || "");
+    setBody(a.body || "");
+    setImageUrl(a.image_url || "");
+    setImageFiles([]);
+    setUrgent(!!a.urgent);
+    setBroadcast(true);
+    setHistoryOpen(false);
+    toast.info("Forma yüklendi — düzenleyip yeni duyuru olarak gönder");
+    // scroll form into view
+    try {
+      document.querySelector('[data-testid="announcement-form"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch { /* noop */ }
   };
 
   const items = data?.items || [];
@@ -221,12 +239,20 @@ export default function Announcements({ embedded = false }) {
                 </div>
               </div>
               {isAdmin && (
-                <button onClick={() => remove(a.id)}
-                        className="p-1 rounded hover:bg-red-500/20 text-red-400 flex-shrink-0"
-                        title="Duyuruyu sil"
-                        data-testid={`announcement-delete-${a.id}`}>
-                  <Trash2 className="w-3 h-3" />
-                </button>
+                <div className="flex flex-col gap-1 flex-shrink-0">
+                  <button onClick={() => copyToForm(a)}
+                          className="p-1 rounded hover:bg-blue-500/20 text-blue-400"
+                          title="Bu duyuruyu forma yükle"
+                          data-testid={`announcement-copy-${a.id}`}>
+                    <span aria-hidden style={{ fontSize: 12 }}>✏️</span>
+                  </button>
+                  <button onClick={() => remove(a.id)}
+                          className="p-1 rounded hover:bg-red-500/20 text-red-400"
+                          title="Duyuruyu tamamen sil"
+                          data-testid={`announcement-delete-${a.id}`}>
+                    <span aria-hidden style={{ fontSize: 12 }}>🗑️</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>

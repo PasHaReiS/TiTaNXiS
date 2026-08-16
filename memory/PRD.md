@@ -366,6 +366,29 @@ clean separation with correct counts and no visual regressions.
   more regression risk than value.
 
 - `/app/backend/server.py` — helpers at 3193-3341; `_telegram_forward_scheduled` at 3488
+
+## Recurring Events + Announcement Edit + Card Emojis + Order Purge (Feb 16, 2026)
+
+### Recurring Events (Tekrarlama)
+- `EventCreate`/`EventUpdate` gained `recurrence_interval` (none/2days/weekly/2weekly/monthly) + `recurrence_count` (2-52, clamped).
+- **On CREATE**: server generates `count` events starting at `date`, each shifted by the interval. Monthly uses `calendar.monthrange` to clamp day (e.g. Jan 31 → Feb 28/29).
+- **On PATCH**: leaves the original event untouched but spawns `count-1` future copies starting at `date + interval*i`. Lets admins retrofit a recurrence onto any existing event.
+- Response includes `recurrence_created` count. Frontend surfaces via toast: `"3 etkinlik oluşturuldu (weekly)"`.
+- EventForm shows a **Tekrarlama** chip row (Yok/2 Günde/Haftalık/2 Haftada/Aylık) + count input (2-52). testids: `event-form-recur-{none|2days|weekly|2weekly|monthly}`, `event-form-recur-count`.
+- Curl round-trip: weekly×3 → 3 events at 09-01, 09-08, 09-15 ✅
+
+### Announcement Edit + Full Delete
+- New `copyToForm(a)` helper: loads title/body/image/urgent into compose form and scrolls to top. testid `announcement-copy-{id}` (✏️ emoji button).
+- Delete button now uses **hard delete** confirmation ("tamamen silmek istiyor musun? Geri alınamaz") — was previously softer "arşivle" wording. testid `announcement-delete-{id}` (🗑️ emoji).
+- Buttons stacked vertically on each row for a tighter footprint.
+
+### Card Action Emojis
+- Row-level buttons on event cards migrated: 📦 Arşivle · ♻️ Aktife Al · ✏️ Düzenle · 🗑️ Sil. Sizing/color/testids unchanged so no regression on existing tests.
+
+### Backend Event-Order Purge
+- New admin endpoint `POST /api/admin/event-order/purge-stale` — sweeps every user doc's `event_manual_order`, drops ids no longer pointing at live events, removes now-empty buckets. Response: `{users_touched, ids_removed, buckets_removed, live_events}`.
+- Curl verified: removed 3 stale ids from 1 user + 1 empty bucket, 10 live events counted. Cron-ready.
+
 - `/app/backend/auth.py` — `preferred-language` endpoint + public_user
 - `/app/backend/telegram_bot.py` — send_message w/ HTTP-level logging
 - `/app/backend/routes/push.py`, `/app/backend/routes/cron.py`

@@ -264,6 +264,50 @@ def make_auth_router(db):
             {"$set": {"event_manual_order": current}},
         )
         return {"ok": True, "bucket_key": bucket, "count": len(current[bucket])}
+
+    # ---------- Admin: purge stale event ids from per-user order maps ----------
+    # Sweeps every user doc's `event_manual_order` and removes ids that no
+    # longer point at a live event. Also drops now-empty bucket keys so the
+    # map doesn't accumulate cruft. Called from Admin Tools UI or cron.
+    @router.post("/admin/event-order/purge-stale")
+    async def purge_stale_event_order(_: dict = Depends(require_admin)):
+        live_ids = set()
+        async for ev in db.events.find({}, {"_id": 0, "id": 1}):
+            eid = ev.get("id")
+            if eid:
+                live_ids.add(str(eid))
+        users_touched = 0
+        ids_removed = 0
+        buckets_removed = 0
+        async for u in db.users.find(
+            {"event_manual_order": {"$exists": True, "$ne": {}}},
+            {"_id": 0, "id": 1, "event_manual_order": 1},
+        ):
+            current = u.get("event_manual_order") or {}
+            new_map = {}
+            local_removed = 0
+            for bucket, ids in current.items():
+                filtered = [i for i in (ids or []) if i in live_ids]
+                dropped = len(ids or []) - len(filtered)
+                local_removed += dropped
+                if filtered:
+                    new_map[bucket] = filtered
+                elif ids:
+                    buckets_removed += 1
+            if new_map != current:
+                await db.users.update_one(
+                    {"id": u["id"]},
+                    {"$set": {"event_manual_order": new_map}},
+                )
+                users_touched += 1
+                ids_removed += local_removed
+        return {
+            "ok": True,
+            "users_touched": users_touched,
+            "ids_removed": ids_removed,
+            "buckets_removed": buckets_removed,
+            "live_events": len(live_ids),
+        }
     # Wipes all failed login_attempts within the 15-min brute-force window for a
     # given username so an operator can rescue a locked-out user without waiting
     # out the timer. Also defensively unsets any per-user lockout fields that

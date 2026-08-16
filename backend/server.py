@@ -154,6 +154,12 @@ class EventCreate(BaseModel):
     banner_url: Optional[str] = None
     archived: Optional[bool] = False
     reminder_enabled: Optional[bool] = True
+    # Recurrence — when count > 1 the backend expands into that many events,
+    # first at `date`, each subsequent one shifted by `interval`. `interval`
+    # values: "none" (default, no expansion), "2days", "weekly", "2weekly",
+    # "monthly". `count` is clamped to [1, 52].
+    recurrence_interval: Optional[str] = "none"
+    recurrence_count: Optional[int] = 1
 
 
 class EventUpdate(BaseModel):
@@ -165,6 +171,12 @@ class EventUpdate(BaseModel):
     banner_url: Optional[str] = None
     archived: Optional[bool] = None
     reminder_enabled: Optional[bool] = None
+    # Same fields as create — when supplied on PATCH the backend will spawn
+    # additional future events after the current one (without touching the
+    # current one) so admins can add a "Tekrarla" schedule to any existing
+    # event.
+    recurrence_interval: Optional[str] = None
+    recurrence_count: Optional[int] = None
 
 
 class Point(BaseModel):
@@ -662,22 +674,55 @@ async def create_event(body: EventCreate, _: dict = Depends(require_edit)):
     gn = (payload.get("group_name") or "").strip()
     if not gn:
         payload["group_name"] = (payload.get("name") or "").strip() or "Özel Zaman"
+    # Pop the recurrence knobs off before we turn the payload into an Event —
+    # we generate concrete duplicates below rather than storing a rule.
+    interval = (payload.pop("recurrence_interval", None) or "none")
+    count = max(1, min(52, int(payload.pop("recurrence_count", 1) or 1)))
     e = Event(**payload)
-    await db.events.insert_one(e.model_dump())
-    # Activity feed log
+    created = [e]
+    if interval != "none" and count > 1:
+        from datetime import datetime as _dt, timedelta as _td
+        try:
+            base_dt = _dt.fromisoformat(str(payload.get("date")).replace("Z", "+00:00"))
+        except Exception:
+            base_dt = None
+        step_days = {"2days": 2, "weekly": 7, "2weekly": 14}.get(interval)
+        step_months = 1 if interval == "monthly" else 0
+        if base_dt is not None and (step_days or step_months):
+            for i in range(1, count):
+                if step_days:
+                    next_dt = base_dt + _td(days=step_days * i)
+                else:  # monthly — simple month bump preserving day, clamped
+                    y = base_dt.year + ((base_dt.month - 1 + i) // 12)
+                    m = ((base_dt.month - 1 + i) % 12) + 1
+                    from calendar import monthrange
+                    d = min(base_dt.day, monthrange(y, m)[1])
+                    next_dt = base_dt.replace(year=y, month=m, day=d)
+                dup_payload = {**payload, "date": next_dt.isoformat()}
+                created.append(Event(**dup_payload))
+    docs = [ev.model_dump() for ev in created]
+    if len(docs) == 1:
+        await db.events.insert_one(docs[0])
+    else:
+        await db.events.insert_many(docs)
+    # Activity feed log (parent only)
     try:
         await db.activity_log.insert_one({
             "id": uuid.uuid4().hex,
             "member_id": e.id,
             "member_name": e.name,
             "action_type": "event_join",
-            "details": f"'{e.name}' etkinliği oluşturuldu",
+            "details": (
+                f"'{e.name}' etkinliği oluşturuldu"
+                if len(docs) == 1
+                else f"'{e.name}' × {len(docs)} tekrar ({interval}) oluşturuldu"
+            ),
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "device": "desktop",
         })
     except Exception:
         pass
-    # Fire-and-forget push notification (respects per-user subscriptions via group filter)
+    # Fire-and-forget push notification (parent event only — burst suppressed)
     try:
         fn = globals().get("_broadcast_push")
         if fn:
@@ -695,19 +740,54 @@ async def create_event(body: EventCreate, _: dict = Depends(require_edit)):
         )
     except Exception as ex:
         logger.warning(f"Telegram event broadcast failed: {ex}")
-    return e.model_dump()
+    return {**e.model_dump(), "recurrence_created": len(docs)}
 
 
 @api_router.patch("/events/{event_id}")
 async def update_event(event_id: str, body: EventUpdate, _: dict = Depends(require_edit)):
     update = {k: v for k, v in body.model_dump().items() if v is not None}
-    if not update:
-        raise HTTPException(400, "Değişiklik yok")
-    res = await db.events.update_one({"id": event_id}, {"$set": update})
-    if res.matched_count == 0:
-        raise HTTPException(404, "Etkinlik bulunamadı")
+    # Recurrence fields are handled separately below; strip before the $set.
+    interval = update.pop("recurrence_interval", None) or "none"
+    count = max(1, min(52, int(update.pop("recurrence_count", 1) or 1)))
+    if update:
+        res = await db.events.update_one({"id": event_id}, {"$set": update})
+        if res.matched_count == 0:
+            raise HTTPException(404, "Etkinlik bulunamadı")
     doc = await db.events.find_one({"id": event_id}, {"_id": 0})
-    return doc
+    if not doc:
+        raise HTTPException(404, "Etkinlik bulunamadı")
+    # If recurrence knobs were passed with count > 1, spawn N-1 future
+    # copies starting AFTER the current event date. Existing points and
+    # metadata on the current event stay untouched.
+    spawned = 0
+    if interval != "none" and count > 1:
+        from datetime import datetime as _dt, timedelta as _td
+        try:
+            base_dt = _dt.fromisoformat(str(doc.get("date")).replace("Z", "+00:00"))
+        except Exception:
+            base_dt = None
+        step_days = {"2days": 2, "weekly": 7, "2weekly": 14}.get(interval)
+        step_months = 1 if interval == "monthly" else 0
+        if base_dt is not None and (step_days or step_months):
+            dup_payload_base = {k: doc.get(k) for k in (
+                "name", "group_name", "multiplier", "subtitle",
+                "banner_url", "archived", "reminder_enabled",
+            )}
+            new_docs = []
+            for i in range(1, count):
+                if step_days:
+                    next_dt = base_dt + _td(days=step_days * i)
+                else:
+                    y = base_dt.year + ((base_dt.month - 1 + i) // 12)
+                    m = ((base_dt.month - 1 + i) % 12) + 1
+                    from calendar import monthrange
+                    d = min(base_dt.day, monthrange(y, m)[1])
+                    next_dt = base_dt.replace(year=y, month=m, day=d)
+                new_docs.append(Event(**{**dup_payload_base, "date": next_dt.isoformat()}).model_dump())
+            if new_docs:
+                await db.events.insert_many(new_docs)
+                spawned = len(new_docs)
+    return {**doc, "recurrence_created": spawned}
 
 
 @api_router.delete("/events/{event_id}")

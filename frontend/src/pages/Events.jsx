@@ -389,7 +389,7 @@ export default function Events() {
                 aria-label={t("archive")}
                 title={t("archive")}
               >
-                <Archive className="w-3.5 h-3.5" />
+                <span aria-hidden style={{ fontSize: 13 }}>📦</span>
               </button>
             ) : (
               <button
@@ -403,7 +403,7 @@ export default function Events() {
                 aria-label={t("group_unarchive")}
                 title={t("group_unarchive")}
               >
-                <ArchiveRestore className="w-3.5 h-3.5" />
+                <span aria-hidden style={{ fontSize: 13 }}>♻️</span>
               </button>
             )}
             <button
@@ -412,7 +412,7 @@ export default function Events() {
               className="w-8 h-8 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
               title={t("edit")}
             >
-              <Pencil className="w-3.5 h-3.5" />
+              <span aria-hidden style={{ fontSize: 13 }}>✏️</span>
             </button>
             <button
               data-testid={EVENTS.deleteBtn(e.id)}
@@ -426,7 +426,7 @@ export default function Events() {
               className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
               title={t("delete")}
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <span aria-hidden style={{ fontSize: 13 }}>🗑️</span>
             </button>
           </CanEdit>
         </div>
@@ -918,6 +918,8 @@ function EventForm({ initial, onClose }) {
   const [reminderEnabled, setReminderEnabled] = useState(
     initial ? initial.reminder_enabled !== false : true,
   );
+  const [recurInterval, setRecurInterval] = useState("none");
+  const [recurCount, setRecurCount] = useState(4);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState(initial?.banner_url ? [{ id: "existing", url: initial.banner_url, filename: "banner" }] : []);
   const { data: activeGroups = [] } = useSWR("/event-groups?active_only=true", fetcher);
@@ -933,12 +935,20 @@ function EventForm({ initial, onClose }) {
         group_name: grouped ? (groupName || "").trim() || null : "",
         banner_url: banner[0]?.url || null,
         reminder_enabled: reminderEnabled,
+        recurrence_interval: recurInterval,
+        recurrence_count: Number(recurCount) || 1,
       };
-      if (initial) await api.patch(`/events/${initial.id}`, body);
-      else await api.post("/events", body);
+      const res = initial
+        ? await api.patch(`/events/${initial.id}`, body)
+        : await api.post("/events", body);
       mutate((k) => typeof k === "string" && (k.startsWith("/events") || k.startsWith("/event-groups")));
       mutate("/stats");
-      toast.success(initial ? t("updated") : t("event_added"));
+      const spawned = res?.data?.recurrence_created || 0;
+      if (spawned > 1) {
+        toast.success(`${spawned} etkinlik oluşturuldu (${recurInterval})`);
+      } else {
+        toast.success(initial ? t("updated") : t("event_added"));
+      }
       onClose();
     } catch (err) {
       toast.error(err?.response?.data?.detail || err.message);
@@ -1004,6 +1014,56 @@ function EventForm({ initial, onClose }) {
           >
             <span aria-hidden>ⓘ</span>
             <span>Bu etkinlik <b>kendi adıyla</b> sıralamada görünecek.</span>
+          </div>
+        )}
+
+        {/* Tekrarlama — creates or extends a recurring series. On CREATE
+            this generates `count` copies starting at the picked date; on
+            EDIT it spawns `count-1` future copies AFTER the current event
+            (the current one stays untouched). Interval "none" = single. */}
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-4">
+          Tekrarlama {initial && <span className="text-[9px] opacity-70">(bu etkinlikten sonra ek etkinlikler oluşturur)</span>}
+        </label>
+        <div className="grid grid-cols-5 gap-1.5 mb-2">
+          {[
+            { key: "none",     label: "Yok"  },
+            { key: "2days",    label: "2 Günde" },
+            { key: "weekly",   label: "Haftalık" },
+            { key: "2weekly",  label: "2 Haftada" },
+            { key: "monthly",  label: "Aylık" },
+          ].map((opt) => {
+            const active = recurInterval === opt.key;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                data-testid={`event-form-recur-${opt.key}`}
+                onClick={() => setRecurInterval(opt.key)}
+                className="chip justify-center text-[10px] py-1"
+                style={active ? {
+                  borderColor: "#F5A623",
+                  color: "#FCD34D",
+                  background: "rgba(245,166,35,0.15)",
+                } : { opacity: 0.7 }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        {recurInterval !== "none" && (
+          <div className="flex items-center gap-2 mb-2">
+            <label className="text-[10px] uppercase text-muted-foreground font-bold">Kaç kere</label>
+            <input
+              data-testid="event-form-recur-count"
+              type="number"
+              min={2}
+              max={52}
+              value={recurCount}
+              onChange={(e) => setRecurCount(e.target.value)}
+              className="w-16 bg-background border border-border rounded-md px-2 py-1 text-xs text-white mono text-center"
+            />
+            <span className="text-[10px] text-muted-foreground">(2–52)</span>
           </div>
         )}
 
