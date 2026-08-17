@@ -44,11 +44,19 @@ export default function Leaderboard() {
     { refreshInterval: 15000 },
   );
   const visibleArchivedEvents = useMemo(
-    () => (group ? archivedEvents.filter((e) => e.group_name === group) : archivedEvents),
+    () => {
+      const base = group ? archivedEvents.filter((e) => e.group_name === group) : archivedEvents;
+      // Ranking is the aggregate view — hidden events never surface here so
+      // the totals stay consistent with the /leaderboard aggregation.
+      return base.filter((e) => !e.hidden_from_leaderboard);
+    },
     [group, archivedEvents],
   );
   const visibleActiveEvents = useMemo(
-    () => (group ? activeEvents.filter((e) => e.group_name === group) : activeEvents),
+    () => {
+      const base = group ? activeEvents.filter((e) => e.group_name === group) : activeEvents;
+      return base.filter((e) => !e.hidden_from_leaderboard);
+    },
     [group, activeEvents],
   );
   const { data: archiveEventLb = [] } = useSWR(archiveEventId ? `/leaderboard?event_id=${encodeURIComponent(archiveEventId)}` : null, fetcher);

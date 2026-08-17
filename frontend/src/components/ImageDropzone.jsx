@@ -53,7 +53,13 @@ export default function ImageDropzone({
         const res = await api.post(`/uploads/image?purpose=${purpose}`, fd, {
           headers: { "Content-Type": "multipart/form-data" },
         });
-        results.push(res.data);
+        // Seed the crop history with the original upload so undo/redo can
+        // jump back to any previous version. `hi` is the pointer into it.
+        const snapshot = {
+          id: res.data.id, url: res.data.url,
+          filename: res.data.filename, size: res.data.size,
+        };
+        results.push({ ...res.data, history: [snapshot], hi: 0 });
       } catch (e) {
         toast.error(e?.response?.data?.detail || `Yükleme başarısız: ${f.name}`);
       }
@@ -92,25 +98,34 @@ export default function ImageDropzone({
       const ext = mime === "image/png" ? "png" : "jpg";
       const baseName = (item.filename || "image").replace(/\.[^.]+$/, "");
       const file = new File([blob], `${baseName}.${ext}`, { type: mime });
-      // Preserve a snapshot of the pre-crop state so users can restore the
-      // original if they don't like the crop result. `original_id` sticks
-      // once set (later crops keep pointing to the very first upload).
+      // Backfill a history array for legacy items uploaded before the
+      // history feature landed. `hi` = current position in `history`.
+      const currentSnapshot = { id: item.id, url: item.url, filename: item.filename, size: item.size };
+      let history = Array.isArray(item.history) && item.history.length > 0
+        ? item.history
+        : [currentSnapshot];
+      let hi = typeof item.hi === "number" ? item.hi : history.length - 1;
+      // Ensure the current snapshot is represented in history.
+      if (!history.some((h) => h.id === item.id)) {
+        history = [...history, currentSnapshot];
+        hi = history.length - 1;
+      }
       setCropTarget({
         id: item.id,
         url: dataUrl,
         file,
-        original_id: item.original_id || item.id,
-        original_url: item.original_url || item.url,
-        original_filename: item.original_filename || item.filename,
-        original_size: item.original_size || item.size,
+        history,
+        hi,
       });
     } catch (e) {
       toast.error(`Kırpma için resim yüklenemedi: ${e.message || e}`);
     }
   };
 
-  // CropDialog handed us the trimmed file — re-upload and swap the entry in
-  // `value` while preserving order so the parent form doesn't reshuffle.
+  // CropDialog handed us the trimmed file — re-upload, push a new snapshot
+  // onto the history stack, and swap the entry in `value` (preserving order).
+  // Also truncates any "redo" tail so a new edit branches from the current
+  // position.
   const applyCrop = async (file, _dataUrl) => {
     if (!cropTarget) return;
     const targetId = cropTarget.id;
@@ -121,14 +136,16 @@ export default function ImageDropzone({
       const res = await api.post(`/uploads/image?purpose=${purpose}`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+      const newSnapshot = {
+        id: res.data.id, url: res.data.url,
+        filename: res.data.filename, size: res.data.size,
+      };
+      const trimmed = cropTarget.history.slice(0, cropTarget.hi + 1);
+      const nextHistory = [...trimmed, newSnapshot];
       onChange?.(value.map((v) => (v.id === targetId ? {
         ...res.data,
-        // Carry the original snapshot forward so subsequent crops (and the
-        // Restore button) always point back to the very first upload.
-        original_id: cropTarget.original_id,
-        original_url: cropTarget.original_url,
-        original_filename: cropTarget.original_filename,
-        original_size: cropTarget.original_size,
+        history: nextHistory,
+        hi: nextHistory.length - 1,
       } : v)));
       toast.success("Kırpma uygulandı");
       setCropTarget(null);
@@ -142,15 +159,32 @@ export default function ImageDropzone({
   // Restore the pre-crop snapshot in-place. No network call needed — the
   // original URL still points to the untouched upload in object storage.
   const restoreOriginal = async () => {
-    if (!cropTarget || !cropTarget.original_url) return;
+    if (!cropTarget || !cropTarget.history || cropTarget.history.length === 0) return;
     const targetId = cropTarget.id;
+    const first = cropTarget.history[0];
     onChange?.(value.map((v) => (v.id === targetId ? {
-      id: cropTarget.original_id,
-      url: cropTarget.original_url,
-      filename: cropTarget.original_filename,
-      size: cropTarget.original_size,
+      ...first,
+      history: cropTarget.history,
+      hi: 0,
     } : v)));
     toast.success("Orijinal görsel geri yüklendi");
+    setCropTarget(null);
+  };
+
+  // Undo / redo navigate the history stack without touching object storage —
+  // every historical snapshot's URL is a live upload we can point back to.
+  const goHistory = (delta) => {
+    if (!cropTarget) return;
+    const nextIdx = cropTarget.hi + delta;
+    if (nextIdx < 0 || nextIdx >= cropTarget.history.length) return;
+    const snap = cropTarget.history[nextIdx];
+    const targetId = cropTarget.id;
+    onChange?.(value.map((v) => (v.id === targetId ? {
+      ...snap,
+      history: cropTarget.history,
+      hi: nextIdx,
+    } : v)));
+    toast.success(delta < 0 ? "Bir önceki kırpmaya dönüldü" : "Sonraki kırpmaya geçildi");
     setCropTarget(null);
   };
 
@@ -241,10 +275,16 @@ export default function ImageDropzone({
         open={!!cropTarget && !cropUploading}
         imageUrl={cropTarget?.url}
         originalFile={cropTarget?.file}
-        originalUrl={cropTarget?.original_url && cropTarget.original_id !== cropTarget.id ? cropTarget.original_url : null}
+        originalUrl={cropTarget && cropTarget.history && cropTarget.hi > 0 ? cropTarget.history[0].url : null}
         onCancel={() => setCropTarget(null)}
         onConfirm={applyCrop}
-        onRestore={cropTarget?.original_url && cropTarget.original_id !== cropTarget.id ? restoreOriginal : null}
+        onRestore={cropTarget && cropTarget.history && cropTarget.hi > 0 ? restoreOriginal : null}
+        canGoPrev={!!cropTarget && cropTarget.hi > 0}
+        canGoNext={!!cropTarget && cropTarget.history && cropTarget.hi < cropTarget.history.length - 1}
+        onGoPrev={() => goHistory(-1)}
+        onGoNext={() => goHistory(1)}
+        historyIndex={cropTarget?.hi}
+        historyTotal={cropTarget?.history?.length}
       />
     </div>
   );

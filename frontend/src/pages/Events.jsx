@@ -523,6 +523,20 @@ export default function Events() {
             </button>
           </CanEdit>
         </div>
+        {e.hidden_from_leaderboard && (
+          <div
+            className="mt-1 px-2 py-1 rounded flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest"
+            style={{
+              background: "rgba(107,114,128,0.18)",
+              border: "1px solid rgba(107,114,128,0.45)",
+              color: "#9CA3AF",
+            }}
+            data-testid={`event-hidden-badge-${e.id}`}
+            title="Bu etkinlik Sıralama sayfasında görünmez"
+          >
+            <span aria-hidden>🚫</span> Sıralama dışı
+          </div>
+        )}
         {e.reminder_enabled !== false && (
           <EventAttendance eventId={e.id} testIdPrefix={`event-att-${e.id}`} />
         )}

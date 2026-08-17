@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import ReactCrop from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Scissors, RotateCcw, Loader2, Check } from "lucide-react";
+import { X, Scissors, RotateCcw, Loader2, Check, Undo2, Redo2 } from "lucide-react";
 import { toast } from "sonner";
 
 /**
@@ -20,15 +20,38 @@ import { toast } from "sonner";
  * The cropper is pixel-based (no fixed aspect) so OCR users can trim edges
  * on either members-list OR event-score screenshots without switching modes.
  */
-export default function CropDialog({ open, imageUrl, originalFile, originalUrl, onCancel, onConfirm, onRestore }) {
+export default function CropDialog({
+  open, imageUrl, originalFile,
+  originalUrl, onCancel, onConfirm, onRestore,
+  canGoPrev = false, canGoNext = false,
+  onGoPrev, onGoNext,
+  historyIndex, historyTotal,
+}) {
   const imgRef = useRef(null);
   const [crop, setCrop] = useState({ unit: "%", x: 5, y: 5, width: 90, height: 90 });
   const [applying, setApplying] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [navigating, setNavigating] = useState(false);
 
   if (!open) return null;
 
   const reset = () => setCrop({ unit: "%", x: 5, y: 5, width: 90, height: 90 });
+
+  const goPrev = async () => {
+    if (!onGoPrev || !canGoPrev) return;
+    setNavigating(true);
+    try { await onGoPrev(); }
+    catch (e) { toast.error(`Geri alma hatası: ${e.message || e}`); }
+    finally { setNavigating(false); }
+  };
+
+  const goNext = async () => {
+    if (!onGoNext || !canGoNext) return;
+    setNavigating(true);
+    try { await onGoNext(); }
+    catch (e) { toast.error(`İleri alma hatası: ${e.message || e}`); }
+    finally { setNavigating(false); }
+  };
 
   const restore = async () => {
     if (!onRestore) return;
@@ -158,17 +181,67 @@ export default function CropDialog({ open, imageUrl, originalFile, originalUrl, 
             <button
               type="button"
               onClick={reset}
-              disabled={applying || restoring}
+              disabled={applying || restoring || navigating}
               className="chip px-3 py-2 text-[11px] uppercase tracking-widest flex items-center gap-1.5"
               data-testid="crop-reset"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Sıfırla
             </button>
+            {(canGoPrev || canGoNext) && (
+              <>
+                <button
+                  type="button"
+                  onClick={goPrev}
+                  disabled={!canGoPrev || applying || restoring || navigating}
+                  className="chip px-2.5 py-2 text-[11px] uppercase tracking-widest flex items-center gap-1.5"
+                  style={{
+                    borderColor: canGoPrev ? "rgba(139,92,246,0.55)" : "rgba(255,255,255,0.12)",
+                    color: canGoPrev ? "#C4B5FD" : "rgba(255,255,255,0.35)",
+                    opacity: canGoPrev ? 1 : 0.5,
+                  }}
+                  data-testid="crop-undo"
+                  title="Bir önceki kırpma"
+                  aria-label="Geri al"
+                >
+                  <Undo2 className="w-3.5 h-3.5" /> Geri Al
+                </button>
+                <button
+                  type="button"
+                  onClick={goNext}
+                  disabled={!canGoNext || applying || restoring || navigating}
+                  className="chip px-2.5 py-2 text-[11px] uppercase tracking-widest flex items-center gap-1.5"
+                  style={{
+                    borderColor: canGoNext ? "rgba(139,92,246,0.55)" : "rgba(255,255,255,0.12)",
+                    color: canGoNext ? "#C4B5FD" : "rgba(255,255,255,0.35)",
+                    opacity: canGoNext ? 1 : 0.5,
+                  }}
+                  data-testid="crop-redo"
+                  title="Sonraki kırpma"
+                  aria-label="İleri al"
+                >
+                  <Redo2 className="w-3.5 h-3.5" /> İleri Al
+                </button>
+                {typeof historyIndex === "number" && typeof historyTotal === "number" && historyTotal > 1 && (
+                  <span
+                    className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded"
+                    style={{
+                      background: "rgba(139,92,246,0.15)",
+                      color: "#C4B5FD",
+                      border: "1px solid rgba(139,92,246,0.35)",
+                    }}
+                    data-testid="crop-history-position"
+                    title="Geçmişte konum"
+                  >
+                    {historyIndex + 1}/{historyTotal}
+                  </span>
+                )}
+              </>
+            )}
             {onRestore && (
               <button
                 type="button"
                 onClick={restore}
-                disabled={applying || restoring}
+                disabled={applying || restoring || navigating}
                 className="chip px-3 py-2 text-[11px] uppercase tracking-widest flex items-center gap-1.5"
                 style={{ borderColor: "rgba(59,130,246,0.55)", color: "#93C5FD" }}
                 data-testid="crop-restore-original"

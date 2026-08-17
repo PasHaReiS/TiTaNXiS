@@ -745,3 +745,43 @@ After redeploy, tail `backend.err.log` while triggering a notification:
     "Miktar" (existing `pc_unit_*` keys, no schema change)
   - TableCard title is now inline-editable via a pencil icon next to the
     heading — auto-translates via DeepL on save.
+
+## Crop History (Undo/Redo) + Hidden Event Polish (Feb 17, 2026)
+
+### CropDialog
+- New props: `canGoPrev`, `canGoNext`, `onGoPrev`, `onGoNext`, `historyIndex`,
+  `historyTotal`. Renders "◀ Geri Al" / "İleri Al ▶" chips next to Sıfırla,
+  plus a compact `1/N` position badge so users know where they are in the
+  chain. Buttons dim/disable when at either extreme.
+
+### ImageDropzone
+- Each uploaded item now carries a `history: [{id,url,filename,size}, …]`
+  array + `hi` pointer. Fresh uploads seed history with a single snapshot;
+  every applied crop appends a new snapshot (and truncates any redo tail
+  so a new edit branches from the current position). Undo/redo simply
+  jump `hi` — no network round-trip because every snapshot's URL is a
+  live upload.
+- "Orijinali Geri Yükle" now maps to `history[0]` (same as jumping the
+  pointer to zero). Legacy items uploaded before this feature backfill
+  a single-entry history on first crop.
+
+### Events list — Sıralama dışı rozeti
+- `renderEventCard` now shows a subtle grey **🚫 Sıralama dışı** chip on
+  every event whose `hidden_from_leaderboard === true`. Non-intrusive
+  (below the row of icons), tooltipped, admin-visible in both grouped
+  and ungrouped grids.
+
+### Leaderboard — hidden events not listed
+- `visibleActiveEvents` / `visibleArchivedEvents` memos now filter out
+  `hidden_from_leaderboard === true` events client-side so the "Aktif
+  Etkinlikler" and "Arşiv Etkinlikleri" grids never advertise a card
+  that would return zero contribution. Aggregate totals already
+  ignored these events at the backend query level (see prior
+  changelog entry).
+
+### Playwright verified
+- First-open crop: undo hidden (history length 1) ✓
+- After 1st crop apply: history 2/2, undo enabled, restore enabled ✓
+- After undo click: redo enabled ✓
+- Hidden event badge visible on Events list ✓
+- Hidden event card NOT rendered in Leaderboard Active Events grid ✓
