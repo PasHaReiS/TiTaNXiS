@@ -923,3 +923,32 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - MongoDB `files` collection'a kayıt: `{id, storage_path, original_filename, content_type, size, owner_id, purpose:"commander", is_deleted, created_at}`
 - Legacy `UPLOADS_DIR` mount'u korundu, eski `/api/uploads/xxx.png` URL'leri sağlam çalışıyor (fallback path)
 - Curl doğrulama: 200 upload, roundtrip 200 (592/592 bytes, image/png), local disk'te dosya YOK ✓
+
+## Legacy Görsel Migrasyonu — /app/uploads → Object Store (Feb 17, 2026)
+
+### `/app/backend/scripts/migrate_legacy_uploads.py`
+- Standalone script + async fonksiyon
+- Her `/app/uploads/*.{jpg,png,webp,gif,jpeg}` için:
+  - `id = filename` (uzantı dahil — böylece eski URL `/api/uploads/abc.jpg` bozulmadan yeni GET route ile match ediyor)
+  - `_put_object("titanxis/uploads/legacy/{id}", data, ct)`
+  - `files` collection'a upsert: `{id, storage_path, purpose:"legacy", size, migrated_from_disk_at, ...}`
+  - `files.find_one({id})` varsa atlar → tam idempotent
+- Log formatı: `legacy uploads: migrated=N skipped=N failed=N`
+
+### Startup Hook (server.py)
+- `startup()` içinde SvS index'lerinden hemen sonra otomatik çağrılıyor
+- Yeni pod restart'ında sadece atlar (skipped), performans etkisi yok
+
+### `POST /api/uploads/migrate-legacy` (admin)
+- Manuel yeniden çalıştırma endpoint'i — restart gerektirmez
+- Admin `/app/uploads/`'a manuel yeni dosya bıraksa da bu endpoint'i çağırarak taşıyabilir
+
+### Test kanıtları
+- **Startup**: 36 dosya migrated ✓
+- **İkinci çağrı**: 0 migrated / 36 skipped (idempotent) ✓
+- **Roundtrip**: `/api/uploads/03901677...jpg` → HTTP 200, 134243 bytes, `image/jpeg` (Object Store'dan streamed) ✓
+
+### Restart bağımlılığı yok
+- Yeni yüklemeler: `POST /api/upload` direkt Object Store'a (dosya sistemi bağımlılığı yok)
+- Eski görseller: Object Store'a taşındı + `files` collection'da kayıt
+- `/app/uploads/*` dizini isteğe bağlı temizlenebilir — GET route Object Store'dan servis eder, StaticFiles mount'una düşmez artık

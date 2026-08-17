@@ -1694,6 +1694,15 @@ async def upload_image(file: UploadFile = File(...), user: dict = Depends(requir
     }
 
 
+@api_router.post("/uploads/migrate-legacy")
+async def uploads_migrate_legacy(_: dict = Depends(require_admin)):
+    """Manually re-run the legacy `/app/uploads/*` → Object Store migration.
+    Idempotent so admins can hit this after dropping fresh files in
+    /app/uploads. Restart is NOT required."""
+    from scripts.migrate_legacy_uploads import migrate_legacy_uploads
+    return await migrate_legacy_uploads(db)
+
+
 # ---------- Full DB export (3-sheet .xlsx) ----------
 @api_router.get("/export/all")
 async def export_all(_: dict = Depends(require_edit)):
@@ -6895,6 +6904,19 @@ async def startup():
         await ensure_svs_indexes(db)
     except Exception as _e:
         logging.getLogger("server").warning(f"svs index ensure: {_e}")
+
+    # One-shot legacy `/app/uploads/*` → Emergent Object Store migration.
+    # Idempotent (per-file), so it re-runs safely on every startup and
+    # only touches files that haven't been registered in `files` yet.
+    try:
+        from scripts.migrate_legacy_uploads import migrate_legacy_uploads
+        summary = await migrate_legacy_uploads(db)
+        if summary.get("migrated") or summary.get("failed"):
+            logging.getLogger("server").info(
+                f"legacy uploads migration: {summary}"
+            )
+    except Exception as _e:
+        logging.getLogger("server").warning(f"legacy uploads migration: {_e}")
 
     # F10 / Aşama seed — every (slug, level, stage) combination gets an empty
     # unit-cost doc if missing so admins can jump straight into editing. Also
