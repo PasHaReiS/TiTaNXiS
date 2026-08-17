@@ -952,3 +952,10 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Yeni yüklemeler: `POST /api/upload` direkt Object Store'a (dosya sistemi bağımlılığı yok)
 - Eski görseller: Object Store'a taşındı + `files` collection'da kayıt
 - `/app/uploads/*` dizini isteğe bağlı temizlenebilir — GET route Object Store'dan servis eder, StaticFiles mount'una düşmez artık
+
+## Asker Eğitim — T12 Eklendi (Feb 17, 2026)
+- `SoldierCalculator.jsx`: `TIERS = ["T11","T8","T7","T6"]` → **`["T12","T11","T8","T7","T6"]`**
+- Tier grid `grid-cols-4` → `grid-cols-5` (ana ekran + modal ikisinde)
+- Yeni SWR fetch: `/calculations?category=asker_egitim_t12` + save sonrası mutate
+- Birim maliyet: T12 için category `asker_egitim_t12`, ilk kayıt PUT ile oluşturulur (backend zaten upsert yapar)
+- Backend endpoint değişikliği gerekmedi — /unit-costs/ upsert paterni kullanılıyor

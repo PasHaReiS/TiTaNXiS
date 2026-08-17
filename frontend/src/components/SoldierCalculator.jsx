@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
-const TIERS = ["T11", "T8", "T7", "T6"];
+const TIERS = ["T12", "T11", "T8", "T7", "T6"];
 const catFor = (tier) => `asker_egitim_${tier.toLowerCase()}`;
 const fmt = (n) => Number(n || 0).toLocaleString("tr-TR");
 const pad2 = (n) => String(Math.max(0, Math.floor(n))).padStart(2, "0");
@@ -37,6 +37,7 @@ export default function SoldierCalculator() {
     useSWR(`/unit-costs/${category}`, fetcher);
 
   // Fetch history for all 4 tiers in parallel and merge (backend uses exact-match on category)
+  const t12 = useSWR(`/calculations?category=asker_egitim_t12`, fetcher);
   const t11 = useSWR(`/calculations?category=asker_egitim_t11`, fetcher);
   const t8 = useSWR(`/calculations?category=asker_egitim_t8`, fetcher);
   const t7 = useSWR(`/calculations?category=asker_egitim_t7`, fetcher);
@@ -49,6 +50,7 @@ export default function SoldierCalculator() {
   ].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
 
   const refreshAllHistory = () => {
+    globalMutate(`/calculations?category=asker_egitim_t12`);
     globalMutate(`/calculations?category=asker_egitim_t11`);
     globalMutate(`/calculations?category=asker_egitim_t8`);
     globalMutate(`/calculations?category=asker_egitim_t7`);
@@ -125,7 +127,7 @@ export default function SoldierCalculator() {
       {/* Tier selector */}
       <div className="mb-4">
         <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_tier_label")}</label>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-2">
           {TIERS.map((tt) => (
             <motion.button
               key={tt}
@@ -514,7 +516,7 @@ function UnitCostModal({ tier, current, onClose }) {
         </h3>
 
         {/* Tier selector inside modal */}
-        <div className="grid grid-cols-4 gap-2 mb-4">
+        <div className="grid grid-cols-5 gap-2 mb-4">
           {TIERS.map((tt) => (
             <button
               key={tt}
