@@ -29,6 +29,19 @@ export default function Leaderboard() {
 
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 5000 });
   const { data: groups } = useSWR("/event-groups", fetcher, { refreshInterval: 10000 });
+  // Live counts for the Active/Archive filter badges. `/event-groups` already
+  // returns `{active, count}` per group so we sum without an extra network
+  // call. Falls back to 0 while the request is in flight.
+  const { activeCount, archiveCount } = useMemo(() => {
+    let a = 0, c = 0;
+    (groups || []).forEach((g) => {
+      const act = Number(g.active || 0);
+      const total = Number(g.count || 0);
+      a += act;
+      c += Math.max(0, total - act);
+    });
+    return { activeCount: a, archiveCount: c };
+  }, [groups]);
   const lbScope = filter === "archive" ? "archived" : "active";
   const { data: lb = [] } = useSWR(
     `/leaderboard?scope=${lbScope}${group ? `&group_name=${encodeURIComponent(group)}` : ""}`,
@@ -159,6 +172,20 @@ export default function Leaderboard() {
           >
             <span aria-hidden="true" style={{ marginRight: 6, fontSize: 14 }}>⚔️</span>
             {t("active_upper")}
+            <span
+              data-testid="leaderboard-filter-active-count"
+              className="ml-2 mono font-bold px-2 py-0.5 rounded-full text-[11px]"
+              style={{
+                background: filter === "active" ? "rgba(0,0,0,0.35)" : "rgba(245,166,35,0.12)",
+                color: filter === "active" ? "#FFF7ED" : "#F5A623",
+                border: filter === "active" ? "1px solid rgba(255,247,237,0.25)" : "1px solid rgba(245,166,35,0.35)",
+                minWidth: 22,
+                display: "inline-block",
+                textAlign: "center",
+              }}
+            >
+              {activeCount}
+            </span>
           </button>
           <button
             data-testid={LEADERBOARD.filterArchive}
@@ -184,6 +211,20 @@ export default function Leaderboard() {
           >
             <span aria-hidden="true" style={{ marginRight: 6, fontSize: 14 }}>📦</span>
             {t("archive_upper")}
+            <span
+              data-testid="leaderboard-filter-archive-count"
+              className="ml-2 mono font-bold px-2 py-0.5 rounded-full text-[11px]"
+              style={{
+                background: filter === "archive" ? "rgba(0,0,0,0.35)" : "rgba(148,163,184,0.12)",
+                color: filter === "archive" ? "#F1F5F9" : "#94A3B8",
+                border: filter === "archive" ? "1px solid rgba(241,245,249,0.25)" : "1px solid rgba(148,163,184,0.35)",
+                minWidth: 22,
+                display: "inline-block",
+                textAlign: "center",
+              }}
+            >
+              {archiveCount}
+            </span>
           </button>
         </div>
 

@@ -73,6 +73,7 @@ export default function Events() {
   const clearSelection = () => setSelectedIds(new Set());
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [detailId, setDetailId] = useState(null);
   const [renamingGroup, setRenamingGroup] = useState(null); // group name being renamed
   const [renameValue, setRenameValue] = useState("");
   const [ocrOpen, setOcrOpen] = useState(false);
@@ -383,9 +384,6 @@ export default function Events() {
         onDrop={(ev) => {
           if (!bucketKey || !dragId) return;
           ev.preventDefault();
-          // Cross-bucket drop → change the event's group_name to match the
-          // destination bucket. "ungrouped" empties group_name; "group:X"
-          // sets it to X. Same-bucket drop keeps existing reorder logic.
           if (dragSourceBucket && dragSourceBucket !== bucketKey) {
             const newGroup = bucketKey === "ungrouped" ? "" : bucketKey.replace(/^group:/, "");
             api.patch(`/events/${dragId}`, { group_name: newGroup })
@@ -400,7 +398,8 @@ export default function Events() {
           setDragId(null); setDragSourceBucket(null);
         }}
         onDragEnd={() => { setDragId(null); setDragSourceBucket(null); }}
-        className={`card-dark row-hover ${e.banner_url ? "overflow-hidden" : "p-3 flex flex-col gap-2"} ${dragId === e.id ? "opacity-50" : ""}`}
+        onClick={() => { if (!dragId) setDetailId(e.id); }}
+        className={`card-dark row-hover p-3 flex items-center gap-3 cursor-pointer ${dragId === e.id ? "opacity-50" : ""}`}
         variants={{
           hidden: { opacity: 0, y: 14 },
           visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } },
@@ -411,169 +410,61 @@ export default function Events() {
           boxShadow: "0 0 12px rgba(220,38,38,0.25), inset 0 0 12px rgba(220,38,38,0.1)",
         } : { borderLeft: `3px solid ${gc}`, background: group ? groupBgTint(group, 0.06) : "rgba(129,140,248,0.05)" }}
       >
-        {e.banner_url && (
-          <div className="relative w-full" style={{ height: 120 }} data-testid={`event-hero-${e.id}`}>
-            <img src={e.banner_url} alt={e.name} className="absolute inset-0 w-full h-full object-cover" />
-            <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(10,0,21,0) 0%, rgba(10,0,21,0.55) 65%, rgba(10,0,21,0.92) 100%)" }} />
-            <div className="absolute left-3 bottom-2 right-3 text-white font-black uppercase tracking-widest truncate" style={{ fontFamily: "Cinzel, serif", textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}>
-              {e.name}
-            </div>
-          </div>
-        )}
-        <div className={e.banner_url ? "p-3 flex items-center gap-3" : "flex items-center gap-3"}>
-          {bucketKey && (
-            <span
-              className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-white"
-              title="Sürükle-bırak ile sırayı değiştir"
-              data-testid={`event-drag-handle-${e.id}`}
-              style={{ touchAction: "none" }}
-            >
-              <GripVertical className="w-3.5 h-3.5" />
-            </span>
-          )}
-          {selectionMode && (
-            <button
-              type="button"
-              onClick={(ev) => { ev.stopPropagation(); toggleSelected(e.id); }}
-              className="flex-shrink-0 p-0.5 rounded"
-              style={{ color: selectedIds.has(e.id) ? "#FCA5A5" : "#9CA3AF" }}
-              data-testid={`event-select-${e.id}`}
-              aria-pressed={selectedIds.has(e.id)}
-              aria-label="Etkinliği seç"
-              title="Etkinliği seç"
-            >
-              {selectedIds.has(e.id)
-                ? <CheckSquare className="w-4 h-4" />
-                : <Square className="w-4 h-4" />}
-            </button>
-          )}
-          <div className="tr-flag" />
-          <div className="flex-1 min-w-0">
-            <div className="font-bold text-white truncate flex items-center gap-1.5">
-              {e.name}
-              {highlight && (
-                <span
-                  data-testid={`event-today-badge-${e.id}`}
-                  className="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase"
-                  style={{
-                    background: "linear-gradient(135deg,#DC2626,#F97316)",
-                    color: "#fff",
-                    letterSpacing: "0.08em",
-                    animation: "pulse 2s ease-in-out infinite",
-                  }}
-                >
-                  {isTodayEvent ? t("event_today_badge") : t("event_active_badge")}
-                </span>
-              )}
-            </div>
-            <div className="text-[10px] text-muted-foreground truncate flex items-center gap-1.5 flex-wrap">
-              <span>Çarpan: <span className="gold-text mono">{e.multiplier}x</span></span>
-              <span>•</span>
-              <span>{new Date(e.date).toLocaleDateString("tr-TR")}</span>
-              {e.subtitle && <><span>•</span><span>{e.subtitle}</span></>}
-              {!e.archived && <EventCountdown target={e.date} testId={`event-countdown-${e.id}`} />}
-            </div>
-          </div>
-          <CanEdit>
-            {!e.archived ? (
-              <button
-                data-testid={EVENTS.archiveBtn(e.id)}
-                onClick={async () => {
-                  await api.patch(`/events/${e.id}`, { archived: true });
-                  mutate((k) => typeof k === "string" && k.startsWith("/events"));
-                  toast.success(t("archived"));
-                }}
-                className="w-8 h-8 rounded-md bg-yellow-500/15 hover:bg-yellow-500/30 gold-text flex items-center justify-center"
-                aria-label={t("archive")}
-                title={t("archive")}
-              >
-                <span aria-hidden style={{ fontSize: 13 }}>📦</span>
-              </button>
-            ) : (
-              <button
-                data-testid={`event-unarchive-${e.id}`}
-                onClick={async () => {
-                  await api.patch(`/events/${e.id}`, { archived: false });
-                  mutate((k) => typeof k === "string" && k.startsWith("/events"));
-                  toast.success(t("group_unarchived") || "Etkinlik aktife alındı");
-                }}
-                className="w-8 h-8 rounded-md bg-green-500/15 hover:bg-green-500/30 text-green-400 flex items-center justify-center"
-                aria-label={t("group_unarchive")}
-                title={t("group_unarchive")}
-              >
-                <span aria-hidden style={{ fontSize: 13 }}>♻️</span>
-              </button>
-            )}
-            <button
-              data-testid={EVENTS.editBtn(e.id)}
-              onClick={() => { setEditing(e); setShowForm(true); }}
-              className="w-8 h-8 rounded-md bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
-              title={t("edit")}
-            >
-              <span aria-hidden style={{ fontSize: 13 }}>✏️</span>
-            </button>
-            <button
-              data-testid={EVENTS.deleteBtn(e.id)}
-              onClick={async () => {
-                // Series-aware delete: if this event is part of a series,
-                // ask WHICH scope (this / future / whole series). Solo events
-                // get the plain single-confirm.
-                if (e.series_id) {
-                  const scope = window.prompt(
-                    `Bu etkinlik bir seriye ait (${e.series_id.slice(0,6)}). Ne silmek istersin?\n\n` +
-                    `1 = Sadece bu etkinlik\n` +
-                    `2 = Bu ve gelecek olan hepsi\n` +
-                    `3 = Tüm seri (geçmiş dahil)\n\n` +
-                    `İptal için boş bırak:`,
-                    "1",
-                  );
-                  if (!scope || !["1","2","3"].includes(scope.trim())) return;
-                  try {
-                    if (scope.trim() === "1") {
-                      await api.delete(`/events/${e.id}`);
-                    } else if (scope.trim() === "2") {
-                      await api.delete(`/events/series/${e.series_id}?from_date=${encodeURIComponent(e.date)}`);
-                    } else {
-                      await api.delete(`/events/series/${e.series_id}`);
-                    }
-                    mutate((k) => typeof k === "string" && k.startsWith("/events"));
-                    mutate("/stats");
-                    toast.success(t("event_deleted"));
-                  } catch (err) { toast.error(err?.response?.data?.detail || err.message); }
-                } else {
-                  if (!window.confirm(t("confirm_delete_generic", { name: e.name }))) return;
-                  await api.delete(`/events/${e.id}`);
-                  mutate((k) => typeof k === "string" && k.startsWith("/events"));
-                  mutate("/stats");
-                  toast.success(t("event_deleted"));
-                }
-              }}
-              className="w-8 h-8 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
-              title={t("delete")}
-            >
-              <span aria-hidden style={{ fontSize: 13 }}>🗑️</span>
-            </button>
-          </CanEdit>
-        </div>
-        {e.hidden_from_leaderboard && (
-          <div
-            className="mt-1 px-2 py-1 rounded flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest"
-            style={{
-              background: "rgba(107,114,128,0.18)",
-              border: "1px solid rgba(107,114,128,0.45)",
-              color: "#9CA3AF",
-            }}
-            data-testid={`event-hidden-badge-${e.id}`}
-            title="Bu etkinlik Sıralama sayfasında görünmez"
+        {bucketKey && (
+          <span
+            className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-white"
+            title="Sürükle-bırak ile sırayı değiştir"
+            data-testid={`event-drag-handle-${e.id}`}
+            style={{ touchAction: "none" }}
+            onClick={(ev) => ev.stopPropagation()}
           >
-            <span aria-hidden>🚫</span> Sıralama dışı
+            <GripVertical className="w-3.5 h-3.5" />
+          </span>
+        )}
+        {selectionMode && (
+          <button
+            type="button"
+            onClick={(ev) => { ev.stopPropagation(); toggleSelected(e.id); }}
+            className="flex-shrink-0 p-0.5 rounded"
+            style={{ color: selectedIds.has(e.id) ? "#FCA5A5" : "#9CA3AF" }}
+            data-testid={`event-select-${e.id}`}
+            aria-pressed={selectedIds.has(e.id)}
+            aria-label="Etkinliği seç"
+          >
+            {selectedIds.has(e.id)
+              ? <CheckSquare className="w-4 h-4" />
+              : <Square className="w-4 h-4" />}
+          </button>
+        )}
+        <div className="flex-1 min-w-0">
+          <div
+            className="font-bold text-white truncate"
+            data-testid={`event-name-${e.id}`}
+            style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 15, letterSpacing: "0.02em" }}
+          >
+            {e.name}
           </div>
-        )}
-        {e.reminder_enabled !== false && (
-          <EventAttendance eventId={e.id} testIdPrefix={`event-att-${e.id}`} />
-        )}
-        {new Date(e.date).getTime() < Date.now() && (
-          <EventResultGallery event={e} />
+          <div
+            className="text-[11px] text-muted-foreground truncate mono"
+            data-testid={`event-date-${e.id}`}
+            style={{ marginTop: 2 }}
+          >
+            {new Date(e.date).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" })}
+          </div>
+        </div>
+        {highlight && (
+          <span
+            data-testid={`event-today-badge-${e.id}`}
+            className="flex-shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase"
+            style={{
+              background: "linear-gradient(135deg,#DC2626,#F97316)",
+              color: "#fff",
+              letterSpacing: "0.08em",
+              animation: "pulse 2s ease-in-out infinite",
+            }}
+          >
+            {isTodayEvent ? t("event_today_badge") : t("event_active_badge")}
+          </span>
         )}
       </motion.div>
     );
@@ -1005,6 +896,12 @@ export default function Events() {
       {showForm && (
         <EventForm initial={editing} onClose={() => { setShowForm(false); setEditing(null); }} />
       )}
+      <EventDetailModal
+        event={events.find((x) => x.id === detailId) || allActive.find((x) => x.id === detailId) || null}
+        open={!!detailId}
+        onClose={() => setDetailId(null)}
+        onEdit={(e) => { setEditing(e); setShowForm(true); setDetailId(null); }}
+      />
 
       {reminderFor && (
         <EventReminderDialog event={reminderFor} onClose={() => setReminderFor(null)} />
@@ -1047,6 +944,202 @@ export default function Events() {
           );
         }}
       />
+    </div>
+  );
+}
+
+function EventDetailModal({ event, open, onClose, onEdit }) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = React.useState(false);
+  if (!open || !event) return null;
+
+  const e = event;
+  const evMs = new Date(e.date).getTime();
+  const isPast = evMs < Date.now();
+
+  const doArchive = async (archived) => {
+    setBusy(true);
+    try {
+      await api.patch(`/events/${e.id}`, { archived });
+      mutate((k) => typeof k === "string" && k.startsWith("/events"));
+      toast.success(archived ? t("archived") : (t("group_unarchived") || "Etkinlik aktife alındı"));
+      onClose();
+    } catch (err) { toast.error(err?.response?.data?.detail || err.message); }
+    finally { setBusy(false); }
+  };
+
+  const doDelete = async () => {
+    if (e.series_id) {
+      const scope = window.prompt(
+        `Bu etkinlik bir seriye ait (${e.series_id.slice(0, 6)}). Ne silmek istersin?\n\n` +
+        `1 = Sadece bu etkinlik\n2 = Bu ve gelecek olan hepsi\n3 = Tüm seri (geçmiş dahil)\n\nİptal için boş bırak:`,
+        "1",
+      );
+      if (!scope || !["1", "2", "3"].includes(scope.trim())) return;
+      setBusy(true);
+      try {
+        if (scope.trim() === "1") await api.delete(`/events/${e.id}`);
+        else if (scope.trim() === "2") await api.delete(`/events/series/${e.series_id}?from_date=${encodeURIComponent(e.date)}`);
+        else await api.delete(`/events/series/${e.series_id}`);
+        mutate((k) => typeof k === "string" && k.startsWith("/events"));
+        mutate("/stats");
+        toast.success(t("event_deleted"));
+        onClose();
+      } catch (err) { toast.error(err?.response?.data?.detail || err.message); }
+      finally { setBusy(false); }
+      return;
+    }
+    if (!window.confirm(t("confirm_delete_generic", { name: e.name }))) return;
+    setBusy(true);
+    try {
+      await api.delete(`/events/${e.id}`);
+      mutate((k) => typeof k === "string" && k.startsWith("/events"));
+      mutate("/stats");
+      toast.success(t("event_deleted"));
+      onClose();
+    } catch (err) { toast.error(err?.response?.data?.detail || err.message); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3"
+      style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}
+      data-testid="event-detail-modal"
+    >
+      <div
+        className="card-dark relative w-full max-w-md max-h-[92vh] overflow-y-auto rounded-lg"
+        onClick={(ev) => ev.stopPropagation()}
+        style={{ border: "1px solid rgba(245,166,35,0.55)", boxShadow: "0 0 30px rgba(245,166,35,0.25)" }}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          data-testid="event-detail-close"
+          className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.6)", color: "#F5F0E8" }}
+          aria-label={t("cancel")}
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {e.banner_url && (
+          <div className="relative w-full" style={{ height: 180 }} data-testid={`event-detail-hero-${e.id}`}>
+            <img src={e.banner_url} alt={e.name} className="absolute inset-0 w-full h-full object-cover" />
+            <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(10,0,21,0) 0%, rgba(10,0,21,0.55) 65%, rgba(10,0,21,0.95) 100%)" }} />
+          </div>
+        )}
+
+        <div className="p-4 space-y-3">
+          <div>
+            <div
+              className="font-black uppercase tracking-widest"
+              style={{ fontFamily: "Cinzel, serif", color: "#F5F0E8", fontSize: 18, letterSpacing: "0.06em", lineHeight: 1.2 }}
+              data-testid="event-detail-name"
+            >
+              {e.name}
+            </div>
+            {e.subtitle && (
+              <div className="text-xs mt-1 opacity-85" style={{ color: "#EAD8B0" }} data-testid="event-detail-subtitle">
+                {e.subtitle}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {e.group_name && (
+              <span
+                className="chip text-[10px]"
+                style={{ borderColor: "#F5A623", color: "#F5A623", background: "rgba(245,166,35,0.10)" }}
+                data-testid="event-detail-group"
+              >
+                🤝 {e.group_name}
+              </span>
+            )}
+            <span
+              className="chip text-[10px] mono"
+              style={{ borderColor: "#E74C1A", color: "#F97316" }}
+              data-testid="event-detail-multiplier"
+            >
+              ×{e.multiplier ?? 1}
+            </span>
+            <span
+              className="chip text-[10px] mono"
+              style={{ borderColor: "rgba(255,255,255,0.15)", color: "#EAD8B0" }}
+              data-testid="event-detail-date"
+            >
+              📅 {new Date(e.date).toLocaleString("tr-TR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+            </span>
+            {e.archived && (
+              <span className="chip text-[10px]" style={{ borderColor: "#94A3B8", color: "#94A3B8" }}>📦 ARŞİV</span>
+            )}
+            {e.hidden_from_leaderboard && (
+              <span
+                className="chip text-[10px]"
+                style={{ borderColor: "#9CA3AF", color: "#9CA3AF", background: "rgba(107,114,128,0.15)" }}
+                data-testid="event-detail-hidden-badge"
+                title="Sıralama sayfasında görünmez"
+              >
+                🚫 Sıralama dışı
+              </span>
+            )}
+            {e.reminder_enabled === false && (
+              <span className="chip text-[10px]" style={{ borderColor: "#818cf8", color: "#C4B5FD" }}>🔕 Hatırlatmasız</span>
+            )}
+            {!e.archived && <EventCountdown target={e.date} testId={`event-detail-countdown-${e.id}`} />}
+          </div>
+
+          {e.reminder_enabled !== false && (
+            <div className="pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+              <EventAttendance eventId={e.id} testIdPrefix={`event-detail-att-${e.id}`} />
+            </div>
+          )}
+          {isPast && (
+            <div className="pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+              <EventResultGallery event={e} />
+            </div>
+          )}
+
+          <CanEdit>
+            <div className="pt-3 border-t flex flex-wrap gap-2" style={{ borderColor: "rgba(245,166,35,0.25)" }}>
+              <button
+                type="button"
+                onClick={() => onEdit(e)}
+                disabled={busy}
+                data-testid="event-detail-edit"
+                className="chip text-[11px] flex-1 justify-center py-2"
+                style={{ borderColor: "#3b82f6", color: "#93C5FD", background: "rgba(59,130,246,0.10)" }}
+              >
+                ✏️ {t("edit") || "Düzenle"}
+              </button>
+              <button
+                type="button"
+                onClick={() => doArchive(!e.archived)}
+                disabled={busy}
+                data-testid={e.archived ? "event-detail-unarchive" : "event-detail-archive"}
+                className="chip text-[11px] flex-1 justify-center py-2"
+                style={e.archived
+                  ? { borderColor: "#22c55e", color: "#86EFAC", background: "rgba(34,197,94,0.10)" }
+                  : { borderColor: "#F5A623", color: "#FCD34D", background: "rgba(245,166,35,0.10)" }
+                }
+              >
+                {e.archived ? "♻️ Arşivden Çıkar" : "📦 Arşive Al"}
+              </button>
+              <button
+                type="button"
+                onClick={doDelete}
+                disabled={busy}
+                data-testid="event-detail-delete"
+                className="chip text-[11px] flex-1 justify-center py-2"
+                style={{ borderColor: "#ef4444", color: "#FCA5A5", background: "rgba(239,68,68,0.10)" }}
+              >
+                🗑️ {t("delete") || "Sil"}
+              </button>
+            </div>
+          </CanEdit>
+        </div>
+      </div>
     </div>
   );
 }
