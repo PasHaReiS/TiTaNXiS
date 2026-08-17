@@ -28,7 +28,7 @@ export default function AddPoints({ hideHeader = false }) {
 
   const { data: members = [] } = useSWR("/members", fetcher);
   const { data: events = [] } = useSWR("/events?archived=false", fetcher);
-  const { data: recentPoints = [] } = useSWR("/scores?limit=5", fetcher, { refreshInterval: 5000 });
+  const { data: recentPoints = [] } = useSWR("/scores?limit=3", fetcher, { refreshInterval: 5000 });
 
   const filteredMembers = useMemo(() => {
     if (!memberQ) return members.slice(0, 30);
@@ -253,12 +253,9 @@ export default function AddPoints({ hideHeader = false }) {
           </button>
         </form>
 
-        <div className="section-title mt-8">{t("filter_edit_points")}</div>
-        <EditMemberPointsSection events={events} />
-
-        <div className="section-title mt-8">{t("last_5")}</div>
+        <div className="section-title mt-8" data-testid="add-points-recent-heading">{t("last_3") || "Son 3 Kayıt"}</div>
         <div className="space-y-1.5">
-          {recentPoints.slice(0, 5).map((p) => (
+          {recentPoints.slice(0, 3).map((p) => (
             <div key={p.id} className="card-dark p-3 flex items-center justify-between">
               <div className="min-w-0 flex-1">
                 <div className="text-sm text-white truncate">

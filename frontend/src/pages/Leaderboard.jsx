@@ -239,13 +239,18 @@ export default function Leaderboard() {
           if (visibleGroups.length === 0) return null;
           return (
             <div className="flex gap-2 mb-4 overflow-x-auto pb-1" data-testid="leaderboard-group-strip">
-              <button
-                className={`chip ${!group ? "active" : ""}`}
-                onClick={() => setGroup(null)}
-                data-testid="leaderboard-group-all"
-              >
-                {t("all_short")}
-              </button>
+              {/* "Tümü" chip removed on Active tab — user requested that only
+                  events actually included in the ranking (specific groups)
+                  surface. Archive keeps its overall summary chip. */}
+              {filter !== "active" && (
+                <button
+                  className={`chip ${!group ? "active" : ""}`}
+                  onClick={() => setGroup(null)}
+                  data-testid="leaderboard-group-all"
+                >
+                  {t("all_short")}
+                </button>
+              )}
               {visibleGroups.map((g) => {
                 const label = (g.name && String(g.name).trim()) || t("group_untitled");
                 return (

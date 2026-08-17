@@ -951,6 +951,7 @@ export default function Events() {
 function EventDetailModal({ event, open, onClose, onEdit }) {
   const { t } = useTranslation();
   const [busy, setBusy] = React.useState(false);
+  const [lightbox, setLightbox] = React.useState(false);
   if (!open || !event) return null;
 
   const e = event;
@@ -1025,9 +1026,50 @@ function EventDetailModal({ event, open, onClose, onEdit }) {
         </button>
 
         {e.banner_url && (
-          <div className="relative w-full" style={{ height: 180 }} data-testid={`event-detail-hero-${e.id}`}>
+          <div
+            className="relative w-full cursor-zoom-in"
+            style={{ height: 180 }}
+            data-testid={`event-detail-hero-${e.id}`}
+            onClick={() => setLightbox(true)}
+            title="Görsele tıklayınca tam ekran açılır"
+          >
             <img src={e.banner_url} alt={e.name} className="absolute inset-0 w-full h-full object-cover" />
             <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(10,0,21,0) 0%, rgba(10,0,21,0.55) 65%, rgba(10,0,21,0.95) 100%)" }} />
+            <div
+              className="absolute top-2 left-2 rounded-full flex items-center justify-center"
+              style={{ background: "rgba(0,0,0,0.65)", color: "#F5A623", width: 28, height: 28 }}
+              aria-hidden="true"
+            >
+              🔍
+            </div>
+          </div>
+        )}
+
+        {lightbox && e.banner_url && (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center p-3"
+            style={{ background: "rgba(0,0,0,0.94)" }}
+            onClick={() => setLightbox(false)}
+            data-testid="event-detail-lightbox"
+          >
+            <button
+              type="button"
+              onClick={() => setLightbox(false)}
+              className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ background: "rgba(0,0,0,0.7)", color: "#F5F0E8", border: "1px solid rgba(245,166,35,0.55)" }}
+              data-testid="event-detail-lightbox-close"
+              aria-label="Kapat"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img
+              src={e.banner_url}
+              alt={e.name}
+              className="max-w-full max-h-full object-contain"
+              style={{ boxShadow: "0 0 40px rgba(245,166,35,0.35)" }}
+              onClick={(ev) => ev.stopPropagation()}
+              data-testid="event-detail-lightbox-image"
+            />
           </div>
         )}
 

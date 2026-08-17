@@ -154,6 +154,7 @@ const tr = {
   podium: "Podyum",
   full_ranking: "Tam Sıralama",
   last_5: "Son 5 Kayıt",
+  last_3: "Son 3 Kayıt",
   recent_records: "Son Kayıtlar",
   user_mgmt: "Yönetim",
   user_mgmt_users_tab: "Kullanıcılar",

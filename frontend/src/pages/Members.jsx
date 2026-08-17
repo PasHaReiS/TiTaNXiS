@@ -1885,7 +1885,7 @@ function CastleStatsCard({ stats, onClose, t }) {
                 </div>
                 <div className="flex-1 text-xs text-white truncate">{m.name}</div>
                 {m.alliance_name && (
-                  <div className="text-[10px] text-muted-foreground truncate max-w-[70px]">
+                  <div className="text-[9px] text-muted-foreground truncate max-w-[60px] opacity-80">
                     {m.alliance_name}
                   </div>
                 )}
