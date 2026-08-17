@@ -785,3 +785,33 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - After undo click: redo enabled ✓
 - Hidden event badge visible on Events list ✓
 - Hidden event card NOT rendered in Leaderboard Active Events grid ✓
+
+## Toplu Sıralama Dışı — Event Bulk Visibility Toggle (Feb 17, 2026)
+
+### Backend
+- New endpoint: `POST /api/events/bulk-visibility` accepting
+  `{ids: [str], hidden: bool}`. Uses `update_many` so the DB round-trip
+  is O(1) regardless of selection size. `require_edit` gated. Returns
+  `{modified, hidden}`.
+
+### Frontend (Events.jsx)
+- New selection mode: `selectionMode`, `selectedIds:Set`, `toggleSelected`,
+  `clearSelection` in the top-level state.
+- **"Seç" chip** in the view-mode row (next to Liste/Takvim toggles),
+  admin-gated via `CanEdit`. Toggles selection mode + clears on exit.
+- **Per-card checkbox** rendered inside `renderEventCard` when
+  `selectionMode` is on, using `Square`/`CheckSquare` icons.
+- **`EventsBulkToolbar`** component:
+  - "Tümünü Seç (N)", "Terse Çevir", "Temizle"
+  - **"👁️‍🗨️ Sıralama Dışı"** (grey) — POST bulk-visibility {hidden:true}
+  - **"👁️ Sıralamaya Ekle"** (gold) — POST bulk-visibility {hidden:false}
+  - "Kapat" chip returns to normal mode
+- After a bulk action: SWR revalidates every `/events*` key and the
+  toolbar closes, matching the existing bulk-country UX in Members.
+
+### Curl + Playwright verified
+- Created 3 events, `POST /events/bulk-visibility {hidden:true}` → modified=3 ✓
+- Verify: total=3 hidden=3 ✓
+- `POST /events/bulk-visibility {hidden:false}` → modified=3, all shown ✓
+- UI: selection toggle shows toolbar, per-event checkboxes render, hide/show
+  buttons visible with correct counter ✓

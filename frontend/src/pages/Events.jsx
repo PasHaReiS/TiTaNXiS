@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { EVENTS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
-import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera, BellOff, Users, User, LayoutGrid, CalendarDays } from "lucide-react";
+import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera, BellOff, Users, User, LayoutGrid, CalendarDays, CheckSquare, Square, EyeOff, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import ImageDropzone from "@/components/ImageDropzone";
@@ -58,6 +58,19 @@ export default function Events() {
   }, [manualOrder]);
   const [dragId, setDragId] = useState(null);
   const [dragSourceBucket, setDragSourceBucket] = useState(null);
+  // Bulk-selection mode — when active every event card renders a checkbox
+  // and the top-of-page toolbar exposes "Sıralama dışına al" / "Sıralamaya
+  // ekle" batch actions.
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const toggleSelected = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [renamingGroup, setRenamingGroup] = useState(null); // group name being renamed
@@ -415,6 +428,22 @@ export default function Events() {
               <GripVertical className="w-3.5 h-3.5" />
             </span>
           )}
+          {selectionMode && (
+            <button
+              type="button"
+              onClick={(ev) => { ev.stopPropagation(); toggleSelected(e.id); }}
+              className="flex-shrink-0 p-0.5 rounded"
+              style={{ color: selectedIds.has(e.id) ? "#FCA5A5" : "#9CA3AF" }}
+              data-testid={`event-select-${e.id}`}
+              aria-pressed={selectedIds.has(e.id)}
+              aria-label="Etkinliği seç"
+              title="Etkinliği seç"
+            >
+              {selectedIds.has(e.id)
+                ? <CheckSquare className="w-4 h-4" />
+                : <Square className="w-4 h-4" />}
+            </button>
+          )}
           <div className="tr-flag" />
           <div className="flex-1 min-w-0">
             <div className="font-bold text-white truncate flex items-center gap-1.5">
@@ -714,7 +743,38 @@ export default function Events() {
           >
             <span aria-hidden="true" style={{ fontSize: 12 }}>📅</span> Takvim
           </button>
+          <CanEdit>
+            <button
+              type="button"
+              data-testid="events-selection-toggle"
+              onClick={() => { setSelectionMode((v) => !v); if (selectionMode) clearSelection(); }}
+              className="chip flex-shrink-0 text-[10px] px-3"
+              style={selectionMode ? {
+                borderColor: "#F87171",
+                color: "#FCA5A5",
+                background: "rgba(220,38,38,0.15)",
+                boxShadow: "0 0 8px rgba(220,38,38,0.35)",
+              } : { opacity: 0.75 }}
+              title="Çoklu seçim modu"
+              aria-pressed={selectionMode}
+            >
+              {selectionMode
+                ? <CheckSquare className="w-3.5 h-3.5" />
+                : <Square className="w-3.5 h-3.5" />}
+              <span className="ml-1">Seç</span>
+            </button>
+          </CanEdit>
         </div>
+
+        {selectionMode && (
+          <EventsBulkToolbar
+            filteredEvents={filteredEvents}
+            selectedIds={selectedIds}
+            setSelectedIds={setSelectedIds}
+            clearSelection={clearSelection}
+            onDone={() => { setSelectionMode(false); clearSelection(); }}
+          />
+        )}
 
         {view === "calendar" ? (
           <EventCalendar
@@ -1004,8 +1064,109 @@ export default function Events() {
   );
 }
 
-function EventForm({ initial, onClose }) {
-  const { t } = useTranslation();
+function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearSelection, onDone }) {
+  const [busy, setBusy] = React.useState(false);
+  const visibleIds = React.useMemo(() => filteredEvents.map((e) => e.id), [filteredEvents]);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+  const selectAllVisible = () => setSelectedIds(new Set([...selectedIds, ...visibleIds]));
+  const invertVisible = () => {
+    const next = new Set(selectedIds);
+    visibleIds.forEach((id) => (next.has(id) ? next.delete(id) : next.add(id)));
+    setSelectedIds(next);
+  };
+
+  const bulkToggleHidden = async (hidden) => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) { toast.error("Önce etkinlik seç"); return; }
+    setBusy(true);
+    try {
+      const res = await api.post("/events/bulk-visibility", { ids, hidden });
+      mutate((k) => typeof k === "string" && k.startsWith("/events"));
+      toast.success(`${res.data.modified} etkinlik ${hidden ? "sıralama dışına alındı" : "sıralamaya eklendi"}`);
+      clearSelection();
+      onDone();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div
+      data-testid="events-bulk-toolbar"
+      className="flex items-center gap-1.5 mb-3 p-2 rounded-lg flex-wrap"
+      style={{
+        background: "linear-gradient(180deg, rgba(220,38,38,0.14) 0%, rgba(220,38,38,0.05) 100%)",
+        border: "1px solid rgba(220,38,38,0.45)",
+      }}
+    >
+      <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#FCA5A5" }}>
+        {selectedIds.size} seçili
+      </span>
+      <button
+        type="button"
+        onClick={selectAllVisible}
+        disabled={busy || allVisibleSelected}
+        data-testid="events-bulk-select-all"
+        className="chip text-[10px]"
+      >
+        Tümünü Seç ({visibleIds.length})
+      </button>
+      <button
+        type="button"
+        onClick={invertVisible}
+        disabled={busy}
+        data-testid="events-bulk-invert"
+        className="chip text-[10px]"
+      >
+        Terse Çevir
+      </button>
+      <button
+        type="button"
+        onClick={clearSelection}
+        disabled={busy || selectedIds.size === 0}
+        data-testid="events-bulk-clear"
+        className="chip text-[10px]"
+      >
+        Temizle
+      </button>
+      <div className="flex-1" />
+      <button
+        type="button"
+        onClick={() => bulkToggleHidden(true)}
+        disabled={busy || selectedIds.size === 0}
+        data-testid="events-bulk-hide"
+        className="chip text-[10px] flex items-center gap-1"
+        style={{ borderColor: "rgba(107,114,128,0.55)", color: "#D1D5DB", background: "rgba(107,114,128,0.10)" }}
+        title="Seçili etkinlikleri sıralama dışına al"
+      >
+        <EyeOff className="w-3 h-3" /> Sıralama Dışı
+      </button>
+      <button
+        type="button"
+        onClick={() => bulkToggleHidden(false)}
+        disabled={busy || selectedIds.size === 0}
+        data-testid="events-bulk-show"
+        className="chip text-[10px] flex items-center gap-1"
+        style={{ borderColor: "rgba(245,166,35,0.55)", color: "#FCD34D", background: "rgba(245,166,35,0.10)" }}
+        title="Seçili etkinlikleri sıralamaya ekle"
+      >
+        <Eye className="w-3 h-3" /> Sıralamaya Ekle
+      </button>
+      <button
+        type="button"
+        onClick={onDone}
+        disabled={busy}
+        data-testid="events-bulk-done"
+        className="chip text-[10px] flex items-center gap-1"
+        title="Seçim modundan çık"
+      >
+        <X className="w-3 h-3" /> Kapat
+      </button>
+    </div>
+  );
+}
+
+function EventForm({ initial, onClose }) {  const { t } = useTranslation();
   const [name, setName] = useState(initial?.name || "");
   const [date, setDate] = useState(
     initial?.date

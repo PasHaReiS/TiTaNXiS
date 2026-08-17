@@ -860,6 +860,26 @@ async def delete_event(event_id: str, _: dict = Depends(require_edit)):
     return {"ok": True, "points_deleted": pts_res.deleted_count}
 
 
+class BulkVisibilityBody(BaseModel):
+    ids: List[str]
+    hidden: bool
+
+
+@api_router.post("/events/bulk-visibility")
+async def events_bulk_visibility(body: BulkVisibilityBody, _: dict = Depends(require_edit)):
+    """Toggle `hidden_from_leaderboard` on many events at once. Used by the
+    Events list bulk-selection toolbar so admins can hide a whole batch of
+    practice / draft events without touching each one individually."""
+    ids = [i for i in (body.ids or []) if i]
+    if not ids:
+        return {"modified": 0}
+    res = await db.events.update_many(
+        {"id": {"$in": ids}},
+        {"$set": {"hidden_from_leaderboard": bool(body.hidden)}},
+    )
+    return {"modified": res.modified_count, "hidden": bool(body.hidden)}
+
+
 @api_router.post("/events/archive-group")
 async def archive_group(group_name: str, _: dict = Depends(require_edit)):
     res = await db.events.update_many({"group_name": group_name, "archived": False}, {"$set": {"archived": True}})
