@@ -256,6 +256,24 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, initialStage, onClos
     setCompareState((prev) => ({ ...prev, [stage]: { ...(prev[stage] || {}), [key]: v } }));
   };
 
+  // Copy the value from `(fromStage, key)` to every stage strictly to its
+  // right so `A2 → A3, A4, A5`. Powers right-click and the small ⤳ chip on
+  // each cell so admins can flatten a plateau quickly without retyping.
+  const copyRight = (fromStage, key) => {
+    const v = (compareState[fromStage] || {})[key];
+    const dest = STAGES.filter((s) => s > fromStage);
+    if (dest.length === 0) {
+      toast.info(`A${fromStage} zaten en sağdaki aşama`);
+      return;
+    }
+    setCompareState((prev) => {
+      const next = { ...prev };
+      dest.forEach((s) => { next[s] = { ...(next[s] || {}), [key]: v }; });
+      return next;
+    });
+    toast.success(`A${fromStage} → ${dest.map((s) => "A" + s).join(", ")} (${v || 0})`);
+  };
+
   const submitCompare = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -475,17 +493,40 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, initialStage, onClos
                         {f.label}
                       </td>
                       {STAGES.map((s) => (
-                        <td key={s} className="p-1" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                        <td key={s} className="p-1 relative group" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
                           <input
                             type="number"
                             step="0.01"
                             min="0"
                             value={(compareState[s] || {})[f.key] ?? 0}
                             onChange={(e) => setCompareCell(s, f.key, e.target.value)}
+                            onContextMenu={(e) => { e.preventDefault(); copyRight(s, f.key); }}
                             data-testid={`bina-compare-${f.key}-a${s}`}
+                            title="Sağ tık → sağdaki tüm aşamalara kopyala"
                             className="w-full text-center rounded font-mono"
                             style={{ background: "#0F0906", border: "1px solid #333", color: "#F5F0E8", padding: "4px 3px", fontSize: 11 }}
                           />
+                          {s < 5 && (
+                            <button
+                              type="button"
+                              onClick={() => copyRight(s, f.key)}
+                              data-testid={`bina-compare-copy-right-${f.key}-a${s}`}
+                              className="absolute top-0.5 right-0.5 rounded transition-opacity opacity-0 group-hover:opacity-90 focus:opacity-100"
+                              style={{
+                                width: 14, height: 14,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                background: "rgba(245,166,35,0.85)",
+                                color: "#0B0704",
+                                fontSize: 9,
+                                fontWeight: 900,
+                                lineHeight: 1,
+                              }}
+                              title={`Bu değeri A${s + 1}${s < 4 ? "…A5" : ""}'e kopyala`}
+                              aria-label={`A${s}'ten sağa kopyala`}
+                            >
+                              ⤳
+                            </button>
+                          )}
                         </td>
                       ))}
                     </tr>
@@ -494,7 +535,7 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, initialStage, onClos
               </table>
             </div>
             <div className="text-[9px] text-muted-foreground mt-1.5 leading-snug">
-              💡 5 aşamanın maliyetlerini yan yana düzenle. Tek "Tümünü Kaydet" ile 5 satır aynı anda güncellenir.
+              💡 5 aşamanın maliyetlerini yan yana düzenle. Hücreye sağ tık veya <span style={{ color: "#F5A623" }}>⤳</span> düğmesi ile değeri sağdaki tüm aşamalara kopyala. Tek "Tümünü Kaydet" ile 5 satır aynı anda güncellenir.
             </div>
             <button
               type="button"

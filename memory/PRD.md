@@ -902,3 +902,15 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - 5 aşama SWR ile paralel fetch, `compareState[stage][key]` local state
 - **TÜMÜNÜ KAYDET (5 Aşama)** butonu `Promise.all` ile tek turda 5 PUT gönderiyor, ardından her aşamanın SWR cache'ini invalidate ediyor
 - Curl doğrulama: 5 aşamanın yemek değerlerine sırayla 1000/2000/3000/4000/5000 yazıldı ve back-read'de tam eşleşti ✓
+
+## Aşamaya Kopyala Hızlı Doldurma (Feb 17, 2026)
+- `BinaUnitCostModal` compare tablosunda her hücrede:
+  - **Sağ tık** → `copyRight(fromStage, key)` çağırıyor, `fromStage`'deki değeri
+    strictly-sağdaki tüm aşamalara ((from+1)…5) kopyalıyor
+  - Cell hover'ında sağ üstte küçük **⤳** altın chip görünür (mobil için de
+    tıklanabilir) — aynı işi yapıyor
+  - Toast: `A{n} → A{n+1}, ...A5 (değer)` bilgisi
+- 5. aşama hücresinde ⤳ butonu gizli (sağa kopyalayacak hedef yok);
+  sağ tıkta info toast göstererek uyarı veriyor
+- `A2` en sağdaysa `toast.info("zaten en sağdaki aşama")`
+- Curl doğrulama: A2=777, A3-A5=0 seed → 3 paralel PUT → A3-A5=[777,777,777] ✓
