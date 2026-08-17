@@ -20,14 +20,28 @@ import { toast } from "sonner";
  * The cropper is pixel-based (no fixed aspect) so OCR users can trim edges
  * on either members-list OR event-score screenshots without switching modes.
  */
-export default function CropDialog({ open, imageUrl, originalFile, onCancel, onConfirm }) {
+export default function CropDialog({ open, imageUrl, originalFile, originalUrl, onCancel, onConfirm, onRestore }) {
   const imgRef = useRef(null);
   const [crop, setCrop] = useState({ unit: "%", x: 5, y: 5, width: 90, height: 90 });
   const [applying, setApplying] = useState(false);
+  const [restoring, setRestoring] = useState(false);
 
   if (!open) return null;
 
   const reset = () => setCrop({ unit: "%", x: 5, y: 5, width: 90, height: 90 });
+
+  const restore = async () => {
+    if (!onRestore) return;
+    if (!window.confirm("Bu görselin orijinalini geri yükle? Kırpma işlemi kaybolacak.")) return;
+    setRestoring(true);
+    try {
+      await onRestore();
+    } catch (e) {
+      toast.error(`Geri yükleme hatası: ${e.message || e}`);
+    } finally {
+      setRestoring(false);
+    }
+  };
 
   const apply = async () => {
     const img = imgRef.current;
@@ -144,12 +158,26 @@ export default function CropDialog({ open, imageUrl, originalFile, onCancel, onC
             <button
               type="button"
               onClick={reset}
-              disabled={applying}
+              disabled={applying || restoring}
               className="chip px-3 py-2 text-[11px] uppercase tracking-widest flex items-center gap-1.5"
               data-testid="crop-reset"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Sıfırla
             </button>
+            {onRestore && (
+              <button
+                type="button"
+                onClick={restore}
+                disabled={applying || restoring}
+                className="chip px-3 py-2 text-[11px] uppercase tracking-widest flex items-center gap-1.5"
+                style={{ borderColor: "rgba(59,130,246,0.55)", color: "#93C5FD" }}
+                data-testid="crop-restore-original"
+                title="Orijinali Geri Yükle"
+              >
+                {restoring ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                Orijinali Geri Yükle
+              </button>
+            )}
             <div className="flex-1" />
             <button
               type="button"

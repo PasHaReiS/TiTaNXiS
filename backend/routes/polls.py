@@ -109,10 +109,15 @@ async def _poll_public(db, poll: dict, viewer_id: Optional[str]) -> dict:
     }
 
 
-def make_polls_router(db, require_auth, require_admin, on_poll_created=None):
+def make_polls_router(db, require_auth, require_admin, on_poll_created=None,
+                       on_poll_closed=None):
     """`on_poll_created` — optional async callback invoked with
     `(question:str, poll_id:str)` right after a poll is inserted. Wired by
-    server.py to fan out Web Push + TG DM + in-app bell (Faz 5 broadcast)."""
+    server.py to fan out Web Push + TG DM + in-app bell (Faz 5 broadcast).
+
+    `on_poll_closed` — optional async callback invoked with the final poll
+    document + tally right after an admin closes the poll. Wired by
+    server.py to auto-post the result card to the Telegram group."""
     router = APIRouter(prefix="/polls", tags=["polls"])
 
     @router.get("")
@@ -214,10 +219,21 @@ def make_polls_router(db, require_auth, require_admin, on_poll_created=None):
         return await _poll_public(db, p, user["id"])
 
     @router.patch("/{poll_id}/close")
-    async def close_poll(poll_id: str, _: dict = Depends(require_admin)):
+    async def close_poll(poll_id: str, admin: dict = Depends(require_admin)):
         r = await db.polls.update_one({"id": poll_id}, {"$set": {"closed": True, "closed_at": _now_iso()}})
         if r.matched_count == 0:
             raise HTTPException(404, "Anket bulunamadı")
+        # Fan out a final result card (Telegram group + push + in-app bell) —
+        # non-blocking so admin UI returns instantly.
+        if on_poll_closed is not None:
+            try:
+                import asyncio as _asyncio
+                poll = await db.polls.find_one({"id": poll_id}, {"_id": 0})
+                if poll:
+                    public = await _poll_public(db, poll, admin["id"])
+                    _asyncio.create_task(on_poll_closed(poll, public))
+            except Exception:
+                pass
         return {"ok": True}
 
     @router.patch("/{poll_id}/reopen")

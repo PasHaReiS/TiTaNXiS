@@ -704,3 +704,44 @@ After redeploy, tail `backend.err.log` while triggering a notification:
   URL is served from Emergent object-storage / CDN.
 - **Playwright verified**: upload → crop button visible → click opens
   `CropDialog` with image + Apply button rendered.
+
+## Poll Broadcast + Crop Restore + Events Visibility + PointCalc UX (Feb 17, 2026)
+
+### Backend
+- **Event model**: New `hidden_from_leaderboard: bool = False` on Event/Create/Update.
+  Leaderboard aggregator now excludes any event with this flag so admins can
+  keep the ranking clean while still logging practice / draft points.
+- **Poll close broadcast**: `close_poll` route now accepts an `on_poll_closed`
+  async callback. `server.py::_poll_broadcast_closed` formats a Markdown
+  result card (winner 🏆, per-option progress bars, total tally including
+  TG voters) and posts it into the same Telegram group where the native
+  poll originated (falls back to `TELEGRAM_POLL_CHAT_ID`), plus fires a
+  lightweight in-app bell. Non-blocking; failures logged only.
+
+### Frontend
+- **CropDialog**: New `originalUrl` + `onRestore` props render an "Orijinali
+  Geri Yükle" chip alongside "Sıfırla" so users can bail out of a bad crop.
+- **ImageDropzone**: Tracks `original_id/url/filename/size` alongside each
+  entry; passes them into CropDialog only when the item has been cropped at
+  least once. Restore swaps the entry in-place (no network round-trip; the
+  original blob still lives in object storage).
+- **Events form**: New "🏆 Sıralamada göster" checkbox (inverse of
+  `hidden_from_leaderboard`). Cleanly styled amber card below the reminder
+  toggle. Persists via existing `POST/PATCH /events`.
+- **Events mobile layout**: Grouped + ungrouped event grids switched from
+  `grid-cols-1 md:grid-cols-2` → `grid-cols-2` so events pair up on
+  mobile screens too (tablet already worked).
+- **Leaderboard Aktif Etkinlikler grid**: When "Tümü" is selected on Active
+  tab, a new `active-events-grid` mirrors the archive layout — 2-col cards
+  with banner thumbnail + name + subtitle + date. Clicking any card opens
+  the shared event modal (renamed intent: works for both scopes).
+- **Event detail modal**: Now renders `banner_url` full-width (up to 72
+  viewport height) at the top so admins can view the event image + info
+  stacked full-screen.
+- **PointCalcPage**:
+  - i18n TR label renamed: "Pre Etkinlik Puanlama" → "**SVS Pre Puan
+    Hesaplama**"
+  - Column labels renamed TR: "Birim İsmi" → "Malzeme", "Birim Miktarı" →
+    "Miktar" (existing `pc_unit_*` keys, no schema change)
+  - TableCard title is now inline-editable via a pencil icon next to the
+    heading — auto-translates via DeepL on save.

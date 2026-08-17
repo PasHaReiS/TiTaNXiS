@@ -92,7 +92,18 @@ export default function ImageDropzone({
       const ext = mime === "image/png" ? "png" : "jpg";
       const baseName = (item.filename || "image").replace(/\.[^.]+$/, "");
       const file = new File([blob], `${baseName}.${ext}`, { type: mime });
-      setCropTarget({ id: item.id, url: dataUrl, file });
+      // Preserve a snapshot of the pre-crop state so users can restore the
+      // original if they don't like the crop result. `original_id` sticks
+      // once set (later crops keep pointing to the very first upload).
+      setCropTarget({
+        id: item.id,
+        url: dataUrl,
+        file,
+        original_id: item.original_id || item.id,
+        original_url: item.original_url || item.url,
+        original_filename: item.original_filename || item.filename,
+        original_size: item.original_size || item.size,
+      });
     } catch (e) {
       toast.error(`Kırpma için resim yüklenemedi: ${e.message || e}`);
     }
@@ -110,7 +121,15 @@ export default function ImageDropzone({
       const res = await api.post(`/uploads/image?purpose=${purpose}`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      onChange?.(value.map((v) => (v.id === targetId ? res.data : v)));
+      onChange?.(value.map((v) => (v.id === targetId ? {
+        ...res.data,
+        // Carry the original snapshot forward so subsequent crops (and the
+        // Restore button) always point back to the very first upload.
+        original_id: cropTarget.original_id,
+        original_url: cropTarget.original_url,
+        original_filename: cropTarget.original_filename,
+        original_size: cropTarget.original_size,
+      } : v)));
       toast.success("Kırpma uygulandı");
       setCropTarget(null);
     } catch (e) {
@@ -118,6 +137,21 @@ export default function ImageDropzone({
     } finally {
       setCropUploading(false);
     }
+  };
+
+  // Restore the pre-crop snapshot in-place. No network call needed — the
+  // original URL still points to the untouched upload in object storage.
+  const restoreOriginal = async () => {
+    if (!cropTarget || !cropTarget.original_url) return;
+    const targetId = cropTarget.id;
+    onChange?.(value.map((v) => (v.id === targetId ? {
+      id: cropTarget.original_id,
+      url: cropTarget.original_url,
+      filename: cropTarget.original_filename,
+      size: cropTarget.original_size,
+    } : v)));
+    toast.success("Orijinal görsel geri yüklendi");
+    setCropTarget(null);
   };
 
   return (
@@ -207,8 +241,10 @@ export default function ImageDropzone({
         open={!!cropTarget && !cropUploading}
         imageUrl={cropTarget?.url}
         originalFile={cropTarget?.file}
+        originalUrl={cropTarget?.original_url && cropTarget.original_id !== cropTarget.id ? cropTarget.original_url : null}
         onCancel={() => setCropTarget(null)}
         onConfirm={applyCrop}
+        onRestore={cropTarget?.original_url && cropTarget.original_id !== cropTarget.id ? restoreOriginal : null}
       />
     </div>
   );

@@ -738,10 +738,39 @@ function TableCard({ table, index, canEdit, translations, onUpdate, onDelete }) 
   const { t } = useTranslation();
   const [miktar, setMiktar] = useState(table.miktar || 0);
   const [showModal, setShowModal] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(table.title || "");
 
   useEffect(() => {
     setMiktar(table.miktar || 0);
   }, [table.id, table.miktar]);
+
+  useEffect(() => {
+    setTitleDraft(table.title || "");
+  }, [table.id, table.title]);
+
+  const saveTitleInline = async () => {
+    setEditingTitle(false);
+    const next = titleDraft.trim();
+    if (next !== (table.title || "")) {
+      try {
+        const strings = new Set();
+        if (next) strings.add(next);
+        const nextTranslations = { ...(translations || {}) };
+        if (strings.size > 0) {
+          const pairs = await Promise.all(
+            [...strings].map(async (s) => [s, await translateUserText(s)])
+          );
+          pairs.forEach(([src, map]) => {
+            if (src && map && Object.keys(map).length > 0) nextTranslations[src] = map;
+          });
+        }
+        await onUpdate({ title: next, translations: nextTranslations });
+      } catch (e) {
+        toast.error(e?.response?.data?.detail || e.message);
+      }
+    }
+  };
 
   const mult = (table.multipliers && table.multipliers[0]) || { id: null, name: "", value: 0 };
   const materials = table.materials || [];
@@ -767,15 +796,67 @@ function TableCard({ table, index, canEdit, translations, onUpdate, onDelete }) 
       }}
     >
       {/* Table header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-xs font-bold" style={{ color: "#F5A623", fontFamily: "Cinzel, serif", letterSpacing: "0.06em" }}>
-          {title ? <TranslatedText source={title} translations={translations} testId={`pc-table-title-${table.id}`} /> : `${t("pc_table")} #${index + 1}`}
-        </div>
+      <div className="flex items-center justify-between mb-2 gap-2">
+        {editingTitle && canEdit ? (
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            <input
+              autoFocus
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); saveTitleInline(); }
+                if (e.key === "Escape") { setEditingTitle(false); setTitleDraft(table.title || ""); }
+              }}
+              placeholder={`${t("pc_table")} #${index + 1}`}
+              data-testid={`pc-table-title-input-${table.id}`}
+              className="flex-1 min-w-0 rounded px-2 py-1 text-xs"
+              style={{ background: "#1A1210", border: "1px solid #F5A623", color: "#F5F0E8" }}
+            />
+            <button
+              type="button"
+              onClick={saveTitleInline}
+              data-testid={`pc-table-title-save-${table.id}`}
+              className="p-1 rounded"
+              style={{ color: "#4ade80" }}
+              aria-label="Kaydet"
+            >
+              <Check className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEditingTitle(false); setTitleDraft(table.title || ""); }}
+              className="p-1 rounded"
+              style={{ color: "#f87171" }}
+              aria-label="İptal"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="text-xs font-bold flex items-center gap-1.5 min-w-0 flex-1" style={{ color: "#F5A623", fontFamily: "Cinzel, serif", letterSpacing: "0.06em" }}>
+            <span className="truncate" data-testid={`pc-table-title-${table.id}`}>
+              {title ? <TranslatedText source={title} translations={translations} /> : `${t("pc_table")} #${index + 1}`}
+            </span>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => setEditingTitle(true)}
+                data-testid={`pc-table-title-edit-${table.id}`}
+                className="p-0.5 rounded opacity-70 hover:opacity-100 flex-shrink-0"
+                style={{ color: "#F5A623" }}
+                title="Başlığı Düzenle"
+                aria-label="Başlığı Düzenle"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        )}
         {canEdit && (
           <button
             onClick={onDelete}
             data-testid={`pc-table-delete-${table.id}`}
-            className="p-1 rounded opacity-70 hover:opacity-100"
+            className="p-1 rounded opacity-70 hover:opacity-100 flex-shrink-0"
             style={{ color: "#f87171" }}
             title={t("delete")}
           >

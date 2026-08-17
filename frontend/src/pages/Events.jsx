@@ -279,7 +279,7 @@ export default function Events() {
         </div>
       ) : (
         <motion.div
-          className="grid grid-cols-1 md:grid-cols-2 gap-1.5"
+          className="grid grid-cols-2 gap-1.5"
           initial="hidden"
           animate="visible"
           variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
@@ -625,7 +625,7 @@ export default function Events() {
         </div>
 
         <motion.div
-          className="grid grid-cols-1 md:grid-cols-2 gap-1.5"
+          className="grid grid-cols-2 gap-1.5"
           initial="hidden"
           animate="visible"
           variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
@@ -1011,6 +1011,9 @@ function EventForm({ initial, onClose }) {
   const [reminderEnabled, setReminderEnabled] = useState(
     initial ? initial.reminder_enabled !== false : true,
   );
+  const [hiddenFromLb, setHiddenFromLb] = useState(
+    initial ? !!initial.hidden_from_leaderboard : false,
+  );
   const [recurInterval, setRecurInterval] = useState("none");
   const [recurCount, setRecurCount] = useState(4);
   // When editing an event that belongs to a series, this toggle routes the
@@ -1047,6 +1050,7 @@ function EventForm({ initial, onClose }) {
         group_name: grouped ? (groupName || "").trim() || null : "",
         banner_url: banner[0]?.url || null,
         reminder_enabled: reminderEnabled,
+        hidden_from_leaderboard: hiddenFromLb,
         recurrence_interval: recurInterval,
         recurrence_count: Number(recurCount) || 1,
       };
@@ -1274,6 +1278,28 @@ function EventForm({ initial, onClose }) {
                 {reminderEnabled
                   ? (t("event_form_reminder_hint_on") || "Etkinlik 'Hatırlatmalı' sekmesinde görünür — Bildirim Kur butonu aktif olur.")
                   : (t("event_form_reminder_hint_off") || "Etkinlik 'Hatırlatmasız' sekmesine gider — sadece kayıt tutulur, hatırlatma önerilmez.")}
+              </span>
+            </span>
+          </label>
+        </div>
+
+        <div className="mt-3 rounded p-3" style={{ background: "rgba(245,166,35,0.06)", border: "1px solid rgba(245,166,35,0.30)" }} data-testid="event-form-visibility-toggle">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!hiddenFromLb}
+              onChange={(e) => setHiddenFromLb(!e.target.checked)}
+              data-testid="event-form-visibility-checkbox"
+              className="cursor-pointer"
+            />
+            <span className="flex-1">
+              <span className="block text-sm font-bold text-white">
+                🏆 Sıralamada göster
+              </span>
+              <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
+                {hiddenFromLb
+                  ? "Bu etkinlik sıralamadan gizlenir — puan girilebilir ama toplama katılmaz."
+                  : "Bu etkinliğe eklenen puanlar Sıralama sayfasında toplama dahil edilir."}
               </span>
             </span>
           </label>

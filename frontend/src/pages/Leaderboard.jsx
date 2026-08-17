@@ -37,6 +37,7 @@ export default function Leaderboard() {
   const { data: allianceColors = {} } = useSWR("/alliance-colors", fetcher, { refreshInterval: 15000 });
   const { data: allMembers = [] } = useSWR("/members", fetcher, { refreshInterval: 10000 });
   const { data: archivedEvents = [] } = useSWR(filter === "archive" ? "/events?archived=true" : null, fetcher, { refreshInterval: 15000 });
+  const { data: activeEvents = [] } = useSWR(filter === "active" ? "/events?archived=false" : null, fetcher, { refreshInterval: 15000 });
   const { data: groupTotalLb = [] } = useSWR(
     filter === "archive" && group ? `/leaderboard?scope=archived&group_name=${encodeURIComponent(group)}` : null,
     fetcher,
@@ -46,10 +47,19 @@ export default function Leaderboard() {
     () => (group ? archivedEvents.filter((e) => e.group_name === group) : archivedEvents),
     [group, archivedEvents],
   );
+  const visibleActiveEvents = useMemo(
+    () => (group ? activeEvents.filter((e) => e.group_name === group) : activeEvents),
+    [group, activeEvents],
+  );
   const { data: archiveEventLb = [] } = useSWR(archiveEventId ? `/leaderboard?event_id=${encodeURIComponent(archiveEventId)}` : null, fetcher);
   const archiveEvent = useMemo(
-    () => (archiveEventId ? archivedEvents.find((e) => e.id === archiveEventId) : null),
-    [archiveEventId, archivedEvents],
+    () => {
+      if (!archiveEventId) return null;
+      return archivedEvents.find((e) => e.id === archiveEventId)
+          || activeEvents.find((e) => e.id === archiveEventId)
+          || null;
+    },
+    [archiveEventId, archivedEvents, activeEvents],
   );
 
   // Merge zero-point members below scored ones so the whole guild is always listed.
@@ -326,6 +336,53 @@ export default function Leaderboard() {
           </div>
         )}
 
+        {filter !== "archive" && !group && visibleActiveEvents.length > 0 && (
+          <div className="mb-6" data-testid="active-events-grid">
+            <div className="section-title heading-cinzel">Aktif Etkinlikler</div>
+            <div className="grid grid-cols-2 gap-2">
+              {visibleActiveEvents.map((e) => (
+                <button
+                  key={e.id}
+                  data-testid={`active-event-card-${e.id}`}
+                  onClick={() => setArchiveEventId(e.id)}
+                  className="text-left rounded-lg p-3 transition-all hover:scale-[1.02]"
+                  style={{
+                    background: "linear-gradient(160deg, rgba(60,30,10,0.85) 0%, rgba(20,12,10,0.92) 100%)",
+                    border: "1px solid rgba(212,115,10,0.45)",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,170,80,0.08)",
+                  }}
+                >
+                  {e.banner_url && (
+                    <img
+                      src={e.banner_url}
+                      alt=""
+                      data-testid={`active-event-card-banner-${e.id}`}
+                      className="w-full h-20 object-cover rounded-md mb-2"
+                      loading="lazy"
+                      onError={(ev) => { ev.currentTarget.style.display = "none"; }}
+                    />
+                  )}
+                  <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "#D4730A", letterSpacing: "0.14em" }}>
+                    {e.group_name || t("event")}
+                  </div>
+                  <div className="text-sm font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }} title={e.name}>
+                    {e.name}
+                  </div>
+                  {e.subtitle && (
+                    <div className="text-[11px] mt-0.5 truncate opacity-80" style={{ color: "#EAD8B0" }} title={e.subtitle}>
+                      {e.subtitle}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between mt-2 text-[10px]" style={{ color: "#A88060" }}>
+                    <span>{e.date ? String(e.date).slice(0, 10) : "—"}</span>
+                    <span className="font-bold mono" style={{ color: "#E74C1A" }}>×{e.multiplier ?? 1}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {filter === "archive" && (
           <div className="mb-6" data-testid="archive-events-grid">
             <div className="section-title heading-cinzel">{t("archive_events_title")}</div>
@@ -469,6 +526,11 @@ export default function Leaderboard() {
                 {archiveEvent.subtitle && (
                   <div className="text-[11px] mt-0.5 opacity-80" style={{ color: "#EAD8B0" }}>{archiveEvent.subtitle}</div>
                 )}
+                {archiveEvent.date && (
+                  <div className="text-[10px] mt-0.5 opacity-70 mono" style={{ color: "#A88060" }}>
+                    {String(archiveEvent.date).slice(0, 10)}
+                  </div>
+                )}
               </div>
               <button
                 data-testid="archive-event-modal-close"
@@ -480,6 +542,20 @@ export default function Leaderboard() {
                 <X className="w-4 h-4" />
               </button>
             </div>
+            {archiveEvent.banner_url && (
+              <div
+                className="w-full flex-shrink-0"
+                data-testid="archive-event-modal-banner"
+                style={{ background: "#0A0605", borderBottom: "1px solid rgba(212,115,10,0.25)" }}
+              >
+                <img
+                  src={archiveEvent.banner_url}
+                  alt={archiveEvent.name}
+                  className="w-full max-h-72 object-contain"
+                  onError={(e) => { e.currentTarget.parentElement.style.display = "none"; }}
+                />
+              </div>
+            )}
             <div className="overflow-y-auto flex-1" data-testid="archive-event-lb-list">
               {archiveEventLb.length === 0 ? (
                 <div className="p-6 text-center text-muted-foreground text-sm">{t("no_points_yet")}</div>
