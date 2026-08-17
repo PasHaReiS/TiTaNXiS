@@ -637,6 +637,12 @@ function UnitCostModal({ tier, current, onClose }) {
                         {tt}
                       </th>
                     ))}
+                    <th className="text-center px-1.5 py-1.5"
+                        style={{ background: "#2A1815", color: "#FCD34D", fontFamily: "Cinzel, serif", borderBottom: "1px solid rgba(245,166,35,0.55)", minWidth: 60, borderLeft: "1px solid rgba(245,166,35,0.35)" }}
+                        title="T6'dan T12'ye maliyet artış yüzdesi"
+                        data-testid="asker-compare-delta-header">
+                      T6→T12 %
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -683,6 +689,44 @@ function UnitCostModal({ tier, current, onClose }) {
                           )}
                         </td>
                       ))}
+                      {(() => {
+                        // T6→T12 percentage delta cell. Formula:
+                        //   ((T12 − T6) / T6) × 100  → positive = growth.
+                        // When T6 is 0 there's nothing to compare against so
+                        // we show "—" instead of Infinity.
+                        const v6  = Number((compareState.T6  || {})[f.key]) || 0;
+                        const v12 = Number((compareState.T12 || {})[f.key]) || 0;
+                        let label = "—";
+                        let color = "#94A3B8";
+                        if (v6 !== 0) {
+                          const pct = ((v12 - v6) / v6) * 100;
+                          const sign = pct > 0 ? "+" : "";
+                          label = `${sign}${pct.toFixed(0)}%`;
+                          color = pct > 0 ? "#4ADE80" : pct < 0 ? "#F87171" : "#94A3B8";
+                        } else if (v12 !== 0) {
+                          // T6=0 but T12 non-zero → "∞" growth (only-T12 cost)
+                          label = "∞";
+                          color = "#4ADE80";
+                        }
+                        return (
+                          <td
+                            key="delta"
+                            className="text-center font-mono px-1.5 py-1.5"
+                            style={{
+                              background: "rgba(42,24,21,0.65)",
+                              color,
+                              borderTop: "1px solid rgba(255,255,255,0.05)",
+                              borderLeft: "1px solid rgba(245,166,35,0.35)",
+                              fontSize: 11,
+                              fontWeight: 700,
+                            }}
+                            data-testid={`asker-compare-delta-${f.key}`}
+                            title="T6'dan T12'ye maliyet artış yüzdesi"
+                          >
+                            {label}
+                          </td>
+                        );
+                      })()}
                     </tr>
                   ))}
                 </tbody>

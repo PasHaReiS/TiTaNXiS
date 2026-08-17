@@ -969,3 +969,13 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - **Sağ tık** veya **⤳** altın chip → değeri sağdaki tüm tier'lara kopyala (T12→T11,T8,T7,T6)
 - **TÜMÜNÜ KAYDET (5 Tier)** butonu `Promise.all` ile 5 PUT paralel gönderir, SWR cache invalidate
 - Curl doğrulama: 5 tier PUT/GET roundtrip başarılı ✓
+
+## Asker Compare — T6→T12 Fark Sütunu (Feb 17, 2026)
+- Compare tablosunun en sağına yeni **"T6→T12 %"** kolonu:
+  - Formül: `((T12 − T6) / T6) × 100`
+  - T6=0 → "—" (bölme yok)
+  - T6=0, T12>0 → "∞" (sadece T12'de maliyet)
+  - Sonuç 0'dan büyükse yeşil (#4ADE80), küçükse kırmızı (#F87171), sıfırsa gri
+  - İşaret: `+` veya `-`, 0 ondalık ("+334%")
+- Header + cell testid: `asker-compare-delta-header`, `asker-compare-delta-{key}`
+- Sol kenarı altın border ile ayrılıyor, arka planı diğerlerinden koyu
