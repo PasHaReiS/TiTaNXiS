@@ -222,9 +222,65 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, initialStage, onClos
   const [activeStage, setActiveStage] = useState(initialStage || 1);
   const [state, setState] = useState(EMPTY_COSTS);
   const [saving, setSaving] = useState(false);
+  // Comparison mode — swaps the single-stage form out for a 5-column table
+  // where each column is a stage (1→5). All 5 stages are fetched in
+  // parallel via SWR (same cache the single view uses so switching modes
+  // is instant) and saved via Promise.all when the admin hits Save.
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareState, setCompareState] = useState({});
 
   const cat = catFor(activeBuilding, activeLevel, activeStage);
   const { data: fetched = EMPTY_COSTS } = useSWR(`/unit-costs/${cat}`, fetcher);
+
+  // Batch-fetch every stage when comparison mode is on. Keyed by activeLevel/
+  // activeBuilding so switching either instantly re-hydrates the table.
+  const s1 = useSWR(compareMode ? `/unit-costs/${catFor(activeBuilding, activeLevel, 1)}` : null, fetcher);
+  const s2 = useSWR(compareMode ? `/unit-costs/${catFor(activeBuilding, activeLevel, 2)}` : null, fetcher);
+  const s3 = useSWR(compareMode ? `/unit-costs/${catFor(activeBuilding, activeLevel, 3)}` : null, fetcher);
+  const s4 = useSWR(compareMode ? `/unit-costs/${catFor(activeBuilding, activeLevel, 4)}` : null, fetcher);
+  const s5 = useSWR(compareMode ? `/unit-costs/${catFor(activeBuilding, activeLevel, 5)}` : null, fetcher);
+  useEffect(() => {
+    if (!compareMode) return;
+    const norm = (d) => ({
+      yemek: d?.yemek || 0, odun: d?.odun || 0, celik: d?.celik || 0,
+      benzin: d?.benzin || 0, sure_saniye: d?.sure_saniye || 0,
+      forticlad: d?.forticlad || 0, gelismis_forticlad: d?.gelismis_forticlad || 0,
+    });
+    setCompareState({
+      1: norm(s1.data), 2: norm(s2.data), 3: norm(s3.data),
+      4: norm(s4.data), 5: norm(s5.data),
+    });
+  }, [compareMode, s1.data, s2.data, s3.data, s4.data, s5.data]);
+
+  const setCompareCell = (stage, key, v) => {
+    setCompareState((prev) => ({ ...prev, [stage]: { ...(prev[stage] || {}), [key]: v } }));
+  };
+
+  const submitCompare = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await Promise.all(STAGES.map((s) => {
+        const c = compareState[s] || {};
+        return api.put(`/unit-costs/${catFor(activeBuilding, activeLevel, s)}`, {
+          yemek: Number(c.yemek) || 0,
+          odun: Number(c.odun) || 0,
+          celik: Number(c.celik) || 0,
+          benzin: Number(c.benzin) || 0,
+          sure_saniye: Number(c.sure_saniye) || 0,
+          forticlad: Number(c.forticlad) || 0,
+          gelismis_forticlad: Number(c.gelismis_forticlad) || 0,
+        });
+      }));
+      STAGES.forEach((s) => globalMutate(`/unit-costs/${catFor(activeBuilding, activeLevel, s)}`));
+      toast.success(`${t(`bc_b_${activeBuilding}`)} · ${activeLevel} — 5 aşama kaydedildi`);
+      onClose();
+    } catch (e2) {
+      toast.error(e2?.response?.data?.detail || e2.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     setState({
@@ -294,6 +350,25 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, initialStage, onClos
           {t("bc_unit_cost_title")}
         </h3>
 
+        {/* Comparison mode toggle */}
+        <div className="mb-3 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setCompareMode((v) => !v)}
+            data-testid="bina-compare-toggle"
+            className="chip text-[10px] flex-1 justify-center py-2"
+            style={compareMode ? {
+              borderColor: "#F5A623",
+              color: "#FCD34D",
+              background: "rgba(245,166,35,0.15)",
+              boxShadow: "0 0 8px rgba(245,166,35,0.35)",
+            } : { opacity: 0.75 }}
+            title="5 aşamayı yan yana tablo olarak göster / kapat"
+          >
+            {compareMode ? "◧ Tek Aşama" : "▦ 5 Aşamayı Karşılaştır"}
+          </button>
+        </div>
+
         {/* Building dropdown inside modal */}
         <div className="mb-3">
           <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A" }}>{t("bc_building")}</label>
@@ -346,7 +421,9 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, initialStage, onClos
           </div>
         </div>
 
-        {/* Stage selector inside modal */}
+        {/* Stage selector inside modal (hidden in compare mode — the table
+            shows every stage at once). */}
+        {!compareMode && (
         <div className="mb-4">
           <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A" }}>Aşama</label>
           <div className="grid grid-cols-5 gap-2">
@@ -370,7 +447,68 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, initialStage, onClos
             ))}
           </div>
         </div>
+        )}
 
+        {compareMode ? (
+          <div className="mb-2" data-testid="bina-compare-table-wrap">
+            <div className="overflow-x-auto rounded" style={{ border: "1px solid rgba(245,166,35,0.35)" }}>
+              <table className="w-full text-[10px]" style={{ borderCollapse: "separate", borderSpacing: 0 }}>
+                <thead>
+                  <tr>
+                    <th className="text-left px-1.5 py-1.5 sticky left-0 z-10"
+                        style={{ background: "#241812", color: "#F5A623", fontFamily: "Cinzel, serif", letterSpacing: "0.06em", borderBottom: "1px solid rgba(245,166,35,0.35)", minWidth: 88 }}>
+                      MALZEME
+                    </th>
+                    {STAGES.map((s) => (
+                      <th key={s} className="text-center px-1.5 py-1.5"
+                          style={{ background: "#241812", color: "#F5A623", fontFamily: "Cinzel, serif", borderBottom: "1px solid rgba(245,166,35,0.35)", minWidth: 60 }}>
+                        A{s}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {fields.map((f) => (
+                    <tr key={f.key}>
+                      <td className="px-1.5 py-1.5 sticky left-0"
+                          style={{ background: "#1A1210", color: "#EAD8B0", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                        {f.label}
+                      </td>
+                      {STAGES.map((s) => (
+                        <td key={s} className="p-1" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={(compareState[s] || {})[f.key] ?? 0}
+                            onChange={(e) => setCompareCell(s, f.key, e.target.value)}
+                            data-testid={`bina-compare-${f.key}-a${s}`}
+                            className="w-full text-center rounded font-mono"
+                            style={{ background: "#0F0906", border: "1px solid #333", color: "#F5F0E8", padding: "4px 3px", fontSize: 11 }}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="text-[9px] text-muted-foreground mt-1.5 leading-snug">
+              💡 5 aşamanın maliyetlerini yan yana düzenle. Tek "Tümünü Kaydet" ile 5 satır aynı anda güncellenir.
+            </div>
+            <button
+              type="button"
+              onClick={submitCompare}
+              disabled={saving}
+              data-testid="save-bina-compare"
+              className="w-full mt-3 py-2.5 rounded-lg text-white font-bold bina-shake-btn"
+              style={{ background: "linear-gradient(135deg,#C0392B,#E74C1A)" }}
+            >
+              {saving ? t("bc_saving") : "TÜMÜNÜ KAYDET (5 Aşama)"}
+            </button>
+          </div>
+        ) : (
+        <>
         {fields.map((f) => (
           <div key={f.key} className="mb-3">
             <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A" }}>{f.label}</label>
@@ -395,6 +533,8 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, initialStage, onClos
         >
           {saving ? t("bc_saving") : t("bc_save_pattern", { building: t(`bc_b_${activeBuilding}`), level: activeLevel })}
         </button>
+        </>
+        )}
       </form>
     </div>
   );

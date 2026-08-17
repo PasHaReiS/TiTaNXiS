@@ -894,3 +894,11 @@ After redeploy, tail `backend.err.log` while triggering a notification:
   - Rank 2: Gelecek (en yakın ilk)
   - Rank 3: Geçmiş (en yeni ilk)
 - Admin en kritik etkinliği en tepede görüyor
+
+## Aşama Karşılaştırma Görünümü (Feb 17, 2026)
+- `BinaUnitCostModal`: Yeni **▦ 5 Aşamayı Karşılaştır** chip toggle
+- Compare açıkken tek-aşama seçici gizleniyor, yerine 5 kolonlu (A1-A5) tablo geliyor: satırlar = malzemeler, hücreler = düzenlenebilir sayı input'ları
+- Sticky ilk kolon (Malzeme adı) yatay kaydırmada sabit
+- 5 aşama SWR ile paralel fetch, `compareState[stage][key]` local state
+- **TÜMÜNÜ KAYDET (5 Aşama)** butonu `Promise.all` ile tek turda 5 PUT gönderiyor, ardından her aşamanın SWR cache'ini invalidate ediyor
+- Curl doğrulama: 5 aşamanın yemek değerlerine sırayla 1000/2000/3000/4000/5000 yazıldı ve back-read'de tam eşleşti ✓
