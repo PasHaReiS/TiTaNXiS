@@ -690,3 +690,17 @@ After redeploy, tail `backend.err.log` while triggering a notification:
   `wrapperClass` string and a single top-level `<div>` rendered inline.
 - Playwright verified: typing 24 chars in title + 40 chars in body both stay
   focused and preserve the full value.
+
+## ImageDropzone Crop Button (Feb 17, 2026)
+- **Root cause**: `ImageDropzone.jsx` (used by Duyurular / Events / VIP Support)
+  had NO crop button — only the delete X. Crop was only wired inside
+  `OcrDialog.jsx`, so users saw the ✂️ chip on "some" (OCR-only) images.
+- **Fix**: Added `Scissors` chip on every uploaded thumbnail. On click, we
+  `fetch()` the remote URL as a blob, convert to a fresh data:URL + `File`,
+  and hand it to the shared `CropDialog` (same UX as OCR). On confirm the
+  cropped file is re-POSTed to `/api/uploads/image?purpose=<p>` and the
+  thumbnail is swapped in `value[]` preserving order.
+- **Cross-origin safety**: blob-fetch route avoids canvas tainting when the
+  URL is served from Emergent object-storage / CDN.
+- **Playwright verified**: upload → crop button visible → click opens
+  `CropDialog` with image + Apply button rendered.

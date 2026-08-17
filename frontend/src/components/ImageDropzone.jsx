@@ -1,7 +1,8 @@
 import React, { useCallback, useRef, useState } from "react";
-import { UploadCloud, X, Loader2 } from "lucide-react";
+import { UploadCloud, X, Loader2, Scissors } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import CropDialog from "@/components/CropDialog";
 
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
 const ACCEPT = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -24,6 +25,8 @@ export default function ImageDropzone({
 }) {
   const [busy, setBusy] = useState(false);
   const [drag, setDrag] = useState(false);
+  const [cropTarget, setCropTarget] = useState(null); // { id, url, file }
+  const [cropUploading, setCropUploading] = useState(false);
   const inputRef = useRef(null);
 
   const upload = useCallback(async (files) => {
@@ -70,6 +73,52 @@ export default function ImageDropzone({
   };
 
   const remove = (id) => onChange?.(value.filter((f) => f.id !== id));
+
+  // Open CropDialog for an already-uploaded item. We fetch the remote URL as
+  // a blob first (avoids cross-origin canvas tainting from object-storage
+  // CDNs) then hand a fresh data:URL + File to CropDialog just like OCR does.
+  const openCrop = async (item) => {
+    try {
+      const res = await fetch(item.url, { credentials: "omit" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = (e) => resolve(e.target.result);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+      const mime = blob.type || "image/jpeg";
+      const ext = mime === "image/png" ? "png" : "jpg";
+      const baseName = (item.filename || "image").replace(/\.[^.]+$/, "");
+      const file = new File([blob], `${baseName}.${ext}`, { type: mime });
+      setCropTarget({ id: item.id, url: dataUrl, file });
+    } catch (e) {
+      toast.error(`Kırpma için resim yüklenemedi: ${e.message || e}`);
+    }
+  };
+
+  // CropDialog handed us the trimmed file — re-upload and swap the entry in
+  // `value` while preserving order so the parent form doesn't reshuffle.
+  const applyCrop = async (file, _dataUrl) => {
+    if (!cropTarget) return;
+    const targetId = cropTarget.id;
+    setCropUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await api.post(`/uploads/image?purpose=${purpose}`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      onChange?.(value.map((v) => (v.id === targetId ? res.data : v)));
+      toast.success("Kırpma uygulandı");
+      setCropTarget(null);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Kırpma yüklenemedi");
+    } finally {
+      setCropUploading(false);
+    }
+  };
 
   return (
     <div className="w-full" data-testid={`image-dropzone-${purpose}`}>
@@ -118,20 +167,33 @@ export default function ImageDropzone({
           {value.map((f) => (
             <div
               key={f.id}
-              className="relative rounded overflow-hidden"
-              style={{ border: "1px solid rgba(139,92,246,0.4)" }}
+              className="relative rounded overflow-visible"
+              style={{ border: "1px solid rgba(139,92,246,0.4)", width: 64, height: 64 }}
               data-testid={`attachment-preview-${f.id}`}
             >
               <img
                 src={f.url}
                 alt={f.filename}
-                className="w-16 h-16 object-cover"
+                className="w-16 h-16 object-cover rounded"
               />
               <button
                 type="button"
+                onClick={(e) => { e.stopPropagation(); openCrop(f); }}
+                className="absolute bottom-0.5 left-0.5 w-5 h-5 rounded-full flex items-center justify-center transition-colors"
+                style={{ background: "rgba(0,0,0,0.75)", color: "#F5A623" }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(245,166,35,0.9)"; e.currentTarget.style.color = "#0A0806"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(0,0,0,0.75)"; e.currentTarget.style.color = "#F5A623"; }}
+                data-testid={`attachment-crop-${f.id}`}
+                title="Kırp"
+                aria-label="Kırp"
+              >
+                <Scissors className="w-2.5 h-2.5" />
+              </button>
+              <button
+                type="button"
                 onClick={(e) => { e.stopPropagation(); remove(f.id); }}
-                className="absolute top-0.5 right-0.5 rounded-full p-0.5"
-                style={{ background: "rgba(0,0,0,0.7)", color: "#fff" }}
+                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(239,68,68,0.9)", color: "#fff" }}
                 data-testid={`attachment-remove-${f.id}`}
                 title="Kaldır"
               >
@@ -141,6 +203,13 @@ export default function ImageDropzone({
           ))}
         </div>
       )}
+      <CropDialog
+        open={!!cropTarget && !cropUploading}
+        imageUrl={cropTarget?.url}
+        originalFile={cropTarget?.file}
+        onCancel={() => setCropTarget(null)}
+        onConfirm={applyCrop}
+      />
     </div>
   );
 }
