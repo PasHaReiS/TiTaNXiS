@@ -662,3 +662,31 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 ### Verified (curl)
 - Captured `last_state.last_sent_at` before test → `test-send` returned `tg_sent=0 bell_sent=1 reason="telegram_chat_id yok — Profil > Telegram bağla" text_prefix="🧪 *[TEST]*"` → post-test `last_sent_at` unchanged (✅). Bell row inserted with `kind="trend_digest_test"` and cleaned. State + schedule + recipients untouched.
 
+
+## Kale Seviyesi İstatistikleri + Duyuru Klavye Odak Fix (Feb 17, 2026)
+
+### Backend
+- New endpoint: `GET /api/members/castle-stats` — aggregates castle-level totals,
+  average/min/max, per-level distribution, and TOP 10 leaderboard. Defensively
+  coerces the legacy `Optional[str]` `castle_level` field to int. Registered
+  BEFORE `/members/{member_id}` to avoid the dynamic-route catch.
+- SvS routes (`routes/svs.py`) verified end-to-end via curl: list/create/patch/delete
+  all return 200 with admin JWT; win/loss counters compute correctly.
+
+### Frontend
+- `Members.jsx`: added `Castle` toggle chip in the toolbar next to Display/Filter.
+  Opens a `CastleStatsCard` between the toolbar and the members list showing
+  4 stat chips (Total, Average, Max, Missing), a level-distribution bar chart
+  (F3–F8), and a TOP 10 castle-level list with rank/name/alliance/level.
+  SWR fetches `/members/castle-stats` only when the card is open (refresh 30s).
+
+### Duyuru klavye odak bug (P0 fix)
+- **Root cause**: In `Announcements.jsx` a `Wrapper` component was defined
+  **inside** the Announcements function body. Every `setTitle` / `setBody`
+  keystroke produced a new `Wrapper` function reference, so React tore down
+  and re-mounted the entire form on every character — closing the mobile
+  keyboard after each keypress.
+- **Fix**: Removed the in-component `Wrapper`; replaced with a plain
+  `wrapperClass` string and a single top-level `<div>` rendered inline.
+- Playwright verified: typing 24 chars in title + 40 chars in body both stay
+  focused and preserve the full value.

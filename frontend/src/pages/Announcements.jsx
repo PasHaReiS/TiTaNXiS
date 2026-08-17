@@ -180,17 +180,16 @@ export default function Announcements({ embedded = false }) {
 
   const items = data?.items || [];
 
-  const Wrapper = ({ children }) =>
-    embedded ? (
-      <div className="space-y-4" data-testid="announcements-page">{children}</div>
-    ) : (
-      <div className="max-w-4xl mx-auto py-6 px-4 space-y-6" data-testid="announcements-page">
-        {children}
-      </div>
-    );
+  // NOTE: We deliberately do NOT wrap this render in a component defined inside
+  // Announcements. Doing so (previous `const Wrapper = ...` pattern) recreates
+  // the wrapper's function identity on every keystroke, unmounting all inputs
+  // and closing the mobile keyboard after every character.
+  const wrapperClass = embedded
+    ? "space-y-4"
+    : "max-w-4xl mx-auto py-6 px-4 space-y-6";
 
   return (
-    <Wrapper>
+    <div className={wrapperClass} data-testid="announcements-page">
       {!embedded && (
         <div className="flex items-center gap-2">
           <Megaphone className="w-6 h-6 gold-text" />
@@ -530,6 +529,6 @@ export default function Announcements({ embedded = false }) {
           </div>
         </div>
       )}
-    </Wrapper>
+    </div>
   );
 }

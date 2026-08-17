@@ -201,6 +201,12 @@ export default function Header({ title }) {
                     testId="dropdown-polls"
                   />
                   <MenuItem
+                    emoji="⚔️"
+                    label="SvS Takip"
+                    onClick={() => goto("/svs")}
+                    testId="dropdown-svs"
+                  />
+                  <MenuItem
                     emoji="🔑"
                     label={t("change_password_title")}
                     onClick={() => goto("/profil")}

@@ -34,6 +34,7 @@ import Profile from "@/pages/Profile";
 import Reports from "@/pages/Reports";
 import Polls from "@/pages/Polls";
 import Signup from "@/pages/Signup";
+import SvSTracker from "@/pages/SvSTracker";
 import PushSoundListener from "@/components/PushSoundListener";
 import MotionPage from "@/components/MotionPage";
 
@@ -131,6 +132,7 @@ function AppShell() {
           <Route path="/raporlar" element={<RequireAdmin><MotionPage><Reports /></MotionPage></RequireAdmin>} />
           <Route path="/anketler" element={<RequireAuth><MotionPage><Polls /></MotionPage></RequireAuth>} />
           <Route path="/kayit/:token" element={<MotionPage><Signup /></MotionPage>} />
+          <Route path="/svs" element={<RequireAuth><MotionPage><SvSTracker /></MotionPage></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </AnimatePresence>

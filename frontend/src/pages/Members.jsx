@@ -11,7 +11,7 @@ import LinkMemberDialog from "@/components/LinkMemberDialog";
 import OcrDialog from "@/components/OcrDialog";
 import CanEdit from "@/components/CanEdit";
 import CountUp from "@/components/CountUp";
-import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap, CheckSquare, Square, Globe } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap, CheckSquare, Square, Globe, Castle } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { COUNTRIES, COUNTRY_BY_ISO2 } from "@/lib/countries";
@@ -108,6 +108,7 @@ export default function Members() {
   const [colorPickerAlliance, setColorPickerAlliance] = useState(null);
   const [renamingAlliance, setRenamingAlliance] = useState(null); // { old, next }
   const [showDisplayPanel, setShowDisplayPanel] = useState(false);
+  const [showCastleStats, setShowCastleStats] = useState(false);
   const [displayPrefs, setDisplayPrefs] = useState(readDisplay());
   const patchDisplay = (patch) => {
     setDisplayPrefs((prev) => {
@@ -170,6 +171,7 @@ export default function Members() {
     return m;
   }, [allianceStatsTop]);
   const { data: alliancesList = [] } = useSWR("/alliances", fetcher);
+  const { data: castleStats } = useSWR(showCastleStats ? "/members/castle-stats" : null, fetcher, { refreshInterval: 30000 });
 
   const grouped = useMemo(() => {
     const rankOrder = { GOW: 100, R5: 5, R4: 4, R3: 3, R2: 2, R1: 1 };
@@ -412,6 +414,17 @@ export default function Members() {
           </button>
           <button
             type="button"
+            data-testid="members-castle-stats-toggle"
+            onClick={() => setShowCastleStats((v) => !v)}
+            className={`chip ${showCastleStats ? "active" : ""}`}
+            style={{ minWidth: 44, justifyContent: "center" }}
+            aria-label={t("castle_level")}
+            title={t("castle_level")}
+          >
+            <Castle className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
             data-testid="members-display-toggle"
             onClick={() => setShowDisplayPanel((v) => !v)}
             className={`chip ${showDisplayPanel ? "active" : ""}`}
@@ -468,6 +481,10 @@ export default function Members() {
               </button>
             ))}
           </div>
+        )}
+
+        {showCastleStats && (
+          <CastleStatsCard stats={castleStats} onClose={() => setShowCastleStats(false)} t={t} />
         )}
 
         {selectionMode && (
@@ -1765,6 +1782,132 @@ function MemberForm({ initial, onClose }) {
           {saving ? t("saving") : t("save_upper")}
         </button>
       </form>
+    </div>
+  );
+}
+
+/** Kale Seviyesi (Castle Level) stats card. Renders totals, average, and
+ *  a per-level distribution bar + Top 10 castle-level leaderboard. */
+function CastleStatsCard({ stats, onClose, t }) {
+  if (!stats) {
+    return (
+      <div
+        data-testid="members-castle-stats-loading"
+        className="card-red-gold p-4 mb-3 text-center text-xs text-muted-foreground"
+      >
+        {t("loading") || "Yükleniyor…"}
+      </div>
+    );
+  }
+  const { total_members, with_castle_level, missing, avg_level, max_level, min_level, distribution = [], top = [] } = stats;
+  const coverage = total_members ? Math.round((with_castle_level / total_members) * 100) : 0;
+  const maxBucketCount = distribution.reduce((m, d) => Math.max(m, d.count), 0) || 1;
+
+  return (
+    <div
+      data-testid="members-castle-stats-card"
+      className="card-red-gold p-3 mb-3 space-y-3"
+      style={{ borderLeft: "4px solid #F5A623" }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Castle className="w-4 h-4" style={{ color: "#F5A623" }} />
+          <span className="text-xs font-bold uppercase tracking-widest gold-text">
+            {t("castle_level")} — {t("stats") || "İstatistik"}
+          </span>
+        </div>
+        <button
+          data-testid="members-castle-stats-close"
+          onClick={onClose}
+          className="chip text-[10px] flex items-center gap-1"
+          aria-label={t("close") || "Kapat"}
+        >
+          <X className="w-3 h-3" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-4 gap-2">
+        <StatChip label={t("total") || "Toplam"} value={with_castle_level} sub={`${coverage}%`} color="#F5A623" />
+        <StatChip label={t("average") || "Ortalama"} value={avg_level} color="#93C5FD" />
+        <StatChip label="Max" value={max_level} color="#22C55E" />
+        <StatChip label={t("missing") || "Eksik"} value={missing} color="#EF4444" />
+      </div>
+
+      {distribution.length > 0 && (
+        <div className="space-y-1" data-testid="members-castle-distribution">
+          <div className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
+            {t("distribution") || "Seviyeye Göre Dağılım"} ({min_level}–{max_level})
+          </div>
+          <div className="flex items-end gap-1 h-16">
+            {distribution.map((d) => {
+              const h = Math.max(4, Math.round((d.count / maxBucketCount) * 100));
+              return (
+                <div key={d.level} className="flex-1 flex flex-col items-center gap-0.5"
+                     data-testid={`castle-bucket-${d.level}`}
+                     title={`Seviye ${d.level}: ${d.count} üye`}>
+                  <div className="text-[9px] font-bold text-white">{d.count}</div>
+                  <div
+                    className="w-full rounded-t transition-all"
+                    style={{
+                      height: `${h}%`,
+                      background: "linear-gradient(180deg, #F5A623 0%, #DC2626 100%)",
+                    }}
+                  />
+                  <div className="text-[9px] text-muted-foreground">F{d.level}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {top.length > 0 && (
+        <div className="space-y-1" data-testid="members-castle-top">
+          <div className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
+            {t("top_castles") || "En Yüksek Kale — TOP 10"}
+          </div>
+          <div className="space-y-1">
+            {top.map((m, i) => (
+              <div
+                key={m.id}
+                data-testid={`castle-top-row-${i}`}
+                className="flex items-center gap-2 px-2 py-1 rounded"
+                style={{
+                  background: i === 0 ? "rgba(245,166,35,0.15)" :
+                              i < 3   ? "rgba(245,166,35,0.08)" :
+                                        "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(245,166,35,0.2)",
+                }}
+              >
+                <div className="text-[10px] font-bold w-5 text-center"
+                     style={{ color: i < 3 ? "#F5A623" : "#9ca3af" }}>
+                  {i + 1}
+                </div>
+                <div className="flex-1 text-xs text-white truncate">{m.name}</div>
+                {m.alliance_name && (
+                  <div className="text-[10px] text-muted-foreground truncate max-w-[70px]">
+                    {m.alliance_name}
+                  </div>
+                )}
+                <div className="text-xs font-bold" style={{ color: "#F5A623" }}>
+                  F{m.castle_level}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatChip({ label, value, sub, color }) {
+  return (
+    <div className="card-dark p-2 text-center rounded"
+         style={{ border: `1px solid ${color}33` }}>
+      <div className="text-lg font-bold leading-tight" style={{ color }}>{value}</div>
+      <div className="text-[9px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      {sub && <div className="text-[9px] font-bold" style={{ color: `${color}CC` }}>{sub}</div>}
     </div>
   );
 }

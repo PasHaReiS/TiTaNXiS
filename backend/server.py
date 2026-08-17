@@ -369,6 +369,52 @@ async def members_trend(ids: str = Query(...), days: int = 7):
     return {mid: [{"date": d, "points": int(result[mid][d])} for d in day_keys] for mid in id_list}
 
 
+@api_router.get("/members/castle-stats")
+async def members_castle_stats():
+    """Aggregate castle level statistics across all members.
+
+    castle_level is stored as an Optional[str] (legacy CSV/OCR imports may
+    include stray characters), so we defensively coerce to int and treat
+    non-positive / non-numeric values as "missing". Returns totals,
+    per-level distribution, avg/min/max, and the Top 10 members by level.
+    """
+    total = 0
+    levels: list[int] = []
+    ranked: list[dict] = []
+    async for m in db.members.find(
+        {}, {"_id": 0, "id": 1, "name": 1, "alliance_name": 1, "castle_level": 1},
+    ):
+        total += 1
+        raw = m.get("castle_level")
+        try:
+            n = int(str(raw).strip()) if raw not in (None, "") else 0
+        except (TypeError, ValueError):
+            n = 0
+        if n > 0:
+            levels.append(n)
+            ranked.append({
+                "id": m.get("id"),
+                "name": m.get("name") or "?",
+                "alliance_name": m.get("alliance_name"),
+                "castle_level": n,
+            })
+    ranked.sort(key=lambda x: (-x["castle_level"], x["name"].lower()))
+    dist: dict[int, int] = {}
+    for lvl in levels:
+        dist[lvl] = dist.get(lvl, 0) + 1
+    distribution = [{"level": lvl, "count": c} for lvl, c in sorted(dist.items())]
+    return {
+        "total_members": total,
+        "with_castle_level": len(levels),
+        "missing": total - len(levels),
+        "avg_level": round(sum(levels) / len(levels), 1) if levels else 0.0,
+        "max_level": max(levels) if levels else 0,
+        "min_level": min(levels) if levels else 0,
+        "distribution": distribution,
+        "top": ranked[:10],
+    }
+
+
 @api_router.get("/members/{member_id}")
 async def get_member(member_id: str):
     doc = await db.members.find_one({"id": member_id}, {"_id": 0})
@@ -6663,11 +6709,13 @@ app.include_router(make_auth_router(db))
 from routes.polls import make_polls_router
 app.include_router(make_polls_router(db, require_auth, require_admin, on_poll_created=_poll_broadcast), prefix="/api")
 from routes.invites import make_invites_router
+from routes.svs import make_svs_router
 from auth import hash_password as _hash_password, create_token as _create_token, parse_user_agent as _parse_user_agent, public_user as _public_user
 app.include_router(
     make_invites_router(db, require_admin, _hash_password, _create_token, _parse_user_agent, now_iso, _public_user),
     prefix="/api",
 )
+app.include_router(make_svs_router(db, require_auth, require_admin), prefix="/api")
 from routes.ocr import make_ocr_router
 app.include_router(make_ocr_router(db, require_edit, require_auth), prefix="/api")
 from routes.alliances import make_alliances_router
@@ -6703,6 +6751,12 @@ async def startup():
         await ensure_invites_indexes(db)
     except Exception as _e:
         logging.getLogger("server").warning(f"invites index ensure: {_e}")
+    # SvS indexes
+    try:
+        from routes.svs import ensure_svs_indexes
+        await ensure_svs_indexes(db)
+    except Exception as _e:
+        logging.getLogger("server").warning(f"svs index ensure: {_e}")
 
     # Backfill missing `status` field on legacy attendance docs → "attending".
     try:
