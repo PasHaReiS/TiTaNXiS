@@ -46,17 +46,6 @@ export default function Events() {
   useEffect(() => {
     try { localStorage.setItem("events_subfilter", subFilter); } catch { /* private mode */ }
   }, [subFilter]);
-  // Visibility filter — narrows the list to only hidden or only visible
-  // (Sıralamada görünen) events. "all" = no restriction. Persisted so an
-  // admin auditing hidden events can jump back to the same view.
-  const [visibilityFilter, setVisibilityFilter] = useState(() => {
-    try { return localStorage.getItem("events_visibility_filter") || "all"; }
-    catch { return "all"; }
-  });
-  useEffect(() => {
-    try { localStorage.setItem("events_visibility_filter", visibilityFilter); }
-    catch { /* private mode */ }
-  }, [visibilityFilter]);
   // Local drag-order overrides — persisted per tab in localStorage so a
   // reorder survives reloads even without a backend round-trip. Keyed by
   // event.id so DB re-fetches don't clobber user intent.
@@ -103,19 +92,8 @@ export default function Events() {
       if (tab === "reminded") list = list.filter((e) => e.reminder_enabled !== false);
       else list = list.filter((e) => e.reminder_enabled === false);
     }
-    if (visibilityFilter === "hidden") list = list.filter((e) => e.hidden_from_leaderboard);
-    else if (visibilityFilter === "visible") list = list.filter((e) => !e.hidden_from_leaderboard);
     return list;
-  }, [events, tab, archived, visibilityFilter]);
-
-  // Aggregate: how many events are currently marked hidden across the tab
-  // being viewed — powers the chip counter so admins see the queue size at
-  // a glance without switching the filter on.
-  const hiddenCount = useMemo(() => {
-    if (archived) return events.filter((e) => e.hidden_from_leaderboard).length;
-    if (tab === "reminded") return allActive.filter((e) => e.reminder_enabled !== false && e.hidden_from_leaderboard).length;
-    return allActive.filter((e) => e.reminder_enabled === false && e.hidden_from_leaderboard).length;
-  }, [events, allActive, tab, archived]);
+  }, [events, tab, archived]);
 
   // Split events into (a) grouped-by-name and (b) ungrouped so the page can
   // render two clean side-by-side columns instead of mixing them together.
@@ -768,27 +746,6 @@ export default function Events() {
           >
             <span aria-hidden="true" style={{ fontSize: 12 }}>📅</span> Takvim
           </button>
-          <CanEdit>
-            <button
-              type="button"
-              data-testid="events-selection-toggle"
-              onClick={() => { setSelectionMode((v) => !v); if (selectionMode) clearSelection(); }}
-              className="chip flex-shrink-0 text-[10px] px-3"
-              style={selectionMode ? {
-                borderColor: "#F87171",
-                color: "#FCA5A5",
-                background: "rgba(220,38,38,0.15)",
-                boxShadow: "0 0 8px rgba(220,38,38,0.35)",
-              } : { opacity: 0.75 }}
-              title="Çoklu seçim modu"
-              aria-pressed={selectionMode}
-            >
-              {selectionMode
-                ? <CheckSquare className="w-3.5 h-3.5" />
-                : <Square className="w-3.5 h-3.5" />}
-              <span className="ml-1">Seç</span>
-            </button>
-          </CanEdit>
         </div>
 
         {selectionMode && (
@@ -944,43 +901,10 @@ export default function Events() {
           })}
         </div>
 
-        {/* Visibility filter row — separate line so the counter has room to
-            breathe. Cycles all → hidden → visible → all on repeated clicks
-            of the same chip; clicking the opposite chip switches directly. */}
-        <div
-          className="flex gap-1.5 mb-4 flex-wrap"
-          data-testid="events-visibility-filter-bar"
-        >
-          {[
-            { key: "hidden",  label: "Sadece Gizli",     color: "#9CA3AF", emoji: "🚫", count: hiddenCount },
-            { key: "visible", label: "Sadece Görünen",   color: "#FCD34D", emoji: "🏆" },
-          ].map((opt) => {
-            const active = visibilityFilter === opt.key;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                data-testid={`events-visibility-filter-${opt.key}`}
-                onClick={() => setVisibilityFilter(active ? "all" : opt.key)}
-                className="chip text-[10px] flex-1 justify-center"
-                style={active ? {
-                  borderColor: opt.color,
-                  color: opt.color,
-                  background: `${opt.color}18`,
-                  boxShadow: `0 0 8px ${opt.color}55, inset 0 0 8px ${opt.color}22`,
-                } : {
-                  opacity: 0.7,
-                }}
-                title={opt.key === "hidden" ? "Sadece 'Sıralama dışı' işaretli etkinlikleri göster" : "Sadece sıralamada görünen etkinlikleri göster"}
-              >
-                <span aria-hidden="true" style={{ fontSize: 12 }}>{opt.emoji}</span> {opt.label}
-                {typeof opt.count === "number" && opt.count > 0 && (
-                  <span className="mono text-[10px] ml-1 opacity-80">({opt.count})</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        {/* Visibility filter row removed — hidden and visible events now
+            render together in the list. Each hidden event still shows a
+            small "🚫 Sıralama dışı" badge on its card so admins can
+            distinguish them without a filter chip. */}
 
         {/* Split preset chips — only visible when both columns show (Tümü
             mode). Quick 30/70, 50/50, 70/30 buttons for admins who prefer
