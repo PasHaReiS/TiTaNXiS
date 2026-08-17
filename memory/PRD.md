@@ -871,3 +871,26 @@ After redeploy, tail `backend.err.log` while triggering a notification:
   visible, Podium/Active grid correctly hidden on Gizli tab ✓
 - UI: All 4 bulk toolbar chips ("Arşive Al", "Arşivden Çıkar",
   "Sıralama Dışı", "Sıralamaya Ekle") present in toolbar ✓
+
+## Bina Aşama + F10 Seed + S7 Renk + Aktif Kart Priority (Feb 17, 2026)
+
+### Backend
+- Startup seed: 5 aşama × 5 seviye (F6-F10) × 7 bina = 175 kategori. Legacy
+  `bina_{slug}_{lvl}` (aşamasız) dokümanları `_a1` variant'ına $setOnInsert
+  ile göç ettiriliyor. `unit-cost seed: migrated=2 seeded=173` logu ile doğrulandı.
+
+### BuildingCalculator
+- `catFor(slug, lvl, stage)` → `bina_{slug}_{lvl}_a{stage}`
+- Seviye ve Bina arasında yeni **Aşama** picker (1-5) 5-kolon grid
+- BinaUnitCostModal içinde de aynı Aşama seçici + seviye grid'i 5-col'a çıktı
+
+### Commanders — S7 rank chip
+- 👑 emoji + altın-turuncu gradient background, altın box-shadow glow, seçili durumda parlak sarı `#FCD34D` + iç beyaz glow
+
+### Leaderboard — Aktif Kart Priority Sıralama
+- `visibleActiveEvents` memo priority sort'lu:
+  - Rank 0: Bugün olan
+  - Rank 1: Son 6 saatte bitmiş (hala sıcak)
+  - Rank 2: Gelecek (en yakın ilk)
+  - Rank 3: Geçmiş (en yeni ilk)
+- Admin en kritik etkinliği en tepede görüyor

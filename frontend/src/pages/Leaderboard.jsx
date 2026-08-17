@@ -69,7 +69,29 @@ export default function Leaderboard() {
   const visibleActiveEvents = useMemo(
     () => {
       const base = group ? activeEvents.filter((e) => e.group_name === group) : activeEvents;
-      return base.filter((e) => !e.hidden_from_leaderboard);
+      const filtered = base.filter((e) => !e.hidden_from_leaderboard);
+      // Priority sort — today / in-progress at the very top, then upcoming
+      // (nearest date first), then finished/past events at the bottom.
+      const now = Date.now();
+      const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+      const endOfToday = startOfToday.getTime() + 86400000;
+      const rank = (e) => {
+        const t = new Date(e.date).getTime();
+        if (t >= startOfToday.getTime() && t < endOfToday) return 0; // today
+        if (t <= now && (now - t) < 6 * 3600 * 1000) return 1;       // just finished, still hot
+        if (t > now) return 2;                                        // upcoming
+        return 3;                                                     // past
+      };
+      return [...filtered].sort((a, b) => {
+        const ra = rank(a), rb = rank(b);
+        if (ra !== rb) return ra - rb;
+        // Same bucket → upcoming ascending (nearest first), past descending
+        // (most recent first) — so #2 sorts nearest-future first, #3 sorts
+        // most-recently-past first.
+        const ta = new Date(a.date).getTime();
+        const tb = new Date(b.date).getTime();
+        return ra <= 2 ? ta - tb : tb - ta;
+      });
     },
     [group, activeEvents],
   );

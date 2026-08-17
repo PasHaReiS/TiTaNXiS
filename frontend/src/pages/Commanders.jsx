@@ -1492,17 +1492,33 @@ function CommanderForm({ initial, defaultCategory, activeSection, kofCommanders,
             <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("rank")}</label>
             {allRanks.length > 0 && (
               <div className="flex gap-1.5 flex-wrap mb-2" data-testid="commander-form-rank-chips">
-                {allRanks.map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRank(r)}
-                    data-testid={`rank-chip-${r}`}
-                    className={`chip ${rank === r ? "active" : ""}`}
-                  >
-                    {r}
-                  </button>
-                ))}
+                {allRanks.map((r) => {
+                  const isS7 = r === "S7";
+                  return (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setRank(r)}
+                      data-testid={`rank-chip-${r}`}
+                      className={`chip ${rank === r ? "active" : ""}`}
+                      style={isS7 ? {
+                        borderColor: rank === r ? "#FCD34D" : "#F5A623",
+                        color: rank === r ? "#0A0806" : "#FCD34D",
+                        background: rank === r
+                          ? "linear-gradient(135deg,#FCD34D,#F5A623)"
+                          : "linear-gradient(135deg, rgba(245,166,35,0.18), rgba(220,38,38,0.10))",
+                        boxShadow: rank === r
+                          ? "0 0 14px rgba(252,211,77,0.75), inset 0 0 10px rgba(255,255,255,0.25)"
+                          : "0 0 8px rgba(245,166,35,0.45), inset 0 0 6px rgba(252,211,77,0.15)",
+                        fontWeight: 800,
+                        letterSpacing: "0.06em",
+                      } : undefined}
+                    >
+                      {isS7 && <span aria-hidden="true" style={{ marginRight: 3 }}>👑</span>}
+                      {r}
+                    </button>
+                  );
+                })}
               </div>
             )}
             <input

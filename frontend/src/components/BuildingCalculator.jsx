@@ -9,6 +9,7 @@ import { toast } from "sonner";
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 const LEVELS = ["F10", "F9", "F8", "F7", "F6"];
+const STAGES = [1, 2, 3, 4, 5];
 
 const BUILDING_SLUGS = [
   "komuta_merkezi",
@@ -25,7 +26,7 @@ const EMPTY_COSTS = {
   forticlad: 0, gelismis_forticlad: 0,
 };
 
-const catFor = (slug, lvl) => `bina_${slug}_${lvl.toLowerCase()}`;
+const catFor = (slug, lvl, stage) => `bina_${slug}_${lvl.toLowerCase()}_a${stage}`;
 const fmt = (n) => Number(n || 0).toLocaleString("tr-TR");
 const pad2 = (n) => String(Math.max(0, Math.floor(n))).padStart(2, "0");
 
@@ -43,10 +44,11 @@ export default function BuildingCalculator() {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const [level, setLevel] = useState("F9");
+  const [stage, setStage] = useState(1);
   const [building, setBuilding] = useState(BUILDING_SLUGS[0]);
   const [showUnitModal, setShowUnitModal] = useState(false);
 
-  const category = catFor(building, level);
+  const category = catFor(building, level, stage);
   const { data: unitCosts = EMPTY_COSTS } = useSWR(`/unit-costs/${category}`, fetcher);
 
   // Always compute for 1 upgrade → totals equal the unit cost
@@ -73,7 +75,7 @@ export default function BuildingCalculator() {
       {/* Level selector */}
       <div className="mb-4">
         <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("bc_level")}</label>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-2">
           {LEVELS.map((lv) => (
             <button
               key={lv}
@@ -88,6 +90,32 @@ export default function BuildingCalculator() {
               }}
             >
               {lv}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Stage selector — sits between Level and Building. Each level has 5
+          progressive stages (Aşama 1 → 5). Category key becomes
+          `bina_{slug}_{lvl}_a{stage}` so different stages carry different
+          costs without collapsing into one bucket. */}
+      <div className="mb-4">
+        <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>Aşama</label>
+        <div className="grid grid-cols-5 gap-2">
+          {STAGES.map((s) => (
+            <button
+              key={s}
+              onClick={() => setStage(s)}
+              data-testid={`bina-stage-btn-${s}`}
+              aria-pressed={stage === s}
+              className={`py-2 rounded font-bold uppercase bina-level-btn ${stage === s ? "active" : ""}`}
+              style={{
+                fontFamily: "Cinzel, serif",
+                letterSpacing: "0.08em",
+                fontSize: 13,
+              }}
+            >
+              {s}
             </button>
           ))}
         </div>
@@ -179,6 +207,7 @@ export default function BuildingCalculator() {
         <BinaUnitCostModal
           initialBuilding={building}
           initialLevel={level}
+          initialStage={stage}
           onClose={() => setShowUnitModal(false)}
         />
       )}
@@ -186,14 +215,15 @@ export default function BuildingCalculator() {
   );
 }
 
-function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
+function BinaUnitCostModal({ initialBuilding, initialLevel, initialStage, onClose }) {
   const { t } = useTranslation();
   const [activeBuilding, setActiveBuilding] = useState(initialBuilding);
   const [activeLevel, setActiveLevel] = useState(initialLevel);
+  const [activeStage, setActiveStage] = useState(initialStage || 1);
   const [state, setState] = useState(EMPTY_COSTS);
   const [saving, setSaving] = useState(false);
 
-  const cat = catFor(activeBuilding, activeLevel);
+  const cat = catFor(activeBuilding, activeLevel, activeStage);
   const { data: fetched = EMPTY_COSTS } = useSWR(`/unit-costs/${cat}`, fetcher);
 
   useEffect(() => {
@@ -293,9 +323,9 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
         </div>
 
         {/* Level selector inside modal */}
-        <div className="mb-4">
+        <div className="mb-3">
           <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A" }}>{t("bc_level")}</label>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             {LEVELS.map((lv) => (
               <button
                 key={lv}
@@ -311,6 +341,31 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, onClose }) {
                 }}
               >
                 {lv}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Stage selector inside modal */}
+        <div className="mb-4">
+          <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A" }}>Aşama</label>
+          <div className="grid grid-cols-5 gap-2">
+            {STAGES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setActiveStage(s)}
+                data-testid={`modal-bina-stage-${s}`}
+                className="py-1.5 rounded font-bold text-xs uppercase"
+                style={{
+                  background: activeStage === s ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
+                  border: `1px solid ${activeStage === s ? "#F5A623" : "rgba(255,255,255,0.12)"}`,
+                  color: activeStage === s ? "#0B0704" : "#F5F0E8",
+                  fontFamily: "Cinzel, serif",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                {s}
               </button>
             ))}
           </div>

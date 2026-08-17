@@ -6860,6 +6860,54 @@ async def startup():
     except Exception as _e:
         logging.getLogger("server").warning(f"svs index ensure: {_e}")
 
+    # F10 / Aşama seed — every (slug, level, stage) combination gets an empty
+    # unit-cost doc if missing so admins can jump straight into editing. Also
+    # migrates legacy `bina_{slug}_{lvl}` (no stage suffix) → `_a1` variant
+    # so existing F6-F9 data still surfaces on Aşama 1.
+    try:
+        _building_slugs = [
+            "komuta_merkezi", "kalkan_kislasi", "bombaci_kislasi",
+            "tetikci_kislasi", "revir", "iletisim_merkezi", "forticlad_lab",
+        ]
+        _levels = ["f6", "f7", "f8", "f9", "f10"]
+        _empty = {"yemek": 0, "odun": 0, "celik": 0, "benzin": 0,
+                  "sure_saniye": 0, "forticlad": 0, "gelismis_forticlad": 0}
+        migrated = 0
+        seeded = 0
+        for slug in _building_slugs:
+            for lvl in _levels:
+                # Migrate old-format doc into `_a1` if the new key is absent.
+                legacy_key = f"bina_{slug}_{lvl}"
+                legacy_doc = await db.unit_costs.find_one({"category": legacy_key})
+                if legacy_doc:
+                    a1_key = f"{legacy_key}_a1"
+                    a1_doc = await db.unit_costs.find_one({"category": a1_key})
+                    if not a1_doc:
+                        payload = {k: legacy_doc.get(k, 0) for k in _empty.keys()}
+                        payload["category"] = a1_key
+                        await db.unit_costs.update_one(
+                            {"category": a1_key},
+                            {"$setOnInsert": payload},
+                            upsert=True,
+                        )
+                        migrated += 1
+                # Seed empty docs for every stage that doesn't exist yet.
+                for stage in range(1, 6):
+                    cat = f"bina_{slug}_{lvl}_a{stage}"
+                    res = await db.unit_costs.update_one(
+                        {"category": cat},
+                        {"$setOnInsert": {"category": cat, **_empty}},
+                        upsert=True,
+                    )
+                    if res.upserted_id:
+                        seeded += 1
+        if migrated or seeded:
+            logging.getLogger("server").info(
+                f"unit-cost seed: migrated={migrated} seeded={seeded} (5 stages × F6-F10)"
+            )
+    except Exception as _e:
+        logging.getLogger("server").warning(f"F10/stage seed: {_e}")
+
     # Backfill missing `status` field on legacy attendance docs → "attending".
     try:
         r = await db.event_attendance.update_many(
