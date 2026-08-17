@@ -815,3 +815,24 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - `POST /events/bulk-visibility {hidden:false}` → modified=3, all shown ✓
 - UI: selection toggle shows toolbar, per-event checkboxes render, hide/show
   buttons visible with correct counter ✓
+
+## Gizli Etkinlik Filtresi (Feb 17, 2026)
+
+### Frontend (Events.jsx)
+- New `visibilityFilter` state (`all` | `hidden` | `visible`), persisted to
+  `events_visibility_filter` in localStorage.
+- **New visibility filter row** below Kolektif/Bireysel chips:
+  - **🚫 Sadece Gizli (N)** — grey chip; when active shows ONLY
+    `hidden_from_leaderboard === true` events. Counter shows the current
+    hidden queue size within the active tab so admins see it at a glance.
+  - **🏆 Sadece Görünen** — gold chip; opposite direction, useful after
+    a bulk hide operation to double-check what stayed visible.
+- `filteredEvents` now applies the visibility filter as a final step so
+  it composes cleanly with the existing tab (reminded/unreminded/archive)
+  and subFilter (kolektif/bireysel) filters.
+
+### Playwright verified
+- Chip label: `🚫 Sadece Gizli (2)` — counter reflects real count ✓
+- Click "Sadece Gizli" → hidden event visible (badge rendered) ✓
+- Click "Sadece Görünen" → hidden event NOT rendered ✓
+- Persisted preference across reloads (localStorage) ✓
