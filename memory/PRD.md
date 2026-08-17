@@ -836,3 +836,38 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Click "Sadece Gizli" → hidden event visible (badge rendered) ✓
 - Click "Sadece Görünen" → hidden event NOT rendered ✓
 - Persisted preference across reloads (localStorage) ✓
+
+## Gizli Etkinlik Raporu Tab + Bulk Archive (Feb 17, 2026)
+
+### Backend
+- `GET /api/leaderboard?scope=hidden` — new opposite-mode aggregate that
+  ONLY includes events with `hidden_from_leaderboard: true`. Verified end
+  to end: creating a hidden event + adding 42000 points, `scope=hidden`
+  returns the row while `scope=active` still reports 0 for the same
+  member (isolation preserved).
+- `POST /api/events/bulk-archive` accepting `{ids, archived: bool}` —
+  `update_many` in a single round-trip. Verified: 3/3 modified.
+
+### Frontend
+- **Leaderboard.jsx**: New third filter chip **"🚫 GİZLİ"** alongside
+  Active/Archive. When selected the page:
+  - Fetches `/leaderboard?scope=hidden` (member totals from hidden events)
+  - Fetches `/events` (unfiltered) and derives `hiddenEvents` client-side
+  - Renders a dedicated audit panel `hidden-events-audit-panel` with 2-col
+    event cards, muted greyscale palette, and an "N etkinlik" counter
+  - Hides Podium + Active Events grid when this tab is on so the audit
+    view stays focused
+  - Empty state: `hidden-events-empty` placeholder when the guild has no
+    hidden events (default happy path)
+- **Events.jsx**: Bulk toolbar now includes **📦 Arşive Al** (grey chip)
+  and **↩ Arşivden Çıkar** (green chip) alongside the existing
+  Sıralama Dışı / Sıralamaya Ekle pair. Wires to `/events/bulk-archive`.
+
+### Verified
+- curl: bulk-archive `{modified:3, archived:true}` ✓
+- curl: leaderboard `scope=hidden` returns hidden-only points; `scope=active`
+  isolates them ✓
+- UI: `leaderboard-filter-hidden` chip renders, panel or empty-state
+  visible, Podium/Active grid correctly hidden on Gizli tab ✓
+- UI: All 4 bulk toolbar chips ("Arşive Al", "Arşivden Çıkar",
+  "Sıralama Dışı", "Sıralamaya Ekle") present in toolbar ✓

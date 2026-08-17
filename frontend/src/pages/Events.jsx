@@ -1153,6 +1153,21 @@ function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearS
     } finally { setBusy(false); }
   };
 
+  const bulkToggleArchive = async (archived) => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) { toast.error("Önce etkinlik seç"); return; }
+    setBusy(true);
+    try {
+      const res = await api.post("/events/bulk-archive", { ids, archived });
+      mutate((k) => typeof k === "string" && k.startsWith("/events"));
+      toast.success(`${res.data.modified} etkinlik ${archived ? "arşive alındı" : "arşivden çıkarıldı"}`);
+      clearSelection();
+      onDone();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally { setBusy(false); }
+  };
+
   return (
     <div
       data-testid="events-bulk-toolbar"
@@ -1193,6 +1208,28 @@ function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearS
         Temizle
       </button>
       <div className="flex-1" />
+      <button
+        type="button"
+        onClick={() => bulkToggleArchive(true)}
+        disabled={busy || selectedIds.size === 0}
+        data-testid="events-bulk-archive"
+        className="chip text-[10px] flex items-center gap-1"
+        style={{ borderColor: "rgba(148,163,184,0.55)", color: "#E5E7EB", background: "rgba(148,163,184,0.10)" }}
+        title="Seçili etkinlikleri arşive al"
+      >
+        <Archive className="w-3 h-3" /> Arşive Al
+      </button>
+      <button
+        type="button"
+        onClick={() => bulkToggleArchive(false)}
+        disabled={busy || selectedIds.size === 0}
+        data-testid="events-bulk-unarchive"
+        className="chip text-[10px] flex items-center gap-1"
+        style={{ borderColor: "rgba(34,197,94,0.55)", color: "#86EFAC", background: "rgba(34,197,94,0.10)" }}
+        title="Seçili etkinlikleri arşivden çıkar"
+      >
+        <ArchiveRestore className="w-3 h-3" /> Arşivden Çıkar
+      </button>
       <button
         type="button"
         onClick={() => bulkToggleHidden(true)}

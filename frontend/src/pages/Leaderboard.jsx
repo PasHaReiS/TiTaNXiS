@@ -29,8 +29,9 @@ export default function Leaderboard() {
 
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 5000 });
   const { data: groups } = useSWR("/event-groups", fetcher, { refreshInterval: 10000 });
+  const lbScope = filter === "archive" ? "archived" : filter === "hidden" ? "hidden" : "active";
   const { data: lb = [] } = useSWR(
-    `/leaderboard?scope=${filter === "archive" ? "archived" : "active"}${group ? `&group_name=${encodeURIComponent(group)}` : ""}`,
+    `/leaderboard?scope=${lbScope}${group ? `&group_name=${encodeURIComponent(group)}` : ""}`,
     fetcher,
     { refreshInterval: 5000 },
   );
@@ -38,8 +39,20 @@ export default function Leaderboard() {
   const { data: allMembers = [] } = useSWR("/members", fetcher, { refreshInterval: 10000 });
   const { data: archivedEvents = [] } = useSWR(filter === "archive" ? "/events?archived=true" : null, fetcher, { refreshInterval: 15000 });
   const { data: activeEvents = [] } = useSWR(filter === "active" ? "/events?archived=false" : null, fetcher, { refreshInterval: 15000 });
+  // Fetch every event (active + archived) when the audit tab is on so hidden
+  // events from BOTH scopes surface. The SWR key is stable so we don't
+  // duplicate the network call unless the user actually switches tabs.
+  const { data: allEventsForHidden = [] } = useSWR(filter === "hidden" ? "/events" : null, fetcher, { refreshInterval: 15000 });
+  const hiddenEvents = useMemo(
+    () => (allEventsForHidden || []).filter((e) => e.hidden_from_leaderboard),
+    [allEventsForHidden],
+  );
+  const visibleHiddenEvents = useMemo(
+    () => (group ? hiddenEvents.filter((e) => e.group_name === group) : hiddenEvents),
+    [group, hiddenEvents],
+  );
   const { data: groupTotalLb = [] } = useSWR(
-    filter === "archive" && group ? `/leaderboard?scope=archived&group_name=${encodeURIComponent(group)}` : null,
+    (filter === "archive" || filter === "hidden") && group ? `/leaderboard?scope=${lbScope}&group_name=${encodeURIComponent(group)}` : null,
     fetcher,
     { refreshInterval: 15000 },
   );
@@ -65,9 +78,10 @@ export default function Leaderboard() {
       if (!archiveEventId) return null;
       return archivedEvents.find((e) => e.id === archiveEventId)
           || activeEvents.find((e) => e.id === archiveEventId)
+          || hiddenEvents.find((e) => e.id === archiveEventId)
           || null;
     },
-    [archiveEventId, archivedEvents, activeEvents],
+    [archiveEventId, archivedEvents, activeEvents, hiddenEvents],
   );
 
   // Merge zero-point members below scored ones so the whole guild is always listed.
@@ -141,6 +155,20 @@ export default function Leaderboard() {
             onClick={() => setFilter("archive")}
             className={`chip ${filter === "archive" ? "active" : ""}`}
           >{t("archive_upper")}</button>
+          <button
+            data-testid="leaderboard-filter-hidden"
+            onClick={() => setFilter("hidden")}
+            className={`chip ${filter === "hidden" ? "active" : ""}`}
+            style={filter === "hidden" ? {
+              borderColor: "#9CA3AF",
+              color: "#E5E7EB",
+              background: "rgba(107,114,128,0.15)",
+              boxShadow: "0 0 8px rgba(107,114,128,0.35)",
+            } : {}}
+            title="Sadece 'Sıralama dışı' işaretli etkinliklerin puan raporu"
+          >
+            <span aria-hidden="true" style={{ marginRight: 4 }}>🚫</span> GİZLİ
+          </button>
         </div>
 
         {(() => {
@@ -179,7 +207,7 @@ export default function Leaderboard() {
         })()}
 
         {/* Podium — Stone & Fire (always lit) */}
-        {filter !== "archive" && (top3[0] || top3[1] || top3[2]) && (
+        {filter !== "archive" && filter !== "hidden" && (top3[0] || top3[1] || top3[2]) && (
           <div className="mb-6 mt-3 fade-in" style={{ display: "grid", gridTemplateColumns: "0.85fr 1fr 0.85fr", gap: "4px", alignItems: "end" }}>
             {top3[1] && (
               <div
@@ -344,7 +372,7 @@ export default function Leaderboard() {
           </div>
         )}
 
-        {filter !== "archive" && !group && visibleActiveEvents.length > 0 && (
+        {filter !== "archive" && filter !== "hidden" && !group && visibleActiveEvents.length > 0 && (
           <div className="mb-6" data-testid="active-events-grid">
             <div className="section-title heading-cinzel">Aktif Etkinlikler</div>
             <div className="grid grid-cols-2 gap-2">

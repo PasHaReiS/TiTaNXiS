@@ -865,6 +865,11 @@ class BulkVisibilityBody(BaseModel):
     hidden: bool
 
 
+class BulkArchiveBody(BaseModel):
+    ids: List[str]
+    archived: bool
+
+
 @api_router.post("/events/bulk-visibility")
 async def events_bulk_visibility(body: BulkVisibilityBody, _: dict = Depends(require_edit)):
     """Toggle `hidden_from_leaderboard` on many events at once. Used by the
@@ -878,6 +883,23 @@ async def events_bulk_visibility(body: BulkVisibilityBody, _: dict = Depends(req
         {"$set": {"hidden_from_leaderboard": bool(body.hidden)}},
     )
     return {"modified": res.modified_count, "hidden": bool(body.hidden)}
+
+
+@api_router.post("/events/bulk-archive")
+async def events_bulk_archive(body: BulkArchiveBody, _: dict = Depends(require_edit)):
+    """Toggle `archived` on many events in a single update_many call.
+    Powers the "Arşive Al / Arşivden Çıkar" bulk actions in the Events
+    selection toolbar so admins can retire an entire season / group with
+    one click. Points remain untouched (they follow archive state via the
+    leaderboard `scope` filter)."""
+    ids = [i for i in (body.ids or []) if i]
+    if not ids:
+        return {"modified": 0}
+    res = await db.events.update_many(
+        {"id": {"$in": ids}},
+        {"$set": {"archived": bool(body.archived)}},
+    )
+    return {"modified": res.modified_count, "archived": bool(body.archived)}
 
 
 @api_router.post("/events/archive-group")
@@ -1085,11 +1107,14 @@ async def leaderboard(event_id: Optional[str] = None, group_name: Optional[str] 
     if event_id:
         match_stage["event_id"] = event_id
     else:
-        # Combine optional group_name + optional archived/active scope into a single
-        # events-collection query so both filters can apply together. Always
-        # excludes events explicitly marked `hidden_from_leaderboard` so
-        # practice / draft events stay out of the ranking totals.
-        event_query = {"hidden_from_leaderboard": {"$ne": True}}
+        # `scope=hidden` inverts the normal filter — returns totals ONLY for
+        # events explicitly flagged `hidden_from_leaderboard`. Powers the
+        # "Gizli Etkinliklerdeki Puanlar" audit tab on the Leaderboard page.
+        if scope == "hidden":
+            event_query = {"hidden_from_leaderboard": True}
+        else:
+            # Default: exclude hidden events so ranked totals stay clean.
+            event_query = {"hidden_from_leaderboard": {"$ne": True}}
         if group_name:
             event_query["group_name"] = group_name
         if scope in ("active", "archived"):
