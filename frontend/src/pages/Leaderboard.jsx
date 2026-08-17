@@ -275,12 +275,36 @@ export default function Leaderboard() {
               )}
               {visibleGroups.map((g) => {
                 const label = (g.name && String(g.name).trim()) || t("group_untitled");
+                const isActive = group === g.name;
                 return (
                   <button
                     key={label}
                     data-testid={`leaderboard-group-${label}`}
                     onClick={() => setGroup(g.name === group ? null : g.name)}
-                    className={`chip ${group === g.name ? "active" : ""}`}
+                    className={`chip ${isActive ? "active" : ""}`}
+                    style={isActive ? {
+                      padding: "9px 18px",
+                      fontSize: 12,
+                      fontWeight: 800,
+                      letterSpacing: "0.10em",
+                      textTransform: "uppercase",
+                      borderColor: "#F5A623",
+                      color: "#FFF7ED",
+                      background: "linear-gradient(180deg, rgba(245,166,35,0.30), rgba(180,83,9,0.55))",
+                      boxShadow: "0 0 12px rgba(245,166,35,0.55), inset 0 0 10px rgba(245,166,35,0.20)",
+                      textShadow: "0 1px 4px rgba(0,0,0,0.7)",
+                      fontFamily: "Cinzel, serif",
+                    } : {
+                      padding: "9px 18px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      letterSpacing: "0.10em",
+                      textTransform: "uppercase",
+                      borderColor: "rgba(245,166,35,0.55)",
+                      color: "#F5A623",
+                      background: "rgba(30,20,15,0.85)",
+                      fontFamily: "Cinzel, serif",
+                    }}
                   >
                     {label}
                   </button>
@@ -456,7 +480,10 @@ export default function Leaderboard() {
           </div>
         )}
 
-        {filter !== "archive" && !group && visibleActiveEvents.length > 0 && (
+        {/* Active events grid removed per user request — the group chips
+            above the podium now serve as the primary event navigator so
+            the ranking screen isn't buried under a second card grid. */}
+        {false && filter !== "archive" && !group && visibleActiveEvents.length > 0 && (
           <div className="mb-6" data-testid="active-events-grid">
             <div className="section-title heading-cinzel">Aktif Etkinlikler</div>
             <div className="grid grid-cols-1 gap-3">

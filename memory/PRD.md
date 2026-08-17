@@ -1014,3 +1014,12 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Yükleme: `<input type=file accept=.csv>` → parse → `setCompareState` merge, geçersiz satırları atlar
 - Toast bildirimi: "CSV yüklendi (N satır)" / "CSV hatası: ..."
 - Testid'ler: `{scope}-compare-csv-export`, `-import`, `-import-label`
+
+## Sıralama Ekranı — Grid Kaldırıldı + Grup Chip'leri Belirginleşti (Feb 17, 2026)
+- Aktif Etkinlikler 1-kolon card grid'i podyumun altından kaldırıldı (koşul `false &&` ile guard)
+- Aktif/Arşiv altındaki grup chip strip'i öne çıkarıldı:
+  - `Cinzel` serif font + UPPERCASE + `0.10em` letter-spacing
+  - Padding büyütüldü (9px 18px), font 12px, weight 700/800
+  - Aktif chip: altın gradient background + iç/dış glow + text-shadow
+  - Pasif chip: koyu arka plan + altın border (opacity yok)
+- Grup chip'leri artık ana etkinlik navigatörü rolünü tek başına üstleniyor
