@@ -979,3 +979,18 @@ After redeploy, tail `backend.err.log` while triggering a notification:
   - İşaret: `+` veya `-`, 0 ondalık ("+334%")
 - Header + cell testid: `asker-compare-delta-header`, `asker-compare-delta-{key}`
 - Sol kenarı altın border ile ayrılıyor, arka planı diğerlerinden koyu
+
+## Asker Delta Sparkline + Bina A1→A5 Fark Sütunu (Feb 17, 2026)
+
+### Asker Compare — Sparkline üstte
+- `asker-compare-sparklines` panel'i, her malzeme için mini SVG line chart:
+  - 5 nokta + polyline (T6 → T12 sırasında, düşük→yüksek tier)
+  - Trend rengi: `up` yeşil / `down` kırmızı / `flat` gri
+  - Sağda yüzde etiketi (`+334%`, `∞`, `—`)
+- Testid'ler: `asker-compare-sparklines` + satır bazında `asker-compare-spark-{key}`
+
+### Bina Compare — A1→A5 % delta kolonu
+- Tablonun sağına yeni "A1→A5 %" kolonu, Asker'daki T6→T12 kolonuyla aynı UX
+- Formül: `((A5 − A1) / A1) × 100`
+- Aynı edge case'ler: A1=0 → "—" · A1=0 & A5>0 → "∞"
+- Testid'ler: `bina-compare-delta-header` + `bina-compare-delta-{key}`

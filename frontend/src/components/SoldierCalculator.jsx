@@ -623,6 +623,42 @@ function UnitCostModal({ tier, current, onClose }) {
 
         {compareMode ? (
           <div data-testid="asker-compare-table-wrap">
+            {/* Sparkline row — one mini-chart per resource showing the T6→T12
+                trend so admins can eyeball the growth curve before scanning
+                the table numbers. */}
+            <div className="mb-2 rounded p-2" style={{ background: "rgba(20,12,10,0.55)", border: "1px solid rgba(245,166,35,0.22)" }} data-testid="asker-compare-sparklines">
+              <div className="text-[9px] uppercase tracking-widest mb-1.5" style={{ color: "#F5A623", letterSpacing: "0.14em" }}>
+                Trend T6 → T12
+              </div>
+              <div className="grid grid-cols-1 gap-1">
+                {fields.map((f) => {
+                  // Reverse TIERS so the x-axis runs low→high tier (T6→T12).
+                  const series = [...TIERS].reverse().map((tt) => Number((compareState[tt] || {})[f.key]) || 0);
+                  const max = Math.max(1, ...series);
+                  const w = 120, h = 18;
+                  const step = w / (series.length - 1);
+                  const points = series.map((v, i) => `${(i * step).toFixed(1)},${(h - (v / max) * h).toFixed(1)}`).join(" ");
+                  const last = series[series.length - 1];
+                  const first = series[0];
+                  const trend = first === 0 ? (last > 0 ? "up" : "flat") : (last > first ? "up" : last < first ? "down" : "flat");
+                  const color = trend === "up" ? "#4ADE80" : trend === "down" ? "#F87171" : "#94A3B8";
+                  return (
+                    <div key={f.key} className="flex items-center gap-2" data-testid={`asker-compare-spark-${f.key}`}>
+                      <div className="text-[9px] uppercase" style={{ color: "#EAD8B0", minWidth: 55, fontWeight: 700 }}>{f.label}</div>
+                      <svg width={w} height={h} style={{ display: "block" }}>
+                        <polyline points={points} fill="none" stroke={color} strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" />
+                        {series.map((v, i) => (
+                          <circle key={i} cx={(i * step).toFixed(1)} cy={(h - (v / max) * h).toFixed(1)} r="1.6" fill={color} />
+                        ))}
+                      </svg>
+                      <div className="text-[9px] font-mono" style={{ color }}>
+                        {first === 0 ? (last > 0 ? "∞" : "—") : `${last > first ? "+" : ""}${(((last - first) / first) * 100).toFixed(0)}%`}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
             <div className="overflow-x-auto rounded" style={{ border: "1px solid rgba(245,166,35,0.35)" }}>
               <table className="w-full text-[10px]" style={{ borderCollapse: "separate", borderSpacing: 0 }}>
                 <thead>

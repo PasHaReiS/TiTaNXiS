@@ -483,6 +483,12 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, initialStage, onClos
                         A{s}
                       </th>
                     ))}
+                    <th className="text-center px-1.5 py-1.5"
+                        style={{ background: "#2A1815", color: "#FCD34D", fontFamily: "Cinzel, serif", borderBottom: "1px solid rgba(245,166,35,0.55)", minWidth: 60, borderLeft: "1px solid rgba(245,166,35,0.35)" }}
+                        title="A1'den A5'e maliyet artış yüzdesi"
+                        data-testid="bina-compare-delta-header">
+                      A1→A5 %
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -529,6 +535,41 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, initialStage, onClos
                           )}
                         </td>
                       ))}
+                      {(() => {
+                        // A1→A5 percentage delta cell — same UX as the
+                        // Asker Eğitim compare table: positive growth is
+                        // green, drops red, undefined baseline shows "—".
+                        const v1 = Number((compareState[1] || {})[f.key]) || 0;
+                        const v5 = Number((compareState[5] || {})[f.key]) || 0;
+                        let label = "—";
+                        let color = "#94A3B8";
+                        if (v1 !== 0) {
+                          const pct = ((v5 - v1) / v1) * 100;
+                          const sign = pct > 0 ? "+" : "";
+                          label = `${sign}${pct.toFixed(0)}%`;
+                          color = pct > 0 ? "#4ADE80" : pct < 0 ? "#F87171" : "#94A3B8";
+                        } else if (v5 !== 0) {
+                          label = "∞"; color = "#4ADE80";
+                        }
+                        return (
+                          <td
+                            key="delta"
+                            className="text-center font-mono px-1.5 py-1.5"
+                            style={{
+                              background: "rgba(42,24,21,0.65)",
+                              color,
+                              borderTop: "1px solid rgba(255,255,255,0.05)",
+                              borderLeft: "1px solid rgba(245,166,35,0.35)",
+                              fontSize: 11,
+                              fontWeight: 700,
+                            }}
+                            data-testid={`bina-compare-delta-${f.key}`}
+                            title="A1'den A5'e maliyet artış yüzdesi"
+                          >
+                            {label}
+                          </td>
+                        );
+                      })()}
                     </tr>
                   ))}
                 </tbody>
