@@ -437,43 +437,70 @@ export default function Leaderboard() {
         {filter !== "archive" && !group && visibleActiveEvents.length > 0 && (
           <div className="mb-6" data-testid="active-events-grid">
             <div className="section-title heading-cinzel">Aktif Etkinlikler</div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-3">
               {visibleActiveEvents.map((e) => (
                 <button
                   key={e.id}
                   data-testid={`active-event-card-${e.id}`}
                   onClick={() => setArchiveEventId(e.id)}
-                  className="text-left rounded-lg p-3 transition-all hover:scale-[1.02]"
+                  className="text-left rounded-lg overflow-hidden transition-all hover:scale-[1.01] relative"
                   style={{
                     background: "linear-gradient(160deg, rgba(60,30,10,0.85) 0%, rgba(20,12,10,0.92) 100%)",
-                    border: "1px solid rgba(212,115,10,0.45)",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,170,80,0.08)",
+                    border: "1px solid rgba(212,115,10,0.55)",
+                    boxShadow: "0 6px 18px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,170,80,0.10)",
                   }}
                 >
-                  {e.banner_url && (
-                    <img
-                      src={e.banner_url}
-                      alt=""
-                      data-testid={`active-event-card-banner-${e.id}`}
-                      className="w-full h-20 object-cover rounded-md mb-2"
-                      loading="lazy"
-                      onError={(ev) => { ev.currentTarget.style.display = "none"; }}
-                    />
-                  )}
-                  <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "#D4730A", letterSpacing: "0.14em" }}>
-                    {e.group_name || t("event")}
-                  </div>
-                  <div className="text-sm font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }} title={e.name}>
-                    {e.name}
-                  </div>
-                  {e.subtitle && (
-                    <div className="text-[11px] mt-0.5 truncate opacity-80" style={{ color: "#EAD8B0" }} title={e.subtitle}>
-                      {e.subtitle}
+                  {e.banner_url ? (
+                    <div className="relative w-full" style={{ height: 140 }}>
+                      <img
+                        src={e.banner_url}
+                        alt=""
+                        data-testid={`active-event-card-banner-${e.id}`}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        loading="lazy"
+                        onError={(ev) => { ev.currentTarget.style.display = "none"; }}
+                      />
+                      <div className="absolute inset-0" style={{
+                        background: "linear-gradient(180deg, rgba(10,0,21,0) 0%, rgba(10,0,21,0.55) 55%, rgba(10,0,21,0.95) 100%)",
+                      }} />
+                      <div className="absolute left-4 bottom-3 right-4">
+                        <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "#F5A623", letterSpacing: "0.16em", textShadow: "0 1px 4px rgba(0,0,0,0.9)" }}>
+                          {e.group_name || t("event")} · ×{e.multiplier ?? 1}
+                        </div>
+                        <div className="text-lg font-black truncate uppercase" style={{ color: "#FFF7ED", fontFamily: "Cinzel, serif", letterSpacing: "0.04em", textShadow: "0 2px 8px rgba(0,0,0,0.9)" }} title={e.name}>
+                          {e.name}
+                        </div>
+                        {e.subtitle && (
+                          <div className="text-[11px] mt-0.5 truncate opacity-90" style={{ color: "#EAD8B0", textShadow: "0 1px 4px rgba(0,0,0,0.85)" }} title={e.subtitle}>
+                            {e.subtitle}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4">
+                      <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "#D4730A", letterSpacing: "0.16em" }}>
+                        {e.group_name || t("event")} · ×{e.multiplier ?? 1}
+                      </div>
+                      <div className="text-lg font-black truncate uppercase" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.04em" }} title={e.name}>
+                        {e.name}
+                      </div>
+                      {e.subtitle && (
+                        <div className="text-[11px] mt-0.5 truncate opacity-80" style={{ color: "#EAD8B0" }} title={e.subtitle}>
+                          {e.subtitle}
+                        </div>
+                      )}
                     </div>
                   )}
-                  <div className="flex items-center justify-between mt-2 text-[10px]" style={{ color: "#A88060" }}>
-                    <span>{e.date ? String(e.date).slice(0, 10) : "—"}</span>
-                    <span className="font-bold mono" style={{ color: "#E74C1A" }}>×{e.multiplier ?? 1}</span>
+                  <div className="flex items-center justify-between px-4 py-2 text-[11px]" style={{
+                    color: "#A88060",
+                    background: "linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.65))",
+                    borderTop: "1px solid rgba(212,115,10,0.25)",
+                  }}>
+                    <span className="mono">📅 {e.date ? new Date(e.date).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</span>
+                    {e.date && new Date(e.date).getTime() > Date.now() && (
+                      <span className="font-bold" style={{ color: "#F5A623" }}>Aktif</span>
+                    )}
                   </div>
                 </button>
               ))}

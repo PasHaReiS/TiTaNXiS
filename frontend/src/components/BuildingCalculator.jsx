@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
-const LEVELS = ["F9", "F8", "F7", "F6"];
+const LEVELS = ["F10", "F9", "F8", "F7", "F6"];
 
 const BUILDING_SLUGS = [
   "komuta_merkezi",

@@ -901,6 +901,8 @@ export default function Events() {
         open={!!detailId}
         onClose={() => setDetailId(null)}
         onEdit={(e) => { setEditing(e); setShowForm(true); setDetailId(null); }}
+        events={filteredEvents}
+        onNavigate={(id) => setDetailId(id)}
       />
 
       {reminderFor && (
@@ -948,10 +950,46 @@ export default function Events() {
   );
 }
 
-function EventDetailModal({ event, open, onClose, onEdit }) {
+function EventDetailModal({ event, open, onClose, onEdit, events = [], onNavigate }) {
   const { t } = useTranslation();
   const [busy, setBusy] = React.useState(false);
   const [lightbox, setLightbox] = React.useState(false);
+
+  // Sibling navigation — Esc closes the modal, ← / → walk through the
+  // same filteredEvents list currently rendered on the page. We stop when
+  // there's nothing to navigate to instead of wrapping so admins don't
+  // accidentally jump from the last archived event back to the first
+  // active one.
+  const currentIdx = React.useMemo(
+    () => (event ? events.findIndex((x) => x.id === event.id) : -1),
+    [event, events],
+  );
+  const canPrev = currentIdx > 0;
+  const canNext = currentIdx >= 0 && currentIdx < events.length - 1;
+  const goPrev = React.useCallback(() => {
+    if (canPrev && onNavigate) onNavigate(events[currentIdx - 1].id);
+  }, [canPrev, onNavigate, events, currentIdx]);
+  const goNext = React.useCallback(() => {
+    if (canNext && onNavigate) onNavigate(events[currentIdx + 1].id);
+  }, [canNext, onNavigate, events, currentIdx]);
+
+  React.useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => {
+      // When the lightbox is open let its own handler (backdrop click / X)
+      // manage Esc — closing the whole modal on Esc would be jarring.
+      if (lightbox) {
+        if (e.key === "Escape") { setLightbox(false); e.preventDefault(); }
+        return;
+      }
+      if (e.key === "Escape") { onClose(); e.preventDefault(); }
+      else if (e.key === "ArrowLeft") { goPrev(); e.preventDefault(); }
+      else if (e.key === "ArrowRight") { goNext(); e.preventDefault(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, lightbox, onClose, goPrev, goNext]);
+
   if (!open || !event) return null;
 
   const e = event;
@@ -1024,6 +1062,47 @@ function EventDetailModal({ event, open, onClose, onEdit }) {
         >
           <X className="w-4 h-4" />
         </button>
+
+        {(canPrev || canNext) && (
+          <>
+            <button
+              type="button"
+              onClick={goPrev}
+              disabled={!canPrev}
+              data-testid="event-detail-prev"
+              className="absolute top-1/2 -translate-y-1/2 -left-3 md:-left-10 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-opacity"
+              style={{
+                background: "rgba(10,6,5,0.85)",
+                color: canPrev ? "#F5A623" : "#4b5563",
+                border: `1px solid ${canPrev ? "rgba(245,166,35,0.55)" : "rgba(75,85,99,0.35)"}`,
+                opacity: canPrev ? 1 : 0.35,
+                cursor: canPrev ? "pointer" : "default",
+              }}
+              aria-label="Önceki etkinlik"
+              title="← Önceki etkinlik"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={!canNext}
+              data-testid="event-detail-next"
+              className="absolute top-1/2 -translate-y-1/2 -right-3 md:-right-10 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-opacity"
+              style={{
+                background: "rgba(10,6,5,0.85)",
+                color: canNext ? "#F5A623" : "#4b5563",
+                border: `1px solid ${canNext ? "rgba(245,166,35,0.55)" : "rgba(75,85,99,0.35)"}`,
+                opacity: canNext ? 1 : 0.35,
+                cursor: canNext ? "pointer" : "default",
+              }}
+              aria-label="Sonraki etkinlik"
+              title="Sonraki etkinlik →"
+            >
+              ›
+            </button>
+          </>
+        )}
 
         {e.banner_url && (
           <div

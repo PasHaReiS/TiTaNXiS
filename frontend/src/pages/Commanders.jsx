@@ -87,7 +87,7 @@ function rarityCardStyle(rarity) {
   };
 }
 const RARITY_ORDER = { legendary: 3, epic: 2, common: 1 };
-const RANK_ORDER = { S6: 11, S5: 10, S4: 9, S3: 8, S2: 7, S1: 6, R5: 5, R4: 4, R3: 3, R2: 2, R1: 1 };
+const RANK_ORDER = { S7: 12, S6: 11, S5: 10, S4: 9, S3: 8, S2: 7, S1: 6, R5: 5, R4: 4, R3: 3, R2: 2, R1: 1 };
 
 // Shared sort for commander lists:
 //  1) KoF first (S6→S1 among KoF).
@@ -174,10 +174,24 @@ export default function Commanders() {
   }, [allCommanders]);
 
   // Autocomplete pools derived purely from existing data.
+  // We seed the S-tier ladder (S1→S7) as a stable baseline so admins can
+  // pick a rank even when no commander with that rank exists yet. Existing
+  // ranks from the DB are merged in; final order uses RANK_ORDER when
+  // available (highest first) with anything unknown appended alphabetically.
   const allRanks = useMemo(() => {
-    const s = new Set();
+    const s = new Set(["S1", "S2", "S3", "S4", "S5", "S6", "S7"]);
     allCommanders.forEach((c) => { if (c.rank) s.add(c.rank); });
-    return [...s].sort((a, b) => a.localeCompare(b, "tr"));
+    const arr = [...s];
+    const orderIndex = (r) => (RANK_ORDER[r] ?? -1);
+    arr.sort((a, b) => {
+      // S7 has no RANK_ORDER entry — treat it as the highest tier (+12) so
+      // it lands immediately to the right of S6.
+      const oa = a === "S7" ? 12 : orderIndex(a);
+      const ob = b === "S7" ? 12 : orderIndex(b);
+      if (oa !== ob) return ob - oa;
+      return a.localeCompare(b, "tr");
+    });
+    return arr;
   }, [allCommanders]);
   const allCharacters = useMemo(() => {
     const s = new Set();
