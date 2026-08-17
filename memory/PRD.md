@@ -959,3 +959,13 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Yeni SWR fetch: `/calculations?category=asker_egitim_t12` + save sonrası mutate
 - Birim maliyet: T12 için category `asker_egitim_t12`, ilk kayıt PUT ile oluşturulur (backend zaten upsert yapar)
 - Backend endpoint değişikliği gerekmedi — /unit-costs/ upsert paterni kullanılıyor
+
+## Asker Eğitim — 5 Tier Karşılaştırma Görünümü (Feb 17, 2026)
+- `SoldierCalculator.UnitCostModal`: **▦ 5 Tier'ı Karşılaştır** toggle chip'i
+- Compare açıkken tek-tier seçici gizleniyor, yerine 5 kolonlu tablo (T12 · T11 · T8 · T7 · T6):
+  - Satırlar: 5 malzeme (yemek, odun, çelik, benzin, süre)
+  - Sticky ilk kolon (malzeme adı) yatay kaydırmada sabit
+  - Her hücre editable number input, `asker-compare-{key}-{tier}` testid
+- **Sağ tık** veya **⤳** altın chip → değeri sağdaki tüm tier'lara kopyala (T12→T11,T8,T7,T6)
+- **TÜMÜNÜ KAYDET (5 Tier)** butonu `Promise.all` ile 5 PUT paralel gönderir, SWR cache invalidate
+- Curl doğrulama: 5 tier PUT/GET roundtrip başarılı ✓

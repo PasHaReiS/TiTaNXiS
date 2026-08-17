@@ -452,9 +452,73 @@ function UnitCostModal({ tier, current, onClose }) {
   const [activeTier, setActiveTier] = useState(tier);
   const [state, setState] = useState({ yemek: 0, odun: 0, celik: 0, benzin: 0, sure_saniye: 0 });
   const [saving, setSaving] = useState(false);
+  // Compare mode — swaps single-tier editor for a 5-column table (T12→T6)
+  // so admins can eyeball the T6-vs-T12 cost delta and edit any cell.
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareState, setCompareState] = useState({});
   const cat = catFor(activeTier);
 
   const { data: fetched = current } = useSWR(`/unit-costs/${cat}`, fetcher);
+
+  // Parallel fetch every tier only while comparison is on (SWR cache
+  // shared with the single-tier view, so re-open is instant).
+  const c12 = useSWR(compareMode ? `/unit-costs/${catFor("T12")}` : null, fetcher);
+  const c11 = useSWR(compareMode ? `/unit-costs/${catFor("T11")}` : null, fetcher);
+  const c8  = useSWR(compareMode ? `/unit-costs/${catFor("T8")}`  : null, fetcher);
+  const c7  = useSWR(compareMode ? `/unit-costs/${catFor("T7")}`  : null, fetcher);
+  const c6  = useSWR(compareMode ? `/unit-costs/${catFor("T6")}`  : null, fetcher);
+  useEffect(() => {
+    if (!compareMode) return;
+    const norm = (d) => ({
+      yemek: d?.yemek || 0, odun: d?.odun || 0, celik: d?.celik || 0,
+      benzin: d?.benzin || 0, sure_saniye: d?.sure_saniye || 0,
+    });
+    setCompareState({
+      T12: norm(c12.data), T11: norm(c11.data), T8: norm(c8.data),
+      T7: norm(c7.data), T6: norm(c6.data),
+    });
+  }, [compareMode, c12.data, c11.data, c8.data, c7.data, c6.data]);
+
+  const setCompareCell = (tt, key, v) => {
+    setCompareState((prev) => ({ ...prev, [tt]: { ...(prev[tt] || {}), [key]: v } }));
+  };
+
+  // Right-click / ⤳ chip on any cell fans the value out to every tier to
+  // its right (i.e., strictly-lower tiers, since TIERS is T12→T6 order).
+  const copyRight = (fromTier, key) => {
+    const idx = TIERS.indexOf(fromTier);
+    const dest = TIERS.slice(idx + 1);
+    if (dest.length === 0) { toast.info(`${fromTier} zaten en sağdaki tier`); return; }
+    const v = (compareState[fromTier] || {})[key];
+    setCompareState((prev) => {
+      const next = { ...prev };
+      dest.forEach((tt) => { next[tt] = { ...(next[tt] || {}), [key]: v }; });
+      return next;
+    });
+    toast.success(`${fromTier} → ${dest.join(", ")} (${v || 0})`);
+  };
+
+  const submitCompare = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await Promise.all(TIERS.map((tt) => {
+        const c = compareState[tt] || {};
+        return api.put(`/unit-costs/${catFor(tt)}`, {
+          yemek: Number(c.yemek) || 0,
+          odun: Number(c.odun) || 0,
+          celik: Number(c.celik) || 0,
+          benzin: Number(c.benzin) || 0,
+          sure_saniye: Number(c.sure_saniye) || 0,
+        });
+      }));
+      TIERS.forEach((tt) => globalMutate(`/unit-costs/${catFor(tt)}`));
+      toast.success(`${TIERS.length} tier maliyeti kaydedildi`);
+      onClose();
+    } catch (e2) {
+      toast.error(e2?.response?.data?.detail || e2.message);
+    } finally { setSaving(false); }
+  };
 
   useEffect(() => {
     setState({
@@ -515,7 +579,27 @@ function UnitCostModal({ tier, current, onClose }) {
           {t("sc_unit_cost_title")}
         </h3>
 
-        {/* Tier selector inside modal */}
+        {/* Compare toggle */}
+        <div className="mb-3">
+          <button
+            type="button"
+            onClick={() => setCompareMode((v) => !v)}
+            data-testid="asker-compare-toggle"
+            className="chip text-[10px] w-full justify-center py-2"
+            style={compareMode ? {
+              borderColor: "#F5A623",
+              color: "#FCD34D",
+              background: "rgba(245,166,35,0.15)",
+              boxShadow: "0 0 8px rgba(245,166,35,0.35)",
+            } : { opacity: 0.75 }}
+            title="5 tier'ı yan yana tablo olarak göster / kapat"
+          >
+            {compareMode ? "◧ Tek Tier" : "▦ 5 Tier'ı Karşılaştır"}
+          </button>
+        </div>
+
+        {/* Tier selector inside modal (hidden in compare mode) */}
+        {!compareMode && (
         <div className="grid grid-cols-5 gap-2 mb-4">
           {TIERS.map((tt) => (
             <button
@@ -535,7 +619,91 @@ function UnitCostModal({ tier, current, onClose }) {
             </button>
           ))}
         </div>
+        )}
 
+        {compareMode ? (
+          <div data-testid="asker-compare-table-wrap">
+            <div className="overflow-x-auto rounded" style={{ border: "1px solid rgba(245,166,35,0.35)" }}>
+              <table className="w-full text-[10px]" style={{ borderCollapse: "separate", borderSpacing: 0 }}>
+                <thead>
+                  <tr>
+                    <th className="text-left px-1.5 py-1.5 sticky left-0 z-10"
+                        style={{ background: "#241812", color: "#F5A623", fontFamily: "Cinzel, serif", letterSpacing: "0.06em", borderBottom: "1px solid rgba(245,166,35,0.35)", minWidth: 88 }}>
+                      MALZEME
+                    </th>
+                    {TIERS.map((tt) => (
+                      <th key={tt} className="text-center px-1.5 py-1.5"
+                          style={{ background: "#241812", color: "#F5A623", fontFamily: "Cinzel, serif", borderBottom: "1px solid rgba(245,166,35,0.35)", minWidth: 60 }}>
+                        {tt}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {fields.map((f) => (
+                    <tr key={f.key}>
+                      <td className="px-1.5 py-1.5 sticky left-0"
+                          style={{ background: "#1A1210", color: "#EAD8B0", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                        {f.label}
+                      </td>
+                      {TIERS.map((tt, idx) => (
+                        <td key={tt} className="p-1 relative group" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={(compareState[tt] || {})[f.key] ?? 0}
+                            onChange={(e) => setCompareCell(tt, f.key, e.target.value)}
+                            onContextMenu={(e) => { e.preventDefault(); copyRight(tt, f.key); }}
+                            data-testid={`asker-compare-${f.key}-${tt}`}
+                            title="Sağ tık → sağdaki tüm tier'lara kopyala"
+                            className="w-full text-center rounded font-mono"
+                            style={{ background: "#0F0906", border: "1px solid #333", color: "#F5F0E8", padding: "4px 3px", fontSize: 11 }}
+                          />
+                          {idx < TIERS.length - 1 && (
+                            <button
+                              type="button"
+                              onClick={() => copyRight(tt, f.key)}
+                              data-testid={`asker-compare-copy-right-${f.key}-${tt}`}
+                              className="absolute top-0.5 right-0.5 rounded transition-opacity opacity-0 group-hover:opacity-90 focus:opacity-100"
+                              style={{
+                                width: 14, height: 14,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                background: "rgba(245,166,35,0.85)",
+                                color: "#0B0704",
+                                fontSize: 9,
+                                fontWeight: 900,
+                                lineHeight: 1,
+                              }}
+                              title={`Bu değeri ${TIERS.slice(idx + 1).join(", ")}'a kopyala`}
+                              aria-label={`${tt}'ten sağa kopyala`}
+                            >
+                              ⤳
+                            </button>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="text-[9px] text-muted-foreground mt-1.5 leading-snug">
+              💡 5 tier'ın 1-birim maliyetini yan yana düzenle. Hücreye sağ tık veya <span style={{ color: "#F5A623" }}>⤳</span> düğmesi ile değeri sağdaki tier'lara kopyala. "Tümünü Kaydet" 5 tier'ı tek turda günceller.
+            </div>
+            <button
+              type="button"
+              onClick={submitCompare}
+              disabled={saving}
+              data-testid="save-asker-compare"
+              className="w-full mt-3 py-2.5 rounded-lg text-white font-bold"
+              style={{ background: "linear-gradient(135deg,#C0392B,#E74C1A)" }}
+            >
+              {saving ? t("saving") : "TÜMÜNÜ KAYDET (5 Tier)"}
+            </button>
+          </div>
+        ) : (
+        <>
         {fields.map((f) => (
           <div key={f.key} className="mb-3">
             <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A" }}>{f.label}</label>
@@ -560,6 +728,8 @@ function UnitCostModal({ tier, current, onClose }) {
         >
           {saving ? t("saving") : t("sc_unit_save_tier", { tier: activeTier })}
         </button>
+        </>
+        )}
       </form>
     </div>
   );
