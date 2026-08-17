@@ -994,3 +994,23 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Formül: `((A5 − A1) / A1) × 100`
 - Aynı edge case'ler: A1=0 → "—" · A1=0 & A5>0 → "∞"
 - Testid'ler: `bina-compare-delta-header` + `bina-compare-delta-{key}`
+
+## Bina Sparkline + Tema Rengi + CSV I/O (Feb 17, 2026)
+
+### Bina Compare
+- Panel üstünde Asker'daki gibi SVG sparkline satırları (7 malzeme × A1-A5 polyline + trend rengi + yüzde etiketi)
+- CSV İndir/Yükle chip'leri sparkline panelinin altında
+
+### Delta Rengi — Tema Uyumu
+- `deltaColors()` helper her iki dosyada: `document.documentElement.classList.contains('dark')` bakıp:
+  - Dark: `#4ADE80` (canlı yeşil), `#F87171` (canlı kırmızı), `#94A3B8` (gri)
+  - Light: `#16A34A` (koyu yeşil), `#DC2626` (koyu kırmızı), `#64748B` (koyu gri)
+- Compare delta hücreleri + sparkline polyline'lar aynı paleti kullanıyor
+
+### CSV İçe/Dışa Aktarma
+- Format: `resource,col1,col2,col3,col4,col5` + `# scope` yorum satırı
+- Bina: `bina-{building}-{level}.csv` (kolonlar A1..A5)
+- Asker: `asker-egitim.csv` (kolonlar T12,T11,T8,T7,T6)
+- Yükleme: `<input type=file accept=.csv>` → parse → `setCompareState` merge, geçersiz satırları atlar
+- Toast bildirimi: "CSV yüklendi (N satır)" / "CSV hatası: ..."
+- Testid'ler: `{scope}-compare-csv-export`, `-import`, `-import-label`

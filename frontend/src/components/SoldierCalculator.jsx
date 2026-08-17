@@ -11,6 +11,61 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
 
 const TIERS = ["T12", "T11", "T8", "T7", "T6"];
 const catFor = (tier) => `asker_egitim_${tier.toLowerCase()}`;
+
+function deltaColors() {
+  const dark = typeof document !== "undefined"
+    && document.documentElement.classList.contains("dark");
+  return dark
+    ? ["#4ADE80", "#F87171", "#94A3B8"]
+    : ["#16A34A", "#DC2626", "#64748B"];
+}
+
+function exportCsvAsker(cols, fields, state) {
+  const header = ["resource", ...cols].join(",");
+  const rows = fields.map((f) => [f.key, ...cols.map((c) => (state[c] || {})[f.key] ?? 0)].join(","));
+  const csv = ["# asker_egitim", header, ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "asker-egitim.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importCsvAsker(e, cols, fields, setter) {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const text = String(reader.result || "").trim();
+      const lines = text.split(/\r?\n/).filter((l) => l && !l.startsWith("#"));
+      if (lines.length < 2) throw new Error("CSV çok kısa");
+      const rows = lines.slice(1).map((l) => l.split(","));
+      const next = {};
+      cols.forEach((c) => { next[c] = {}; });
+      const validKeys = new Set(fields.map((f) => f.key));
+      rows.forEach((r) => {
+        const key = (r[0] || "").trim();
+        if (!validKeys.has(key)) return;
+        cols.forEach((c, i) => {
+          const v = Number(r[i + 1]);
+          if (!Number.isNaN(v)) next[c][key] = v;
+        });
+      });
+      setter((prev) => {
+        const merged = { ...prev };
+        cols.forEach((c) => { merged[c] = { ...(prev[c] || {}), ...(next[c] || {}) }; });
+        return merged;
+      });
+      toast.success(`CSV yüklendi (${rows.length} satır)`);
+    } catch (err) {
+      toast.error(`CSV hatası: ${err.message}`);
+    }
+  };
+  reader.readAsText(file);
+}
 const fmt = (n) => Number(n || 0).toLocaleString("tr-TR");
 const pad2 = (n) => String(Math.max(0, Math.floor(n))).padStart(2, "0");
 
@@ -640,8 +695,9 @@ function UnitCostModal({ tier, current, onClose }) {
                   const points = series.map((v, i) => `${(i * step).toFixed(1)},${(h - (v / max) * h).toFixed(1)}`).join(" ");
                   const last = series[series.length - 1];
                   const first = series[0];
+                  const [green, red, gray] = deltaColors();
                   const trend = first === 0 ? (last > 0 ? "up" : "flat") : (last > first ? "up" : last < first ? "down" : "flat");
-                  const color = trend === "up" ? "#4ADE80" : trend === "down" ? "#F87171" : "#94A3B8";
+                  const color = trend === "up" ? green : trend === "down" ? red : gray;
                   return (
                     <div key={f.key} className="flex items-center gap-2" data-testid={`asker-compare-spark-${f.key}`}>
                       <div className="text-[9px] uppercase" style={{ color: "#EAD8B0", minWidth: 55, fontWeight: 700 }}>{f.label}</div>
@@ -657,6 +713,22 @@ function UnitCostModal({ tier, current, onClose }) {
                     </div>
                   );
                 })}
+              </div>
+              <div className="flex gap-1.5 mt-2">
+                <button type="button" onClick={() => exportCsvAsker(TIERS, fields, compareState)}
+                  data-testid="asker-compare-csv-export"
+                  className="chip text-[9px] flex-1 justify-center py-1"
+                  style={{ borderColor: "rgba(74,222,128,0.55)", color: "#4ADE80" }}
+                >📥 CSV İndir</button>
+                <label
+                  className="chip text-[9px] flex-1 justify-center py-1 cursor-pointer"
+                  style={{ borderColor: "rgba(147,197,253,0.55)", color: "#93C5FD" }}
+                  data-testid="asker-compare-csv-import-label"
+                >
+                  📤 CSV Yükle
+                  <input type="file" accept=".csv" data-testid="asker-compare-csv-import" className="hidden"
+                    onChange={(e) => importCsvAsker(e, TIERS, fields, setCompareState)} />
+                </label>
               </div>
             </div>
             <div className="overflow-x-auto rounded" style={{ border: "1px solid rgba(245,166,35,0.35)" }}>
@@ -732,17 +804,18 @@ function UnitCostModal({ tier, current, onClose }) {
                         // we show "—" instead of Infinity.
                         const v6  = Number((compareState.T6  || {})[f.key]) || 0;
                         const v12 = Number((compareState.T12 || {})[f.key]) || 0;
+                        const [green, red, gray] = deltaColors();
                         let label = "—";
-                        let color = "#94A3B8";
+                        let color = gray;
                         if (v6 !== 0) {
                           const pct = ((v12 - v6) / v6) * 100;
                           const sign = pct > 0 ? "+" : "";
                           label = `${sign}${pct.toFixed(0)}%`;
-                          color = pct > 0 ? "#4ADE80" : pct < 0 ? "#F87171" : "#94A3B8";
+                          color = pct > 0 ? green : pct < 0 ? red : gray;
                         } else if (v12 !== 0) {
                           // T6=0 but T12 non-zero → "∞" growth (only-T12 cost)
                           label = "∞";
-                          color = "#4ADE80";
+                          color = green;
                         }
                         return (
                           <td

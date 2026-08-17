@@ -27,6 +27,69 @@ const EMPTY_COSTS = {
 };
 
 const catFor = (slug, lvl, stage) => `bina_${slug}_${lvl.toLowerCase()}_a${stage}`;
+
+// Theme-aware delta palette. In dark mode (default) we use vivid tailwind
+// 400-level greens/reds so the tiny +/- numbers punch through the dark
+// backdrop. Light mode gets deeper 600-level tones to keep contrast on
+// pale backgrounds.
+function deltaColors() {
+  const dark = typeof document !== "undefined"
+    && document.documentElement.classList.contains("dark");
+  return dark
+    ? ["#4ADE80", "#F87171", "#94A3B8"]   // dark: bright
+    : ["#16A34A", "#DC2626", "#64748B"];  // light: deep
+}
+
+// CSV export/import helpers shared with the Asker compare table. Format:
+//   scope,building,level,resource,col1,col2,col3,col4,col5
+// where the col header row lists the tier / stage labels; rows are one
+// per resource. Round-trip safe.
+function exportCsv(scope, building, level, cols, fields, state) {
+  const header = ["resource", ...cols.map((c) => scope === "bina" ? `A${c}` : c)].join(",");
+  const rows = fields.map((f) => [f.key, ...cols.map((c) => (state[c] || {})[f.key] ?? 0)].join(","));
+  const csv = [`# ${scope} ${building || ""} ${level || ""}`.trim(), header, ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${scope}${building ? "-" + building : ""}${level ? "-" + level : ""}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importCsv(e, cols, fields, setter) {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const text = String(reader.result || "").trim();
+      const lines = text.split(/\r?\n/).filter((l) => l && !l.startsWith("#"));
+      if (lines.length < 2) throw new Error("CSV çok kısa");
+      const rows = lines.slice(1).map((l) => l.split(","));
+      const next = {};
+      cols.forEach((c) => { next[c] = {}; });
+      const validKeys = new Set(fields.map((f) => f.key));
+      rows.forEach((r) => {
+        const key = (r[0] || "").trim();
+        if (!validKeys.has(key)) return;
+        cols.forEach((c, i) => {
+          const v = Number(r[i + 1]);
+          if (!Number.isNaN(v)) next[c][key] = v;
+        });
+      });
+      setter((prev) => {
+        const merged = { ...prev };
+        cols.forEach((c) => { merged[c] = { ...(prev[c] || {}), ...(next[c] || {}) }; });
+        return merged;
+      });
+      toast.success(`CSV yüklendi (${rows.length} satır)`);
+    } catch (err) {
+      toast.error(`CSV hatası: ${err.message}`);
+    }
+  };
+  reader.readAsText(file);
+}
 const fmt = (n) => Number(n || 0).toLocaleString("tr-TR");
 const pad2 = (n) => String(Math.max(0, Math.floor(n))).padStart(2, "0");
 
@@ -469,6 +532,55 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, initialStage, onClos
 
         {compareMode ? (
           <div className="mb-2" data-testid="bina-compare-table-wrap">
+            {/* Sparkline row per resource — visualizes the A1→A5 trend for
+                each cost so admins can spot lopsided curves at a glance. */}
+            <div className="mb-2 rounded p-2" style={{ background: "rgba(20,12,10,0.55)", border: "1px solid rgba(245,166,35,0.22)" }} data-testid="bina-compare-sparklines">
+              <div className="text-[9px] uppercase tracking-widest mb-1.5" style={{ color: "#F5A623", letterSpacing: "0.14em" }}>
+                Trend A1 → A5
+              </div>
+              <div className="grid grid-cols-1 gap-1">
+                {fields.map((f) => {
+                  const series = STAGES.map((s) => Number((compareState[s] || {})[f.key]) || 0);
+                  const max = Math.max(1, ...series);
+                  const w = 120, h = 18;
+                  const step = w / (series.length - 1);
+                  const points = series.map((v, i) => `${(i * step).toFixed(1)},${(h - (v / max) * h).toFixed(1)}`).join(" ");
+                  const first = series[0], last = series[series.length - 1];
+                  const [green, red, gray] = deltaColors();
+                  const color = first === 0 ? (last > 0 ? green : gray) : (last > first ? green : last < first ? red : gray);
+                  return (
+                    <div key={f.key} className="flex items-center gap-2" data-testid={`bina-compare-spark-${f.key}`}>
+                      <div className="text-[9px] uppercase" style={{ color: "#EAD8B0", minWidth: 70, fontWeight: 700 }}>{f.label}</div>
+                      <svg width={w} height={h} style={{ display: "block" }}>
+                        <polyline points={points} fill="none" stroke={color} strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" />
+                        {series.map((v, i) => (
+                          <circle key={i} cx={(i * step).toFixed(1)} cy={(h - (v / max) * h).toFixed(1)} r="1.6" fill={color} />
+                        ))}
+                      </svg>
+                      <div className="text-[9px] font-mono" style={{ color }}>
+                        {first === 0 ? (last > 0 ? "∞" : "—") : `${last > first ? "+" : ""}${(((last - first) / first) * 100).toFixed(0)}%`}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex gap-1.5 mt-2">
+                <button type="button" onClick={() => exportCsv("bina", activeBuilding, activeLevel, STAGES, fields, compareState)}
+                  data-testid="bina-compare-csv-export"
+                  className="chip text-[9px] flex-1 justify-center py-1"
+                  style={{ borderColor: "rgba(74,222,128,0.55)", color: "#4ADE80" }}
+                >📥 CSV İndir</button>
+                <label
+                  className="chip text-[9px] flex-1 justify-center py-1 cursor-pointer"
+                  style={{ borderColor: "rgba(147,197,253,0.55)", color: "#93C5FD" }}
+                  data-testid="bina-compare-csv-import-label"
+                >
+                  📤 CSV Yükle
+                  <input type="file" accept=".csv" data-testid="bina-compare-csv-import" className="hidden"
+                    onChange={(e) => importCsv(e, STAGES, fields, setCompareState)} />
+                </label>
+              </div>
+            </div>
             <div className="overflow-x-auto rounded" style={{ border: "1px solid rgba(245,166,35,0.35)" }}>
               <table className="w-full text-[10px]" style={{ borderCollapse: "separate", borderSpacing: 0 }}>
                 <thead>
@@ -541,15 +653,16 @@ function BinaUnitCostModal({ initialBuilding, initialLevel, initialStage, onClos
                         // green, drops red, undefined baseline shows "—".
                         const v1 = Number((compareState[1] || {})[f.key]) || 0;
                         const v5 = Number((compareState[5] || {})[f.key]) || 0;
+                        const [green, red, gray] = deltaColors();
                         let label = "—";
-                        let color = "#94A3B8";
+                        let color = gray;
                         if (v1 !== 0) {
                           const pct = ((v5 - v1) / v1) * 100;
                           const sign = pct > 0 ? "+" : "";
                           label = `${sign}${pct.toFixed(0)}%`;
-                          color = pct > 0 ? "#4ADE80" : pct < 0 ? "#F87171" : "#94A3B8";
+                          color = pct > 0 ? green : pct < 0 ? red : gray;
                         } else if (v5 !== 0) {
-                          label = "∞"; color = "#4ADE80";
+                          label = "∞"; color = green;
                         }
                         return (
                           <td
