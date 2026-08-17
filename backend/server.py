@@ -1630,6 +1630,12 @@ async def seed_data(force: bool = False, _: dict = Depends(require_admin)):
 
 
 # ---------- Uploads ----------
+# Legacy local-disk directory kept for backward compatibility so any
+# `/api/uploads/<legacy-filename>.png` URLs stored in Mongo before the
+# object-storage migration keep serving. New uploads (below) go straight
+# to Emergent Object Store via routes.uploads._put_object → same path
+# the rest of the app (VIP attachments, event banners, image dropzone)
+# already uses.
 UPLOADS_DIR = Path("/app/uploads")
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -1638,24 +1644,54 @@ MAX_UPLOAD_BYTES = 8 * 1024 * 1024  # 8MB
 
 
 @api_router.post("/upload")
-async def upload_image(file: UploadFile = File(...), _: dict = Depends(require_edit)):
-    ext = Path(file.filename or "").suffix.lower()
-    if ext not in ALLOWED_IMG_EXT:
-        # try infer from content type
+async def upload_image(file: UploadFile = File(...), user: dict = Depends(require_edit)):
+    """Persist a commander/hero art image to Emergent Object Store and
+    register it in the shared `files` collection so the same `/api/uploads/
+    {file_id}` route (from routes.uploads) can stream it back later.
+
+    Response shape is intentionally the superset of what the old local-disk
+    variant returned — `url`, `filename`, `size` — plus `id` and
+    `content_type` so newer frontend code can adopt the file-id contract
+    without breaking legacy callers that only read `res.data.url`.
+    """
+    from routes.uploads import _put_object, ALLOWED_EXT, MAX_BYTES, MIME_BY_EXT, APP_NAME
+
+    filename = file.filename or "upload"
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext not in ALLOWED_EXT:
+        # Fall back to content-type sniffing so drag-drop without extension works.
         guessed = mimetypes.guess_extension((file.content_type or "").split(";")[0]) or ""
-        ext = guessed.lower() if guessed.lower() in ALLOWED_IMG_EXT else ""
+        ext = guessed.lstrip(".").lower() if guessed.lstrip(".").lower() in ALLOWED_EXT else ""
         if not ext:
-            raise HTTPException(400, f"Unsupported image type: {file.content_type or file.filename}")
-    contents = await file.read()
-    if len(contents) > MAX_UPLOAD_BYTES:
-        raise HTTPException(413, f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)}MB)")
-    if not contents:
+            raise HTTPException(400, f"Unsupported image type: {file.content_type or filename}")
+    data = await file.read()
+    if not data:
         raise HTTPException(400, "Empty file")
-    fname = f"{uuid.uuid4().hex}{ext}"
-    dest = UPLOADS_DIR / fname
-    with dest.open("wb") as f:
-        f.write(contents)
-    return {"url": f"/api/uploads/{fname}", "filename": fname, "size": len(contents)}
+    if len(data) > MAX_BYTES:
+        raise HTTPException(413, f"File too large (max {MAX_BYTES // (1024 * 1024)}MB)")
+
+    content_type = MIME_BY_EXT.get(ext, file.content_type or "application/octet-stream")
+    file_id = uuid.uuid4().hex
+    path = f"{APP_NAME}/uploads/{user['id']}/{file_id}.{ext}"
+    result = _put_object(path, data, content_type)
+    await db.files.insert_one({
+        "id": file_id,
+        "storage_path": result["path"],
+        "original_filename": filename,
+        "content_type": content_type,
+        "size": len(data),
+        "owner_id": user["id"],
+        "purpose": "commander",
+        "is_deleted": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {
+        "url": f"/api/uploads/{file_id}",
+        "filename": filename,
+        "size": len(data),
+        "id": file_id,
+        "content_type": content_type,
+    }
 
 
 # ---------- Full DB export (3-sheet .xlsx) ----------

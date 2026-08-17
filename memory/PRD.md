@@ -914,3 +914,12 @@ After redeploy, tail `backend.err.log` while triggering a notification:
   sağ tıkta info toast göstererek uyarı veriyor
 - `A2` en sağdaysa `toast.info("zaten en sağdaki aşama")`
 - Curl doğrulama: A2=777, A3-A5=0 seed → 3 paralel PUT → A3-A5=[777,777,777] ✓
+
+## /api/upload → Emergent Object Store (Feb 17, 2026)
+- `POST /api/upload` (komutan/hero resimleri) artık yerel diskten `/app/uploads`'a yazmıyor
+- `routes.uploads._put_object` helper'ı ile Emergent Object Store'a yükleniyor (VIP/event/dropzone gibi)
+- Response şeması geriye uyumlu: `{url, filename, size}` korundu + yeni alanlar `id`, `content_type`
+- URL formatı: `/api/uploads/{file_id}` (`routes.uploads` içindeki GET route Object Store'dan stream ediyor)
+- MongoDB `files` collection'a kayıt: `{id, storage_path, original_filename, content_type, size, owner_id, purpose:"commander", is_deleted, created_at}`
+- Legacy `UPLOADS_DIR` mount'u korundu, eski `/api/uploads/xxx.png` URL'leri sağlam çalışıyor (fallback path)
+- Curl doğrulama: 200 upload, roundtrip 200 (592/592 bytes, image/png), local disk'te dosya YOK ✓
