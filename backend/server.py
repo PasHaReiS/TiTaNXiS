@@ -144,6 +144,11 @@ class Event(BaseModel):
     # When True the event is hidden from every leaderboard / group aggregate.
     # Used for practice/test/hidden events so the ranking stays clean.
     hidden_from_leaderboard: bool = False
+    # When False, this event's row is hidden inside the leaderboard's group
+    # breakdown panel (▶ expand). The event still counts toward the group's
+    # total points — only the per-event line item is suppressed. Default
+    # True so existing events stay visible without a migration.
+    show_breakdown: bool = True
     # Optional archive folder id — when set the event surfaces inside that
     # folder on the Events archive tab and the Leaderboard archive folder
     # picker. Null means "not in any folder" (top-level of the archive).
@@ -169,6 +174,7 @@ class EventCreate(BaseModel):
     archived: Optional[bool] = False
     reminder_enabled: Optional[bool] = True
     hidden_from_leaderboard: Optional[bool] = False
+    show_breakdown: Optional[bool] = True
     folder_id: Optional[str] = None
     # Recurrence — when count > 1 the backend expands into that many events,
     # first at `date`, each subsequent one shifted by `interval`. `interval`
@@ -188,6 +194,7 @@ class EventUpdate(BaseModel):
     archived: Optional[bool] = None
     reminder_enabled: Optional[bool] = None
     hidden_from_leaderboard: Optional[bool] = None
+    show_breakdown: Optional[bool] = None
     folder_id: Optional[str] = None
     # Same fields as create — when supplied on PATCH the backend will spawn
     # additional future events after the current one (without touching the

@@ -1825,6 +1825,9 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
   const [hiddenFromLb, setHiddenFromLb] = useState(
     initial ? !!initial.hidden_from_leaderboard : false,
   );
+  const [showBreakdown, setShowBreakdown] = useState(
+    initial ? initial.show_breakdown !== false : true,
+  );
   const [recurInterval, setRecurInterval] = useState("none");
   const [recurCount, setRecurCount] = useState(4);
   // When editing an event that belongs to a series, this toggle routes the
@@ -1862,6 +1865,7 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
         banner_url: banner[0]?.url || null,
         reminder_enabled: reminderEnabled,
         hidden_from_leaderboard: hiddenFromLb,
+        show_breakdown: showBreakdown,
         recurrence_interval: recurInterval,
         recurrence_count: Number(recurCount) || 1,
       };
@@ -2111,6 +2115,28 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
                 {hiddenFromLb
                   ? "Bu etkinlik sıralamadan gizlenir — puan girilebilir ama toplama katılmaz."
                   : "Bu etkinliğe eklenen puanlar Sıralama sayfasında toplama dahil edilir."}
+              </span>
+            </span>
+          </label>
+        </div>
+
+        <div className="mt-3 rounded p-3" style={{ background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.30)" }} data-testid="event-form-breakdown-toggle">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showBreakdown}
+              onChange={(e) => setShowBreakdown(e.target.checked)}
+              data-testid="event-form-breakdown-checkbox"
+              className="cursor-pointer"
+            />
+            <span className="flex-1">
+              <span className="block text-sm font-bold text-white">
+                🔍 Alt detaylar görünsün mü?
+              </span>
+              <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
+                {showBreakdown
+                  ? "Sıralamada grubun ▶ paneli açıldığında bu etkinlik puanıyla listelenir."
+                  : "Bu etkinlik grubun ▶ panelinde gizli — puan yine grup toplamına katılır ama tek tek görünmez."}
               </span>
             </span>
           </label>

@@ -379,6 +379,7 @@ export default function Leaderboard() {
             : visibleActiveEvents.map((e) => ({ key: e.id, label: e.name, isGroup: false, event: e }));
           const isSelected = (it) => it.isGroup ? group === it.key : activeEventId === it.event.id;
           const expandedGn = Object.keys(expandedActiveGroups).filter((k) => expandedActiveGroups[k] && groupNames.includes(k));
+          const breakdownableFor = (gn) => visibleActiveEvents.filter((e) => e.group_name === gn && e.show_breakdown !== false);
           return (
           <>
           <div
@@ -432,7 +433,7 @@ export default function Leaderboard() {
                   >
                     {it.isGroup ? "🤝 " : ""}{it.label}
                   </button>
-                  {it.isGroup && (
+                  {it.isGroup && breakdownableFor(it.key).length > 0 && (
                     <button
                       type="button"
                       data-testid={`leaderboard-active-group-expand-${it.key}`}
@@ -474,8 +475,7 @@ export default function Leaderboard() {
               }}
             >
               {expandedGn.map((gn) => {
-                const evs = visibleActiveEvents
-                  .filter((e) => e.group_name === gn)
+                const evs = breakdownableFor(gn)
                   .sort((a, b) => new Date(a.date) - new Date(b.date));
                 return (
                   <div key={gn} className="flex flex-col gap-1" data-testid={`leaderboard-active-group-events-${gn}`}>
