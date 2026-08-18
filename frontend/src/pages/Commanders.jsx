@@ -921,9 +921,18 @@ function CommanderLightbox({ commander, commanderById, onClose }) {
               />
             );
           }
-          // 2+ images: 2-column grid, 3rd centered spans full row if odd
-          const isOddThree = imgs.length === 3;
-          return (
+        // 2+ images: 2-column grid, 3rd centered spans full row if odd.
+        // Historically each img used `max-h-[42vh]` — on small screens with
+        // 4-5 images the row heights collapsed and images visually
+        // disappeared. We now wrap the grid in a scrollable container and
+        // give each image a stable aspect-ratio so they always render.
+        const isOddThree = imgs.length === 3;
+        return (
+          <div
+            className="w-full overflow-y-auto"
+            style={{ maxHeight: "68vh" }}
+            data-testid="lightbox-image-grid-wrap"
+          >
             <div
               className="grid grid-cols-2 w-full"
               style={{ gap: 8 }}
@@ -941,15 +950,20 @@ function CommanderLightbox({ commander, commanderById, onClose }) {
                       src={resolveImageUrl(url)}
                       alt={`${commander.name} ${i + 1}`}
                       onClick={openPreview(i)}
-                      className="w-full max-h-[42vh] object-contain rounded-lg border-2 border-primary/40 cursor-zoom-in bg-black/40"
-                      style={spanBoth ? { maxWidth: "50%" } : undefined}
+                      className="w-full object-contain rounded-lg border-2 border-primary/40 cursor-zoom-in bg-black/40"
+                      style={{
+                        aspectRatio: "1 / 1",
+                        maxWidth: spanBoth ? "50%" : undefined,
+                        minHeight: 120,
+                      }}
                       data-testid={`lightbox-img-${i}`}
                     />
                   </div>
                 );
               })}
             </div>
-          );
+          </div>
+        );
         })()}
 
         <div className="w-full mt-4 text-center px-2">

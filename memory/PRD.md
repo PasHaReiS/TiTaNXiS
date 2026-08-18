@@ -1023,3 +1023,9 @@ After redeploy, tail `backend.err.log` while triggering a notification:
   - Aktif chip: altın gradient background + iç/dış glow + text-shadow
   - Pasif chip: koyu arka plan + altın border (opacity yok)
 - Grup chip'leri artık ana etkinlik navigatörü rolünü tek başına üstleniyor
+
+## Garnizon Komutan Lightbox — 4-5 Görsel Fix (Feb 17, 2026)
+- Sorun: `max-h-[42vh]` her görsele veriyordu → 4-5 görsel yüklendiğinde row height collapse, görseller kayboluyordu
+- Fix: Grid wrapper `overflow-y-auto maxHeight:68vh` scrollable oldu
+- Her görsel: `aspectRatio: "1 / 1"` + `minHeight: 120px` → stabil layout, hiç kaybolmuyor
+- 3 görsel özel case (spanBoth) korundu — üçüncü ortalı çıkıyor
