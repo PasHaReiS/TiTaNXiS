@@ -678,6 +678,18 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                       {allianceNames.map((n) => {
                         const c = allianceColor(n);
                         const isActive = allianceFilter.toLowerCase() === n.toLowerCase();
+                        // Count preview rows currently belonging to this alliance
+                        // (respects manual edits + [TAG] fallback + excludes struck rows).
+                        const count = rows.reduce((acc, r, i) => {
+                          if (excludedRows.has(i)) return acc;
+                          const patched = rowEdits[i] || {};
+                          let a = patched.alliance_name !== undefined ? patched.alliance_name : r.alliance_name;
+                          if (!a) {
+                            const mm = /^\s*\[([^\]]+)\]/.exec(String(patched.name ?? r.name ?? ""));
+                            if (mm) a = mm[1].trim();
+                          }
+                          return String(a || "").toLowerCase() === n.toLowerCase() ? acc + 1 : acc;
+                        }, 0);
                         return (
                           <button
                             key={n}
@@ -692,8 +704,9 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               color: "#F5F0E8",
                               boxShadow: isActive && c ? `0 0 6px ${c}77` : "none",
                               cursor: "pointer",
+                              opacity: count === 0 ? 0.45 : 1,
                             }}
-                            title={isActive ? `${n} filtresi aktif — tıkla temizle` : `Tabloyu sadece ${n} üyelerine filtrele`}
+                            title={isActive ? `${n} filtresi aktif — tıkla temizle` : `Tabloyu sadece ${n} üyelerine filtrele (${count})`}
                             data-testid={`ocr-alliance-legend-${n.replace(/\s+/g,'_')}`}
                           >
                             <span
@@ -707,6 +720,17 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               }}
                             />
                             {n}
+                            <span
+                              className="mono font-bold text-[9px] px-1 rounded"
+                              style={{
+                                background: "rgba(0,0,0,0.35)",
+                                color: count > 0 ? (c || "#F5A623") : "#94A3B8",
+                                minWidth: 16, textAlign: "center",
+                              }}
+                              data-testid={`ocr-alliance-legend-count-${n.replace(/\s+/g,'_')}`}
+                            >
+                              {count}
+                            </span>
                           </button>
                         );
                       })}
@@ -855,6 +879,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             if (String(a || "").toLowerCase() !== allianceFilter.toLowerCase()) return null;
                           }
                           const isExcluded = excludedRows.has(i);
+                          const isAutoApplied = autoAppliedRows.includes(i) && rowEdits[i]?.name !== undefined;
                           const toggleExclude = () => setExcludedRows((prev) => {
                             const nx = new Set(prev);
                             nx.has(i) ? nx.delete(i) : nx.add(i);
@@ -865,7 +890,14 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             key={i}
                             className="border-t border-white/5"
                             data-testid={`ocr-row-${i}`}
-                            style={isExcluded ? { opacity: 0.35, textDecoration: "line-through" } : undefined}
+                            style={{
+                              ...(isExcluded ? { opacity: 0.35, textDecoration: "line-through" } : {}),
+                              ...(isAutoApplied && !isExcluded ? {
+                                borderLeft: "3px solid #FCD34D",
+                                background: "linear-gradient(90deg, rgba(245,166,35,0.10), transparent 40%)",
+                              } : {}),
+                            }}
+                            title={isAutoApplied ? "Otomatik bağlandı — düzenlersen bu vurgu kalkar" : undefined}
                           >
                             {(mode === "members" || mode === "event") && (
                               <td className="text-center py-1">
