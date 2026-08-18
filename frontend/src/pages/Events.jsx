@@ -989,7 +989,7 @@ export default function Events() {
                             : "0 3px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,170,80,0.08)",
                           outline: isDropTarget ? `2px dashed ${c.color}` : "none",
                           outlineOffset: 3,
-                          minHeight: 86,
+                          minHeight: 90,
                           cursor: c.isSpecial ? "pointer" : "grab",
                           opacity: isDrag ? 0.5 : 1,
                         }}
@@ -1020,7 +1020,7 @@ export default function Events() {
                             </div>
                           </CanEdit>
                         )}
-                        <div style={{ fontSize: 28, lineHeight: 1, marginTop: 2 }}>{c.icon}</div>
+                        <div style={{ fontSize: 34, lineHeight: 1, marginTop: 2 }}>{c.icon}</div>
                         <div
                           className="text-[11px] font-bold mt-1 truncate leading-tight"
                           style={{
@@ -1048,12 +1048,12 @@ export default function Events() {
                       style={{
                         background: "rgba(20,12,10,0.4)",
                         border: "2px dashed rgba(245,166,35,0.4)",
-                        minHeight: 86,
+                        minHeight: 90,
                         cursor: "pointer",
                         color: "#F5A623",
                       }}
                     >
-                      <div style={{ fontSize: 28, lineHeight: 1, marginTop: 2 }}>➕</div>
+                      <div style={{ fontSize: 34, lineHeight: 1, marginTop: 2 }}>➕</div>
                       <div className="text-[11px] font-bold mt-1" style={{ fontFamily: "Cinzel, serif", letterSpacing: "0.04em" }}>
                         Yeni Klasör
                       </div>
