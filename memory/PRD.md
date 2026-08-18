@@ -63,8 +63,22 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
     archive card into a 2-pick selection mode (purple numbered badges).
   - Selecting 2 events + tapping "Görüntüle" opens
     `CompareEventsModal` — side-by-side leaderboard diff showing
-    "her ikisinde katılan" (with A/B/diff columns colour-coded),
-    "sadece A", and "sadece B" panels, plus per-event totals.
+    "her ikisinde katılan" (with A/B/diff columns colour-coded plus
+    the event name printed in each column header for clarity),
+    "sadece A · <event>", and "sadece B · <event>" panels, plus
+    per-event totals.
+- **Folder bulk archive quick action** — new
+  `POST /api/event-folders/{folder_id}/bulk-archive` endpoint toggles
+  `archived` on every event inside a folder. When a folder chip is
+  selected on the Events archive tab, a coloured action bar surfaces
+  with "Tümünü Aktife Al" / "Tümünü Arşive Al" buttons so a full season
+  retires or revives with one tap (curl-verified end-to-end).
+- **Archive folder-grouped view** — when no folder chip is active on
+  the Events archive tab, the grid switches from Kolektif/Bireysel
+  split to a folder-grouped layout (one section per folder with its
+  own header, colour tint, event count badge, and "Aç →" shortcut to
+  focus that folder). Events not in any folder land in a "Klasörsüz"
+  group so nothing is lost.
 - **Archive CSV export** — `GET /api/reports/archive-points-export.csv`
   streams a member × event dump (member/alliance/event/date/group/
   multiplier/base_points/final_points) with proper CSV escaping.

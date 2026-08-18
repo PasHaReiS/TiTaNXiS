@@ -771,6 +771,77 @@ export default function Events() {
           </div>
         )}
 
+        {/* Folder-level bulk actions — appear when a specific folder chip is
+            selected. One-tap "arşive al / çıkar" retires or revives the
+            entire folder without opening the bulk-selection toolbar. */}
+        {tab === "archive" && folderId && folderId !== "none" && (() => {
+          const folder = folders.find((f) => f.id === folderId);
+          if (!folder) return null;
+          const bulkFolderArchive = async (archived) => {
+            const label = archived ? "arşive al" : "aktife al";
+            if (!window.confirm(`"${folder.name}" klasöründeki tüm etkinlikleri ${label}?`)) return;
+            try {
+              const res = await api.post(`/event-folders/${folderId}/bulk-archive`, { archived });
+              mutate((k) => typeof k === "string" && k.startsWith("/events"));
+              mutate("/event-folders");
+              mutate("/stats");
+              toast.success(`${res.data.modified} etkinlik ${archived ? "arşive alındı" : "aktife alındı"}`);
+            } catch (e) {
+              toast.error(e?.response?.data?.detail || e.message);
+            }
+          };
+          return (
+            <CanEdit>
+              <div
+                className="flex items-center gap-1.5 mb-3 p-2 rounded-lg flex-wrap"
+                data-testid="events-folder-actions-bar"
+                style={{
+                  background: `${folder.color || "#F5A623"}18`,
+                  border: `1px solid ${folder.color || "rgba(245,166,35,0.45)"}55`,
+                }}
+              >
+                <span
+                  className="text-[10px] font-bold uppercase tracking-widest"
+                  style={{ color: folder.color || "#F5A623", letterSpacing: "0.12em" }}
+                >
+                  📁 {folder.name} · {folder.archived_count || 0} etkinlik
+                </span>
+                <div className="flex-1" />
+                <button
+                  type="button"
+                  data-testid="events-folder-bulk-unarchive"
+                  onClick={() => bulkFolderArchive(false)}
+                  className="chip text-[10px] flex items-center gap-1"
+                  style={{
+                    padding: "5px 10px",
+                    borderColor: "rgba(34,197,94,0.55)",
+                    color: "#86EFAC",
+                    background: "rgba(34,197,94,0.10)",
+                  }}
+                  title="Bu klasördeki tüm etkinlikleri aktife al"
+                >
+                  <ArchiveRestore className="w-3 h-3" /> Tümünü Aktife Al
+                </button>
+                <button
+                  type="button"
+                  data-testid="events-folder-bulk-archive"
+                  onClick={() => bulkFolderArchive(true)}
+                  className="chip text-[10px] flex items-center gap-1"
+                  style={{
+                    padding: "5px 10px",
+                    borderColor: "rgba(148,163,184,0.55)",
+                    color: "#E5E7EB",
+                    background: "rgba(148,163,184,0.10)",
+                  }}
+                  title="Bu klasördeki tümünü tekrar arşive al"
+                >
+                  <Archive className="w-3 h-3" /> Tümünü Arşive Al
+                </button>
+              </div>
+            </CanEdit>
+          );
+        })()}
+
         {view === "calendar" ? (
           <EventCalendar
             events={allActive}
@@ -882,7 +953,9 @@ export default function Events() {
         {/* Sub-filter chips — sit UNDER the primary tabs so the admin can
             narrow the active tab down to just "Kolektif" (grouped) or
             "Bireysel" (ungrouped). Clicking the active chip toggles back
-            to the 2-column split. */}
+            to the 2-column split. Hidden on the archive tab because the
+            folder-grouped view already provides its own grouping. */}
+        {tab !== "archive" && (
         <div
           className="flex gap-1.5 mb-2 flex-wrap"
           data-testid="events-subfilter-bar"
@@ -913,6 +986,7 @@ export default function Events() {
             );
           })}
         </div>
+        )}
 
         {/* Visibility filter row removed — hidden and visible events now
             render together in the list. Each hidden event still shows a
@@ -921,8 +995,9 @@ export default function Events() {
 
         {/* Split preset chips — only visible when both columns show (Tümü
             mode). Quick 30/70, 50/50, 70/30 buttons for admins who prefer
-            snap-to-preset over dragging the middle handle. */}
-        {subFilter === "all" && (
+            snap-to-preset over dragging the middle handle. Hidden on
+            archive since the folder-grouped view uses a single grid. */}
+        {tab !== "archive" && subFilter === "all" && (
           <div className="hidden lg:flex gap-1.5 mb-3" data-testid="events-split-presets">
             <span className="text-[9px] uppercase tracking-widest text-muted-foreground font-bold self-center mr-1">
               Kolon
@@ -957,7 +1032,89 @@ export default function Events() {
         {/* Filtered content — respects the sub-filter chip above. When
             "all", both columns render side-by-side with a resizable split
             handle; otherwise only that column shows full-width. */}
-        {(() => {
+        {tab === "archive" && !folderId ? (
+          /* Archive folder-grouped view — every folder renders as its own
+             section (header + event grid), followed by an "Klasörsüz"
+             group for events not in any folder. Mirrors the "Etkinlikler"
+             page grouped layout so admins land on a familiar structure. */
+          (() => {
+            const byFolder = {};
+            folders.forEach((f) => { byFolder[f.id] = []; });
+            const noFolder = [];
+            filteredEvents.forEach((e) => {
+              if (e.folder_id && byFolder[e.folder_id]) byFolder[e.folder_id].push(e);
+              else noFolder.push(e);
+            });
+            const groups = [
+              ...folders.map((f) => ({ id: f.id, name: f.name, color: f.color, events: byFolder[f.id] })),
+              { id: "__none__", name: "Klasörsüz", color: "#94A3B8", events: noFolder },
+            ].filter((g) => g.events.length > 0);
+            if (groups.length === 0) {
+              return (
+                <div className="card-dark p-6 text-center text-muted-foreground" data-testid="events-archive-empty">
+                  {t("no_events")}
+                </div>
+              );
+            }
+            return (
+              <div className="flex flex-col gap-4" data-testid="events-archive-folder-grouped">
+                {groups.map((g) => (
+                  <section
+                    key={g.id}
+                    data-testid={`events-archive-folder-group-${g.id}`}
+                    className="rounded-lg p-3"
+                    style={{
+                      background: `${g.color}10`,
+                      border: `1px solid ${g.color}55`,
+                    }}
+                  >
+                    <div
+                      className="flex items-center gap-2 mb-2 pb-1.5"
+                      style={{ borderBottom: `1px solid ${g.color}30` }}
+                    >
+                      <span style={{ fontSize: 14 }}>📁</span>
+                      <h3
+                        className="text-xs font-bold uppercase tracking-widest flex-1"
+                        style={{ color: g.color, letterSpacing: "0.12em", fontFamily: "Cinzel, serif" }}
+                      >
+                        {g.name}
+                      </h3>
+                      <span
+                        className="text-[10px] font-bold mono px-2 py-0.5 rounded-full"
+                        style={{ background: `${g.color}20`, color: g.color, border: `1px solid ${g.color}55` }}
+                      >
+                        {g.events.length}
+                      </span>
+                      {g.id !== "__none__" && (
+                        <CanEdit>
+                          <button
+                            type="button"
+                            data-testid={`events-archive-folder-open-${g.id}`}
+                            onClick={() => setFolderId(g.id)}
+                            className="chip text-[9px]"
+                            style={{
+                              padding: "3px 8px",
+                              borderColor: `${g.color}55`,
+                              color: g.color,
+                            }}
+                          >
+                            Aç →
+                          </button>
+                        </CanEdit>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
+                      {g.events.map((e) =>
+                        renderEventCard(e, g.color, "", `archive-folder:${g.id}`)
+                      )}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            );
+          })()
+        ) : (
+        (() => {
           const showGrouped = subFilter === "all" || subFilter === "kolektif";
           const showUngrouped = subFilter === "all" || subFilter === "bireysel";
           const twoCol = showGrouped && showUngrouped;
@@ -1006,7 +1163,8 @@ export default function Events() {
           )}
         </div>
           );
-        })()}
+        })()
+        )}
 
         {events.length === 0 && (
           <div className="card-dark p-6 text-center text-muted-foreground">{t("no_events")}</div>

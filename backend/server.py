@@ -1059,6 +1059,25 @@ class FolderReorderBody(BaseModel):
     ids: List[str]
 
 
+class FolderBulkArchiveBody(BaseModel):
+    archived: bool
+
+
+@api_router.post("/event-folders/{folder_id}/bulk-archive")
+async def bulk_archive_folder(folder_id: str, body: FolderBulkArchiveBody, _: dict = Depends(require_edit)):
+    """Toggle `archived` on every event in a folder. Powers the folder chip
+    strip's "Tümünü arşive al / çıkar" quick action — one tap retires or
+    revives an entire season without opening the bulk-selection toolbar."""
+    exists = await db.event_folders.find_one({"id": folder_id}, {"_id": 0, "id": 1})
+    if not exists:
+        raise HTTPException(404, "folder not found")
+    res = await db.events.update_many(
+        {"folder_id": folder_id},
+        {"$set": {"archived": bool(body.archived)}},
+    )
+    return {"modified": res.modified_count, "archived": bool(body.archived)}
+
+
 @api_router.post("/event-folders/reorder")
 async def reorder_event_folders(body: FolderReorderBody, _: dict = Depends(require_edit)):
     """Rewrite the `order` field on every folder based on the ids-in-order

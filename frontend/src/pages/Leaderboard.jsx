@@ -1254,8 +1254,12 @@ function CompareEventsModal({ eventIds, events, allianceColors, onClose, onPickM
                   <span></span>
                   <span></span>
                   <span>Üye</span>
-                  <span className="text-right">A</span>
-                  <span className="text-right">B</span>
+                  <span className="text-right truncate" title={a?.name} data-testid="archive-compare-col-A">
+                    <span style={{ color: "#F5A623" }}>A</span> · {a?.name || "-"}
+                  </span>
+                  <span className="text-right truncate" title={b?.name} data-testid="archive-compare-col-B">
+                    <span style={{ color: "#A855F7" }}>B</span> · {b?.name || "-"}
+                  </span>
                   <span className="text-right">Fark</span>
                 </div>
                 {both.slice(0, 30).map((r, idx) => {
@@ -1297,8 +1301,8 @@ function CompareEventsModal({ eventIds, events, allianceColors, onClose, onPickM
           {/* Only A / Only B */}
           <div className="grid grid-cols-2 gap-2">
             {[
-              { label: "🅰️ Sadece A", rows: onlyA, color: "#F5A623", testId: "onlyA" },
-              { label: "🅱️ Sadece B", rows: onlyB, color: "#A855F7", testId: "onlyB" },
+              { label: `🅰️ Sadece A · ${a?.name || "-"}`, rows: onlyA, color: "#F5A623", testId: "onlyA" },
+              { label: `🅱️ Sadece B · ${b?.name || "-"}`, rows: onlyB, color: "#A855F7", testId: "onlyB" },
             ].map((side) => (
               <div key={side.testId}>
                 <div className="text-[10px] uppercase tracking-widest mb-1.5 font-bold" style={{ color: side.color, letterSpacing: "0.14em" }}>
