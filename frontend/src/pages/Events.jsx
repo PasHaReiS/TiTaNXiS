@@ -1058,11 +1058,14 @@ export default function Events() {
         {/* Filtered content — respects the sub-filter chip above. When
             "all", both columns render side-by-side with a resizable split
             handle; otherwise only that column shows full-width. */}
-        {tab === "archive" && !folderId ? (
+        {tab === "archive" ? (
           /* Archive folder-grouped view — every folder renders as its own
-             section (header + event grid), followed by an "Klasörsüz"
-             group for events not in any folder. Mirrors the "Etkinlikler"
-             page grouped layout so admins land on a familiar structure. */
+             section (header + events, further sub-grouped by group_name so
+             Kolektif and Bireysel don't intermix), followed by a
+             "Klasörsüz" group for events not in any folder. Events inside
+             each sub-group are sorted newest → oldest. Admins can move
+             any event to another folder via the inline `<select>` in each
+             card wrapper. */
           (() => {
             const byFolder = {};
             folders.forEach((f) => { byFolder[f.id] = []; });
@@ -1071,10 +1074,15 @@ export default function Events() {
               if (e.folder_id && byFolder[e.folder_id]) byFolder[e.folder_id].push(e);
               else noFolder.push(e);
             });
-            const groups = [
-              ...folders.map((f) => ({ id: f.id, name: f.name, color: f.color, icon: f.icon, event_order: f.event_order || [], events: byFolder[f.id] })),
-              { id: "__none__", name: "Klasörsüz", color: "#94A3B8", icon: "📁", event_order: [], events: noFolder },
-            ].filter((g) => g.events.length > 0);
+            let groups = [
+              ...folders.map((f) => ({ id: f.id, name: f.name, color: f.color || "#F5A623", icon: f.icon, event_order: f.event_order || [], events: byFolder[f.id] })),
+              { id: "__none__", name: "Klasörsüz", color: "#94A3B8", icon: "📂", event_order: [], events: noFolder },
+            ];
+            // When a specific folder is selected via the chip strip, narrow
+            // the display to that folder (still showing its own sub-groups).
+            if (folderId === "none") groups = groups.filter((g) => g.id === "__none__");
+            else if (folderId) groups = groups.filter((g) => g.id === folderId);
+            groups = groups.filter((g) => g.events.length > 0);
             if (groups.length === 0) {
               return (
                 <div className="card-dark p-6 text-center text-muted-foreground" data-testid="events-archive-empty">
@@ -1082,97 +1090,121 @@ export default function Events() {
                 </div>
               );
             }
+            const moveEventToFolder = (eventId, targetFolderId) => {
+              const target = targetFolderId === "__none__" ? null : targetFolderId;
+              api.post("/event-folders/assign", { event_ids: [eventId], folder_id: target })
+                .then(() => {
+                  mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                  mutate("/event-folders");
+                  const label = target ? (folders.find((f) => f.id === target)?.name || "klasör") : "Klasörsüz";
+                  toast.success(`→ ${label}`);
+                })
+                .catch((err) => toast.error(err?.response?.data?.detail || err.message));
+            };
             return (
               <div className="flex flex-col gap-4" data-testid="events-archive-folder-grouped">
-                {groups.map((g) => (
-                  <section
-                    key={g.id}
-                    data-testid={`events-archive-folder-group-${g.id}`}
-                    className="rounded-lg p-3"
-                    style={{
-                      background: `${g.color}10`,
-                      border: `1px solid ${g.color}55`,
-                    }}
-                  >
-                    <div
-                      className="flex items-center gap-2 mb-2 pb-1.5"
-                      style={{ borderBottom: `1px solid ${g.color}30` }}
+                {groups.map((g) => {
+                  // Sub-group by group_name so Kolektif/Bireysel don't
+                  // intermix inside a folder. Sort each sub-list by date
+                  // desc; if the folder has a manual `event_order`, apply
+                  // that first (across all groups) as a tiebreaker.
+                  const orderIdx = new Map(g.event_order.map((id, i) => [id, i]));
+                  const bySub = {};
+                  g.events.forEach((e) => {
+                    const key = e.group_name && e.group_name.trim() ? e.group_name : "__ungrouped__";
+                    (bySub[key] = bySub[key] || []).push(e);
+                  });
+                  const subGroups = Object.entries(bySub).map(([sk, list]) => ({
+                    key: sk,
+                    label: sk === "__ungrouped__" ? "🧍 Bireysel" : `🤝 ${sk}`,
+                    isCollective: sk !== "__ungrouped__",
+                    events: [...list].sort((a, b) => {
+                      const ai = orderIdx.has(a.id) ? orderIdx.get(a.id) : 999999;
+                      const bi = orderIdx.has(b.id) ? orderIdx.get(b.id) : 999999;
+                      if (ai !== bi) return ai - bi;
+                      return new Date(b.date) - new Date(a.date);
+                    }),
+                  })).sort((x, y) => {
+                    // Kolektif blocks first, Bireysel last.
+                    if (x.isCollective !== y.isCollective) return x.isCollective ? -1 : 1;
+                    return x.key.localeCompare(y.key);
+                  });
+                  return (
+                    <section
+                      key={g.id}
+                      data-testid={`events-archive-folder-group-${g.id}`}
+                      className="rounded-lg p-3"
+                      style={{
+                        background: `${g.color}10`,
+                        border: `1px solid ${g.color}55`,
+                      }}
                     >
-                      <span style={{ fontSize: 14 }}>{g.icon || "📁"}</span>
-                      <h3
-                        className="text-xs font-bold uppercase tracking-widest flex-1"
-                        style={{ color: g.color, letterSpacing: "0.12em", fontFamily: "Cinzel, serif" }}
+                      <div
+                        className="flex items-center gap-2 mb-3 pb-1.5"
+                        style={{ borderBottom: `1px solid ${g.color}30` }}
                       >
-                        {g.name}
-                      </h3>
-                      <span
-                        className="text-[10px] font-bold mono px-2 py-0.5 rounded-full"
-                        style={{ background: `${g.color}20`, color: g.color, border: `1px solid ${g.color}55` }}
-                      >
-                        {g.events.length}
-                      </span>
-                      {g.id !== "__none__" && (
-                        <CanEdit>
-                          <button
-                            type="button"
-                            data-testid={`events-archive-folder-open-${g.id}`}
-                            onClick={() => setFolderId(g.id)}
-                            className="chip text-[9px]"
-                            style={{
-                              padding: "3px 8px",
-                              borderColor: `${g.color}55`,
-                              color: g.color,
-                            }}
-                          >
-                            Aç →
-                          </button>
-                        </CanEdit>
-                      )}
-                    </div>
-                    <div
-                      className="grid grid-cols-2 md:grid-cols-3 gap-1.5"
-                      data-testid={`events-folder-grid-${g.id}`}
-                    >
-                      {(() => {
-                        // Apply manual event_order first, then fall back to
-                        // current (already sorted) order for events not in the
-                        // list. Enables per-folder drag/drop rearrangement.
-                        const orderIdx = new Map(g.event_order.map((id, i) => [id, i]));
-                        const sorted = [...g.events].sort((a, b) => {
-                          const ai = orderIdx.has(a.id) ? orderIdx.get(a.id) : 999999;
-                          const bi = orderIdx.has(b.id) ? orderIdx.get(b.id) : 999999;
-                          return ai - bi;
-                        });
-                        return sorted.map((e) => (
-                          <div
-                            key={e.id}
-                            draggable={g.id !== "__none__"}
-                            data-testid={`events-folder-item-${g.id}-${e.id}`}
-                            onDragStart={(ev) => { if (g.id !== "__none__") { ev.dataTransfer.setData("text/plain", e.id); ev.dataTransfer.effectAllowed = "move"; } }}
-                            onDragOver={(ev) => { if (g.id !== "__none__") { ev.preventDefault(); ev.dataTransfer.dropEffect = "move"; } }}
-                            onDrop={(ev) => {
-                              if (g.id === "__none__") return;
-                              ev.preventDefault();
-                              const fromId = ev.dataTransfer.getData("text/plain");
-                              if (!fromId || fromId === e.id) return;
-                              const ids = sorted.map((x) => x.id);
-                              const from = ids.indexOf(fromId);
-                              const to = ids.indexOf(e.id);
-                              if (from < 0 || to < 0) return;
-                              ids.splice(to, 0, ids.splice(from, 1)[0]);
-                              api.post(`/event-folders/${g.id}/reorder-events`, { event_ids: ids })
-                                .then(() => { mutate("/event-folders"); toast.success("Klasör içi sıra güncellendi"); })
-                                .catch((err) => toast.error(err?.response?.data?.detail || err.message));
-                            }}
-                            style={{ cursor: g.id !== "__none__" ? "grab" : "default" }}
-                          >
-                            {renderEventCard(e, g.color, "", `archive-folder:${g.id}`)}
+                        <span style={{ fontSize: 16 }}>{g.icon || "📁"}</span>
+                        <h3
+                          className="text-xs font-bold uppercase tracking-widest flex-1"
+                          style={{ color: g.color, letterSpacing: "0.12em", fontFamily: "Cinzel, serif" }}
+                        >
+                          {g.name}
+                        </h3>
+                        <span
+                          className="text-[10px] font-bold mono px-2 py-0.5 rounded-full"
+                          style={{ background: `${g.color}20`, color: g.color, border: `1px solid ${g.color}55` }}
+                        >
+                          {g.events.length}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-3" data-testid={`events-folder-body-${g.id}`}>
+                        {subGroups.map((sg) => (
+                          <div key={sg.key} data-testid={`events-folder-subgroup-${g.id}-${sg.key}`}>
+                            <div
+                              className="text-[10px] uppercase tracking-widest mb-1.5 font-bold opacity-80"
+                              style={{ color: g.color, letterSpacing: "0.10em" }}
+                            >
+                              {sg.label} <span className="opacity-60 mono">({sg.events.length})</span>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                              {sg.events.map((e) => (
+                                <div
+                                  key={e.id}
+                                  className="relative"
+                                  data-testid={`events-folder-item-${g.id}-${e.id}`}
+                                >
+                                  {renderEventCard(e, g.color, sg.isCollective ? sg.key : "", `archive-folder:${g.id}`)}
+                                  <CanEdit>
+                                    <select
+                                      data-testid={`events-move-select-${e.id}`}
+                                      value={g.id === "__none__" ? "__none__" : g.id}
+                                      onChange={(ev) => { ev.stopPropagation(); moveEventToFolder(e.id, ev.target.value); }}
+                                      onClick={(ev) => ev.stopPropagation()}
+                                      className="chip text-[9px] absolute top-2 right-2"
+                                      style={{
+                                        padding: "2px 6px",
+                                        borderColor: "rgba(245,166,35,0.55)",
+                                        color: "#F5A623",
+                                        background: "rgba(20,12,10,0.85)",
+                                        cursor: "pointer",
+                                      }}
+                                      title="Bu etkinliği başka bir klasöre taşı"
+                                    >
+                                      <option value="__none__">📂 Klasörsüz</option>
+                                      {folders.map((f) => (
+                                        <option key={f.id} value={f.id}>{f.icon || "📁"} {f.name}</option>
+                                      ))}
+                                    </select>
+                                  </CanEdit>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        ));
-                      })()}
-                    </div>
-                  </section>
-                ))}
+                        ))}
+                      </div>
+                    </section>
+                  );
+                })}
               </div>
             );
           })()

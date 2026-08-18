@@ -31,7 +31,6 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - Open Graph / SEO meta
 
 ### Feb 2026 — Leaderboard / Members / Events / Calculators UX pass
-- **Leaderboard active event select-list** — new horizontal scrollable
   chip strip below the group chips. Clicking a specific event swaps
   the aggregate podium+list for that event's ranking (participants only).
 - **Members country modal** — `InlineCountryPicker` rewritten from an
