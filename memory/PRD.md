@@ -21,7 +21,8 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
-- **Feb 18, 2026 (v8)**: Leaderboard group chip strip now cross-references `visibleActiveEvents` (which already excludes `hidden_from_leaderboard=true`), so groups whose events are all hidden — plus a defensive `HIDDEN_GRP` literal name guard — never surface as clickable filter chips. Verified in preview screenshot: only **AKTİF / ARŞİV** filter tabs + real active group ("Kristal") render.
+- **Feb 18, 2026 (v9)**: (a) Events group header — replaced the boxy "Gizle/Göster" button with an elegant clickable rozet. When every event in the group is hidden it renders a `🚫 GİZLİ` pill (slate gradient, subtle inset glow); otherwise a dashed `EyeOff` icon-only affordance sits quietly at 55% opacity. Click still toggles all events via `/events/hide-group`. (b) Server refactor kickoff — moved `event-folders`, `event-folder-templates`, `event-group-results` (~230 lines) from `server.py` into new `routes/event_folders.py`; registered via `register_event_folders(api_router, db, require_edit)`. URLs unchanged, all three endpoints verified via curl.
+- **Feb 18, 2026 (v8)**: Leaderboard group chip cross-reference guard (HIDDEN_GRP hidden).
 - **Feb 18, 2026 (v7)**: Group master hide, bulk breakdown, poll TG voter details panel.
 - **Feb 18, 2026 (v4)**: (a) Removed "Tümü" chip from Leaderboard active event strip. (b) Removed Kolektif/Bireysel distinction from Events page.
 - **Feb 18, 2026 (v3)**: Leaderboard Archive rebuilt to folder → group → member hierarchy. Top level shows folder cards grid only. Group row now has two actions: click name → total ranking, click `▶` → inline event list.

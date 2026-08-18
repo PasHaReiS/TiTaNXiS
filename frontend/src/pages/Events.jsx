@@ -542,8 +542,8 @@ export default function Events() {
                 <>
                   <button
                     onClick={async () => {
-                      const anyVisible = list.some((e) => !e.hidden_from_leaderboard);
-                      const next = anyVisible; // hide if any visible; else unhide all
+                      const allHidden = list.every((e) => e.hidden_from_leaderboard);
+                      const next = !allHidden;
                       if (!window.confirm(next
                         ? `"${group}" grubundaki ${list.length} etkinlik sıralamadan gizlensin mi?`
                         : `"${group}" grubundaki ${list.length} etkinlik sıralamaya geri eklensin mi?`)) return;
@@ -556,16 +556,32 @@ export default function Events() {
                         toast.error(err?.response?.data?.detail || err.message);
                       }
                     }}
-                    data-testid={`event-group-hide-${group}`}
-                    className="text-[10px] uppercase font-bold px-2 py-1 rounded border flex items-center gap-1"
-                    style={list.some((e) => !e.hidden_from_leaderboard)
-                      ? { background: "rgba(107,114,128,0.15)", color: "#D1D5DB", borderColor: "rgba(107,114,128,0.55)" }
-                      : { background: "rgba(245,166,35,0.15)", color: "#FCD34D", borderColor: "rgba(245,166,35,0.55)" }}
-                    title={list.some((e) => !e.hidden_from_leaderboard)
-                      ? "Tüm grubu sıralamadan gizle"
-                      : "Tüm grubu sıralamaya geri ekle"}
+                    data-testid={`event-group-hide-badge-${group}`}
+                    className="text-[10px] font-bold uppercase rounded-full flex items-center gap-1 transition-all hover:scale-[1.04]"
+                    style={list.every((e) => e.hidden_from_leaderboard)
+                      ? {
+                          padding: "3px 10px",
+                          background: "linear-gradient(180deg, rgba(107,114,128,0.28), rgba(31,41,55,0.55))",
+                          color: "#E5E7EB",
+                          border: "1px solid rgba(148,163,184,0.60)",
+                          letterSpacing: "0.12em",
+                          boxShadow: "inset 0 0 6px rgba(148,163,184,0.20)",
+                        }
+                      : {
+                          padding: "2px 8px",
+                          background: "transparent",
+                          color: "#6B7280",
+                          border: "1px dashed rgba(107,114,128,0.35)",
+                          letterSpacing: "0.10em",
+                          opacity: 0.55,
+                        }}
+                    title={list.every((e) => e.hidden_from_leaderboard)
+                      ? "Bu grup sıralamadan gizli — geri açmak için tıkla"
+                      : "Tüm grubu sıralamadan gizle"}
                   >
-                    {list.some((e) => !e.hidden_from_leaderboard) ? <><EyeOff className="w-3 h-3" /> Gizle</> : <><Eye className="w-3 h-3" /> Göster</>}
+                    {list.every((e) => e.hidden_from_leaderboard)
+                      ? <>🚫 Gizli</>
+                      : <><EyeOff className="w-3 h-3" /></>}
                   </button>
                   <button
                     onClick={() => startRenameGroup(group)}
