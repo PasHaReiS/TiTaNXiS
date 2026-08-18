@@ -71,6 +71,21 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
     open && mode === "members" ? "/alliances" : null,
     _fetcher,
   );
+  const { data: allianceColorsMap = {} } = useSWR(
+    open && mode === "members" ? "/alliance-colors" : null,
+    _fetcher,
+  );
+  const allianceColor = React.useCallback((name) => {
+    if (!name) return null;
+    // Case-insensitive lookup so "gow" and "GOW" share the swatch.
+    const direct = allianceColorsMap[name];
+    if (direct) return direct;
+    const lower = String(name).toLowerCase();
+    for (const k of Object.keys(allianceColorsMap || {})) {
+      if (k.toLowerCase() === lower) return allianceColorsMap[k];
+    }
+    return null;
+  }, [allianceColorsMap]);
   const allianceNames = React.useMemo(
     () => Array.from(new Set(((existingAlliances || []).map((a) => typeof a === "string" ? a : a?.name).filter(Boolean)))).sort(),
     [existingAlliances],
@@ -108,6 +123,32 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   // warning up-front but can hide it once they've reviewed.
   const [showNewList, setShowNewList] = useState(true);
   React.useEffect(() => { setExcludedRows(new Set()); setRowEdits({}); setShowNewList(true); }, [result]);
+  // Autolink Auto-Apply — as soon as the preview lands, look at every row
+  // whose OCR name matches an existing member with Levenshtein ≤ 1 (green
+  // "Yüksek eşleşme"), and auto-rewrite the name to that canonical form.
+  // Admins still see the full row/table and can undo by editing the input
+  // back; this just saves a tap on the top green chip.
+  React.useEffect(() => {
+    if (!result || !rows || rows.length === 0) return;
+    if (mode !== "members" && mode !== "event") return;
+    if (!existingMembers || existingMembers.length === 0) return;
+    const hayNames = (existingMembers || []).map((m) => m.name || "");
+    const patches = {};
+    rows.forEach((r, i) => {
+      if (rowEdits[i]?.name !== undefined) return; // respect manual edits
+      const cleanName = _stripTag(r.name || "");
+      if (!cleanName) return;
+      if (existingNamesLc.has(cleanName.toLowerCase())) return; // already matches
+      const top = _fuzzyTopMatches(r.name, hayNames, 1)[0];
+      if (top && top.dist <= 1 && top.name !== r.name) {
+        patches[i] = { ...(rowEdits[i] || {}), name: top.name };
+      }
+    });
+    if (Object.keys(patches).length > 0) {
+      setRowEdits((prev) => ({ ...prev, ...patches }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result, existingMembers]);
 
   // Progress-UI heuristic: for 2+ images we show a live X/N counter and bar.
   // Every image is always dispatched as its own /ocr/parse request (below) —
@@ -810,6 +851,19 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                   <datalist id={`ocr-alliance-list-${i}`}>
                                     {allianceNames.map((n) => (<option key={n} value={n} />))}
                                   </datalist>
+                                  {allianceGuess && allianceKnown && allianceColor(allianceGuess) && (
+                                    <span
+                                      aria-hidden="true"
+                                      className="inline-block ml-1 align-middle"
+                                      style={{
+                                        width: 8, height: 8, borderRadius: 999,
+                                        background: allianceColor(allianceGuess),
+                                        boxShadow: `0 0 4px ${allianceColor(allianceGuess)}88`,
+                                        border: "1px solid rgba(255,255,255,0.35)",
+                                      }}
+                                      title={`İttifak rengi: ${allianceGuess}`}
+                                    />
+                                  )}
                                   {allianceGuess && !allianceKnown && !isExcluded && (() => {
                                     // Fuzzy suggest a close existing alliance — user can still keep
                                     // the manual entry (new alliance) if they intended it.
@@ -827,11 +881,23 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                               key={s.name}
                                               type="button"
                                               onClick={() => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], alliance_name: s.name } }))}
-                                              className="text-[9px] px-1.5 py-0.5 rounded border font-bold"
+                                              className="text-[9px] px-1.5 py-0.5 rounded border font-bold inline-flex items-center gap-1"
                                               style={{ background: conf.bg, color: conf.fg, borderColor: conf.border, boxShadow: conf.glow }}
                                               title={`${conf.label} · Levenshtein ${s.dist} — bu mevcut ittifaka bağla`}
                                               data-testid={`ocr-alliance-suggest-${i}-${s.name.replace(/\s+/g,'_')}`}
                                             >
+                                              {allianceColor(s.name) && (
+                                                <span
+                                                  aria-hidden="true"
+                                                  style={{
+                                                    display: "inline-block",
+                                                    width: 8, height: 8, borderRadius: 999,
+                                                    background: allianceColor(s.name),
+                                                    boxShadow: `0 0 4px ${allianceColor(s.name)}88`,
+                                                    border: "1px solid rgba(255,255,255,0.35)",
+                                                  }}
+                                                />
+                                              )}
                                               🔗 {s.name}
                                             </button>
                                           );
