@@ -3206,6 +3206,14 @@ const de = {
   vip_cat_suggestions: "Vorschläge",
   vip_cat_announcements: "Ankündigungen",
   vip_cat_faq: "Häufig gestellte Fragen",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Ordner",
+  lb_folder_no_groups: "In diesem Ordner befinden sich keine Gruppen",
+  lb_folder_no_folders: "Der Ordner wurde nicht erstellt",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 
 const fr = {
@@ -3728,6 +3736,15 @@ const fr = {
   vip_cat_suggestions: "Suggestions",
   vip_cat_announcements: "Annonces",
   vip_cat_faq: "Questions fréquentes",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Dossiers",
+  lb_folder_no_groups: "Il n'y a aucun groupe dans ce dossier",
+  lb_folder_no_folders: "Le dossier n'a pas été créé",
+  lb_folder_group_count: "Groupe {{n}}",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 
 const es = {
@@ -4250,6 +4267,15 @@ const es = {
   vip_cat_suggestions: "Sugerencias",
   vip_cat_announcements: "Anuncios",
   vip_cat_faq: "Preguntas frecuentes",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Carpetas",
+  lb_folder_no_groups: "No hay ningún grupo en esta carpeta",
+  lb_folder_no_folders: "No se ha creado la carpeta",
+  lb_folder_group_count: "Grupo {{n}}",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 
 const ko = {
@@ -4739,6 +4765,15 @@ const ko = {
   vip_cat_suggestions: "제안",
   vip_cat_announcements: "공지사항",
   vip_cat_faq: "자주 묻는 질문",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← 폴더",
+  lb_folder_no_groups: "이 폴더에는 그룹이 없습니다.",
+  lb_folder_no_folders: "폴더가 생성되지 않았습니다",
+  lb_folder_group_count: "{{n}} 그룹",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 
 const ar = {
@@ -5163,6 +5198,14 @@ const ar = {
   vip_cat_suggestions: "اقتراحات",
   vip_cat_announcements: "إعلانات",
   vip_cat_faq: "الأسئلة الشائعة",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← المجلدات",
+  lb_folder_no_groups: "لا توجد مجموعات في هذا المجلد",
+  lb_folder_no_folders: "لم يتم إنشاء المجلد",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 
 // Empty translation stubs for additional languages — i18next fallbackLng: "tr"
@@ -5271,6 +5314,14 @@ const bg = {
   vip_cat_suggestions: "Предложения",
   vip_cat_announcements: "Съобщения",
   vip_cat_faq: "Често задавани въпроси",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Папки",
+  lb_folder_no_groups: "В тази папка няма групи",
+  lb_folder_no_folders: "Папката не е създадена",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const cs = {
   vip_page_title: "VIP podpora",
@@ -5376,6 +5427,14 @@ const cs = {
   vip_cat_suggestions: "Návrhy",
   vip_cat_announcements: "Oznámení",
   vip_cat_faq: "Často kladené dotazy",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Složky",
+  lb_folder_no_groups: "V této složce nejsou žádné skupiny",
+  lb_folder_no_folders: "Složka nebyla vytvořena",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const da = {
   vip_page_title: "VIP-support",
@@ -5481,6 +5540,14 @@ const da = {
   vip_cat_suggestions: "Forslag",
   vip_cat_announcements: "Meddelelser",
   vip_cat_faq: "Ofte stillede spørgsmål",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Mapper",
+  lb_folder_no_groups: "Der er ingen grupper i denne mappe",
+  lb_folder_no_folders: "Mappen blev ikke oprettet",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const el = {
   vip_page_title: "Υποστήριξη VIP",
@@ -5586,6 +5653,15 @@ const el = {
   vip_cat_suggestions: "Προτάσεις",
   vip_cat_announcements: "Ανακοινώσεις",
   vip_cat_faq: "Συχνές ερωτήσεις",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Φάκελοι",
+  lb_folder_no_groups: "Δεν υπάρχουν ομάδες σε αυτόν τον φάκελο",
+  lb_folder_no_folders: "Ο φάκελος δεν δημιουργήθηκε",
+  lb_folder_group_count: "Ομάδα {{n}}",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const et = {
   vip_page_title: "VIP-tugi",
@@ -5691,6 +5767,14 @@ const et = {
   vip_cat_suggestions: "Ettepanekud",
   vip_cat_announcements: "Teadaanded",
   vip_cat_faq: "Korduma kippuvad küsimused",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Kaustad",
+  lb_folder_no_groups: "Selles kaustas pole ühtegi rühma",
+  lb_folder_no_folders: "Kausta ei loodud",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const fi = {
   vip_page_title: "VIP-tuki",
@@ -5796,6 +5880,14 @@ const fi = {
   vip_cat_suggestions: "Ehdotukset",
   vip_cat_announcements: "Ilmoitukset",
   vip_cat_faq: "Usein kysytyt kysymykset",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Kansiot",
+  lb_folder_no_groups: "Tässä kansiossa ei ole ryhmiä",
+  lb_folder_no_folders: "Kansiota ei luotu",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const hu = {
   vip_page_title: "VIP-támogatás",
@@ -5901,6 +5993,14 @@ const hu = {
   vip_cat_suggestions: "Javaslatok",
   vip_cat_announcements: "Közlemények",
   vip_cat_faq: "Gyakran ismételt kérdések",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Mappák",
+  lb_folder_no_groups: "Ebben a mappában nincs csoport",
+  lb_folder_no_folders: "A mappa nem jött létre",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const id_ = {
   vip_page_title: "Dukungan VIP",
@@ -6006,6 +6106,14 @@ const id_ = {
   vip_cat_suggestions: "Saran",
   vip_cat_announcements: "Pengumuman",
   vip_cat_faq: "Pertanyaan yang Sering Diajukan",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Folder",
+  lb_folder_no_groups: "Tidak ada grup di folder ini",
+  lb_folder_no_folders: "Folder belum dibuat",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const it = {
   vip_page_title: "Assistenza VIP",
@@ -6111,6 +6219,14 @@ const it = {
   vip_cat_suggestions: "Suggerimenti",
   vip_cat_announcements: "Annunci",
   vip_cat_faq: "Domande frequenti",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Cartelle",
+  lb_folder_no_groups: "In questa cartella non ci sono gruppi",
+  lb_folder_no_folders: "La cartella non è stata creata",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const ja = {
   vip_page_title: "VIPサポート",
@@ -6216,6 +6332,15 @@ const ja = {
   vip_cat_suggestions: "提案",
   vip_cat_announcements: "お知らせ",
   vip_cat_faq: "よくある質問",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← フォルダ",
+  lb_folder_no_groups: "このフォルダにはグループがありません",
+  lb_folder_no_folders: "フォルダが作成されませんでした",
+  lb_folder_group_count: "{{n}}グループ",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const lt = {
   vip_page_title: "VIP pagalba",
@@ -6321,6 +6446,15 @@ const lt = {
   vip_cat_suggestions: "Pasiūlymai",
   vip_cat_announcements: "Skelbimai",
   vip_cat_faq: "Dažnai užduodami klausimai",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Aplankai",
+  lb_folder_no_groups: "Šioje aplankėje nėra grupių",
+  lb_folder_no_folders: "Aplankas nebuvo sukurtas",
+  lb_folder_group_count: "{{n}} grupė",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const lv = {
   vip_page_title: "VIP atbalsts",
@@ -6426,6 +6560,14 @@ const lv = {
   vip_cat_suggestions: "Ieteikumi",
   vip_cat_announcements: "Paziņojumi",
   vip_cat_faq: "Bieži uzdotie jautājumi",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Mapes",
+  lb_folder_no_groups: "Šajā mapē nav grupu",
+  lb_folder_no_folders: "Mapes nav izveidota",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const nb = {
   vip_page_title: "VIP-støtte",
@@ -6531,6 +6673,14 @@ const nb = {
   vip_cat_suggestions: "Forslag",
   vip_cat_announcements: "Kunngjøringer",
   vip_cat_faq: "Ofte stilte spørsmål",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Mapper",
+  lb_folder_no_groups: "Det er ingen grupper i denne mappen",
+  lb_folder_no_folders: "Mappen ble ikke opprettet",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const nl = {
   vip_page_title: "VIP-ondersteuning",
@@ -6636,6 +6786,14 @@ const nl = {
   vip_cat_suggestions: "Suggesties",
   vip_cat_announcements: "Aankondigingen",
   vip_cat_faq: "Veelgestelde vragen",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Mappen",
+  lb_folder_no_groups: "Er zijn geen groepen in deze map",
+  lb_folder_no_folders: "De map is niet aangemaakt",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const pl = {
   vip_page_title: "Obsługa VIP",
@@ -6741,6 +6899,14 @@ const pl = {
   vip_cat_suggestions: "Sugestie",
   vip_cat_announcements: "Ogłoszenia",
   vip_cat_faq: "Często zadawane pytania",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Foldery",
+  lb_folder_no_groups: "W tym folderze nie ma żadnej grupy",
+  lb_folder_no_folders: "Folder nie został utworzony",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const pt = {
   vip_page_title: "Apoio VIP",
@@ -6986,6 +7152,14 @@ const ro = {
   vip_cat_suggestions: "Sugestii",
   vip_cat_announcements: "Anunțuri",
   vip_cat_faq: "Întrebări frecvente",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Dosare",
+  lb_folder_no_groups: "În acest folder nu există niciun grup",
+  lb_folder_no_folders: "Nu s-a creat dosarul",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const sk = {
   vip_page_title: "VIP podpora",
@@ -7091,6 +7265,14 @@ const sk = {
   vip_cat_suggestions: "Návrhy",
   vip_cat_announcements: "Oznámenia",
   vip_cat_faq: "Často kladené otázky",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Zložky",
+  lb_folder_no_groups: "V tomto priečinku nie sú žiadne skupiny",
+  lb_folder_no_folders: "Zložka nebola vytvorená",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const sl = {
   vip_page_title: "VIP podpora",
@@ -7196,6 +7378,14 @@ const sl = {
   vip_cat_suggestions: "Predlogi",
   vip_cat_announcements: "Obvestila",
   vip_cat_faq: "Pogosta vprašanja",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_back: "← Mape",
+  lb_folder_no_groups: "V tej mapi ni nobene skupine",
+  lb_folder_no_folders: "Mapa ni bila ustvarjena",
+  poll_tg_summary_tg: "📡 TG · {{n}}",
+  poll_tg_summary_app: "📱 Uygulama · {{n}}",
+  poll_tg_summary_total: "Toplam: {{n}}",
 };
 const sv = {
   vip_page_title: "VIP-support",
@@ -7582,7 +7772,7 @@ i18n
   .init({
     resources,
     lng: localStorage.getItem("ol_lang") || "tr",
-    fallbackLng: "tr",
+    fallbackLng: ["en", "tr"],
     interpolation: { escapeValue: false },
   });
 

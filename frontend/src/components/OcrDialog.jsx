@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import useSWR from "swr";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Camera, Loader2, Check, AlertTriangle, Upload, Scissors, Trash2, RotateCcw } from "lucide-react";
+import { X, Camera, Loader2, Check, AlertTriangle, Upload, Scissors, Trash2, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
 import { api, apiErr } from "@/lib/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -60,7 +60,10 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   // Keep raw parsed chunks so we can re-merge live when the admin flips the
   // "Topla / En yüksek / İlkini kullan" chip after already seeing the preview.
   const [rawChunks, setRawChunks] = useState([]);
-  React.useEffect(() => { setExcludedRows(new Set()); setRowEdits({}); }, [result]);
+  // Collapsible "N yeni üye oluşacak" panel — starts open so admins see the
+  // warning up-front but can hide it once they've reviewed.
+  const [showNewList, setShowNewList] = useState(true);
+  React.useEffect(() => { setExcludedRows(new Set()); setRowEdits({}); setShowNewList(true); }, [result]);
 
   // Progress-UI heuristic: for 2+ images we show a live X/N counter and bar.
   // Every image is always dispatched as its own /ocr/parse request (below) —
@@ -538,7 +541,93 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                       <AlertTriangle className="w-3 h-3" /> Hiç veri okunmadı — daha net bir görüntü deneyin.
                     </div>
                   ) : (
-                    <table className="w-full text-[10px]">
+                    <>
+                        {/* Bulk actions for auto-created members — collapsible warning above the table */}
+                        {(mode === "members" || mode === "event") && (() => {
+                          const newRows = rows
+                            .map((r, i) => {
+                              const currName = rowEdits[i]?.name ?? r.name;
+                              const clean = _stripTag(currName);
+                              const isNew = !existingNamesLc.has(clean.toLowerCase());
+                              const origClean = _stripTag(r.name);
+                              const origWasExisting = existingNamesLc.has(origClean.toLowerCase());
+                              const editedIntoNew = origWasExisting && isNew && (rowEdits[i]?.name !== undefined);
+                              return { i, name: currName, isNew, editedIntoNew, isExcluded: excludedRows.has(i) };
+                            })
+                            .filter((x) => x.isNew && !x.isExcluded);
+                          if (newRows.length === 0) return null;
+                          const editedTypos = newRows.filter((x) => x.editedIntoNew).length;
+                          return (
+                            <div
+                              className="rounded-lg p-2 mb-2"
+                              style={{ background: editedTypos > 0 ? "rgba(245,166,35,0.10)" : "rgba(34,197,94,0.08)", border: `1px solid ${editedTypos > 0 ? "rgba(245,166,35,0.45)" : "rgba(34,197,94,0.35)"}` }}
+                              data-testid="ocr-new-members-panel"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => setShowNewList((v) => !v)}
+                                className="w-full flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
+                                style={{ color: editedTypos > 0 ? "#FCD34D" : "#4ade80" }}
+                                data-testid="ocr-new-members-toggle"
+                              >
+                                {showNewList ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                {editedTypos > 0 ? <AlertTriangle className="w-3 h-3" /> : <span>+</span>}
+                                {newRows.length} yeni üye oluşacak
+                                {editedTypos > 0 && (
+                                  <span className="normal-case font-normal opacity-90" title="Düzenlediğin isim mevcut bir üyeye tam eşleşmiyor — yazım hatası olabilir">
+                                    · ⚠ {editedTypos} olası yazım hatası
+                                  </span>
+                                )}
+                                <span className="ml-auto normal-case font-normal opacity-70">
+                                  {showNewList ? "gizle" : "göster"}
+                                </span>
+                              </button>
+                              {showNewList && (
+                                <div className="mt-1.5 flex flex-col gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => setExcludedRows((prev) => {
+                                      const nx = new Set(prev);
+                                      newRows.forEach((x) => nx.add(x.i));
+                                      return nx;
+                                    })}
+                                    data-testid="ocr-new-members-exclude-all"
+                                    className="chip text-[9px] self-start"
+                                    style={{ borderColor: "rgba(248,113,113,0.55)", color: "#FCA5A5" }}
+                                    title="Yeni oluşacak tüm satırları tek tıkla ele"
+                                  >
+                                    <Trash2 className="w-3 h-3" /> Hepsini Ele
+                                  </button>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                                    {newRows.map((x) => (
+                                      <div
+                                        key={x.i}
+                                        className="flex items-center gap-2 text-[10px] rounded px-2 py-1"
+                                        style={{ background: "rgba(20,15,10,0.55)" }}
+                                        data-testid={`ocr-new-member-${x.i}`}
+                                      >
+                                        {x.editedIntoNew && (
+                                          <AlertTriangle className="w-3 h-3 flex-shrink-0" style={{ color: "#FCD34D" }} />
+                                        )}
+                                        <span className="truncate flex-1 text-white" title={x.name}>{x.name}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => setExcludedRows((prev) => { const nx = new Set(prev); nx.add(x.i); return nx; })}
+                                          className="opacity-70 hover:opacity-100"
+                                          style={{ color: "#F87171" }}
+                                          title="Bu satırı ele"
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                        <table className="w-full text-[10px]">
                       <thead>
                         <tr className="text-muted-foreground uppercase tracking-widest">
                           {(mode === "members" || mode === "event") && (
@@ -629,11 +718,24 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: "rgba(107,114,128,0.25)", color: "#9ca3af" }}>
                                       MEVCUT
                                     </span>
-                                  ) : (
-                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: "rgba(34,197,94,0.25)", color: "#4ade80" }}>
-                                      YENİ
-                                    </span>
-                                  )}
+                                  ) : (() => {
+                                    const origClean = _stripTag(r.name);
+                                    const origWasExisting = existingNamesLc.has(origClean.toLowerCase());
+                                    const editedIntoNew = origWasExisting && (rowEdits[i]?.name !== undefined);
+                                    return editedIntoNew ? (
+                                      <span
+                                        className="px-1.5 py-0.5 rounded text-[9px] font-bold inline-flex items-center gap-0.5"
+                                        style={{ background: "rgba(245,166,35,0.25)", color: "#FCD34D" }}
+                                        title="Bu ismi düzenledin ve artık mevcut hiçbir üyeye eşleşmiyor — yazım hatası olabilir. Kaydedilirse yeni üye açılır."
+                                      >
+                                        <AlertTriangle className="w-2.5 h-2.5" /> YENİ ⚠
+                                      </span>
+                                    ) : (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: "rgba(34,197,94,0.25)", color: "#4ade80" }}>
+                                        YENİ
+                                      </span>
+                                    );
+                                  })()}
                                 </td>
                               </>);
                             })()}
@@ -642,6 +744,9 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               const cleanName = _stripTag(currName);
                               const isExisting = existingNamesLc.has(cleanName.toLowerCase());
                               const currPoints = rowEdits[i]?.points ?? r.points ?? 0;
+                              const origClean = _stripTag(r.name);
+                              const origWasExisting = existingNamesLc.has(origClean.toLowerCase());
+                              const editedIntoNew = origWasExisting && !isExisting && (rowEdits[i]?.name !== undefined);
                               return (<>
                                 <td className="py-1 max-w-[180px]">
                                   <input
@@ -678,6 +783,14 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: "rgba(107,114,128,0.25)", color: "#9ca3af" }}>
                                       MEVCUT
                                     </span>
+                                  ) : editedIntoNew ? (
+                                    <span
+                                      className="px-1.5 py-0.5 rounded text-[9px] font-bold inline-flex items-center gap-0.5"
+                                      style={{ background: "rgba(245,166,35,0.25)", color: "#FCD34D" }}
+                                      title="Bu ismi düzenledin ve artık mevcut hiçbir üyeye eşleşmiyor — yazım hatası olabilir. Kaydedilirse yeni üye açılır."
+                                    >
+                                      <AlertTriangle className="w-2.5 h-2.5" /> YENİ ⚠
+                                    </span>
                                   ) : (
                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: "rgba(34,197,94,0.25)", color: "#4ade80" }} title="Yeni üye oluşturulacak">
                                       + YENİ
@@ -697,6 +810,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                         })}
                       </tbody>
                     </table>
+                    </>
                   )}
                 </div>
               )}
