@@ -837,6 +837,32 @@ export default function Events() {
                 >
                   <Archive className="w-3 h-3" /> Tümünü Arşive Al
                 </button>
+                <button
+                  type="button"
+                  data-testid="events-folder-share"
+                  onClick={() => {
+                    const url = `${window.location.origin}/public/folder/${folderId}`;
+                    if (navigator.clipboard?.writeText) {
+                      navigator.clipboard.writeText(url).then(() => {
+                        toast.success("Paylaşım linki kopyalandı", { description: url });
+                      }).catch(() => {
+                        window.prompt("Linki kopyala:", url);
+                      });
+                    } else {
+                      window.prompt("Linki kopyala:", url);
+                    }
+                  }}
+                  className="chip text-[10px] flex items-center gap-1"
+                  style={{
+                    padding: "5px 10px",
+                    borderColor: "rgba(59,130,246,0.55)",
+                    color: "#93C5FD",
+                    background: "rgba(59,130,246,0.10)",
+                  }}
+                  title="Bu klasör için herkese açık salt-okunur sıralama linki"
+                >
+                  🔗 Paylaş
+                </button>
               </div>
             </CanEdit>
           );

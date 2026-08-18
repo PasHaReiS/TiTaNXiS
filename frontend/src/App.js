@@ -19,6 +19,7 @@ import AddPoints from "@/pages/AddPoints";
 import PointsAbout from "@/pages/PointsAbout";
 import PointCalcPage from "@/pages/PointCalcPage";
 import PublicPointCalcPage from "@/pages/PublicPointCalcPage";
+import PublicFolderLeaderboard from "@/pages/PublicFolderLeaderboard";
 import VipSupport from "@/pages/VipSupport";
 import Dashboard from "@/pages/Dashboard";
 import EventNotifications from "@/pages/EventNotifications";
@@ -158,6 +159,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/public/puan-hesaplama/:id" element={<PublicPointCalcPage />} />
+            <Route path="/public/folder/:folderId" element={<PublicFolderLeaderboard />} />
             <Route path="*" element={<AppShell />} />
           </Routes>
           <PushSoundListener />

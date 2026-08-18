@@ -104,6 +104,22 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
   multiplier/base_points/final_points) with proper CSV escaping.
   "CSV İndir" button on the Leaderboard archive tab kicks off the
   download.
+- **Compare winner crown badge** — `Event.compare_wins` field increments
+  via `POST /api/events/{event_id}/compare-win` the first time the
+  event beats another in a `CompareEventsModal` session (guarded with a
+  `useRef` so refreshes don't double-count, ties skip). Archive event
+  cards show a small 👑 badge (with a numeric count once wins > 1) in
+  the top-right, hidden while compare mode is active so it doesn't
+  clash with the numbered selection badge. Curl-verified end-to-end.
+- **Folder public share link** — `GET /api/public/folder/{folder_id}`
+  is a no-auth endpoint that returns the folder metadata + list of
+  archived events + fully aggregated leaderboard (sum of points ×
+  multiplier across all events, member/alliance enriched). New
+  `PublicFolderLeaderboard` page mounted at `/public/folder/:folderId`
+  renders a stylised season recap (header card with folder icon +
+  color, per-folder totals, in-folder events strip with per-event 👑
+  markers, podium, and full ranking). "🔗 Paylaş" button in the
+  Events folder actions bar copies the URL to clipboard.
 - **LoJ Hakkında + Puan Hesapla table compaction**:
   - `SoldierCalculator` tier buttons, soldier count input, resource
     grid (2-col → 4-col), and duration grid all tightened so the tool

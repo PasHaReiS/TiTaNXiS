@@ -910,6 +910,25 @@ export default function Leaderboard() {
                           {isChecked ? cmpIdx + 1 : ""}
                         </div>
                       )}
+                      {!compareMode && (e.compare_wins || 0) > 0 && (
+                        <div
+                          className="absolute top-2 right-2 flex items-center gap-0.5 rounded-full"
+                          data-testid={`archive-winner-badge-${e.id}`}
+                          title={`${e.compare_wins} karşılaştırma galibiyeti`}
+                          style={{
+                            padding: "2px 6px",
+                            fontSize: 10,
+                            fontWeight: 800,
+                            background: "linear-gradient(135deg, rgba(245,166,35,0.85), rgba(180,83,9,0.85))",
+                            border: "1px solid #FFF7ED",
+                            color: "#0B0704",
+                            boxShadow: "0 0 8px rgba(245,166,35,0.6)",
+                          }}
+                        >
+                          <span>👑</span>
+                          {e.compare_wins > 1 && <span className="mono">{e.compare_wins}</span>}
+                        </div>
+                      )}
                       <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "#D4730A", letterSpacing: "0.14em" }}>
                         {e.group_name || t("event")}
                       </div>
@@ -1130,6 +1149,9 @@ function CompareEventsModal({ eventIds, events, allianceColors, onClose, onPickM
   const b = events.find((e) => e.id === bId);
   const { data: aLb = [] } = useSWR(aId ? `/leaderboard?event_id=${encodeURIComponent(aId)}` : null, fetcher);
   const { data: bLb = [] } = useSWR(bId ? `/leaderboard?event_id=${encodeURIComponent(bId)}` : null, fetcher);
+  // Guard so we only bump compare-wins once per modal open, even if SWR
+  // refreshes the leaderboard data.
+  const winRecordedRef = React.useRef(false);
 
   // Build per-member score maps for the diff view. `both` = participated in
   // both events (with per-side deltas); `onlyA` / `onlyB` = participated in
@@ -1157,6 +1179,22 @@ function CompareEventsModal({ eventIds, events, allianceColors, onClose, onPickM
     const totalB = bLb.reduce((s, r) => s + Number(r.total_points || 0), 0);
     return { both, onlyA, onlyB, totalA, totalB };
   }, [aLb, bLb]);
+
+  // Record the compare win exactly once per modal — after we have real
+  // totals and a clear victor. Ties skip the increment.
+  useEffect(() => {
+    if (winRecordedRef.current) return;
+    if (!aId || !bId) return;
+    if (aLb.length === 0 || bLb.length === 0) return; // wait for both feeds
+    if (totalA === totalB) return; // no winner on a tie
+    const winnerId = totalA > totalB ? aId : bId;
+    winRecordedRef.current = true;
+    api.post(`/events/${encodeURIComponent(winnerId)}/compare-win`).catch(() => {
+      // Silent — the badge is a nice-to-have, don't spam a toast if
+      // the increment fails (e.g. rate limiting / offline).
+      winRecordedRef.current = false;
+    });
+  }, [aId, bId, totalA, totalB, aLb.length, bLb.length]);
 
   const badge = (r) => (
     <span
