@@ -21,7 +21,8 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
-- **Feb 18, 2026**: Removed dead `moveToFolder` function (lines 980-990) from `/app/frontend/src/pages/Leaderboard.jsx`. UI was never rendered — leftover from earlier "Klasöre Taşı" removal. Webpack compiles cleanly.
+- **Feb 18, 2026 (v3)**: Leaderboard Archive fully rebuilt to folder → group → member hierarchy. Top level shows folder cards grid only (events never surface). Click folder → group list with `← Klasörler` back button, per-group `▶` expand toggle (reveals events inline) and group-name click still opens total-ranking view. Empty folder shows "Bu klasörde grup yok".
+- **Feb 18, 2026**: Removed dead `moveToFolder` function from `/app/frontend/src/pages/Leaderboard.jsx`.
 
 ## What's Implemented
 - 29-language i18n with DeepL bulk translate + on-the-fly DM translation

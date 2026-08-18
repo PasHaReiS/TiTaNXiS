@@ -29,6 +29,10 @@ export default function Leaderboard() {
   // Under Arşiv: when set, only events in that folder surface in the
   // archive grid. Syncs 1-to-1 with the Events page folder taxonomy.
   const [folderId, setFolderId] = useState(null);
+  // In the group-list view (folderId set), each group has an expand
+  // toggle (▶/▼) that reveals its underlying events inline. Group name
+  // click still swaps to the total-ranking view via setGroup.
+  const [expandedGroups, setExpandedGroups] = useState({});
   // Folder chip drag/drop reorder — mirrors the Events archive UX.
   const [dragFolderId, setDragFolderId] = useState(null);
   // Compare mode — when active, archive event cards get checkboxes so the
@@ -859,39 +863,36 @@ export default function Leaderboard() {
                     : "2 etkinlik seçildi — 'Görüntüle' ile yan yana kıyaslayın."}
               </div>
             )}
-            {visibleArchivedEvents.length === 0 ? (
+            {(archivedEvents.length === 0 && folders.length === 0) ? (
               <div className="card-dark p-6 text-center text-muted-foreground text-sm">{t("archive_events_empty")}</div>
             ) : (() => {
-              // Folder-grouped archive view — mirrors the Events page
-              // structure so admins see the same "Kupa / Sezon" folders
-              // here. Sub-groups by group_name (Kolektif/Bireysel) inside
-              // every folder so cards don't intermix. Admins get an inline
-              // <select> to move a card between folders.
-              const byFolder = {};
-              folders.forEach((f) => { byFolder[f.id] = []; });
-              const noFolder = [];
-              visibleArchivedEvents.forEach((e) => {
-                if (e.folder_id && byFolder[e.folder_id]) byFolder[e.folder_id].push(e);
-                else noFolder.push(e);
-              });
-              let groups = [
-                ...folders.map((f) => ({ id: f.id, name: f.name, color: f.color || "#F5A623", icon: f.icon, event_order: f.event_order || [], events: byFolder[f.id] })),
-                { id: "__none__", name: "Klasörsüz", color: "#94A3B8", icon: "📂", event_order: [], events: noFolder },
-              ];
-              if (folderId === "none") groups = groups.filter((g) => g.id === "__none__");
-              else if (folderId) groups = groups.filter((g) => g.id === folderId);
-              groups = groups.filter((g) => g.events.length > 0);
-              // When a folder is selected, show a flat GROUP-name list
-              // instead of per-event cards. Clicking a group chip filters
-              // the aggregate leaderboard to that group's total. Event
-              // breakdowns and per-member details stay hidden.
+              // Leaderboard Archive hierarchy: Folder → Group → Member totals.
+              // Individual events are NEVER surfaced here (event breakdown
+              // belongs to the Events page). Top level = folder cards grid;
+              // pick a folder → group list; pick a group → member ranking.
+              const folderEventsAll = archivedEvents.filter((e) => e.folder_id === folderId);
+              const selFolder = folderId ? folders.find((f) => f.id === folderId) : null;
               if (folderId) {
-                const folderEvents = groups.length > 0 ? groups[0].events : [];
+                const folderEvents = folderEventsAll;
                 const groupNames = [...new Set(folderEvents.map((e) => e.group_name).filter(Boolean))].sort();
-                const ungrouped = folderEvents.filter((e) => !e.group_name || !e.group_name.trim());
-                const selColor = (groups[0] && groups[0].color) || "#F5A623";
-                if (groupNames.length === 0 && ungrouped.length === 0) {
-                  return <div className="card-dark p-6 text-center text-muted-foreground text-sm">{t("archive_events_empty")}</div>;
+                const selColor = (selFolder && selFolder.color) || "#F5A623";
+                if (groupNames.length === 0) {
+                  return (
+                    <div className="flex flex-col gap-2" data-testid="leaderboard-archive-groups-only">
+                      <button
+                        type="button"
+                        data-testid="leaderboard-archive-back"
+                        onClick={() => { setFolderId(null); setGroup(null); }}
+                        className="chip text-[10px] self-start"
+                        style={{ padding: "4px 10px", borderColor: `${selColor}55`, color: selColor }}
+                      >
+                        ← Klasörler
+                      </button>
+                      <div className="card-dark p-6 text-center text-muted-foreground text-sm">
+                        Bu klasörde grup yok
+                      </div>
+                    </div>
+                  );
                 }
                 const outcomeFor = (gn) => (groupResults.find((r) => r.group_name === gn) || {}).outcome || null;
                 const setOutcome = (gn, outcome) => {
@@ -906,192 +907,178 @@ export default function Leaderboard() {
                 };
                 return (
                   <div className="flex flex-col gap-2" data-testid="leaderboard-archive-groups-only">
+                    <button
+                      type="button"
+                      data-testid="leaderboard-archive-back"
+                      onClick={() => { setFolderId(null); setGroup(null); }}
+                      className="chip text-[10px] self-start"
+                      style={{ padding: "4px 10px", borderColor: `${selColor}55`, color: selColor }}
+                    >
+                      ← Klasörler
+                    </button>
                     {groupNames.map((gn) => {
                       const isSel = group === gn;
                       const out = outcomeFor(gn);
                       const outIcon = out === "win" ? "🏆" : out === "loose" ? "💀" : null;
+                      const isExpanded = !!expandedGroups[gn];
+                      const groupEvents = folderEvents
+                        .filter((e) => e.group_name === gn)
+                        .sort((a, b) => new Date(b.date) - new Date(a.date));
                       return (
-                        <div
-                          key={gn}
-                          className="flex items-center gap-2 rounded-lg px-3 py-2 transition-all"
-                          style={{
-                            background: isSel
-                              ? `linear-gradient(90deg, ${selColor}22 0%, rgba(20,12,10,0.85) 100%)`
-                              : `${selColor}10`,
-                            border: `1px solid ${isSel ? "#F5A623" : `${selColor}55`}`,
-                            boxShadow: isSel ? "0 0 12px rgba(245,166,35,0.45)" : "none",
-                            cursor: "pointer",
-                          }}
-                          onClick={() => setGroup(isSel ? null : gn)}
-                          data-testid={`leaderboard-archive-group-row-${gn}`}
-                        >
-                          <span style={{ fontSize: 16, width: 20, textAlign: "center" }} aria-hidden="true">
-                            {outIcon || "○"}
-                          </span>
-                          <span
-                            className="text-sm font-bold truncate flex-1"
-                            style={{ color: isSel ? "#FFF7ED" : "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.06em" }}
-                            title={gn}
+                        <div key={gn} className="flex flex-col">
+                          <div
+                            className="flex items-center gap-2 rounded-lg px-3 py-2 transition-all"
+                            style={{
+                              background: isSel
+                                ? `linear-gradient(90deg, ${selColor}22 0%, rgba(20,12,10,0.85) 100%)`
+                                : `${selColor}10`,
+                              border: `1px solid ${isSel ? "#F5A623" : `${selColor}55`}`,
+                              boxShadow: isSel ? "0 0 12px rgba(245,166,35,0.45)" : "none",
+                            }}
+                            data-testid={`leaderboard-archive-group-row-${gn}`}
                           >
-                            {gn}
-                          </span>
-                          <span className="text-[10px] mono opacity-80" style={{ color: selColor }}>
-                            {dateRangeFor(gn)}
-                          </span>
-                          {canEdit && (
-                            <select
-                              data-testid={`leaderboard-archive-group-outcome-${gn}`}
-                              value={out || ""}
-                              onChange={(ev) => { ev.stopPropagation(); setOutcome(gn, ev.target.value || null); }}
-                              onClick={(ev) => ev.stopPropagation()}
-                              className="chip text-[9px] flex-shrink-0"
-                              style={{
-                                padding: "2px 5px",
-                                borderColor: `${selColor}55`,
-                                color: selColor,
-                                background: "rgba(20,12,10,0.85)",
-                                cursor: "pointer",
-                              }}
-                              title="Sonuç ata"
+                            <span style={{ fontSize: 16, width: 20, textAlign: "center" }} aria-hidden="true">
+                              {outIcon || "○"}
+                            </span>
+                            <span
+                              className="text-sm font-bold truncate flex-1 cursor-pointer"
+                              style={{ color: isSel ? "#FFF7ED" : "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.06em" }}
+                              title={`${gn} — tıkla: toplam sıralama`}
+                              onClick={() => setGroup(isSel ? null : gn)}
+                              data-testid={`leaderboard-archive-group-name-${gn}`}
                             >
-                              <option value="">—</option>
-                              <option value="win">🏆 Win</option>
-                              <option value="loose">💀 Loose</option>
-                            </select>
+                              {gn}
+                            </span>
+                            <span className="text-[10px] mono opacity-80" style={{ color: selColor }}>
+                              {dateRangeFor(gn)}
+                            </span>
+                            {canEdit && (
+                              <select
+                                data-testid={`leaderboard-archive-group-outcome-${gn}`}
+                                value={out || ""}
+                                onChange={(ev) => { ev.stopPropagation(); setOutcome(gn, ev.target.value || null); }}
+                                onClick={(ev) => ev.stopPropagation()}
+                                className="chip text-[9px] flex-shrink-0"
+                                style={{
+                                  padding: "2px 5px",
+                                  borderColor: `${selColor}55`,
+                                  color: selColor,
+                                  background: "rgba(20,12,10,0.85)",
+                                  cursor: "pointer",
+                                }}
+                                title="Sonuç ata"
+                              >
+                                <option value="">—</option>
+                                <option value="win">🏆 Win</option>
+                                <option value="loose">💀 Loose</option>
+                              </select>
+                            )}
+                            <button
+                              type="button"
+                              data-testid={`leaderboard-archive-group-expand-${gn}`}
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                setExpandedGroups((prev) => ({ ...prev, [gn]: !prev[gn] }));
+                              }}
+                              className="text-[12px] flex-shrink-0 rounded px-1.5 py-0.5 transition-transform"
+                              style={{
+                                color: selColor,
+                                background: `${selColor}18`,
+                                border: `1px solid ${selColor}55`,
+                                cursor: "pointer",
+                                transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                              }}
+                              title={isExpanded ? "Etkinlikleri gizle" : "Etkinlikleri göster"}
+                            >
+                              ▶
+                            </button>
+                          </div>
+                          {isExpanded && (
+                            <div
+                              className="flex flex-col gap-1 mt-1 ml-6 pl-2"
+                              style={{ borderLeft: `2px solid ${selColor}55` }}
+                              data-testid={`leaderboard-archive-group-events-${gn}`}
+                            >
+                              {groupEvents.length === 0 ? (
+                                <div className="text-[10px] py-1 opacity-70" style={{ color: "#94A3B8" }}>
+                                  Etkinlik yok
+                                </div>
+                              ) : groupEvents.map((e) => {
+                                const dateStr = String(e.date || "").slice(0, 10);
+                                return (
+                                  <div
+                                    key={e.id}
+                                    data-testid={`leaderboard-archive-group-event-${e.id}`}
+                                    onClick={() => setArchiveEventId(e.id)}
+                                    className="flex items-center gap-2 rounded px-2 py-1 cursor-pointer hover:scale-[1.005] transition-transform"
+                                    style={{
+                                      borderLeft: `3px solid ${selColor}`,
+                                      background: "rgba(20,12,10,0.6)",
+                                      border: `1px solid ${selColor}22`,
+                                      fontSize: 11,
+                                    }}
+                                  >
+                                    <span
+                                      className="truncate flex-1 font-bold"
+                                      style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }}
+                                      title={e.name}
+                                    >
+                                      {e.name}
+                                    </span>
+                                    <span className="text-[10px] mono opacity-70" style={{ color: "#EAD8B0" }}>{dateStr}</span>
+                                    <span className="font-bold mono text-[10px]" style={{ color: "#E74C1A" }}>×{e.multiplier ?? 1}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           )}
                         </div>
                       );
                     })}
-                    {ungrouped.length > 0 && (
-                      <div
-                        className="text-[10px] px-3 py-2 rounded"
-                        style={{
-                          color: "#94A3B8",
-                          background: "rgba(148,163,184,0.10)",
-                          border: "1px dashed rgba(148,163,184,0.4)",
-                        }}
-                      >
-                        🧍 {ungrouped.length} gruplaşmamış etkinlik
-                      </div>
-                    )}
                   </div>
                 );
               }
+              // No folder selected → render folder cards grid only.
+              // Individual events are intentionally NOT rendered here.
               return (
-                <div className="flex flex-col gap-3" data-testid="leaderboard-archive-folder-grouped">
-                  {groups.map((g) => {
-                    const orderIdx = new Map(g.event_order.map((id, i) => [id, i]));
-                    const sorted = [...g.events].sort((a, b) => {
-                      const ai = orderIdx.has(a.id) ? orderIdx.get(a.id) : 999999;
-                      const bi = orderIdx.has(b.id) ? orderIdx.get(b.id) : 999999;
-                      if (ai !== bi) return ai - bi;
-                      return new Date(b.date) - new Date(a.date);
-                    });
+                <div className="grid grid-cols-3 gap-2" data-testid="leaderboard-archive-folders-grid">
+                  {folders.length === 0 ? (
+                    <div className="col-span-3 card-dark p-6 text-center text-muted-foreground text-sm">
+                      Klasör oluşturulmadı
+                    </div>
+                  ) : folders.map((f) => {
+                    const eventsInFolder = archivedEvents.filter((e) => e.folder_id === f.id);
+                    const groupCount = new Set(eventsInFolder.map((e) => e.group_name).filter(Boolean)).size;
+                    const color = f.color || "#F5A623";
                     return (
-                      <section
-                        key={g.id}
-                        data-testid={`leaderboard-archive-folder-${g.id}`}
-                        className="rounded-lg p-3"
-                        style={{ background: `${g.color}10`, border: `1px solid ${g.color}55` }}
+                      <button
+                        key={f.id}
+                        type="button"
+                        data-testid={`leaderboard-archive-folder-card-${f.id}`}
+                        onClick={() => { setFolderId(f.id); setGroup(null); }}
+                        className="rounded-lg p-2 flex flex-col items-center justify-center gap-1 transition-all hover:scale-[1.02]"
+                        style={{
+                          background: `linear-gradient(180deg, ${color}18, rgba(20,12,10,0.85))`,
+                          border: `1px solid ${color}55`,
+                          boxShadow: `0 0 12px ${color}22, inset 0 1px 0 rgba(255,255,255,0.05)`,
+                          minHeight: 88,
+                          cursor: "pointer",
+                        }}
                       >
-                        <div
-                          className="flex items-center gap-2 mb-2 pb-1.5"
-                          style={{ borderBottom: `1px solid ${g.color}30` }}
+                        <span style={{ fontSize: 22, filter: `drop-shadow(0 0 8px ${color}66)` }} aria-hidden="true">
+                          {f.icon || "📁"}
+                        </span>
+                        <span
+                          className="text-[10px] font-bold uppercase text-center truncate max-w-full"
+                          style={{ color, fontFamily: "Cinzel, serif", letterSpacing: "0.10em" }}
+                          title={f.name}
                         >
-                          <span style={{ fontSize: 16 }}>{g.icon || "📁"}</span>
-                          <h3
-                            className="text-xs font-bold uppercase tracking-widest flex-1"
-                            style={{ color: g.color, letterSpacing: "0.12em", fontFamily: "Cinzel, serif" }}
-                          >
-                            {g.name}
-                          </h3>
-                          <span
-                            className="text-[10px] font-bold mono px-2 py-0.5 rounded-full"
-                            style={{ background: `${g.color}20`, color: g.color, border: `1px solid ${g.color}55` }}
-                          >
-                            {g.events.length}
-                          </span>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          {sorted.map((e) => {
-                            const cmpIdx = compareIds.indexOf(e.id);
-                            const isChecked = cmpIdx >= 0;
-                            const grp = e.group_name && e.group_name.trim() ? e.group_name : "";
-                            const dateStr = String(e.date || "").slice(0, 10);
-                            return (
-                              <div
-                                key={e.id}
-                                data-testid={`archive-event-card-${e.id}`}
-                                onClick={() => {
-                                  if (compareMode) {
-                                    setCompareIds((prev) => {
-                                      if (prev.includes(e.id)) return prev.filter((x) => x !== e.id);
-                                      if (prev.length >= 2) return [prev[1], e.id];
-                                      return [...prev, e.id];
-                                    });
-                                  } else {
-                                    setArchiveEventId(e.id);
-                                  }
-                                }}
-                                className="flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer hover:scale-[1.005] transition-transform"
-                                style={{
-                                  borderLeft: `3px solid ${g.color}`,
-                                  background: isChecked
-                                    ? "linear-gradient(90deg, rgba(76,29,149,0.55), rgba(30,58,138,0.35))"
-                                    : "rgba(20,12,10,0.6)",
-                                  border: `1px solid ${isChecked ? "#A855F7" : `${g.color}22`}`,
-                                  fontSize: 11,
-                                }}
-                              >
-                                {compareMode ? (
-                                  <span
-                                    data-testid={`archive-compare-check-${e.id}`}
-                                    className="text-[10px] font-bold rounded-full flex items-center justify-center flex-shrink-0"
-                                    style={{
-                                      width: 18, height: 18,
-                                      background: isChecked ? "#A855F7" : "rgba(255,255,255,0.10)",
-                                      color: isChecked ? "#FFF" : "#C4B5FD",
-                                      border: `1px solid ${isChecked ? "#F5F3FF" : "rgba(168,85,247,0.55)"}`,
-                                    }}
-                                  >
-                                    {isChecked ? cmpIdx + 1 : ""}
-                                  </span>
-                                ) : grp ? (
-                                  <span
-                                    className="text-[9px] font-bold rounded px-1.5 py-0.5 uppercase tracking-widest flex-shrink-0"
-                                    style={{ background: `${g.color}30`, color: g.color, letterSpacing: "0.08em" }}
-                                    title="Grup"
-                                  >
-                                    🤝 {grp}
-                                  </span>
-                                ) : (
-                                  <span
-                                    className="text-[9px] font-bold rounded px-1.5 py-0.5 uppercase tracking-widest flex-shrink-0"
-                                    style={{ background: "rgba(148,163,184,0.15)", color: "#94A3B8" }}
-                                    title="Tekli etkinlik"
-                                  >
-                                    🧍
-                                  </span>
-                                )}
-                                <span
-                                  className="truncate flex-1 font-bold"
-                                  style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }}
-                                  title={e.name}
-                                >
-                                  {grp || e.name}
-                                </span>
-                                <span className="text-[10px] mono opacity-70" style={{ color: "#EAD8B0" }}>{dateStr}</span>
-                                <span className="font-bold mono text-[10px]" style={{ color: "#E74C1A" }}>×{e.multiplier ?? 1}</span>
-                                {(e.compare_wins || 0) > 0 && !compareMode && (
-                                  <span className="text-[10px] flex-shrink-0" title={`${e.compare_wins} karşılaştırma galibiyeti`}>
-                                    👑{e.compare_wins > 1 ? e.compare_wins : ""}
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </section>
+                          {f.name}
+                        </span>
+                        <span className="text-[9px] mono opacity-80" style={{ color: "#EAD8B0" }}>
+                          {groupCount} grup
+                        </span>
+                      </button>
                     );
                   })}
                 </div>
