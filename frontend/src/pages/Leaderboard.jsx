@@ -879,6 +879,62 @@ export default function Leaderboard() {
               if (folderId === "none") groups = groups.filter((g) => g.id === "__none__");
               else if (folderId) groups = groups.filter((g) => g.id === folderId);
               groups = groups.filter((g) => g.events.length > 0);
+              // When a folder is selected, show a flat GROUP-name list
+              // instead of per-event cards. Clicking a group chip filters
+              // the aggregate leaderboard to that group's total. Event
+              // breakdowns and per-member details stay hidden.
+              if (folderId) {
+                const folderEvents = groups.length > 0 ? groups[0].events : [];
+                const groupNames = [...new Set(folderEvents.map((e) => e.group_name).filter(Boolean))].sort();
+                const ungrouped = folderEvents.filter((e) => !e.group_name || !e.group_name.trim());
+                const selColor = (groups[0] && groups[0].color) || "#F5A623";
+                if (groupNames.length === 0 && ungrouped.length === 0) {
+                  return <div className="card-dark p-6 text-center text-muted-foreground text-sm">{t("archive_events_empty")}</div>;
+                }
+                return (
+                  <div className="flex flex-wrap gap-2" data-testid="leaderboard-archive-groups-only">
+                    {groupNames.map((gn) => {
+                      const isSel = group === gn;
+                      return (
+                        <button
+                          key={gn}
+                          type="button"
+                          data-testid={`leaderboard-archive-group-chip-${gn}`}
+                          onClick={() => setGroup(isSel ? null : gn)}
+                          className={`chip ${isSel ? "active" : ""}`}
+                          style={{
+                            padding: "8px 14px",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            borderColor: isSel ? "#F5A623" : `${selColor}55`,
+                            color: isSel ? "#FFF7ED" : "#EAD8B0",
+                            background: isSel
+                              ? "linear-gradient(180deg, rgba(245,166,35,0.30), rgba(180,83,9,0.55))"
+                              : `${selColor}12`,
+                            boxShadow: isSel ? "0 0 10px rgba(245,166,35,0.55)" : "none",
+                            fontFamily: "Cinzel, serif",
+                            letterSpacing: "0.06em",
+                          }}
+                        >
+                          🤝 {gn}
+                        </button>
+                      );
+                    })}
+                    {ungrouped.length > 0 && (
+                      <div
+                        className="text-[10px] px-3 py-2 rounded"
+                        style={{
+                          color: "#94A3B8",
+                          background: "rgba(148,163,184,0.10)",
+                          border: "1px dashed rgba(148,163,184,0.4)",
+                        }}
+                      >
+                        🧍 {ungrouped.length} gruplaşmamış etkinlik
+                      </div>
+                    )}
+                  </div>
+                );
+              }
               const moveToFolder = (eventId, targetId) => {
                 const target = targetId === "__none__" ? null : targetId;
                 api.post("/event-folders/assign", { event_ids: [eventId], folder_id: target })

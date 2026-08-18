@@ -15,7 +15,7 @@ import EventReminderDialog from "@/components/EventReminderDialog";
 import EventCountdown from "@/components/EventCountdown";
 import EventResultGallery from "@/components/EventResultGallery";
 import EventCalendar from "@/components/EventCalendar";
-import { BellRing, GripVertical } from "lucide-react";
+import { BellRing, GripVertical, Folder } from "lucide-react";
 import { groupColor, groupBgTint } from "@/lib/groupColors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -1020,7 +1020,16 @@ export default function Events() {
                             </div>
                           </CanEdit>
                         )}
-                        <div style={{ fontSize: 34, lineHeight: 1, marginTop: 2 }}>{c.icon}</div>
+                        <div style={{ display: "flex", justifyContent: "center", marginTop: 2 }}>
+                          <Folder
+                            size={34}
+                            strokeWidth={2}
+                            style={{
+                              color: "#f97316",
+                              filter: "drop-shadow(0 0 6px #f97316) drop-shadow(0 0 14px rgba(249,115,22,0.55))",
+                            }}
+                          />
+                        </div>
                         <div
                           className="text-[11px] font-bold mt-1 truncate leading-tight"
                           style={{
@@ -1053,7 +1062,17 @@ export default function Events() {
                         color: "#F5A623",
                       }}
                     >
-                      <div style={{ fontSize: 34, lineHeight: 1, marginTop: 2 }}>➕</div>
+                      <div style={{ display: "flex", justifyContent: "center", marginTop: 2 }}>
+                        <Folder
+                          size={34}
+                          strokeWidth={2}
+                          style={{
+                            color: "#f97316",
+                            opacity: 0.75,
+                            filter: "drop-shadow(0 0 4px rgba(249,115,22,0.55))",
+                          }}
+                        />
+                      </div>
                       <div className="text-[11px] font-bold mt-1" style={{ fontFamily: "Cinzel, serif", letterSpacing: "0.04em" }}>
                         Yeni Klasör
                       </div>
