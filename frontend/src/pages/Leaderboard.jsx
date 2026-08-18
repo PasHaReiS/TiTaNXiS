@@ -290,6 +290,9 @@ export default function Leaderboard() {
         {(() => {
           // Filter event groups by the current Active/Archive tab so the chip
           // strip only advertises groups that contain matching events.
+          // Hidden on the Archive tab — the new folder-card grid + group
+          // chip drill-down covers that navigation more cleanly.
+          if (filter === "archive") return null;
           const visibleGroups = (groups || []).filter((g) => {
             const activeCount = Number(g.active || 0);
             const archivedCount = Math.max(0, Number(g.count || 0) - activeCount);
@@ -436,11 +439,9 @@ export default function Leaderboard() {
           );
         })()}
 
-        {/* Archive folder chips — synced with Events archive folder taxonomy.
-            Click a folder to narrow the archive grid to just events assigned
-            to it. "Tümü" clears the filter, "Klasörsüz" shows only
-            top-level events. */}
-        {filter === "archive" && folders.length > 0 && (
+        {/* Archive folder chip strip removed — the archive tab uses a
+            folder-card grid + group-only drill-down instead of chips. */}
+        {false && filter === "archive" && folders.length > 0 && (
           <div
             className="flex gap-1.5 mb-3 overflow-x-auto pb-1 flex-nowrap"
             data-testid="leaderboard-folder-strip"
