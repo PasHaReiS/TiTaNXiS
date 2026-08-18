@@ -20,6 +20,9 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+## Recent Changes
+- **Feb 18, 2026**: Removed dead `moveToFolder` function (lines 980-990) from `/app/frontend/src/pages/Leaderboard.jsx`. UI was never rendered — leftover from earlier "Klasöre Taşı" removal. Webpack compiles cleanly.
+
 ## What's Implemented
 - 29-language i18n with DeepL bulk translate + on-the-fly DM translation
 - Leaderboard, Commanders, Points, Events, Members CRUD

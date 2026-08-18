@@ -977,17 +977,6 @@ export default function Leaderboard() {
                   </div>
                 );
               }
-              const moveToFolder = (eventId, targetId) => {
-                const target = targetId === "__none__" ? null : targetId;
-                api.post("/event-folders/assign", { event_ids: [eventId], folder_id: target })
-                  .then(() => {
-                    swrMutate((k) => typeof k === "string" && k.startsWith("/events"));
-                    swrMutate("/event-folders");
-                    const label = target ? (folders.find((f) => f.id === target)?.name || "klasör") : "Klasörsüz";
-                    toast.success(`→ ${label}`);
-                  })
-                  .catch((err) => toast.error(err?.response?.data?.detail || err.message));
-              };
               return (
                 <div className="flex flex-col gap-3" data-testid="leaderboard-archive-folder-grouped">
                   {groups.map((g) => {
@@ -1097,28 +1086,6 @@ export default function Leaderboard() {
                                   <span className="text-[10px] flex-shrink-0" title={`${e.compare_wins} karşılaştırma galibiyeti`}>
                                     👑{e.compare_wins > 1 ? e.compare_wins : ""}
                                   </span>
-                                )}
-                                {canEdit && !compareMode && (
-                                  <select
-                                    data-testid={`leaderboard-move-select-${e.id}`}
-                                    value={g.id === "__none__" ? "__none__" : g.id}
-                                    onChange={(ev) => { ev.stopPropagation(); moveToFolder(e.id, ev.target.value); }}
-                                    onClick={(ev) => ev.stopPropagation()}
-                                    className="chip text-[9px] flex-shrink-0"
-                                    style={{
-                                      padding: "1px 4px",
-                                      borderColor: "rgba(245,166,35,0.45)",
-                                      color: "#F5A623",
-                                      background: "rgba(20,12,10,0.85)",
-                                      cursor: "pointer",
-                                    }}
-                                    title="Klasöre taşı (yalnızca admin)"
-                                  >
-                                    <option value="__none__">📂</option>
-                                    {folders.map((f) => (
-                                      <option key={f.id} value={f.id}>{f.icon || "📁"} {f.name}</option>
-                                    ))}
-                                  </select>
                                 )}
                               </div>
                             );
