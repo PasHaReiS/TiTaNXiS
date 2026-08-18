@@ -302,12 +302,20 @@ export default function Leaderboard() {
           // Filter event groups by the current Active/Archive tab so the chip
           // strip only advertises groups that contain matching events.
           // Hidden on the Archive tab — the new folder-card grid + group
-          // chip drill-down covers that navigation more cleanly.
+          // chip drill-down covers that navigation more cleanly. Also
+          // excludes groups whose events are all hidden from the ranking
+          // (e.g. legacy HIDDEN_GRP) so they never surface as buttons.
           if (filter === "archive") return null;
+          const allowedNames = new Set(visibleActiveEvents.map((e) => (e.group_name || "").trim()).filter(Boolean));
           const visibleGroups = (groups || []).filter((g) => {
             const activeCount = Number(g.active || 0);
-            const archivedCount = Math.max(0, Number(g.count || 0) - activeCount);
-            return filter === "archive" ? archivedCount > 0 : activeCount > 0;
+            if (activeCount <= 0) return false;
+            const name = String(g.name || "").trim();
+            if (!name) return false;
+            // Belt-and-braces: never show the legacy HIDDEN_GRP bucket.
+            if (name.toUpperCase() === "HIDDEN_GRP") return false;
+            // Skip groups whose active events are ALL hidden from the ranking.
+            return allowedNames.has(name);
           });
           if (visibleGroups.length === 0) return null;
           return (
