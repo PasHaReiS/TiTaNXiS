@@ -53,7 +53,14 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   // Keyed by row index so a re-scan (which resets result → rows) also wipes
   // stale exclusions. Only kept rows are sent to /ocr/apply-*.
   const [excludedRows, setExcludedRows] = useState(() => new Set());
-  React.useEffect(() => { setExcludedRows(new Set()); }, [result]);
+  // Per-row inline edits — `{ [rowIdx]: { name?: string, points?: number } }`.
+  // Applied on top of the OCR row before doApply so admins can hand-fix a
+  // misread without deleting the whole row.
+  const [rowEdits, setRowEdits] = useState({});
+  // Keep raw parsed chunks so we can re-merge live when the admin flips the
+  // "Topla / En yüksek / İlkini kullan" chip after already seeing the preview.
+  const [rawChunks, setRawChunks] = useState([]);
+  React.useEffect(() => { setExcludedRows(new Set()); setRowEdits({}); }, [result]);
 
   // Progress-UI heuristic: for 2+ images we show a live X/N counter and bar.
   // Every image is always dispatched as its own /ocr/parse request (below) —
@@ -167,6 +174,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
     // shape is preserved (mostly cosmetic — merge still works with 1 chunk).
     if (previews.length === 1) {
       const only = chunks[0] || {};
+      setRawChunks(chunks);
       const single =
         mode === "war"
           ? only
@@ -181,6 +189,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
     }
 
     const { arr, event_hint } = _mergeRows(chunks);
+    setRawChunks(chunks);
     const merged =
       mode === "event"
         ? { participants: arr, event_hint }
@@ -202,6 +211,54 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
     setParsing(false);
   };
 
+  // Re-merge stored chunks whenever the admin flips the merge strategy chip
+  // AFTER the preview is on screen. Skips single-image case (no dedupe there).
+  const remergeWithStrategy = (nextStrategy) => {
+    setMergeStrategy(nextStrategy);
+    if (!result || rawChunks.length === 0 || previews.length <= 1) return;
+    // Rebuild with the fresh strategy by cloning _mergeRows logic — we can't
+    // call _mergeRows directly because it reads state which hasn't tick'd yet.
+    const merged = new Map();
+    let event_hint = null;
+    for (const chunk of rawChunks) {
+      if (mode === "event") {
+        if (!event_hint && chunk?.event_hint) event_hint = chunk.event_hint;
+        for (const p of chunk?.participants || []) {
+          const raw = String(p.name || "").trim();
+          if (!raw) continue;
+          const key = _stripTag(raw).toLowerCase();
+          const pts = Number(p.points || 0) || 0;
+          if (!merged.has(key)) merged.set(key, { name: raw, points: pts, sources: 1 });
+          else {
+            const cur = merged.get(key);
+            cur.sources += 1;
+            if (nextStrategy === "sum") cur.points += pts;
+            else if (nextStrategy === "max") cur.points = Math.max(cur.points, pts);
+          }
+        }
+      } else if (mode === "members") {
+        for (const r of chunk?.members || []) {
+          const raw = String(r.name || "").trim();
+          if (!raw) continue;
+          const key = _stripTag(raw).toLowerCase();
+          if (!merged.has(key)) merged.set(key, { ...r, name: raw, sources: 1 });
+          else {
+            const cur = merged.get(key);
+            cur.sources += 1;
+            for (const fld of ["power", "castle_level", "rank", "alliance_name"]) {
+              if (!cur[fld] && r[fld]) cur[fld] = r[fld];
+            }
+          }
+        }
+      }
+    }
+    const arr = Array.from(merged.values());
+    if (mode === "event") arr.sort((a, b) => (b.points || 0) - (a.points || 0));
+    else arr.sort((a, b) => (b.power || 0) - (a.power || 0));
+    const nextData = mode === "event" ? { participants: arr, event_hint } : { members: arr };
+    setResult({ mode, data: nextData, merge_strategy: nextStrategy, per_image_errors: 0 });
+  };
+
   const doApply = async () => {
     if (!result?.data) return;
     if (requireSelection && !selection) {
@@ -211,12 +268,23 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
     setApplying(true);
     try {
       const extra = requireSelection ? { [`${requireSelection.type}_id`]: selection } : {};
-      // Filter out any rows the admin struck from the preview so only the
-      // "approved" names ever hit the DB.
-      const keep = (arr) => (Array.isArray(arr) ? arr.filter((_, i) => !excludedRows.has(i)) : arr);
+      // Merge inline edits + drop excluded rows so only "approved" names
+      // (with any manual fixes) ever hit the DB.
+      const applyEditsAndKeep = (arr, kind) => {
+        if (!Array.isArray(arr)) return arr;
+        return arr
+          .map((r, i) => {
+            const patch = rowEdits[i] || {};
+            const next = { ...r };
+            if (typeof patch.name === "string") next.name = patch.name;
+            if (kind === "event" && patch.points !== undefined) next.points = Number(patch.points) || 0;
+            return next;
+          })
+          .filter((_, i) => !excludedRows.has(i));
+      };
       const filteredData = { ...result.data };
-      if (mode === "event") filteredData.participants = keep(result.data.participants || []);
-      else if (mode === "members") filteredData.members = keep(result.data.members || []);
+      if (mode === "event") filteredData.participants = applyEditsAndKeep(result.data.participants || [], "event");
+      else if (mode === "members") filteredData.members = applyEditsAndKeep(result.data.members || [], "members");
       await onApply(filteredData, extra);
       onClose?.();
     } catch (e) {
@@ -371,6 +439,29 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                   ))}
                 </div>
               )}
+              {supportsMulti && previews.length > 1 && result && (
+                <div className="flex items-center gap-1.5 text-[10px]" data-testid="ocr-merge-strategy-inline">
+                  <span className="uppercase tracking-widest mr-1" style={{ color: "#A78BFA" }}>
+                    Tekrar birleştirme:
+                  </span>
+                  {[
+                    { id: "sum", label: "Topla" },
+                    { id: "max", label: "En yüksek" },
+                    { id: "first", label: "İlkini kullan" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => remergeWithStrategy(opt.id)}
+                      data-testid={`ocr-merge-inline-${opt.id}`}
+                      className={`chip px-2 py-1 text-[10px] ${mergeStrategy === opt.id ? "active" : ""}`}
+                      title={mergeStrategy === opt.id ? "Aktif" : "Değiştir → satırlar anında yeniden birleştirilir"}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {!result && (
                 <div className="flex flex-col gap-2">
@@ -507,16 +598,26 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               </td>
                             )}
                             {mode === "members" && (() => {
-                              const cleanName = _stripTag(r.name);
+                              const cleanName = _stripTag(rowEdits[i]?.name ?? r.name);
                               const isExisting = existingNamesLc.has(cleanName.toLowerCase());
                               // Alliance tag: prefer explicit field, else bracket in name
                               let allianceGuess = r.alliance_name;
                               if (!allianceGuess) {
-                                const mm = /^\s*\[([^\]]+)\]/.exec(String(r.name || ""));
+                                const mm = /^\s*\[([^\]]+)\]/.exec(String(rowEdits[i]?.name ?? r.name ?? ""));
                                 if (mm) allianceGuess = mm[1].trim();
                               }
                               return (<>
-                                <td className="text-white py-1 truncate max-w-[140px]">{cleanName}</td>
+                                <td className="py-1 max-w-[140px]">
+                                  <input
+                                    type="text"
+                                    value={rowEdits[i]?.name ?? r.name ?? ""}
+                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
+                                    disabled={isExcluded}
+                                    data-testid={`ocr-row-name-${i}`}
+                                    className="w-full bg-transparent text-white outline-none border-b border-transparent hover:border-white/30 focus:border-amber-400 text-[10px]"
+                                    title="Adı düzeltmek için tıkla"
+                                  />
+                                </td>
                                 <td className="text-right mono py-1" style={{ color: "#FF6B00" }}>
                                   {r.power ? Number(r.power).toLocaleString("tr-TR") : "—"}
                                 </td>
@@ -537,11 +638,34 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               </>);
                             })()}
                             {mode === "event" && (() => {
-                              const cleanName = _stripTag(r.name);
+                              const currName = rowEdits[i]?.name ?? r.name;
+                              const cleanName = _stripTag(currName);
                               const isExisting = existingNamesLc.has(cleanName.toLowerCase());
+                              const currPoints = rowEdits[i]?.points ?? r.points ?? 0;
                               return (<>
-                                <td className="text-white py-1 truncate max-w-[180px]">{r.name}</td>
-                                <td className="text-right mono py-1 gold-text">{Number(r.points || 0).toLocaleString("tr-TR")}</td>
+                                <td className="py-1 max-w-[180px]">
+                                  <input
+                                    type="text"
+                                    value={currName ?? ""}
+                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
+                                    disabled={isExcluded}
+                                    data-testid={`ocr-row-name-${i}`}
+                                    className="w-full bg-transparent text-white outline-none border-b border-transparent hover:border-white/30 focus:border-amber-400 text-[10px]"
+                                    title="Adı düzeltmek için tıkla"
+                                  />
+                                </td>
+                                <td className="py-1">
+                                  <input
+                                    type="number"
+                                    value={currPoints}
+                                    min={0}
+                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], points: e.target.value } }))}
+                                    disabled={isExcluded}
+                                    data-testid={`ocr-row-points-${i}`}
+                                    className="w-full bg-transparent gold-text mono outline-none border-b border-transparent hover:border-white/30 focus:border-amber-400 text-[10px] text-right"
+                                    title="Puanı düzeltmek için tıkla"
+                                  />
+                                </td>
                                 <td className="text-right py-1 text-white/60">
                                   {r.sources > 1 ? (
                                     <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(139,92,246,0.2)", color: "#A78BFA" }}>
