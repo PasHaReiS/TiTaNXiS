@@ -168,6 +168,28 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   // NEVER batched — so Cloudflare's 100s edge timeout can't be hit.
   const SEQUENTIAL_THRESHOLD = 2;
 
+  // Hard reset when the modal closes so the next open starts pristine.
+  // Otherwise previews / result / selection linger, and the freshly-mounted
+  // dialog paints a stale layer over the events list ("background only")
+  // while React reconciles state — the exact freeze admins have been hitting
+  // after an OCR save.
+  React.useEffect(() => {
+    if (open) return;
+    setPreviews([]);
+    setResult(null);
+    setSelection("");
+    setApplying(false);
+    setParsing(false);
+    setProgress({ current: 0, total: 0, errors: 0 });
+    setCropIdx(-1);
+    setExcludedRows(new Set());
+    setRowEdits({});
+    setRawChunks([]);
+    setAutoAppliedRows([]);
+    setAllianceFilter("");
+    setShowNewList(true);
+  }, [open]);
+
   if (!open) return null;
 
   const pick = (fileList) => {
@@ -391,7 +413,15 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
       if (mode === "event") filteredData.participants = applyEditsAndKeep(result.data.participants || [], "event");
       else if (mode === "members") filteredData.members = applyEditsAndKeep(result.data.members || [], "members");
       await onApply(filteredData, extra);
+      // Close the modal FIRST so the user sees an immediate return to the
+      // events list; SWR revalidation kicked off inside onApply continues
+      // in the background and repaints the row when it lands. Previously
+      // we awaited nothing between apply and close, which combined with
+      // stale internal state (previews/result/applying) manifested as a
+      // frozen "background only" screen after a successful upload.
+      setApplying(false);
       onClose?.();
+      return;
     } catch (e) {
       toast.error(apiErr(e));
     } finally {
