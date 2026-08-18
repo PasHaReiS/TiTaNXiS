@@ -256,13 +256,25 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
           const key = _stripTag(raw).toLowerCase();
           const pts = Number(p.points || 0) || 0;
           if (!merged.has(key)) {
-            merged.set(key, { name: raw, points: pts, sources: 1 });
+            merged.set(key, {
+              name: raw,
+              points: pts,
+              castle_level: p.castle_level || null,
+              rank: p.rank || null,
+              alliance_name: p.alliance_name || null,
+              power: p.power || null,
+              sources: 1,
+            });
           } else {
             const cur = merged.get(key);
             cur.sources += 1;
             if (mergeStrategy === "sum") cur.points += pts;
             else if (mergeStrategy === "max") cur.points = Math.max(cur.points, pts);
             // 'first' → keep original
+            // Backfill enrichment fields — first non-empty wins.
+            for (const fld of ["castle_level", "rank", "alliance_name", "power"]) {
+              if (!cur[fld] && p[fld]) cur[fld] = p[fld];
+            }
           }
         }
       } else if (mode === "members") {
@@ -375,12 +387,22 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
           if (!raw) continue;
           const key = _stripTag(raw).toLowerCase();
           const pts = Number(p.points || 0) || 0;
-          if (!merged.has(key)) merged.set(key, { name: raw, points: pts, sources: 1 });
+          if (!merged.has(key)) merged.set(key, {
+            name: raw, points: pts,
+            castle_level: p.castle_level || null,
+            rank: p.rank || null,
+            alliance_name: p.alliance_name || null,
+            power: p.power || null,
+            sources: 1,
+          });
           else {
             const cur = merged.get(key);
             cur.sources += 1;
             if (nextStrategy === "sum") cur.points += pts;
             else if (nextStrategy === "max") cur.points = Math.max(cur.points, pts);
+            for (const fld of ["castle_level", "rank", "alliance_name", "power"]) {
+              if (!cur[fld] && p[fld]) cur[fld] = p[fld];
+            }
           }
         }
       } else if (mode === "members") {
@@ -434,6 +456,10 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
               if (cleaned) next.name = cleaned;
             }
             if (kind === "event" && patch.points !== undefined) next.points = Number(patch.points) || 0;
+            if (kind === "event" && patch.castle_level !== undefined) {
+              const cv = Number(patch.castle_level);
+              next.castle_level = Number.isFinite(cv) && cv > 0 ? cv : null;
+            }
             if (kind === "event" && patch.rank !== undefined) {
               const r = String(patch.rank || "").trim().toUpperCase();
               next.rank = ["R1","R2","R3","R4","R5"].includes(r) ? r : null;
@@ -442,11 +468,14 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
               if (rk) next.rank = rk;
             }
             if (kind === "event" && patch.alliance_name !== undefined) {
-              const trimmed = String(patch.alliance_name || "").trim();
+              const trimmed = String(patch.alliance_name || "").replace(/[\[\]]/g, "").trim();
               next.alliance_name = trimmed || null;
             } else if (kind === "event" && !next.alliance_name) {
               const tag = _extractAllianceTag(r.name || "");
               if (tag) next.alliance_name = tag;
+            } else if (kind === "event" && typeof next.alliance_name === "string") {
+              const clean = next.alliance_name.replace(/[\[\]]/g, "").trim();
+              next.alliance_name = clean || null;
             }
             if (kind === "members" && patch.alliance_name !== undefined) {
               const trimmed = String(patch.alliance_name || "").trim();
@@ -933,6 +962,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             <th className="text-left py-2 px-2 font-semibold text-[9px] tracking-widest text-amber-200/70">İttifak</th>
                             <th className="text-left py-2 px-2 font-semibold text-[9px] tracking-widest text-amber-200/70">Üye Adı</th>
                             <th className="text-center py-2 px-2 font-semibold text-[9px] tracking-widest text-amber-200/70">Rütbe</th>
+                            <th className="text-center py-2 px-2 font-semibold text-[9px] tracking-widest text-amber-200/70" title="Kale (pembe altıgen)">Kale</th>
                             <th className="text-right py-2 px-2 font-semibold text-[9px] tracking-widest text-amber-200/70">Puan</th>
                           </>)}
                           {mode === "war" && (<>
@@ -1152,6 +1182,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             {mode === "event" && (() => {
                               const currName = rowEdits[i]?.name ?? r.name;
                               const currPoints = rowEdits[i]?.points ?? r.points ?? 0;
+                              const currCastle = rowEdits[i]?.castle_level ?? r.castle_level ?? "";
                               let allianceGuess = rowEdits[i]?.alliance_name;
                               if (allianceGuess === undefined) {
                                 allianceGuess = r.alliance_name;
@@ -1159,6 +1190,10 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                   const tag = _extractAllianceTag(currName ?? "");
                                   if (tag) allianceGuess = tag;
                                 }
+                              }
+                              // Strip any stray brackets the LLM might have returned.
+                              if (typeof allianceGuess === "string") {
+                                allianceGuess = allianceGuess.replace(/[\[\]]/g, "").trim();
                               }
                               let rankGuess = rowEdits[i]?.rank;
                               if (rankGuess === undefined) {
@@ -1214,6 +1249,21 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     <option value="R4">R4</option>
                                     <option value="R5">R5</option>
                                   </select>
+                                </td>
+                                <td className="py-1.5 px-2 w-14 text-center">
+                                  <input
+                                    type="number"
+                                    value={currCastle}
+                                    min={0}
+                                    max={45}
+                                    placeholder="—"
+                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], castle_level: e.target.value === "" ? "" : Number(e.target.value) } }))}
+                                    disabled={isExcluded}
+                                    data-testid={`ocr-row-castle-${i}`}
+                                    className="w-full bg-transparent outline-none rounded px-1 py-1 hover:bg-white/5 focus:bg-white/10 focus:ring-1 focus:ring-pink-400/60 text-[11px] font-bold text-center transition-colors mono"
+                                    style={{ color: currCastle !== "" && currCastle > 0 ? "#F472B6" : "rgba(255,255,255,0.35)" }}
+                                    title="Kale seviyesi (pembe altıgen)"
+                                  />
                                 </td>
                                 <td className="py-1.5 px-2">
                                   <input
