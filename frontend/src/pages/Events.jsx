@@ -1115,12 +1115,51 @@ export default function Events() {
                             boxShadow: `0 0 8px ${selected.color}22, inset 0 1px 0 rgba(255,170,80,0.08)`,
                           }}
                         >
-                          <div className="text-sm font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }} title={e.name}>
-                            {e.name}
-                          </div>
-                          <div className="flex items-center justify-between mt-1 text-[10px]" style={{ color: "#94A3B8" }}>
-                            <span>{String(e.date || "").slice(0, 10)}</span>
-                            <span className="font-bold mono" style={{ color: selected.color }}>×{e.multiplier ?? 1}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }} title={e.name}>
+                                {e.name}
+                              </div>
+                              <div className="flex items-center justify-between mt-1 text-[10px]" style={{ color: "#94A3B8" }}>
+                                <span>{String(e.date || "").slice(0, 10)}</span>
+                                <span className="font-bold mono" style={{ color: selected.color }}>×{e.multiplier ?? 1}</span>
+                              </div>
+                            </div>
+                            <CanEdit>
+                              <select
+                                data-testid={`events-expanded-move-${e.id}`}
+                                value={selected.id === "__none__" ? "__none__" : selected.id}
+                                onChange={(ev) => {
+                                  ev.stopPropagation();
+                                  const v = ev.target.value;
+                                  const target = v === "__none__" ? null : v;
+                                  api.post("/event-folders/assign", { event_ids: [e.id], folder_id: target })
+                                    .then(() => {
+                                      mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                                      mutate("/event-folders");
+                                      const label = target ? (folders.find((f) => f.id === target)?.name || "klasör") : "Klasörsüz";
+                                      toast.success(`→ ${label}`);
+                                    })
+                                    .catch((err) => toast.error(err?.response?.data?.detail || err.message));
+                                }}
+                                onClick={(ev) => ev.stopPropagation()}
+                                className="chip text-[9px] flex-shrink-0"
+                                style={{
+                                  padding: "2px 5px",
+                                  borderColor: `${selected.color}55`,
+                                  color: selected.color,
+                                  background: "rgba(20,12,10,0.85)",
+                                  cursor: "pointer",
+                                  maxWidth: 130,
+                                }}
+                                title="Klasöre taşı"
+                              >
+                                <option value="__none__">📂 Klasörsüz</option>
+                                {folders.map((ff) => (
+                                  <option key={ff.id} value={ff.id}>{ff.icon || "📁"} {ff.name}</option>
+                                ))}
+                              </select>
+                            </CanEdit>
                           </div>
                         </div>
                       );
