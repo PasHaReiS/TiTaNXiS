@@ -582,7 +582,7 @@ export default function Events() {
         </div>
 
         <motion.div
-          className="grid grid-cols-2 gap-1.5"
+          className="grid grid-cols-2 sm:grid-cols-3 gap-1.5"
           initial="hidden"
           animate="visible"
           variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
@@ -784,84 +784,15 @@ export default function Events() {
         </div>
 
 
-        {/* Sub-filter chips — sit UNDER the primary tabs so the admin can
-            narrow the active tab down to just "Kolektif" (grouped) or
-            "Bireysel" (ungrouped). Clicking the active chip toggles back
-            to the 2-column split. Hidden on the archive tab because the
-            folder-grouped view already provides its own grouping. */}
-        {tab !== "archive" && (
-        <div
-          className="flex gap-1.5 mb-2 flex-wrap"
-          data-testid="events-subfilter-bar"
-        >
-          {[
-            { key: "kolektif", label: "Kolektif", color: "#F5A623", emoji: "🤝" },
-            { key: "bireysel", label: "Bireysel", color: "#A78BFA", emoji: "🧍" },
-          ].map((opt) => {
-            const active = subFilter === opt.key;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                data-testid={`events-subfilter-${opt.key}`}
-                onClick={() => setSubFilter(active ? "all" : opt.key)}
-                className="chip text-[10px] flex-1 justify-center"
-                style={active ? {
-                  borderColor: opt.color,
-                  color: opt.color,
-                  background: `${opt.color}18`,
-                  boxShadow: `0 0 8px ${opt.color}55, inset 0 0 8px ${opt.color}22`,
-                } : {
-                  opacity: 0.7,
-                }}
-              >
-                <span aria-hidden="true" style={{ fontSize: 12 }}>{opt.emoji}</span> {opt.label}
-              </button>
-            );
-          })}
-        </div>
-        )}
+        {/* Sub-filter chips removed per user request — Kolektif / Bireysel
+            distinction is gone. All events surface in a single flow. */}
 
         {/* Visibility filter row removed — hidden and visible events now
             render together in the list. Each hidden event still shows a
             small "🚫 Sıralama dışı" badge on its card so admins can
             distinguish them without a filter chip. */}
 
-        {/* Split preset chips — only visible when both columns show (Tümü
-            mode). Quick 30/70, 50/50, 70/30 buttons for admins who prefer
-            snap-to-preset over dragging the middle handle. Hidden on
-            archive since the folder-grouped view uses a single grid. */}
-        {tab !== "archive" && subFilter === "all" && (
-          <div className="hidden lg:flex gap-1.5 mb-3" data-testid="events-split-presets">
-            <span className="text-[9px] uppercase tracking-widest text-muted-foreground font-bold self-center mr-1">
-              Kolon
-            </span>
-            {[
-              { pct: 30, label: "30 / 70" },
-              { pct: 50, label: "50 / 50" },
-              { pct: 70, label: "70 / 30" },
-            ].map((p) => {
-              const active = Math.abs(splitPct - p.pct) < 1;
-              return (
-                <button
-                  key={p.pct}
-                  type="button"
-                  data-testid={`events-split-preset-${p.pct}`}
-                  onClick={() => setSplitPct(p.pct)}
-                  className="chip text-[10px]"
-                  style={active ? {
-                    borderColor: "#FCD34D",
-                    color: "#FCD34D",
-                    background: "rgba(245,166,35,0.15)",
-                    boxShadow: "0 0 6px rgba(245,166,35,0.35)",
-                  } : { opacity: 0.75 }}
-                >
-                  {p.label}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        {/* Split preset chips removed — Kolektif/Bireysel split gone. */}
 
         {/* Filtered content — respects the sub-filter chip above. When
             "all", both columns render side-by-side with a resizable split
@@ -1191,7 +1122,7 @@ export default function Events() {
                       }
                       // Group accordion: sort collective first, then alphabetical.
                       const subs = Object.entries(bySub)
-                        .map(([sk, list]) => ({ key: sk, isCollective: sk !== "__ungrouped__", label: sk === "__ungrouped__" ? "Bireysel Etkinlikler" : sk, events: list }))
+                        .map(([sk, list]) => ({ key: sk, isCollective: sk !== "__ungrouped__", label: sk === "__ungrouped__" ? "Grupsuz Etkinlikler" : sk, events: list }))
                         .sort((x, y) => {
                           if (x.isCollective !== y.isCollective) return x.isCollective ? -1 : 1;
                           return x.key.localeCompare(y.key);
@@ -1216,7 +1147,7 @@ export default function Events() {
                                   }}
                                 >
                                   <span style={{ fontSize: 12 }}>{isOpen ? "▼" : "▶"}</span>
-                                  <span style={{ fontSize: 14 }}>{sg.isCollective ? "🤝" : "🧍"}</span>
+                                  <span style={{ fontSize: 14 }}>{sg.isCollective ? "🤝" : "📄"}</span>
                                   <span
                                     className="text-sm font-bold truncate flex-1"
                                     style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.06em" }}
@@ -1253,51 +1184,49 @@ export default function Events() {
         ) : (
 
         (() => {
-          const showGrouped = subFilter === "all" || subFilter === "kolektif";
-          const showUngrouped = subFilter === "all" || subFilter === "bireysel";
-          const twoCol = showGrouped && showUngrouped;
           return (
-        <div
-          className={twoCol ? "hidden lg:grid gap-0" : ""}
-          style={twoCol ? { gridTemplateColumns: `${splitPct}fr 8px ${100 - splitPct}fr` } : undefined}
-          data-testid="events-two-col-grid"
-        >
-          {/* Mobile / narrow-viewport fallback for 2-col — plain stacked */}
-          {twoCol && (
-            <div className="grid grid-cols-1 gap-4 lg:hidden col-span-full">
-              {renderGroupedCol()}
-              {renderUngroupedCol()}
-            </div>
-          )}
-          {twoCol ? (
-            <>
-              {renderGroupedCol()}
-              <div
-                data-testid="events-column-resize-handle"
-                onMouseDown={(ev) => startResize(ev)}
-                onTouchStart={(ev) => startResize(ev)}
-                className="hidden lg:block cursor-col-resize group"
-                style={{ position: "relative" }}
-                title="Sürükle-bırak ile kolon genişliğini ayarla"
+        <div className="flex flex-col gap-4" data-testid="events-single-list">
+          {Object.entries(groupedMap).map(([group, list]) => renderGroupBlock(group, list))}
+          {ungrouped.length > 0 && (
+            <section
+              data-testid="events-ungrouped-column"
+              onDragOver={(ev) => {
+                if (dragSourceBucket && dragSourceBucket !== "ungrouped") ev.preventDefault();
+              }}
+              onDrop={(ev) => {
+                if (!dragId || !dragSourceBucket || dragSourceBucket === "ungrouped") return;
+                ev.preventDefault();
+                api.patch(`/events/${dragId}`, { group_name: "" })
+                  .then(() => {
+                    mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                    toast.success("→ Grupsuz");
+                  })
+                  .catch((err) => toast.error(err?.response?.data?.detail || err.message));
+                setDragId(null); setDragSourceBucket(null);
+              }}
+              style={
+                dragSourceBucket && dragSourceBucket !== "ungrouped"
+                  ? {
+                      outline: "2px dashed rgba(139,92,246,0.75)",
+                      outlineOffset: 6,
+                      borderRadius: 8,
+                      animation: "dropzone-pulse 1.1s ease-in-out infinite",
+                    }
+                  : undefined
+              }
+            >
+              <motion.div
+                className="grid grid-cols-2 sm:grid-cols-3 gap-1.5"
+                initial="hidden"
+                animate="visible"
+                variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
+                data-testid="events-ungrouped-grid"
               >
-                <div
-                  className="absolute inset-y-0"
-                  style={{
-                    left: 2,
-                    width: 4,
-                    background: "linear-gradient(180deg, rgba(245,166,35,0.35), rgba(139,92,246,0.35))",
-                    borderRadius: 2,
-                    transition: "opacity 0.15s",
-                  }}
-                />
-              </div>
-              {renderUngroupedCol()}
-            </>
-          ) : (
-            <>
-              {showGrouped && renderGroupedCol()}
-              {showUngrouped && renderUngroupedCol()}
-            </>
+                {applyManualOrder(ungrouped, "ungrouped").map((e) =>
+                  renderEventCard(e, "#818cf8", "", "ungrouped")
+                )}
+              </motion.div>
+            </section>
           )}
         </div>
           );
@@ -2003,7 +1932,7 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
             className={`chip justify-center py-2 ${grouped ? "active" : ""}`}
             aria-pressed={grouped}
           >
-            Kolektif
+            Gruplu
           </button>
           <button
             type="button"
@@ -2012,7 +1941,7 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
             className={`chip justify-center py-2 ${!grouped ? "active" : ""}`}
             aria-pressed={!grouped}
           >
-            Bireysel
+            Grupsuz
           </button>
         </div>
 

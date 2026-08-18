@@ -21,8 +21,9 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
-- **Feb 18, 2026 (v3)**: Leaderboard Archive fully rebuilt to folder → group → member hierarchy. Top level shows folder cards grid only (events never surface). Click folder → group list with `← Klasörler` back button, per-group `▶` expand toggle (reveals events inline) and group-name click still opens total-ranking view. Empty folder shows "Bu klasörde grup yok".
-- **Feb 18, 2026**: Removed dead `moveToFolder` function from `/app/frontend/src/pages/Leaderboard.jsx`.
+- **Feb 18, 2026 (v4)**: (a) Removed "Tümü" chip from Leaderboard active event strip. (b) Removed Kolektif/Bireysel distinction from Events page — sub-filter chips + resizable two-column layout gone; all events now flow as `grid-cols-2 sm:grid-cols-3` under Hatırlatmalı/Hatırlatmasız tabs. Group blocks still render sequentially. Event form toggle relabelled "Gruplu / Grupsuz". Archive accordion "Bireysel Etkinlikler" → "Grupsuz Etkinlikler", 🧍 → 📄.
+- **Feb 18, 2026 (v3)**: Leaderboard Archive rebuilt to folder → group → member hierarchy. Top level shows folder cards grid only. Group row now has two actions: click name → total ranking, click `▶` → inline event list.
+- **Feb 18, 2026**: Removed dead `moveToFolder` function.
 
 ## What's Implemented
 - 29-language i18n with DeepL bulk translate + on-the-fly DM translation

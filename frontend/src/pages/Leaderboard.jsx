@@ -371,34 +371,12 @@ export default function Leaderboard() {
             ? groupNames.map((g) => ({ key: g, label: g, isGroup: true }))
             : visibleActiveEvents.map((e) => ({ key: e.id, label: e.name, isGroup: false, event: e }));
           const isSelected = (it) => it.isGroup ? group === it.key : activeEventId === it.event.id;
-          const anySelected = hasGroups ? !!group : !!activeEventId;
           return (
           <div
             className="flex gap-1.5 mb-3 overflow-x-auto pb-1 flex-nowrap"
             data-testid="leaderboard-active-event-strip"
             style={{ scrollBehavior: "smooth" }}
           >
-            <button
-              data-testid="leaderboard-active-event-all"
-              onClick={() => { setActiveEventId(null); setGroup(null); }}
-              className={`chip ${!anySelected ? "active" : ""}`}
-              style={!anySelected ? {
-                padding: "5px 10px", fontSize: 9, fontWeight: 800,
-                letterSpacing: "0.10em", textTransform: "uppercase",
-                borderColor: "#F5A623", color: "#FFF7ED",
-                background: "linear-gradient(180deg, rgba(245,166,35,0.30), rgba(180,83,9,0.55))",
-                boxShadow: "0 0 8px rgba(245,166,35,0.45)",
-                fontFamily: "Cinzel, serif", whiteSpace: "nowrap",
-              } : {
-                padding: "5px 10px", fontSize: 9, fontWeight: 700,
-                letterSpacing: "0.10em", textTransform: "uppercase",
-                borderColor: "rgba(245,166,35,0.45)", color: "#F5A623",
-                background: "rgba(30,20,15,0.85)",
-                fontFamily: "Cinzel, serif", whiteSpace: "nowrap",
-              }}
-            >
-              {t("all_short")}
-            </button>
             {items.map((it) => {
               const isActive = isSelected(it);
               const tid = it.isGroup ? `leaderboard-active-group-${it.key}` : `leaderboard-active-event-${it.key}`;
