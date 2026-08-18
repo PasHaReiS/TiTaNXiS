@@ -21,7 +21,8 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
-- **Feb 18, 2026 (v4)**: (a) Removed "Tümü" chip from Leaderboard active event strip. (b) Removed Kolektif/Bireysel distinction from Events page — sub-filter chips + resizable two-column layout gone; all events now flow as `grid-cols-2 sm:grid-cols-3` under Hatırlatmalı/Hatırlatmasız tabs. Group blocks still render sequentially. Event form toggle relabelled "Gruplu / Grupsuz". Archive accordion "Bireysel Etkinlikler" → "Grupsuz Etkinlikler", 🧍 → 📄.
+- **Feb 18, 2026 (v5)**: Leaderboard Aktif tab — active-event strip now shows groups side by side with each chip carrying an inline `▶` that expands the group's underlying events in a compact panel below the strip. Sub-events stay hidden by default; group-name click still filters the ranking to that group's total. State: `expandedActiveGroups`.
+- **Feb 18, 2026 (v4)**: (a) Removed "Tümü" chip from Leaderboard active event strip. (b) Removed Kolektif/Bireysel distinction from Events page.
 - **Feb 18, 2026 (v3)**: Leaderboard Archive rebuilt to folder → group → member hierarchy. Top level shows folder cards grid only. Group row now has two actions: click name → total ranking, click `▶` → inline event list.
 - **Feb 18, 2026**: Removed dead `moveToFolder` function.
 
