@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import useSWR from "swr";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Camera, Loader2, Check, AlertTriangle, Upload, Scissors } from "lucide-react";
+import { X, Camera, Loader2, Check, AlertTriangle, Upload, Scissors, Trash2, RotateCcw } from "lucide-react";
 import { api, apiErr } from "@/lib/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -49,6 +49,11 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   const [selection, setSelection] = useState("");
   const [mergeStrategy, setMergeStrategy] = useState("sum"); // sum | max | first
   const [cropIdx, setCropIdx] = useState(-1); // index of image currently being cropped, -1 = none
+  // Preview-and-eliminate: OCR rows the user has struck out before save.
+  // Keyed by row index so a re-scan (which resets result → rows) also wipes
+  // stale exclusions. Only kept rows are sent to /ocr/apply-*.
+  const [excludedRows, setExcludedRows] = useState(() => new Set());
+  React.useEffect(() => { setExcludedRows(new Set()); }, [result]);
 
   // Progress-UI heuristic: for 2+ images we show a live X/N counter and bar.
   // Every image is always dispatched as its own /ocr/parse request (below) —
@@ -206,7 +211,13 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
     setApplying(true);
     try {
       const extra = requireSelection ? { [`${requireSelection.type}_id`]: selection } : {};
-      await onApply(result.data, extra);
+      // Filter out any rows the admin struck from the preview so only the
+      // "approved" names ever hit the DB.
+      const keep = (arr) => (Array.isArray(arr) ? arr.filter((_, i) => !excludedRows.has(i)) : arr);
+      const filteredData = { ...result.data };
+      if (mode === "event") filteredData.participants = keep(result.data.participants || []);
+      else if (mode === "members") filteredData.members = keep(result.data.members || []);
+      await onApply(filteredData, extra);
       onClose?.();
     } catch (e) {
       toast.error(apiErr(e));
@@ -415,8 +426,21 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                   style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(245,166,35,0.3)" }}
                   data-testid="ocr-result-panel"
                 >
-                  <div className="text-[10px] uppercase tracking-widest gold-text mb-2 flex items-center gap-1">
-                    <Check className="w-3 h-3" /> {rows.length} sonuç
+                  <div className="text-[10px] uppercase tracking-widest gold-text mb-2 flex items-center justify-between gap-1">
+                    <span className="flex items-center gap-1">
+                      <Check className="w-3 h-3" /> {rows.length - excludedRows.size} / {rows.length} onaylı
+                    </span>
+                    {excludedRows.size > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setExcludedRows(new Set())}
+                        className="text-[9px] normal-case font-normal underline decoration-dotted hover:text-white"
+                        style={{ color: "#93C5FD" }}
+                        data-testid="ocr-restore-all"
+                      >
+                        ↩ {excludedRows.size} elenen kişiyi geri al
+                      </button>
+                    )}
                   </div>
                   {rows.length === 0 ? (
                     <div className="text-xs text-muted-foreground italic flex items-center gap-1">
@@ -426,6 +450,9 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                     <table className="w-full text-[10px]">
                       <thead>
                         <tr className="text-muted-foreground uppercase tracking-widest">
+                          {(mode === "members" || mode === "event") && (
+                            <th className="text-center py-1 w-8" title="Elenen satırlar veritabanına yazılmaz">✓</th>
+                          )}
                           {mode === "members" && (<>
                             <th className="text-left py-1">İsim</th>
                             <th className="text-right py-1">Güç</th>
@@ -449,8 +476,36 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                         </tr>
                       </thead>
                       <tbody>
-                        {rows.map((r, i) => (
-                          <tr key={i} className="border-t border-white/5" data-testid={`ocr-row-${i}`}>
+                        {rows.map((r, i) => {
+                          const isExcluded = excludedRows.has(i);
+                          const toggleExclude = () => setExcludedRows((prev) => {
+                            const nx = new Set(prev);
+                            nx.has(i) ? nx.delete(i) : nx.add(i);
+                            return nx;
+                          });
+                          return (
+                          <tr
+                            key={i}
+                            className="border-t border-white/5"
+                            data-testid={`ocr-row-${i}`}
+                            style={isExcluded ? { opacity: 0.35, textDecoration: "line-through" } : undefined}
+                          >
+                            {(mode === "members" || mode === "event") && (
+                              <td className="text-center py-1">
+                                <button
+                                  type="button"
+                                  onClick={toggleExclude}
+                                  data-testid={`ocr-row-toggle-${i}`}
+                                  title={isExcluded ? "Bu satırı geri al" : "Bu satırı elemekte"}
+                                  className="p-0.5 rounded hover:bg-white/10 transition"
+                                  style={{ color: isExcluded ? "#93C5FD" : "#F87171" }}
+                                >
+                                  {isExcluded
+                                    ? <RotateCcw className="w-3.5 h-3.5" />
+                                    : <Trash2 className="w-3.5 h-3.5" />}
+                                </button>
+                              </td>
+                            )}
                             {mode === "members" && (() => {
                               const cleanName = _stripTag(r.name);
                               const isExisting = existingNamesLc.has(cleanName.toLowerCase());
@@ -514,7 +569,8 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               <td className="text-right py-1 text-white/70">{r.casualties_lost || "—"}</td>
                             </>)}
                           </tr>
-                        ))}
+                        );
+                        })}
                       </tbody>
                     </table>
                   )}
@@ -549,13 +605,13 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                 <button
                   type="button"
                   onClick={doApply}
-                  disabled={applying || (requireSelection && !selection)}
+                  disabled={applying || (requireSelection && !selection) || (rows.length - excludedRows.size) === 0}
                   data-testid="ocr-apply"
                   className="btn-gold w-full py-3 justify-center"
-                  style={requireSelection && !selection ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                  style={(requireSelection && !selection) || (rows.length - excludedRows.size) === 0 ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                 >
                   {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                  {applying ? "Kaydediliyor…" : `Onayla & Kaydet (${rows.length})`}
+                  {applying ? "Kaydediliyor…" : `Onayla & Kaydet (${rows.length - excludedRows.size})`}
                 </button>
               )}
             </div>
