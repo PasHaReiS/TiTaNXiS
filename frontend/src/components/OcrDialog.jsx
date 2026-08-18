@@ -51,13 +51,19 @@ function _fuzzyTopMatches(needle, hayNames, limit = 3) {
 // in the string, not just at the start; leading digits + separators get
 // dropped from the display name too.
 const _ALLIANCE_TAG_RE = /\[([A-Za-z0-9]{2,5})\]/;
+const _RANK_RE = /\b(R[1-5])\b/i;
 function _extractAllianceTag(n) {
   const m = _ALLIANCE_TAG_RE.exec(String(n || ""));
   return m ? m[1].trim() : "";
 }
+function _extractRank(n) {
+  const m = _RANK_RE.exec(String(n || ""));
+  return m ? m[1].toUpperCase() : "";
+}
 function _stripTagAndJunk(n) {
   let s = String(n || "");
   s = s.replace(_ALLIANCE_TAG_RE, "");
+  s = s.replace(_RANK_RE, "");
   s = s.replace(/^[\s\d.\-|:_/\\]+/, "");
   return s.trim();
 }
@@ -428,6 +434,13 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
               if (cleaned) next.name = cleaned;
             }
             if (kind === "event" && patch.points !== undefined) next.points = Number(patch.points) || 0;
+            if (kind === "event" && patch.rank !== undefined) {
+              const r = String(patch.rank || "").trim().toUpperCase();
+              next.rank = ["R1","R2","R3","R4","R5"].includes(r) ? r : null;
+            } else if (kind === "event" && !next.rank) {
+              const rk = _extractRank(r.name || "");
+              if (rk) next.rank = rk;
+            }
             if (kind === "event" && patch.alliance_name !== undefined) {
               const trimmed = String(patch.alliance_name || "").trim();
               next.alliance_name = trimmed || null;
@@ -917,9 +930,10 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             <th className="text-right py-1">Durum</th>
                           </>)}
                           {mode === "event" && (<>
-                            <th className="text-left py-1">İttifak</th>
-                            <th className="text-left py-1">İsim</th>
-                            <th className="text-right py-1">Puan</th>
+                            <th className="text-left py-2 px-2 font-semibold text-[9px] tracking-widest text-amber-200/70">İttifak</th>
+                            <th className="text-left py-2 px-2 font-semibold text-[9px] tracking-widest text-amber-200/70">Üye Adı</th>
+                            <th className="text-center py-2 px-2 font-semibold text-[9px] tracking-widest text-amber-200/70">Rütbe</th>
+                            <th className="text-right py-2 px-2 font-semibold text-[9px] tracking-widest text-amber-200/70">Puan</th>
                           </>)}
                           {mode === "war" && (<>
                             <th className="text-left py-1">Kazanan</th>
@@ -1138,7 +1152,6 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             {mode === "event" && (() => {
                               const currName = rowEdits[i]?.name ?? r.name;
                               const currPoints = rowEdits[i]?.points ?? r.points ?? 0;
-                              // Best-effort alliance guess: explicit rowEdit → OCR field → smart bracket extraction anywhere in name.
                               let allianceGuess = rowEdits[i]?.alliance_name;
                               if (allianceGuess === undefined) {
                                 allianceGuess = r.alliance_name;
@@ -1147,9 +1160,13 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                   if (tag) allianceGuess = tag;
                                 }
                               }
+                              let rankGuess = rowEdits[i]?.rank;
+                              if (rankGuess === undefined) {
+                                rankGuess = r.rank || _extractRank(currName ?? "");
+                              }
                               const displayName = _stripTagAndJunk(currName ?? "") || currName || "";
                               return (<>
-                                <td className="py-1 max-w-[80px]">
+                                <td className="py-1.5 px-2 max-w-[80px]">
                                   <input
                                     type="text"
                                     list={`ocr-ev-alliance-list-${i}`}
@@ -1158,7 +1175,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-alliance-${i}`}
                                     placeholder="—"
-                                    className="w-full bg-transparent outline-none border-b border-transparent hover:border-white/30 focus:border-amber-400 text-[10px]"
+                                    className="w-full bg-transparent outline-none rounded px-1.5 py-1 hover:bg-white/5 focus:bg-white/10 focus:ring-1 focus:ring-amber-400/60 text-[11px] transition-colors"
                                     style={{ color: allianceGuess ? "#EAD8B0" : "rgba(255,255,255,0.35)" }}
                                     title="İttifak — mevcut listeden seç ya da elle yaz"
                                   />
@@ -1166,18 +1183,39 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     {allianceNames.map((n) => (<option key={n} value={n} />))}
                                   </datalist>
                                 </td>
-                                <td className="py-1 max-w-[200px]">
+                                <td className="py-1.5 px-2 max-w-[200px]">
                                   <input
                                     type="text"
                                     value={rowEdits[i]?.name !== undefined ? currName : displayName}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-name-${i}`}
-                                    className="w-full bg-transparent text-white outline-none border-b border-transparent hover:border-white/30 focus:border-amber-400 text-[10px]"
+                                    className="w-full bg-transparent text-white outline-none rounded px-1.5 py-1 hover:bg-white/5 focus:bg-white/10 focus:ring-1 focus:ring-amber-400/60 text-[11px] transition-colors"
                                     title="Adı düzeltmek için tıkla"
                                   />
                                 </td>
-                                <td className="py-1">
+                                <td className="py-1.5 px-2 w-16 text-center">
+                                  <select
+                                    value={rankGuess || ""}
+                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], rank: e.target.value } }))}
+                                    disabled={isExcluded}
+                                    data-testid={`ocr-row-rank-${i}`}
+                                    className="w-full bg-transparent outline-none rounded px-1 py-1 hover:bg-white/5 focus:bg-white/10 focus:ring-1 focus:ring-amber-400/60 text-[11px] font-bold text-center transition-colors"
+                                    style={{
+                                      color: rankGuess ? "#FCD34D" : "rgba(255,255,255,0.35)",
+                                      appearance: "none",
+                                    }}
+                                    title={rankGuess ? `Rütbe: ${rankGuess} — değiştirmek için aç` : "Rütbe okunamadı — manuel seç"}
+                                  >
+                                    <option value="">—</option>
+                                    <option value="R1">R1</option>
+                                    <option value="R2">R2</option>
+                                    <option value="R3">R3</option>
+                                    <option value="R4">R4</option>
+                                    <option value="R5">R5</option>
+                                  </select>
+                                </td>
+                                <td className="py-1.5 px-2">
                                   <input
                                     type="number"
                                     value={currPoints}
@@ -1185,7 +1223,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], points: e.target.value } }))}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-points-${i}`}
-                                    className="w-full bg-transparent gold-text mono outline-none border-b border-transparent hover:border-white/30 focus:border-amber-400 text-[10px] text-right"
+                                    className="w-full bg-transparent gold-text mono outline-none rounded px-1.5 py-1 hover:bg-white/5 focus:bg-white/10 focus:ring-1 focus:ring-amber-400/60 text-[11px] text-right font-bold transition-colors"
                                     title="Puanı düzeltmek için tıkla"
                                   />
                                 </td>
