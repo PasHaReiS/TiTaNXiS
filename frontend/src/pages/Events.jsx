@@ -915,7 +915,7 @@ export default function Events() {
             const openNewFolder = () => setShowFolderMgr(true);
             return (
               <div data-testid="events-archive-redesign">
-                <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="grid grid-cols-4 gap-3 mb-4">
                   {cards.map((c) => {
                     const isSel = folderId === c.id || (folderId === "none" && c.id === "__none__");
                     const isDrag = dragFolderId === c.id;
