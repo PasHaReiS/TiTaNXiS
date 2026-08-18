@@ -30,6 +30,19 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - Telegram diagnostic panel + manual chat ID link
 - Open Graph / SEO meta
 
+- **Archive tab full redesign** (Feb 18): The archive tab now uses a
+  bold 3-col stone-textured folder grid (referans görsel). Klasörsüz
+  is pinned as the first card. Each folder card shows the icon (42px),
+  name (Cinzel serif with drop-shadow), and event count. Selecting a
+  folder glows it with a bright colored halo (`boxShadow 0 0 24px +
+  outer 48px`) and expands a golden-bordered panel below with the
+  folder's events in a 2-col grid (name bold + date + × multiplier).
+  Rename ✏️ and Delete 🗑️ icons live on each card's top-right corner
+  (admin-only). A dashed "➕ Yeni Klasör" card at the end opens the
+  folder manager modal. The old chip strip / sort toggle / folder
+  actions bar / group-name sub-grouping were fully removed for
+  clarity. Cards accept drag-drop of events from the expanded panel
+  for one-tap reassignment.
 ### Feb 2026 — Leaderboard / Members / Events / Calculators UX pass
   chip strip below the group chips. Clicking a specific event swaps
   the aggregate podium+list for that event's ranking (participants only).

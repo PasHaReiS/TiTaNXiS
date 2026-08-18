@@ -666,231 +666,11 @@ export default function Events() {
           />
         )}
 
-        {/* Archive folder toolbar — shown only on the archive tab. Chip
-            strip lets the admin pick a folder to narrow the grid; the
-            hamburger button opens the folder manager for create/rename/
-            delete. A "Yeni→Eski / Eski→Yeni" toggle controls sort order.
-            Chips are draggable — drop one on top of another to reorder. */}
-        {tab === "archive" && (
-          <div
-            className="flex items-center gap-1.5 mb-3 flex-wrap"
-            data-testid="events-folder-toolbar"
-          >
-            <button
-              type="button"
-              data-testid="events-folder-all"
-              onClick={() => setFolderId(null)}
-              className={`chip text-[10px] ${!folderId ? "active" : ""}`}
-              style={{ padding: "5px 10px", whiteSpace: "nowrap" }}
-            >
-              📁 Tümü
-            </button>
-            <button
-              type="button"
-              data-testid="events-folder-none"
-              onClick={() => setFolderId(folderId === "none" ? null : "none")}
-              className={`chip text-[10px] ${folderId === "none" ? "active" : ""}`}
-              style={{ padding: "5px 10px", whiteSpace: "nowrap" }}
-              title="Klasöre atanmamış etkinlikler"
-            >
-              Klasörsüz
-            </button>
-            {folders.map((f) => {
-              const isSel = folderId === f.id;
-              const isDragTarget = dragFolderId && dragFolderId !== f.id;
-              return (
-                <button
-                  key={f.id}
-                  type="button"
-                  data-testid={`events-folder-${f.id}`}
-                  draggable="true"
-                  onDragStart={(e) => { setDragFolderId(f.id); e.dataTransfer.effectAllowed = "move"; }}
-                  onDragEnd={() => setDragFolderId(null)}
-                  onDragOver={(e) => {
-                    // Accept both folder-chip reorders AND event-card drops
-                    // (from the folder-grouped list below).
-                    if (isDragTarget || e.dataTransfer.types.includes("application/x-event-id")) {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
-                    }
-                  }}
-                  onDrop={(e) => {
-                    const evId = e.dataTransfer.getData("application/x-event-id");
-                    if (evId) {
-                      // Event dropped onto folder chip → bulk-assign the
-                      // dragged event + any other selected events.
-                      e.preventDefault();
-                      const ids = selectionMode && selectedIds.size > 0 && selectedIds.has(evId)
-                        ? [...selectedIds] : [evId];
-                      api.post("/event-folders/assign", { event_ids: ids, folder_id: f.id })
-                        .then((r) => {
-                          mutate((k) => typeof k === "string" && k.startsWith("/events"));
-                          mutate("/event-folders");
-                          toast.success(`${r.data.modified} etkinlik → ${f.name}`);
-                          if (selectionMode) clearSelection();
-                        })
-                        .catch((err) => toast.error(err?.response?.data?.detail || err.message));
-                      return;
-                    }
-                    if (!isDragTarget) return;
-                    e.preventDefault();
-                    const ids = folders.map((x) => x.id);
-                    const from = ids.indexOf(dragFolderId);
-                    const to = ids.indexOf(f.id);
-                    if (from < 0 || to < 0 || from === to) return;
-                    ids.splice(to, 0, ids.splice(from, 1)[0]);
-                    api.post("/event-folders/reorder", { ids })
-                      .then(() => { mutate("/event-folders"); toast.success("Klasör sırası güncellendi"); })
-                      .catch((err) => toast.error(err?.response?.data?.detail || err.message));
-                    setDragFolderId(null);
-                  }}
-                  onClick={() => setFolderId(isSel ? null : f.id)}
-                  className={`chip text-[10px] ${isSel ? "active" : ""}`}
-                  title={`${f.name} — sürükle: sırala · etkinlik bırak: klasöre taşı`}
-                  style={{
-                    padding: "5px 10px",
-                    whiteSpace: "nowrap",
-                    borderColor: f.color || (isSel ? "#F5A623" : "rgba(245,166,35,0.45)"),
-                    background: isSel && f.color ? `${f.color}30` : undefined,
-                    outline: isDragTarget ? "2px dashed rgba(245,166,35,0.6)" : "none",
-                    outlineOffset: 2,
-                    cursor: "grab",
-                    opacity: dragFolderId === f.id ? 0.5 : 1,
-                  }}
-                >
-                  {f.icon || "📁"} {f.name}
-                  {typeof f.archived_count === "number" && (
-                    <span className="ml-1 opacity-70 mono">({f.archived_count})</span>
-                  )}
-                </button>
-              );
-            })}
-            <div className="flex-1" />
-            <button
-              type="button"
-              data-testid="events-archive-sort-toggle"
-              onClick={() => setArchiveSort(archiveSort === "newest" ? "oldest" : "newest")}
-              className="chip text-[10px]"
-              style={{ padding: "5px 10px", whiteSpace: "nowrap" }}
-              title="Sıralama yönünü değiştir"
-            >
-              {archiveSort === "newest" ? "↓ Yeni → Eski" : "↑ Eski → Yeni"}
-            </button>
-            <CanEdit>
-              <button
-                type="button"
-                data-testid="events-folder-manage"
-                onClick={() => setShowFolderMgr(true)}
-                className="chip text-[10px] flex items-center gap-1"
-                style={{
-                  padding: "5px 10px",
-                  whiteSpace: "nowrap",
-                  borderColor: "rgba(245,166,35,0.55)",
-                  color: "#F5A623",
-                }}
-              >
-                <Plus className="w-3 h-3" /> Klasör Yönet
-              </button>
-            </CanEdit>
-          </div>
-        )}
-
-        {/* Folder-level bulk actions — appear when a specific folder chip is
-            selected. One-tap "arşive al / çıkar" retires or revives the
-            entire folder without opening the bulk-selection toolbar. */}
-        {tab === "archive" && folderId && folderId !== "none" && (() => {
-          const folder = folders.find((f) => f.id === folderId);
-          if (!folder) return null;
-          const bulkFolderArchive = async (archived) => {
-            const label = archived ? "arşive al" : "aktife al";
-            if (!window.confirm(`"${folder.name}" klasöründeki tüm etkinlikleri ${label}?`)) return;
-            try {
-              const res = await api.post(`/event-folders/${folderId}/bulk-archive`, { archived });
-              mutate((k) => typeof k === "string" && k.startsWith("/events"));
-              mutate("/event-folders");
-              mutate("/stats");
-              toast.success(`${res.data.modified} etkinlik ${archived ? "arşive alındı" : "aktife alındı"}`);
-            } catch (e) {
-              toast.error(e?.response?.data?.detail || e.message);
-            }
-          };
-          return (
-            <CanEdit>
-              <div
-                className="flex items-center gap-1.5 mb-3 p-2 rounded-lg flex-wrap"
-                data-testid="events-folder-actions-bar"
-                style={{
-                  background: `${folder.color || "#F5A623"}18`,
-                  border: `1px solid ${folder.color || "rgba(245,166,35,0.45)"}55`,
-                }}
-              >
-                <span
-                  className="text-[10px] font-bold uppercase tracking-widest"
-                  style={{ color: folder.color || "#F5A623", letterSpacing: "0.12em" }}
-                >
-                  {folder.icon || "📁"} {folder.name} · {folder.archived_count || 0} etkinlik
-                </span>
-                <div className="flex-1" />
-                <button
-                  type="button"
-                  data-testid="events-folder-bulk-unarchive"
-                  onClick={() => bulkFolderArchive(false)}
-                  className="chip text-[10px] flex items-center gap-1"
-                  style={{
-                    padding: "5px 10px",
-                    borderColor: "rgba(34,197,94,0.55)",
-                    color: "#86EFAC",
-                    background: "rgba(34,197,94,0.10)",
-                  }}
-                  title="Bu klasördeki tüm etkinlikleri aktife al"
-                >
-                  <ArchiveRestore className="w-3 h-3" /> Tümünü Aktife Al
-                </button>
-                <button
-                  type="button"
-                  data-testid="events-folder-bulk-archive"
-                  onClick={() => bulkFolderArchive(true)}
-                  className="chip text-[10px] flex items-center gap-1"
-                  style={{
-                    padding: "5px 10px",
-                    borderColor: "rgba(148,163,184,0.55)",
-                    color: "#E5E7EB",
-                    background: "rgba(148,163,184,0.10)",
-                  }}
-                  title="Bu klasördeki tümünü tekrar arşive al"
-                >
-                  <Archive className="w-3 h-3" /> Tümünü Arşive Al
-                </button>
-                <button
-                  type="button"
-                  data-testid="events-folder-share"
-                  onClick={() => {
-                    const url = `${window.location.origin}/public/folder/${folderId}`;
-                    if (navigator.clipboard?.writeText) {
-                      navigator.clipboard.writeText(url).then(() => {
-                        toast.success("Paylaşım linki kopyalandı", { description: url });
-                      }).catch(() => {
-                        window.prompt("Linki kopyala:", url);
-                      });
-                    } else {
-                      window.prompt("Linki kopyala:", url);
-                    }
-                  }}
-                  className="chip text-[10px] flex items-center gap-1"
-                  style={{
-                    padding: "5px 10px",
-                    borderColor: "rgba(59,130,246,0.55)",
-                    color: "#93C5FD",
-                    background: "rgba(59,130,246,0.10)",
-                  }}
-                  title="Bu klasör için herkese açık salt-okunur sıralama linki"
-                >
-                  🔗 Paylaş
-                </button>
-              </div>
-            </CanEdit>
-          );
-        })()}
+        {/* Archive tab uses a fully redesigned folder grid + expandable
+            panel below (see the archive render block further down). The
+            legacy chip strip / sort toggle / "Klasör Yönet" toolbar and
+            the per-folder actions bar have been removed — folder rename
+            and delete now live on the folder cards themselves. */}
 
         {view === "calendar" ? (
           <EventCalendar
@@ -1083,13 +863,10 @@ export default function Events() {
             "all", both columns render side-by-side with a resizable split
             handle; otherwise only that column shows full-width. */}
         {tab === "archive" ? (
-          /* Archive folder-grouped view — every folder renders as its own
-             section (header + events, further sub-grouped by group_name so
-             Kolektif and Bireysel don't intermix), followed by a
-             "Klasörsüz" group for events not in any folder. Events inside
-             each sub-group are sorted newest → oldest. Admins can move
-             any event to another folder via the inline `<select>` in each
-             card wrapper. */
+          /* New archive redesign — stone-textured folder cards in a 3-col
+             grid. Klasörsüz is always the first card. Clicking a folder
+             expands a golden-bordered panel below with the folder's
+             events. Rename / delete controls live on the card corners. */
           (() => {
             const byFolder = {};
             folders.forEach((f) => { byFolder[f.id] = []; });
@@ -1098,302 +875,211 @@ export default function Events() {
               if (e.folder_id && byFolder[e.folder_id]) byFolder[e.folder_id].push(e);
               else noFolder.push(e);
             });
-            let groups = [
-              ...folders.map((f) => ({ id: f.id, name: f.name, color: f.color || "#F5A623", icon: f.icon, event_order: f.event_order || [], events: byFolder[f.id] })),
-              { id: "__none__", name: "Klasörsüz", color: "#94A3B8", icon: "📂", event_order: [], events: noFolder },
+            const cards = [
+              { id: "__none__", name: "Klasörsüz", color: "#94A3B8", icon: "📂", events: noFolder, isSpecial: true },
+              ...folders.map((f) => ({
+                id: f.id, name: f.name,
+                color: f.color || "#F5A623",
+                icon: f.icon || "📁",
+                events: byFolder[f.id],
+                isSpecial: false,
+              })),
             ];
-            // When a specific folder is selected via the chip strip, narrow
-            // the display to that folder (still showing its own sub-groups).
-            if (folderId === "none") groups = groups.filter((g) => g.id === "__none__");
-            else if (folderId) groups = groups.filter((g) => g.id === folderId);
-            groups = groups.filter((g) => g.events.length > 0);
-            if (groups.length === 0) {
-              return (
-                <div className="card-dark p-6 text-center text-muted-foreground" data-testid="events-archive-empty">
-                  {t("no_events")}
-                </div>
-              );
-            }
-            const moveEventToFolder = (eventId, targetFolderId) => {
-              const target = targetFolderId === "__none__" ? null : targetFolderId;
-              api.post("/event-folders/assign", { event_ids: [eventId], folder_id: target })
-                .then(() => {
-                  mutate((k) => typeof k === "string" && k.startsWith("/events"));
-                  mutate("/event-folders");
-                  const label = target ? (folders.find((f) => f.id === target)?.name || "klasör") : "Klasörsüz";
-                  toast.success(`→ ${label}`);
-                })
-                .catch((err) => toast.error(err?.response?.data?.detail || err.message));
-            };
-            const renameFolderInline = async (folder) => {
-              const nxt = window.prompt("Yeni klasör adı:", folder.name);
-              if (!nxt || nxt.trim() === folder.name) return;
+            const selected = folderId && cards.find((c) => c.id === folderId || (folderId === "none" && c.id === "__none__"));
+            const selectedEvents = selected
+              ? [...selected.events].sort((a, b) => new Date(b.date) - new Date(a.date))
+              : [];
+            const renameCard = async (c) => {
+              const nxt = window.prompt("Yeni klasör adı:", c.name);
+              if (!nxt || nxt.trim() === c.name) return;
               try {
-                await api.patch(`/event-folders/${folder.id}`, { name: nxt.trim() });
+                await api.patch(`/event-folders/${c.id}`, { name: nxt.trim() });
                 mutate("/event-folders");
                 toast.success("Klasör adı güncellendi");
               } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
             };
-            const deleteFolderInline = async (folder) => {
-              if (!window.confirm(`"${folder.name}" klasörü silinsin mi? İçindeki etkinlikler klasörsüz kalır.`)) return;
+            const deleteCard = async (c) => {
+              if (!window.confirm(`"${c.name}" klasörü silinsin mi? İçindeki etkinlikler klasörsüz kalır.`)) return;
               try {
-                await api.delete(`/event-folders/${folder.id}`);
+                await api.delete(`/event-folders/${c.id}`);
                 mutate("/event-folders");
                 mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                if (folderId === c.id) setFolderId(null);
                 toast.success("Silindi");
               } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
             };
-            const bulkUnarchiveFolder = async (folder) => {
-              if (!window.confirm(`"${folder.name}" klasöründeki tüm etkinlikler aktife alınsın mı?`)) return;
-              try {
-                const r = await api.post(`/event-folders/${folder.id}/bulk-archive`, { archived: false });
-                mutate((k) => typeof k === "string" && k.startsWith("/events"));
-                mutate("/event-folders");
-                mutate("/stats");
-                toast.success(`${r.data.modified} etkinlik aktife alındı`);
-              } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
-            };
-            const moveAllInFolder = async (folder, targetId) => {
-              const target = targetId === "__none__" ? null : targetId;
-              const ids = folder.events.map((e) => e.id);
-              if (ids.length === 0) return;
-              try {
-                const r = await api.post("/event-folders/assign", { event_ids: ids, folder_id: target });
-                mutate((k) => typeof k === "string" && k.startsWith("/events"));
-                mutate("/event-folders");
-                const label = target ? (folders.find((f) => f.id === target)?.name || "klasör") : "Klasörsüz";
-                toast.success(`${r.data.modified} etkinlik → ${label}`);
-              } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
-            };
+            const openNewFolder = () => setShowFolderMgr(true);
             return (
-              <div className="flex flex-col gap-4" data-testid="events-archive-folder-grouped">
-                {groups.map((g) => {
-                  // Sub-group by group_name so Kolektif/Bireysel don't
-                  // intermix inside a folder. Sort each sub-list by date
-                  // desc; if the folder has a manual `event_order`, apply
-                  // that first (across all groups) as a tiebreaker.
-                  const orderIdx = new Map(g.event_order.map((id, i) => [id, i]));
-                  const bySub = {};
-                  g.events.forEach((e) => {
-                    const key = e.group_name && e.group_name.trim() ? e.group_name : "__ungrouped__";
-                    (bySub[key] = bySub[key] || []).push(e);
-                  });
-                  const subGroups = Object.entries(bySub).map(([sk, list]) => ({
-                    key: sk,
-                    label: sk === "__ungrouped__" ? "🧍 Bireysel" : `🤝 ${sk}`,
-                    isCollective: sk !== "__ungrouped__",
-                    events: [...list].sort((a, b) => {
-                      const ai = orderIdx.has(a.id) ? orderIdx.get(a.id) : 999999;
-                      const bi = orderIdx.has(b.id) ? orderIdx.get(b.id) : 999999;
-                      if (ai !== bi) return ai - bi;
-                      return new Date(b.date) - new Date(a.date);
-                    }),
-                  })).sort((x, y) => {
-                    // Kolektif blocks first, Bireysel last.
-                    if (x.isCollective !== y.isCollective) return x.isCollective ? -1 : 1;
-                    return x.key.localeCompare(y.key);
-                  });
-                  return (
-                    <section
-                      key={g.id}
-                      data-testid={`events-archive-folder-group-${g.id}`}
-                      className="rounded-lg p-3"
-                      style={{
-                        background: `${g.color}10`,
-                        border: `1px solid ${g.color}55`,
-                      }}
-                    >
-                      <div
-                        className="flex items-center gap-2 mb-3 pb-1.5 flex-wrap"
-                        style={{ borderBottom: `1px solid ${g.color}30` }}
+              <div data-testid="events-archive-redesign">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                  {cards.map((c) => {
+                    const isSel = folderId === c.id || (folderId === "none" && c.id === "__none__");
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        data-testid={`events-archive-card-${c.id}`}
+                        onClick={() => {
+                          const nxt = c.id === "__none__" ? "none" : c.id;
+                          setFolderId(isSel ? null : nxt);
+                        }}
+                        onDragOver={(e) => { if (e.dataTransfer.types.includes("application/x-event-id")) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }}
+                        onDrop={(e) => {
+                          const evId = e.dataTransfer.getData("application/x-event-id");
+                          if (!evId) return;
+                          e.preventDefault();
+                          const target = c.id === "__none__" ? null : c.id;
+                          api.post("/event-folders/assign", { event_ids: [evId], folder_id: target })
+                            .then(() => {
+                              mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                              mutate("/event-folders");
+                              toast.success(`→ ${c.name}`);
+                            })
+                            .catch((err) => toast.error(err?.response?.data?.detail || err.message));
+                        }}
+                        className="relative rounded-xl p-4 text-center transition-all"
+                        style={{
+                          background: isSel
+                            ? `linear-gradient(160deg, ${c.color}55 0%, rgba(20,12,10,0.95) 60%)`
+                            : "linear-gradient(160deg, rgba(35,20,12,0.85) 0%, rgba(15,8,5,0.95) 100%)",
+                          border: isSel ? `2px solid ${c.color}` : "1px solid rgba(212,115,10,0.35)",
+                          boxShadow: isSel
+                            ? `0 0 24px ${c.color}, 0 0 48px ${c.color}55, inset 0 0 24px ${c.color}22`
+                            : "0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,170,80,0.08)",
+                          minHeight: 130,
+                          cursor: "pointer",
+                        }}
                       >
-                        <span style={{ fontSize: 16 }}>{g.icon || "📁"}</span>
-                        <h3
-                          className="text-xs font-bold uppercase tracking-widest"
-                          style={{ color: g.color, letterSpacing: "0.12em", fontFamily: "Cinzel, serif" }}
-                        >
-                          {g.name}
-                        </h3>
-                        <span
-                          className="text-[10px] font-bold mono px-2 py-0.5 rounded-full"
-                          style={{ background: `${g.color}20`, color: g.color, border: `1px solid ${g.color}55` }}
-                        >
-                          {g.events.length}
-                        </span>
-                        {g.id !== "__none__" && (
+                        {!c.isSpecial && (
                           <CanEdit>
-                            <div className="flex items-center gap-1 ml-auto flex-wrap">
-                              <select
-                                data-testid={`events-folder-move-all-${g.id}`}
-                                defaultValue=""
-                                onChange={(ev) => {
-                                  const v = ev.target.value;
-                                  if (!v) return;
-                                  moveAllInFolder(g, v);
-                                  ev.target.value = "";
-                                }}
-                                className="chip text-[9px]"
-                                style={{
-                                  padding: "3px 6px",
-                                  borderColor: `${g.color}55`,
-                                  color: g.color,
-                                  background: "rgba(20,12,10,0.85)",
-                                  cursor: "pointer",
-                                }}
-                                title="Tümünü başka klasöre taşı"
-                              >
-                                <option value="" disabled>📁 Taşı…</option>
-                                <option value="__none__">📂 Klasörsüz</option>
-                                {folders.filter((ff) => ff.id !== g.id).map((ff) => (
-                                  <option key={ff.id} value={ff.id}>{ff.icon || "📁"} {ff.name}</option>
-                                ))}
-                              </select>
+                            <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5">
                               <button
                                 type="button"
-                                data-testid={`events-folder-unarchive-all-${g.id}`}
-                                onClick={() => bulkUnarchiveFolder(g)}
-                                className="chip text-[9px] flex items-center gap-1"
-                                style={{
-                                  padding: "3px 8px",
-                                  borderColor: "rgba(34,197,94,0.55)",
-                                  color: "#86EFAC",
-                                  background: "rgba(34,197,94,0.10)",
-                                }}
-                                title="Bu klasördeki tüm etkinlikleri aktife al"
+                                data-testid={`events-archive-card-rename-${c.id}`}
+                                onClick={(ev) => { ev.stopPropagation(); renameCard(c); }}
+                                className="p-1 rounded hover:bg-white/10"
+                                style={{ color: "#93C5FD" }}
+                                title="Yeniden adlandır"
                               >
-                                <ArchiveRestore className="w-3 h-3" /> Aktife
+                                <Pencil className="w-3 h-3" />
                               </button>
                               <button
                                 type="button"
-                                data-testid={`events-folder-rename-${g.id}`}
-                                onClick={() => renameFolderInline(g)}
-                                className="chip text-[9px] flex items-center gap-1"
-                                style={{
-                                  padding: "3px 8px",
-                                  borderColor: "rgba(59,130,246,0.55)",
-                                  color: "#93C5FD",
-                                  background: "rgba(59,130,246,0.10)",
-                                }}
-                                title="Klasörü yeniden adlandır"
+                                data-testid={`events-archive-card-delete-${c.id}`}
+                                onClick={(ev) => { ev.stopPropagation(); deleteCard(c); }}
+                                className="p-1 rounded hover:bg-white/10"
+                                style={{ color: "#FCA5A5" }}
+                                title="Sil"
                               >
-                                <Pencil className="w-3 h-3" /> Ad
-                              </button>
-                              <button
-                                type="button"
-                                data-testid={`events-folder-delete-inline-${g.id}`}
-                                onClick={() => deleteFolderInline(g)}
-                                className="chip text-[9px] flex items-center gap-1"
-                                style={{
-                                  padding: "3px 8px",
-                                  borderColor: "rgba(239,68,68,0.55)",
-                                  color: "#FCA5A5",
-                                  background: "rgba(239,68,68,0.10)",
-                                }}
-                                title="Klasörü sil (içindekiler klasörsüz olur)"
-                              >
-                                <Trash2 className="w-3 h-3" /> Sil
+                                <Trash2 className="w-3 h-3" />
                               </button>
                             </div>
                           </CanEdit>
                         )}
+                        <div style={{ fontSize: 42, lineHeight: 1, marginTop: 4 }}>{c.icon}</div>
+                        <div
+                          className="text-sm font-bold mt-2 truncate"
+                          style={{
+                            color: isSel ? "#FFF7ED" : "#F5F0E8",
+                            fontFamily: "Cinzel, serif",
+                            letterSpacing: "0.06em",
+                            textShadow: isSel ? `0 0 8px ${c.color}` : "0 1px 2px rgba(0,0,0,0.8)",
+                          }}
+                          title={c.name}
+                        >
+                          {c.name}
+                        </div>
+                        <div className="text-[10px] mt-0.5 mono" style={{ color: isSel ? c.color : "#94A3B8" }}>
+                          {c.events.length} etkinlik
+                        </div>
+                      </button>
+                    );
+                  })}
+                  <CanEdit>
+                    <button
+                      type="button"
+                      data-testid="events-archive-card-new"
+                      onClick={openNewFolder}
+                      className="rounded-xl p-4 text-center transition-all"
+                      style={{
+                        background: "rgba(20,12,10,0.4)",
+                        border: "2px dashed rgba(245,166,35,0.4)",
+                        minHeight: 130,
+                        cursor: "pointer",
+                        color: "#F5A623",
+                      }}
+                    >
+                      <div style={{ fontSize: 42, lineHeight: 1, marginTop: 4 }}>➕</div>
+                      <div className="text-sm font-bold mt-2" style={{ fontFamily: "Cinzel, serif", letterSpacing: "0.06em" }}>
+                        Yeni Klasör
                       </div>
-                      <div className="flex flex-col gap-1" data-testid={`events-folder-body-${g.id}`}>
-                        {(() => {
-                          // Sort all folder events by manual event_order, then date desc.
-                          const orderIdx = new Map(g.event_order.map((id, i) => [id, i]));
-                          const sorted = [...g.events].sort((a, b) => {
-                            const ai = orderIdx.has(a.id) ? orderIdx.get(a.id) : 999999;
-                            const bi = orderIdx.has(b.id) ? orderIdx.get(b.id) : 999999;
-                            if (ai !== bi) return ai - bi;
-                            return new Date(b.date) - new Date(a.date);
-                          });
-                          return sorted.map((e) => {
-                            const grp = e.group_name && e.group_name.trim() ? e.group_name : "";
-                            const dateStr = String(e.date || "").slice(0, 10);
-                            return (
-                              <div
-                                key={e.id}
-                                draggable
-                                onDragStart={(ev) => { ev.dataTransfer.setData("application/x-event-id", e.id); ev.dataTransfer.effectAllowed = "move"; }}
-                                onClick={() => setDetailId(e.id)}
-                                data-testid={`events-compact-card-${e.id}`}
-                                className="flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer hover:scale-[1.005] transition-transform"
-                                style={{
-                                  borderLeft: `3px solid ${g.color}`,
-                                  background: "rgba(20,12,10,0.6)",
-                                  border: `1px solid ${g.color}22`,
-                                  fontSize: 11,
-                                }}
-                              >
-                                {grp ? (
-                                  <span
-                                    className="text-[9px] font-bold rounded px-1.5 py-0.5 uppercase tracking-widest flex-shrink-0"
-                                    style={{ background: `${g.color}30`, color: g.color, letterSpacing: "0.08em" }}
-                                    title="Grup"
-                                  >
-                                    🤝 {grp}
-                                  </span>
-                                ) : (
-                                  <span
-                                    className="text-[9px] font-bold rounded px-1.5 py-0.5 uppercase tracking-widest flex-shrink-0"
-                                    style={{ background: "rgba(148,163,184,0.15)", color: "#94A3B8" }}
-                                    title="Tekli etkinlik"
-                                  >
-                                    🧍
-                                  </span>
-                                )}
-                                <span
-                                  className="truncate flex-1 font-bold"
-                                  style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }}
-                                  title={e.name}
-                                >
-                                  {grp || e.name}
-                                </span>
-                                <span className="text-[10px] mono opacity-70" style={{ color: "#EAD8B0" }}>
-                                  {dateStr}
-                                </span>
-                                {(e.compare_wins || 0) > 0 && (
-                                  <span
-                                    className="text-[10px] flex-shrink-0"
-                                    title={`${e.compare_wins} karşılaştırma galibiyeti`}
-                                  >
-                                    👑
-                                  </span>
-                                )}
-                                <CanEdit>
-                                  <select
-                                    data-testid={`events-move-select-${e.id}`}
-                                    value={g.id === "__none__" ? "__none__" : g.id}
-                                    onChange={(ev) => { ev.stopPropagation(); moveEventToFolder(e.id, ev.target.value); }}
-                                    onClick={(ev) => ev.stopPropagation()}
-                                    className="chip text-[9px] flex-shrink-0"
-                                    style={{
-                                      padding: "1px 4px",
-                                      borderColor: "rgba(245,166,35,0.45)",
-                                      color: "#F5A623",
-                                      background: "rgba(20,12,10,0.85)",
-                                      cursor: "pointer",
-                                    }}
-                                    title="Klasöre taşı"
-                                  >
-                                    <option value="__none__">📂</option>
-                                    {folders.map((ff) => (
-                                      <option key={ff.id} value={ff.id}>{ff.icon || "📁"} {ff.name}</option>
-                                    ))}
-                                  </select>
-                                </CanEdit>
-                              </div>
-                            );
-                          });
-                        })()}
+                    </button>
+                  </CanEdit>
+                </div>
+
+                {selected && (
+                  <div
+                    data-testid="events-archive-expanded-panel"
+                    className="rounded-xl p-4"
+                    style={{
+                      background: `linear-gradient(180deg, ${selected.color}18 0%, rgba(20,12,10,0.92) 100%)`,
+                      border: `2px solid ${selected.color}`,
+                      boxShadow: `0 0 32px ${selected.color}55, inset 0 0 32px ${selected.color}18`,
+                    }}
+                  >
+                    <div
+                      className="flex items-center gap-2 mb-3 pb-2"
+                      style={{ borderBottom: `1px solid ${selected.color}55` }}
+                    >
+                      <span style={{ fontSize: 20 }}>{selected.icon}</span>
+                      <h3
+                        className="text-sm font-bold uppercase tracking-widest flex-1"
+                        style={{ color: selected.color, letterSpacing: "0.14em", fontFamily: "Cinzel, serif", textShadow: `0 0 8px ${selected.color}55` }}
+                      >
+                        {selected.name}
+                      </h3>
+                      <span className="text-[10px] mono opacity-80" style={{ color: selected.color }}>
+                        {selectedEvents.length} etkinlik
+                      </span>
+                    </div>
+                    {selectedEvents.length === 0 ? (
+                      <div className="text-center py-6 text-xs" style={{ color: "#94A3B8", opacity: 0.7 }}>
+                        Bu klasörde etkinlik yok
                       </div>
-                    </section>
-                  );
-                })}
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {selectedEvents.map((e) => (
+                          <div
+                            key={e.id}
+                            data-testid={`events-archive-expanded-item-${e.id}`}
+                            draggable
+                            onDragStart={(ev) => { ev.dataTransfer.setData("application/x-event-id", e.id); ev.dataTransfer.effectAllowed = "move"; }}
+                            onClick={() => setDetailId(e.id)}
+                            className="rounded-lg px-3 py-2 cursor-pointer transition-all hover:scale-[1.02]"
+                            style={{
+                              background: "linear-gradient(160deg, rgba(35,20,12,0.90) 0%, rgba(15,8,5,0.95) 100%)",
+                              border: `1px solid ${selected.color}55`,
+                              boxShadow: `0 0 8px ${selected.color}22, inset 0 1px 0 rgba(255,170,80,0.08)`,
+                            }}
+                          >
+                            <div className="text-sm font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }} title={e.name}>
+                              {e.name}
+                            </div>
+                            <div className="flex items-center justify-between mt-1 text-[10px]" style={{ color: "#94A3B8" }}>
+                              <span>{String(e.date || "").slice(0, 10)}</span>
+                              <span className="font-bold mono" style={{ color: selected.color }}>×{e.multiplier ?? 1}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })()
         ) : (
+
         (() => {
           const showGrouped = subFilter === "all" || subFilter === "kolektif";
           const showUngrouped = subFilter === "all" || subFilter === "bireysel";
