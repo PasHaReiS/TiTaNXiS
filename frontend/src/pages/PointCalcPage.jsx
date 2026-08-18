@@ -556,10 +556,10 @@ function DayCard({ day, onChanged }) {
         )}
       </div>
 
-      <div className="flex flex-col gap-4" data-testid={`pc-tables-${day.id}`}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2" data-testid={`pc-tables-${day.id}`}>
         {tables.length === 0 && (
           <div
-            className="text-[11px] px-3 py-3 rounded text-center"
+            className="col-span-full text-[11px] px-3 py-3 rounded text-center"
             style={{ color: "#F5F0E8", opacity: 0.55, background: "#1A1210", border: "1px dashed rgba(255,255,255,0.1)" }}
             data-testid={`pc-tables-empty-${day.id}`}
           >
@@ -792,11 +792,11 @@ function TableCard({ table, index, canEdit, translations, onUpdate, onDelete }) 
       style={{
         background: "rgba(20,12,10,0.6)",
         border: "1px solid rgba(231,76,26,0.25)",
-        padding: "12px",
+        padding: "8px",
       }}
     >
       {/* Table header */}
-      <div className="flex items-center justify-between mb-2 gap-2">
+      <div className="flex items-center justify-between mb-1.5 gap-1.5">
         {editingTitle && canEdit ? (
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
             <input
@@ -865,13 +865,29 @@ function TableCard({ table, index, canEdit, translations, onUpdate, onDelete }) 
         )}
       </div>
 
-      {/* Miktar + Modal button */}
-      <div className="mb-3 flex justify-end">
+      {/* Miktar (under title) + edit button */}
+      <div className="mb-1.5 flex items-end gap-1.5">
+        <div className="flex-1">
+          <label className="block text-[9px] mb-0.5 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.06em" }}>
+            {t("pc_miktar")}
+          </label>
+          <input
+            type="number"
+            value={miktar}
+            onChange={(e) => setMiktar(e.target.value)}
+            onBlur={saveMiktar}
+            onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
+            disabled={!canEdit}
+            data-testid={`pc-table-miktar-${table.id}`}
+            className="w-full rounded px-2 py-1 text-sm font-bold text-center"
+            style={{ background: "#1A1210", border: "1px solid #E74C1A", color: "#F5F0E8" }}
+          />
+        </div>
         {canEdit && (
           <button
             onClick={() => setShowModal(true)}
             data-testid={`pc-table-units-btn-${table.id}`}
-            className="px-3 py-1.5 rounded text-[11px] font-bold flex items-center gap-1 whitespace-nowrap"
+            className="px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 whitespace-nowrap"
             style={{ background: "linear-gradient(135deg,#C0392B,#E74C1A)", color: "#fff" }}
           >
             <Pencil className="w-3 h-3" /> {t("edit")}
@@ -880,23 +896,42 @@ function TableCard({ table, index, canEdit, translations, onUpdate, onDelete }) 
       </div>
 
       {/* Multiplier readonly */}
-      <div className="mb-3">
-        <label className="block text-[10px] mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>
+      <div className="mb-1.5">
+        <label className="block text-[9px] mb-0.5 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.06em" }}>
           {t("pc_multiplier")}
         </label>
         <div
           data-testid={`pc-table-mult-row-${table.id}`}
-          className="flex justify-between items-center rounded px-3 py-1.5 text-sm"
+          className="flex justify-between items-center rounded px-2 py-1 text-xs"
           style={{ background: "#1A1210", border: "1px solid rgba(255,255,255,0.12)" }}
         >
-          <span data-testid={`pc-table-mult-name-${table.id}`} style={{ color: "#F5F0E8" }}>
+          <span data-testid={`pc-table-mult-name-${table.id}`} className="truncate" style={{ color: "#F5F0E8" }}>
             {mult.name
               ? <TranslatedText source={mult.name} translations={translations} />
               : <span style={{ opacity: 0.4 }}>{t("pc_no_multiplier")}</span>}
           </span>
-          <span data-testid={`pc-table-mult-value-${table.id}`} className="font-bold" style={{ color: "#F5A623" }}>
+          <span data-testid={`pc-table-mult-value-${table.id}`} className="font-bold ml-1 flex-shrink-0" style={{ color: "#F5A623" }}>
             {fmt(multValue)}
           </span>
+        </div>
+      </div>
+
+      {/* Total (miktar × mult) */}
+      <div>
+        <label className="block text-[9px] mb-0.5 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.06em" }}>
+          {t("pc_total_points")}
+        </label>
+        <div
+          data-testid={`pc-table-total-row-${table.id}`}
+          className="rounded px-2 py-1 text-center font-bold text-sm"
+          style={{
+            background: "linear-gradient(135deg, rgba(76,29,149,0.30), rgba(30,58,138,0.30))",
+            border: "1px solid rgba(168,85,247,0.45)",
+            color: "#F5A623",
+            fontFamily: "Cinzel, serif",
+          }}
+        >
+          {fmt(totalPoints)}
         </div>
       </div>
 

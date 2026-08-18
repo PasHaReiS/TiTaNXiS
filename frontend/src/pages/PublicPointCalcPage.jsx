@@ -45,6 +45,8 @@ function ReadOnlyTable({ table, index, translations }) {
   const { t } = useTranslation();
   const mult = (table.multipliers && table.multipliers[0]) || { name: "", value: 0 };
   const multValue = Number(mult.value) || 0;
+  const miktarNum = Number(table.miktar) || 0;
+  const totalPoints = miktarNum * multValue;
   const title = table.title || "";
 
   return (
@@ -54,25 +56,55 @@ function ReadOnlyTable({ table, index, translations }) {
       style={{
         background: "rgba(20,12,10,0.6)",
         border: "1px solid rgba(231,76,26,0.25)",
-        padding: "12px",
+        padding: "8px",
       }}
     >
-      <div className="text-xs font-bold mb-2" style={{ color: "#F5A623", fontFamily: "Cinzel, serif", letterSpacing: "0.06em" }}>
+      <div className="text-xs font-bold mb-1.5 truncate" style={{ color: "#F5A623", fontFamily: "Cinzel, serif", letterSpacing: "0.06em" }}>
         {title ? <TranslatedText source={title} translations={translations} /> : `${t("pc_table")} #${index + 1}`}
       </div>
 
-      <div>
-        <div className="text-[10px] font-bold uppercase mb-1" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>
-          {t("pc_multiplier")}
+      {/* Miktar readonly */}
+      <div className="mb-1.5">
+        <label className="block text-[9px] mb-0.5 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.06em" }}>
+          {t("pc_miktar")}
+        </label>
+        <div className="rounded px-2 py-1 text-center font-bold text-sm"
+          style={{ background: "#1A1210", border: "1px solid #E74C1A", color: "#F5F0E8" }}>
+          {fmt(miktarNum)}
         </div>
-        <div className="flex justify-between items-center rounded px-3 py-1.5 text-sm"
+      </div>
+
+      {/* Multiplier */}
+      <div className="mb-1.5">
+        <label className="block text-[9px] mb-0.5 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.06em" }}>
+          {t("pc_multiplier")}
+        </label>
+        <div className="flex justify-between items-center rounded px-2 py-1 text-xs"
           style={{ background: "#1A1210", border: "1px solid rgba(255,255,255,0.12)" }}>
-          <span style={{ color: "#F5F0E8" }}>
+          <span className="truncate" style={{ color: "#F5F0E8" }}>
             {mult.name
               ? <TranslatedText source={mult.name} translations={translations} />
               : <span style={{ opacity: 0.4 }}>{t("pc_no_multiplier")}</span>}
           </span>
-          <span className="font-bold" style={{ color: "#F5A623" }}>{fmt(multValue)}</span>
+          <span className="font-bold ml-1 flex-shrink-0" style={{ color: "#F5A623" }}>{fmt(multValue)}</span>
+        </div>
+      </div>
+
+      {/* Total */}
+      <div>
+        <label className="block text-[9px] mb-0.5 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.06em" }}>
+          {t("pc_total_points")}
+        </label>
+        <div
+          className="rounded px-2 py-1 text-center font-bold text-sm"
+          style={{
+            background: "linear-gradient(135deg, rgba(76,29,149,0.30), rgba(30,58,138,0.30))",
+            border: "1px solid rgba(168,85,247,0.45)",
+            color: "#F5A623",
+            fontFamily: "Cinzel, serif",
+          }}
+        >
+          {fmt(totalPoints)}
         </div>
       </div>
     </div>
@@ -183,7 +215,7 @@ export default function PublicPointCalcPage() {
                 {t("pc_no_tables")}
               </div>
             ) : (
-              <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                 {tables.map((tb, idx) => (
                   <ReadOnlyTable key={tb.id} table={tb} index={idx} translations={translations} />
                 ))}
