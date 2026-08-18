@@ -1329,39 +1329,13 @@ export default function Leaderboard() {
               ) : (
                 <div className="p-2 space-y-1">
                   {archiveEventLb.map((r) => (
-                    <button
+                    <ArchiveMemberRow
                       key={r.member_id}
-                      onClick={() => { setArchiveEventId(null); setProfileId(r.member_id); }}
-                      data-testid={`archive-event-row-${r.member_id}`}
-                      className="w-full flex items-center gap-3 rank-row text-left"
-                      style={{ padding: "6px 10px", minHeight: 40 }}
-                    >
-                      <div className="w-7 text-center">
-                        <span className="text-xs font-bold mono" style={{ color: "#D4730A", fontFamily: "Cinzel, Rajdhani, serif" }}>#{r.position}</span>
-                      </div>
-                      <div
-                        className="text-[9px] font-bold rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{
-                          background: (r.alliance_name && allianceColors[r.alliance_name]) || "#E74C1A",
-                          color: "#fff",
-                          minWidth: 44,
-                          padding: "3px 7px",
-                          border: "1px solid rgba(255,255,255,0.15)",
-                          letterSpacing: "0.06em",
-                          textTransform: "none",
-                          fontFamily: "Cinzel, Rajdhani, serif",
-                        }}
-                        title={r.alliance_name || ""}
-                      >
-                        {r.alliance_name || "-"}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold truncate text-sm" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }}>{r.name}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold mono text-sm" style={{ color: "#E74C1A" }}>{fmt(r.total_points)}</div>
-                      </div>
-                    </button>
+                      row={r}
+                      canEdit={canEdit}
+                      allianceColors={allianceColors}
+                      onOpenProfile={() => { setArchiveEventId(null); setProfileId(r.member_id); }}
+                    />
                   ))}
                 </div>
               )}
@@ -1369,6 +1343,83 @@ export default function Leaderboard() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ArchiveMemberRow({ row: r, canEdit, allianceColors, onOpenProfile }) {
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState(r.name || "");
+  const [saving, setSaving] = React.useState(false);
+  React.useEffect(() => { setDraft(r.name || ""); }, [r.name]);
+  const commit = async () => {
+    const next = draft.trim();
+    if (!next || next === r.name) { setEditing(false); setDraft(r.name || ""); return; }
+    setSaving(true);
+    try {
+      await api.patch(`/members/${r.member_id}`, { name: next });
+      swrMutate((k) => typeof k === "string" && (k.startsWith("/members") || k.startsWith("/leaderboard") || k.startsWith("/points")));
+      toast.success(`Üye adı güncellendi → ${next}`);
+      setEditing(false);
+    } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
+    finally { setSaving(false); }
+  };
+  return (
+    <div
+      data-testid={`archive-event-row-${r.member_id}`}
+      className="w-full flex items-center gap-3 rank-row"
+      style={{ padding: "6px 10px", minHeight: 40 }}
+    >
+      <button className="w-7 text-center" onClick={onOpenProfile} title="Profili aç" style={{ background: "transparent" }}>
+        <span className="text-xs font-bold mono" style={{ color: "#D4730A", fontFamily: "Cinzel, Rajdhani, serif" }}>#{r.position}</span>
+      </button>
+      <div
+        className="text-[9px] font-bold rounded-full flex items-center justify-center flex-shrink-0"
+        style={{
+          background: (r.alliance_name && allianceColors[r.alliance_name]) || "#E74C1A",
+          color: "#fff",
+          minWidth: 44, padding: "3px 7px",
+          border: "1px solid rgba(255,255,255,0.15)",
+          letterSpacing: "0.06em", textTransform: "none",
+          fontFamily: "Cinzel, Rajdhani, serif",
+        }}
+        title={r.alliance_name || ""}
+      >
+        {r.alliance_name || "-"}
+      </div>
+      <div className="flex-1 min-w-0">
+        {editing ? (
+          <input
+            autoFocus
+            type="text"
+            value={draft}
+            disabled={saving}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); commit(); }
+              else if (e.key === "Escape") { setEditing(false); setDraft(r.name || ""); }
+            }}
+            data-testid={`archive-event-row-name-input-${r.member_id}`}
+            className="w-full bg-transparent font-bold text-sm outline-none border-b border-amber-400"
+            style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => canEdit ? setEditing(true) : onOpenProfile()}
+            data-testid={`archive-event-row-name-${r.member_id}`}
+            className="w-full text-left font-bold truncate text-sm"
+            style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif", background: "transparent", cursor: canEdit ? "text" : "pointer" }}
+            title={canEdit ? "Adı düzenlemek için tıkla · Profil için # simgesine tıkla" : r.name}
+          >
+            {r.name}
+          </button>
+        )}
+      </div>
+      <button className="text-right" onClick={onOpenProfile} title="Profili aç" style={{ background: "transparent" }}>
+        <div className="font-bold mono text-sm" style={{ color: "#E74C1A" }}>{fmt(r.total_points)}</div>
+      </button>
     </div>
   );
 }
