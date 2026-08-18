@@ -139,6 +139,10 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   // Admins still see the full row/table and can undo by editing the input
   // back; this just saves a tap on the top green chip.
   React.useEffect(() => {
+    // Autolink Auto-Apply was removed on user request — no automatic
+    // rewrites; admins pick suggestions manually via the 🔗 chips.
+    return;
+    // eslint-disable-next-line no-unreachable
     if (!result || !rows || rows.length === 0) return;
     if (mode !== "members" && mode !== "event") return;
     if (!existingMembers || existingMembers.length === 0) return;
@@ -784,7 +788,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                   ) : (
                     <>
                         {/* Bulk actions for auto-created members — collapsible warning above the table */}
-                        {(mode === "members" || mode === "event") && (() => {
+                        {(mode === "members") && (() => {
                           const newRows = rows
                             .map((r, i) => {
                               const currName = rowEdits[i]?.name ?? r.name;
@@ -883,10 +887,9 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             <th className="text-right py-1">Durum</th>
                           </>)}
                           {mode === "event" && (<>
+                            <th className="text-left py-1">İttifak</th>
                             <th className="text-left py-1">İsim</th>
                             <th className="text-right py-1">Puan</th>
-                            <th className="text-right py-1">Kaynak</th>
-                            <th className="text-right py-1">Durum</th>
                           </>)}
                           {mode === "war" && (<>
                             <th className="text-left py-1">Kazanan</th>
@@ -1103,6 +1106,61 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               </>);
                             })()}
                             {mode === "event" && (() => {
+                              const currName = rowEdits[i]?.name ?? r.name;
+                              const currPoints = rowEdits[i]?.points ?? r.points ?? 0;
+                              // Best-effort alliance guess: explicit rowEdit → OCR field → [TAG] in name.
+                              let allianceGuess = rowEdits[i]?.alliance_name;
+                              if (allianceGuess === undefined) {
+                                allianceGuess = r.alliance_name;
+                                if (!allianceGuess) {
+                                  const mm = /^\s*\[([^\]]+)\]/.exec(String(currName ?? ""));
+                                  if (mm) allianceGuess = mm[1].trim();
+                                }
+                              }
+                              return (<>
+                                <td className="py-1 max-w-[80px]">
+                                  <input
+                                    type="text"
+                                    list={`ocr-ev-alliance-list-${i}`}
+                                    value={allianceGuess || ""}
+                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], alliance_name: e.target.value } }))}
+                                    disabled={isExcluded}
+                                    data-testid={`ocr-row-alliance-${i}`}
+                                    placeholder="—"
+                                    className="w-full bg-transparent outline-none border-b border-transparent hover:border-white/30 focus:border-amber-400 text-[10px]"
+                                    style={{ color: allianceGuess ? "#EAD8B0" : "rgba(255,255,255,0.35)" }}
+                                    title="İttifak — mevcut listeden seç ya da elle yaz"
+                                  />
+                                  <datalist id={`ocr-ev-alliance-list-${i}`}>
+                                    {allianceNames.map((n) => (<option key={n} value={n} />))}
+                                  </datalist>
+                                </td>
+                                <td className="py-1 max-w-[200px]">
+                                  <input
+                                    type="text"
+                                    value={currName ?? ""}
+                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
+                                    disabled={isExcluded}
+                                    data-testid={`ocr-row-name-${i}`}
+                                    className="w-full bg-transparent text-white outline-none border-b border-transparent hover:border-white/30 focus:border-amber-400 text-[10px]"
+                                    title="Adı düzeltmek için tıkla"
+                                  />
+                                </td>
+                                <td className="py-1">
+                                  <input
+                                    type="number"
+                                    value={currPoints}
+                                    min={0}
+                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], points: e.target.value } }))}
+                                    disabled={isExcluded}
+                                    data-testid={`ocr-row-points-${i}`}
+                                    className="w-full bg-transparent gold-text mono outline-none border-b border-transparent hover:border-white/30 focus:border-amber-400 text-[10px] text-right"
+                                    title="Puanı düzeltmek için tıkla"
+                                  />
+                                </td>
+                              </>);
+                            })()}
+                            {mode === "event" && false && (() => {
                               const currName = rowEdits[i]?.name ?? r.name;
                               const cleanName = _stripTag(currName);
                               const isExisting = existingNamesLc.has(cleanName.toLowerCase());
