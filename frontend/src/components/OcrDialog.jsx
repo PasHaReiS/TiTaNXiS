@@ -45,6 +45,23 @@ function _fuzzyTopMatches(needle, hayNames, limit = 3) {
   return scored.slice(0, limit);
 }
 
+// Alliance-tag helpers. OCR outputs often prefix a row with junk like
+// "12 [GOW] Ekko" — we ONLY care about the [XXX] bracket (2-5 chars,
+// letters/digits) and strip everything else. The bracket may sit anywhere
+// in the string, not just at the start; leading digits + separators get
+// dropped from the display name too.
+const _ALLIANCE_TAG_RE = /\[([A-Za-z0-9]{2,5})\]/;
+function _extractAllianceTag(n) {
+  const m = _ALLIANCE_TAG_RE.exec(String(n || ""));
+  return m ? m[1].trim() : "";
+}
+function _stripTagAndJunk(n) {
+  let s = String(n || "");
+  s = s.replace(_ALLIANCE_TAG_RE, "");
+  s = s.replace(/^[\s\d.\-|:_/\\]+/, "");
+  return s.trim();
+}
+
 /**
  * Reusable OCR dialog.
  *
@@ -96,10 +113,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   );
 
   // Strip a leading "[TAG]" bracket to check membership against the roster.
-  const _stripTag = (n) => {
-    const m = /^\s*\[[^\]]+\]\s*(.+)$/.exec(String(n || ""));
-    return (m ? m[1] : String(n || "")).trim();
-  };
+  const _stripTag = (n) => _stripTagAndJunk(n);
   const [previews, setPreviews] = useState([]); // [{file, url, cropped?}]
   const [parsing, setParsing] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, errors: 0 });
@@ -403,8 +417,24 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
           .map((r, i) => {
             const patch = rowEdits[i] || {};
             const next = { ...r };
-            if (typeof patch.name === "string") next.name = patch.name;
+            // Smart alliance + name derivation when the admin hasn't
+            // explicitly touched them: extract the [TAG] bracket, drop
+            // it + any leading digits from the name so what lands in the
+            // DB is clean canonical data.
+            if (typeof patch.name === "string") {
+              next.name = patch.name;
+            } else if (kind === "event") {
+              const cleaned = _stripTagAndJunk(next.name || "");
+              if (cleaned) next.name = cleaned;
+            }
             if (kind === "event" && patch.points !== undefined) next.points = Number(patch.points) || 0;
+            if (kind === "event" && patch.alliance_name !== undefined) {
+              const trimmed = String(patch.alliance_name || "").trim();
+              next.alliance_name = trimmed || null;
+            } else if (kind === "event" && !next.alliance_name) {
+              const tag = _extractAllianceTag(r.name || "");
+              if (tag) next.alliance_name = tag;
+            }
             if (kind === "members" && patch.alliance_name !== undefined) {
               const trimmed = String(patch.alliance_name || "").trim();
               next.alliance_name = trimmed || null;
@@ -1108,15 +1138,16 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             {mode === "event" && (() => {
                               const currName = rowEdits[i]?.name ?? r.name;
                               const currPoints = rowEdits[i]?.points ?? r.points ?? 0;
-                              // Best-effort alliance guess: explicit rowEdit → OCR field → [TAG] in name.
+                              // Best-effort alliance guess: explicit rowEdit → OCR field → smart bracket extraction anywhere in name.
                               let allianceGuess = rowEdits[i]?.alliance_name;
                               if (allianceGuess === undefined) {
                                 allianceGuess = r.alliance_name;
                                 if (!allianceGuess) {
-                                  const mm = /^\s*\[([^\]]+)\]/.exec(String(currName ?? ""));
-                                  if (mm) allianceGuess = mm[1].trim();
+                                  const tag = _extractAllianceTag(currName ?? "");
+                                  if (tag) allianceGuess = tag;
                                 }
                               }
+                              const displayName = _stripTagAndJunk(currName ?? "") || currName || "";
                               return (<>
                                 <td className="py-1 max-w-[80px]">
                                   <input
@@ -1138,7 +1169,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                 <td className="py-1 max-w-[200px]">
                                   <input
                                     type="text"
-                                    value={currName ?? ""}
+                                    value={rowEdits[i]?.name !== undefined ? currName : displayName}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-name-${i}`}
