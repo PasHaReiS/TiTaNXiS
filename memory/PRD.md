@@ -30,6 +30,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - Telegram diagnostic panel + manual chat ID link
 - Open Graph / SEO meta
 
+- **Archive tab v2** (Feb 18): 3-col strict grid (`grid-cols-3`), folder
+  cards drag-and-drop reorderable (drag one card onto another → POST
+  `/event-folders/reorder`), Klasörsüz stays pinned (not draggable).
+  Event cards inside the expanded panel remain draggable to reassign
+  between folders. Expanded panel now branches: if the folder contains
+  any events with `group_name`, it renders a group-accordion (▶/▼
+  header per group with date range chip + count; click to expand
+  events); if all events are ungrouped, it falls back to the flat 2-col
+  grid. Group open-state persists per folder via `openedGroups` map.
 - **Archive tab full redesign** (Feb 18): The archive tab now uses a
   bold 3-col stone-textured folder grid (referans görsel). Klasörsüz
   is pinned as the first card. Each folder card shows the icon (42px),

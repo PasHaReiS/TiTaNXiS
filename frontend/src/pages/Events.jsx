@@ -87,6 +87,10 @@ export default function Events() {
   const [archiveSort, setArchiveSort] = useState("newest"); // "newest" | "oldest"
   // Drag id used to reorder folder chips via HTML5 drag-and-drop.
   const [dragFolderId, setDragFolderId] = useState(null);
+  // Which group accordions are open inside the expanded folder panel.
+  // Keyed by `${folderId}::${groupKey}` so re-selecting a folder doesn't
+  // lose state across sessions.
+  const [openedGroups, setOpenedGroups] = useState({});
 
   const archived = tab === "archive";
   const { data: events = [] } = useSWR(`/events?archived=${archived}`, fetcher, { refreshInterval: 6000 });
@@ -911,20 +915,57 @@ export default function Events() {
             const openNewFolder = () => setShowFolderMgr(true);
             return (
               <div data-testid="events-archive-redesign">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                <div className="grid grid-cols-3 gap-3 mb-4">
                   {cards.map((c) => {
                     const isSel = folderId === c.id || (folderId === "none" && c.id === "__none__");
+                    const isDrag = dragFolderId === c.id;
+                    const isDropTarget = dragFolderId && dragFolderId !== c.id && !c.isSpecial;
                     return (
                       <button
                         key={c.id}
                         type="button"
                         data-testid={`events-archive-card-${c.id}`}
+                        draggable={!c.isSpecial}
+                        onDragStart={(ev) => {
+                          if (c.isSpecial) return;
+                          setDragFolderId(c.id);
+                          ev.dataTransfer.setData("application/x-folder-id", c.id);
+                          ev.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragEnd={() => setDragFolderId(null)}
                         onClick={() => {
                           const nxt = c.id === "__none__" ? "none" : c.id;
                           setFolderId(isSel ? null : nxt);
                         }}
-                        onDragOver={(e) => { if (e.dataTransfer.types.includes("application/x-event-id")) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }}
+                        onDragOver={(e) => {
+                          // Accept both folder-reorder drops AND event-card
+                          // drops (from the expanded panel below).
+                          if (
+                            e.dataTransfer.types.includes("application/x-event-id") ||
+                            (isDropTarget && e.dataTransfer.types.includes("application/x-folder-id"))
+                          ) {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                          }
+                        }}
                         onDrop={(e) => {
+                          // Folder → folder reorder
+                          const fromFolder = e.dataTransfer.getData("application/x-folder-id");
+                          if (fromFolder && isDropTarget) {
+                            e.preventDefault();
+                            const ids = folders.map((x) => x.id);
+                            const from = ids.indexOf(fromFolder);
+                            const to = ids.indexOf(c.id);
+                            if (from >= 0 && to >= 0 && from !== to) {
+                              ids.splice(to, 0, ids.splice(from, 1)[0]);
+                              api.post("/event-folders/reorder", { ids })
+                                .then(() => { mutate("/event-folders"); toast.success("Klasör sırası güncellendi"); })
+                                .catch((err) => toast.error(err?.response?.data?.detail || err.message));
+                            }
+                            setDragFolderId(null);
+                            return;
+                          }
+                          // Event → folder assign
                           const evId = e.dataTransfer.getData("application/x-event-id");
                           if (!evId) return;
                           e.preventDefault();
@@ -946,8 +987,11 @@ export default function Events() {
                           boxShadow: isSel
                             ? `0 0 24px ${c.color}, 0 0 48px ${c.color}55, inset 0 0 24px ${c.color}22`
                             : "0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,170,80,0.08)",
+                          outline: isDropTarget ? `2px dashed ${c.color}` : "none",
+                          outlineOffset: 3,
                           minHeight: 130,
-                          cursor: "pointer",
+                          cursor: c.isSpecial ? "pointer" : "grab",
+                          opacity: isDrag ? 0.5 : 1,
                         }}
                       >
                         {!c.isSpecial && (
@@ -1046,33 +1090,103 @@ export default function Events() {
                       <div className="text-center py-6 text-xs" style={{ color: "#94A3B8", opacity: 0.7 }}>
                         Bu klasörde etkinlik yok
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {selectedEvents.map((e) => (
-                          <div
-                            key={e.id}
-                            data-testid={`events-archive-expanded-item-${e.id}`}
-                            draggable
-                            onDragStart={(ev) => { ev.dataTransfer.setData("application/x-event-id", e.id); ev.dataTransfer.effectAllowed = "move"; }}
-                            onClick={() => setDetailId(e.id)}
-                            className="rounded-lg px-3 py-2 cursor-pointer transition-all hover:scale-[1.02]"
-                            style={{
-                              background: "linear-gradient(160deg, rgba(35,20,12,0.90) 0%, rgba(15,8,5,0.95) 100%)",
-                              border: `1px solid ${selected.color}55`,
-                              boxShadow: `0 0 8px ${selected.color}22, inset 0 1px 0 rgba(255,170,80,0.08)`,
-                            }}
-                          >
-                            <div className="text-sm font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }} title={e.name}>
-                              {e.name}
-                            </div>
-                            <div className="flex items-center justify-between mt-1 text-[10px]" style={{ color: "#94A3B8" }}>
-                              <span>{String(e.date || "").slice(0, 10)}</span>
-                              <span className="font-bold mono" style={{ color: selected.color }}>×{e.multiplier ?? 1}</span>
-                            </div>
+                    ) : (() => {
+                      // Group events by group_name. If ANY group_name is
+                      // present, render an accordion: group headers with
+                      // date range chips first (nested events hidden).
+                      // If NO groups, render flat event list.
+                      const bySub = {};
+                      selectedEvents.forEach((e) => {
+                        const k = e.group_name && e.group_name.trim() ? e.group_name : "__ungrouped__";
+                        (bySub[k] = bySub[k] || []).push(e);
+                      });
+                      const hasGroups = Object.keys(bySub).some((k) => k !== "__ungrouped__");
+                      const renderEvent = (e) => (
+                        <div
+                          key={e.id}
+                          data-testid={`events-archive-expanded-item-${e.id}`}
+                          draggable
+                          onDragStart={(ev) => { ev.dataTransfer.setData("application/x-event-id", e.id); ev.dataTransfer.effectAllowed = "move"; }}
+                          onClick={(ev) => { ev.stopPropagation(); setDetailId(e.id); }}
+                          className="rounded-lg px-3 py-2 cursor-pointer transition-all hover:scale-[1.02]"
+                          style={{
+                            background: "linear-gradient(160deg, rgba(35,20,12,0.90) 0%, rgba(15,8,5,0.95) 100%)",
+                            border: `1px solid ${selected.color}55`,
+                            boxShadow: `0 0 8px ${selected.color}22, inset 0 1px 0 rgba(255,170,80,0.08)`,
+                          }}
+                        >
+                          <div className="text-sm font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }} title={e.name}>
+                            {e.name}
                           </div>
-                        ))}
-                      </div>
-                    )}
+                          <div className="flex items-center justify-between mt-1 text-[10px]" style={{ color: "#94A3B8" }}>
+                            <span>{String(e.date || "").slice(0, 10)}</span>
+                            <span className="font-bold mono" style={{ color: selected.color }}>×{e.multiplier ?? 1}</span>
+                          </div>
+                        </div>
+                      );
+                      if (!hasGroups) {
+                        return (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {selectedEvents.map(renderEvent)}
+                          </div>
+                        );
+                      }
+                      // Group accordion: sort collective first, then alphabetical.
+                      const subs = Object.entries(bySub)
+                        .map(([sk, list]) => ({ key: sk, isCollective: sk !== "__ungrouped__", label: sk === "__ungrouped__" ? "Bireysel Etkinlikler" : sk, events: list }))
+                        .sort((x, y) => {
+                          if (x.isCollective !== y.isCollective) return x.isCollective ? -1 : 1;
+                          return x.key.localeCompare(y.key);
+                        });
+                      return (
+                        <div className="flex flex-col gap-2" data-testid="events-archive-groups-accordion">
+                          {subs.map((sg) => {
+                            const isOpen = openedGroups[`${selected.id}::${sg.key}`];
+                            const dates = sg.events.map((ev) => String(ev.date || "").slice(0, 10)).filter(Boolean).sort();
+                            const range = dates.length === 0 ? "—" : dates.length === 1 ? dates[0] : `${dates[0]} — ${dates[dates.length - 1]}`;
+                            return (
+                              <div key={sg.key}>
+                                <button
+                                  type="button"
+                                  data-testid={`events-archive-group-header-${selected.id}-${sg.key}`}
+                                  onClick={() => setOpenedGroups((prev) => ({ ...prev, [`${selected.id}::${sg.key}`]: !isOpen }))}
+                                  className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left transition-all hover:scale-[1.005]"
+                                  style={{
+                                    background: `linear-gradient(90deg, ${selected.color}22 0%, rgba(20,12,10,0.85) 100%)`,
+                                    border: `1px solid ${selected.color}55`,
+                                    boxShadow: isOpen ? `0 0 12px ${selected.color}44` : "none",
+                                  }}
+                                >
+                                  <span style={{ fontSize: 12 }}>{isOpen ? "▼" : "▶"}</span>
+                                  <span style={{ fontSize: 14 }}>{sg.isCollective ? "🤝" : "🧍"}</span>
+                                  <span
+                                    className="text-sm font-bold truncate flex-1"
+                                    style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.06em" }}
+                                    title={sg.label}
+                                  >
+                                    {sg.label}
+                                  </span>
+                                  <span className="text-[10px] mono opacity-80" style={{ color: selected.color }}>
+                                    {range}
+                                  </span>
+                                  <span
+                                    className="text-[10px] font-bold mono px-2 py-0.5 rounded-full flex-shrink-0"
+                                    style={{ background: `${selected.color}20`, color: selected.color, border: `1px solid ${selected.color}55` }}
+                                  >
+                                    {sg.events.length}
+                                  </span>
+                                </button>
+                                {isOpen && (
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 pl-4" data-testid={`events-archive-group-body-${selected.id}-${sg.key}`}>
+                                    {sg.events.map(renderEvent)}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
