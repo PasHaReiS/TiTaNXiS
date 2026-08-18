@@ -901,24 +901,11 @@ export default function Leaderboard() {
                 <div className="flex flex-col gap-3" data-testid="leaderboard-archive-folder-grouped">
                   {groups.map((g) => {
                     const orderIdx = new Map(g.event_order.map((id, i) => [id, i]));
-                    const bySub = {};
-                    g.events.forEach((e) => {
-                      const key = e.group_name && e.group_name.trim() ? e.group_name : "__ungrouped__";
-                      (bySub[key] = bySub[key] || []).push(e);
-                    });
-                    const subGroups = Object.entries(bySub).map(([sk, list]) => ({
-                      key: sk,
-                      label: sk === "__ungrouped__" ? "🧍 Bireysel" : `🤝 ${sk}`,
-                      isCollective: sk !== "__ungrouped__",
-                      events: [...list].sort((a, b) => {
-                        const ai = orderIdx.has(a.id) ? orderIdx.get(a.id) : 999999;
-                        const bi = orderIdx.has(b.id) ? orderIdx.get(b.id) : 999999;
-                        if (ai !== bi) return ai - bi;
-                        return new Date(b.date) - new Date(a.date);
-                      }),
-                    })).sort((x, y) => {
-                      if (x.isCollective !== y.isCollective) return x.isCollective ? -1 : 1;
-                      return x.key.localeCompare(y.key);
+                    const sorted = [...g.events].sort((a, b) => {
+                      const ai = orderIdx.has(a.id) ? orderIdx.get(a.id) : 999999;
+                      const bi = orderIdx.has(b.id) ? orderIdx.get(b.id) : 999999;
+                      if (ai !== bi) return ai - bi;
+                      return new Date(b.date) - new Date(a.date);
                     });
                     return (
                       <section
@@ -945,123 +932,106 @@ export default function Leaderboard() {
                             {g.events.length}
                           </span>
                         </div>
-                        <div className="flex flex-col gap-3">
-                          {subGroups.map((sg) => (
-                            <div key={sg.key} data-testid={`leaderboard-archive-subgroup-${g.id}-${sg.key}`}>
+                        <div className="flex flex-col gap-1">
+                          {sorted.map((e) => {
+                            const cmpIdx = compareIds.indexOf(e.id);
+                            const isChecked = cmpIdx >= 0;
+                            const grp = e.group_name && e.group_name.trim() ? e.group_name : "";
+                            const dateStr = String(e.date || "").slice(0, 10);
+                            return (
                               <div
-                                className="text-[10px] uppercase tracking-widest mb-1.5 font-bold opacity-80"
-                                style={{ color: g.color, letterSpacing: "0.10em" }}
+                                key={e.id}
+                                data-testid={`archive-event-card-${e.id}`}
+                                onClick={() => {
+                                  if (compareMode) {
+                                    setCompareIds((prev) => {
+                                      if (prev.includes(e.id)) return prev.filter((x) => x !== e.id);
+                                      if (prev.length >= 2) return [prev[1], e.id];
+                                      return [...prev, e.id];
+                                    });
+                                  } else {
+                                    setArchiveEventId(e.id);
+                                  }
+                                }}
+                                className="flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer hover:scale-[1.005] transition-transform"
+                                style={{
+                                  borderLeft: `3px solid ${g.color}`,
+                                  background: isChecked
+                                    ? "linear-gradient(90deg, rgba(76,29,149,0.55), rgba(30,58,138,0.35))"
+                                    : "rgba(20,12,10,0.6)",
+                                  border: `1px solid ${isChecked ? "#A855F7" : `${g.color}22`}`,
+                                  fontSize: 11,
+                                }}
                               >
-                                {sg.label} <span className="opacity-60 mono">({sg.events.length})</span>
+                                {compareMode ? (
+                                  <span
+                                    data-testid={`archive-compare-check-${e.id}`}
+                                    className="text-[10px] font-bold rounded-full flex items-center justify-center flex-shrink-0"
+                                    style={{
+                                      width: 18, height: 18,
+                                      background: isChecked ? "#A855F7" : "rgba(255,255,255,0.10)",
+                                      color: isChecked ? "#FFF" : "#C4B5FD",
+                                      border: `1px solid ${isChecked ? "#F5F3FF" : "rgba(168,85,247,0.55)"}`,
+                                    }}
+                                  >
+                                    {isChecked ? cmpIdx + 1 : ""}
+                                  </span>
+                                ) : grp ? (
+                                  <span
+                                    className="text-[9px] font-bold rounded px-1.5 py-0.5 uppercase tracking-widest flex-shrink-0"
+                                    style={{ background: `${g.color}30`, color: g.color, letterSpacing: "0.08em" }}
+                                    title="Grup"
+                                  >
+                                    🤝 {grp}
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="text-[9px] font-bold rounded px-1.5 py-0.5 uppercase tracking-widest flex-shrink-0"
+                                    style={{ background: "rgba(148,163,184,0.15)", color: "#94A3B8" }}
+                                    title="Tekli etkinlik"
+                                  >
+                                    🧍
+                                  </span>
+                                )}
+                                <span
+                                  className="truncate flex-1 font-bold"
+                                  style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }}
+                                  title={e.name}
+                                >
+                                  {grp || e.name}
+                                </span>
+                                <span className="text-[10px] mono opacity-70" style={{ color: "#EAD8B0" }}>{dateStr}</span>
+                                <span className="font-bold mono text-[10px]" style={{ color: "#E74C1A" }}>×{e.multiplier ?? 1}</span>
+                                {(e.compare_wins || 0) > 0 && !compareMode && (
+                                  <span className="text-[10px] flex-shrink-0" title={`${e.compare_wins} karşılaştırma galibiyeti`}>
+                                    👑{e.compare_wins > 1 ? e.compare_wins : ""}
+                                  </span>
+                                )}
+                                {canEdit && !compareMode && (
+                                  <select
+                                    data-testid={`leaderboard-move-select-${e.id}`}
+                                    value={g.id === "__none__" ? "__none__" : g.id}
+                                    onChange={(ev) => { ev.stopPropagation(); moveToFolder(e.id, ev.target.value); }}
+                                    onClick={(ev) => ev.stopPropagation()}
+                                    className="chip text-[9px] flex-shrink-0"
+                                    style={{
+                                      padding: "1px 4px",
+                                      borderColor: "rgba(245,166,35,0.45)",
+                                      color: "#F5A623",
+                                      background: "rgba(20,12,10,0.85)",
+                                      cursor: "pointer",
+                                    }}
+                                    title="Klasöre taşı (yalnızca admin)"
+                                  >
+                                    <option value="__none__">📂</option>
+                                    {folders.map((f) => (
+                                      <option key={f.id} value={f.id}>{f.icon || "📁"} {f.name}</option>
+                                    ))}
+                                  </select>
+                                )}
                               </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                {sg.events.map((e) => {
-                                  const cmpIdx = compareIds.indexOf(e.id);
-                                  const isChecked = cmpIdx >= 0;
-                                  return (
-                                    <div key={e.id} className="relative">
-                                      <button
-                                        data-testid={`archive-event-card-${e.id}`}
-                                        onClick={() => {
-                                          if (compareMode) {
-                                            setCompareIds((prev) => {
-                                              if (prev.includes(e.id)) return prev.filter((x) => x !== e.id);
-                                              if (prev.length >= 2) return [prev[1], e.id];
-                                              return [...prev, e.id];
-                                            });
-                                          } else {
-                                            setArchiveEventId(e.id);
-                                          }
-                                        }}
-                                        className="w-full text-left rounded-lg p-3 transition-all hover:scale-[1.02] relative"
-                                        style={{
-                                          background: isChecked
-                                            ? "linear-gradient(160deg, rgba(76,29,149,0.55) 0%, rgba(30,58,138,0.45) 100%)"
-                                            : "linear-gradient(160deg, rgba(60,30,10,0.85) 0%, rgba(20,12,10,0.92) 100%)",
-                                          border: isChecked ? "2px solid #A855F7" : `1px solid ${g.color}55`,
-                                          boxShadow: isChecked
-                                            ? "0 4px 12px rgba(168,85,247,0.4), inset 0 0 12px rgba(168,85,247,0.20)"
-                                            : "0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,170,80,0.08)",
-                                        }}
-                                      >
-                                        {compareMode && (
-                                          <div
-                                            className="absolute top-2 right-2 rounded-full flex items-center justify-center text-[10px] font-bold"
-                                            data-testid={`archive-compare-check-${e.id}`}
-                                            style={{
-                                              width: 20,
-                                              height: 20,
-                                              background: isChecked ? "#A855F7" : "rgba(255,255,255,0.10)",
-                                              color: isChecked ? "#FFF" : "#C4B5FD",
-                                              border: `1px solid ${isChecked ? "#F5F3FF" : "rgba(168,85,247,0.55)"}`,
-                                            }}
-                                          >
-                                            {isChecked ? cmpIdx + 1 : ""}
-                                          </div>
-                                        )}
-                                        {!compareMode && (e.compare_wins || 0) > 0 && (
-                                          <div
-                                            className="absolute top-2 right-2 flex items-center gap-0.5 rounded-full"
-                                            data-testid={`archive-winner-badge-${e.id}`}
-                                            title={`${e.compare_wins} karşılaştırma galibiyeti`}
-                                            style={{
-                                              padding: "2px 6px",
-                                              fontSize: 10,
-                                              fontWeight: 800,
-                                              background: "linear-gradient(135deg, rgba(245,166,35,0.85), rgba(180,83,9,0.85))",
-                                              border: "1px solid #FFF7ED",
-                                              color: "#0B0704",
-                                              boxShadow: "0 0 8px rgba(245,166,35,0.6)",
-                                            }}
-                                          >
-                                            <span>👑</span>
-                                            {e.compare_wins > 1 && <span className="mono">{e.compare_wins}</span>}
-                                          </div>
-                                        )}
-                                        <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "#D4730A", letterSpacing: "0.14em" }}>
-                                          {e.group_name || t("event")}
-                                        </div>
-                                        <div className="text-sm font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }} title={e.name}>
-                                          {e.name}
-                                        </div>
-                                        {e.subtitle && (
-                                          <div className="text-[11px] mt-0.5 truncate opacity-80" style={{ color: "#EAD8B0" }} title={e.subtitle}>
-                                            {e.subtitle}
-                                          </div>
-                                        )}
-                                        <div className="flex items-center justify-between mt-2 text-[10px]" style={{ color: "#A88060" }}>
-                                          <span>{e.date || "—"}</span>
-                                          <span className="font-bold mono" style={{ color: "#E74C1A" }}>×{e.multiplier ?? 1}</span>
-                                        </div>
-                                      </button>
-                                      {canEdit && !compareMode && (
-                                        <select
-                                          data-testid={`leaderboard-move-select-${e.id}`}
-                                          value={g.id === "__none__" ? "__none__" : g.id}
-                                          onChange={(ev) => { ev.stopPropagation(); moveToFolder(e.id, ev.target.value); }}
-                                          onClick={(ev) => ev.stopPropagation()}
-                                          className="chip text-[9px] absolute bottom-2 right-2"
-                                          style={{
-                                            padding: "2px 5px",
-                                            borderColor: "rgba(245,166,35,0.55)",
-                                            color: "#F5A623",
-                                            background: "rgba(20,12,10,0.85)",
-                                            cursor: "pointer",
-                                          }}
-                                          title="Bu etkinliği başka bir klasöre taşı (yalnızca admin)"
-                                        >
-                                          <option value="__none__">📂 Klasörsüz</option>
-                                          {folders.map((f) => (
-                                            <option key={f.id} value={f.id}>{f.icon || "📁"} {f.name}</option>
-                                          ))}
-                                        </select>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </section>
                     );

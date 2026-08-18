@@ -706,8 +706,32 @@ export default function Events() {
                   draggable="true"
                   onDragStart={(e) => { setDragFolderId(f.id); e.dataTransfer.effectAllowed = "move"; }}
                   onDragEnd={() => setDragFolderId(null)}
-                  onDragOver={(e) => { if (isDragTarget) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }}
+                  onDragOver={(e) => {
+                    // Accept both folder-chip reorders AND event-card drops
+                    // (from the folder-grouped list below).
+                    if (isDragTarget || e.dataTransfer.types.includes("application/x-event-id")) {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                    }
+                  }}
                   onDrop={(e) => {
+                    const evId = e.dataTransfer.getData("application/x-event-id");
+                    if (evId) {
+                      // Event dropped onto folder chip → bulk-assign the
+                      // dragged event + any other selected events.
+                      e.preventDefault();
+                      const ids = selectionMode && selectedIds.size > 0 && selectedIds.has(evId)
+                        ? [...selectedIds] : [evId];
+                      api.post("/event-folders/assign", { event_ids: ids, folder_id: f.id })
+                        .then((r) => {
+                          mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                          mutate("/event-folders");
+                          toast.success(`${r.data.modified} etkinlik → ${f.name}`);
+                          if (selectionMode) clearSelection();
+                        })
+                        .catch((err) => toast.error(err?.response?.data?.detail || err.message));
+                      return;
+                    }
                     if (!isDragTarget) return;
                     e.preventDefault();
                     const ids = folders.map((x) => x.id);
@@ -722,7 +746,7 @@ export default function Events() {
                   }}
                   onClick={() => setFolderId(isSel ? null : f.id)}
                   className={`chip text-[10px] ${isSel ? "active" : ""}`}
-                  title={`${f.name} — sürükleyerek yeniden sırala`}
+                  title={`${f.name} — sürükle: sırala · etkinlik bırak: klasöre taşı`}
                   style={{
                     padding: "5px 10px",
                     whiteSpace: "nowrap",
@@ -1101,6 +1125,46 @@ export default function Events() {
                 })
                 .catch((err) => toast.error(err?.response?.data?.detail || err.message));
             };
+            const renameFolderInline = async (folder) => {
+              const nxt = window.prompt("Yeni klasör adı:", folder.name);
+              if (!nxt || nxt.trim() === folder.name) return;
+              try {
+                await api.patch(`/event-folders/${folder.id}`, { name: nxt.trim() });
+                mutate("/event-folders");
+                toast.success("Klasör adı güncellendi");
+              } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
+            };
+            const deleteFolderInline = async (folder) => {
+              if (!window.confirm(`"${folder.name}" klasörü silinsin mi? İçindeki etkinlikler klasörsüz kalır.`)) return;
+              try {
+                await api.delete(`/event-folders/${folder.id}`);
+                mutate("/event-folders");
+                mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                toast.success("Silindi");
+              } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
+            };
+            const bulkUnarchiveFolder = async (folder) => {
+              if (!window.confirm(`"${folder.name}" klasöründeki tüm etkinlikler aktife alınsın mı?`)) return;
+              try {
+                const r = await api.post(`/event-folders/${folder.id}/bulk-archive`, { archived: false });
+                mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                mutate("/event-folders");
+                mutate("/stats");
+                toast.success(`${r.data.modified} etkinlik aktife alındı`);
+              } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
+            };
+            const moveAllInFolder = async (folder, targetId) => {
+              const target = targetId === "__none__" ? null : targetId;
+              const ids = folder.events.map((e) => e.id);
+              if (ids.length === 0) return;
+              try {
+                const r = await api.post("/event-folders/assign", { event_ids: ids, folder_id: target });
+                mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                mutate("/event-folders");
+                const label = target ? (folders.find((f) => f.id === target)?.name || "klasör") : "Klasörsüz";
+                toast.success(`${r.data.modified} etkinlik → ${label}`);
+              } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
+            };
             return (
               <div className="flex flex-col gap-4" data-testid="events-archive-folder-grouped">
                 {groups.map((g) => {
@@ -1140,12 +1204,12 @@ export default function Events() {
                       }}
                     >
                       <div
-                        className="flex items-center gap-2 mb-3 pb-1.5"
+                        className="flex items-center gap-2 mb-3 pb-1.5 flex-wrap"
                         style={{ borderBottom: `1px solid ${g.color}30` }}
                       >
                         <span style={{ fontSize: 16 }}>{g.icon || "📁"}</span>
                         <h3
-                          className="text-xs font-bold uppercase tracking-widest flex-1"
+                          className="text-xs font-bold uppercase tracking-widest"
                           style={{ color: g.color, letterSpacing: "0.12em", fontFamily: "Cinzel, serif" }}
                         >
                           {g.name}
@@ -1156,51 +1220,172 @@ export default function Events() {
                         >
                           {g.events.length}
                         </span>
+                        {g.id !== "__none__" && (
+                          <CanEdit>
+                            <div className="flex items-center gap-1 ml-auto flex-wrap">
+                              <select
+                                data-testid={`events-folder-move-all-${g.id}`}
+                                defaultValue=""
+                                onChange={(ev) => {
+                                  const v = ev.target.value;
+                                  if (!v) return;
+                                  moveAllInFolder(g, v);
+                                  ev.target.value = "";
+                                }}
+                                className="chip text-[9px]"
+                                style={{
+                                  padding: "3px 6px",
+                                  borderColor: `${g.color}55`,
+                                  color: g.color,
+                                  background: "rgba(20,12,10,0.85)",
+                                  cursor: "pointer",
+                                }}
+                                title="Tümünü başka klasöre taşı"
+                              >
+                                <option value="" disabled>📁 Taşı…</option>
+                                <option value="__none__">📂 Klasörsüz</option>
+                                {folders.filter((ff) => ff.id !== g.id).map((ff) => (
+                                  <option key={ff.id} value={ff.id}>{ff.icon || "📁"} {ff.name}</option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                data-testid={`events-folder-unarchive-all-${g.id}`}
+                                onClick={() => bulkUnarchiveFolder(g)}
+                                className="chip text-[9px] flex items-center gap-1"
+                                style={{
+                                  padding: "3px 8px",
+                                  borderColor: "rgba(34,197,94,0.55)",
+                                  color: "#86EFAC",
+                                  background: "rgba(34,197,94,0.10)",
+                                }}
+                                title="Bu klasördeki tüm etkinlikleri aktife al"
+                              >
+                                <ArchiveRestore className="w-3 h-3" /> Aktife
+                              </button>
+                              <button
+                                type="button"
+                                data-testid={`events-folder-rename-${g.id}`}
+                                onClick={() => renameFolderInline(g)}
+                                className="chip text-[9px] flex items-center gap-1"
+                                style={{
+                                  padding: "3px 8px",
+                                  borderColor: "rgba(59,130,246,0.55)",
+                                  color: "#93C5FD",
+                                  background: "rgba(59,130,246,0.10)",
+                                }}
+                                title="Klasörü yeniden adlandır"
+                              >
+                                <Pencil className="w-3 h-3" /> Ad
+                              </button>
+                              <button
+                                type="button"
+                                data-testid={`events-folder-delete-inline-${g.id}`}
+                                onClick={() => deleteFolderInline(g)}
+                                className="chip text-[9px] flex items-center gap-1"
+                                style={{
+                                  padding: "3px 8px",
+                                  borderColor: "rgba(239,68,68,0.55)",
+                                  color: "#FCA5A5",
+                                  background: "rgba(239,68,68,0.10)",
+                                }}
+                                title="Klasörü sil (içindekiler klasörsüz olur)"
+                              >
+                                <Trash2 className="w-3 h-3" /> Sil
+                              </button>
+                            </div>
+                          </CanEdit>
+                        )}
                       </div>
-                      <div className="flex flex-col gap-3" data-testid={`events-folder-body-${g.id}`}>
-                        {subGroups.map((sg) => (
-                          <div key={sg.key} data-testid={`events-folder-subgroup-${g.id}-${sg.key}`}>
-                            <div
-                              className="text-[10px] uppercase tracking-widest mb-1.5 font-bold opacity-80"
-                              style={{ color: g.color, letterSpacing: "0.10em" }}
-                            >
-                              {sg.label} <span className="opacity-60 mono">({sg.events.length})</span>
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                              {sg.events.map((e) => (
-                                <div
-                                  key={e.id}
-                                  className="relative"
-                                  data-testid={`events-folder-item-${g.id}-${e.id}`}
+                      <div className="flex flex-col gap-1" data-testid={`events-folder-body-${g.id}`}>
+                        {(() => {
+                          // Sort all folder events by manual event_order, then date desc.
+                          const orderIdx = new Map(g.event_order.map((id, i) => [id, i]));
+                          const sorted = [...g.events].sort((a, b) => {
+                            const ai = orderIdx.has(a.id) ? orderIdx.get(a.id) : 999999;
+                            const bi = orderIdx.has(b.id) ? orderIdx.get(b.id) : 999999;
+                            if (ai !== bi) return ai - bi;
+                            return new Date(b.date) - new Date(a.date);
+                          });
+                          return sorted.map((e) => {
+                            const grp = e.group_name && e.group_name.trim() ? e.group_name : "";
+                            const dateStr = String(e.date || "").slice(0, 10);
+                            return (
+                              <div
+                                key={e.id}
+                                draggable
+                                onDragStart={(ev) => { ev.dataTransfer.setData("application/x-event-id", e.id); ev.dataTransfer.effectAllowed = "move"; }}
+                                onClick={() => setDetailId(e.id)}
+                                data-testid={`events-compact-card-${e.id}`}
+                                className="flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer hover:scale-[1.005] transition-transform"
+                                style={{
+                                  borderLeft: `3px solid ${g.color}`,
+                                  background: "rgba(20,12,10,0.6)",
+                                  border: `1px solid ${g.color}22`,
+                                  fontSize: 11,
+                                }}
+                              >
+                                {grp ? (
+                                  <span
+                                    className="text-[9px] font-bold rounded px-1.5 py-0.5 uppercase tracking-widest flex-shrink-0"
+                                    style={{ background: `${g.color}30`, color: g.color, letterSpacing: "0.08em" }}
+                                    title="Grup"
+                                  >
+                                    🤝 {grp}
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="text-[9px] font-bold rounded px-1.5 py-0.5 uppercase tracking-widest flex-shrink-0"
+                                    style={{ background: "rgba(148,163,184,0.15)", color: "#94A3B8" }}
+                                    title="Tekli etkinlik"
+                                  >
+                                    🧍
+                                  </span>
+                                )}
+                                <span
+                                  className="truncate flex-1 font-bold"
+                                  style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }}
+                                  title={e.name}
                                 >
-                                  {renderEventCard(e, g.color, sg.isCollective ? sg.key : "", `archive-folder:${g.id}`)}
-                                  <CanEdit>
-                                    <select
-                                      data-testid={`events-move-select-${e.id}`}
-                                      value={g.id === "__none__" ? "__none__" : g.id}
-                                      onChange={(ev) => { ev.stopPropagation(); moveEventToFolder(e.id, ev.target.value); }}
-                                      onClick={(ev) => ev.stopPropagation()}
-                                      className="chip text-[9px] absolute top-2 right-2"
-                                      style={{
-                                        padding: "2px 6px",
-                                        borderColor: "rgba(245,166,35,0.55)",
-                                        color: "#F5A623",
-                                        background: "rgba(20,12,10,0.85)",
-                                        cursor: "pointer",
-                                      }}
-                                      title="Bu etkinliği başka bir klasöre taşı"
-                                    >
-                                      <option value="__none__">📂 Klasörsüz</option>
-                                      {folders.map((f) => (
-                                        <option key={f.id} value={f.id}>{f.icon || "📁"} {f.name}</option>
-                                      ))}
-                                    </select>
-                                  </CanEdit>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
+                                  {grp || e.name}
+                                </span>
+                                <span className="text-[10px] mono opacity-70" style={{ color: "#EAD8B0" }}>
+                                  {dateStr}
+                                </span>
+                                {(e.compare_wins || 0) > 0 && (
+                                  <span
+                                    className="text-[10px] flex-shrink-0"
+                                    title={`${e.compare_wins} karşılaştırma galibiyeti`}
+                                  >
+                                    👑
+                                  </span>
+                                )}
+                                <CanEdit>
+                                  <select
+                                    data-testid={`events-move-select-${e.id}`}
+                                    value={g.id === "__none__" ? "__none__" : g.id}
+                                    onChange={(ev) => { ev.stopPropagation(); moveEventToFolder(e.id, ev.target.value); }}
+                                    onClick={(ev) => ev.stopPropagation()}
+                                    className="chip text-[9px] flex-shrink-0"
+                                    style={{
+                                      padding: "1px 4px",
+                                      borderColor: "rgba(245,166,35,0.45)",
+                                      color: "#F5A623",
+                                      background: "rgba(20,12,10,0.85)",
+                                      cursor: "pointer",
+                                    }}
+                                    title="Klasöre taşı"
+                                  >
+                                    <option value="__none__">📂</option>
+                                    {folders.map((ff) => (
+                                      <option key={ff.id} value={ff.id}>{ff.icon || "📁"} {ff.name}</option>
+                                    ))}
+                                  </select>
+                                </CanEdit>
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
                     </section>
                   );
