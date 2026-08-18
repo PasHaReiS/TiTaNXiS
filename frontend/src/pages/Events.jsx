@@ -545,8 +545,8 @@ export default function Events() {
                       const allHidden = list.every((e) => e.hidden_from_leaderboard);
                       const next = !allHidden;
                       if (!window.confirm(next
-                        ? `"${group}" grubundaki ${list.length} etkinlik sıralamadan gizlensin mi?`
-                        : `"${group}" grubundaki ${list.length} etkinlik sıralamaya geri eklensin mi?`)) return;
+                        ? t("ev_group_hide_confirm", { group, n: list.length })
+                        : t("ev_group_show_confirm", { group, n: list.length }))) return;
                       try {
                         const res = await api.post("/events/hide-group", { group_name: group, hidden: next });
                         mutate((k) => typeof k === "string" && k.startsWith("/events"));
@@ -576,11 +576,11 @@ export default function Events() {
                           opacity: 0.55,
                         }}
                     title={list.every((e) => e.hidden_from_leaderboard)
-                      ? "Bu grup sıralamadan gizli — geri açmak için tıkla"
-                      : "Tüm grubu sıralamadan gizle"}
+                      ? t("ev_group_hidden_hint_hidden")
+                      : t("ev_group_hidden_hint_visible")}
                   >
                     {list.every((e) => e.hidden_from_leaderboard)
-                      ? <>🚫 Gizli</>
+                      ? <>{t("ev_group_hidden_badge")}</>
                       : <><EyeOff className="w-3 h-3" /></>}
                   </button>
                   <button
@@ -1081,7 +1081,7 @@ export default function Events() {
                     </div>
                     {selectedEvents.length === 0 ? (
                       <div className="text-center py-6 text-xs" style={{ color: "#94A3B8", opacity: 0.7 }}>
-                        Bu klasörde etkinlik yok
+                        {t("lb_folder_no_events")}
                       </div>
                     ) : (() => {
                       // Group events by group_name. If ANY group_name is
@@ -1662,6 +1662,7 @@ function EventDetailModal({ event, open, onClose, onEdit, events = [], onNavigat
 }
 
 function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearSelection, folders = [], onDone }) {
+  const { t } = useTranslation();
   const [busy, setBusy] = React.useState(false);
   const visibleIds = React.useMemo(() => filteredEvents.map((e) => e.id), [filteredEvents]);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
@@ -1825,9 +1826,9 @@ function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearS
         data-testid="events-bulk-breakdown-hide"
         className="chip text-[10px] flex items-center gap-1"
         style={{ borderColor: "rgba(59,130,246,0.55)", color: "#93C5FD", background: "rgba(59,130,246,0.10)" }}
-        title="Seçili etkinliklerin alt detay panelini gizle (grup toplamı korunur)"
+        title={t("ev_bulk_breakdown_hide_tip")}
       >
-        🔍❌ Alt Detay Gizle
+        {t("ev_bulk_breakdown_hide")}
       </button>
       <button
         type="button"
@@ -1836,9 +1837,9 @@ function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearS
         data-testid="events-bulk-breakdown-show"
         className="chip text-[10px] flex items-center gap-1"
         style={{ borderColor: "rgba(34,197,94,0.55)", color: "#86EFAC", background: "rgba(34,197,94,0.10)" }}
-        title="Seçili etkinliklerin alt detay panelini geri aç"
+        title={t("ev_bulk_breakdown_show_tip")}
       >
-        🔍✓ Alt Detay Göster
+        {t("ev_bulk_breakdown_show")}
       </button>
       {folders.length > 0 && (
         <select
@@ -2007,7 +2008,7 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
           placeholder={t("subtitle_example")}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Grup Tipi</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("ev_group_type_label")}</label>
         <div className="grid grid-cols-2 gap-2 mb-2">
           <button
             type="button"
@@ -2016,7 +2017,7 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
             className={`chip justify-center py-2 ${grouped ? "active" : ""}`}
             aria-pressed={grouped}
           >
-            Gruplu
+            {t("ev_group_type_grouped")}
           </button>
           <button
             type="button"
@@ -2025,7 +2026,7 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
             className={`chip justify-center py-2 ${!grouped ? "active" : ""}`}
             aria-pressed={!grouped}
           >
-            Grupsuz
+            {t("ev_group_type_ungrouped")}
           </button>
         </div>
 
@@ -2211,12 +2212,12 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
             />
             <span className="flex-1">
               <span className="block text-sm font-bold text-white">
-                🔍 Alt detaylar görünsün mü?
+                {t("ev_show_breakdown_label")}
               </span>
               <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
                 {showBreakdown
-                  ? "Sıralamada grubun ▶ paneli açıldığında bu etkinlik puanıyla listelenir."
-                  : "Bu etkinlik grubun ▶ panelinde gizli — puan yine grup toplamına katılır ama tek tek görünmez."}
+                  ? t("ev_show_breakdown_hint_on")
+                  : t("ev_show_breakdown_hint_off")}
               </span>
             </span>
           </label>

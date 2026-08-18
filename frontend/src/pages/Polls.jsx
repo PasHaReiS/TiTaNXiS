@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import { toast } from "sonner";
 import { Loader2, Plus, X, CheckCircle2, Circle, Vote, Clock, ShieldOff, Trash2, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -22,6 +23,7 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
  *   └────────────────────────────────────────┘
  */
 export default function Polls() {
+  const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const [showCompose, setShowCompose] = useState(false);
   const { data, mutate, isLoading } = useSWR("/polls", fetcher, { refreshInterval: 30000 });
@@ -53,7 +55,7 @@ export default function Polls() {
         {isLoading && (
           <div className="card-red-gold p-6 flex items-center justify-center gap-2 text-sm text-muted-foreground"
                data-testid="polls-loading">
-            <Loader2 className="w-4 h-4 animate-spin" /> Yükleniyor…
+            <Loader2 className="w-4 h-4 animate-spin" /> {t("poll_loading")}
           </div>
         )}
         {!isLoading && items.length === 0 && (
@@ -188,6 +190,7 @@ function PollComposer({ onCreated }) {
 }
 
 function PollCard({ poll, onChanged, isAdmin }) {
+  const { t } = useTranslation();
   const [selected, setSelected] = useState(poll.my_option_ids || []);
   const [busy, setBusy] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -363,10 +366,10 @@ function PollCard({ poll, onChanged, isAdmin }) {
             background: showDetails ? "rgba(52,152,219,0.20)" : "rgba(52,152,219,0.08)",
           }}
           data-testid={`poll-tg-details-toggle-${poll.id}`}
-          title={showDetails ? "TG oy detaylarını gizle" : "TG oy detaylarını göster"}
+          title={showDetails ? t("poll_tg_details_hide") : t("poll_tg_details_show")}
         >
           {showDetails ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          📡 TG Oy Detayları{typeof poll.tg_voters === "number" ? ` · ${poll.tg_voters}` : ""}
+          {t("poll_tg_details_toggle")}{typeof poll.tg_voters === "number" ? ` · ${poll.tg_voters}` : ""}
         </button>
         <div className="flex items-center gap-1.5 ml-auto">
           {hasVoted && canChange && (
@@ -396,7 +399,7 @@ function PollCard({ poll, onChanged, isAdmin }) {
         >
           {!results ? (
             <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-              <Loader2 className="w-3 h-3 animate-spin" /> Yükleniyor…
+              <Loader2 className="w-3 h-3 animate-spin" /> {t("poll_loading")}
             </div>
           ) : (
             <>
@@ -406,16 +409,16 @@ function PollCard({ poll, onChanged, isAdmin }) {
                   style={{ background: "rgba(59,130,246,0.15)", color: "#93C5FD" }}
                   data-testid={`poll-tg-summary-${poll.id}`}
                 >
-                  📡 TG · {results.tg_voters || 0}
+                  {t("poll_tg_summary_tg", { n: results.tg_voters || 0 })}
                 </span>
                 <span
                   className="px-1.5 py-0.5 rounded"
                   style={{ background: "rgba(245,166,35,0.15)", color: "#F5A623" }}
                 >
-                  📱 Uygulama · {results.app_voters || 0}
+                  {t("poll_tg_summary_app", { n: results.app_voters || 0 })}
                 </span>
                 <span className="text-muted-foreground">
-                  Toplam: {results.total_voters || 0}
+                  {t("poll_tg_summary_total", { n: results.total_voters || 0 })}
                 </span>
               </div>
               <div className="space-y-1">
@@ -436,12 +439,12 @@ function PollCard({ poll, onChanged, isAdmin }) {
               {isAdmin ? (
                 (results.tg_voter_details || []).length === 0 ? (
                   <div className="text-[10px] text-muted-foreground italic">
-                    Henüz TG oyu yok
+                    {t("poll_tg_no_votes")}
                   </div>
                 ) : (
                   <div>
                     <div className="text-[10px] uppercase tracking-widest gold-text font-bold mb-1">
-                      Telegram Oy Verenler
+                      {t("poll_tg_voters_header")}
                     </div>
                     <div className="flex flex-col gap-1 max-h-56 overflow-y-auto">
                       {(results.tg_voter_details || []).map((v, i) => (
@@ -469,7 +472,7 @@ function PollCard({ poll, onChanged, isAdmin }) {
                 )
               ) : (
                 <div className="text-[10px] text-muted-foreground italic">
-                  Detaylı liste yalnızca yönetici görünümünde.
+                  {t("poll_tg_admin_only_note")}
                 </div>
               )}
             </>

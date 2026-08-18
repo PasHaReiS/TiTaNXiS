@@ -495,7 +495,7 @@ export default function Leaderboard() {
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {evs.length === 0 ? (
-                        <div className="text-[10px] opacity-70" style={{ color: "#94A3B8" }}>Etkinlik yok</div>
+                        <div className="text-[10px] opacity-70" style={{ color: "#94A3B8" }}>{t("lb_folder_no_events")}</div>
                       ) : evs.map((e) => {
                         const isEvSel = activeEventId === e.id;
                         return (
@@ -981,10 +981,10 @@ export default function Leaderboard() {
                         className="chip text-[10px] self-start"
                         style={{ padding: "4px 10px", borderColor: `${selColor}55`, color: selColor }}
                       >
-                        ← Klasörler
+                        ← {t("lb_folder_back").replace("← ", "")}
                       </button>
                       <div className="card-dark p-6 text-center text-muted-foreground text-sm">
-                        Bu klasörde grup yok
+                        {t("lb_folder_no_groups")}
                       </div>
                     </div>
                   );
@@ -1009,7 +1009,7 @@ export default function Leaderboard() {
                       className="chip text-[10px] self-start"
                       style={{ padding: "4px 10px", borderColor: `${selColor}55`, color: selColor }}
                     >
-                      ← Klasörler
+                      ← {t("lb_folder_back", "Klasörler").replace("← ", "")}
                     </button>
                     {groupNames.map((gn) => {
                       const isSel = group === gn;
@@ -1083,7 +1083,7 @@ export default function Leaderboard() {
                                 cursor: "pointer",
                                 transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
                               }}
-                              title={isExpanded ? "Etkinlikleri gizle" : "Etkinlikleri göster"}
+                      title={isExpanded ? t("lb_active_group_expand_hide") : t("lb_active_group_expand_show")}
                             >
                               ▶
                             </button>
@@ -1096,7 +1096,7 @@ export default function Leaderboard() {
                             >
                               {groupEvents.length === 0 ? (
                                 <div className="text-[10px] py-1 opacity-70" style={{ color: "#94A3B8" }}>
-                                  Etkinlik yok
+                                  {t("lb_folder_no_events")}
                                 </div>
                               ) : groupEvents.map((e) => {
                                 const dateStr = String(e.date || "").slice(0, 10);
@@ -1139,7 +1139,7 @@ export default function Leaderboard() {
                 <div className="grid grid-cols-3 gap-2" data-testid="leaderboard-archive-folders-grid">
                   {folders.length === 0 ? (
                     <div className="col-span-3 card-dark p-6 text-center text-muted-foreground text-sm">
-                      Klasör oluşturulmadı
+                      {t("lb_folder_no_folders")}
                     </div>
                   ) : folders.map((f) => {
                     const eventsInFolder = archivedEvents.filter((e) => e.folder_id === f.id);
@@ -1171,7 +1171,7 @@ export default function Leaderboard() {
                           {f.name}
                         </span>
                         <span className="text-[9px] mono opacity-80" style={{ color: "#EAD8B0" }}>
-                          {groupCount} grup
+                          {t("lb_folder_group_count", { n: groupCount })}
                         </span>
                       </button>
                     );
