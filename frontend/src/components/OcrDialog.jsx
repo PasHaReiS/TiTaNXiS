@@ -9,6 +9,42 @@ import CropDialog from "@/components/CropDialog";
 
 const _fetcher = (url) => api.get(url).then((r) => r.data);
 
+// Damerau-Levenshtein distance (case-insensitive, alliance-tag agnostic).
+// Used for the OCR "Autolink" suggester — cheap enough to run against ~500
+// members every keystroke since each pair-wise comparison is O(m·n) where
+// m, n are typically ≤ 24 chars.
+function _lev(a, b) {
+  a = String(a || "").toLowerCase(); b = String(b || "").toLowerCase();
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const prev = Array(b.length + 1).fill(0).map((_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const curr = [i];
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
+  }
+  return prev[b.length];
+}
+function _fuzzyTopMatches(needle, hayNames, limit = 3) {
+  const stripTag = (n) => {
+    const mm = /^\s*\[[^\]]+\]\s*(.+)$/.exec(String(n || ""));
+    return (mm ? mm[1] : String(n || "")).trim();
+  };
+  const nk = stripTag(needle).toLowerCase();
+  if (!nk) return [];
+  const scored = hayNames.map((n) => {
+    const hk = stripTag(n).toLowerCase();
+    const dist = _lev(nk, hk);
+    const rel = dist / Math.max(1, Math.max(nk.length, hk.length));
+    return { name: n, dist, rel };
+  }).filter((x) => x.rel < 0.45).sort((a, b) => a.dist - b.dist);
+  return scored.slice(0, limit);
+}
+
 /**
  * Reusable OCR dialog.
  *
@@ -689,6 +725,9 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             {mode === "members" && (() => {
                               const cleanName = _stripTag(rowEdits[i]?.name ?? r.name);
                               const isExisting = existingNamesLc.has(cleanName.toLowerCase());
+                              const suggestions = !isExisting
+                                ? _fuzzyTopMatches(rowEdits[i]?.name ?? r.name, (existingMembers || []).map((m) => m.name || ""), 3)
+                                : [];
                               // Alliance tag: prefer explicit field, else bracket in name
                               let allianceGuess = r.alliance_name;
                               if (!allianceGuess) {
@@ -706,6 +745,23 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     className="w-full bg-transparent text-white outline-none border-b border-transparent hover:border-white/30 focus:border-amber-400 text-[10px]"
                                     title="Adı düzeltmek için tıkla"
                                   />
+                                  {suggestions.length > 0 && !isExcluded && (
+                                    <div className="flex flex-wrap gap-1 mt-0.5" data-testid={`ocr-suggest-${i}`}>
+                                      {suggestions.map((s) => (
+                                        <button
+                                          key={s.name}
+                                          type="button"
+                                          onClick={() => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: s.name } }))}
+                                          className="text-[9px] px-1.5 py-0.5 rounded border"
+                                          style={{ background: "rgba(52,152,219,0.15)", color: "#93C5FD", borderColor: "rgba(52,152,219,0.45)" }}
+                                          title={`Levenshtein mesafesi: ${s.dist} — tıkla ve bu üyeye bağla`}
+                                          data-testid={`ocr-suggest-${i}-${s.name.replace(/\s+/g,'_')}`}
+                                        >
+                                          🔗 {s.name}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
                                 </td>
                                 <td className="text-right mono py-1" style={{ color: "#FF6B00" }}>
                                   {r.power ? Number(r.power).toLocaleString("tr-TR") : "—"}
@@ -747,6 +803,9 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               const origClean = _stripTag(r.name);
                               const origWasExisting = existingNamesLc.has(origClean.toLowerCase());
                               const editedIntoNew = origWasExisting && !isExisting && (rowEdits[i]?.name !== undefined);
+                              const suggestions = !isExisting
+                                ? _fuzzyTopMatches(currName, (existingMembers || []).map((m) => m.name || ""), 3)
+                                : [];
                               return (<>
                                 <td className="py-1 max-w-[180px]">
                                   <input
@@ -758,6 +817,23 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     className="w-full bg-transparent text-white outline-none border-b border-transparent hover:border-white/30 focus:border-amber-400 text-[10px]"
                                     title="Adı düzeltmek için tıkla"
                                   />
+                                  {suggestions.length > 0 && !isExcluded && (
+                                    <div className="flex flex-wrap gap-1 mt-0.5" data-testid={`ocr-suggest-${i}`}>
+                                      {suggestions.map((s) => (
+                                        <button
+                                          key={s.name}
+                                          type="button"
+                                          onClick={() => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: s.name } }))}
+                                          className="text-[9px] px-1.5 py-0.5 rounded border"
+                                          style={{ background: "rgba(52,152,219,0.15)", color: "#93C5FD", borderColor: "rgba(52,152,219,0.45)" }}
+                                          title={`Levenshtein mesafesi: ${s.dist} — tıkla ve bu üyeye bağla`}
+                                          data-testid={`ocr-suggest-${i}-${s.name.replace(/\s+/g,'_')}`}
+                                        >
+                                          🔗 {s.name}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
                                 </td>
                                 <td className="py-1">
                                   <input

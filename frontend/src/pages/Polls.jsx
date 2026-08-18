@@ -436,6 +436,39 @@ function PollCard({ poll, onChanged, isAdmin }) {
                   </div>
                 ))}
               </div>
+              {(results.tg_voter_details || []).length > 0 && isAdmin && (
+                <button
+                  type="button"
+                  data-testid={`poll-tg-csv-${poll.id}`}
+                  onClick={() => {
+                    const lines = [["username", "options", "voted_at"]];
+                    (results.tg_voter_details || []).forEach((v) => {
+                      lines.push([
+                        (v.username || "anon"),
+                        (v.options || []).join(" | "),
+                        v.voted_at || "",
+                      ]);
+                    });
+                    const csv = lines.map((r) => r.map((c) => {
+                      const s = String(c || "");
+                      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+                    }).join(",")).join("\n");
+                    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `poll-${poll.id.slice(0, 8)}-tg-voters.csv`;
+                    document.body.appendChild(a); a.click(); a.remove();
+                    URL.revokeObjectURL(url);
+                    toast.success(`${(results.tg_voter_details || []).length} TG oy dökümü indirildi`);
+                  }}
+                  className="chip text-[10px] flex items-center gap-1 self-start"
+                  style={{ borderColor: "rgba(34,197,94,0.55)", color: "#86EFAC", background: "rgba(34,197,94,0.10)" }}
+                  title="TG oy verenleri CSV olarak indir"
+                >
+                  📥 TG Oy Dökümü İndir ({(results.tg_voter_details || []).length})
+                </button>
+              )}
               {isAdmin ? (
                 (results.tg_voter_details || []).length === 0 ? (
                   <div className="text-[10px] text-muted-foreground italic">

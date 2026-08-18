@@ -11,7 +11,7 @@ import LinkMemberDialog from "@/components/LinkMemberDialog";
 import OcrDialog from "@/components/OcrDialog";
 import CanEdit from "@/components/CanEdit";
 import CountUp from "@/components/CountUp";
-import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap, CheckSquare, Square, Globe, Castle } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap, CheckSquare, Square, Globe, Castle, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { COUNTRIES, COUNTRY_BY_ISO2 } from "@/lib/countries";
@@ -364,6 +364,33 @@ export default function Members() {
               </button>
             )}
             <CanEdit>
+              <button
+                data-testid="members-guild-csv-btn"
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/reports/guild-data.csv`, {
+                      credentials: "include",
+                      headers: { Authorization: `Bearer ${localStorage.getItem("ol_token") || ""}` },
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `guild_data_${new Date().toISOString().slice(0, 10)}.csv`;
+                    document.body.appendChild(a); a.click(); a.remove();
+                    URL.revokeObjectURL(url);
+                    toast.success("Guild Data CSV indirildi");
+                  } catch (e) {
+                    toast.error(e.message || "CSV indirilemedi");
+                  }
+                }}
+                className="chip text-xs flex items-center gap-1.5"
+                style={{ borderColor: "rgba(34,197,94,0.5)", color: "#86EFAC" }}
+                title="Tüm üye + puan verisini CSV olarak indir"
+              >
+                <Download className="w-3.5 h-3.5" /> Guild CSV
+              </button>
               <button
                 data-testid="members-ocr-btn"
                 onClick={() => setOcrOpen(true)}

@@ -1133,6 +1133,60 @@ async def archive_points_export_csv(_: dict = Depends(require_edit)):
 
 
 
+@api_router.get("/reports/guild-data.csv")
+async def reports_guild_data_csv(_: dict = Depends(require_edit)):
+    """Guild-wide member + point summary. Streams a single flat CSV row
+    per member with lifetime totals (attendance counts, total points,
+    active-vs-archived point split) so admins can offline-archive the whole
+    roster with one click. Powers the "Guild Data CSV" button on Members."""
+    import io, csv
+    members = await db.members.find({}, {"_id": 0}).to_list(5000)
+    events = await db.events.find({}, {"_id": 0}).to_list(4000)
+    ev_by_id = {e["id"]: e for e in events}
+    points = await db.points.find({}, {"_id": 0}).to_list(50000)
+    tally = {}
+    for p in points:
+        mid = p.get("member_id")
+        if not mid:
+            continue
+        ev = ev_by_id.get(p.get("event_id"), {})
+        base = int(p.get("points") or 0)
+        mult = float(p.get("multiplier") or 1.0)
+        final_ = int(round(base * mult))
+        row = tally.setdefault(mid, {"total": 0, "active": 0, "archived": 0, "events": 0})
+        row["total"] += final_
+        row["events"] += 1
+        if ev.get("archived"):
+            row["archived"] += final_
+        else:
+            row["active"] += final_
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow([
+        "member_id", "name", "alliance_name", "rank", "country", "power",
+        "castle_level", "total_points", "active_points", "archived_points",
+        "event_count",
+    ])
+    members_sorted = sorted(members, key=lambda m: -int(m.get("power") or 0))
+    for m in members_sorted:
+        t = tally.get(m.get("id"), {"total": 0, "active": 0, "archived": 0, "events": 0})
+        w.writerow([
+            m.get("member_id") or "",
+            m.get("name") or "",
+            m.get("alliance_name") or "",
+            m.get("rank") or "",
+            m.get("country") or "",
+            m.get("power") or 0,
+            m.get("castle_level") or "",
+            t["total"], t["active"], t["archived"], t["events"],
+        ])
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="guild_data.csv"'},
+    )
+
+
 # ---------- Points ----------
 @api_router.get("/points")
 async def list_points(search: Optional[str] = None, limit: int = 1000):

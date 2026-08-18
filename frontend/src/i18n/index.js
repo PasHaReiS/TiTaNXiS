@@ -3214,6 +3214,8 @@ const de = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 
 const fr = {
@@ -3745,6 +3747,8 @@ const fr = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 
 const es = {
@@ -4276,6 +4280,8 @@ const es = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 
 const ko = {
@@ -4774,6 +4780,8 @@ const ko = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 
 const ar = {
@@ -5206,6 +5214,8 @@ const ar = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 
 // Empty translation stubs for additional languages — i18next fallbackLng: "tr"
@@ -5322,6 +5332,8 @@ const bg = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 const cs = {
   vip_page_title: "VIP podpora",
@@ -5435,6 +5447,9 @@ const cs = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_group_count: "Skupina {{n}}",
 };
 const da = {
   vip_page_title: "VIP-support",
@@ -5548,6 +5563,8 @@ const da = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 const el = {
   vip_page_title: "Υποστήριξη VIP",
@@ -5662,6 +5679,8 @@ const el = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 const et = {
   vip_page_title: "VIP-tugi",
@@ -5775,6 +5794,8 @@ const et = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 const fi = {
   vip_page_title: "VIP-tuki",
@@ -5888,6 +5909,8 @@ const fi = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 const hu = {
   vip_page_title: "VIP-támogatás",
@@ -6001,6 +6024,8 @@ const hu = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 const id_ = {
   vip_page_title: "Dukungan VIP",
@@ -6114,6 +6139,9 @@ const id_ = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_group_count: "{{n}} kelompok",
 };
 const it = {
   vip_page_title: "Assistenza VIP",
@@ -6227,6 +6255,8 @@ const it = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 const ja = {
   vip_page_title: "VIPサポート",
@@ -6341,6 +6371,8 @@ const ja = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 const lt = {
   vip_page_title: "VIP pagalba",
@@ -6455,6 +6487,8 @@ const lt = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 const lv = {
   vip_page_title: "VIP atbalsts",
@@ -6568,6 +6602,8 @@ const lv = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 const nb = {
   vip_page_title: "VIP-støtte",
@@ -6681,6 +6717,8 @@ const nb = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 const nl = {
   vip_page_title: "VIP-ondersteuning",
@@ -6794,6 +6832,8 @@ const nl = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 const pl = {
   vip_page_title: "Obsługa VIP",
@@ -6907,6 +6947,8 @@ const pl = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 const pt = {
   vip_page_title: "Apoio VIP",
@@ -7160,6 +7202,9 @@ const ro = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_group_count: "Grupul {{n}}",
 };
 const sk = {
   vip_page_title: "VIP podpora",
@@ -7273,6 +7318,9 @@ const sk = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
+  lb_folder_group_count: "Skupina {{n}}",
 };
 const sl = {
   vip_page_title: "VIP podpora",
@@ -7386,6 +7434,8 @@ const sl = {
   poll_tg_summary_tg: "📡 TG · {{n}}",
   poll_tg_summary_app: "📱 Uygulama · {{n}}",
   poll_tg_summary_total: "Toplam: {{n}}",
+
+  // __V9_FEB18_I18N__ (DeepL backfill)
 };
 const sv = {
   vip_page_title: "VIP-support",
