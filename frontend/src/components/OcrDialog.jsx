@@ -747,19 +747,27 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                   />
                                   {suggestions.length > 0 && !isExcluded && (
                                     <div className="flex flex-wrap gap-1 mt-0.5" data-testid={`ocr-suggest-${i}`}>
-                                      {suggestions.map((s) => (
-                                        <button
-                                          key={s.name}
-                                          type="button"
-                                          onClick={() => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: s.name } }))}
-                                          className="text-[9px] px-1.5 py-0.5 rounded border"
-                                          style={{ background: "rgba(52,152,219,0.15)", color: "#93C5FD", borderColor: "rgba(52,152,219,0.45)" }}
-                                          title={`Levenshtein mesafesi: ${s.dist} — tıkla ve bu üyeye bağla`}
-                                          data-testid={`ocr-suggest-${i}-${s.name.replace(/\s+/g,'_')}`}
-                                        >
-                                          🔗 {s.name}
-                                        </button>
-                                      ))}
+                                      {suggestions.map((s) => {
+                                        // Confidence halo: green = safe (Levenshtein ≤ 1), soft green
+                                        // ≤ 2, amber ≤ 3, muted orange when the model is guessing.
+                                        const conf = s.dist <= 1 ? { bg: "rgba(34,197,94,0.20)", fg: "#4ade80", border: "rgba(34,197,94,0.75)", glow: "0 0 6px rgba(34,197,94,0.55)", label: "Yüksek eşleşme" }
+                                                  : s.dist <= 2 ? { bg: "rgba(74,222,128,0.14)", fg: "#86EFAC", border: "rgba(74,222,128,0.55)", glow: "0 0 4px rgba(74,222,128,0.35)", label: "İyi eşleşme" }
+                                                  : s.dist <= 3 ? { bg: "rgba(245,166,35,0.18)", fg: "#FCD34D", border: "rgba(245,166,35,0.60)", glow: "0 0 4px rgba(245,166,35,0.35)", label: "Yaklaşık eşleşme" }
+                                                                : { bg: "rgba(249,115,22,0.15)", fg: "#FDBA74", border: "rgba(249,115,22,0.55)", glow: "none", label: "Zayıf eşleşme" };
+                                        return (
+                                          <button
+                                            key={s.name}
+                                            type="button"
+                                            onClick={() => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: s.name } }))}
+                                            className="text-[9px] px-1.5 py-0.5 rounded border font-bold"
+                                            style={{ background: conf.bg, color: conf.fg, borderColor: conf.border, boxShadow: conf.glow }}
+                                            title={`${conf.label} · Levenshtein ${s.dist} — tıkla ve bu üyeye bağla`}
+                                            data-testid={`ocr-suggest-${i}-${s.name.replace(/\s+/g,'_')}`}
+                                          >
+                                            🔗 {s.name}
+                                          </button>
+                                        );
+                                      })}
                                     </div>
                                   )}
                                 </td>
@@ -819,19 +827,27 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                   />
                                   {suggestions.length > 0 && !isExcluded && (
                                     <div className="flex flex-wrap gap-1 mt-0.5" data-testid={`ocr-suggest-${i}`}>
-                                      {suggestions.map((s) => (
-                                        <button
-                                          key={s.name}
-                                          type="button"
-                                          onClick={() => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: s.name } }))}
-                                          className="text-[9px] px-1.5 py-0.5 rounded border"
-                                          style={{ background: "rgba(52,152,219,0.15)", color: "#93C5FD", borderColor: "rgba(52,152,219,0.45)" }}
-                                          title={`Levenshtein mesafesi: ${s.dist} — tıkla ve bu üyeye bağla`}
-                                          data-testid={`ocr-suggest-${i}-${s.name.replace(/\s+/g,'_')}`}
-                                        >
-                                          🔗 {s.name}
-                                        </button>
-                                      ))}
+                                      {suggestions.map((s) => {
+                                        // Confidence halo: green = safe (Levenshtein ≤ 1), soft green
+                                        // ≤ 2, amber ≤ 3, muted orange when the model is guessing.
+                                        const conf = s.dist <= 1 ? { bg: "rgba(34,197,94,0.20)", fg: "#4ade80", border: "rgba(34,197,94,0.75)", glow: "0 0 6px rgba(34,197,94,0.55)", label: "Yüksek eşleşme" }
+                                                  : s.dist <= 2 ? { bg: "rgba(74,222,128,0.14)", fg: "#86EFAC", border: "rgba(74,222,128,0.55)", glow: "0 0 4px rgba(74,222,128,0.35)", label: "İyi eşleşme" }
+                                                  : s.dist <= 3 ? { bg: "rgba(245,166,35,0.18)", fg: "#FCD34D", border: "rgba(245,166,35,0.60)", glow: "0 0 4px rgba(245,166,35,0.35)", label: "Yaklaşık eşleşme" }
+                                                                : { bg: "rgba(249,115,22,0.15)", fg: "#FDBA74", border: "rgba(249,115,22,0.55)", glow: "none", label: "Zayıf eşleşme" };
+                                        return (
+                                          <button
+                                            key={s.name}
+                                            type="button"
+                                            onClick={() => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: s.name } }))}
+                                            className="text-[9px] px-1.5 py-0.5 rounded border font-bold"
+                                            style={{ background: conf.bg, color: conf.fg, borderColor: conf.border, boxShadow: conf.glow }}
+                                            title={`${conf.label} · Levenshtein ${s.dist} — tıkla ve bu üyeye bağla`}
+                                            data-testid={`ocr-suggest-${i}-${s.name.replace(/\s+/g,'_')}`}
+                                          >
+                                            🔗 {s.name}
+                                          </button>
+                                        );
+                                      })}
                                     </div>
                                   )}
                                 </td>

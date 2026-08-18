@@ -2897,6 +2897,116 @@ async def _prune_deepl_log_task():
         pass
 
 
+V9_I18N_KEYS = {
+    "lb_folder_back": "← Klasörler",
+    "lb_folder_no_groups": "Bu klasörde grup yok",
+    "lb_folder_no_folders": "Klasör oluşturulmadı",
+    "lb_folder_group_count": "{{n}} grup",
+    "lb_folder_no_events": "Etkinlik yok",
+    "lb_active_group_expand_show": "Etkinlikleri göster",
+    "lb_active_group_expand_hide": "Etkinlikleri gizle",
+    "ev_show_breakdown_label": "🔍 Alt detaylar görünsün mü?",
+    "ev_show_breakdown_hint_on": "Sıralamada grubun ▶ paneli açıldığında bu etkinlik puanıyla listelenir.",
+    "ev_show_breakdown_hint_off": "Bu etkinlik grubun ▶ panelinde gizli — puan yine grup toplamına katılır ama tek tek görünmez.",
+    "ev_bulk_breakdown_hide": "🔍❌ Alt Detay Gizle",
+    "ev_bulk_breakdown_show": "🔍✓ Alt Detay Göster",
+    "ev_bulk_breakdown_hide_tip": "Seçili etkinliklerin alt detay panelini gizle (grup toplamı korunur)",
+    "ev_bulk_breakdown_show_tip": "Seçili etkinliklerin alt detay panelini geri aç",
+    "ev_group_hidden_badge": "🚫 Gizli",
+    "ev_group_hidden_hint_hidden": "Bu grup sıralamadan gizli — geri açmak için tıkla",
+    "ev_group_hidden_hint_visible": "Tüm grubu sıralamadan gizle",
+    "ev_group_hide_confirm": '"{{group}}" grubundaki {{n}} etkinlik sıralamadan gizlensin mi?',
+    "ev_group_show_confirm": '"{{group}}" grubundaki {{n}} etkinlik sıralamaya geri eklensin mi?',
+    "ev_group_type_label": "Grup Tipi",
+    "ev_group_type_grouped": "Gruplu",
+    "ev_group_type_ungrouped": "Grupsuz",
+    "ev_ungrouped_events_label": "Grupsuz Etkinlikler",
+    "poll_tg_details_toggle": "📡 TG Oy Detayları",
+    "poll_tg_details_hide": "TG oy detaylarını gizle",
+    "poll_tg_details_show": "TG oy detaylarını göster",
+    "poll_tg_no_votes": "Henüz TG oyu yok",
+    "poll_tg_voters_header": "Telegram Oy Verenler",
+    "poll_tg_admin_only_note": "Detaylı liste yalnızca yönetici görünümünde.",
+    "poll_loading": "Yükleniyor…",
+}
+
+I18N_FILE_PATH = "/app/frontend/src/i18n/index.js"
+I18N_RETRY_LOCALES = ("de", "fr", "es", "ko", "ar", "bg", "cs", "da", "el", "et",
+                     "fi", "hu", "id_", "it", "ja", "lt", "lv", "nb", "nl",
+                     "pl", "ro", "sk", "sl")
+I18N_DEEPL_MAP = {"de": "DE", "fr": "FR", "es": "ES", "ko": "KO", "ar": "AR",
+                  "bg": "BG", "cs": "CS", "da": "DA", "el": "EL", "et": "ET",
+                  "fi": "FI", "hu": "HU", "id_": "ID", "it": "IT", "ja": "JA",
+                  "lt": "LT", "lv": "LV", "nb": "NB", "nl": "NL", "pl": "PL",
+                  "ro": "RO", "sk": "SK", "sl": "SL"}
+
+
+@api_router.post("/cron/deepl-retry-i18n")
+async def cron_deepl_retry_i18n(request: Request):
+    """Nightly self-healer for the v9 i18n backfill. Scans every non-{tr,en,ru,pt}
+    locale block in `/app/frontend/src/i18n/index.js`, finds v9 keys still
+    missing (throttled during the initial backfill), and re-attempts them
+    via DeepL. Patches the file in-place with any new translations.
+    Idempotent: keys already present are skipped; keys where DeepL still
+    returns the source stay untouched so `fallbackLng: ["en", "tr"]` keeps
+    working. Cron auth via `WEBHOOK_CRON_SECRET` matches the sibling
+    prune-deepl-log endpoint."""
+    import re
+    import os as _os
+    import asyncio
+    auth = request.headers.get("authorization", "")
+    expected = f"Bearer {WEBHOOK_CRON_SECRET}"
+    if not WEBHOOK_CRON_SECRET or not _hmac_cron.compare_digest(auth, expected):
+        raise HTTPException(401, "cron secret mismatch")
+    if not DEEPL_API_KEY:
+        return {"skipped": "deepl_key_missing"}
+    if not _os.path.exists(I18N_FILE_PATH):
+        return {"skipped": "i18n_file_missing"}
+    src = open(I18N_FILE_PATH, "r", encoding="utf-8").read()
+    patched = 0
+    per_locale: Dict[str, int] = {}
+    for locale in I18N_RETRY_LOCALES:
+        m = re.search(rf"^const {re.escape(locale)} = \{{(.*?)^\}};", src, re.M | re.S)
+        if not m:
+            continue
+        block = m.group(1)
+        missing = [k for k in V9_I18N_KEYS if not re.search(rf"\b{re.escape(k)}:\s", block)]
+        if not missing:
+            continue
+        deepl_code = I18N_DEEPL_MAP[locale]
+        additions: List[str] = []
+        for key in missing:
+            tr_value = V9_I18N_KEYS[key]
+            translated_map = await _deepl_translate_one(tr_value, target_langs=[deepl_code])
+            translated = translated_map.get(deepl_code)
+            if not translated or translated.strip() == tr_value.strip():
+                continue
+            placeholder_ok = True
+            for tok in re.findall(r"\{\{[^}]+\}\}", tr_value):
+                if tok not in translated:
+                    placeholder_ok = False
+                    break
+            if not placeholder_ok:
+                continue
+            escaped = translated.replace("\\", "\\\\").replace('"', '\\"')
+            additions.append(f'  {key}: "{escaped}",')
+            await asyncio.sleep(0.4)
+        if not additions:
+            continue
+        insertion = "\n  // __V9_DEEPL_RETRY__\n" + "\n".join(additions) + "\n"
+        m2 = re.search(rf"^const {re.escape(locale)} = \{{(.*?)^\}};", src, re.M | re.S)
+        if not m2:
+            continue
+        block_close = src.rfind("};", m2.start(), m2.end())
+        src = src[:block_close] + insertion + src[block_close:]
+        patched += len(additions)
+        per_locale[locale] = len(additions)
+    if patched:
+        open(I18N_FILE_PATH, "w", encoding="utf-8").write(src)
+    return {"patched": patched, "per_locale": per_locale}
+
+
+
 @api_router.post("/cron/prune-deepl-log")
 async def cron_prune_deepl_log(request: Request):
     # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.

@@ -1,4 +1,10 @@
 crons:
+  - name: deepl-retry-i18n
+    description: "Nightly retry of throttled v9 i18n strings — patches i18n/index.js in-place with any DeepL translations that succeeded"
+    cron: "45 3 * * *"
+    endpoint: "{{BASE_URL}}/api/cron/deepl-retry-i18n"
+    method: POST
+    enabled: true
   - name: prune-deepl-log
     description: "Deletes deepl_translate_log rows older than 90 days once a day at 03:15 UTC"
     cron: "15 3 * * *"
