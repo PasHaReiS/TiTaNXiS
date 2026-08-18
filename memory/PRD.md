@@ -76,9 +76,29 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Archive folder-grouped view** — when no folder chip is active on
   the Events archive tab, the grid switches from Kolektif/Bireysel
   split to a folder-grouped layout (one section per folder with its
-  own header, colour tint, event count badge, and "Aç →" shortcut to
-  focus that folder). Events not in any folder land in a "Klasörsüz"
-  group so nothing is lost.
+  own header, colour tint, icon glyph, event count badge, and
+  "Aç →" shortcut to focus that folder). Events not in any folder
+  land in a "Klasörsüz" group so nothing is lost. Events inside a
+  folder card are draggable — dropping onto another card writes a
+  `folder.event_order` list via
+  `POST /api/event-folders/{folder_id}/reorder-events` so each admin's
+  season timeline sticks.
+- **Folder icons + templates**:
+  - `EventFolder.icon` optional emoji glyph (default 📁). 10-icon
+    curated palette in `EventFolderManager`: 📁 🏆 🎯 ⚔️ 🛡️ 🌟 💎 🔥 👑 🎖️.
+    Icon renders on the folder chip strip (Events + Leaderboard),
+    on the archive folder-grouped section header, the folder actions
+    bar and the manager row.
+  - New `folder_templates` collection + endpoints
+    (`GET/POST /api/event-folder-templates`,
+    `DELETE /api/event-folder-templates/{id}`). Manager modal shows a
+    "Şablonlar" strip; "Şablon Olarak Kaydet" saves the current
+    name/color/icon combo, and clicking a template chip pre-fills the
+    "yeni klasör" form so a new season spins up with one tap.
+- **Archive comparison bar chart** — `CompareEventsModal` now includes
+  a proportional bar chart under the A/B totals cards, sized off the
+  larger total (100%). The winning event gets a glowing border and a
+  👑 marker so admins spot the outcome without reading numbers.
 - **Archive CSV export** — `GET /api/reports/archive-points-export.csv`
   streams a member × event dump (member/alliance/event/date/group/
   multiplier/base_points/final_points) with proper CSV escaping.

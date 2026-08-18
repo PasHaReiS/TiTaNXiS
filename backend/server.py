@@ -965,20 +965,29 @@ class EventFolder(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     color: Optional[str] = None  # hex string for a subtle chip tint
+    icon: Optional[str] = None   # single-emoji glyph shown on chip / group header
     order: int = 0
+    # Manual event ordering — a list of event IDs that overrides the
+    # default date sort inside this folder. Events not listed here fall
+    # back to date order at the end. Populated by the drag-and-drop
+    # reorder handler on the archive grouped view.
+    event_order: List[str] = Field(default_factory=list)
     created_at: str = Field(default_factory=now_iso)
 
 
 class EventFolderCreate(BaseModel):
     name: str
     color: Optional[str] = None
+    icon: Optional[str] = None
     order: Optional[int] = 0
 
 
 class EventFolderUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
+    icon: Optional[str] = None
     order: Optional[int] = None
+    event_order: Optional[List[str]] = None
 
 
 class FolderAssignBody(BaseModel):
@@ -1010,7 +1019,7 @@ async def create_event_folder(body: EventFolderCreate, _: dict = Depends(require
     name = (body.name or "").strip()
     if not name:
         raise HTTPException(400, "name cannot be empty")
-    f = EventFolder(name=name, color=body.color, order=int(body.order or 0))
+    f = EventFolder(name=name, color=body.color, icon=body.icon, order=int(body.order or 0))
     await db.event_folders.insert_one(f.model_dump())
     return {**f.model_dump(), "archived_count": 0}
 
@@ -1091,6 +1100,64 @@ async def reorder_event_folders(body: FolderReorderBody, _: dict = Depends(requi
         res = await db.event_folders.update_one({"id": fid}, {"$set": {"order": idx}})
         modified += res.modified_count
     return {"modified": modified}
+
+
+class FolderReorderEventsBody(BaseModel):
+    event_ids: List[str]
+
+
+@api_router.post("/event-folders/{folder_id}/reorder-events")
+async def reorder_folder_events(folder_id: str, body: FolderReorderEventsBody, _: dict = Depends(require_edit)):
+    """Store a manual event order for a folder — the archive grouped view
+    respects this order first, falling back to date for events not listed."""
+    exists = await db.event_folders.find_one({"id": folder_id}, {"_id": 0, "id": 1})
+    if not exists:
+        raise HTTPException(404, "folder not found")
+    ids = [i for i in (body.event_ids or []) if i]
+    await db.event_folders.update_one({"id": folder_id}, {"$set": {"event_order": ids}})
+    return {"count": len(ids)}
+
+
+class FolderTemplate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    folder_name_default: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    created_at: str = Field(default_factory=now_iso)
+
+
+class FolderTemplateCreate(BaseModel):
+    name: str
+    folder_name_default: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+
+
+@api_router.get("/event-folder-templates")
+async def list_folder_templates():
+    docs = await db.folder_templates.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return docs
+
+
+@api_router.post("/event-folder-templates")
+async def create_folder_template(body: FolderTemplateCreate, _: dict = Depends(require_edit)):
+    name = (body.name or "").strip()
+    if not name:
+        raise HTTPException(400, "name cannot be empty")
+    t = FolderTemplate(
+        name=name, folder_name_default=body.folder_name_default,
+        color=body.color, icon=body.icon,
+    )
+    await db.folder_templates.insert_one(t.model_dump())
+    return t.model_dump()
+
+
+@api_router.delete("/event-folder-templates/{template_id}")
+async def delete_folder_template(template_id: str, _: dict = Depends(require_edit)):
+    res = await db.folder_templates.delete_one({"id": template_id})
+    return {"deleted": res.deleted_count}
 
 
 @api_router.get("/reports/archive-points-export.csv")

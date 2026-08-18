@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { EVENTS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
-import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera, BellOff, Users, User, LayoutGrid, CalendarDays, CheckSquare, Square, EyeOff, Eye } from "lucide-react";
+import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera, BellOff, Users, User, LayoutGrid, CalendarDays, CheckSquare, Square, EyeOff, Eye, Star } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import ImageDropzone from "@/components/ImageDropzone";
@@ -734,7 +734,7 @@ export default function Events() {
                     opacity: dragFolderId === f.id ? 0.5 : 1,
                   }}
                 >
-                  📁 {f.name}
+                  {f.icon || "📁"} {f.name}
                   {typeof f.archived_count === "number" && (
                     <span className="ml-1 opacity-70 mono">({f.archived_count})</span>
                   )}
@@ -804,7 +804,7 @@ export default function Events() {
                   className="text-[10px] font-bold uppercase tracking-widest"
                   style={{ color: folder.color || "#F5A623", letterSpacing: "0.12em" }}
                 >
-                  📁 {folder.name} · {folder.archived_count || 0} etkinlik
+                  {folder.icon || "📁"} {folder.name} · {folder.archived_count || 0} etkinlik
                 </span>
                 <div className="flex-1" />
                 <button
@@ -1046,8 +1046,8 @@ export default function Events() {
               else noFolder.push(e);
             });
             const groups = [
-              ...folders.map((f) => ({ id: f.id, name: f.name, color: f.color, events: byFolder[f.id] })),
-              { id: "__none__", name: "Klasörsüz", color: "#94A3B8", events: noFolder },
+              ...folders.map((f) => ({ id: f.id, name: f.name, color: f.color, icon: f.icon, event_order: f.event_order || [], events: byFolder[f.id] })),
+              { id: "__none__", name: "Klasörsüz", color: "#94A3B8", icon: "📁", event_order: [], events: noFolder },
             ].filter((g) => g.events.length > 0);
             if (groups.length === 0) {
               return (
@@ -1072,7 +1072,7 @@ export default function Events() {
                       className="flex items-center gap-2 mb-2 pb-1.5"
                       style={{ borderBottom: `1px solid ${g.color}30` }}
                     >
-                      <span style={{ fontSize: 14 }}>📁</span>
+                      <span style={{ fontSize: 14 }}>{g.icon || "📁"}</span>
                       <h3
                         className="text-xs font-bold uppercase tracking-widest flex-1"
                         style={{ color: g.color, letterSpacing: "0.12em", fontFamily: "Cinzel, serif" }}
@@ -1103,10 +1103,47 @@ export default function Events() {
                         </CanEdit>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
-                      {g.events.map((e) =>
-                        renderEventCard(e, g.color, "", `archive-folder:${g.id}`)
-                      )}
+                    <div
+                      className="grid grid-cols-2 md:grid-cols-3 gap-1.5"
+                      data-testid={`events-folder-grid-${g.id}`}
+                    >
+                      {(() => {
+                        // Apply manual event_order first, then fall back to
+                        // current (already sorted) order for events not in the
+                        // list. Enables per-folder drag/drop rearrangement.
+                        const orderIdx = new Map(g.event_order.map((id, i) => [id, i]));
+                        const sorted = [...g.events].sort((a, b) => {
+                          const ai = orderIdx.has(a.id) ? orderIdx.get(a.id) : 999999;
+                          const bi = orderIdx.has(b.id) ? orderIdx.get(b.id) : 999999;
+                          return ai - bi;
+                        });
+                        return sorted.map((e) => (
+                          <div
+                            key={e.id}
+                            draggable={g.id !== "__none__"}
+                            data-testid={`events-folder-item-${g.id}-${e.id}`}
+                            onDragStart={(ev) => { if (g.id !== "__none__") { ev.dataTransfer.setData("text/plain", e.id); ev.dataTransfer.effectAllowed = "move"; } }}
+                            onDragOver={(ev) => { if (g.id !== "__none__") { ev.preventDefault(); ev.dataTransfer.dropEffect = "move"; } }}
+                            onDrop={(ev) => {
+                              if (g.id === "__none__") return;
+                              ev.preventDefault();
+                              const fromId = ev.dataTransfer.getData("text/plain");
+                              if (!fromId || fromId === e.id) return;
+                              const ids = sorted.map((x) => x.id);
+                              const from = ids.indexOf(fromId);
+                              const to = ids.indexOf(e.id);
+                              if (from < 0 || to < 0) return;
+                              ids.splice(to, 0, ids.splice(from, 1)[0]);
+                              api.post(`/event-folders/${g.id}/reorder-events`, { event_ids: ids })
+                                .then(() => { mutate("/event-folders"); toast.success("Klasör içi sıra güncellendi"); })
+                                .catch((err) => toast.error(err?.response?.data?.detail || err.message));
+                            }}
+                            style={{ cursor: g.id !== "__none__" ? "grab" : "default" }}
+                          >
+                            {renderEventCard(e, g.color, "", `archive-folder:${g.id}`)}
+                          </div>
+                        ));
+                      })()}
                     </div>
                   </section>
                 ))}
@@ -2070,19 +2107,25 @@ function EventFolderManager({ folders, onClose }) {
     { hex: "#06B6D4", label: "Cyan" },
     { hex: "#94A3B8", label: "Slate" },
   ];
+  // Curated emoji glyphs — busy archives stay scannable when each folder
+  // wears an icon in addition to its colour.
+  const ICONS = ["📁", "🏆", "🎯", "⚔️", "🛡️", "🌟", "💎", "🔥", "👑", "🎖️"];
   const [name, setName] = useState("");
   const [color, setColor] = useState(PALETTE[0].hex);
+  const [icon, setIcon] = useState(ICONS[0]);
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editColor, setEditColor] = useState("");
+  const [editIcon, setEditIcon] = useState("");
+  const { data: templates = [] } = useSWR("/event-folder-templates", (u) => api.get(u).then((r) => r.data), { refreshInterval: 15000 });
 
   const create = async () => {
     const nm = name.trim();
     if (!nm) { toast.error("Klasör adı boş olamaz"); return; }
     setBusy(true);
     try {
-      await api.post("/event-folders", { name: nm, color });
+      await api.post("/event-folders", { name: nm, color, icon });
       mutate("/event-folders");
       setName("");
       toast.success("Klasör oluşturuldu");
@@ -2096,7 +2139,7 @@ function EventFolderManager({ folders, onClose }) {
     if (!nm) { toast.error("Ad boş olamaz"); return; }
     setBusy(true);
     try {
-      await api.patch(`/event-folders/${id}`, { name: nm, color: editColor });
+      await api.patch(`/event-folders/${id}`, { name: nm, color: editColor, icon: editIcon });
       mutate("/event-folders");
       setEditingId(null);
       toast.success("Güncellendi");
@@ -2116,6 +2159,37 @@ function EventFolderManager({ folders, onClose }) {
     } catch (e) {
       toast.error(e?.response?.data?.detail || e.message);
     } finally { setBusy(false); }
+  };
+
+  const saveTemplate = async () => {
+    const nm = name.trim();
+    if (!nm) { toast.error("Şablon için önce klasör adı gir"); return; }
+    setBusy(true);
+    try {
+      await api.post("/event-folder-templates", { name: nm, folder_name_default: nm, color, icon });
+      mutate("/event-folder-templates");
+      toast.success("Şablon kaydedildi");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally { setBusy(false); }
+  };
+
+  const applyTemplate = (tpl) => {
+    setName(tpl.folder_name_default || tpl.name || "");
+    setColor(tpl.color || PALETTE[0].hex);
+    setIcon(tpl.icon || ICONS[0]);
+    toast.success(`Şablon yüklendi — "Ekle" ile klasörü oluştur`);
+  };
+
+  const deleteTemplate = async (tid, tname) => {
+    if (!window.confirm(`"${tname}" şablonu silinsin mi?`)) return;
+    try {
+      await api.delete(`/event-folder-templates/${tid}`);
+      mutate("/event-folder-templates");
+      toast.success("Şablon silindi");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    }
   };
 
   const renderPalette = (selected, onPick, testIdPrefix = "palette") => (
@@ -2147,6 +2221,38 @@ function EventFolderManager({ folders, onClose }) {
     </div>
   );
 
+  const renderIcons = (selected, onPick, testIdPrefix = "icons") => (
+    <div className="flex gap-1 flex-wrap" data-testid={`${testIdPrefix}-swatches`}>
+      {ICONS.map((ic) => {
+        const isSel = selected === ic;
+        return (
+          <button
+            key={ic}
+            type="button"
+            onClick={() => onPick(ic)}
+            data-testid={`${testIdPrefix}-${ic}`}
+            aria-pressed={isSel}
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: 6,
+              fontSize: 14,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: isSel ? "rgba(245,166,35,0.20)" : "rgba(255,255,255,0.05)",
+              border: isSel ? "2px solid #F5A623" : "2px solid rgba(255,255,255,0.15)",
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            {ic}
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div
       data-testid="events-folder-manager"
@@ -2161,7 +2267,7 @@ function EventFolderManager({ folders, onClose }) {
           background: "linear-gradient(180deg, #1E1410 0%, #0F0806 100%)",
           border: "1px solid rgba(245,166,35,0.55)",
           boxShadow: "0 20px 60px rgba(0,0,0,0.7), 0 0 40px rgba(231,76,26,0.25)",
-          maxHeight: "80vh",
+          maxHeight: "85vh",
         }}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "rgba(245,166,35,0.35)" }}>
@@ -2181,6 +2287,49 @@ function EventFolderManager({ folders, onClose }) {
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {templates.length > 0 && (
+          <div className="px-4 py-2 border-b" style={{ borderColor: "rgba(245,166,35,0.2)" }}>
+            <div className="text-[10px] uppercase tracking-widest mb-1.5 font-bold" style={{ color: "#C4B5FD", letterSpacing: "0.12em" }}>
+              Şablonlar
+            </div>
+            <div className="flex flex-wrap gap-1" data-testid="events-folder-templates-list">
+              {templates.map((tpl) => (
+                <div
+                  key={tpl.id}
+                  className="chip text-[10px] flex items-center gap-1"
+                  data-testid={`events-folder-template-${tpl.id}`}
+                  style={{
+                    padding: "3px 6px 3px 8px",
+                    borderColor: `${tpl.color || "#F5A623"}55`,
+                    color: tpl.color || "#F5A623",
+                    background: `${tpl.color || "#F5A623"}12`,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => applyTemplate(tpl)}
+                    className="flex items-center gap-1"
+                    title="Bu şablonu yükle"
+                    data-testid={`events-folder-template-apply-${tpl.id}`}
+                  >
+                    <span>{tpl.icon || "📁"}</span>
+                    <span className="font-bold">{tpl.name}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteTemplate(tpl.id, tpl.name)}
+                    className="ml-1 opacity-60 hover:opacity-100"
+                    title="Şablonu sil"
+                    data-testid={`events-folder-template-delete-${tpl.id}`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="px-4 py-3 border-b flex flex-col gap-2" style={{ borderColor: "rgba(245,166,35,0.2)" }}>
           <div className="flex items-center gap-2">
@@ -2210,6 +2359,23 @@ function EventFolderManager({ folders, onClose }) {
             </button>
           </div>
           {renderPalette(color, setColor, "new-color")}
+          {renderIcons(icon, setIcon, "new-icon")}
+          <button
+            type="button"
+            onClick={saveTemplate}
+            disabled={busy || !name.trim()}
+            className="self-start chip text-[10px] flex items-center gap-1"
+            data-testid="events-folder-save-template"
+            style={{
+              padding: "5px 10px",
+              borderColor: "rgba(168,85,247,0.55)",
+              color: "#C4B5FD",
+              background: "rgba(168,85,247,0.10)",
+            }}
+            title="Bu ayarları şablon olarak kaydet"
+          >
+            <Star className="w-3 h-3" /> Şablon Olarak Kaydet
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto py-2" data-testid="events-folder-manager-list">
@@ -2255,13 +2421,15 @@ function EventFolderManager({ folders, onClose }) {
                       </button>
                     </div>
                     {renderPalette(editColor, setEditColor, `edit-color-${f.id}`)}
+                    {renderIcons(editIcon, setEditIcon, `edit-icon-${f.id}`)}
                   </>
                 ) : (
                   <div className="flex items-center gap-2">
+                    <span style={{ fontSize: 16 }}>{f.icon || "📁"}</span>
                     <div
                       style={{
-                        width: 14,
-                        height: 14,
+                        width: 12,
+                        height: 12,
                         borderRadius: 3,
                         background: f.color || "#F5A623",
                         border: "1px solid rgba(255,255,255,0.15)",
@@ -2277,7 +2445,7 @@ function EventFolderManager({ folders, onClose }) {
                     </div>
                     <button
                       type="button"
-                      onClick={() => { setEditingId(f.id); setEditName(f.name); setEditColor(f.color || PALETTE[0].hex); }}
+                      onClick={() => { setEditingId(f.id); setEditName(f.name); setEditColor(f.color || PALETTE[0].hex); setEditIcon(f.icon || ICONS[0]); }}
                       data-testid={`events-folder-edit-${f.id}`}
                       className="p-1 rounded text-blue-400 hover:bg-blue-500/10"
                     >
@@ -2302,3 +2470,4 @@ function EventFolderManager({ folders, onClose }) {
     </div>
   );
 }
+

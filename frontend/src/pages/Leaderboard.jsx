@@ -508,7 +508,7 @@ export default function Leaderboard() {
                     opacity: dragFolderId === f.id ? 0.5 : 1,
                   }}
                 >
-                  📁 {f.name}
+                  {f.icon || "📁"} {f.name}
                   {typeof f.archived_count === "number" && (
                     <span className="ml-1 opacity-70 mono">({f.archived_count})</span>
                   )}
@@ -1237,6 +1237,58 @@ function CompareEventsModal({ eventIds, events, allianceColors, onClose, onPickM
             </div>
           ))}
         </div>
+
+        {/* Visual comparison bar — proportional widths of A vs B totals so
+            admins spot the winning event without reading numbers. */}
+        {(totalA > 0 || totalB > 0) && (() => {
+          const max = Math.max(totalA, totalB, 1);
+          const aPct = Math.round((totalA / max) * 100);
+          const bPct = Math.round((totalB / max) * 100);
+          const aWon = totalA > totalB;
+          const bWon = totalB > totalA;
+          return (
+            <div className="px-3 py-2 border-b" data-testid="archive-compare-chart" style={{ borderColor: "rgba(168,85,247,0.2)" }}>
+              <div className="text-[10px] uppercase tracking-widest mb-1.5 font-bold" style={{ color: "#C4B5FD", letterSpacing: "0.14em" }}>
+                📊 Toplam Puan Kıyası
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {[
+                  { label: "A", ev: a, total: totalA, pct: aPct, won: aWon, color: "#F5A623" },
+                  { label: "B", ev: b, total: totalB, pct: bPct, won: bWon, color: "#A855F7" },
+                ].map((row) => (
+                  <div key={row.label} data-testid={`archive-compare-bar-${row.label}`} className="flex items-center gap-2">
+                    <span
+                      className="text-[10px] font-bold flex-shrink-0"
+                      style={{ color: row.color, width: 18, textAlign: "center" }}
+                    >
+                      {row.label}
+                    </span>
+                    <div className="flex-1 rounded-full h-4 relative overflow-hidden" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}>
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${Math.max(row.pct, 2)}%`,
+                          background: `linear-gradient(90deg, ${row.color}55, ${row.color})`,
+                          boxShadow: row.won ? `0 0 8px ${row.color}` : "none",
+                        }}
+                      />
+                      <span
+                        className="absolute inset-0 flex items-center justify-end pr-2 text-[10px] font-bold mono"
+                        style={{ color: "#F5F0E8", textShadow: "0 1px 2px rgba(0,0,0,0.9)" }}
+                      >
+                        {fmt(row.total)}
+                        {row.won && <span className="ml-1" title="Kazanan">👑</span>}
+                      </span>
+                    </div>
+                    <span className="text-[10px] mono w-9 text-right flex-shrink-0" style={{ color: row.color }}>
+                      {row.pct}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
           {/* Both — matched participants */}
