@@ -146,6 +146,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
     });
     if (Object.keys(patches).length > 0) {
       setRowEdits((prev) => ({ ...prev, ...patches }));
+      toast.success(`✨ ${Object.keys(patches).length} isim otomatik bağlandı`, { duration: 2600 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result, existingMembers]);
@@ -625,6 +626,45 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                       </button>
                     )}
                   </div>
+                  {mode === "members" && allianceNames.length > 0 && (
+                    <div
+                      className="flex flex-wrap items-center gap-1 mb-2 rounded-lg px-2 py-1"
+                      style={{ background: "rgba(20,15,10,0.55)", border: "1px dashed rgba(148,163,184,0.35)" }}
+                      data-testid="ocr-alliance-legend"
+                    >
+                      <span className="text-[9px] uppercase tracking-widest text-muted-foreground mr-1">
+                        İttifak Renkleri:
+                      </span>
+                      {allianceNames.map((n) => {
+                        const c = allianceColor(n);
+                        return (
+                          <span
+                            key={n}
+                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded"
+                            style={{
+                              background: c ? `${c}18` : "rgba(148,163,184,0.10)",
+                              border: `1px solid ${c ? c + "55" : "rgba(148,163,184,0.30)"}`,
+                              color: "#F5F0E8",
+                            }}
+                            title={c ? `${n} · ${c}` : `${n} · renk atanmamış`}
+                            data-testid={`ocr-alliance-legend-${n.replace(/\s+/g,'_')}`}
+                          >
+                            <span
+                              aria-hidden="true"
+                              style={{
+                                display: "inline-block",
+                                width: 8, height: 8, borderRadius: 999,
+                                background: c || "#6B7280",
+                                boxShadow: c ? `0 0 4px ${c}88` : "none",
+                                border: "1px solid rgba(255,255,255,0.30)",
+                              }}
+                            />
+                            {n}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                   {rows.length === 0 ? (
                     <div className="text-xs text-muted-foreground italic flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3" /> Hiç veri okunmadı — daha net bir görüntü deneyin.
