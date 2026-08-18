@@ -67,6 +67,14 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
     open && (mode === "members" || mode === "event") ? "/members" : null,
     _fetcher,
   );
+  const { data: existingAlliances = [] } = useSWR(
+    open && mode === "members" ? "/alliances" : null,
+    _fetcher,
+  );
+  const allianceNames = React.useMemo(
+    () => Array.from(new Set(((existingAlliances || []).map((a) => typeof a === "string" ? a : a?.name).filter(Boolean)))).sort(),
+    [existingAlliances],
+  );
   const existingNamesLc = React.useMemo(
     () => new Set((existingMembers || []).map((m) => (m.name || "").trim().toLowerCase())),
     [existingMembers],
@@ -317,6 +325,10 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
             const next = { ...r };
             if (typeof patch.name === "string") next.name = patch.name;
             if (kind === "event" && patch.points !== undefined) next.points = Number(patch.points) || 0;
+            if (kind === "members" && patch.alliance_name !== undefined) {
+              const trimmed = String(patch.alliance_name || "").trim();
+              next.alliance_name = trimmed || null;
+            }
             return next;
           })
           .filter((_, i) => !excludedRows.has(i));
@@ -728,12 +740,16 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               const suggestions = !isExisting
                                 ? _fuzzyTopMatches(rowEdits[i]?.name ?? r.name, (existingMembers || []).map((m) => m.name || ""), 3)
                                 : [];
-                              // Alliance tag: prefer explicit field, else bracket in name
-                              let allianceGuess = r.alliance_name;
-                              if (!allianceGuess) {
-                                const mm = /^\s*\[([^\]]+)\]/.exec(String(rowEdits[i]?.name ?? r.name ?? ""));
-                                if (mm) allianceGuess = mm[1].trim();
+                              // Alliance guess: user edit → explicit field → bracket in name.
+                              let allianceGuess = rowEdits[i]?.alliance_name;
+                              if (allianceGuess === undefined) {
+                                allianceGuess = r.alliance_name;
+                                if (!allianceGuess) {
+                                  const mm = /^\s*\[([^\]]+)\]/.exec(String(rowEdits[i]?.name ?? r.name ?? ""));
+                                  if (mm) allianceGuess = mm[1].trim();
+                                }
                               }
+                              const allianceKnown = allianceGuess && allianceNames.some((n) => n.toLowerCase() === String(allianceGuess).toLowerCase());
                               return (<>
                                 <td className="py-1 max-w-[140px]">
                                   <input
@@ -776,7 +792,25 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                 </td>
                                 <td className="text-right py-1 gold-text mono">{r.castle_level ? `F${r.castle_level}` : "—"}</td>
                                 <td className="text-right py-1 text-white/70">{r.rank || "—"}</td>
-                                <td className="text-right py-1 text-white/70">{allianceGuess || "—"}</td>
+                                <td className="py-1 max-w-[100px]">
+                                  <input
+                                    type="text"
+                                    list={`ocr-alliance-list-${i}`}
+                                    value={allianceGuess || ""}
+                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], alliance_name: e.target.value } }))}
+                                    disabled={isExcluded}
+                                    data-testid={`ocr-row-alliance-${i}`}
+                                    placeholder="—"
+                                    className="w-full bg-transparent outline-none border-b border-transparent hover:border-white/30 focus:border-amber-400 text-[10px] text-right"
+                                    style={{ color: allianceKnown ? "#86EFAC" : (allianceGuess ? "#FCD34D" : "rgba(255,255,255,0.4)") }}
+                                    title={allianceGuess
+                                      ? (allianceKnown ? `Mevcut ittifak: ${allianceGuess}` : `⚠ Yeni ittifak: "${allianceGuess}" — kaydedilirse yeni bir grup açılır`)
+                                      : "İttifak adı — mevcut listemden seç ya da elle yaz"}
+                                  />
+                                  <datalist id={`ocr-alliance-list-${i}`}>
+                                    {allianceNames.map((n) => (<option key={n} value={n} />))}
+                                  </datalist>
+                                </td>
                                 <td className="text-right py-1">
                                   {isExisting ? (
                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: "rgba(107,114,128,0.25)", color: "#9ca3af" }}>

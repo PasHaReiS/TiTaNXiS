@@ -3216,6 +3216,34 @@ const de = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  lb_folder_group_count: "Gruppe {{n}}",
+  lb_folder_no_events: "Keine Veranstaltung",
+  lb_active_group_expand_show: "Veranstaltungen anzeigen",
+  lb_active_group_expand_hide: "Veranstaltungen ausblenden",
+  ev_show_breakdown_label: "🔍 Sollen die weiteren Details angezeigt werden?",
+  ev_show_breakdown_hint_on: "In der Rangliste wird die Gruppe ▶, wenn das entsprechende Fenster geöffnet wird, mit dieser Aktivitätspunktzahl aufgeführt.",
+  ev_show_breakdown_hint_off: "Diese Aktivität ist im ▶ Panel der Gruppe verborgen – die Punkte werden zwar zur Gesamtpunktzahl der Gruppe hinzugezählt, sind aber einzeln nicht sichtbar.",
+  ev_bulk_breakdown_hide: "🔍❌ Weitere Details ausblenden",
+  ev_bulk_breakdown_show: "🔍✓ Weitere Details anzeigen",
+  ev_bulk_breakdown_hide_tip: "Detailbereich der ausgewählten Ereignisse ausblenden (Gruppensumme bleibt erhalten)",
+  ev_bulk_breakdown_show_tip: "Das Detailfenster für ausgewählte Veranstaltungen wieder öffnen",
+  ev_group_hidden_badge: "🚫 Vertraulich",
+  ev_group_hidden_hint_hidden: "Diese Gruppe ist ausgeblendet – zum Einblenden bitte anklicken",
+  ev_group_hidden_hint_visible: "Die gesamte Gruppe aus der Sortierung ausblenden",
+  ev_group_hide_confirm: "Sollen die {{n}} Veranstaltungen in der Gruppe „{{group}}“ aus der Liste ausgeblendet werden?",
+  ev_group_show_confirm: "Soll die {{n}}-Veranstaltung aus der Gruppe „{{group}}“ wieder in die Rangliste aufgenommen werden?",
+  ev_group_type_label: "Gruppentyp",
+  ev_group_type_grouped: "Gruppenweise",
+  ev_ungrouped_events_label: "Veranstaltungen ohne Gruppen",
+  poll_tg_details_toggle: "📡 Details zur TG-Abstimmung",
+  poll_tg_details_hide: "TG: Details zur Abstimmung ausblenden",
+  poll_tg_details_show: "TG-Stimmenergebnisse anzeigen",
+  poll_tg_no_votes: "Es gibt noch keine TG-Stimmen",
+  poll_tg_voters_header: "Telegram-Wähler",
+  poll_tg_admin_only_note: "Die detaillierte Liste ist nur in der Administratoransicht verfügbar.",
+  poll_loading: "Wird geladen…",
 };
 
 const fr = {
@@ -3749,6 +3777,34 @@ const fr = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  lb_folder_no_events: "Aucun événement",
+  lb_active_group_expand_show: "Afficher les événements",
+  lb_active_group_expand_hide: "Masquer les événements",
+  ev_show_breakdown_label: "🔍 Faut-il afficher les détails supplémentaires ?",
+  ev_show_breakdown_hint_on: "Dans le classement, lorsque le ▶ panneau du groupe s'ouvre, celui-ci apparaît dans la liste avec ce score d'activité.",
+  ev_show_breakdown_hint_off: "Cette activité est masquée dans le ▶ tableau de bord du groupe — les points sont tout de même ajoutés au total du groupe, mais n'apparaissent pas individuellement.",
+  ev_bulk_breakdown_hide: "🔍❌ Masquer les détails supplémentaires",
+  ev_bulk_breakdown_show: "🔍✓ Afficher les détails supplémentaires",
+  ev_bulk_breakdown_hide_tip: "Masquer le panneau de détails des événements sélectionnés (le total du groupe est conservé)",
+  ev_bulk_breakdown_show_tip: "Réafficher le panneau de détails des événements sélectionnés",
+  ev_group_hidden_badge: "🚫 Confidentiel",
+  ev_group_hidden_hint_hidden: "Ce groupe est masqué dans le classement — cliquez pour le réafficher",
+  ev_group_hidden_hint_visible: "Masquer tout le groupe dans le classement",
+  ev_group_hide_confirm: "Faut-il masquer les {{n}} événements du groupe « {{group}} » dans le classement ?",
+  ev_group_show_confirm: "Faut-il rajouter les {{n}} événements du groupe « {{group}} » dans le classement ?",
+  ev_group_type_label: "Type de groupe",
+  ev_group_type_grouped: "En groupe",
+  ev_group_type_ungrouped: "Sans groupe",
+  ev_ungrouped_events_label: "Activités sans groupe",
+  poll_tg_details_toggle: "📡 Détails du vote sur Telegram",
+  poll_tg_details_hide: "Masquer les détails des votes TG",
+  poll_tg_details_show: "Afficher les détails des votes TG",
+  poll_tg_no_votes: "Il n'y a pas encore de vote TG",
+  poll_tg_voters_header: "Les votants sur Telegram",
+  poll_tg_admin_only_note: "La liste détaillée n'est disponible que dans la vue administrateur.",
+  poll_loading: "Chargement en cours…",
 };
 
 const es = {
@@ -4282,6 +4338,34 @@ const es = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  lb_folder_no_events: "No hay eventos",
+  lb_active_group_expand_show: "Mostrar eventos",
+  lb_active_group_expand_hide: "Ocultar eventos",
+  ev_show_breakdown_label: "🔍 ¿Quieres ver los detalles adicionales?",
+  ev_show_breakdown_hint_on: "En la clasificación, cuando se abre el ▶ panel del grupo, este aparece en la lista con la puntuación de esta actividad.",
+  ev_show_breakdown_hint_off: "Esta actividad está oculta en el ▶ panel del grupo: la puntuación se suma al total del grupo, pero no se muestra individualmente.",
+  ev_bulk_breakdown_hide: "🔍❌ Ocultar detalles adicionales",
+  ev_bulk_breakdown_show: "🔍✓ Mostrar detalles adicionales",
+  ev_bulk_breakdown_hide_tip: "Ocultar el panel de detalles de los eventos seleccionados (se mantiene el total del grupo)",
+  ev_bulk_breakdown_show_tip: "Volver a abrir el panel de detalles de los eventos seleccionados",
+  ev_group_hidden_badge: "🚫 Privado",
+  ev_group_hidden_hint_hidden: "Este grupo está oculto en la lista — haz clic para volver a mostrarlo",
+  ev_group_hidden_hint_visible: "Ocultar todo el grupo de la clasificación",
+  ev_group_hide_confirm: "¿Se deben ocultar de la lista las {{n}} actividades del grupo «{{group}}»?",
+  ev_group_show_confirm: "¿Se deben volver a añadir a la lista las {{n}} actividades del grupo «{{group}}»?",
+  ev_group_type_label: "Tipo de grupo",
+  ev_group_type_grouped: "En grupo",
+  ev_group_type_ungrouped: "Sin grupo",
+  ev_ungrouped_events_label: "Actividades sin grupo",
+  poll_tg_details_toggle: "📡 Detalles de la votación en Telegram",
+  poll_tg_details_hide: "Ocultar los detalles de los votos de TG",
+  poll_tg_details_show: "Mostrar los detalles de los votos de TG",
+  poll_tg_no_votes: "Aún no hay votos en TG",
+  poll_tg_voters_header: "Votantes de Telegram",
+  poll_tg_admin_only_note: "La lista detallada solo está disponible en la vista de administrador.",
+  poll_loading: "Cargando…",
 };
 
 const ko = {
@@ -4782,6 +4866,34 @@ const ko = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  lb_folder_no_events: "행사 없음",
+  lb_active_group_expand_show: "이벤트 보기",
+  lb_active_group_expand_hide: "이벤트 숨기기",
+  ev_show_breakdown_label: "🔍 세부 정보를 표시할까요?",
+  ev_show_breakdown_hint_on: "순위표에서 그룹의 ▶ 패널을 열면 이 활동 점수로 정렬되어 표시됩니다.",
+  ev_show_breakdown_hint_off: "이 활동은 그룹의 ▶ 패널에서 비공개로 처리됩니다 — 점수는 여전히 그룹 합계에 포함되지만 개별적으로는 표시되지 않습니다.",
+  ev_bulk_breakdown_hide: "🔍❌ 세부 정보 숨기기",
+  ev_bulk_breakdown_show: "🔍✓ 세부 정보 보기",
+  ev_bulk_breakdown_hide_tip: "선택한 이벤트의 하위 세부 정보 패널 숨기기 (그룹 합계는 유지됨)",
+  ev_bulk_breakdown_show_tip: "선택된 이벤트의 하위 세부 정보 패널 다시 열기",
+  ev_group_hidden_badge: "🚫 비공개",
+  ev_group_hidden_hint_hidden: "이 그룹은 숨겨져 있습니다 — 다시 표시하려면 클릭하세요",
+  ev_group_hidden_hint_visible: "전체 그룹을 정렬에서 숨기기",
+  ev_group_hide_confirm: "\"{{group}}\" 그룹에 속한 {{n}}개의 활동을 목록에서 숨길까요?",
+  ev_group_show_confirm: "\"{{group}}\" 그룹에 속한 {{n}}개의 활동을 다시 순위에 포함시킬까요?",
+  ev_group_type_label: "그룹 유형",
+  ev_group_type_grouped: "그룹별",
+  ev_group_type_ungrouped: "그룹 없음",
+  ev_ungrouped_events_label: "비그룹 활동",
+  poll_tg_details_toggle: "📡 TG 투표 상세 정보",
+  poll_tg_details_hide: "TG 투표 내역 숨기기",
+  poll_tg_details_show: "TG 투표 내역 보기",
+  poll_tg_no_votes: "아직 TG 투표가 없습니다",
+  poll_tg_voters_header: "텔레그램 투표자",
+  poll_tg_admin_only_note: "상세 목록은 관리자 화면에서만 확인할 수 있습니다.",
+  poll_loading: "로딩 중…",
 };
 
 const ar = {
@@ -5216,6 +5328,35 @@ const ar = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  lb_folder_group_count: "المجموعة {{n}}",
+  lb_folder_no_events: "لا توجد فعاليات",
+  lb_active_group_expand_show: "عرض الفعاليات",
+  lb_active_group_expand_hide: "إخفاء الأنشطة",
+  ev_show_breakdown_label: "🔍 هل تريد عرض التفاصيل الإضافية؟",
+  ev_show_breakdown_hint_on: "عند فتح لوحة ▶ الخاصة بالمجموعة في الترتيب، يتم إدراج هذه الفعالية في القائمة بناءً على نقاطها.",
+  ev_show_breakdown_hint_off: "هذه المشاركة مخفية في ▶ لوحة المجموعة — ويُضاف عدد النقاط إلى المجموع الإجمالي للمجموعة، لكنها لا تظهر بشكل فردي.",
+  ev_bulk_breakdown_hide: "🔍❌ إخفاء التفاصيل الإضافية",
+  ev_bulk_breakdown_show: "🔍✓ إظهار التفاصيل الإضافية",
+  ev_bulk_breakdown_hide_tip: "إخفاء لوحة التفاصيل الفرعية للفعاليات المحددة (مع الحفاظ على إجمالي المجموعة)",
+  ev_bulk_breakdown_show_tip: "إعادة فتح لوحة التفاصيل الفرعية للفعاليات المحددة",
+  ev_group_hidden_badge: "🚫 سري",
+  ev_group_hidden_hint_hidden: "هذه المجموعة مخفية في قائمة الترتيب — انقر لإظهارها",
+  ev_group_hidden_hint_visible: "إخفاء المجموعة بأكملها عن الترتيب",
+  ev_group_hide_confirm: "هل يتم إخفاء {{n}} نشاطًا في مجموعة \"{{group}}\" من الترتيب؟",
+  ev_group_show_confirm: "هل يتم إعادة إضافة {{n}} فعالية من مجموعة \"{{group}}\" إلى القائمة؟",
+  ev_group_type_label: "نوع المجموعة",
+  ev_group_type_grouped: "جماعي",
+  ev_group_type_ungrouped: "غير منتمٍ إلى أي مجموعة",
+  ev_ungrouped_events_label: "الأنشطة غير الجماعية",
+  poll_tg_details_toggle: "📡 تفاصيل التصويت في Telegram",
+  poll_tg_details_hide: "إخفاء تفاصيل تصويت TG",
+  poll_tg_details_show: "عرض تفاصيل تصويت TG",
+  poll_tg_no_votes: "لا توجد أصوات لـ TG حتى الآن",
+  poll_tg_voters_header: "المصوتون على Telegram",
+  poll_tg_admin_only_note: "القائمة التفصيلية متوفرة فقط في واجهة المسؤول.",
+  poll_loading: "جاري التحميل…",
 };
 
 // Empty translation stubs for additional languages — i18next fallbackLng: "tr"
@@ -5334,6 +5475,33 @@ const bg = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  lb_folder_group_count: "Група {{n}}",
+  lb_folder_no_events: "Няма събития",
+  lb_active_group_expand_show: "Покажи събитията",
+  lb_active_group_expand_hide: "Скриване на събитията",
+  ev_show_breakdown_label: "🔍 Да се показват ли допълнителните подробности?",
+  ev_bulk_breakdown_hide: "🔍❌ Скрий допълнителните подробности",
+  ev_bulk_breakdown_show: "🔍✓ Покажи допълнителни подробности",
+  ev_bulk_breakdown_hide_tip: "Скриване на панела с подробности за избраните събития (общата сума за групата се запазва)",
+  ev_bulk_breakdown_show_tip: "Отвори отново панела с подробности за избраните събития",
+  ev_group_hidden_badge: "🚫 Поверително",
+  ev_group_hidden_hint_hidden: "Тази група е скрита от списъка — кликни, за да я покажеш отново",
+  ev_group_hidden_hint_visible: "Скриване на цялата група от списъка",
+  ev_group_hide_confirm: "Да се скрият ли {{n}} събития от групата „{{group}}“ от списъка?",
+  ev_group_show_confirm: "Да се върнат ли {{n}} събитията от групата „{{group}}“ в списъка?",
+  ev_group_type_label: "Тип група",
+  ev_group_type_grouped: "В група",
+  ev_group_type_ungrouped: "Без група",
+  ev_ungrouped_events_label: "Събития без групи",
+  poll_tg_details_toggle: "📡 Подробности за гласуването в Telegram",
+  poll_tg_details_hide: "TG – скрий подробностите за гласуването",
+  poll_tg_details_show: "Покажи подробностите за гласуването в TG",
+  poll_tg_no_votes: "Все още няма гласове за TG",
+  poll_tg_voters_header: "Гласувалите в Telegram",
+  poll_tg_admin_only_note: "Подробният списък се показва само в режима за администратори.",
+  poll_loading: "Зарежда се…",
 };
 const cs = {
   vip_page_title: "VIP podpora",
@@ -5450,6 +5618,16 @@ const cs = {
 
   // __V9_FEB18_I18N__ (DeepL backfill)
   lb_folder_group_count: "Skupina {{n}}",
+
+  // __V9_DEEPL_RETRY__
+  lb_folder_no_events: "Žádná akce",
+  lb_active_group_expand_show: "Zobrazit akce",
+  lb_active_group_expand_hide: "Skrýt události",
+  poll_tg_details_hide: "TG – skrýt podrobnosti o hlasování",
+  poll_tg_details_show: "Zobrazit podrobnosti o hlasování v TG",
+  poll_tg_no_votes: "Zatím není žádný hlas pro TG",
+  poll_tg_admin_only_note: "Podrobný seznam je k dispozici pouze v administrátorském zobrazení.",
+  poll_loading: "Načítá se…",
 };
 const da = {
   vip_page_title: "VIP-support",
@@ -5565,6 +5743,31 @@ const da = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  lb_folder_group_count: "{{n}} gruppe",
+  lb_folder_no_events: "Ingen begivenheder",
+  lb_active_group_expand_show: "Vis begivenheder",
+  lb_active_group_expand_hide: "Skjul begivenheder",
+  ev_show_breakdown_label: "🔍 Skal de underliggende detaljer vises?",
+  ev_show_breakdown_hint_on: "Når gruppens ▶-panel åbnes i ranglisten, vises denne aktivitet med sine point.",
+  ev_show_breakdown_hint_off: "Denne aktivitet er skjult i gruppens ▶ panel — pointene tæller stadig med i gruppens samlede score, men vises ikke individuelt.",
+  ev_bulk_breakdown_hide: "🔍❌ Skjul yderligere detaljer",
+  ev_bulk_breakdown_show: "🔍✓ Vis yderligere detaljer",
+  ev_bulk_breakdown_hide_tip: "Skjul detaljepanelet for de valgte begivenheder (gruppens samlede tal bevares)",
+  ev_bulk_breakdown_show_tip: "Åbn detaljepanelet for de valgte begivenheder igen",
+  ev_group_hidden_badge: "🚫 Fortroligt",
+  ev_group_hidden_hint_hidden: "Denne gruppe er skjult i ranglisten — klik for at vise den igen",
+  ev_group_hidden_hint_visible: "Skjul hele gruppen fra listen",
+  ev_group_hide_confirm: "Skal de {{n}} begivenheder i gruppen \"{{group}}\" skjules i oversigten?",
+  ev_group_show_confirm: "Skal de {{n}} begivenheder i gruppen \"{{group}}\" tilføjes til listen igen?",
+  ev_group_type_label: "Gruppetype",
+  ev_group_type_grouped: "I grupper",
+  ev_group_type_ungrouped: "Uden for en gruppe",
+  ev_ungrouped_events_label: "Aktiviteter uden for grupper",
+  poll_tg_details_toggle: "📡 TG-afstemningsdetaljer",
+  poll_tg_details_hide: "Skjul TG-afstemningsdetaljer",
+  poll_tg_details_show: "Vis TG-afstemningsdetaljer",
 };
 const el = {
   vip_page_title: "Υποστήριξη VIP",
@@ -5681,6 +5884,22 @@ const el = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  ev_show_breakdown_hint_on: "Στην κατάταξη, όταν ανοίγει το ▶ πλαίσιο της ομάδας, αυτή εμφανίζεται στη λίστα με βάση τους πόντους δραστηριότητας.",
+  ev_show_breakdown_hint_off: "Αυτή η δραστηριότητα είναι κρυφή στο ▶ πάνελ της ομάδας — οι πόντοι προστίθενται στο σύνολο της ομάδας, αλλά δεν εμφανίζονται ξεχωριστά.",
+  ev_group_show_confirm: "Να προστεθούν ξανά στη λίστα οι {{n}} δραστηριότητες της ομάδας \"{{group}}\";",
+  ev_group_type_label: "Τύπος ομάδας",
+  ev_group_type_grouped: "Ομαδικό",
+  ev_group_type_ungrouped: "Χωρίς ομάδα",
+  ev_ungrouped_events_label: "Δραστηριότητες χωρίς ομάδα",
+  poll_tg_details_toggle: "📡 Λεπτομέρειες για την ψηφοφορία στο TG",
+  poll_tg_details_hide: "TG: Απόκρυψη λεπτομερειών ψηφοφορίας",
+  poll_tg_details_show: "Εμφάνιση λεπτομερειών ψήφων TG",
+  poll_tg_no_votes: "Δεν υπάρχει ακόμα ψήφος για το TG",
+  poll_tg_voters_header: "Ψηφοφόροι του Telegram",
+  poll_tg_admin_only_note: "Ο αναλυτικός κατάλογος εμφανίζεται μόνο στην προβολή διαχειριστή.",
+  poll_loading: "Φορτώνεται…",
 };
 const et = {
   vip_page_title: "VIP-tugi",
@@ -5796,6 +6015,21 @@ const et = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  lb_folder_group_count: "{{n}} rühm",
+  lb_folder_no_events: "Üritusi pole",
+  lb_active_group_expand_show: "Näita üritusi",
+  lb_active_group_expand_hide: "Peida sündmused",
+  ev_show_breakdown_label: "🔍 Kas näidata täpsemaid üksikasju?",
+  ev_show_breakdown_hint_on: "Kui grupi ▶ paneel avatakse, kuvatakse see sündmus punktisumma järgi.",
+  ev_show_breakdown_hint_off: "See tegevus on grupi ▶ paneelis varjatud — punktid lisatakse ikkagi grupi kogusummale, kuid üksikute osalejate puhul ei ole need nähtavad.",
+  ev_bulk_breakdown_hide: "🔍❌ Peida lisateave",
+  ev_bulk_breakdown_show: "🔍✓ Näita täpsemaid üksikasju",
+  ev_bulk_breakdown_hide_tip: "Peida valitud sündmuste üksikasjade paneel (grupi kogusumma säilib)",
+  poll_tg_voters_header: "Telegramis hääletajad",
+  poll_tg_admin_only_note: "Üksikasjalik nimekiri on kättesaadav ainult administraatori vaates.",
+  poll_loading: "Laaditakse…",
 };
 const fi = {
   vip_page_title: "VIP-tuki",
@@ -5911,6 +6145,27 @@ const fi = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  lb_folder_group_count: "{{n}} ryhmä",
+  lb_folder_no_events: "Ei tapahtumia",
+  lb_active_group_expand_show: "Näytä tapahtumat",
+  lb_active_group_expand_hide: "Piilota tapahtumat",
+  ev_show_breakdown_label: "🔍 Näytetäänkö lisätiedot?",
+  ev_show_breakdown_hint_on: "Kun ryhmän ▶-paneeli avataan, tämä tapahtuma näkyy luettelossa pisteidensä mukaan.",
+  ev_show_breakdown_hint_off: "Tämä tapahtuma on piilotettu ryhmän ▶ paneelissa — pisteet lasketaan mukaan ryhmän kokonaissummaan, mutta niitä ei näy yksittäin.",
+  ev_bulk_breakdown_hide: "🔍❌ Piilota lisätiedot",
+  ev_bulk_breakdown_show: "🔍✓ Näytä lisätiedot",
+  ev_bulk_breakdown_hide_tip: "Piilota valittujen tapahtumien yksityiskohdapaneeli (ryhmän kokonaismäärä säilyy)",
+  ev_bulk_breakdown_show_tip: "Avaa valittujen tapahtumien yksityiskohdapaneeli uudelleen",
+  ev_group_hidden_badge: "🚫 Salainen",
+  ev_group_hidden_hint_hidden: "Tämä ryhmä on piilotettu luettelosta — napsauta avataksesi sen uudelleen",
+  ev_group_hidden_hint_visible: "Piilota koko ryhmä luettelosta",
+  ev_group_hide_confirm: "Pitäisikö ryhmän \"{{group}}\" {{n}} tapahtumaa piilottaa luettelosta?",
+  ev_group_show_confirm: "Pitäisikö ryhmään \"{{group}}\" kuuluvat {{n}} tapahtumaa lisätä takaisin luetteloon?",
+  ev_group_type_label: "Ryhmätyyppi",
+  ev_group_type_grouped: "Ryhmä",
+  ev_group_type_ungrouped: "Ryhmätön",
 };
 const hu = {
   vip_page_title: "VIP-támogatás",
@@ -6026,6 +6281,29 @@ const hu = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  ev_show_breakdown_hint_on: "A rangsorban a csoport ▶ paneljének megnyitásakor ez a tevékenységi pontszámmal jelenik meg a listán.",
+  ev_show_breakdown_hint_off: "Ez az esemény a csoport ▶ paneljén rejtve van — a pontok ugyan beleszámítanak a csoport összpontszámába, de egyenként nem láthatók.",
+  ev_bulk_breakdown_hide: "🔍❌ Részletek elrejtése",
+  ev_bulk_breakdown_show: "🔍✓ Részletek megjelenítése",
+  ev_bulk_breakdown_hide_tip: "A kijelölt események részletes paneljének elrejtése (a csoportösszeg megmarad)",
+  ev_bulk_breakdown_show_tip: "A kiválasztott események részletes paneljének újbóli megnyitása",
+  ev_group_hidden_badge: "🚫 Titkos",
+  ev_group_hidden_hint_hidden: "Ez a csoport el van rejtve a rangsorban — kattints rá a megjelenítéséhez",
+  ev_group_hidden_hint_visible: "Az egész csoport elrejtése a ranglistából",
+  ev_group_hide_confirm: "A „{{group}}” csoportban található {{n}} eseményt el kell-e rejteni a listából?",
+  ev_group_show_confirm: "A „{{group}}” csoportban található {{n}} eseményt vissza kell-e tenni a listába?",
+  ev_group_type_label: "Csoporttípus",
+  ev_group_type_grouped: "Csoportos",
+  ev_group_type_ungrouped: "Csoport nélkül",
+  poll_tg_details_toggle: "📡 TG-szavazás részletei",
+  poll_tg_details_hide: "TG: a szavazati adatok elrejtése",
+  poll_tg_details_show: "TG szavazati eredmények részleteinek megjelenítése",
+  poll_tg_no_votes: "Még nincs TG-szavazat",
+  poll_tg_voters_header: "A Telegramon szavazók",
+  poll_tg_admin_only_note: "A részletes lista csak a rendszergazdai nézetben látható.",
+  poll_loading: "Betöltés folyamatban…",
 };
 const id_ = {
   vip_page_title: "Dukungan VIP",
@@ -6142,6 +6420,23 @@ const id_ = {
 
   // __V9_FEB18_I18N__ (DeepL backfill)
   lb_folder_group_count: "{{n}} kelompok",
+
+  // __V9_DEEPL_RETRY__
+  lb_folder_no_events: "Tidak ada acara",
+  lb_active_group_expand_show: "Tampilkan acara",
+  lb_active_group_expand_hide: "Sembunyikan acara",
+  ev_show_breakdown_label: "🔍 Apakah detail tambahan ingin ditampilkan?",
+  ev_show_breakdown_hint_on: "Dalam daftar, grup ini akan ditampilkan berdasarkan poin aktivitasnya saat panel ▶ dibuka.",
+  ev_show_breakdown_hint_off: "Kegiatan ini disembunyikan di ▶ panel grup — poinnya tetap dihitung dalam total grup, tetapi tidak ditampilkan satu per satu.",
+  ev_bulk_breakdown_hide: "🔍❌ Sembunyikan Detail Tambahan",
+  ev_bulk_breakdown_show: "🔍✓ Tampilkan Detail Lebih Lanjut",
+  ev_bulk_breakdown_hide_tip: "Sembunyikan panel detail tambahan untuk acara yang dipilih (jumlah total grup tetap dipertahankan)",
+  ev_bulk_breakdown_show_tip: "Buka kembali panel detail tambahan untuk acara yang dipilih",
+  ev_group_hidden_badge: "🚫 Rahasia",
+  ev_group_hidden_hint_hidden: "Grup ini disembunyikan dari daftar — klik untuk menampilkannya kembali",
+  poll_tg_voters_header: "Para Pemilih di Telegram",
+  poll_tg_admin_only_note: "Daftar terperinci hanya tersedia di tampilan administrator.",
+  poll_loading: "Sedang dimuat…",
 };
 const it = {
   vip_page_title: "Assistenza VIP",
@@ -6257,6 +6552,33 @@ const it = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  lb_folder_group_count: "gruppo {{n}}",
+  lb_folder_no_events: "Nessun evento",
+  lb_active_group_expand_show: "Mostra gli eventi",
+  lb_active_group_expand_hide: "Nascondi gli eventi",
+  ev_show_breakdown_label: "🔍 Vuoi visualizzare i dettagli secondari?",
+  ev_show_breakdown_hint_on: "Nella classifica, quando si apre il ▶ pannello del gruppo, questo viene visualizzato con il punteggio dell'attività.",
+  ev_show_breakdown_hint_off: "Questo evento è nascosto nel ▶ pannello del gruppo — i punti vengono comunque aggiunti al totale del gruppo, ma non sono visibili singolarmente.",
+  ev_bulk_breakdown_hide: "🔍❌ Nascondi i dettagli secondari",
+  ev_bulk_breakdown_show: "🔍✓ Mostra dettagli aggiuntivi",
+  ev_bulk_breakdown_hide_tip: "Nascondi il pannello dei dettagli secondari degli eventi selezionati (il totale del gruppo viene mantenuto)",
+  ev_bulk_breakdown_show_tip: "Riapri il pannello dei dettagli degli eventi selezionati",
+  ev_group_hidden_badge: "🚫 Riservato",
+  ev_group_hidden_hint_hidden: "Questo gruppo è nascosto nella classifica — clicca per visualizzarlo nuovamente",
+  ev_group_hidden_hint_visible: "Nascondi l'intero gruppo dalla lista",
+  ev_group_hide_confirm: "Le {{n}} attività del gruppo \"{{group}}\" devono essere nascoste dalla classifica?",
+  ev_group_show_confirm: "L'evento {{n}} del gruppo \"{{group}}\" deve essere reinserito nella classifica?",
+  ev_group_type_label: "Tipo di gruppo",
+  ev_group_type_grouped: "In gruppo",
+  ev_group_type_ungrouped: "Senza gruppo",
+  ev_ungrouped_events_label: "Attività senza gruppo",
+  poll_tg_details_toggle: "📡 Dettagli sul voto su Telegram",
+  poll_tg_details_hide: "TG: nascondi i dettagli del voto",
+  poll_tg_details_show: "Mostra i dettagli dei voti di TG",
+  poll_tg_no_votes: "Non ci sono ancora voti su TG",
+  poll_tg_voters_header: "Votanti su Telegram",
 };
 const ja = {
   vip_page_title: "VIPサポート",
@@ -6373,6 +6695,22 @@ const ja = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  ev_group_hidden_badge: "🚫 非公開",
+  ev_group_hide_confirm: "「{{group}}」グループ内の{{n}}件のイベントを、一覧から非表示にしますか？",
+  ev_group_show_confirm: "「{{group}}」グループ内の{{n}}件のイベントを、再び一覧に追加しますか？",
+  ev_group_type_label: "グループの種類",
+  ev_group_type_grouped: "グループ",
+  ev_group_type_ungrouped: "グループなし",
+  ev_ungrouped_events_label: "グループなしのイベント",
+  poll_tg_details_toggle: "📡 TG 投票の詳細",
+  poll_tg_details_hide: "TGの投票詳細を非表示にする",
+  poll_tg_details_show: "TGの投票詳細を表示する",
+  poll_tg_no_votes: "TGの投票はまだありません",
+  poll_tg_voters_header: "Telegramの投票者",
+  poll_tg_admin_only_note: "詳細なリストは管理者ビューでのみ表示されます。",
+  poll_loading: "読み込み中…",
 };
 const lt = {
   vip_page_title: "VIP pagalba",
@@ -6489,6 +6827,22 @@ const lt = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  lb_folder_no_events: "Renginių nėra",
+  lb_active_group_expand_show: "Rodyti renginius",
+  lb_active_group_expand_hide: "Paslėpti renginius",
+  ev_show_breakdown_label: "🔍 Ar rodyti papildomą informaciją?",
+  ev_show_breakdown_hint_on: "Atidarius grupės ▶ skydelį, šis renginys sąraše rodomas pagal taškus.",
+  ev_show_breakdown_hint_off: "Šis renginys grupės ▶ skiltyje yra paslėptas — taškai vis tiek įskaičiuojami į bendrą grupės rezultatą, tačiau atskirai nerodomi.",
+  ev_bulk_breakdown_hide: "🔍❌ Paslėpti papildomą informaciją",
+  ev_bulk_breakdown_show: "🔍✓ Rodyti išsamią informaciją",
+  ev_bulk_breakdown_hide_tip: "Paslėpti pasirinktų įvykių išsamią informaciją (grupės suma išlieka)",
+  ev_bulk_breakdown_show_tip: "Vėl atidaryti pasirinktų renginių išsamią informaciją rodantį skydelį",
+  ev_group_hidden_badge: "🚫 Slapta",
+  ev_group_hidden_hint_hidden: "Ši grupė paslėpta reitingų sąraše — spustelėkite, kad vėl ją parodytumėte",
+  ev_group_hidden_hint_visible: "Paslėpti visą grupę iš sąrašo",
+  ev_group_hide_confirm: "Ar {{n}} renginiai iš grupės „{{group}}“ turėtų būti paslėpti sąraše?",
 };
 const lv = {
   vip_page_title: "VIP atbalsts",
@@ -6604,6 +6958,30 @@ const lv = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  lb_folder_group_count: "{{n}} grupa",
+  lb_folder_no_events: "Nav pasākumu",
+  lb_active_group_expand_show: "Rādīt pasākumus",
+  lb_active_group_expand_hide: "Paslēpt pasākumus",
+  ev_show_breakdown_label: "🔍 Vai parādīt papildu informāciju?",
+  ev_show_breakdown_hint_on: "Kad tiek atvērts grupas ▶ panelis, šis pasākums tiek parādīts sarakstā pēc punktiem.",
+  ev_show_breakdown_hint_off: "Šis pasākums ir slēpts grupas ▶ paneļā — punkti tiek pieskaitīti grupas kopējam rezultātam, taču nav redzami atsevišķi.",
+  ev_bulk_breakdown_hide: "🔍❌ Paslēpt sīkāko informāciju",
+  ev_bulk_breakdown_show: "🔍✓ Rādīt papildu informāciju",
+  ev_bulk_breakdown_hide_tip: "Paslēpt izvēlēto notikumu sīkāko informāciju (grupas kopējais rādītājs tiek saglabāts)",
+  ev_bulk_breakdown_show_tip: "Atvērt atkal izvēlēto pasākumu detalizēto informācijas paneli",
+  ev_group_hidden_hint_hidden: "Šī grupa ir paslēpta no saraksta — noklikšķini, lai to atkal atvērtu",
+  ev_group_hidden_hint_visible: "Paslēpt visu grupu no saraksta",
+  ev_group_hide_confirm: "Vai {{n}} pasākumi grupā „{{group}}“ ir jāpaslēpj no saraksta?",
+  ev_group_show_confirm: "Vai {{n}} pasākums no grupas „{{group}}“ ir jāpievieno atpakaļ sarakstam?",
+  ev_group_type_label: "Grupas tips",
+  ev_group_type_grouped: "Grupā",
+  ev_group_type_ungrouped: "Bez grupas",
+  ev_ungrouped_events_label: "Pasākumi bez grupām",
+  poll_tg_details_toggle: "📡 TG balsojuma informācija",
+  poll_tg_details_hide: "Slēpt TG balsojuma detaļas",
+  poll_tg_details_show: "Rādīt TG balsojuma rezultātus",
 };
 const nb = {
   vip_page_title: "VIP-støtte",
@@ -6719,6 +7097,10 @@ const nb = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  poll_tg_details_toggle: "📡 Detaljer om TG-avstemningen",
+  poll_tg_details_hide: "Skjul detaljene for TG-avstemningen",
 };
 const nl = {
   vip_page_title: "VIP-ondersteuning",
@@ -6834,6 +7216,25 @@ const nl = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  lb_active_group_expand_show: "Evenementen weergeven",
+  lb_active_group_expand_hide: "Evenementen verbergen",
+  ev_show_breakdown_label: "🔍 Moeten de subdetails worden weergegeven?",
+  ev_show_breakdown_hint_on: "In de ranglijst wordt de groep ▶ weergegeven op basis van deze activiteitsscore wanneer het paneel wordt geopend.",
+  ev_bulk_breakdown_hide_tip: "Het detailpaneel van geselecteerde activiteiten verbergen (het groeps totaal blijft behouden)",
+  ev_bulk_breakdown_show_tip: "Het detailvenster van de geselecteerde activiteiten opnieuw openen",
+  ev_group_hidden_badge: "🚫 Vertrouwelijk",
+  ev_group_hidden_hint_hidden: "Deze groep is verborgen in de lijst — klik hier om deze weer te tonen",
+  ev_group_hidden_hint_visible: "De hele groep verbergen in de ranglijst",
+  ev_group_hide_confirm: "Moeten de {{n}} activiteiten in de groep \"{{group}}\" uit de lijst worden verborgen?",
+  ev_group_show_confirm: "Moet de {{n}}-de activiteit uit de groep \"{{group}}\" weer aan de lijst worden toegevoegd?",
+  ev_group_type_label: "Groepstype",
+  ev_group_type_grouped: "In groepen",
+  ev_group_type_ungrouped: "Zonder groep",
+  ev_ungrouped_events_label: "Activiteiten zonder groep",
+  poll_tg_details_toggle: "📡 TG-stemuitslag",
+  poll_tg_details_hide: "TG: Details van de stemming verbergen",
 };
 const pl = {
   vip_page_title: "Obsługa VIP",
@@ -6949,6 +7350,29 @@ const pl = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  ev_show_breakdown_hint_off: "To wydarzenie jest ukryte w ▶ panelu grupy — punkty są nadal dodawane do łącznej sumy grupy, ale nie są widoczne indywidualnie.",
+  ev_bulk_breakdown_hide: "🔍❌ Ukryj dodatkowe szczegóły",
+  ev_bulk_breakdown_show: "🔍✓ Pokaż dodatkowe szczegóły",
+  ev_bulk_breakdown_hide_tip: "Ukryj panel szczegółów wybranych wydarzeń (suma dla grupy zostanie zachowana)",
+  ev_bulk_breakdown_show_tip: "Ponownie otwórz panel szczegółów wybranych wydarzeń",
+  ev_group_hidden_badge: "🚫 Poufne",
+  ev_group_hidden_hint_hidden: "Ta grupa jest ukryta w rankingu — kliknij, aby ją ponownie wyświetlić",
+  ev_group_hidden_hint_visible: "Ukryj całą grupę w rankingu",
+  ev_group_hide_confirm: "Czy {{n}} wydarzeń z grupy „{{group}}” ma zostać ukryte w rankingu?",
+  ev_group_show_confirm: "Czy {{n}} wydarzeń z grupy „{{group}}” powinno zostać ponownie dodane do listy?",
+  ev_group_type_label: "Typ grupy",
+  ev_group_type_grouped: "Grupowe",
+  ev_group_type_ungrouped: "Bez przynależności do grupy",
+  ev_ungrouped_events_label: "Zajęcia bez podziału na grupy",
+  poll_tg_details_toggle: "📡 Szczegóły głosowania w TG",
+  poll_tg_details_hide: "TG – ukryj szczegóły głosowania",
+  poll_tg_details_show: "Pokaż szczegóły głosowania TG",
+  poll_tg_no_votes: "Nie ma jeszcze głosów w TG",
+  poll_tg_voters_header: "Głosujący na Telegramie",
+  poll_tg_admin_only_note: "Szczegółowa lista jest widoczna wyłącznie w widoku administratora.",
+  poll_loading: "Ładowanie…",
 };
 const pt = {
   vip_page_title: "Apoio VIP",
@@ -7205,6 +7629,26 @@ const ro = {
 
   // __V9_FEB18_I18N__ (DeepL backfill)
   lb_folder_group_count: "Grupul {{n}}",
+
+  // __V9_DEEPL_RETRY__
+  lb_folder_no_events: "Nu există evenimente",
+  lb_active_group_expand_show: "Afișează evenimentele",
+  lb_active_group_expand_hide: "Ascunde evenimentele",
+  ev_show_breakdown_label: "🔍 Să se afișeze detaliile suplimentare?",
+  ev_show_breakdown_hint_on: "În clasament, grupul este afișat cu punctajul acestei activități atunci când se deschide ▶ panoul grupului.",
+  ev_show_breakdown_hint_off: "Această activitate este ascunsă în ▶ panoul grupului — punctele se adaugă totuși la totalul grupului, dar nu sunt vizibile individual.",
+  ev_bulk_breakdown_hide: "🔍❌ Ascunde detaliile suplimentare",
+  ev_bulk_breakdown_show: "🔍✓ Afișează detalii suplimentare",
+  ev_bulk_breakdown_hide_tip: "Ascunde panoul cu detalii suplimentare pentru evenimentele selectate (totalul grupului este păstrat)",
+  ev_bulk_breakdown_show_tip: "Redeschide panoul cu detalii suplimentare pentru evenimentele selectate",
+  ev_group_hidden_badge: "🚫 Confidențial",
+  ev_group_hidden_hint_hidden: "Acest grup este ascuns din listă — dă clic pentru a-l afișa din nou",
+  poll_tg_details_hide: "TG ascunde detaliile votului",
+  poll_tg_details_show: "Afișează detaliile voturilor TG",
+  poll_tg_no_votes: "Nu există încă voturi pentru TG",
+  poll_tg_voters_header: "Cei care votează pe Telegram",
+  poll_tg_admin_only_note: "Lista detaliată este disponibilă numai în vizualizarea pentru administratori.",
+  poll_loading: "Se încarcă…",
 };
 const sk = {
   vip_page_title: "VIP podpora",
@@ -7321,6 +7765,25 @@ const sk = {
 
   // __V9_FEB18_I18N__ (DeepL backfill)
   lb_folder_group_count: "Skupina {{n}}",
+
+  // __V9_DEEPL_RETRY__
+  lb_folder_no_events: "Žiadne podujatia",
+  lb_active_group_expand_show: "Zobraziť podujatia",
+  lb_active_group_expand_hide: "Skryť udalosti",
+  ev_show_breakdown_label: "🔍 Majú sa zobraziť podrobnosti?",
+  ev_show_breakdown_hint_on: "V rebríčku sa táto aktivita zobrazí s príslušným počtom bodov, keď sa otvorí ▶ panel skupiny.",
+  ev_show_breakdown_hint_off: "Táto aktivita je v skupine ▶ skrytá — body sa opäť započítavajú do celkového skóre skupiny, ale nezobrazujú sa jednotlivo.",
+  ev_bulk_breakdown_hide: "🔍❌ Skryť ďalšie podrobnosti",
+  ev_bulk_breakdown_show: "🔍✓ Zobraziť podrobnosti",
+  ev_bulk_breakdown_hide_tip: "Skryť panel s podrobnosťami o vybraných udalostiach (súhrn za skupinu zostane zachovaný)",
+  ev_bulk_breakdown_show_tip: "Znovu otvoriť panel s podrobnosťami o vybraných udalostiach",
+  ev_group_hidden_badge: "🚫 Dôverné",
+  ev_group_hidden_hint_hidden: "Táto skupina je skrytá v zozname — kliknutím ju opäť zobrazíte",
+  ev_group_hidden_hint_visible: "Skryť celú skupinu z poradia",
+  ev_group_hide_confirm: "Má sa {{n}} udalosť v skupine „{{group}}“ skryť z poradia?",
+  ev_group_show_confirm: "Má sa {{n}} udalosť zo skupiny „{{group}}“ opäť pridať do zoznamu?",
+  ev_group_type_label: "Typ skupiny",
+  ev_group_type_grouped: "V skupine",
 };
 const sl = {
   vip_page_title: "VIP podpora",
@@ -7436,6 +7899,29 @@ const sl = {
   poll_tg_summary_total: "Toplam: {{n}}",
 
   // __V9_FEB18_I18N__ (DeepL backfill)
+
+  // __V9_DEEPL_RETRY__
+  ev_show_breakdown_label: "🔍 Ali naj se prikažejo podrobnosti?",
+  ev_show_breakdown_hint_on: "Ko se v razvrstitvi odpre ▶ panel skupine, se ta dejavnost prikaže na seznamu s to točkovno vrednostjo.",
+  ev_show_breakdown_hint_off: "Ta aktivnost je skrita v ▶ panelu skupine — točke se sicer prištejejo k skupnemu seštevku skupine, vendar posamezno niso vidne.",
+  ev_bulk_breakdown_hide: "🔍❌ Skrij podrobnosti",
+  ev_bulk_breakdown_show: "🔍✓ Prikaži podrobnosti",
+  ev_bulk_breakdown_hide_tip: "Skrij spodnji panel s podrobnostmi izbranih dogodkov (skupni seštevek se ohrani)",
+  ev_bulk_breakdown_show_tip: "Ponovno odpri podokno s podrobnostmi izbranih dogodkov",
+  ev_group_hidden_badge: "🚫 Zaupno",
+  ev_group_hidden_hint_hidden: "Ta skupina je skrita v seznamu — klikni, da jo ponovno prikažeš",
+  ev_group_show_confirm: "Ali naj se {{n}} dogodek iz skupine „{{group}}“ ponovno doda na seznam?",
+  ev_group_type_label: "Vrsta skupine",
+  ev_group_type_grouped: "V skupini",
+  ev_group_type_ungrouped: "Brez skupine",
+  ev_ungrouped_events_label: "Dejavnosti brez skupin",
+  poll_tg_details_toggle: "📡 Podrobnosti o glasovanju na Telegramu",
+  poll_tg_details_hide: "TG: Skrij podrobnosti o glasovanju",
+  poll_tg_details_show: "Prikaži podrobnosti glasovanja TG",
+  poll_tg_no_votes: "Še ni glasov za TG",
+  poll_tg_voters_header: "Glasovalci na Telegramu",
+  poll_tg_admin_only_note: "Podroben seznam je na voljo le v upraviteljskem pogledu.",
+  poll_loading: "Nalaganje…",
 };
 const sv = {
   vip_page_title: "VIP-support",
