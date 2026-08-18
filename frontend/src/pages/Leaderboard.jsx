@@ -351,12 +351,20 @@ export default function Leaderboard() {
           );
         })()}
 
-        {/* Active events select-list — under the Aktif filter the user picks
-            a specific event to zoom into. Selecting one swaps the aggregate
-            podium + list for that event's own ranking (excludes members
-            with no score in that event). Clicking the active chip again
-            clears the selection back to the aggregate. */}
-        {filter !== "archive" && visibleActiveEvents.length > 0 && (
+        {/* Active events select-list — under the Aktif filter, we branch:
+            if any active event has a `group_name`, list the unique GROUP
+            names (clicking one filters the aggregate leaderboard to that
+            group's total). If NO groups exist, list the individual event
+            names (clicking one shows that event's per-event ranking). */}
+        {filter !== "archive" && visibleActiveEvents.length > 0 && (() => {
+          const groupNames = [...new Set(visibleActiveEvents.map((e) => e.group_name).filter(Boolean))];
+          const hasGroups = groupNames.length > 0;
+          const items = hasGroups
+            ? groupNames.map((g) => ({ key: g, label: g, isGroup: true }))
+            : visibleActiveEvents.map((e) => ({ key: e.id, label: e.name, isGroup: false, event: e }));
+          const isSelected = (it) => it.isGroup ? group === it.key : activeEventId === it.event.id;
+          const anySelected = hasGroups ? !!group : !!activeEventId;
+          return (
           <div
             className="flex gap-1.5 mb-3 overflow-x-auto pb-1 flex-nowrap"
             data-testid="leaderboard-active-event-strip"
@@ -364,84 +372,69 @@ export default function Leaderboard() {
           >
             <button
               data-testid="leaderboard-active-event-all"
-              onClick={() => setActiveEventId(null)}
-              className={`chip ${!activeEventId ? "active" : ""}`}
-              style={!activeEventId ? {
-                padding: "5px 10px",
-                fontSize: 9,
-                fontWeight: 800,
-                letterSpacing: "0.10em",
-                textTransform: "uppercase",
-                borderColor: "#F5A623",
-                color: "#FFF7ED",
+              onClick={() => { setActiveEventId(null); setGroup(null); }}
+              className={`chip ${!anySelected ? "active" : ""}`}
+              style={!anySelected ? {
+                padding: "5px 10px", fontSize: 9, fontWeight: 800,
+                letterSpacing: "0.10em", textTransform: "uppercase",
+                borderColor: "#F5A623", color: "#FFF7ED",
                 background: "linear-gradient(180deg, rgba(245,166,35,0.30), rgba(180,83,9,0.55))",
                 boxShadow: "0 0 8px rgba(245,166,35,0.45)",
-                fontFamily: "Cinzel, serif",
-                whiteSpace: "nowrap",
+                fontFamily: "Cinzel, serif", whiteSpace: "nowrap",
               } : {
-                padding: "5px 10px",
-                fontSize: 9,
-                fontWeight: 700,
-                letterSpacing: "0.10em",
-                textTransform: "uppercase",
-                borderColor: "rgba(245,166,35,0.45)",
-                color: "#F5A623",
+                padding: "5px 10px", fontSize: 9, fontWeight: 700,
+                letterSpacing: "0.10em", textTransform: "uppercase",
+                borderColor: "rgba(245,166,35,0.45)", color: "#F5A623",
                 background: "rgba(30,20,15,0.85)",
-                fontFamily: "Cinzel, serif",
-                whiteSpace: "nowrap",
+                fontFamily: "Cinzel, serif", whiteSpace: "nowrap",
               }}
             >
               {t("all_short")}
             </button>
-            {visibleActiveEvents.map((ev) => {
-              const isActive = activeEventId === ev.id;
+            {items.map((it) => {
+              const isActive = isSelected(it);
+              const tid = it.isGroup ? `leaderboard-active-group-${it.key}` : `leaderboard-active-event-${it.key}`;
               return (
                 <button
-                  key={ev.id}
-                  data-testid={`leaderboard-active-event-${ev.id}`}
-                  onClick={() => setActiveEventId(isActive ? null : ev.id)}
+                  key={it.key}
+                  data-testid={tid}
+                  onClick={() => {
+                    if (it.isGroup) {
+                      setGroup(isActive ? null : it.key);
+                      setActiveEventId(null);
+                    } else {
+                      setActiveEventId(isActive ? null : it.event.id);
+                    }
+                  }}
                   className={`chip ${isActive ? "active" : ""}`}
-                  title={ev.name}
+                  title={it.label}
                   style={isActive ? {
-                    padding: "5px 10px",
-                    fontSize: 9,
-                    fontWeight: 800,
-                    letterSpacing: "0.08em",
-                    textTransform: "none",
-                    borderColor: "#F5A623",
-                    color: "#FFF7ED",
+                    padding: "5px 10px", fontSize: 9, fontWeight: 800,
+                    letterSpacing: "0.08em", textTransform: "none",
+                    borderColor: "#F5A623", color: "#FFF7ED",
                     background: "linear-gradient(180deg, rgba(245,166,35,0.30), rgba(180,83,9,0.55))",
                     boxShadow: "0 0 10px rgba(245,166,35,0.55), inset 0 0 6px rgba(245,166,35,0.20)",
                     textShadow: "0 1px 3px rgba(0,0,0,0.7)",
-                    fontFamily: "Rajdhani, sans-serif",
-                    whiteSpace: "nowrap",
-                    maxWidth: 180,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
+                    fontFamily: "Rajdhani, sans-serif", whiteSpace: "nowrap",
+                    maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis",
                     display: "inline-block",
                   } : {
-                    padding: "5px 10px",
-                    fontSize: 9,
-                    fontWeight: 700,
-                    letterSpacing: "0.08em",
-                    textTransform: "none",
-                    borderColor: "rgba(245,166,35,0.45)",
-                    color: "#EAD8B0",
+                    padding: "5px 10px", fontSize: 9, fontWeight: 700,
+                    letterSpacing: "0.08em", textTransform: "none",
+                    borderColor: "rgba(245,166,35,0.45)", color: "#EAD8B0",
                     background: "rgba(30,20,15,0.85)",
-                    fontFamily: "Rajdhani, sans-serif",
-                    whiteSpace: "nowrap",
-                    maxWidth: 180,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
+                    fontFamily: "Rajdhani, sans-serif", whiteSpace: "nowrap",
+                    maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis",
                     display: "inline-block",
                   }}
                 >
-                  {ev.name}
+                  {it.isGroup ? "🤝 " : ""}{it.label}
                 </button>
               );
             })}
           </div>
-        )}
+          );
+        })()}
 
         {/* Archive folder chips — synced with Events archive folder taxonomy.
             Click a folder to narrow the archive grid to just events assigned
