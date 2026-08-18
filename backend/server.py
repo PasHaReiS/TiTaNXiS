@@ -889,6 +889,16 @@ class BulkVisibilityBody(BaseModel):
     hidden: bool
 
 
+class BulkBreakdownBody(BaseModel):
+    ids: List[str]
+    show_breakdown: bool
+
+
+class GroupHiddenBody(BaseModel):
+    group_name: str
+    hidden: bool
+
+
 class BulkArchiveBody(BaseModel):
     ids: List[str]
     archived: bool
@@ -907,6 +917,37 @@ async def events_bulk_visibility(body: BulkVisibilityBody, _: dict = Depends(req
         {"$set": {"hidden_from_leaderboard": bool(body.hidden)}},
     )
     return {"modified": res.modified_count, "hidden": bool(body.hidden)}
+
+
+@api_router.post("/events/bulk-breakdown")
+async def events_bulk_breakdown(body: BulkBreakdownBody, _: dict = Depends(require_edit)):
+    """Toggle `show_breakdown` on many events at once. Powers the archive
+    "Alt detayı gizle/göster" chips on the bulk toolbar — flipping many
+    tournament rounds off the leaderboard ▶ panel with one click."""
+    ids = [i for i in (body.ids or []) if i]
+    if not ids:
+        return {"modified": 0}
+    res = await db.events.update_many(
+        {"id": {"$in": ids}},
+        {"$set": {"show_breakdown": bool(body.show_breakdown)}},
+    )
+    return {"modified": res.modified_count, "show_breakdown": bool(body.show_breakdown)}
+
+
+@api_router.post("/events/hide-group")
+async def events_hide_group(body: GroupHiddenBody, _: dict = Depends(require_edit)):
+    """Master toggle — flip `hidden_from_leaderboard` on every event of a
+    tournament group in a single call. Powers the group header's
+    "Sıralamada gizle / göster" master switch. When `hidden=True` the
+    whole group vanishes from every leaderboard aggregate."""
+    gn = (body.group_name or "").strip()
+    if not gn:
+        raise HTTPException(400, "group_name gerekli")
+    res = await db.events.update_many(
+        {"group_name": gn},
+        {"$set": {"hidden_from_leaderboard": bool(body.hidden)}},
+    )
+    return {"modified": res.modified_count, "hidden": bool(body.hidden), "group_name": gn}
 
 
 @api_router.post("/events/bulk-archive")

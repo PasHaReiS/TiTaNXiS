@@ -541,6 +541,33 @@ export default function Events() {
               ) : (
                 <>
                   <button
+                    onClick={async () => {
+                      const anyVisible = list.some((e) => !e.hidden_from_leaderboard);
+                      const next = anyVisible; // hide if any visible; else unhide all
+                      if (!window.confirm(next
+                        ? `"${group}" grubundaki ${list.length} etkinlik sıralamadan gizlensin mi?`
+                        : `"${group}" grubundaki ${list.length} etkinlik sıralamaya geri eklensin mi?`)) return;
+                      try {
+                        const res = await api.post("/events/hide-group", { group_name: group, hidden: next });
+                        mutate((k) => typeof k === "string" && k.startsWith("/events"));
+                        mutate((k) => typeof k === "string" && k.startsWith("/leaderboard"));
+                        toast.success(`${res.data.modified} etkinlik ${next ? "gizlendi" : "geri eklendi"}`);
+                      } catch (err) {
+                        toast.error(err?.response?.data?.detail || err.message);
+                      }
+                    }}
+                    data-testid={`event-group-hide-${group}`}
+                    className="text-[10px] uppercase font-bold px-2 py-1 rounded border flex items-center gap-1"
+                    style={list.some((e) => !e.hidden_from_leaderboard)
+                      ? { background: "rgba(107,114,128,0.15)", color: "#D1D5DB", borderColor: "rgba(107,114,128,0.55)" }
+                      : { background: "rgba(245,166,35,0.15)", color: "#FCD34D", borderColor: "rgba(245,166,35,0.55)" }}
+                    title={list.some((e) => !e.hidden_from_leaderboard)
+                      ? "Tüm grubu sıralamadan gizle"
+                      : "Tüm grubu sıralamaya geri ekle"}
+                  >
+                    {list.some((e) => !e.hidden_from_leaderboard) ? <><EyeOff className="w-3 h-3" /> Gizle</> : <><Eye className="w-3 h-3" /> Göster</>}
+                  </button>
+                  <button
                     onClick={() => startRenameGroup(group)}
                     data-testid={`event-group-rename-${group}`}
                     className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25 flex items-center gap-1"
@@ -1659,6 +1686,21 @@ function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearS
     } finally { setBusy(false); }
   };
 
+  const bulkToggleBreakdown = async (showBreakdown) => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) { toast.error("Önce etkinlik seç"); return; }
+    setBusy(true);
+    try {
+      const res = await api.post("/events/bulk-breakdown", { ids, show_breakdown: showBreakdown });
+      mutate((k) => typeof k === "string" && k.startsWith("/events"));
+      toast.success(`${res.data.modified} etkinliğin alt detayı ${showBreakdown ? "gösterilecek" : "gizli"}`);
+      clearSelection();
+      onDone();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally { setBusy(false); }
+  };
+
   const bulkAssignFolder = async (folderId) => {
     const ids = [...selectedIds];
     if (ids.length === 0) { toast.error("Önce etkinlik seç"); return; }
@@ -1759,6 +1801,28 @@ function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearS
         title="Seçili etkinlikleri sıralamaya ekle"
       >
         <Eye className="w-3 h-3" /> Sıralamaya Ekle
+      </button>
+      <button
+        type="button"
+        onClick={() => bulkToggleBreakdown(false)}
+        disabled={busy || selectedIds.size === 0}
+        data-testid="events-bulk-breakdown-hide"
+        className="chip text-[10px] flex items-center gap-1"
+        style={{ borderColor: "rgba(59,130,246,0.55)", color: "#93C5FD", background: "rgba(59,130,246,0.10)" }}
+        title="Seçili etkinliklerin alt detay panelini gizle (grup toplamı korunur)"
+      >
+        🔍❌ Alt Detay Gizle
+      </button>
+      <button
+        type="button"
+        onClick={() => bulkToggleBreakdown(true)}
+        disabled={busy || selectedIds.size === 0}
+        data-testid="events-bulk-breakdown-show"
+        className="chip text-[10px] flex items-center gap-1"
+        style={{ borderColor: "rgba(34,197,94,0.55)", color: "#86EFAC", background: "rgba(34,197,94,0.10)" }}
+        title="Seçili etkinliklerin alt detay panelini geri aç"
+      >
+        🔍✓ Alt Detay Göster
       </button>
       {folders.length > 0 && (
         <select

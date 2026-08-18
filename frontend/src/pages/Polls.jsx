@@ -4,7 +4,7 @@ import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import { toast } from "sonner";
-import { Loader2, Plus, X, CheckCircle2, Circle, Vote, Clock, ShieldOff, Trash2, RotateCcw } from "lucide-react";
+import { Loader2, Plus, X, CheckCircle2, Circle, Vote, Clock, ShieldOff, Trash2, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -190,6 +190,12 @@ function PollComposer({ onCreated }) {
 function PollCard({ poll, onChanged, isAdmin }) {
   const [selected, setSelected] = useState(poll.my_option_ids || []);
   const [busy, setBusy] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const { data: results } = useSWR(
+    showDetails ? `/polls/${poll.id}/results` : null,
+    fetcher,
+    { refreshInterval: 20000 },
+  );
   const closed = poll.closed;
   const hasVoted = poll.has_voted;
   const canChange = !closed;
@@ -347,6 +353,21 @@ function PollCard({ poll, onChanged, isAdmin }) {
         <div className="text-[10px] text-muted-foreground">
           {poll.total_voters} oy · {hasVoted ? "✓ oyladın" : "henüz oylamadın"}
         </div>
+        <button
+          type="button"
+          onClick={() => setShowDetails((v) => !v)}
+          className="chip text-[10px] flex items-center gap-1"
+          style={{
+            borderColor: "rgba(52,152,219,0.55)",
+            color: "#93C5FD",
+            background: showDetails ? "rgba(52,152,219,0.20)" : "rgba(52,152,219,0.08)",
+          }}
+          data-testid={`poll-tg-details-toggle-${poll.id}`}
+          title={showDetails ? "TG oy detaylarını gizle" : "TG oy detaylarını göster"}
+        >
+          {showDetails ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          📡 TG Oy Detayları{typeof poll.tg_voters === "number" ? ` · ${poll.tg_voters}` : ""}
+        </button>
         <div className="flex items-center gap-1.5 ml-auto">
           {hasVoted && canChange && (
             <button onClick={unvote} disabled={busy}
@@ -367,6 +388,94 @@ function PollCard({ poll, onChanged, isAdmin }) {
           )}
         </div>
       </div>
+      {showDetails && (
+        <div
+          className="mt-2 rounded-lg p-2 space-y-2"
+          style={{ background: "rgba(52,152,219,0.06)", border: "1px dashed rgba(52,152,219,0.35)" }}
+          data-testid={`poll-tg-details-panel-${poll.id}`}
+        >
+          {!results ? (
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <Loader2 className="w-3 h-3 animate-spin" /> Yükleniyor…
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center flex-wrap gap-2 text-[10px]">
+                <span
+                  className="px-1.5 py-0.5 rounded"
+                  style={{ background: "rgba(59,130,246,0.15)", color: "#93C5FD" }}
+                  data-testid={`poll-tg-summary-${poll.id}`}
+                >
+                  📡 TG · {results.tg_voters || 0}
+                </span>
+                <span
+                  className="px-1.5 py-0.5 rounded"
+                  style={{ background: "rgba(245,166,35,0.15)", color: "#F5A623" }}
+                >
+                  📱 Uygulama · {results.app_voters || 0}
+                </span>
+                <span className="text-muted-foreground">
+                  Toplam: {results.total_voters || 0}
+                </span>
+              </div>
+              <div className="space-y-1">
+                {(results.options || []).map((o) => (
+                  <div
+                    key={o.id}
+                    className="text-[11px] flex items-center gap-2 px-2 py-1 rounded"
+                    style={{ background: "rgba(20,15,25,0.55)", border: "1px solid rgba(120,53,15,0.25)" }}
+                    data-testid={`poll-tg-details-option-${poll.id}-${o.id}`}
+                  >
+                    <span className="flex-1 truncate text-white" title={o.text}>{o.text}</span>
+                    <span className="mono opacity-75" title="Uygulama oyu">📱 {o.app_votes}</span>
+                    <span className="mono" style={{ color: "#93C5FD" }} title="Telegram oyu">📡 {o.tg_votes}</span>
+                    <span className="mono font-bold gold-text">= {o.total}</span>
+                  </div>
+                ))}
+              </div>
+              {isAdmin ? (
+                (results.tg_voter_details || []).length === 0 ? (
+                  <div className="text-[10px] text-muted-foreground italic">
+                    Henüz TG oyu yok
+                  </div>
+                ) : (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest gold-text font-bold mb-1">
+                      Telegram Oy Verenler
+                    </div>
+                    <div className="flex flex-col gap-1 max-h-56 overflow-y-auto">
+                      {(results.tg_voter_details || []).map((v, i) => (
+                        <div
+                          key={`${v.username || "anon"}-${i}`}
+                          className="flex items-center gap-2 text-[11px] px-2 py-1 rounded"
+                          style={{ background: "rgba(52,152,219,0.08)", border: "1px solid rgba(52,152,219,0.30)" }}
+                          data-testid={`poll-tg-voter-${poll.id}-${i}`}
+                        >
+                          <span className="font-bold text-white truncate" style={{ minWidth: 90 }}>
+                            @{v.username || "anon"}
+                          </span>
+                          <span className="flex-1 truncate opacity-90" title={(v.options || []).join(", ")}>
+                            → {(v.options || []).join(", ") || "—"}
+                          </span>
+                          {v.voted_at && (
+                            <span className="text-[9px] mono opacity-60">
+                              {new Date(v.voted_at).toLocaleString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              ) : (
+                <div className="text-[10px] text-muted-foreground italic">
+                  Detaylı liste yalnızca yönetici görünümünde.
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

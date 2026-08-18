@@ -21,8 +21,8 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
-- **Feb 18, 2026 (v6)**: Central "Hidden Group / Show Breakdown" rule. Backend: added `show_breakdown` (default True) to Event / EventCreate / EventUpdate. Existing `hidden_from_leaderboard` continues to exclude events from every /leaderboard aggregate. Frontend EventForm: new "🔍 Alt detaylar görünsün mü?" toggle. Leaderboard.jsx Aktif ▶ panel: only lists events with `show_breakdown !== false`; ▶ icon hidden entirely when a group has zero breakdownable events. Group-name click keeps opening the group's total ranking regardless of the breakdown flag.
-- **Feb 18, 2026 (v5)**: Leaderboard Aktif group chips + ▶ expand panel.
+- **Feb 18, 2026 (v7)**: (a) `POST /events/hide-group` master switch — flips `hidden_from_leaderboard` on every event of a group in one call; wired to a "Gizle/Göster" button in the Events group header. (b) `POST /events/bulk-breakdown` — flips `show_breakdown` on many events; wired to "🔍❌ Alt Detay Gizle / 🔍✓ Alt Detay Göster" chips in the bulk toolbar. (c) Polls page — each `PollCard` now carries a 📡 TG Oy Detayları toggle that lazily fetches `/polls/{id}/results` and reveals per-option app/TG splits plus admin-only per-voter Telegram list (@username → chosen options + timestamp).
+- **Feb 18, 2026 (v6)**: Central Hidden Group / Show Breakdown rule.
 - **Feb 18, 2026 (v4)**: (a) Removed "Tümü" chip from Leaderboard active event strip. (b) Removed Kolektif/Bireysel distinction from Events page.
 - **Feb 18, 2026 (v3)**: Leaderboard Archive rebuilt to folder → group → member hierarchy. Top level shows folder cards grid only. Group row now has two actions: click name → total ranking, click `▶` → inline event list.
 - **Feb 18, 2026**: Removed dead `moveToFolder` function.
