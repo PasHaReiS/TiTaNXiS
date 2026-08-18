@@ -66,7 +66,7 @@ export default function HeroTables() {
   const rightColumn = [4, 5, 6, 7];
 
   return (
-    <div data-testid="hero-tables" className="flex flex-col" style={{ gap: 10 }}>
+    <div data-testid="hero-tables" className="flex flex-col" style={{ gap: 6, fontSize: "11px" }}>
       {/* ===== TABLE 1: HERO STAR ===== */}
       <div
         data-testid="hero-star-section"
@@ -74,7 +74,7 @@ export default function HeroTables() {
           background: "#1a1a2e",
           border: "1px solid rgba(231,76,26,0.3)",
           borderRadius: 8,
-          padding: 10,
+          padding: 6,
         }}
       >
         <h3
@@ -84,8 +84,8 @@ export default function HeroTables() {
             letterSpacing: "0.06em",
             textTransform: "uppercase",
             fontWeight: 700,
-            fontSize: 12,
-            marginBottom: 8,
+            fontSize: 11,
+            marginBottom: 5,
           }}
         >
           {t("ht_hero_star_title")}
@@ -248,7 +248,7 @@ export default function HeroTables() {
           background: "#1a1a2e",
           border: "1px solid rgba(231,76,26,0.3)",
           borderRadius: 8,
-          padding: 10,
+          padding: 6,
         }}
       >
         <h3
@@ -258,8 +258,8 @@ export default function HeroTables() {
             letterSpacing: "0.06em",
             textTransform: "uppercase",
             fontWeight: 700,
-            fontSize: 12,
-            marginBottom: 8,
+            fontSize: 11,
+            marginBottom: 5,
           }}
         >
           {t("ht_weapons_title")}

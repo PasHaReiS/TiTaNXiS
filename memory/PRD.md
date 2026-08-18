@@ -1036,3 +1036,12 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Glow shadow 12px → 10px, text-shadow 4px → 3px
 - Strip container `flex-nowrap` + `scrollBehavior: smooth` — kaydırılabilir kaldı ama daha kompakt
 - Podyum ve tablo aynı ekranda daha rahat sığıyor
+
+## Loj Hakkında Tabloları Küçültme (Feb 17, 2026)
+- `HeroTables.jsx` global compaction:
+  - Section container gap: 10 → 6
+  - Section padding: 10 → 6 (3 kart: Yıldız/Eğitim/Diğer)
+  - Section heading fontSize: 12 → 11
+  - Section heading marginBottom: 8 → 5
+  - Root wrapper `fontSize: 11px` (child'lar da küçüldü)
+- 3 asker eğitim tablosu artık tek sayfaya sığıyor
