@@ -122,7 +122,17 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   // Collapsible "N yeni üye oluşacak" panel — starts open so admins see the
   // warning up-front but can hide it once they've reviewed.
   const [showNewList, setShowNewList] = useState(true);
-  React.useEffect(() => { setExcludedRows(new Set()); setRowEdits({}); setShowNewList(true); }, [result]);
+  // Auto-Apply bookkeeping — remember which row indices the useEffect
+  // rewrote so admins can undo the whole batch in one tap.
+  const [autoAppliedRows, setAutoAppliedRows] = useState([]);
+  // Legend Filter — when set, the preview table only shows rows belonging
+  // to this alliance (case-insensitive; "" means no filter). Click a
+  // legend chip to toggle.
+  const [allianceFilter, setAllianceFilter] = useState("");
+  React.useEffect(() => {
+    setExcludedRows(new Set()); setRowEdits({}); setShowNewList(true);
+    setAutoAppliedRows([]); setAllianceFilter("");
+  }, [result]);
   // Autolink Auto-Apply — as soon as the preview lands, look at every row
   // whose OCR name matches an existing member with Levenshtein ≤ 1 (green
   // "Yüksek eşleşme"), and auto-rewrite the name to that canonical form.
@@ -145,8 +155,10 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
       }
     });
     if (Object.keys(patches).length > 0) {
+      const changed = Object.keys(patches).map((k) => Number(k));
       setRowEdits((prev) => ({ ...prev, ...patches }));
-      toast.success(`✨ ${Object.keys(patches).length} isim otomatik bağlandı`, { duration: 2600 });
+      setAutoAppliedRows(changed);
+      toast.success(`✨ ${changed.length} isim otomatik bağlandı`, { duration: 2600 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result, existingMembers]);
@@ -625,6 +637,34 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                         ↩ {excludedRows.size} elenen kişiyi geri al
                       </button>
                     )}
+                    {autoAppliedRows.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRowEdits((prev) => {
+                            const nx = { ...prev };
+                            autoAppliedRows.forEach((idx) => {
+                              if (nx[idx] && nx[idx].name !== undefined) {
+                                const rest = { ...nx[idx] };
+                                delete rest.name;
+                                if (Object.keys(rest).length === 0) delete nx[idx];
+                                else nx[idx] = rest;
+                              }
+                            });
+                            return nx;
+                          });
+                          const n = autoAppliedRows.length;
+                          setAutoAppliedRows([]);
+                          toast.success(`↩ ${n} otomatik bağlama geri alındı`);
+                        }}
+                        className="text-[9px] normal-case font-normal underline decoration-dotted hover:text-white"
+                        style={{ color: "#FCD34D" }}
+                        data-testid="ocr-autolink-undo"
+                        title="Otomatik bağlanan tüm isimleri OCR ham haline geri al"
+                      >
+                        ↩ {autoAppliedRows.length} otomatik bağlamayı geri al
+                      </button>
+                    )}
                   </div>
                   {mode === "members" && allianceNames.length > 0 && (
                     <div
@@ -637,16 +677,23 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                       </span>
                       {allianceNames.map((n) => {
                         const c = allianceColor(n);
+                        const isActive = allianceFilter.toLowerCase() === n.toLowerCase();
                         return (
-                          <span
+                          <button
                             key={n}
-                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded"
+                            type="button"
+                            onClick={() => setAllianceFilter(isActive ? "" : n)}
+                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded transition-all"
                             style={{
-                              background: c ? `${c}18` : "rgba(148,163,184,0.10)",
-                              border: `1px solid ${c ? c + "55" : "rgba(148,163,184,0.30)"}`,
+                              background: isActive
+                                ? (c ? `${c}30` : "rgba(148,163,184,0.25)")
+                                : (c ? `${c}18` : "rgba(148,163,184,0.10)"),
+                              border: `1px solid ${isActive ? (c || "#F5A623") : (c ? c + "55" : "rgba(148,163,184,0.30)")}`,
                               color: "#F5F0E8",
+                              boxShadow: isActive && c ? `0 0 6px ${c}77` : "none",
+                              cursor: "pointer",
                             }}
-                            title={c ? `${n} · ${c}` : `${n} · renk atanmamış`}
+                            title={isActive ? `${n} filtresi aktif — tıkla temizle` : `Tabloyu sadece ${n} üyelerine filtrele`}
                             data-testid={`ocr-alliance-legend-${n.replace(/\s+/g,'_')}`}
                           >
                             <span
@@ -660,9 +707,20 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               }}
                             />
                             {n}
-                          </span>
+                          </button>
                         );
                       })}
+                      {allianceFilter && (
+                        <button
+                          type="button"
+                          onClick={() => setAllianceFilter("")}
+                          className="text-[9px] underline decoration-dotted ml-1"
+                          style={{ color: "#93C5FD" }}
+                          data-testid="ocr-alliance-legend-clear"
+                        >
+                          × filtreyi temizle
+                        </button>
+                      )}
                     </div>
                   )}
                   {rows.length === 0 ? (
@@ -786,6 +844,16 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                       </thead>
                       <tbody>
                         {rows.map((r, i) => {
+                          // Legend filter — hide rows outside the picked alliance.
+                          if (mode === "members" && allianceFilter) {
+                            const patched = rowEdits[i] || {};
+                            let a = patched.alliance_name !== undefined ? patched.alliance_name : r.alliance_name;
+                            if (!a) {
+                              const mm = /^\s*\[([^\]]+)\]/.exec(String(patched.name ?? r.name ?? ""));
+                              if (mm) a = mm[1].trim();
+                            }
+                            if (String(a || "").toLowerCase() !== allianceFilter.toLowerCase()) return null;
+                          }
                           const isExcluded = excludedRows.has(i);
                           const toggleExclude = () => setExcludedRows((prev) => {
                             const nx = new Set(prev);
