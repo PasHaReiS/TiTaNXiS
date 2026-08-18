@@ -30,6 +30,57 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - Telegram diagnostic panel + manual chat ID link
 - Open Graph / SEO meta
 
+### Feb 2026 — Leaderboard / Members / Events / Calculators UX pass
+- **Leaderboard active event select-list** — new horizontal scrollable
+  chip strip below the group chips. Clicking a specific event swaps
+  the aggregate podium+list for that event's ranking (participants only).
+- **Members country modal** — `InlineCountryPicker` rewritten from an
+  anchored dropdown into a centered portal modal (search + full list)
+  so admins can tap the flag / "?" and pick a country from a large
+  surface. Body scroll locked while modal is open.
+- **Event archive folders** (backend + frontend, fully synced):
+  - New `event_folders` collection + `EventFolder`/`EventFolderCreate`/
+    `EventFolderUpdate`/`FolderAssignBody` models.
+  - Endpoints: `GET /api/event-folders` (with live `archived_count`
+    aggregation), `POST /api/event-folders`, `PATCH /api/event-folders/{id}`,
+    `DELETE /api/event-folders/{id}` (cascades folder_id to null, does
+    not delete events), `POST /api/event-folders/assign`,
+    `POST /api/event-folders/reorder` (drag-and-drop bulk order update).
+  - `Event.folder_id` optional field; `GET /api/events?folder_id=…`
+    filter with `"none"` sentinel for top-level.
+  - `EventFolderManager` modal on the Events archive tab (create /
+    rename / recolor / delete) with an 8-color curated palette
+    (Amber / Ember / Amethyst / Sapphire / Emerald / Rose / Cyan /
+    Slate) replacing the raw color picker.
+  - Folder chip strip + "Yeni→Eski / Eski→Yeni" sort toggle on archive.
+  - Chips are draggable — HTML5 drag-and-drop reorder syncs to backend
+    via the new reorder endpoint on both Events and Leaderboard views.
+  - Bulk "Klasöre Taşı…" `<select>` in the events bulk toolbar.
+  - Leaderboard archive tab renders the same folder chip strip so the
+    two views stay in sync automatically.
+- **Archive event comparison** (Leaderboard):
+  - New "Karşılaştır" toggle on the archive events grid puts every
+    archive card into a 2-pick selection mode (purple numbered badges).
+  - Selecting 2 events + tapping "Görüntüle" opens
+    `CompareEventsModal` — side-by-side leaderboard diff showing
+    "her ikisinde katılan" (with A/B/diff columns colour-coded),
+    "sadece A", and "sadece B" panels, plus per-event totals.
+- **Archive CSV export** — `GET /api/reports/archive-points-export.csv`
+  streams a member × event dump (member/alliance/event/date/group/
+  multiplier/base_points/final_points) with proper CSV escaping.
+  "CSV İndir" button on the Leaderboard archive tab kicks off the
+  download.
+- **LoJ Hakkında + Puan Hesapla table compaction**:
+  - `SoldierCalculator` tier buttons, soldier count input, resource
+    grid (2-col → 4-col), and duration grid all tightened so the tool
+    fits in one viewport.
+  - `PointCalcPage.TableCard` simplified — removed miktar input, total
+    points panel, and units grid. Kept table name, multiplier name,
+    multiplier value. "Birim Ekle" button relabeled → "Düzenle".
+  - `PublicPointCalcPage.ReadOnlyTable` matched (miktar / total / units
+    removed for public share link).
+
+
 ### Telegram DM auto-translate architecture (Feb 2026 — country-based, RESTORED)
 All Telegram **DM** send sites route through `_dm_translate_and_send(chat_id, text, ...)`
 at `backend/server.py:~3352`. **Language selection is driven by the linked

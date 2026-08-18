@@ -866,22 +866,7 @@ function TableCard({ table, index, canEdit, translations, onUpdate, onDelete }) 
       </div>
 
       {/* Miktar + Modal button */}
-      <div className="mb-3 flex items-end gap-2">
-        <div className="flex-1">
-          <label className="block text-[10px] mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>
-            {t("pc_miktar")}
-          </label>
-          <input
-            type="number"
-            value={miktar}
-            onChange={(e) => setMiktar(e.target.value)}
-            onBlur={saveMiktar}
-            disabled={!canEdit}
-            data-testid={`pc-table-miktar-${table.id}`}
-            className="w-full rounded px-3 py-1.5 text-lg font-bold text-center"
-            style={{ background: "#1A1210", border: "1px solid #E74C1A", color: "#F5F0E8" }}
-          />
-        </div>
+      <div className="mb-3 flex justify-end">
         {canEdit && (
           <button
             onClick={() => setShowModal(true)}
@@ -889,7 +874,7 @@ function TableCard({ table, index, canEdit, translations, onUpdate, onDelete }) 
             className="px-3 py-1.5 rounded text-[11px] font-bold flex items-center gap-1 whitespace-nowrap"
             style={{ background: "linear-gradient(135deg,#C0392B,#E74C1A)", color: "#fff" }}
           >
-            <Settings className="w-3 h-3" /> {t("pc_add_unit_btn")}
+            <Pencil className="w-3 h-3" /> {t("edit")}
           </button>
         )}
       </div>
@@ -913,82 +898,6 @@ function TableCard({ table, index, canEdit, translations, onUpdate, onDelete }) 
             {fmt(multValue)}
           </span>
         </div>
-      </div>
-
-      {/* Total Points */}
-      <div
-        className="mb-3 p-2 rounded-lg flex items-center justify-between"
-        style={{
-          background: "linear-gradient(135deg, rgba(76,29,149,0.35), rgba(30,58,138,0.35))",
-          border: "1px solid rgba(168,85,247,0.4)",
-        }}
-        data-testid={`pc-table-total-${table.id}`}
-      >
-        <span className="text-[10px] font-bold uppercase" style={{ color: "#E0E7FF", letterSpacing: "0.08em" }}>
-          {t("pc_total_points")}
-        </span>
-        <span
-          className="text-xl font-bold"
-          style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}
-          data-testid={`pc-table-total-value-${table.id}`}
-        >
-          {fmt(totalPoints)}
-        </span>
-      </div>
-
-      {/* Units */}
-      <div>
-        <label className="block text-[10px] mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>
-          {t("pc_units")}
-        </label>
-        {materials.length === 0 ? (
-          <div
-            className="text-[11px] px-3 py-2 rounded"
-            style={{ color: "#F5F0E8", opacity: 0.5, background: "#1A1210", border: "1px dashed rgba(255,255,255,0.1)" }}
-            data-testid={`pc-table-units-empty-${table.id}`}
-          >
-            {t("pc_units_empty")}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-1.5" data-testid={`pc-table-units-${table.id}`}>
-            <div
-              className="grid gap-2 text-[10px] font-bold uppercase px-2"
-              style={{ gridTemplateColumns: "2fr 1fr 1fr", color: "#D4730A", opacity: 0.8, letterSpacing: "0.06em" }}
-            >
-              <span>{t("pc_unit_name")}</span>
-              <span className="text-center">{t("pc_unit_amount")}</span>
-              <span className="text-right">{t("pc_unit_total")}</span>
-            </div>
-            {materials.map((u) => {
-              const amt = Number(u.amount) || 0;
-              const total = miktarNum * amt;
-              return (
-                <div
-                  key={u.id}
-                  data-testid={`pc-unit-row-${u.id}`}
-                  className="grid gap-2 items-center rounded px-2 py-1 text-sm"
-                  style={{
-                    gridTemplateColumns: "2fr 1fr 1fr",
-                    background: "#1A1210",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                  }}
-                >
-                  <span data-testid={`pc-unit-name-${u.id}`} style={{ color: "#F5F0E8" }}>
-                    {u.name
-                      ? <TranslatedText source={u.name} translations={translations} />
-                      : <span style={{ opacity: 0.4 }}>—</span>}
-                  </span>
-                  <span data-testid={`pc-unit-amount-${u.id}`} className="text-center" style={{ color: "#F5F0E8", opacity: 0.85 }}>
-                    {fmt(amt)}
-                  </span>
-                  <span data-testid={`pc-unit-total-${u.id}`} className="text-right font-bold" style={{ color: "#F5A623" }}>
-                    {fmt(total)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
 
       {showModal && (

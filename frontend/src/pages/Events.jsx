@@ -78,9 +78,19 @@ export default function Events() {
   const [renameValue, setRenameValue] = useState("");
   const [ocrOpen, setOcrOpen] = useState(false);
   const [reminderFor, setReminderFor] = useState(null); // event object → opens the reminder dialog
+  // Archive-folder taxonomy — admins can group archived events into named
+  // folders (Kupa 4, Sezon 1, vb). `folderId` narrows the archive grid to
+  // one folder; "none" sentinel shows only top-level events; null shows all.
+  const [folderId, setFolderId] = useState(null);
+  const [showFolderMgr, setShowFolderMgr] = useState(false);
+  // Sort inside the archive tab — newest first by default per user request.
+  const [archiveSort, setArchiveSort] = useState("newest"); // "newest" | "oldest"
+  // Drag id used to reorder folder chips via HTML5 drag-and-drop.
+  const [dragFolderId, setDragFolderId] = useState(null);
 
   const archived = tab === "archive";
   const { data: events = [] } = useSWR(`/events?archived=${archived}`, fetcher, { refreshInterval: 6000 });
+  const { data: folders = [] } = useSWR("/event-folders", fetcher, { refreshInterval: 15000 });
 
   const allActive = useSWR("/events?archived=false", fetcher).data || [];
   const remindedCount = allActive.filter((e) => e.reminder_enabled !== false).length;
@@ -92,9 +102,15 @@ export default function Events() {
     if (!archived) {
       if (tab === "reminded") list = list.filter((e) => e.reminder_enabled !== false);
       else list = list.filter((e) => e.reminder_enabled === false);
+    } else {
+      // Archive: apply folder filter + sort direction
+      if (folderId === "none") list = list.filter((e) => !e.folder_id);
+      else if (folderId) list = list.filter((e) => e.folder_id === folderId);
+      const dir = archiveSort === "oldest" ? 1 : -1;
+      list = [...list].sort((a, b) => dir * (new Date(b.date) - new Date(a.date)));
     }
     return list;
-  }, [events, tab, archived]);
+  }, [events, tab, archived, folderId, archiveSort]);
 
   // Split events into (a) grouped-by-name and (b) ungrouped so the page can
   // render two clean side-by-side columns instead of mixing them together.
@@ -645,8 +661,114 @@ export default function Events() {
             selectedIds={selectedIds}
             setSelectedIds={setSelectedIds}
             clearSelection={clearSelection}
+            folders={folders}
             onDone={() => { setSelectionMode(false); clearSelection(); }}
           />
+        )}
+
+        {/* Archive folder toolbar — shown only on the archive tab. Chip
+            strip lets the admin pick a folder to narrow the grid; the
+            hamburger button opens the folder manager for create/rename/
+            delete. A "Yeni→Eski / Eski→Yeni" toggle controls sort order.
+            Chips are draggable — drop one on top of another to reorder. */}
+        {tab === "archive" && (
+          <div
+            className="flex items-center gap-1.5 mb-3 flex-wrap"
+            data-testid="events-folder-toolbar"
+          >
+            <button
+              type="button"
+              data-testid="events-folder-all"
+              onClick={() => setFolderId(null)}
+              className={`chip text-[10px] ${!folderId ? "active" : ""}`}
+              style={{ padding: "5px 10px", whiteSpace: "nowrap" }}
+            >
+              📁 Tümü
+            </button>
+            <button
+              type="button"
+              data-testid="events-folder-none"
+              onClick={() => setFolderId(folderId === "none" ? null : "none")}
+              className={`chip text-[10px] ${folderId === "none" ? "active" : ""}`}
+              style={{ padding: "5px 10px", whiteSpace: "nowrap" }}
+              title="Klasöre atanmamış etkinlikler"
+            >
+              Klasörsüz
+            </button>
+            {folders.map((f) => {
+              const isSel = folderId === f.id;
+              const isDragTarget = dragFolderId && dragFolderId !== f.id;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  data-testid={`events-folder-${f.id}`}
+                  draggable="true"
+                  onDragStart={(e) => { setDragFolderId(f.id); e.dataTransfer.effectAllowed = "move"; }}
+                  onDragEnd={() => setDragFolderId(null)}
+                  onDragOver={(e) => { if (isDragTarget) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }}
+                  onDrop={(e) => {
+                    if (!isDragTarget) return;
+                    e.preventDefault();
+                    const ids = folders.map((x) => x.id);
+                    const from = ids.indexOf(dragFolderId);
+                    const to = ids.indexOf(f.id);
+                    if (from < 0 || to < 0 || from === to) return;
+                    ids.splice(to, 0, ids.splice(from, 1)[0]);
+                    api.post("/event-folders/reorder", { ids })
+                      .then(() => { mutate("/event-folders"); toast.success("Klasör sırası güncellendi"); })
+                      .catch((err) => toast.error(err?.response?.data?.detail || err.message));
+                    setDragFolderId(null);
+                  }}
+                  onClick={() => setFolderId(isSel ? null : f.id)}
+                  className={`chip text-[10px] ${isSel ? "active" : ""}`}
+                  title={`${f.name} — sürükleyerek yeniden sırala`}
+                  style={{
+                    padding: "5px 10px",
+                    whiteSpace: "nowrap",
+                    borderColor: f.color || (isSel ? "#F5A623" : "rgba(245,166,35,0.45)"),
+                    background: isSel && f.color ? `${f.color}30` : undefined,
+                    outline: isDragTarget ? "2px dashed rgba(245,166,35,0.6)" : "none",
+                    outlineOffset: 2,
+                    cursor: "grab",
+                    opacity: dragFolderId === f.id ? 0.5 : 1,
+                  }}
+                >
+                  📁 {f.name}
+                  {typeof f.archived_count === "number" && (
+                    <span className="ml-1 opacity-70 mono">({f.archived_count})</span>
+                  )}
+                </button>
+              );
+            })}
+            <div className="flex-1" />
+            <button
+              type="button"
+              data-testid="events-archive-sort-toggle"
+              onClick={() => setArchiveSort(archiveSort === "newest" ? "oldest" : "newest")}
+              className="chip text-[10px]"
+              style={{ padding: "5px 10px", whiteSpace: "nowrap" }}
+              title="Sıralama yönünü değiştir"
+            >
+              {archiveSort === "newest" ? "↓ Yeni → Eski" : "↑ Eski → Yeni"}
+            </button>
+            <CanEdit>
+              <button
+                type="button"
+                data-testid="events-folder-manage"
+                onClick={() => setShowFolderMgr(true)}
+                className="chip text-[10px] flex items-center gap-1"
+                style={{
+                  padding: "5px 10px",
+                  whiteSpace: "nowrap",
+                  borderColor: "rgba(245,166,35,0.55)",
+                  color: "#F5A623",
+                }}
+              >
+                <Plus className="w-3 h-3" /> Klasör Yönet
+              </button>
+            </CanEdit>
+          </div>
         )}
 
         {view === "calendar" ? (
@@ -895,6 +1017,12 @@ export default function Events() {
 
       {showForm && (
         <EventForm initial={editing} onClose={() => { setShowForm(false); setEditing(null); }} />
+      )}
+      {showFolderMgr && (
+        <EventFolderManager
+          folders={folders}
+          onClose={() => setShowFolderMgr(false)}
+        />
       )}
       <EventDetailModal
         event={events.find((x) => x.id === detailId) || allActive.find((x) => x.id === detailId) || null}
@@ -1265,7 +1393,7 @@ function EventDetailModal({ event, open, onClose, onEdit, events = [], onNavigat
   );
 }
 
-function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearSelection, onDone }) {
+function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearSelection, folders = [], onDone }) {
   const [busy, setBusy] = React.useState(false);
   const visibleIds = React.useMemo(() => filteredEvents.map((e) => e.id), [filteredEvents]);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
@@ -1299,6 +1427,23 @@ function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearS
       const res = await api.post("/events/bulk-archive", { ids, archived });
       mutate((k) => typeof k === "string" && k.startsWith("/events"));
       toast.success(`${res.data.modified} etkinlik ${archived ? "arşive alındı" : "arşivden çıkarıldı"}`);
+      clearSelection();
+      onDone();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally { setBusy(false); }
+  };
+
+  const bulkAssignFolder = async (folderId) => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) { toast.error("Önce etkinlik seç"); return; }
+    setBusy(true);
+    try {
+      const res = await api.post("/event-folders/assign", { event_ids: ids, folder_id: folderId });
+      mutate((k) => typeof k === "string" && k.startsWith("/events"));
+      mutate("/event-folders");
+      const label = folderId ? (folders.find((f) => f.id === folderId)?.name || "klasör") : "klasörsüz";
+      toast.success(`${res.data.modified} etkinlik → ${label}`);
       clearSelection();
       onDone();
     } catch (e) {
@@ -1390,6 +1535,34 @@ function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearS
       >
         <Eye className="w-3 h-3" /> Sıralamaya Ekle
       </button>
+      {folders.length > 0 && (
+        <select
+          data-testid="events-bulk-folder-select"
+          disabled={busy || selectedIds.size === 0}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (!v) return;
+            const target = v === "__none__" ? null : v;
+            bulkAssignFolder(target);
+            e.target.value = "";
+          }}
+          className="chip text-[10px]"
+          style={{
+            borderColor: "rgba(139,92,246,0.55)",
+            color: "#C4B5FD",
+            background: "rgba(139,92,246,0.10)",
+            cursor: "pointer",
+          }}
+          title="Seçili etkinlikleri klasöre taşı"
+          defaultValue=""
+        >
+          <option value="" disabled>📁 Klasöre Taşı…</option>
+          <option value="__none__">Klasörsüz (temizle)</option>
+          {folders.map((f) => (
+            <option key={f.id} value={f.id}>{f.name}</option>
+          ))}
+        </select>
+      )}
       <button
         type="button"
         onClick={onDone}
@@ -1722,6 +1895,252 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
           {saving ? t("saving") : initial ? t("update") : t("add_short")}
         </button>
       </form>
+    </div>
+  );
+}
+
+function EventFolderManager({ folders, onClose }) {
+  // 8-color curated palette — replaces the raw <input type="color"> so
+  // admins land on brand-consistent options instead of the full spectrum.
+  const PALETTE = [
+    { hex: "#F5A623", label: "Amber" },
+    { hex: "#E74C1A", label: "Ember" },
+    { hex: "#A855F7", label: "Amethyst" },
+    { hex: "#3B82F6", label: "Sapphire" },
+    { hex: "#22C55E", label: "Emerald" },
+    { hex: "#F43F5E", label: "Rose" },
+    { hex: "#06B6D4", label: "Cyan" },
+    { hex: "#94A3B8", label: "Slate" },
+  ];
+  const [name, setName] = useState("");
+  const [color, setColor] = useState(PALETTE[0].hex);
+  const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editColor, setEditColor] = useState("");
+
+  const create = async () => {
+    const nm = name.trim();
+    if (!nm) { toast.error("Klasör adı boş olamaz"); return; }
+    setBusy(true);
+    try {
+      await api.post("/event-folders", { name: nm, color });
+      mutate("/event-folders");
+      setName("");
+      toast.success("Klasör oluşturuldu");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally { setBusy(false); }
+  };
+
+  const saveEdit = async (id) => {
+    const nm = editName.trim();
+    if (!nm) { toast.error("Ad boş olamaz"); return; }
+    setBusy(true);
+    try {
+      await api.patch(`/event-folders/${id}`, { name: nm, color: editColor });
+      mutate("/event-folders");
+      setEditingId(null);
+      toast.success("Güncellendi");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally { setBusy(false); }
+  };
+
+  const remove = async (id, nm) => {
+    if (!window.confirm(`"${nm}" klasörü silinsin mi? İçindeki etkinlikler klasörsüz kalır.`)) return;
+    setBusy(true);
+    try {
+      await api.delete(`/event-folders/${id}`);
+      mutate("/event-folders");
+      mutate((k) => typeof k === "string" && k.startsWith("/events"));
+      toast.success("Silindi");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally { setBusy(false); }
+  };
+
+  const renderPalette = (selected, onPick, testIdPrefix = "palette") => (
+    <div className="flex gap-1 flex-wrap" data-testid={`${testIdPrefix}-swatches`}>
+      {PALETTE.map((p) => {
+        const isSel = String(selected).toLowerCase() === p.hex.toLowerCase();
+        return (
+          <button
+            key={p.hex}
+            type="button"
+            onClick={() => onPick(p.hex)}
+            data-testid={`${testIdPrefix}-${p.hex.slice(1)}`}
+            title={p.label}
+            aria-label={p.label}
+            aria-pressed={isSel}
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: 6,
+              background: p.hex,
+              border: isSel ? "2px solid #FFF7ED" : "2px solid rgba(255,255,255,0.15)",
+              boxShadow: isSel ? `0 0 10px ${p.hex}` : "none",
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <div
+      data-testid="events-folder-manager"
+      onClick={onClose}
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-xl overflow-hidden flex flex-col"
+        style={{
+          background: "linear-gradient(180deg, #1E1410 0%, #0F0806 100%)",
+          border: "1px solid rgba(245,166,35,0.55)",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.7), 0 0 40px rgba(231,76,26,0.25)",
+          maxHeight: "80vh",
+        }}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "rgba(245,166,35,0.35)" }}>
+          <div className="flex items-center gap-2">
+            <span style={{ fontSize: 16 }}>📁</span>
+            <div className="text-sm font-bold uppercase tracking-widest" style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}>
+              Arşiv Klasörleri
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            data-testid="events-folder-manager-close"
+            className="p-1.5 rounded hover:bg-white/10"
+            style={{ color: "#F5F0E8" }}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-4 py-3 border-b flex flex-col gap-2" style={{ borderColor: "rgba(245,166,35,0.2)" }}>
+          <div className="flex items-center gap-2">
+            <input
+              data-testid="events-folder-new-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && create()}
+              placeholder="Yeni klasör adı"
+              className="flex-1 rounded px-3 py-2 text-sm text-white placeholder:text-muted-foreground focus:outline-none"
+              style={{ background: "#1A1210", border: "1px solid rgba(245,166,35,0.35)" }}
+            />
+            <button
+              type="button"
+              data-testid="events-folder-new-submit"
+              onClick={create}
+              disabled={busy || !name.trim()}
+              className="chip text-[10px] flex items-center gap-1"
+              style={{
+                padding: "8px 12px",
+                borderColor: "rgba(245,166,35,0.55)",
+                color: "#F5A623",
+                background: "rgba(245,166,35,0.10)",
+              }}
+            >
+              <Plus className="w-3 h-3" /> Ekle
+            </button>
+          </div>
+          {renderPalette(color, setColor, "new-color")}
+        </div>
+
+        <div className="flex-1 overflow-y-auto py-2" data-testid="events-folder-manager-list">
+          {folders.length === 0 ? (
+            <div className="px-4 py-6 text-center text-xs text-muted-foreground">
+              Henüz klasör yok. Yukarıdan ilk klasörü oluştur.
+            </div>
+          ) : (
+            folders.map((f) => (
+              <div
+                key={f.id}
+                data-testid={`events-folder-row-${f.id}`}
+                className="px-3 py-2 flex flex-col gap-1.5 hover:bg-white/5"
+                style={{ borderBottom: "1px solid rgba(245,166,35,0.10)" }}
+              >
+                {editingId === f.id ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && saveEdit(f.id)}
+                        className="flex-1 rounded px-2 py-1 text-sm text-white"
+                        style={{ background: "#1A1210", border: "1px solid rgba(245,166,35,0.35)" }}
+                        data-testid={`events-folder-edit-name-${f.id}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => saveEdit(f.id)}
+                        disabled={busy}
+                        data-testid={`events-folder-save-${f.id}`}
+                        className="p-1 rounded text-green-400 hover:bg-green-500/10"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(null)}
+                        className="p-1 rounded text-red-400 hover:bg-red-500/10"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {renderPalette(editColor, setEditColor, `edit-color-${f.id}`)}
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div
+                      style={{
+                        width: 14,
+                        height: 14,
+                        borderRadius: 3,
+                        background: f.color || "#F5A623",
+                        border: "1px solid rgba(255,255,255,0.15)",
+                      }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold truncate" style={{ color: "#F5F0E8" }}>
+                        {f.name}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {f.archived_count || 0} arşiv etkinlik
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setEditingId(f.id); setEditName(f.name); setEditColor(f.color || PALETTE[0].hex); }}
+                      data-testid={`events-folder-edit-${f.id}`}
+                      className="p-1 rounded text-blue-400 hover:bg-blue-500/10"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => remove(f.id, f.name)}
+                      disabled={busy}
+                      data-testid={`events-folder-delete-${f.id}`}
+                      className="p-1 rounded text-red-400 hover:bg-red-500/10"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }

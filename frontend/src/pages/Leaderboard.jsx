@@ -5,7 +5,7 @@ import { allianceBadgeStyle } from "@/lib/colors";
 import { LEADERBOARD } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
-import { Users, Calendar, Star, TrendingUp, Crown, Medal, Award, X } from "lucide-react";
+import { Users, Calendar, Star, TrendingUp, Crown, Medal, Award, X, Download, GitCompare } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -17,9 +17,29 @@ export default function Leaderboard() {
   const [group, setGroup] = useState(null);
   // Reset the selected group whenever the tab flips so a stale group from the
   // other scope doesn't leave the leaderboard empty.
-  useEffect(() => { setGroup(null); }, [filter]);
+  useEffect(() => { setGroup(null); setActiveEventId(null); setFolderId(null); }, [filter]);
   const [profileId, setProfileId] = useState(null);
   const [archiveEventId, setArchiveEventId] = useState(null);
+  // Under Aktif: when the user picks a specific active event from the chip
+  // strip, `activeEventId` overrides the aggregate leaderboard so the
+  // podium + list reflect only that event's participants.
+  const [activeEventId, setActiveEventId] = useState(null);
+  // Under Arşiv: when set, only events in that folder surface in the
+  // archive grid. Syncs 1-to-1 with the Events page folder taxonomy.
+  const [folderId, setFolderId] = useState(null);
+  // Folder chip drag/drop reorder — mirrors the Events archive UX.
+  const [dragFolderId, setDragFolderId] = useState(null);
+  // Compare mode — when active, archive event cards get checkboxes so the
+  // admin can pick exactly 2 events and open a side-by-side diff modal.
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareIds, setCompareIds] = useState([]); // ordered [a, b]
+  const [showCompareModal, setShowCompareModal] = useState(false);
+  const [exportBusy, setExportBusy] = useState(false);
+  useEffect(() => {
+    // Leaving the archive tab clears any compare state so returning users
+    // land on a clean grid instead of stale checkboxes.
+    if (filter !== "archive") { setCompareMode(false); setCompareIds([]); }
+  }, [filter]);
   const [rawSearch, setRawSearch] = useState("");
   const [debSearch, setDebSearch] = useState("");
   useEffect(() => {
@@ -29,6 +49,7 @@ export default function Leaderboard() {
 
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 5000 });
   const { data: groups } = useSWR("/event-groups", fetcher, { refreshInterval: 10000 });
+  const { data: folders = [] } = useSWR("/event-folders", fetcher, { refreshInterval: 15000 });
   // Live counts for the Active/Archive filter badges. `/event-groups` already
   // returns `{active, count}` per group so we sum without an extra network
   // call. Falls back to 0 while the request is in flight.
@@ -43,8 +64,13 @@ export default function Leaderboard() {
     return { activeCount: a, archiveCount: c };
   }, [groups]);
   const lbScope = filter === "archive" ? "archived" : "active";
+  // Primary leaderboard feed. When the user picks a single active event
+  // from the chip strip, swap in the per-event feed so the whole podium +
+  // list reflects only that event's scorers (rather than the aggregate).
   const { data: lb = [] } = useSWR(
-    `/leaderboard?scope=${lbScope}${group ? `&group_name=${encodeURIComponent(group)}` : ""}`,
+    activeEventId
+      ? `/leaderboard?event_id=${encodeURIComponent(activeEventId)}`
+      : `/leaderboard?scope=${lbScope}${group ? `&group_name=${encodeURIComponent(group)}` : ""}`,
     fetcher,
     { refreshInterval: 5000 },
   );
@@ -59,12 +85,21 @@ export default function Leaderboard() {
   );
   const visibleArchivedEvents = useMemo(
     () => {
-      const base = group ? archivedEvents.filter((e) => e.group_name === group) : archivedEvents;
+      let base = group ? archivedEvents.filter((e) => e.group_name === group) : archivedEvents;
+      // Folder filter — when a folder chip is active, only events assigned
+      // to that folder surface. "none" sentinel means top-level (no folder).
+      if (folderId === "none") {
+        base = base.filter((e) => !e.folder_id);
+      } else if (folderId) {
+        base = base.filter((e) => e.folder_id === folderId);
+      }
       // Ranking is the aggregate view — hidden events never surface here so
       // the totals stay consistent with the /leaderboard aggregation.
-      return base.filter((e) => !e.hidden_from_leaderboard);
+      // Sort newest → oldest inside a folder so admins land on recent events.
+      const filtered = base.filter((e) => !e.hidden_from_leaderboard);
+      return [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
     },
-    [group, archivedEvents],
+    [group, archivedEvents, folderId],
   );
   const visibleActiveEvents = useMemo(
     () => {
@@ -314,6 +349,175 @@ export default function Leaderboard() {
           );
         })()}
 
+        {/* Active events select-list — under the Aktif filter the user picks
+            a specific event to zoom into. Selecting one swaps the aggregate
+            podium + list for that event's own ranking (excludes members
+            with no score in that event). Clicking the active chip again
+            clears the selection back to the aggregate. */}
+        {filter !== "archive" && visibleActiveEvents.length > 0 && (
+          <div
+            className="flex gap-1.5 mb-3 overflow-x-auto pb-1 flex-nowrap"
+            data-testid="leaderboard-active-event-strip"
+            style={{ scrollBehavior: "smooth" }}
+          >
+            <button
+              data-testid="leaderboard-active-event-all"
+              onClick={() => setActiveEventId(null)}
+              className={`chip ${!activeEventId ? "active" : ""}`}
+              style={!activeEventId ? {
+                padding: "5px 10px",
+                fontSize: 9,
+                fontWeight: 800,
+                letterSpacing: "0.10em",
+                textTransform: "uppercase",
+                borderColor: "#F5A623",
+                color: "#FFF7ED",
+                background: "linear-gradient(180deg, rgba(245,166,35,0.30), rgba(180,83,9,0.55))",
+                boxShadow: "0 0 8px rgba(245,166,35,0.45)",
+                fontFamily: "Cinzel, serif",
+                whiteSpace: "nowrap",
+              } : {
+                padding: "5px 10px",
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: "0.10em",
+                textTransform: "uppercase",
+                borderColor: "rgba(245,166,35,0.45)",
+                color: "#F5A623",
+                background: "rgba(30,20,15,0.85)",
+                fontFamily: "Cinzel, serif",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {t("all_short")}
+            </button>
+            {visibleActiveEvents.map((ev) => {
+              const isActive = activeEventId === ev.id;
+              return (
+                <button
+                  key={ev.id}
+                  data-testid={`leaderboard-active-event-${ev.id}`}
+                  onClick={() => setActiveEventId(isActive ? null : ev.id)}
+                  className={`chip ${isActive ? "active" : ""}`}
+                  title={ev.name}
+                  style={isActive ? {
+                    padding: "5px 10px",
+                    fontSize: 9,
+                    fontWeight: 800,
+                    letterSpacing: "0.08em",
+                    textTransform: "none",
+                    borderColor: "#F5A623",
+                    color: "#FFF7ED",
+                    background: "linear-gradient(180deg, rgba(245,166,35,0.30), rgba(180,83,9,0.55))",
+                    boxShadow: "0 0 10px rgba(245,166,35,0.55), inset 0 0 6px rgba(245,166,35,0.20)",
+                    textShadow: "0 1px 3px rgba(0,0,0,0.7)",
+                    fontFamily: "Rajdhani, sans-serif",
+                    whiteSpace: "nowrap",
+                    maxWidth: 180,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    display: "inline-block",
+                  } : {
+                    padding: "5px 10px",
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "none",
+                    borderColor: "rgba(245,166,35,0.45)",
+                    color: "#EAD8B0",
+                    background: "rgba(30,20,15,0.85)",
+                    fontFamily: "Rajdhani, sans-serif",
+                    whiteSpace: "nowrap",
+                    maxWidth: 180,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    display: "inline-block",
+                  }}
+                >
+                  {ev.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Archive folder chips — synced with Events archive folder taxonomy.
+            Click a folder to narrow the archive grid to just events assigned
+            to it. "Tümü" clears the filter, "Klasörsüz" shows only
+            top-level events. */}
+        {filter === "archive" && folders.length > 0 && (
+          <div
+            className="flex gap-1.5 mb-3 overflow-x-auto pb-1 flex-nowrap"
+            data-testid="leaderboard-folder-strip"
+            style={{ scrollBehavior: "smooth" }}
+          >
+            <button
+              data-testid="leaderboard-folder-all"
+              onClick={() => setFolderId(null)}
+              className={`chip ${!folderId ? "active" : ""}`}
+              style={{ padding: "5px 10px", fontSize: 10, fontWeight: 800, whiteSpace: "nowrap" }}
+            >
+              📁 {t("all_short")}
+            </button>
+            <button
+              data-testid="leaderboard-folder-none"
+              onClick={() => setFolderId(folderId === "none" ? null : "none")}
+              className={`chip ${folderId === "none" ? "active" : ""}`}
+              style={{ padding: "5px 10px", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}
+            >
+              Klasörsüz
+            </button>
+            {folders.map((f) => {
+              const isSel = folderId === f.id;
+              const isDragTarget = dragFolderId && dragFolderId !== f.id;
+              return (
+                <button
+                  key={f.id}
+                  data-testid={`leaderboard-folder-${f.id}`}
+                  draggable="true"
+                  onDragStart={(e) => { setDragFolderId(f.id); e.dataTransfer.effectAllowed = "move"; }}
+                  onDragEnd={() => setDragFolderId(null)}
+                  onDragOver={(e) => { if (isDragTarget) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }}
+                  onDrop={(e) => {
+                    if (!isDragTarget) return;
+                    e.preventDefault();
+                    const ids = folders.map((x) => x.id);
+                    const from = ids.indexOf(dragFolderId);
+                    const to = ids.indexOf(f.id);
+                    if (from < 0 || to < 0 || from === to) return;
+                    ids.splice(to, 0, ids.splice(from, 1)[0]);
+                    api.post("/event-folders/reorder", { ids })
+                      .then(() => toast.success("Klasör sırası güncellendi"))
+                      .catch((err) => toast.error(err?.response?.data?.detail || err.message));
+                    setDragFolderId(null);
+                  }}
+                  onClick={() => setFolderId(isSel ? null : f.id)}
+                  className={`chip ${isSel ? "active" : ""}`}
+                  title={`${f.name} — sürükleyerek yeniden sırala`}
+                  style={{
+                    padding: "5px 10px",
+                    fontSize: 10,
+                    fontWeight: isSel ? 800 : 700,
+                    whiteSpace: "nowrap",
+                    borderColor: f.color || (isSel ? "#F5A623" : "rgba(245,166,35,0.45)"),
+                    color: isSel ? "#FFF7ED" : "#EAD8B0",
+                    background: isSel && f.color ? `${f.color}30` : undefined,
+                    outline: isDragTarget ? "2px dashed rgba(245,166,35,0.6)" : "none",
+                    outlineOffset: 2,
+                    cursor: "grab",
+                    opacity: dragFolderId === f.id ? 0.5 : 1,
+                  }}
+                >
+                  📁 {f.name}
+                  {typeof f.archived_count === "number" && (
+                    <span className="ml-1 opacity-70 mono">({f.archived_count})</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Podium — Stone & Fire (always lit) */}
         {filter !== "archive" && (top3[0] || top3[1] || top3[2]) && (
           <div className="mb-6 mt-3 fade-in" style={{ display: "grid", gridTemplateColumns: "0.85fr 1fr 0.85fr", gap: "4px", alignItems: "end" }}>
@@ -559,40 +763,171 @@ export default function Leaderboard() {
 
         {filter === "archive" && (
           <div className="mb-6" data-testid="archive-events-grid">
-            <div className="section-title heading-cinzel">{t("archive_events_title")}</div>
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+              <div className="section-title heading-cinzel m-0">{t("archive_events_title")}</div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  data-testid="archive-compare-toggle"
+                  onClick={() => {
+                    setCompareMode(!compareMode);
+                    setCompareIds([]);
+                  }}
+                  className={`chip text-[10px] flex items-center gap-1 ${compareMode ? "active" : ""}`}
+                  style={{
+                    padding: "5px 10px",
+                    whiteSpace: "nowrap",
+                    borderColor: compareMode ? "#A855F7" : "rgba(168,85,247,0.45)",
+                    color: compareMode ? "#F5F3FF" : "#C4B5FD",
+                    background: compareMode ? "rgba(168,85,247,0.20)" : undefined,
+                  }}
+                  title="İki arşiv etkinlik seçip karşılaştır"
+                >
+                  <GitCompare className="w-3 h-3" /> Karşılaştır
+                </button>
+                {compareMode && compareIds.length === 2 && (
+                  <button
+                    type="button"
+                    data-testid="archive-compare-open"
+                    onClick={() => setShowCompareModal(true)}
+                    className="chip text-[10px] flex items-center gap-1"
+                    style={{
+                      padding: "5px 10px",
+                      whiteSpace: "nowrap",
+                      borderColor: "#F5A623",
+                      color: "#FFF7ED",
+                      background: "linear-gradient(180deg, rgba(245,166,35,0.30), rgba(180,83,9,0.55))",
+                      boxShadow: "0 0 8px rgba(245,166,35,0.45)",
+                    }}
+                  >
+                    Görüntüle →
+                  </button>
+                )}
+                <button
+                  type="button"
+                  data-testid="archive-csv-export"
+                  disabled={exportBusy}
+                  onClick={async () => {
+                    setExportBusy(true);
+                    try {
+                      const token = localStorage.getItem("ol_token");
+                      const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/reports/archive-points-export.csv`, {
+                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                      });
+                      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                      const blob = await res.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      const today = new Date().toISOString().slice(0, 10);
+                      a.download = `arsiv_puanlar_${today}.csv`;
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                      URL.revokeObjectURL(url);
+                      toast.success("CSV indirildi");
+                    } catch (e) {
+                      toast.error(`CSV indirilemedi: ${e.message}`);
+                    } finally { setExportBusy(false); }
+                  }}
+                  className="chip text-[10px] flex items-center gap-1"
+                  style={{
+                    padding: "5px 10px",
+                    whiteSpace: "nowrap",
+                    borderColor: "rgba(34,197,94,0.55)",
+                    color: "#86EFAC",
+                    background: "rgba(34,197,94,0.10)",
+                    opacity: exportBusy ? 0.6 : 1,
+                  }}
+                  title="Tüm arşiv etkinliklerinin üye × puan dökümünü CSV olarak indir"
+                >
+                  <Download className="w-3 h-3" /> {exportBusy ? "İndiriliyor…" : "CSV İndir"}
+                </button>
+              </div>
+            </div>
+            {compareMode && (
+              <div
+                className="mb-2 text-[11px] rounded px-3 py-1.5"
+                data-testid="archive-compare-hint"
+                style={{
+                  background: "rgba(168,85,247,0.08)",
+                  border: "1px dashed rgba(168,85,247,0.4)",
+                  color: "#C4B5FD",
+                }}
+              >
+                {compareIds.length === 0
+                  ? "İki etkinlik seç…"
+                  : compareIds.length === 1
+                    ? "1 etkinlik seçildi, ikincisini seç."
+                    : "2 etkinlik seçildi — 'Görüntüle' ile yan yana kıyaslayın."}
+              </div>
+            )}
             {visibleArchivedEvents.length === 0 ? (
               <div className="card-dark p-6 text-center text-muted-foreground text-sm">{t("archive_events_empty")}</div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                {visibleArchivedEvents.map((e) => (
-                  <button
-                    key={e.id}
-                    data-testid={`archive-event-card-${e.id}`}
-                    onClick={() => setArchiveEventId(e.id)}
-                    className="text-left rounded-lg p-3 transition-all hover:scale-[1.02]"
-                    style={{
-                      background: "linear-gradient(160deg, rgba(60,30,10,0.85) 0%, rgba(20,12,10,0.92) 100%)",
-                      border: "1px solid rgba(212,115,10,0.45)",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,170,80,0.08)",
-                    }}
-                  >
-                    <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "#D4730A", letterSpacing: "0.14em" }}>
-                      {e.group_name || t("event")}
-                    </div>
-                    <div className="text-sm font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }} title={e.name}>
-                      {e.name}
-                    </div>
-                    {e.subtitle && (
-                      <div className="text-[11px] mt-0.5 truncate opacity-80" style={{ color: "#EAD8B0" }} title={e.subtitle}>
-                        {e.subtitle}
+                {visibleArchivedEvents.map((e) => {
+                  const cmpIdx = compareIds.indexOf(e.id);
+                  const isChecked = cmpIdx >= 0;
+                  return (
+                    <button
+                      key={e.id}
+                      data-testid={`archive-event-card-${e.id}`}
+                      onClick={() => {
+                        if (compareMode) {
+                          setCompareIds((prev) => {
+                            if (prev.includes(e.id)) return prev.filter((x) => x !== e.id);
+                            if (prev.length >= 2) return [prev[1], e.id];
+                            return [...prev, e.id];
+                          });
+                        } else {
+                          setArchiveEventId(e.id);
+                        }
+                      }}
+                      className="text-left rounded-lg p-3 transition-all hover:scale-[1.02] relative"
+                      style={{
+                        background: isChecked
+                          ? "linear-gradient(160deg, rgba(76,29,149,0.55) 0%, rgba(30,58,138,0.45) 100%)"
+                          : "linear-gradient(160deg, rgba(60,30,10,0.85) 0%, rgba(20,12,10,0.92) 100%)",
+                        border: isChecked ? "2px solid #A855F7" : "1px solid rgba(212,115,10,0.45)",
+                        boxShadow: isChecked
+                          ? "0 4px 12px rgba(168,85,247,0.4), inset 0 0 12px rgba(168,85,247,0.20)"
+                          : "0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,170,80,0.08)",
+                      }}
+                    >
+                      {compareMode && (
+                        <div
+                          className="absolute top-2 right-2 rounded-full flex items-center justify-center text-[10px] font-bold"
+                          data-testid={`archive-compare-check-${e.id}`}
+                          style={{
+                            width: 20,
+                            height: 20,
+                            background: isChecked ? "#A855F7" : "rgba(255,255,255,0.10)",
+                            color: isChecked ? "#FFF" : "#C4B5FD",
+                            border: `1px solid ${isChecked ? "#F5F3FF" : "rgba(168,85,247,0.55)"}`,
+                          }}
+                        >
+                          {isChecked ? cmpIdx + 1 : ""}
+                        </div>
+                      )}
+                      <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "#D4730A", letterSpacing: "0.14em" }}>
+                        {e.group_name || t("event")}
                       </div>
-                    )}
-                    <div className="flex items-center justify-between mt-2 text-[10px]" style={{ color: "#A88060" }}>
-                      <span>{e.date || "—"}</span>
-                      <span className="font-bold mono" style={{ color: "#E74C1A" }}>×{e.multiplier ?? 1}</span>
-                    </div>
-                  </button>
-                ))}
+                      <div className="text-sm font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }} title={e.name}>
+                        {e.name}
+                      </div>
+                      {e.subtitle && (
+                        <div className="text-[11px] mt-0.5 truncate opacity-80" style={{ color: "#EAD8B0" }} title={e.subtitle}>
+                          {e.subtitle}
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between mt-2 text-[10px]" style={{ color: "#A88060" }}>
+                        <span>{e.date || "—"}</span>
+                        <span className="font-bold mono" style={{ color: "#E74C1A" }}>×{e.multiplier ?? 1}</span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -672,6 +1007,15 @@ export default function Leaderboard() {
       </div>
 
       <MemberProfileDialog memberId={profileId} open={!!profileId} onClose={() => setProfileId(null)} />
+      {showCompareModal && compareIds.length === 2 && (
+        <CompareEventsModal
+          eventIds={compareIds}
+          events={archivedEvents}
+          allianceColors={allianceColors}
+          onClose={() => setShowCompareModal(false)}
+          onPickMember={(mid) => { setShowCompareModal(false); setProfileId(mid); }}
+        />
+      )}
       {archiveEvent && (
         <div
           data-testid="archive-event-modal"
@@ -776,6 +1120,222 @@ export default function Leaderboard() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CompareEventsModal({ eventIds, events, allianceColors, onClose, onPickMember }) {
+  const [aId, bId] = eventIds;
+  const a = events.find((e) => e.id === aId);
+  const b = events.find((e) => e.id === bId);
+  const { data: aLb = [] } = useSWR(aId ? `/leaderboard?event_id=${encodeURIComponent(aId)}` : null, fetcher);
+  const { data: bLb = [] } = useSWR(bId ? `/leaderboard?event_id=${encodeURIComponent(bId)}` : null, fetcher);
+
+  // Build per-member score maps for the diff view. `both` = participated in
+  // both events (with per-side deltas); `onlyA` / `onlyB` = participated in
+  // exactly one side.
+  const { both, onlyA, onlyB, totalA, totalB } = useMemo(() => {
+    const aMap = new Map(aLb.map((r) => [r.member_id, r]));
+    const bMap = new Map(bLb.map((r) => [r.member_id, r]));
+    const bothIds = [...aMap.keys()].filter((id) => bMap.has(id));
+    const both = bothIds
+      .map((id) => {
+        const ar = aMap.get(id);
+        const br = bMap.get(id);
+        return {
+          id,
+          name: ar.name || br.name,
+          alliance_name: ar.alliance_name || br.alliance_name,
+          a: Number(ar.total_points || 0),
+          b: Number(br.total_points || 0),
+        };
+      })
+      .sort((x, y) => (y.a + y.b) - (x.a + x.b));
+    const onlyA = [...aMap.values()].filter((r) => !bMap.has(r.member_id));
+    const onlyB = [...bMap.values()].filter((r) => !aMap.has(r.member_id));
+    const totalA = aLb.reduce((s, r) => s + Number(r.total_points || 0), 0);
+    const totalB = bLb.reduce((s, r) => s + Number(r.total_points || 0), 0);
+    return { both, onlyA, onlyB, totalA, totalB };
+  }, [aLb, bLb]);
+
+  const badge = (r) => (
+    <span
+      className="text-[9px] font-bold rounded-full"
+      style={{
+        background: (r.alliance_name && allianceColors[r.alliance_name]) || "#E74C1A",
+        color: "#fff",
+        padding: "2px 7px",
+        letterSpacing: "0.05em",
+        textTransform: "none",
+        fontFamily: "Cinzel, Rajdhani, serif",
+        border: "1px solid rgba(255,255,255,0.15)",
+      }}
+    >
+      {r.alliance_name || "-"}
+    </span>
+  );
+
+  return (
+    <div
+      data-testid="archive-compare-modal"
+      onClick={onClose}
+      className="fixed inset-0 z-[9998] flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-3xl rounded-xl overflow-hidden flex flex-col"
+        style={{
+          background: "linear-gradient(180deg, #1E1410 0%, #0F0806 100%)",
+          border: "1px solid rgba(168,85,247,0.55)",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.7), 0 0 40px rgba(168,85,247,0.25)",
+          maxHeight: "88vh",
+        }}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "rgba(168,85,247,0.35)" }}>
+          <div className="flex items-center gap-2 min-w-0">
+            <GitCompare className="w-4 h-4" style={{ color: "#A855F7", flexShrink: 0 }} />
+            <div className="text-sm font-bold uppercase tracking-widest" style={{ color: "#F5F3FF", fontFamily: "Cinzel, serif" }}>
+              Etkinlik Karşılaştırma
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            data-testid="archive-compare-modal-close"
+            className="p-1.5 rounded hover:bg-white/10"
+            style={{ color: "#F5F0E8" }}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 p-3 border-b" style={{ borderColor: "rgba(168,85,247,0.2)" }}>
+          {[
+            { label: "A", ev: a, total: totalA, count: aLb.length },
+            { label: "B", ev: b, total: totalB, count: bLb.length },
+          ].map((side) => (
+            <div
+              key={side.label}
+              data-testid={`archive-compare-header-${side.label}`}
+              className="rounded-lg p-2"
+              style={{
+                background: "linear-gradient(160deg, rgba(60,30,10,0.75) 0%, rgba(20,12,10,0.85) 100%)",
+                border: "1px solid rgba(168,85,247,0.4)",
+              }}
+            >
+              <div className="text-[10px] uppercase tracking-widest" style={{ color: "#C4B5FD", letterSpacing: "0.14em" }}>
+                {side.label} · {side.ev?.group_name || "-"} · {String(side.ev?.date || "").slice(0, 10)}
+              </div>
+              <div className="text-sm font-bold truncate mt-1" style={{ color: "#F5F0E8" }} title={side.ev?.name}>
+                {side.ev?.name || "—"}
+              </div>
+              <div className="mt-1 flex items-center gap-3 text-[11px]" style={{ color: "#EAD8B0" }}>
+                <span>👥 {side.count} katılımcı</span>
+                <span className="mono font-bold" style={{ color: "#F5A623" }}>{fmt(side.total)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+          {/* Both — matched participants */}
+          <div>
+            <div className="text-[10px] uppercase tracking-widest mb-1.5 font-bold" style={{ color: "#C4B5FD", letterSpacing: "0.14em" }}>
+              🤝 Her ikisinde katılan ({both.length})
+            </div>
+            {both.length === 0 ? (
+              <div className="rounded p-2 text-[11px] text-center" style={{ background: "rgba(255,255,255,0.03)", color: "#94A3B8" }}>
+                Eşleşen katılımcı yok
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1">
+                <div className="grid text-[9px] font-bold uppercase px-2" style={{ gridTemplateColumns: "auto auto 1fr auto auto auto", gap: 8, color: "#D4730A", letterSpacing: "0.08em" }}>
+                  <span></span>
+                  <span></span>
+                  <span>Üye</span>
+                  <span className="text-right">A</span>
+                  <span className="text-right">B</span>
+                  <span className="text-right">Fark</span>
+                </div>
+                {both.slice(0, 30).map((r, idx) => {
+                  const diff = r.b - r.a;
+                  const diffColor = diff > 0 ? "#4ADE80" : diff < 0 ? "#F87171" : "#94A3B8";
+                  const diffSign = diff > 0 ? "+" : "";
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      data-testid={`archive-compare-both-row-${r.id}`}
+                      onClick={() => onPickMember(r.id)}
+                      className="grid items-center rounded px-2 py-1.5 text-left hover:bg-white/5"
+                      style={{
+                        gridTemplateColumns: "auto auto 1fr auto auto auto",
+                        gap: 8,
+                        background: "rgba(20,12,10,0.5)",
+                        border: "1px solid rgba(255,255,255,0.06)",
+                      }}
+                    >
+                      <span className="text-[9px] mono opacity-70" style={{ color: "#D4730A", minWidth: 20 }}>#{idx + 1}</span>
+                      {badge(r)}
+                      <span className="text-xs font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }}>{r.name}</span>
+                      <span className="text-xs mono text-right" style={{ color: "#EAD8B0" }}>{fmt(r.a)}</span>
+                      <span className="text-xs mono text-right" style={{ color: "#EAD8B0" }}>{fmt(r.b)}</span>
+                      <span className="text-xs mono text-right font-bold" style={{ color: diffColor }}>{diffSign}{fmt(diff)}</span>
+                    </button>
+                  );
+                })}
+                {both.length > 30 && (
+                  <div className="text-[10px] text-center py-1 opacity-60" style={{ color: "#94A3B8" }}>
+                    …ve {both.length - 30} kişi daha
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Only A / Only B */}
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { label: "🅰️ Sadece A", rows: onlyA, color: "#F5A623", testId: "onlyA" },
+              { label: "🅱️ Sadece B", rows: onlyB, color: "#A855F7", testId: "onlyB" },
+            ].map((side) => (
+              <div key={side.testId}>
+                <div className="text-[10px] uppercase tracking-widest mb-1.5 font-bold" style={{ color: side.color, letterSpacing: "0.14em" }}>
+                  {side.label} ({side.rows.length})
+                </div>
+                {side.rows.length === 0 ? (
+                  <div className="rounded p-2 text-[11px] text-center" style={{ background: "rgba(255,255,255,0.03)", color: "#94A3B8" }}>
+                    Boş
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    {side.rows.slice(0, 20).map((r) => (
+                      <button
+                        key={r.member_id}
+                        type="button"
+                        data-testid={`archive-compare-${side.testId}-row-${r.member_id}`}
+                        onClick={() => onPickMember(r.member_id)}
+                        className="flex items-center gap-2 rounded px-2 py-1 text-left hover:bg-white/5"
+                        style={{ background: "rgba(20,12,10,0.5)", border: "1px solid rgba(255,255,255,0.06)" }}
+                      >
+                        {badge(r)}
+                        <span className="text-xs truncate flex-1 font-bold" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }}>{r.name}</span>
+                        <span className="text-xs mono" style={{ color: side.color }}>{fmt(r.total_points)}</span>
+                      </button>
+                    ))}
+                    {side.rows.length > 20 && (
+                      <div className="text-[10px] text-center py-1 opacity-60" style={{ color: "#94A3B8" }}>
+                        …ve {side.rows.length - 20} kişi daha
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

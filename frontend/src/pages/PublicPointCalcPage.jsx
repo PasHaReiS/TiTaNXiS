@@ -43,11 +43,8 @@ function TranslatedText({ source, translations }) {
 
 function ReadOnlyTable({ table, index, translations }) {
   const { t } = useTranslation();
-  const miktarNum = Number(table.miktar) || 0;
   const mult = (table.multipliers && table.multipliers[0]) || { name: "", value: 0 };
-  const materials = table.materials || [];
   const multValue = Number(mult.value) || 0;
-  const totalPoints = miktarNum * multValue;
   const title = table.title || "";
 
   return (
@@ -64,18 +61,7 @@ function ReadOnlyTable({ table, index, translations }) {
         {title ? <TranslatedText source={title} translations={translations} /> : `${t("pc_table")} #${index + 1}`}
       </div>
 
-      <div className="mb-3">
-        <div className="text-[10px] font-bold uppercase mb-1" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>
-          {t("pc_miktar")}
-        </div>
-        <div className="rounded px-3 py-1.5 text-lg font-bold text-center"
-          style={{ background: "#1A1210", border: "1px solid #E74C1A", color: "#F5F0E8" }}
-          data-testid={`pub-pc-table-miktar-${table.id}`}>
-          {fmt(miktarNum)}
-        </div>
-      </div>
-
-      <div className="mb-3">
+      <div>
         <div className="text-[10px] font-bold uppercase mb-1" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>
           {t("pc_multiplier")}
         </div>
@@ -88,60 +74,6 @@ function ReadOnlyTable({ table, index, translations }) {
           </span>
           <span className="font-bold" style={{ color: "#F5A623" }}>{fmt(multValue)}</span>
         </div>
-      </div>
-
-      <div
-        className="mb-3 p-2 rounded-lg flex items-center justify-between"
-        style={{
-          background: "linear-gradient(135deg, rgba(76,29,149,0.35), rgba(30,58,138,0.35))",
-          border: "1px solid rgba(168,85,247,0.4)",
-        }}
-        data-testid={`pub-pc-table-total-${table.id}`}
-      >
-        <span className="text-[10px] font-bold uppercase" style={{ color: "#E0E7FF", letterSpacing: "0.08em" }}>
-          {t("pc_total_points")}
-        </span>
-        <span className="text-xl font-bold" style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}>
-          {fmt(totalPoints)}
-        </span>
-      </div>
-
-      <div>
-        <div className="text-[10px] font-bold uppercase mb-1" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>
-          {t("pc_units")}
-        </div>
-        {materials.length === 0 ? (
-          <div className="text-[11px] px-3 py-2 rounded"
-            style={{ color: "#F5F0E8", opacity: 0.5, background: "#1A1210", border: "1px dashed rgba(255,255,255,0.1)" }}>
-            {t("pc_units_empty")}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            <div className="grid gap-2 text-[10px] font-bold uppercase px-2"
-              style={{ gridTemplateColumns: "2fr 1fr 1fr", color: "#D4730A", opacity: 0.8, letterSpacing: "0.06em" }}>
-              <span>{t("pc_unit_name")}</span>
-              <span className="text-center">{t("pc_unit_amount")}</span>
-              <span className="text-right">{t("pc_unit_total")}</span>
-            </div>
-            {materials.map((u) => {
-              const amt = Number(u.amount) || 0;
-              const total = miktarNum * amt;
-              return (
-                <div key={u.id}
-                  className="grid gap-2 items-center rounded px-2 py-1 text-sm"
-                  style={{ gridTemplateColumns: "2fr 1fr 1fr", background: "#1A1210", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <span style={{ color: "#F5F0E8" }}>
-                    {u.name
-                      ? <TranslatedText source={u.name} translations={translations} />
-                      : <span style={{ opacity: 0.4 }}>—</span>}
-                  </span>
-                  <span className="text-center" style={{ color: "#F5F0E8", opacity: 0.85 }}>{fmt(amt)}</span>
-                  <span className="text-right font-bold" style={{ color: "#F5A623" }}>{fmt(total)}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
     </div>
   );

@@ -180,16 +180,16 @@ export default function SoldierCalculator() {
       </div>
 
       {/* Tier selector */}
-      <div className="mb-4">
-        <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_tier_label")}</label>
-        <div className="grid grid-cols-5 gap-2">
+      <div className="mb-3">
+        <label className="block text-[10px] mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_tier_label")}</label>
+        <div className="grid grid-cols-5 gap-1.5">
           {TIERS.map((tt) => (
             <motion.button
               key={tt}
               onClick={() => setTier(tt)}
               data-testid={`tier-btn-${tt}`}
               aria-pressed={tier === tt}
-              className="py-2 rounded font-bold uppercase"
+              className="py-1.5 rounded font-bold uppercase"
               whileHover={{ scale: 1.05, boxShadow: "0 0 18px rgba(245,166,35,0.55)" }}
               whileTap={{ scale: 0.95 }}
               animate={{ scale: tier === tt ? 1.05 : 1 }}
@@ -200,8 +200,8 @@ export default function SoldierCalculator() {
                 color: tier === tt ? "#0B0704" : "#F5F0E8",
                 boxShadow: tier === tt ? "0 0 12px rgba(231,76,26,0.55)" : "none",
                 fontFamily: "Cinzel, serif",
-                letterSpacing: "0.08em",
-                fontSize: 13,
+                letterSpacing: "0.06em",
+                fontSize: 11,
               }}
             >
               {tt}
@@ -211,8 +211,8 @@ export default function SoldierCalculator() {
       </div>
 
       {/* Soldier count */}
-      <div className="mb-5">
-        <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_soldier_count")}</label>
+      <div className="mb-3">
+        <label className="block text-[10px] mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_soldier_count")}</label>
         <input
           type="number"
           value={soldierCount}
@@ -220,24 +220,24 @@ export default function SoldierCalculator() {
           data-testid="soldier-count-input"
           placeholder="0"
           min="0"
-          className="w-full text-2xl font-bold text-center rounded-lg"
-          style={{ background: "#1A1210", border: "1px solid #E74C1A", color: "#F5F0E8", padding: "14px 12px" }}
+          className="w-full text-lg font-bold text-center rounded-lg"
+          style={{ background: "#1A1210", border: "1px solid #E74C1A", color: "#F5F0E8", padding: "8px 10px" }}
         />
       </div>
 
-      {/* Resources — 2 columns */}
-      <div className="mb-5">
-        <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_resource_count")}</label>
-        <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
+      {/* Resources — 4 columns (compact) */}
+      <div className="mb-3">
+        <label className="block text-[10px] mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_resource_count")}</label>
+        <div className="grid gap-1.5" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
           {[
             { label: t("sc_food"), value: totalYemek, tid: "res-yemek" },
             { label: t("sc_steel"), value: totalCelik, tid: "res-celik" },
             { label: t("sc_wood"), value: totalOdun, tid: "res-odun" },
             { label: t("sc_gas"), value: totalBenzin, tid: "res-benzin" },
           ].map((it) => (
-            <div key={it.label} style={{ minWidth: 120 }}>
-              <div className="text-[10px] mb-1 font-bold uppercase tracking-widest" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
-              <div data-testid={it.tid} className="rounded font-bold text-sm" style={{ background: "#1A1210", border: "1px solid #333", color: "#F5F0E8", padding: "10px 8px", textAlign: "center" }}>
+            <div key={it.label} style={{ minWidth: 0 }}>
+              <div className="text-[9px] mb-0.5 font-bold uppercase tracking-wider truncate" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
+              <div data-testid={it.tid} className="rounded font-bold text-[11px] truncate" style={{ background: "#1A1210", border: "1px solid #333", color: "#F5F0E8", padding: "5px 4px", textAlign: "center" }}>
                 {fmt(it.value)}
               </div>
             </div>
@@ -245,10 +245,10 @@ export default function SoldierCalculator() {
         </div>
       </div>
 
-      {/* Time — Gün / Saat / Dakika / Saniye */}
-      <div className="mb-5">
-        <label className="block text-xs mb-2 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_duration")}</label>
-        <div className="grid grid-cols-4 gap-2">
+      {/* Time — Gün / Saat / Dakika / Saniye (compact) */}
+      <div className="mb-3">
+        <label className="block text-[10px] mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("sc_duration")}</label>
+        <div className="grid grid-cols-4 gap-1.5">
           {[
             { label: t("sc_days_u"), value: gun, tid: "sure-gun" },
             { label: t("sc_hours_u"), value: saat, tid: "sure-saat" },
@@ -256,8 +256,8 @@ export default function SoldierCalculator() {
             { label: t("sc_seconds_u"), value: saniye, tid: "sure-saniye" },
           ].map((it) => (
             <div key={it.label} className="text-center">
-              <div className="text-[10px] mb-1" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
-              <div data-testid={it.tid} className="rounded font-bold text-lg" style={{ background: "#1A1210", border: "1px solid #333", color: "#F5F0E8", padding: "8px 4px" }}>
+              <div className="text-[9px] mb-0.5" style={{ color: "#F5F0E8", opacity: 0.7 }}>{it.label}</div>
+              <div data-testid={it.tid} className="rounded font-bold text-sm" style={{ background: "#1A1210", border: "1px solid #333", color: "#F5F0E8", padding: "4px 2px" }}>
                 {pad2(it.value)}
               </div>
             </div>
