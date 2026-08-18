@@ -260,7 +260,7 @@ export default function Leaderboard() {
           });
           if (visibleGroups.length === 0) return null;
           return (
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-1" data-testid="leaderboard-group-strip">
+            <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1 flex-nowrap" data-testid="leaderboard-group-strip" style={{ scrollBehavior: "smooth" }}>
               {/* "Tümü" chip removed on Active tab — user requested that only
                   events actually included in the ranking (specific groups)
                   surface. Archive keeps its overall summary chip. */}
@@ -283,20 +283,20 @@ export default function Leaderboard() {
                     onClick={() => setGroup(g.name === group ? null : g.name)}
                     className={`chip ${isActive ? "active" : ""}`}
                     style={isActive ? {
-                      padding: "9px 18px",
-                      fontSize: 12,
+                      padding: "6px 12px",
+                      fontSize: 10,
                       fontWeight: 800,
                       letterSpacing: "0.10em",
                       textTransform: "uppercase",
                       borderColor: "#F5A623",
                       color: "#FFF7ED",
                       background: "linear-gradient(180deg, rgba(245,166,35,0.30), rgba(180,83,9,0.55))",
-                      boxShadow: "0 0 12px rgba(245,166,35,0.55), inset 0 0 10px rgba(245,166,35,0.20)",
-                      textShadow: "0 1px 4px rgba(0,0,0,0.7)",
+                      boxShadow: "0 0 10px rgba(245,166,35,0.55), inset 0 0 8px rgba(245,166,35,0.20)",
+                      textShadow: "0 1px 3px rgba(0,0,0,0.7)",
                       fontFamily: "Cinzel, serif",
                     } : {
-                      padding: "9px 18px",
-                      fontSize: 12,
+                      padding: "6px 12px",
+                      fontSize: 10,
                       fontWeight: 700,
                       letterSpacing: "0.10em",
                       textTransform: "uppercase",

@@ -1029,3 +1029,10 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Fix: Grid wrapper `overflow-y-auto maxHeight:68vh` scrollable oldu
 - Her görsel: `aspectRatio: "1 / 1"` + `minHeight: 120px` → stabil layout, hiç kaybolmuyor
 - 3 görsel özel case (spanBoth) korundu — üçüncü ortalı çıkıyor
+
+## Sıralama — Grup Chip'leri Küçültüldü (Feb 17, 2026)
+- Chip padding `9px 18px` → `6px 12px`
+- Font size 12px → 10px
+- Glow shadow 12px → 10px, text-shadow 4px → 3px
+- Strip container `flex-nowrap` + `scrollBehavior: smooth` — kaydırılabilir kaldı ama daha kompakt
+- Podyum ve tablo aynı ekranda daha rahat sığıyor
