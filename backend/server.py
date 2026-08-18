@@ -1164,6 +1164,33 @@ async def delete_folder_template(template_id: str, _: dict = Depends(require_edi
     return {"deleted": res.deleted_count}
 
 
+@api_router.get("/event-group-results")
+async def list_group_results():
+    """Optional win/loose outcome per event group_name — used by the
+    Leaderboard archive grup-satır view to badge each row."""
+    docs = await db.group_results.find({}, {"_id": 0}).to_list(1000)
+    return docs
+
+
+class GroupOutcomeBody(BaseModel):
+    outcome: Optional[str] = None  # "win" | "loose" | None
+
+
+@api_router.put("/event-group-results/{group_name}")
+async def set_group_result(group_name: str, body: GroupOutcomeBody, _: dict = Depends(require_edit)):
+    if body.outcome not in ("win", "loose", None):
+        raise HTTPException(400, "outcome must be win|loose|null")
+    if body.outcome is None:
+        await db.group_results.delete_one({"group_name": group_name})
+    else:
+        await db.group_results.update_one(
+            {"group_name": group_name},
+            {"$set": {"group_name": group_name, "outcome": body.outcome}},
+            upsert=True,
+        )
+    return {"group_name": group_name, "outcome": body.outcome}
+
+
 @api_router.post("/events/{event_id}/compare-win")
 async def record_compare_win(event_id: str, _: dict = Depends(require_edit)):
     """Increment the compare_wins counter — called by CompareEventsModal

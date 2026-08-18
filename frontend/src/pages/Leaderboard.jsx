@@ -52,6 +52,7 @@ export default function Leaderboard() {
   const { data: stats } = useSWR("/stats", fetcher, { refreshInterval: 5000 });
   const { data: groups } = useSWR("/event-groups", fetcher, { refreshInterval: 10000 });
   const { data: folders = [] } = useSWR("/event-folders", fetcher, { refreshInterval: 15000 });
+  const { data: groupResults = [] } = useSWR("/event-group-results", fetcher, { refreshInterval: 15000 });
   // Live counts for the Active/Archive filter badges. `/event-groups` already
   // returns `{active, count}` per group so we sum without an extra network
   // call. Falls back to 0 while the request is in flight.
@@ -892,33 +893,73 @@ export default function Leaderboard() {
                 if (groupNames.length === 0 && ungrouped.length === 0) {
                   return <div className="card-dark p-6 text-center text-muted-foreground text-sm">{t("archive_events_empty")}</div>;
                 }
+                const outcomeFor = (gn) => (groupResults.find((r) => r.group_name === gn) || {}).outcome || null;
+                const setOutcome = (gn, outcome) => {
+                  api.put(`/event-group-results/${encodeURIComponent(gn)}`, { outcome })
+                    .then(() => { swrMutate("/event-group-results"); toast.success(outcome === "win" ? "🏆 Win" : outcome === "loose" ? "💀 Loose" : "Rozet kaldırıldı"); })
+                    .catch((err) => toast.error(err?.response?.data?.detail || err.message));
+                };
+                const dateRangeFor = (gn) => {
+                  const ds = folderEvents.filter((e) => e.group_name === gn).map((e) => String(e.date || "").slice(0, 10)).filter(Boolean).sort();
+                  if (ds.length === 0) return "—";
+                  return ds.length === 1 ? ds[0] : `${ds[0]} — ${ds[ds.length - 1]}`;
+                };
                 return (
-                  <div className="flex flex-wrap gap-2" data-testid="leaderboard-archive-groups-only">
+                  <div className="flex flex-col gap-2" data-testid="leaderboard-archive-groups-only">
                     {groupNames.map((gn) => {
                       const isSel = group === gn;
+                      const out = outcomeFor(gn);
+                      const outIcon = out === "win" ? "🏆" : out === "loose" ? "💀" : null;
                       return (
-                        <button
+                        <div
                           key={gn}
-                          type="button"
-                          data-testid={`leaderboard-archive-group-chip-${gn}`}
-                          onClick={() => setGroup(isSel ? null : gn)}
-                          className={`chip ${isSel ? "active" : ""}`}
+                          className="flex items-center gap-2 rounded-lg px-3 py-2 transition-all"
                           style={{
-                            padding: "8px 14px",
-                            fontSize: 11,
-                            fontWeight: 700,
-                            borderColor: isSel ? "#F5A623" : `${selColor}55`,
-                            color: isSel ? "#FFF7ED" : "#EAD8B0",
                             background: isSel
-                              ? "linear-gradient(180deg, rgba(245,166,35,0.30), rgba(180,83,9,0.55))"
-                              : `${selColor}12`,
-                            boxShadow: isSel ? "0 0 10px rgba(245,166,35,0.55)" : "none",
-                            fontFamily: "Cinzel, serif",
-                            letterSpacing: "0.06em",
+                              ? `linear-gradient(90deg, ${selColor}22 0%, rgba(20,12,10,0.85) 100%)`
+                              : `${selColor}10`,
+                            border: `1px solid ${isSel ? "#F5A623" : `${selColor}55`}`,
+                            boxShadow: isSel ? "0 0 12px rgba(245,166,35,0.45)" : "none",
+                            cursor: "pointer",
                           }}
+                          onClick={() => setGroup(isSel ? null : gn)}
+                          data-testid={`leaderboard-archive-group-row-${gn}`}
                         >
-                          🤝 {gn}
-                        </button>
+                          <span style={{ fontSize: 16, width: 20, textAlign: "center" }} aria-hidden="true">
+                            {outIcon || "○"}
+                          </span>
+                          <span
+                            className="text-sm font-bold truncate flex-1"
+                            style={{ color: isSel ? "#FFF7ED" : "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.06em" }}
+                            title={gn}
+                          >
+                            {gn}
+                          </span>
+                          <span className="text-[10px] mono opacity-80" style={{ color: selColor }}>
+                            {dateRangeFor(gn)}
+                          </span>
+                          {canEdit && (
+                            <select
+                              data-testid={`leaderboard-archive-group-outcome-${gn}`}
+                              value={out || ""}
+                              onChange={(ev) => { ev.stopPropagation(); setOutcome(gn, ev.target.value || null); }}
+                              onClick={(ev) => ev.stopPropagation()}
+                              className="chip text-[9px] flex-shrink-0"
+                              style={{
+                                padding: "2px 5px",
+                                borderColor: `${selColor}55`,
+                                color: selColor,
+                                background: "rgba(20,12,10,0.85)",
+                                cursor: "pointer",
+                              }}
+                              title="Sonuç ata"
+                            >
+                              <option value="">—</option>
+                              <option value="win">🏆 Win</option>
+                              <option value="loose">💀 Loose</option>
+                            </select>
+                          )}
+                        </div>
                       );
                     })}
                     {ungrouped.length > 0 && (
