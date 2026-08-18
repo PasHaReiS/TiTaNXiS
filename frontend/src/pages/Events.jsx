@@ -915,7 +915,7 @@ export default function Events() {
             const openNewFolder = () => setShowFolderMgr(true);
             return (
               <div data-testid="events-archive-redesign">
-                <div className="grid grid-cols-4 gap-3 mb-4">
+                <div className="grid grid-cols-3 gap-3 mb-4">
                   {cards.map((c) => {
                     const isSel = folderId === c.id || (folderId === "none" && c.id === "__none__");
                     const isDrag = dragFolderId === c.id;
@@ -978,63 +978,63 @@ export default function Events() {
                             })
                             .catch((err) => toast.error(err?.response?.data?.detail || err.message));
                         }}
-                        className="relative rounded-xl p-4 text-center transition-all"
+                        className="relative rounded-xl p-2 text-center transition-all"
                         style={{
                           background: isSel
                             ? `linear-gradient(160deg, ${c.color}55 0%, rgba(20,12,10,0.95) 60%)`
                             : "linear-gradient(160deg, rgba(35,20,12,0.85) 0%, rgba(15,8,5,0.95) 100%)",
                           border: isSel ? `2px solid ${c.color}` : "1px solid rgba(212,115,10,0.35)",
                           boxShadow: isSel
-                            ? `0 0 24px ${c.color}, 0 0 48px ${c.color}55, inset 0 0 24px ${c.color}22`
-                            : "0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,170,80,0.08)",
+                            ? `0 0 20px ${c.color}, 0 0 36px ${c.color}55, inset 0 0 16px ${c.color}22`
+                            : "0 3px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,170,80,0.08)",
                           outline: isDropTarget ? `2px dashed ${c.color}` : "none",
                           outlineOffset: 3,
-                          minHeight: 130,
+                          minHeight: 86,
                           cursor: c.isSpecial ? "pointer" : "grab",
                           opacity: isDrag ? 0.5 : 1,
                         }}
                       >
                         {!c.isSpecial && (
                           <CanEdit>
-                            <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5">
+                            <div className="absolute top-1 right-1 flex items-center gap-0.5">
                               <button
                                 type="button"
                                 data-testid={`events-archive-card-rename-${c.id}`}
                                 onClick={(ev) => { ev.stopPropagation(); renameCard(c); }}
-                                className="p-1 rounded hover:bg-white/10"
+                                className="p-0.5 rounded hover:bg-white/10"
                                 style={{ color: "#93C5FD" }}
                                 title="Yeniden adlandır"
                               >
-                                <Pencil className="w-3 h-3" />
+                                <Pencil className="w-2.5 h-2.5" />
                               </button>
                               <button
                                 type="button"
                                 data-testid={`events-archive-card-delete-${c.id}`}
                                 onClick={(ev) => { ev.stopPropagation(); deleteCard(c); }}
-                                className="p-1 rounded hover:bg-white/10"
+                                className="p-0.5 rounded hover:bg-white/10"
                                 style={{ color: "#FCA5A5" }}
                                 title="Sil"
                               >
-                                <Trash2 className="w-3 h-3" />
+                                <Trash2 className="w-2.5 h-2.5" />
                               </button>
                             </div>
                           </CanEdit>
                         )}
-                        <div style={{ fontSize: 42, lineHeight: 1, marginTop: 4 }}>{c.icon}</div>
+                        <div style={{ fontSize: 28, lineHeight: 1, marginTop: 2 }}>{c.icon}</div>
                         <div
-                          className="text-sm font-bold mt-2 truncate"
+                          className="text-[11px] font-bold mt-1 truncate leading-tight"
                           style={{
                             color: isSel ? "#FFF7ED" : "#F5F0E8",
                             fontFamily: "Cinzel, serif",
-                            letterSpacing: "0.06em",
-                            textShadow: isSel ? `0 0 8px ${c.color}` : "0 1px 2px rgba(0,0,0,0.8)",
+                            letterSpacing: "0.04em",
+                            textShadow: isSel ? `0 0 6px ${c.color}` : "0 1px 2px rgba(0,0,0,0.8)",
                           }}
                           title={c.name}
                         >
                           {c.name}
                         </div>
-                        <div className="text-[10px] mt-0.5 mono" style={{ color: isSel ? c.color : "#94A3B8" }}>
-                          {c.events.length} etkinlik
+                        <div className="text-[9px] mt-0.5 mono" style={{ color: isSel ? c.color : "#94A3B8" }}>
+                          {c.events.length}
                         </div>
                       </button>
                     );
@@ -1044,17 +1044,17 @@ export default function Events() {
                       type="button"
                       data-testid="events-archive-card-new"
                       onClick={openNewFolder}
-                      className="rounded-xl p-4 text-center transition-all"
+                      className="rounded-xl p-2 text-center transition-all"
                       style={{
                         background: "rgba(20,12,10,0.4)",
                         border: "2px dashed rgba(245,166,35,0.4)",
-                        minHeight: 130,
+                        minHeight: 86,
                         cursor: "pointer",
                         color: "#F5A623",
                       }}
                     >
-                      <div style={{ fontSize: 42, lineHeight: 1, marginTop: 4 }}>➕</div>
-                      <div className="text-sm font-bold mt-2" style={{ fontFamily: "Cinzel, serif", letterSpacing: "0.06em" }}>
+                      <div style={{ fontSize: 28, lineHeight: 1, marginTop: 2 }}>➕</div>
+                      <div className="text-[11px] font-bold mt-1" style={{ fontFamily: "Cinzel, serif", letterSpacing: "0.04em" }}>
                         Yeni Klasör
                       </div>
                     </button>
