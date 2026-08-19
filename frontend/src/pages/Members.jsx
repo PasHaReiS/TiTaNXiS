@@ -361,9 +361,7 @@ export default function Members() {
                 title={t("link_account")}
               >
                 <Link2 className="w-3.5 h-3.5" />
-                {(user.member_ids?.length || 0) > 0
-                  ? t("linked_member_count", { count: user.member_ids.length })
-                  : t("link_account")}
+                {t("link_account")}
               </button>
             )}
             <CanEdit>
@@ -1867,7 +1865,6 @@ function CastleStatsCard({ stats, onClose, t }) {
       </div>
 
       <div className="grid grid-cols-4 gap-2">
-        <StatChip label={t("total") || "Toplam"} value={with_castle_level} sub={`${coverage}%`} color="#F5A623" />
         <StatChip label={t("average") || "Ortalama"} value={avg_level} color="#93C5FD" />
         <StatChip label="Max" value={max_level} color="#22C55E" />
         <StatChip label={t("missing") || "Eksik"} value={missing} color="#EF4444" />

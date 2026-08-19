@@ -1128,7 +1128,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               <th style={{width: mode === "members" ? '20px' : '24px', padding:'6px 4px', textAlign:'center', whiteSpace:'nowrap', ...(mode === "event" ? {borderBottom:'1px solid rgba(245,166,35,0.4)'} : {})}}></th>
                             </>)}
                           {mode === "members" && (<>
-                            <th style={{width: subMode === "power" ? '48px' : '36px', padding:'6px 2px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>İttf.</th>
+                            <th style={{width: subMode === "power" ? '56px' : '36px', padding:'6px 2px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>İttf.</th>
                             <th style={{width: subMode === "power" ? '136px' : '90px', minWidth: subMode === "power" ? '136px' : undefined, padding:'6px 4px 6px 10px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Ad</th>
                             {subMode !== "power" && (
                               <th style={{width:'60px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Rank</th>
@@ -1249,7 +1249,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                 fontFamily: 'inherit',
                               };
                               return (<>
-                                <td style={{...cellStyle, width:'36px'}}>
+                                <td style={{...cellStyle, width: subMode === "power" ? '56px' : '36px'}}>
                                 {subMode === "power" ? (
                                   <>
                                     <input
