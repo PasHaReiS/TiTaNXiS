@@ -1142,8 +1142,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                           </>)}
                           {mode === "event" && (<>
                             <th style={{width:'44px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>İttifak</th>
-                            <th style={{maxWidth:'100px', width:'100px', padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Üye Adı</th>
-                            <th style={{width:'50px', padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Rank</th>
+                            <th style={{padding:'6px 4px 6px 12px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Üye Adı</th>
                             <th style={{minWidth:'110px', width:'110px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Puan</th>
                           </>)}
                           {mode === "war" && (<>
@@ -1393,18 +1392,30 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                 allianceGuess = allianceGuess.replace(/[\[\]]/g, "").trim();
                               }
                               const displayName = _stripTagAndJunk(currName ?? "") || currName || "";
-                              const currRank = (rowEdits[i]?.rank ?? r.rank ?? "R1") || "R1";
                               const pointsDisplay = currPoints ? Number(currPoints).toLocaleString("tr-TR") : "";
                               const cellStyle = { padding: '6px 4px', borderTop: '1px solid rgba(245,166,35,0.3)', verticalAlign: 'middle' };
-                              const bareInputStyle = {
+                              // Belirgin input box stili — kullanıcı hemen "buraya
+                              // tıklayabilirim" hissini alsın: hafif koyu arka plan,
+                              // ince gümüş kenarlık, focus'ta amber halka.
+                              const boxInputStyle = {
                                 width: '100%',
-                                background: 'transparent',
-                                border: 'none',
-                                padding: '2px 4px',
+                                background: 'rgba(0,0,0,0.3)',
+                                border: '1px solid rgba(255,255,255,0.15)',
+                                borderRadius: '4px',
+                                padding: '4px 6px',
                                 color: 'white',
                                 fontSize: '12px',
                                 outline: 'none',
                                 fontFamily: 'inherit',
+                                transition: 'border-color 0.15s, box-shadow 0.15s',
+                              };
+                              const onBoxFocus = (e) => {
+                                e.target.style.borderColor = '#fbbf24';
+                                e.target.style.boxShadow = '0 0 0 2px rgba(251,191,36,0.25)';
+                              };
+                              const onBoxBlur = (e) => {
+                                e.target.style.borderColor = 'rgba(255,255,255,0.15)';
+                                e.target.style.boxShadow = 'none';
                               };
                               return (<>
                                 <td style={{ ...cellStyle, width: '44px', textAlign: 'center' }}>
@@ -1413,12 +1424,14 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     list={`ocr-ev-alliance-list-${i}`}
                                     value={allianceGuess || ''}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], alliance_name: e.target.value } }))}
+                                    onFocus={onBoxFocus}
+                                    onBlur={onBoxBlur}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-alliance-${i}`}
                                     placeholder="—"
                                     maxLength={4}
                                     style={{
-                                      ...bareInputStyle,
+                                      ...boxInputStyle,
                                       color: allianceGuess ? '#fbbf24' : 'rgba(255,255,255,0.4)',
                                       fontWeight: 'bold',
                                       textAlign: 'center',
@@ -1430,37 +1443,18 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     {allianceNames.map((n) => (<option key={n} value={n} />))}
                                   </datalist>
                                 </td>
-                                <td style={{ ...cellStyle, maxWidth: '100px', width: '100px' }}>
+                                <td style={{...cellStyle, paddingLeft: '12px'}}>
                                   <input
                                     type="text"
                                     value={rowEdits[i]?.name !== undefined ? currName : displayName}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
+                                    onFocus={onBoxFocus}
+                                    onBlur={onBoxBlur}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-name-${i}`}
-                                    style={{ ...bareInputStyle, whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip' }}
+                                    style={{ ...boxInputStyle, whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip' }}
                                     title={currName || "Üye adı"}
                                   />
-                                </td>
-                                <td style={{ ...cellStyle, width: '50px', textAlign: 'left' }}>
-                                  <select
-                                    value={currRank}
-                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], rank: e.target.value } }))}
-                                    disabled={isExcluded}
-                                    data-testid={`ocr-row-rank-${i}`}
-                                    style={{
-                                      ...bareInputStyle,
-                                      color: rankColor(currRank),
-                                      fontWeight: 'bold',
-                                      cursor: 'pointer',
-                                    }}
-                                    title="Rütbe"
-                                  >
-                                    <option value="R1">R1</option>
-                                    <option value="R2">R2</option>
-                                    <option value="R3">R3</option>
-                                    <option value="R4">R4</option>
-                                    <option value="R5">R5</option>
-                                  </select>
                                 </td>
                                 <td style={{ ...cellStyle, minWidth: '110px', width: '110px', textAlign: 'right' }}>
                                   <input
@@ -1472,10 +1466,12 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                       const raw = String(e.target.value || "").replace(/[^\d]/g, "");
                                       setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], points: raw === "" ? "" : Number(raw) } }));
                                     }}
+                                    onFocus={onBoxFocus}
+                                    onBlur={onBoxBlur}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-points-${i}`}
                                     style={{
-                                      ...bareInputStyle,
+                                      ...boxInputStyle,
                                       color: '#f97316',
                                       textAlign: 'right',
                                       fontFamily: 'monospace',
