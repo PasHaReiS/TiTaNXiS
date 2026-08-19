@@ -181,8 +181,12 @@ class OcrApplyMembersBody(BaseModel):
 
 class OcrApplyEventPointsBody(BaseModel):
     event_id: str
-    participants: list[dict]  # [{name: str, points: int}]
+    participants: list[dict]  # [{name: str, points: int, rank?: str, alliance_name?: str}]
     multiplier: Optional[float] = 1.0
+    # When True, duplicate members (already scored in this event) get their
+    # existing point rows DELETED and replaced with the new OCR values.
+    # When False (default), duplicates are skipped and surfaced in `skipped_duplicates`.
+    overwrite_duplicates: bool = False
 
 
 def make_ocr_router(db, require_edit, require_auth):
@@ -359,11 +363,13 @@ def make_ocr_router(db, require_edit, require_auth):
             return t if t in existing_alliances else t
 
         created = 0
+        overwritten = 0  # duplicates whose old point rows were deleted + replaced
         skipped_duplicates: list[dict] = []  # rows blocked because member already has points for this event
         new_members: list[str] = []
         errors: list[str] = []
         docs: list[dict] = []
         new_member_docs: list[dict] = []
+        overwrite_member_ids: list[str] = []  # collect ids so we bulk-delete once
         now_iso_str = _dt.now(_tz.utc).isoformat()
         # Preflight: existing point rows for this event (by member_id) so we can
         # BLOCK duplicate submissions instead of silently double-counting.
@@ -400,12 +406,19 @@ def make_ocr_router(db, require_edit, require_auth):
                 # can decide (edit the existing row via the manual Puan panel, or
                 # deliberately delete the old row first).
                 if target_member_id in existing_point_member_ids:
-                    skipped_duplicates.append({
-                        "name": target_name,
-                        "member_id": target_member_id,
-                        "attempted_points": pts_int,
-                    })
-                    continue
+                    if body.overwrite_duplicates:
+                        # Deliberate overwrite path — mark the existing rows
+                        # for bulk deletion below, then let the fresh row fall
+                        # through to the insert list.
+                        overwrite_member_ids.append(target_member_id)
+                        overwritten += 1
+                    else:
+                        skipped_duplicates.append({
+                            "name": target_name,
+                            "member_id": target_member_id,
+                            "attempted_points": pts_int,
+                        })
+                        continue
                 note = (
                     "OCR" if match_key == key
                     else f"OCR (fuzzy match: '{raw_name}' → '{target_name}')"
@@ -454,6 +467,13 @@ def make_ocr_router(db, require_edit, require_auth):
 
         if new_member_docs:
             await db.members.insert_many(new_member_docs)
+        # Overwrite mode: wipe the previous point rows for the flagged members
+        # BEFORE inserting the new ones so we don't briefly double-count.
+        if overwrite_member_ids:
+            await db.points.delete_many({
+                "event_id": body.event_id,
+                "member_id": {"$in": overwrite_member_ids},
+            })
         if docs:
             await db.points.insert_many(docs)
         # Audit log — best-effort.
@@ -475,6 +495,7 @@ def make_ocr_router(db, require_edit, require_auth):
             pass
         return {
             "created": created,
+            "overwritten": overwritten,
             "new_members_created": len(new_member_docs),
             "new_member_names": new_members,
             "skipped_duplicates": skipped_duplicates,

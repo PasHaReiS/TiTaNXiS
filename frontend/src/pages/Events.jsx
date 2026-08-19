@@ -1328,6 +1328,7 @@ export default function Events() {
           const res = await api.post("/ocr/apply-event-points", {
             event_id: extra.event_id,
             participants: parts,
+            overwrite_duplicates: !!extra.overwrite_duplicates,
           });
           mutate("/events");
           mutate((k) => typeof k === "string" && k.startsWith("/points"));
@@ -1336,17 +1337,44 @@ export default function Events() {
           mutate("/stats");
           const errs = (res.data.errors || []).length;
           const newMembers = res.data.new_members_created || 0;
-          const skipped = (res.data.skipped_duplicates || []).length;
+          const skipped = (res.data.skipped_duplicates || []);
+          const overwritten = res.data.overwritten || 0;
           const parts_msg =
             `${res.data.created} puan '${res.data.event_name}' etkinliğine eklendi` +
+            (overwritten ? ` · ${overwritten} üzerine yazıldı` : "") +
             (newMembers ? ` · ${newMembers} yeni üye oluşturuldu` : "") +
-            (skipped ? ` · ${skipped} mükerrer atlandı` : "") +
+            (skipped.length ? ` · ${skipped.length} mükerrer atlandı` : "") +
             (errs ? ` · ${errs} hata` : "");
-          if (skipped > 0) {
-            const names = (res.data.skipped_duplicates || []).slice(0, 5).map((s) => s.name).join(", ");
+          if (skipped.length > 0) {
+            const names = skipped.slice(0, 5).map((s) => s.name).join(", ");
+            const downloadSkippedCsv = () => {
+              const header = "İsim,Üye ID,Denemek istenen puan\n";
+              const body = skipped
+                .map((s) => {
+                  const nm = String(s.name || "").replace(/"/g, '""');
+                  return `"${nm}","${s.member_id || ""}","${s.attempted_points || 0}"`;
+                })
+                .join("\n");
+              const csv = "\uFEFF" + header + body + "\n"; // BOM for Excel utf-8
+              const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              const safeEv = String(res.data.event_name || "etkinlik").replace(/[^a-z0-9-]+/gi, "_");
+              a.href = url;
+              a.download = `ocr-atlanan-${safeEv}-${new Date().toISOString().slice(0, 10)}.csv`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+              toast.success("CSV indirildi");
+            };
             toast.success(parts_msg, {
-              description: `⚠ Atlanan (bu etkinlikte zaten puanı olan): ${names}${skipped > 5 ? ` +${skipped - 5}` : ""}`,
-              duration: 6000,
+              description: `⚠ Atlanan (bu etkinlikte zaten puanı olan): ${names}${skipped.length > 5 ? ` +${skipped.length - 5}` : ""}`,
+              duration: 10000,
+              action: {
+                label: "CSV indir",
+                onClick: downloadSkippedCsv,
+              },
             });
           } else {
             toast.success(parts_msg);

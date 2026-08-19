@@ -178,6 +178,10 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   // Auto-Apply bookkeeping — remember which row indices the useEffect
   // rewrote so admins can undo the whole batch in one tap.
   const [autoAppliedRows, setAutoAppliedRows] = useState([]);
+  // Duplicate-conflict policy for event OCR. `skip` (default) leaves existing
+  // point rows untouched and surfaces the dupes; `overwrite` deletes the old
+  // rows and replaces them with the new OCR values.
+  const [duplicatePolicy, setDuplicatePolicy] = useState("skip"); // skip | overwrite
   // Legend Filter — when set, the preview table only shows rows belonging
   // to this alliance (case-insensitive; "" means no filter). Click a
   // legend chip to toggle.
@@ -463,6 +467,9 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
     setApplying(true);
     try {
       const extra = requireSelection ? { [`${requireSelection.type}_id`]: selection } : {};
+      // Event mode sends the duplicate policy alongside so the backend knows
+      // whether to overwrite or skip existing point rows.
+      if (mode === "event") extra.overwrite_duplicates = duplicatePolicy === "overwrite";
       // Merge inline edits + drop excluded rows so only "approved" names
       // (with any manual fixes) ever hit the DB.
       const applyEditsAndKeep = (arr, kind) => {
@@ -513,20 +520,22 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
       };
       const filteredData = { ...result.data };
       if (mode === "event") {
-        // Client-side duplicate guard — silently drop rows whose resolved name
-        // already has a point row for the picked event. Backend enforces the
-        // same rule, but pre-filtering avoids a confusing "5 kaydedildi · 12
-        // atlandı" result when the admin didn't manually exclude them.
         const parts = applyEditsAndKeep(result.data.participants || [], "event");
-        filteredData.participants = parts.filter((p) => {
-          const clean = _stripTag(String(p.name || "")).toLowerCase();
-          return !(selection && eventExistingByNameLc.has(clean));
-        });
-        // If the filter drops everything, block the save.
-        if ((result.data.participants || []).length > 0 && filteredData.participants.length === 0) {
-          toast.error("Kaydedilecek satır kalmadı — tüm üyeler bu etkinlikte zaten puan almış");
-          setApplying(false);
-          return;
+        // When policy=skip, mirror the backend by dropping duplicate rows on the
+        // client so the toast summary matches what actually landed. When policy
+        // =overwrite, we deliberately KEEP them so the backend can replace.
+        if (duplicatePolicy === "skip") {
+          filteredData.participants = parts.filter((p) => {
+            const clean = _stripTag(String(p.name || "")).toLowerCase();
+            return !(selection && eventExistingByNameLc.has(clean));
+          });
+          if ((result.data.participants || []).length > 0 && filteredData.participants.length === 0) {
+            toast.error("Kaydedilecek satır kalmadı — tüm üyeler bu etkinlikte zaten puan almış");
+            setApplying(false);
+            return;
+          }
+        } else {
+          filteredData.participants = parts;
         }
       } else if (mode === "members") {
         filteredData.members = applyEditsAndKeep(result.data.members || [], "members");
@@ -815,6 +824,48 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                       </button>
                     )}
                   </div>
+                  {mode === "event" && rows.length > 0 && (
+                    <div
+                      className="flex items-center gap-2 rounded-lg px-2 py-1.5 mb-2"
+                      style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(245,166,35,0.20)" }}
+                      data-testid="ocr-bulk-rank-bar"
+                    >
+                      <span
+                        className="text-[10px] font-bold uppercase tracking-widest"
+                        style={{ color: "#F5A623" }}
+                      >
+                        Toplu Rütbe
+                      </span>
+                      <span className="text-[10px] text-white/50">
+                        · her satıra uygula
+                      </span>
+                      <div className="ml-auto inline-flex rounded-md overflow-hidden border" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
+                        {["R1","R2","R3","R4","R5"].map((rk) => (
+                          <button
+                            key={rk}
+                            type="button"
+                            onClick={() => {
+                              setRowEdits((prev) => {
+                                const nx = { ...prev };
+                                rows.forEach((_, i) => {
+                                  if (excludedRows.has(i)) return;
+                                  nx[i] = { ...(nx[i] || {}), rank: rk };
+                                });
+                                return nx;
+                              });
+                              toast.success(`Tüm satırlar ${rk} olarak ayarlandı`);
+                            }}
+                            className="px-2 py-0.5 text-[10px] font-bold transition-all hover:bg-amber-500/20"
+                            style={{ color: "#FCD34D" }}
+                            data-testid={`ocr-bulk-rank-${rk}`}
+                            title={`Önizlemedeki tüm ${rk === "R1" ? "" : "elenmemiş "}satırların rütbesini ${rk} yap`}
+                          >
+                            {rk}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {mode === "event" && selection && (() => {
                     // Preflight duplicate summary — count preview rows whose
                     // resolved name already has a point row for the picked event.
@@ -824,32 +875,77 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                       return eventExistingByNameLc.has(clean) ? acc + 1 : acc;
                     }, 0);
                     if (dupCount === 0) return null;
+                    const isOverwrite = duplicatePolicy === "overwrite";
                     return (
                       <div
                         className="rounded-lg p-2 mb-2 text-[10px]"
-                        style={{ background: "rgba(248,113,113,0.10)", border: "1px solid rgba(248,113,113,0.45)" }}
+                        style={{
+                          background: isOverwrite ? "rgba(245,166,35,0.10)" : "rgba(248,113,113,0.10)",
+                          border: `1px solid ${isOverwrite ? "rgba(245,166,35,0.55)" : "rgba(248,113,113,0.45)"}`,
+                        }}
                         data-testid="ocr-event-dup-banner"
                       >
-                        <div className="flex items-center gap-2 font-bold uppercase tracking-widest" style={{ color: "#FCA5A5" }}>
+                        <div
+                          className="flex items-center gap-2 font-bold uppercase tracking-widest flex-wrap"
+                          style={{ color: isOverwrite ? "#FCD34D" : "#FCA5A5" }}
+                        >
                           <AlertTriangle className="w-3 h-3" />
-                          {dupCount} üye bu etkinlikte zaten puan almış — atlanacak
-                          <button
-                            type="button"
-                            onClick={() => setExcludedRows((prev) => {
-                              const nx = new Set(prev);
-                              rows.forEach((r, i) => {
-                                const clean = _stripTag(rowEdits[i]?.name ?? r.name).toLowerCase();
-                                if (eventExistingByNameLc.has(clean)) nx.add(i);
-                              });
-                              return nx;
-                            })}
-                            className="ml-auto normal-case font-normal underline decoration-dotted"
-                            style={{ color: "#93C5FD" }}
-                            data-testid="ocr-event-dup-exclude-all"
-                            title="Mükerrer satırların hepsini ele"
+                          {dupCount} üye bu etkinlikte zaten puan almış — {isOverwrite ? "üzerine yazılacak" : "atlanacak"}
+                          <div
+                            role="tablist"
+                            aria-label="Mükerrer politikası"
+                            className="ml-auto inline-flex rounded-md overflow-hidden border"
+                            style={{ borderColor: "rgba(255,255,255,0.15)" }}
+                            data-testid="ocr-dup-policy-toggle"
                           >
-                            🗑 hepsini ele
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => setDuplicatePolicy("skip")}
+                              className="px-2 py-0.5 text-[9px] uppercase tracking-widest font-bold transition-all"
+                              style={{
+                                background: !isOverwrite ? "rgba(248,113,113,0.28)" : "rgba(255,255,255,0.05)",
+                                color: !isOverwrite ? "#FCA5A5" : "rgba(255,255,255,0.55)",
+                              }}
+                              aria-pressed={!isOverwrite}
+                              data-testid="ocr-dup-policy-skip"
+                              title="Mükerrer satırları atla, mevcut puanı koru"
+                            >
+                              🚫 Atla
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDuplicatePolicy("overwrite")}
+                              className="px-2 py-0.5 text-[9px] uppercase tracking-widest font-bold transition-all"
+                              style={{
+                                background: isOverwrite ? "rgba(245,166,35,0.28)" : "rgba(255,255,255,0.05)",
+                                color: isOverwrite ? "#FCD34D" : "rgba(255,255,255,0.55)",
+                              }}
+                              aria-pressed={isOverwrite}
+                              data-testid="ocr-dup-policy-overwrite"
+                              title="Mevcut puan satırlarını sil ve OCR ile üzerine yaz"
+                            >
+                              🔄 Üzerine Yaz
+                            </button>
+                          </div>
+                          {!isOverwrite && (
+                            <button
+                              type="button"
+                              onClick={() => setExcludedRows((prev) => {
+                                const nx = new Set(prev);
+                                rows.forEach((r, i) => {
+                                  const clean = _stripTag(rowEdits[i]?.name ?? r.name).toLowerCase();
+                                  if (eventExistingByNameLc.has(clean)) nx.add(i);
+                                });
+                                return nx;
+                              })}
+                              className="normal-case font-normal underline decoration-dotted"
+                              style={{ color: "#93C5FD" }}
+                              data-testid="ocr-event-dup-exclude-all"
+                              title="Mükerrer satırların hepsini ele"
+                            >
+                              🗑 hepsini ele
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
