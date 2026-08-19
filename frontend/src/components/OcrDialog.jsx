@@ -1124,15 +1124,15 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                       <thead>
                         <tr className="text-muted-foreground uppercase tracking-widest">
                             {(mode === "members" || mode === "event") && (<>
-                              <th style={{width:'24px', padding:'6px 4px', textAlign:'center', ...(mode === "event" ? {borderBottom:'1px solid rgba(245,166,35,0.4)'} : {})}}></th>
-                              <th style={{width:'24px', padding:'6px 4px', textAlign:'center', ...(mode === "event" ? {borderBottom:'1px solid rgba(245,166,35,0.4)'} : {})}}></th>
+                              <th style={{width: mode === "members" ? '20px' : '24px', padding:'6px 4px', textAlign:'center', whiteSpace:'nowrap', ...(mode === "event" ? {borderBottom:'1px solid rgba(245,166,35,0.4)'} : {})}}></th>
+                              <th style={{width: mode === "members" ? '20px' : '24px', padding:'6px 4px', textAlign:'center', whiteSpace:'nowrap', ...(mode === "event" ? {borderBottom:'1px solid rgba(245,166,35,0.4)'} : {})}}></th>
                             </>)}
                           {mode === "members" && (<>
-                            <th style={{width:'80px', padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>İttifak</th>
-                            <th style={{padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Üye Adı</th>
-                            <th style={{width:'56px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Rank</th>
-                            <th style={{width:'58px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Kale</th>
-                            <th style={{width:'110px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Güç</th>
+                            <th style={{width:'36px', padding:'6px 2px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>İttf.</th>
+                            <th style={{width:'90px', padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Ad</th>
+                            <th style={{width:'60px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Rank</th>
+                            <th style={{width:'50px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Kale</th>
+                            <th style={{minWidth:'100px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Güç</th>
                           </>)}
                           {mode === "event" && (<>
                             <th style={{width:'44px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>İttifak</th>
@@ -1183,7 +1183,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             title={isAutoApplied ? "Otomatik bağlandı — düzenlersen bu vurgu kalkar" : undefined}
                           >
                             {(mode === "members" || mode === "event") && (<>
-                              <td style={{padding:'4px', textAlign:'center', width:'24px', ...(mode === "event" ? {borderTop:'1px solid rgba(245,166,35,0.3)'} : {})}}>
+                              <td style={{padding:'4px', textAlign:'center', width: mode === "members" ? '20px' : '24px', ...(mode === "event" ? {borderTop:'1px solid rgba(245,166,35,0.3)'} : {})}}>
                                 <input
                                   type="checkbox"
                                   checked={!isExcluded}
@@ -1193,7 +1193,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                   title="Bu satır kaydedilecek mi?"
                                 />
                               </td>
-                              <td style={{padding:'4px', textAlign:'center', width:'24px', ...(mode === "event" ? {borderTop:'1px solid rgba(245,166,35,0.3)'} : {})}}>
+                              <td style={{padding:'4px', textAlign:'center', width: mode === "members" ? '20px' : '24px', ...(mode === "event" ? {borderTop:'1px solid rgba(245,166,35,0.3)'} : {})}}>
                                 <button
                                   type="button"
                                   onClick={toggleExclude}
@@ -1225,7 +1225,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               if (typeof allianceGuess === "string") allianceGuess = allianceGuess.replace(/[\[\]]/g, "").trim();
                               const currRank = (rowEdits[i]?.rank ?? r.rank ?? "R1") || "R1";
                               const currCastle = rowEdits[i]?.castle_level ?? r.castle_level ?? "";
-                              const currPower = rowEdits[i]?.power ?? r.power ?? "";
+                              const currPower = rowEdits[i]?.power ?? r.power ?? r.guc ?? "";
                               // Türkçe binlik ayraçlı görüntüleme — input string tabanlı,
                               // değişimde noktalar sıyrılır ve number olarak state'e yazılır.
                               const powerDisplay = (currPower === "" || currPower === null || currPower === undefined)
@@ -1244,7 +1244,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                 fontFamily: 'inherit',
                               };
                               return (<>
-                                <td style={{...cellStyle, width:'80px'}}>
+                                <td style={{...cellStyle, width:'36px'}}>
                                   <input
                                     type="text"
                                     list={`ocr-alliance-list-${i}`}
@@ -1253,6 +1253,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-alliance-${i}`}
                                     placeholder="—"
+                                    maxLength={4}
                                     style={{
                                       ...inputStyle,
                                       background: allianceGuess ? 'rgba(251,191,36,0.15)' : 'rgba(0,0,0,0.3)',
@@ -1261,7 +1262,8 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                       borderRadius: '9999px',
                                       textAlign: 'center',
                                       fontWeight: 'bold',
-                                      fontSize: '10px',
+                                      fontSize: '11px',
+                                      padding: '3px 2px',
                                     }}
                                     title={allianceGuess || "İttifak"}
                                   />
@@ -1269,7 +1271,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     {allianceNames.map((n) => (<option key={n} value={n} />))}
                                   </datalist>
                                 </td>
-                                <td style={{...cellStyle, minWidth:'180px', width:'auto'}}>
+                                <td style={{...cellStyle, width:'90px'}}>
                                   <input
                                     type="text"
                                     value={currName}
@@ -1278,7 +1280,6 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     data-testid={`ocr-row-name-${i}`}
                                     style={{
                                       ...inputStyle,
-                                      minWidth: '160px',
                                       whiteSpace: 'normal',
                                       overflow: 'visible',
                                       textOverflow: 'clip',
@@ -1305,7 +1306,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     </div>
                                   )}
                                 </td>
-                                <td style={{...cellStyle, width:'56px', textAlign:'center'}}>
+                                <td style={{...cellStyle, width:'60px', textAlign:'center'}}>
                                   <select
                                     value={currRank}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], rank: e.target.value } }))}
@@ -1321,7 +1322,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     <option value="R5">R5</option>
                                   </select>
                                 </td>
-                                <td style={{...cellStyle, width:'58px', textAlign:'center'}}>
+                                <td style={{...cellStyle, width:'50px', textAlign:'center'}}>
                                   <select
                                     value={currCastle}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], castle_level: e.target.value === "" ? "" : Number(e.target.value) } }))}
@@ -1341,7 +1342,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     ))}
                                   </select>
                                 </td>
-                                <td style={{...cellStyle, width:'110px', textAlign:'right'}}>
+                                <td style={{...cellStyle, minWidth:'100px', textAlign:'right'}}>
                                   <input
                                     type="text"
                                     inputMode="numeric"
