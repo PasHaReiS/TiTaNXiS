@@ -1124,8 +1124,8 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                       <thead>
                         <tr className="text-muted-foreground uppercase tracking-widest">
                             {(mode === "members" || mode === "event") && (<>
-                              <th style={{width:'30px', padding:'6px 4px', textAlign:'center'}}></th>
-                              <th style={{width:'30px', padding:'6px 4px', textAlign:'center'}}></th>
+                              <th style={{width:'24px', padding:'6px 4px', textAlign:'center', ...(mode === "event" ? {borderBottom:'1px solid rgba(245,166,35,0.4)'} : {})}}></th>
+                              <th style={{width:'24px', padding:'6px 4px', textAlign:'center', ...(mode === "event" ? {borderBottom:'1px solid rgba(245,166,35,0.4)'} : {})}}></th>
                             </>)}
                           {mode === "members" && (<>
                             <th style={{width:'80px', padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>İttifak</th>
@@ -1135,10 +1135,10 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             <th style={{width:'110px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Güç</th>
                           </>)}
                           {mode === "event" && (<>
-                            <th style={{width:'80px', padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>İttifak</th>
-                            <th style={{padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Üye Adı</th>
-                            <th style={{width:'56px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Rütbe</th>
-                            <th style={{width:'80px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Puan</th>
+                            <th style={{width:'44px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>İttifak</th>
+                            <th style={{padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Üye Adı</th>
+                            <th style={{width:'50px', padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Rank</th>
+                            <th style={{width:'90px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Puan</th>
                           </>)}
                           {mode === "war" && (<>
                             <th className="text-left py-1">Kazanan</th>
@@ -1170,7 +1170,8 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                           return (
                           <React.Fragment key={i}>
                           <tr
-                            className={`border-t border-white/5 transition-colors ${i % 2 === 1 ? "bg-white/[0.02]" : ""}`}
+                            className={`transition-colors ${mode === "event" ? "" : "border-t border-white/5"} ${(mode !== "event" && i % 2 === 1) ? "bg-white/[0.02]" : ""}`}
+                            style={mode === "event" ? { borderTop: '1px solid rgba(245,166,35,0.3)', background: 'rgba(0,0,0,0.2)' } : undefined}
                             data-testid={`ocr-row-${i}`}
                             style={{
                               ...(isExcluded ? { opacity: 0.35, textDecoration: "line-through" } : {}),
@@ -1182,7 +1183,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             title={isAutoApplied ? "Otomatik bağlandı — düzenlersen bu vurgu kalkar" : undefined}
                           >
                             {(mode === "members" || mode === "event") && (<>
-                              <td style={{padding:'4px', textAlign:'center', width:'30px'}}>
+                              <td style={{padding:'4px', textAlign:'center', width:'24px', ...(mode === "event" ? {borderTop:'1px solid rgba(245,166,35,0.3)'} : {})}}>
                                 <input
                                   type="checkbox"
                                   checked={!isExcluded}
@@ -1192,7 +1193,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                   title="Bu satır kaydedilecek mi?"
                                 />
                               </td>
-                              <td style={{padding:'4px', textAlign:'center', width:'30px'}}>
+                              <td style={{padding:'4px', textAlign:'center', width:'24px', ...(mode === "event" ? {borderTop:'1px solid rgba(245,166,35,0.3)'} : {})}}>
                                 <button
                                   type="button"
                                   onClick={toggleExclude}
@@ -1368,8 +1369,8 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               const currName = rowEdits[i]?.name ?? r.name ?? "";
                               const currPoints = Number(rowEdits[i]?.points ?? r.points ?? 0) || 0;
                               let allianceGuess = rowEdits[i]?.alliance_name;
-                              if (allianceGuess === undefined) {
-                                allianceGuess = r.alliance_name;
+                              if (allianceGuess === undefined || allianceGuess === null || allianceGuess === "") {
+                                allianceGuess = r.alliance_name ?? r.alliance ?? r.tag ?? "";
                                 if (!allianceGuess) {
                                   const tag = _extractAllianceTag(currName ?? "");
                                   if (tag) allianceGuess = tag;
@@ -1380,19 +1381,20 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               }
                               const displayName = _stripTagAndJunk(currName ?? "") || currName || "";
                               const currRank = (rowEdits[i]?.rank ?? r.rank ?? "R1") || "R1";
-                              const inputStyle = {
+                              const pointsDisplay = currPoints ? Number(currPoints).toLocaleString("tr-TR") : "";
+                              const cellStyle = { padding: '6px 4px', borderTop: '1px solid rgba(245,166,35,0.3)', verticalAlign: 'middle' };
+                              const bareInputStyle = {
                                 width: '100%',
-                                background: 'rgba(0,0,0,0.25)',
-                                border: '1px solid rgba(255,255,255,0.08)',
-                                borderRadius: '4px',
-                                padding: '3px 6px',
-                                color: '#fff',
+                                background: 'transparent',
+                                border: 'none',
+                                padding: '2px 4px',
+                                color: 'white',
                                 fontSize: '12px',
                                 outline: 'none',
                                 fontFamily: 'inherit',
                               };
                               return (<>
-                                <td style={{padding:'4px', width:'80px'}}>
+                                <td style={{ ...cellStyle, width: '44px', textAlign: 'center' }}>
                                   <input
                                     type="text"
                                     list={`ocr-ev-alliance-list-${i}`}
@@ -1401,43 +1403,43 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-alliance-${i}`}
                                     placeholder="—"
+                                    maxLength={4}
                                     style={{
-                                      width: '100%',
-                                      background: allianceGuess ? 'rgba(251,191,36,0.15)' : 'rgba(0,0,0,0.3)',
-                                      border: allianceGuess ? '1px solid rgba(251,191,36,0.5)' : '1px solid rgba(255,255,255,0.1)',
-                                      borderRadius: '9999px',
-                                      padding: '4px 8px',
+                                      ...bareInputStyle,
                                       color: allianceGuess ? '#fbbf24' : 'rgba(255,255,255,0.4)',
-                                      fontSize: '10px',
-                                      textAlign: 'center',
                                       fontWeight: 'bold',
-                                      outline: 'none',
-                                      fontFamily: 'inherit',
+                                      textAlign: 'center',
+                                      fontSize: '11px',
                                     }}
-                                    title="İttifak"
+                                    title={allianceGuess || "İttifak"}
                                   />
                                   <datalist id={`ocr-ev-alliance-list-${i}`}>
                                     {allianceNames.map((n) => (<option key={n} value={n} />))}
                                   </datalist>
                                 </td>
-                                <td style={{padding:'4px'}}>
+                                <td style={cellStyle}>
                                   <input
                                     type="text"
                                     value={rowEdits[i]?.name !== undefined ? currName : displayName}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-name-${i}`}
-                                    style={inputStyle}
-                                    title="Üye adı"
+                                    style={{ ...bareInputStyle, whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip' }}
+                                    title={currName || "Üye adı"}
                                   />
                                 </td>
-                                <td style={{padding:'4px', width:'50px', textAlign:'center'}}>
+                                <td style={{ ...cellStyle, width: '50px', textAlign: 'left' }}>
                                   <select
                                     value={currRank}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], rank: e.target.value } }))}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-rank-${i}`}
-                                    style={{...inputStyle, color: rankColor(currRank), fontWeight:'bold', textAlign:'center', cursor:'pointer'}}
+                                    style={{
+                                      ...bareInputStyle,
+                                      color: rankColor(currRank),
+                                      fontWeight: 'bold',
+                                      cursor: 'pointer',
+                                    }}
                                     title="Rütbe"
                                   >
                                     <option value="R1">R1</option>
@@ -1447,16 +1449,26 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     <option value="R5">R5</option>
                                   </select>
                                 </td>
-                                <td style={{padding:'4px', width:'70px', textAlign:'right'}}>
+                                <td style={{ ...cellStyle, width: '90px', textAlign: 'right' }}>
                                   <input
-                                    type="number"
-                                    value={currPoints}
-                                    min={0}
-                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], points: e.target.value } }))}
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={pointsDisplay}
+                                    placeholder="0"
+                                    onChange={(e) => {
+                                      const raw = String(e.target.value || "").replace(/[^\d]/g, "");
+                                      setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], points: raw === "" ? "" : Number(raw) } }));
+                                    }}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-points-${i}`}
-                                    style={{...inputStyle, color:'#f97316', textAlign:'right', fontFamily:'monospace', fontWeight:'bold'}}
-                                    title="Puan"
+                                    style={{
+                                      ...bareInputStyle,
+                                      color: '#f97316',
+                                      textAlign: 'right',
+                                      fontFamily: 'monospace',
+                                      fontWeight: 'bold',
+                                    }}
+                                    title={currPoints ? `Puan: ${pointsDisplay}` : "Puan"}
                                   />
                                 </td>
                               </>);
