@@ -340,30 +340,8 @@ export default function Members() {
 
       <div className="px-4">
         <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className="text-xs text-muted-foreground">
-              {t("members_total", { count: totalCount })}
-              {activeFilterCount > 0 && (
-                <span className="ml-2 gold-text">({shownCount} {t("members_word")})</span>
-              )}
-            </p>
-          </div>
+          <div />
           <div className="flex items-center gap-2">
-            {user && (
-              <button
-                data-testid="members-link-account-btn"
-                onClick={() => setLinkOpen(true)}
-                className="chip text-xs flex items-center gap-1.5"
-                style={{
-                  borderColor: (user.member_ids?.length || 0) > 0 ? "rgba(34,197,94,0.5)" : "rgba(245,166,35,0.5)",
-                  color: (user.member_ids?.length || 0) > 0 ? "#4ade80" : "#F5A623",
-                }}
-                title={t("link_account")}
-              >
-                <Link2 className="w-3.5 h-3.5" />
-                {t("link_account")}
-              </button>
-            )}
             <CanEdit>
               <button
                 data-testid="members-guild-csv-btn"
