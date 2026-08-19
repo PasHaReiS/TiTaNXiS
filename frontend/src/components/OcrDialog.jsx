@@ -1128,8 +1128,8 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               <th style={{width: mode === "members" ? '20px' : '24px', padding:'6px 4px', textAlign:'center', whiteSpace:'nowrap', ...(mode === "event" ? {borderBottom:'1px solid rgba(245,166,35,0.4)'} : {})}}></th>
                             </>)}
                           {mode === "members" && (<>
-                            <th style={{width:'36px', padding:'6px 2px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>İttf.</th>
-                            <th style={{width:'90px', padding:'6px 4px 6px 10px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Ad</th>
+                            <th style={{width: subMode === "power" ? '44px' : '36px', padding:'6px 2px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>İttf.</th>
+                            <th style={{width: subMode === "power" ? '160px' : '90px', minWidth: subMode === "power" ? '160px' : undefined, padding:'6px 4px 6px 10px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Ad</th>
                             {subMode !== "power" && (
                               <th style={{width:'60px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Rank</th>
                             )}
@@ -1137,12 +1137,12 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               <th style={{width:'50px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Kale</th>
                             )}
                             {subMode !== "castle_rank" && (
-                              <th style={{minWidth:'100px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Güç</th>
+                              <th style={{width: subMode === "power" ? '160px' : undefined, minWidth: subMode === "power" ? '160px' : '100px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Güç</th>
                             )}
                           </>)}
                           {mode === "event" && (<>
                             <th style={{width:'44px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>İttifak</th>
-                            <th style={{padding:'6px 4px 6px 12px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Üye Adı</th>
+                            <th style={{minWidth:'160px', width:'160px', padding:'6px 4px 6px 12px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Üye Adı</th>
                             <th style={{minWidth:'160px', width:'160px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Puan</th>
                           </>)}
                           {mode === "war" && (<>
@@ -1276,7 +1276,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     {allianceNames.map((n) => (<option key={n} value={n} />))}
                                   </datalist>
                                 </td>
-                                <td style={{...cellStyle, width:'90px', paddingLeft:'10px'}}>
+                                <td style={{...cellStyle, width: subMode === "power" ? '160px' : '90px', minWidth: subMode === "power" ? '160px' : undefined, paddingLeft:'10px'}}>
                                   <input
                                     type="text"
                                     value={currName}
@@ -1352,7 +1352,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                 </td>
                                 )}
                                 {subMode !== "castle_rank" && (
-                                <td style={{...cellStyle, minWidth:'100px', textAlign:'right'}}>
+                                <td style={{...cellStyle, width: subMode === "power" ? '160px' : undefined, minWidth: subMode === "power" ? '160px' : '100px', textAlign:'right'}}>
                                   <input
                                     type="text"
                                     inputMode="numeric"
@@ -1443,7 +1443,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     {allianceNames.map((n) => (<option key={n} value={n} />))}
                                   </datalist>
                                 </td>
-                                <td style={{...cellStyle, paddingLeft: '12px'}}>
+                                <td style={{...cellStyle, paddingLeft: '12px', minWidth: '160px', width: '160px'}}>
                                   <input
                                     type="text"
                                     value={rowEdits[i]?.name !== undefined ? currName : displayName}
