@@ -160,6 +160,29 @@ def _postprocess_rows(data: dict, mode: str) -> dict:
     return data
 
 
+_RANK_ORDER = {"R1": 1, "R2": 2, "R3": 3, "R4": 4, "R5": 5}
+
+
+def _auto_rank_from_castle(castle: Optional[int], current_rank: Optional[str]) -> Optional[str]:
+    """Emergent-side promotion rule — kale seviyesi ≥8 → R3, 5-7 → R2.
+    R1 and below-5 castles keep whatever rank the admin already chose. NEVER
+    demotes (R4/R5 admins stay put). Returns None when the current rank is
+    already ≥ target (no change needed).
+    """
+    if not isinstance(castle, int) or castle <= 0:
+        return None
+    if castle >= 8:
+        target = "R3"
+    elif castle >= 5:
+        target = "R2"
+    else:
+        return None  # castle <5 doesn't trigger auto-promotion
+    current = current_rank if current_rank in _RANK_ORDER else "R1"
+    if _RANK_ORDER.get(current, 1) >= _RANK_ORDER[target]:
+        return None
+    return target
+
+
 def _extract_json(text: str) -> dict:
     """Strip common markdown fences, then json.loads. Falls back to first `{...}` slice."""
     t = (text or "").strip()
@@ -295,19 +318,33 @@ def make_ocr_router(db, require_edit, require_auth):
                         upd["rank"] = rank
                     if alliance_name:
                         upd["alliance_name"] = alliance_name
+                    # Auto-rank rule — if castle_level bumped and the admin did
+                    # NOT explicitly set a higher rank in the OCR payload, promote:
+                    # castle ≥ 8 → R3, castle 5-7 → R2. Never demotes.
+                    existing_member = by_name[match_key]
+                    if "castle_level" in upd:
+                        effective_rank = upd.get("rank") or existing_member.get("rank") or "R1"
+                        auto = _auto_rank_from_castle(upd["castle_level"], effective_rank)
+                        if auto and auto != effective_rank:
+                            upd["rank"] = auto
                     if upd:
-                        await db.members.update_one({"id": by_name[match_key]["id"]}, {"$set": upd})
+                        await db.members.update_one({"id": existing_member["id"]}, {"$set": upd})
                         updated += 1
                     else:
                         skipped += 1
                 else:
+                    seed_castle = int(castle) if isinstance(castle, (int, float)) and castle > 0 else 0
+                    seed_rank = rank if rank in ("R1", "R2", "R3", "R4", "R5") else "R1"
+                    auto = _auto_rank_from_castle(seed_castle, seed_rank)
+                    if auto:
+                        seed_rank = auto
                     doc = {
                         "id": str(uuid.uuid4()),
                         "name": clean_name,
-                        "rank": rank if rank in ("R1", "R2", "R3", "R4", "R5") else "R1",
+                        "rank": seed_rank,
                         "alliance_name": alliance_name or "",
                         "bireysel_guc": int(power) if isinstance(power, (int, float)) and power > 0 else 0,
-                        "castle_level": int(castle) if isinstance(castle, (int, float)) and castle > 0 else 0,
+                        "castle_level": seed_castle,
                     }
                     await db.members.insert_one(doc)
                     created += 1

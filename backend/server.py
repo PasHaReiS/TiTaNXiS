@@ -620,6 +620,22 @@ async def update_member(member_id: str, body: MemberUpdate, user: dict = Depends
     before = await db.members.find_one({"id": member_id}, {"_id": 0})
     if not before:
         raise HTTPException(404, "Üye bulunamadı")
+    # Auto-rank rule — when castle_level is updated and the caller didn't
+    # explicitly bump the rank, promote based on castle: ≥8 → R3, 5-7 → R2.
+    # Never demotes (R4/R5 stay). Same rule the OCR members-apply endpoint uses.
+    if "castle_level" in update:
+        _rank_order = {"R1": 1, "R2": 2, "R3": 3, "R4": 4, "R5": 5}
+        castle_new = update["castle_level"]
+        if isinstance(castle_new, int) and castle_new > 0:
+            effective_rank = update.get("rank") or before.get("rank") or "R1"
+            if castle_new >= 8:
+                target = "R3"
+            elif castle_new >= 5:
+                target = "R2"
+            else:
+                target = None
+            if target and _rank_order.get(effective_rank, 1) < _rank_order[target]:
+                update["rank"] = target
     await db.members.update_one({"id": member_id}, {"$set": update})
     await _record_member_changes(member_id, before, update, user)
     doc = await db.members.find_one({"id": member_id}, {"_id": 0})
