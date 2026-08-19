@@ -94,6 +94,29 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
     open && mode === "members" ? "/alliances" : null,
     _fetcher,
   );
+  // Event-mode duplicate guard: once an event is picked in the dropdown, fetch
+  // every member that ALREADY has a point row for that event so the preview
+  // can render a "önceki → yeni" diff and block resubmits.
+  const [selection, setSelection] = useState("");
+  const { data: eventExistingParts = { participants: [] } } = useSWR(
+    open && mode === "event" && selection ? `/ocr/event-participants/${selection}` : null,
+    _fetcher,
+  );
+  const eventExistingByMemberId = React.useMemo(() => {
+    const m = new Map();
+    for (const p of eventExistingParts?.participants || []) {
+      if (p?.member_id) m.set(p.member_id, p);
+    }
+    return m;
+  }, [eventExistingParts]);
+  const eventExistingByNameLc = React.useMemo(() => {
+    const m = new Map();
+    for (const p of eventExistingParts?.participants || []) {
+      const k = String(p?.name || "").trim().toLowerCase();
+      if (k) m.set(k, p);
+    }
+    return m;
+  }, [eventExistingParts]);
   const { data: allianceColorsMap = {} } = useSWR(
     open && mode === "members" ? "/alliance-colors" : null,
     _fetcher,
@@ -136,7 +159,6 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   const [progress, setProgress] = useState({ current: 0, total: 0, errors: 0 });
   const [result, setResult] = useState(null);
   const [applying, setApplying] = useState(false);
-  const [selection, setSelection] = useState("");
   const [mergeStrategy, setMergeStrategy] = useState("sum"); // sum | max | first
   const [cropIdx, setCropIdx] = useState(-1); // index of image currently being cropped, -1 = none
   // Preview-and-eliminate: OCR rows the user has struck out before save.
@@ -523,7 +545,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
       >
         <motion.div
           onClick={(e) => e.stopPropagation()}
-          className="card-red-gold w-full max-w-lg p-5 relative max-h-[90vh] flex flex-col"
+          className="card-red-gold w-full max-w-xl p-5 relative max-h-[90vh] flex flex-col"
           data-testid="ocr-dialog"
           initial={{ opacity: 0, scale: 0.92, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -769,6 +791,45 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                       </button>
                     )}
                   </div>
+                  {mode === "event" && selection && (() => {
+                    // Preflight duplicate summary — count preview rows whose
+                    // resolved name already has a point row for the picked event.
+                    const dupCount = rows.reduce((acc, r, i) => {
+                      if (excludedRows.has(i)) return acc;
+                      const clean = _stripTag(rowEdits[i]?.name ?? r.name).toLowerCase();
+                      return eventExistingByNameLc.has(clean) ? acc + 1 : acc;
+                    }, 0);
+                    if (dupCount === 0) return null;
+                    return (
+                      <div
+                        className="rounded-lg p-2 mb-2 text-[10px]"
+                        style={{ background: "rgba(248,113,113,0.10)", border: "1px solid rgba(248,113,113,0.45)" }}
+                        data-testid="ocr-event-dup-banner"
+                      >
+                        <div className="flex items-center gap-2 font-bold uppercase tracking-widest" style={{ color: "#FCA5A5" }}>
+                          <AlertTriangle className="w-3 h-3" />
+                          {dupCount} üye bu etkinlikte zaten puan almış — atlanacak
+                          <button
+                            type="button"
+                            onClick={() => setExcludedRows((prev) => {
+                              const nx = new Set(prev);
+                              rows.forEach((r, i) => {
+                                const clean = _stripTag(rowEdits[i]?.name ?? r.name).toLowerCase();
+                                if (eventExistingByNameLc.has(clean)) nx.add(i);
+                              });
+                              return nx;
+                            })}
+                            className="ml-auto normal-case font-normal underline decoration-dotted"
+                            style={{ color: "#93C5FD" }}
+                            data-testid="ocr-event-dup-exclude-all"
+                            title="Mükerrer satırların hepsini ele"
+                          >
+                            🗑 hepsini ele
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   {mode === "members" && allianceNames.length > 0 && (
                     <div
                       className="flex flex-wrap items-center gap-1 mb-2 rounded-lg px-2 py-1"
@@ -956,9 +1017,9 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             <th className="text-right py-1">Durum</th>
                           </>)}
                           {mode === "event" && (<>
-                            <th className="text-left py-2 px-2 font-semibold text-[9px] tracking-widest text-amber-200/70">İttifak</th>
-                            <th className="text-left py-2 px-2 font-semibold text-[9px] tracking-widest text-amber-200/70">Üye Adı</th>
-                            <th className="text-right py-2 px-2 font-semibold text-[9px] tracking-widest text-amber-200/70">Puan</th>
+                            <th className="text-left py-2 pl-2 pr-6 font-semibold text-[9px] tracking-widest text-amber-200/70 w-[90px]">İttifak</th>
+                            <th className="text-left py-2 pl-6 pr-1 font-semibold text-[9px] tracking-widest text-amber-200/70">Üye Adı</th>
+                            <th className="text-right py-2 pl-1 pr-2 font-semibold text-[9px] tracking-widest text-amber-200/70 w-[110px]">Puan</th>
                           </>)}
                           {mode === "war" && (<>
                             <th className="text-left py-1">Kazanan</th>
@@ -1176,7 +1237,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             })()}
                             {mode === "event" && (() => {
                               const currName = rowEdits[i]?.name ?? r.name;
-                              const currPoints = rowEdits[i]?.points ?? r.points ?? 0;
+                              const currPoints = Number(rowEdits[i]?.points ?? r.points ?? 0) || 0;
                               let allianceGuess = rowEdits[i]?.alliance_name;
                               if (allianceGuess === undefined) {
                                 allianceGuess = r.alliance_name;
@@ -1190,36 +1251,64 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                 allianceGuess = allianceGuess.replace(/[\[\]]/g, "").trim();
                               }
                               const displayName = _stripTagAndJunk(currName ?? "") || currName || "";
+                              // Duplicate lookup — is this member already scored in the picked event?
+                              const cleanNameLc = _stripTag(currName || "").toLowerCase();
+                              const dupHit = selection ? eventExistingByNameLc.get(cleanNameLc) : null;
+                              const allianceC = allianceColor(allianceGuess);
                               return (<>
-                                <td className="py-1.5 px-2 max-w-[80px]">
-                                  <input
-                                    type="text"
-                                    list={`ocr-ev-alliance-list-${i}`}
-                                    value={allianceGuess || ""}
-                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], alliance_name: e.target.value } }))}
-                                    disabled={isExcluded}
-                                    data-testid={`ocr-row-alliance-${i}`}
-                                    placeholder="—"
-                                    className="w-full bg-transparent outline-none rounded px-1.5 py-1 hover:bg-white/5 focus:bg-white/10 focus:ring-1 focus:ring-amber-400/60 text-[11px] transition-colors"
-                                    style={{ color: allianceGuess ? "#EAD8B0" : "rgba(255,255,255,0.35)" }}
-                                    title="İttifak — mevcut listeden seç ya da elle yaz"
-                                  />
+                                <td className="py-1.5 pl-2 pr-6 align-middle">
+                                  <div className="relative">
+                                    <input
+                                      type="text"
+                                      list={`ocr-ev-alliance-list-${i}`}
+                                      value={allianceGuess || ""}
+                                      onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], alliance_name: e.target.value } }))}
+                                      disabled={isExcluded}
+                                      data-testid={`ocr-row-alliance-${i}`}
+                                      placeholder="—"
+                                      className="w-full bg-black/25 outline-none rounded-md pl-5 pr-1.5 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[11px] transition-colors border border-white/5 focus:border-amber-400/50"
+                                      style={{ color: allianceGuess ? "#EAD8B0" : "rgba(255,255,255,0.35)" }}
+                                      title="İttifak — mevcut listeden seç ya da elle yaz"
+                                    />
+                                    <span
+                                      aria-hidden="true"
+                                      className="absolute left-1.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                                      style={{
+                                        display: "inline-block",
+                                        width: 8, height: 8, borderRadius: 999,
+                                        background: allianceC || "rgba(148,163,184,0.35)",
+                                        boxShadow: allianceC ? `0 0 4px ${allianceC}88` : "none",
+                                        border: "1px solid rgba(255,255,255,0.30)",
+                                      }}
+                                      title={allianceGuess ? `İttifak: ${allianceGuess}` : "İttifak yok"}
+                                    />
+                                  </div>
                                   <datalist id={`ocr-ev-alliance-list-${i}`}>
                                     {allianceNames.map((n) => (<option key={n} value={n} />))}
                                   </datalist>
                                 </td>
-                                <td className="py-1.5 px-2 max-w-[200px]">
+                                <td className="py-1.5 pl-6 pr-1 align-middle">
                                   <input
                                     type="text"
                                     value={rowEdits[i]?.name !== undefined ? currName : displayName}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-name-${i}`}
-                                    className="w-full bg-transparent text-white outline-none rounded px-1.5 py-1 hover:bg-white/5 focus:bg-white/10 focus:ring-1 focus:ring-amber-400/60 text-[11px] transition-colors"
+                                    className="w-full bg-black/25 text-white outline-none rounded-md px-2 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[11px] transition-colors border border-white/5 focus:border-amber-400/50"
                                     title="Adı düzeltmek için tıkla"
                                   />
+                                  {dupHit && !isExcluded && (
+                                    <div
+                                      className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] uppercase tracking-widest font-bold rounded px-1.5 py-0.5"
+                                      style={{ background: "rgba(248,113,113,0.18)", color: "#FCA5A5", border: "1px solid rgba(248,113,113,0.45)" }}
+                                      data-testid={`ocr-row-dup-${i}`}
+                                      title={`${dupHit.name} bu etkinlikte zaten ${Number(dupHit.existing_points || 0).toLocaleString("tr-TR")} puan almış — kaydedilmeyecek`}
+                                    >
+                                      <AlertTriangle className="w-2.5 h-2.5" /> Mükerrer
+                                    </div>
+                                  )}
                                 </td>
-                                <td className="py-1.5 px-2">
+                                <td className="py-1.5 pl-1 pr-2 align-middle">
                                   <input
                                     type="number"
                                     value={currPoints}
@@ -1227,7 +1316,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], points: e.target.value } }))}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-points-${i}`}
-                                    className="w-full bg-transparent gold-text mono outline-none rounded px-1.5 py-1 hover:bg-white/5 focus:bg-white/10 focus:ring-1 focus:ring-amber-400/60 text-[11px] text-right font-bold transition-colors"
+                                    className="w-full bg-black/25 gold-text mono outline-none rounded-md px-2 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[11px] text-right font-bold transition-colors border border-white/5 focus:border-amber-400/50"
                                     title="Puanı düzeltmek için tıkla"
                                   />
                                 </td>
@@ -1328,6 +1417,55 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               <td className="text-right py-1 text-white/70">{r.casualties_lost || "—"}</td>
                             </>)}
                           </tr>
+                          {mode === "event" && !isExcluded && selection && (() => {
+                            // Event mode diff — show existing points vs new points
+                            // for members already scored in the picked event. Also
+                            // acts as the visual signal that Apply will BLOCK this
+                            // row (the doApply predicate filters duplicates out).
+                            const currName = _stripTag(rowEdits[i]?.name ?? r.name);
+                            const existing = eventExistingByNameLc.get(currName.toLowerCase());
+                            if (!existing) return null;
+                            const oldPts = Number(existing.existing_points || 0);
+                            const newPts = Number(rowEdits[i]?.points ?? r.points ?? 0) || 0;
+                            return (
+                              <tr
+                                className="border-b border-white/5"
+                                data-testid={`ocr-row-diff-${i}`}
+                              >
+                                <td colSpan={4} className="py-1 px-2" style={{ background: "rgba(248,113,113,0.06)" }}>
+                                  <div className="flex flex-wrap items-center gap-1.5 text-[9px]">
+                                    <span
+                                      className="uppercase tracking-widest flex items-center gap-0.5"
+                                      style={{ color: "#FCA5A5" }}
+                                      title="Bu üyenin bu etkinlikte zaten puanı var — kaydet düğmesine basınca atlanacak"
+                                    >
+                                      <AlertTriangle className="w-2.5 h-2.5" /> Mükerrer — Atlanacak
+                                    </span>
+                                    <span
+                                      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5"
+                                      style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(248,113,113,0.45)" }}
+                                      data-testid={`ocr-row-diff-points-${i}`}
+                                    >
+                                      <span className="uppercase tracking-widest opacity-70" style={{ color: "#FCA5A5" }}>Puan:</span>
+                                      <span className="mono opacity-60 line-through" title="Mevcut puan (DB)">{oldPts.toLocaleString("tr-TR")}</span>
+                                      <span className="opacity-60">→</span>
+                                      <span className="mono font-bold" style={{ color: "#FCA5A5" }} title="Yeni puan (OCR — atlanacak)">{newPts.toLocaleString("tr-TR")}</span>
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setExcludedRows((prev) => { const nx = new Set(prev); nx.add(i); return nx; })}
+                                      className="ml-auto text-[9px] underline decoration-dotted"
+                                      style={{ color: "#93C5FD" }}
+                                      data-testid={`ocr-row-diff-exclude-${i}`}
+                                      title="Bu satırı manuel olarak ele — mükerrer olduğu için nasılsa atlanacak"
+                                    >
+                                      🗑 satırı ele
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })()}
                           {mode === "members" && !isExcluded && (() => {
                             // Diff strip — for rows that match an existing member,
                             // show `önceki değer → yeni değer` badges per field so

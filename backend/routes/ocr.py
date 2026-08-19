@@ -359,11 +359,18 @@ def make_ocr_router(db, require_edit, require_auth):
             return t if t in existing_alliances else t
 
         created = 0
+        skipped_duplicates: list[dict] = []  # rows blocked because member already has points for this event
         new_members: list[str] = []
         errors: list[str] = []
         docs: list[dict] = []
         new_member_docs: list[dict] = []
         now_iso_str = _dt.now(_tz.utc).isoformat()
+        # Preflight: existing point rows for this event (by member_id) so we can
+        # BLOCK duplicate submissions instead of silently double-counting.
+        existing_point_member_ids = set(
+            await db.points.distinct("member_id", {"event_id": body.event_id})
+        )
+        member_name_by_id = {m["id"]: m.get("name", "?") for m in members_all}
         for row in body.participants:
             raw_name = str(row.get("name") or "").strip()
             clean_name = _strip_alliance_tag(raw_name)
@@ -385,6 +392,17 @@ def make_ocr_router(db, require_edit, require_auth):
             if match_key:
                 target_member_id = by_name[match_key]["id"]
                 target_name = by_name[match_key]["name"]
+                # Duplicate guard — this member already has a point row for this
+                # exact event. Skip and surface it in the response so the admin
+                # can decide (edit the existing row via the manual Puan panel, or
+                # deliberately delete the old row first).
+                if target_member_id in existing_point_member_ids:
+                    skipped_duplicates.append({
+                        "name": target_name,
+                        "member_id": target_member_id,
+                        "attempted_points": pts_int,
+                    })
+                    continue
                 note = (
                     "OCR" if match_key == key
                     else f"OCR (fuzzy match: '{raw_name}' → '{target_name}')"
@@ -456,8 +474,44 @@ def make_ocr_router(db, require_edit, require_auth):
             "created": created,
             "new_members_created": len(new_member_docs),
             "new_member_names": new_members,
+            "skipped_duplicates": skipped_duplicates,
             "errors": errors,
             "event_name": ev.get("name"),
+        }
+
+    @router.get("/ocr/event-participants/{event_id}")
+    async def event_existing_participants(event_id: str, _: dict = Depends(require_auth)):
+        """Preflight lookup — for a given event, return every member who already
+        has a point row (with the current points value). Used by the OCR event
+        preview to render a "önceki → yeni" diff strip and block duplicates
+        before the user hits Save.
+        """
+        docs = await db.points.find(
+            {"event_id": event_id},
+            {"_id": 0, "member_id": 1, "points": 1, "multiplier": 1},
+        ).to_list(10000)
+        if not docs:
+            return {"event_id": event_id, "participants": []}
+        member_ids = list({d.get("member_id") for d in docs if d.get("member_id")})
+        members = await db.members.find(
+            {"id": {"$in": member_ids}},
+            {"_id": 0, "id": 1, "name": 1},
+        ).to_list(len(member_ids))
+        name_by_id = {m["id"]: m.get("name", "?") for m in members}
+        # Aggregate — a member CAN in theory have multiple point rows for the
+        # same event today; we sum them so the diff shows the effective total.
+        totals: dict[str, int] = {}
+        for d in docs:
+            mid = d.get("member_id")
+            if not mid:
+                continue
+            totals[mid] = totals.get(mid, 0) + int(round(int(d.get("points") or 0) * float(d.get("multiplier", 1.0))))
+        return {
+            "event_id": event_id,
+            "participants": [
+                {"member_id": mid, "name": name_by_id.get(mid, "?"), "existing_points": pts}
+                for mid, pts in totals.items()
+            ],
         }
 
     @router.post("/ocr/parse-multi")
