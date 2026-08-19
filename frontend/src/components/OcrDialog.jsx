@@ -1119,26 +1119,27 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             </div>
                           );
                         })()}
-                        <div className="overflow-x-auto -mx-1 rounded-md">
-                        <table className="w-full text-[10px] min-w-[430px]">
+                        <div className="rounded-md">
+                        <table className="w-full text-[10px] table-fixed">
                       <thead>
                         <tr className="text-muted-foreground uppercase tracking-widest">
-                            {(mode === "members" || mode === "event") && (
-                              <th className="text-center py-1 min-w-[32px] w-[32px]" title="Elenen satırlar veritabanına yazılmaz">✓</th>
-                            )}
+                            {(mode === "members" || mode === "event") && (<>
+                              <th className="text-center py-1 w-[24px]" title="Kaydedilecek satırlar">✓</th>
+                              <th className="text-center py-1 w-[28px]" title="Satırı ele">🗑️</th>
+                            </>)}
                           {mode === "members" && (<>
-                            <th className="text-left py-2 pl-2 pr-4 font-bold text-[10px] tracking-widest uppercase" style={{ color: "#F5A623" }}>İsim</th>
-                            <th className="text-right py-2 px-2 font-bold text-[10px] tracking-widest uppercase w-[85px]" style={{ color: "#F5A623" }}>Güç</th>
-                            <th className="text-center py-2 px-1 font-bold text-[10px] tracking-widest uppercase w-[52px]" style={{ color: "#F5A623" }}>Kale</th>
+                            <th className="text-left py-2 pl-1 pr-1 font-bold text-[10px] tracking-widest uppercase w-[70px]" style={{ color: "#F5A623" }}>İttifak</th>
+                            <th className="text-left py-2 pl-1 pr-1 font-bold text-[10px] tracking-widest uppercase" style={{ color: "#F5A623" }}>Üye Adı</th>
                             <th className="text-center py-2 px-1 font-bold text-[10px] tracking-widest uppercase w-[50px]" style={{ color: "#F5A623" }}>Rank</th>
-                            <th className="text-left py-2 pl-3 pr-1 font-bold text-[10px] tracking-widest uppercase w-[100px]" style={{ color: "#F5A623" }}>İttifak</th>
-                            <th className="text-center py-2 px-1 font-bold text-[10px] tracking-widest uppercase w-[60px]" style={{ color: "#F5A623" }}>Durum</th>
+                            <th className="text-center py-2 px-1 font-bold text-[10px] tracking-widest uppercase w-[54px]" style={{ color: "#F5A623" }}>Kale</th>
+                            <th className="text-right py-2 pl-1 pr-1 font-bold text-[10px] tracking-widest uppercase w-[80px]" style={{ color: "#F5A623" }}>Güç</th>
                           </>)}
                           {mode === "event" && (<>
-                            <th className="text-left py-2 pl-2 pr-2 font-bold text-[10px] tracking-widest uppercase min-w-[80px] w-[80px]" style={{ color: "#F5A623" }}>İttifak</th>
-                            <th className="text-left py-2 pl-2 pr-2 font-bold text-[10px] tracking-widest uppercase min-w-[120px]" style={{ color: "#F5A623" }}>Üye Adı</th>
-                            <th className="text-center py-2 px-1 font-bold text-[10px] tracking-widest uppercase min-w-[60px] w-[60px]" style={{ color: "#F5A623" }}>Rütbe</th>
-                            <th className="text-right py-2 pl-1 pr-2 font-bold text-[10px] tracking-widest uppercase min-w-[90px] w-[90px]" style={{ color: "#F5A623" }}>Puan</th>
+                            <th className="text-left py-2 pl-1 pr-1 font-bold text-[10px] tracking-widest uppercase w-[70px]" style={{ color: "#F5A623" }}>İttifak</th>
+                            <th className="text-left py-2 pl-1 pr-1 font-bold text-[10px] tracking-widest uppercase" style={{ color: "#F5A623" }}>Üye Adı</th>
+                            <th className="text-center py-2 px-1 font-bold text-[10px] tracking-widest uppercase w-[50px]" style={{ color: "#F5A623" }}>Rütbe</th>
+                            <th className="text-right py-2 px-1 font-bold text-[10px] tracking-widest uppercase w-[64px]" style={{ color: "#F5A623" }}>Güç</th>
+                            <th className="text-right py-2 pl-1 pr-1 font-bold text-[10px] tracking-widest uppercase w-[80px]" style={{ color: "#F5A623" }}>Puan</th>
                           </>)}
                           {mode === "war" && (<>
                             <th className="text-left py-1">Kazanan</th>
@@ -1181,8 +1182,29 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             }}
                             title={isAutoApplied ? "Otomatik bağlandı — düzenlersen bu vurgu kalkar" : undefined}
                           >
-                            {(mode === "members" || mode === "event") && (
-                              <td className="text-center py-1 pl-1 pr-0 w-8">
+                            {(mode === "members" || mode === "event") && (<>
+                              <td className="text-center py-1 w-[24px]">
+                                {!isExcluded ? (
+                                  <span
+                                    className="inline-flex items-center justify-center w-4 h-4 rounded-full"
+                                    style={{ background: "rgba(34,197,94,0.20)", color: "#4ade80", border: "1px solid rgba(34,197,94,0.55)" }}
+                                    title="Bu satır kaydedilecek"
+                                    data-testid={`ocr-row-status-${i}`}
+                                  >
+                                    <Check className="w-2.5 h-2.5" />
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="inline-flex items-center justify-center w-4 h-4 rounded-full"
+                                    style={{ background: "rgba(148,163,184,0.20)", color: "#94A3B8", border: "1px solid rgba(148,163,184,0.55)" }}
+                                    title="Bu satır elenmiş — kaydedilmeyecek"
+                                    data-testid={`ocr-row-status-${i}`}
+                                  >
+                                    ×
+                                  </span>
+                                )}
+                              </td>
+                              <td className="text-center py-1 w-[28px]">
                                 <button
                                   type="button"
                                   onClick={toggleExclude}
@@ -1192,11 +1214,11 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                   style={{ color: isExcluded ? "#93C5FD" : "#F87171" }}
                                 >
                                   {isExcluded
-                                    ? <RotateCcw className="w-3.5 h-3.5" />
-                                    : <Trash2 className="w-3.5 h-3.5" />}
+                                    ? <RotateCcw className="w-3 h-3" />
+                                    : <Trash2 className="w-3 h-3" />}
                                 </button>
                               </td>
-                            )}
+                            </>)}
                             {mode === "members" && (() => {
                               const cleanName = _stripTag(rowEdits[i]?.name ?? r.name);
                               const isExisting = existingNamesLc.has(cleanName.toLowerCase());
@@ -1213,51 +1235,11 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                 }
                               }
                               const allianceKnown = allianceGuess && allianceNames.some((n) => n.toLowerCase() === String(allianceGuess).toLowerCase());
+                              const currRank = (rowEdits[i]?.rank ?? r.rank ?? "R1") || "R1";
+                              const currCastle = rowEdits[i]?.castle_level ?? r.castle_level ?? "";
+                              const currPower = rowEdits[i]?.power ?? r.power ?? "";
                               return (<>
-                                <td className="py-1.5 pl-2 pr-4 align-middle">
-                                  <input
-                                    type="text"
-                                    value={rowEdits[i]?.name ?? r.name ?? ""}
-                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
-                                    disabled={isExcluded}
-                                    data-testid={`ocr-row-name-${i}`}
-                                    className="w-full bg-black/25 text-white outline-none rounded-md px-2 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[11px] transition-colors border border-white/5 focus:border-amber-400/50"
-                                    title="Adı düzeltmek için tıkla"
-                                  />
-                                  {suggestions.length > 0 && !isExcluded && (
-                                    <div className="flex flex-wrap gap-1 mt-0.5" data-testid={`ocr-suggest-${i}`}>
-                                      {suggestions.map((s) => {
-                                        // Confidence halo: green = safe (Levenshtein ≤ 1), soft green
-                                        // ≤ 2, amber ≤ 3, muted orange when the model is guessing.
-                                        const conf = s.dist <= 1 ? { bg: "rgba(34,197,94,0.20)", fg: "#4ade80", border: "rgba(34,197,94,0.75)", glow: "0 0 6px rgba(34,197,94,0.55)", label: "Yüksek eşleşme" }
-                                                  : s.dist <= 2 ? { bg: "rgba(74,222,128,0.14)", fg: "#86EFAC", border: "rgba(74,222,128,0.55)", glow: "0 0 4px rgba(74,222,128,0.35)", label: "İyi eşleşme" }
-                                                  : s.dist <= 3 ? { bg: "rgba(245,166,35,0.18)", fg: "#FCD34D", border: "rgba(245,166,35,0.60)", glow: "0 0 4px rgba(245,166,35,0.35)", label: "Yaklaşık eşleşme" }
-                                                                : { bg: "rgba(249,115,22,0.15)", fg: "#FDBA74", border: "rgba(249,115,22,0.55)", glow: "none", label: "Zayıf eşleşme" };
-                                        return (
-                                          <button
-                                            key={s.name}
-                                            type="button"
-                                            onClick={() => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: s.name } }))}
-                                            className="text-[9px] px-1.5 py-0.5 rounded border font-bold"
-                                            style={{ background: conf.bg, color: conf.fg, borderColor: conf.border, boxShadow: conf.glow }}
-                                            title={`${conf.label} · Levenshtein ${s.dist} — tıkla ve bu üyeye bağla`}
-                                            data-testid={`ocr-suggest-${i}-${s.name.replace(/\s+/g,'_')}`}
-                                          >
-                                            🔗 {s.name}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="text-right mono py-1.5 px-2 align-middle text-[11px] font-bold" style={{ color: "#FF6B00" }}>
-                                  {r.power ? Number(r.power).toLocaleString("tr-TR") : "—"}
-                                </td>
-                                <td className="text-center py-1.5 px-1 align-middle gold-text mono text-[11px]" style={{ color: r.castle_level ? "#F472B6" : "rgba(255,255,255,0.35)" }}>
-                                  {r.castle_level ? `F${r.castle_level}` : "—"}
-                                </td>
-                                <td className="text-center py-1.5 px-1 align-middle text-[11px] font-bold" style={{ color: r.rank ? rankColor(r.rank) : "rgba(255,255,255,0.35)" }}>{r.rank || "—"}</td>
-                                <td className="py-1.5 pl-3 pr-1 align-middle">
+                                <td className="py-1.5 pl-1 pr-1 align-middle w-[70px]">
                                   <div className="relative">
                                     <input
                                       type="text"
@@ -1267,18 +1249,16 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                       disabled={isExcluded}
                                       data-testid={`ocr-row-alliance-${i}`}
                                       placeholder="—"
-                                      className="w-full bg-black/25 outline-none rounded-md pl-5 pr-1.5 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[11px] transition-colors border border-white/5 focus:border-amber-400/50"
+                                      className="w-full bg-black/25 outline-none rounded-md pl-4 pr-1 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[10px] transition-colors border border-white/5 focus:border-amber-400/50"
                                       style={{ color: allianceKnown ? "#86EFAC" : (allianceGuess ? "#FCD34D" : "rgba(255,255,255,0.4)") }}
-                                      title={allianceGuess
-                                        ? (allianceKnown ? `Mevcut ittifak: ${allianceGuess}` : `⚠ Yeni ittifak: "${allianceGuess}" — kaydedilirse yeni bir grup açılır`)
-                                        : "İttifak adı — mevcut listemden seç ya da elle yaz"}
+                                      title={allianceGuess ? (allianceKnown ? `Mevcut ittifak: ${allianceGuess}` : `⚠ Yeni ittifak: "${allianceGuess}"`) : "İttifak adı"}
                                     />
                                     <span
                                       aria-hidden="true"
-                                      className="absolute left-1.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                                      className="absolute left-1 top-1/2 -translate-y-1/2 pointer-events-none"
                                       style={{
                                         display: "inline-block",
-                                        width: 8, height: 8, borderRadius: 999,
+                                        width: 7, height: 7, borderRadius: 999,
                                         background: allianceColor(allianceGuess) || "rgba(148,163,184,0.35)",
                                         boxShadow: allianceColor(allianceGuess) ? `0 0 4px ${allianceColor(allianceGuess)}88` : "none",
                                         border: "1px solid rgba(255,255,255,0.30)",
@@ -1288,84 +1268,85 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                   <datalist id={`ocr-alliance-list-${i}`}>
                                     {allianceNames.map((n) => (<option key={n} value={n} />))}
                                   </datalist>
-                                  {allianceGuess && allianceKnown && allianceColor(allianceGuess) && (
-                                    <span
-                                      aria-hidden="true"
-                                      className="inline-block ml-1 align-middle"
-                                      style={{
-                                        width: 8, height: 8, borderRadius: 999,
-                                        background: allianceColor(allianceGuess),
-                                        boxShadow: `0 0 4px ${allianceColor(allianceGuess)}88`,
-                                        border: "1px solid rgba(255,255,255,0.35)",
-                                      }}
-                                      title={`İttifak rengi: ${allianceGuess}`}
-                                    />
-                                  )}
-                                  {allianceGuess && !allianceKnown && !isExcluded && (() => {
-                                    // Fuzzy suggest a close existing alliance — user can still keep
-                                    // the manual entry (new alliance) if they intended it.
-                                    const sugs = _fuzzyTopMatches(allianceGuess, allianceNames, 2);
-                                    if (sugs.length === 0) return null;
-                                    return (
-                                      <div className="flex flex-wrap gap-1 mt-0.5 justify-end" data-testid={`ocr-alliance-suggest-${i}`}>
-                                        {sugs.map((s) => {
-                                          const conf = s.dist <= 1 ? { bg: "rgba(34,197,94,0.20)", fg: "#4ade80", border: "rgba(34,197,94,0.75)", glow: "0 0 6px rgba(34,197,94,0.55)", label: "Yüksek eşleşme" }
-                                                    : s.dist <= 2 ? { bg: "rgba(74,222,128,0.14)", fg: "#86EFAC", border: "rgba(74,222,128,0.55)", glow: "0 0 4px rgba(74,222,128,0.35)", label: "İyi eşleşme" }
-                                                    : s.dist <= 3 ? { bg: "rgba(245,166,35,0.18)", fg: "#FCD34D", border: "rgba(245,166,35,0.60)", glow: "0 0 4px rgba(245,166,35,0.35)", label: "Yaklaşık eşleşme" }
-                                                                  : { bg: "rgba(249,115,22,0.15)", fg: "#FDBA74", border: "rgba(249,115,22,0.55)", glow: "none", label: "Zayıf eşleşme" };
-                                          return (
-                                            <button
-                                              key={s.name}
-                                              type="button"
-                                              onClick={() => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], alliance_name: s.name } }))}
-                                              className="text-[9px] px-1.5 py-0.5 rounded border font-bold inline-flex items-center gap-1"
-                                              style={{ background: conf.bg, color: conf.fg, borderColor: conf.border, boxShadow: conf.glow }}
-                                              title={`${conf.label} · Levenshtein ${s.dist} — bu mevcut ittifaka bağla`}
-                                              data-testid={`ocr-alliance-suggest-${i}-${s.name.replace(/\s+/g,'_')}`}
-                                            >
-                                              {allianceColor(s.name) && (
-                                                <span
-                                                  aria-hidden="true"
-                                                  style={{
-                                                    display: "inline-block",
-                                                    width: 8, height: 8, borderRadius: 999,
-                                                    background: allianceColor(s.name),
-                                                    boxShadow: `0 0 4px ${allianceColor(s.name)}88`,
-                                                    border: "1px solid rgba(255,255,255,0.35)",
-                                                  }}
-                                                />
-                                              )}
-                                              🔗 {s.name}
-                                            </button>
-                                          );
-                                        })}
-                                      </div>
-                                    );
-                                  })()}
                                 </td>
-                                <td className="text-center py-1.5 px-1 align-middle">
-                                  {isExisting ? (
-                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: "rgba(107,114,128,0.25)", color: "#9ca3af" }}>
-                                      MEVCUT
-                                    </span>
-                                  ) : (() => {
-                                    const origClean = _stripTag(r.name);
-                                    const origWasExisting = existingNamesLc.has(origClean.toLowerCase());
-                                    const editedIntoNew = origWasExisting && (rowEdits[i]?.name !== undefined);
-                                    return editedIntoNew ? (
-                                      <span
-                                        className="px-1.5 py-0.5 rounded text-[9px] font-bold inline-flex items-center gap-0.5"
-                                        style={{ background: "rgba(245,166,35,0.25)", color: "#FCD34D" }}
-                                        title="Bu ismi düzenledin ve artık mevcut hiçbir üyeye eşleşmiyor — yazım hatası olabilir. Kaydedilirse yeni üye açılır."
-                                      >
-                                        <AlertTriangle className="w-2.5 h-2.5" /> YENİ ⚠
-                                      </span>
-                                    ) : (
-                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: "rgba(34,197,94,0.25)", color: "#4ade80" }}>
-                                        YENİ
-                                      </span>
-                                    );
-                                  })()}
+                                <td className="py-1.5 pl-1 pr-1 align-middle">
+                                  <input
+                                    type="text"
+                                    value={rowEdits[i]?.name ?? r.name ?? ""}
+                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
+                                    disabled={isExcluded}
+                                    data-testid={`ocr-row-name-${i}`}
+                                    className="w-full bg-black/25 text-white outline-none rounded-md px-1.5 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[10px] transition-colors border border-white/5 focus:border-amber-400/50"
+                                    title="Adı düzeltmek için tıkla"
+                                  />
+                                  {suggestions.length > 0 && !isExcluded && (
+                                    <div className="flex flex-wrap gap-0.5 mt-0.5" data-testid={`ocr-suggest-${i}`}>
+                                      {suggestions.slice(0, 2).map((s) => {
+                                        const conf = s.dist <= 1 ? { bg: "rgba(34,197,94,0.20)", fg: "#4ade80", border: "rgba(34,197,94,0.75)" }
+                                                  : s.dist <= 2 ? { bg: "rgba(74,222,128,0.14)", fg: "#86EFAC", border: "rgba(74,222,128,0.55)" }
+                                                  : { bg: "rgba(245,166,35,0.18)", fg: "#FCD34D", border: "rgba(245,166,35,0.60)" };
+                                        return (
+                                          <button
+                                            key={s.name}
+                                            type="button"
+                                            onClick={() => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: s.name } }))}
+                                            className="text-[8px] px-1 py-0.5 rounded border font-bold truncate max-w-[80px]"
+                                            style={{ background: conf.bg, color: conf.fg, borderColor: conf.border }}
+                                            title={`Levenshtein ${s.dist} — tıkla ve bu üyeye bağla`}
+                                          >
+                                            🔗 {s.name}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-1.5 px-1 align-middle text-center w-[50px]">
+                                  <select
+                                    value={currRank}
+                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], rank: e.target.value } }))}
+                                    disabled={isExcluded}
+                                    data-testid={`ocr-row-rank-${i}`}
+                                    className="w-full bg-black/25 outline-none rounded-md px-1 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[10px] font-bold text-center transition-all border focus:border-amber-400/60"
+                                    style={{ color: rankColor(currRank), borderColor: `${rankColor(currRank)}55`, appearance: "none", cursor: "pointer" }}
+                                    title="Rütbe seçimi — varsayılan R1"
+                                  >
+                                    <option value="R1" style={{ color: RANK_COLORS.R1 }}>R1</option>
+                                    <option value="R2" style={{ color: RANK_COLORS.R2 }}>R2</option>
+                                    <option value="R3" style={{ color: RANK_COLORS.R3 }}>R3</option>
+                                    <option value="R4" style={{ color: RANK_COLORS.R4 }}>R4</option>
+                                    <option value="R5" style={{ color: RANK_COLORS.R5 }}>R5</option>
+                                  </select>
+                                </td>
+                                <td className="py-1.5 px-1 align-middle text-center w-[54px]">
+                                  <select
+                                    value={currCastle}
+                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], castle_level: e.target.value === "" ? "" : Number(e.target.value) } }))}
+                                    disabled={isExcluded}
+                                    data-testid={`ocr-row-castle-${i}`}
+                                    className="w-full bg-black/25 outline-none rounded-md px-1 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-pink-400/60 text-[10px] font-bold text-center transition-all border border-white/5 focus:border-pink-400/60 mono"
+                                    style={{ color: currCastle ? "#F472B6" : "rgba(255,255,255,0.35)", appearance: "none", cursor: "pointer" }}
+                                    title="Kale seviyesi (pembe altıgen) — OCR okuyamazsa boş"
+                                  >
+                                    <option value="">—</option>
+                                    {[1,2,3,4,5,6,7,8,9,10].map((n) => (
+                                      <option key={n} value={n}>F{n}</option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td className="py-1.5 pl-1 pr-1 align-middle w-[80px]">
+                                  <input
+                                    type="number"
+                                    value={currPower}
+                                    min={0}
+                                    placeholder="—"
+                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], power: e.target.value === "" ? "" : Number(e.target.value) } }))}
+                                    disabled={isExcluded}
+                                    data-testid={`ocr-row-power-${i}`}
+                                    className="w-full bg-black/25 mono outline-none rounded-md px-1.5 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[10px] text-right font-bold transition-all border border-white/5 focus:border-amber-400/60"
+                                    style={{ color: currPower ? "#FF6B00" : "rgba(255,255,255,0.35)" }}
+                                    title="Bireysel güç — OCR'dan okundu, düzenlenebilir"
+                                  />
                                 </td>
                               </>);
                             })()}
@@ -1459,10 +1440,21 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     <option value="R5" style={{ color: RANK_COLORS.R5 }}>R5</option>
                                   </select>
                                 </td>
-                                <td className="py-1.5 pl-1 pr-2 align-middle min-w-[90px] w-[90px]">
+                                <td className="py-1.5 px-1 align-middle text-right w-[64px]">
                                   <input
                                     type="number"
-                                    value={currPoints}
+                                    value={rowEdits[i]?.power ?? r.power ?? ""}
+                                    min={0}
+                                    placeholder="—"
+                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], power: e.target.value === "" ? "" : Number(e.target.value) } }))}
+                                    disabled={isExcluded}
+                                    data-testid={`ocr-row-power-${i}`}
+                                    className="w-full bg-black/25 mono outline-none rounded-md px-1 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[10px] text-right font-bold transition-all border border-white/5 focus:border-amber-400/60"
+                                    style={{ color: (rowEdits[i]?.power ?? r.power) ? "#FF6B00" : "rgba(255,255,255,0.35)" }}
+                                    title="Bireysel güç — OCR okuduysa gelir, boş bırakılabilir"
+                                  />
+                                </td>
+                                <td className="py-1.5 pl-1 pr-1 align-middle w-[80px]">
                                     min={0}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], points: e.target.value } }))}
                                     disabled={isExcluded}
@@ -1568,7 +1560,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               <td className="text-right py-1 text-white/70">{r.casualties_lost || "—"}</td>
                             </>)}
                           </tr>
-                          {mode === "event" && !isExcluded && selection && (() => {
+                          {false && mode === "event" && !isExcluded && selection && (() => {
                             // Event mode diff — show existing points vs new points
                             // for members already scored in the picked event. Also
                             // acts as the visual signal that Apply will BLOCK this
@@ -1617,7 +1609,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               </tr>
                             );
                           })()}
-                          {mode === "members" && !isExcluded && (() => {
+                          {false && mode === "members" && !isExcluded && (() => {
                             // Diff strip — for rows that match an existing member,
                             // show `önceki değer → yeni değer` badges per field so
                             // admins immediately spot silent overwrites of curated
@@ -1748,6 +1740,77 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                   </select>
                 </div>
               )}
+
+              {result && rows.length > 0 && (() => {
+                // Pre-save summary — replaces the per-row diff strips inside the
+                // table with a single compact card above the Save button. Shows
+                // duplicate/overwrite counts for event mode and overwrite counts
+                // for member rows that match an existing member. Non-empty only.
+                if (mode === "event") {
+                  if (!selection) return null;
+                  let dupCount = 0;
+                  rows.forEach((r, i) => {
+                    if (excludedRows.has(i)) return;
+                    const clean = _stripTag(rowEdits[i]?.name ?? r.name).toLowerCase();
+                    if (eventExistingByNameLc.has(clean)) dupCount += 1;
+                  });
+                  if (dupCount === 0) return null;
+                  const isOverwrite = duplicatePolicy === "overwrite";
+                  return (
+                    <div
+                      className="rounded-lg p-2.5 text-[11px]"
+                      style={{
+                        background: isOverwrite ? "rgba(245,166,35,0.10)" : "rgba(248,113,113,0.10)",
+                        border: `1px solid ${isOverwrite ? "rgba(245,166,35,0.55)" : "rgba(248,113,113,0.45)"}`,
+                      }}
+                      data-testid="ocr-save-summary"
+                    >
+                      <div className="flex items-center gap-2 font-bold uppercase tracking-widest" style={{ color: isOverwrite ? "#FCD34D" : "#FCA5A5" }}>
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        {isOverwrite
+                          ? `${dupCount} üyenin mevcut puanının üzerine yazılacak`
+                          : `${dupCount} üye bu etkinlikte zaten puan almış — atlanacak`}
+                      </div>
+                    </div>
+                  );
+                }
+                if (mode === "members") {
+                  let overwriteCount = 0;
+                  rows.forEach((r, i) => {
+                    if (excludedRows.has(i)) return;
+                    const cleanName = _stripTag(rowEdits[i]?.name ?? r.name);
+                    const ex = existingByLcName.get(cleanName.toLowerCase());
+                    if (!ex) return;
+                    const patch = rowEdits[i] || {};
+                    const ocrPower = (patch.power !== undefined ? patch.power : r.power);
+                    const ocrCastle = (patch.castle_level !== undefined ? patch.castle_level : r.castle_level);
+                    const ocrRank = (patch.rank !== undefined ? patch.rank : r.rank);
+                    let ocrAlli = patch.alliance_name;
+                    if (ocrAlli === undefined) ocrAlli = r.alliance_name;
+                    if (typeof ocrAlli === "string") ocrAlli = ocrAlli.replace(/[\[\]]/g, "").trim();
+                    const willWrite =
+                      (typeof ocrPower === "number" && ocrPower > 0 && Number(ex.bireysel_guc || 0) !== Number(ocrPower))
+                      || (typeof ocrCastle === "number" && ocrCastle > 0 && Number(ex.castle_level || 0) !== Number(ocrCastle))
+                      || (["R1","R2","R3","R4","R5"].includes(String(ocrRank || "").toUpperCase()) && String(ex.rank || "") !== String(ocrRank).toUpperCase())
+                      || (ocrAlli && String(ex.alliance_name || "") !== String(ocrAlli));
+                    if (willWrite) overwriteCount += 1;
+                  });
+                  if (overwriteCount === 0) return null;
+                  return (
+                    <div
+                      className="rounded-lg p-2.5 text-[11px]"
+                      style={{ background: "rgba(245,166,35,0.10)", border: "1px solid rgba(245,166,35,0.55)" }}
+                      data-testid="ocr-save-summary"
+                    >
+                      <div className="flex items-center gap-2 font-bold uppercase tracking-widest" style={{ color: "#FCD34D" }}>
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        {overwriteCount} mevcut üyenin verisi üzerine yazılacak
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               {result && rows.length > 0 && (
                 <button
