@@ -117,6 +117,17 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
     () => new Set((existingMembers || []).map((m) => (m.name || "").trim().toLowerCase())),
     [existingMembers],
   );
+  // Diff support: quick lookup from lowercased clean name → full existing member doc.
+  // Lets the members preview show "önceki değer → yeni değer" so admins spot
+  // silent overwrites of curated stats (bireysel_guc / castle_level / rank / alliance_name).
+  const existingByLcName = React.useMemo(() => {
+    const m = new Map();
+    for (const em of existingMembers || []) {
+      const k = String(em.name || "").trim().toLowerCase();
+      if (k) m.set(k, em);
+    }
+    return m;
+  }, [existingMembers]);
 
   // Strip a leading "[TAG]" bracket to check membership against the roster.
   const _stripTag = (n) => _stripTagAndJunk(n);
@@ -977,8 +988,8 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             return nx;
                           });
                           return (
+                          <React.Fragment key={i}>
                           <tr
-                            key={i}
                             className="border-t border-white/5"
                             data-testid={`ocr-row-${i}`}
                             style={{
@@ -1317,6 +1328,104 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               <td className="text-right py-1 text-white/70">{r.casualties_lost || "—"}</td>
                             </>)}
                           </tr>
+                          {mode === "members" && !isExcluded && (() => {
+                            // Diff strip — for rows that match an existing member,
+                            // show `önceki değer → yeni değer` badges per field so
+                            // admins immediately spot silent overwrites of curated
+                            // castle_level / rank / alliance_name / bireysel_guc values.
+                            const cleanName = _stripTag(rowEdits[i]?.name ?? r.name);
+                            const existing = existingByLcName.get(cleanName.toLowerCase());
+                            if (!existing) return null;
+                            // Resolved OCR row values (respecting inline edits).
+                            const patch = rowEdits[i] || {};
+                            const ocrPower = (typeof patch.power === "number" ? patch.power : r.power);
+                            const ocrCastle = (typeof patch.castle_level === "number" ? patch.castle_level : r.castle_level);
+                            const ocrRank = (patch.rank !== undefined ? patch.rank : r.rank) || null;
+                            let ocrAlliance = patch.alliance_name;
+                            if (ocrAlliance === undefined) {
+                              ocrAlliance = r.alliance_name;
+                              if (!ocrAlliance) {
+                                const mm = /^\s*\[([^\]]+)\]/.exec(String(patch.name ?? r.name ?? ""));
+                                if (mm) ocrAlliance = mm[1].trim();
+                              }
+                            }
+                            if (typeof ocrAlliance === "string") ocrAlliance = ocrAlliance.replace(/[\[\]]/g, "").trim();
+                            // Backend apply_members only overwrites when OCR values
+                            // are truthy / whitelisted — mirror that predicate here so
+                            // the diff strip reflects what will actually hit the DB.
+                            const willWritePower = typeof ocrPower === "number" && ocrPower > 0;
+                            const willWriteCastle = typeof ocrCastle === "number" && ocrCastle > 0;
+                            const willWriteRank = ["R1","R2","R3","R4","R5"].includes(String(ocrRank || "").toUpperCase());
+                            const willWriteAlliance = !!(ocrAlliance && String(ocrAlliance).trim());
+                            const fmtNum = (n) => (n === null || n === undefined || n === "" || n === 0 ? "—" : Number(n).toLocaleString("tr-TR"));
+                            const fmtCastle = (n) => (!n ? "—" : `F${n}`);
+                            const fmtStr = (s) => (s ? String(s) : "—");
+                            const diffs = [];
+                            if (willWritePower && Number(existing.bireysel_guc || 0) !== Number(ocrPower)) {
+                              diffs.push({ label: "Güç", from: fmtNum(existing.bireysel_guc), to: fmtNum(ocrPower), color: "#FF6B00" });
+                            }
+                            if (willWriteCastle && Number(existing.castle_level || 0) !== Number(ocrCastle)) {
+                              diffs.push({ label: "Kale", from: fmtCastle(existing.castle_level), to: fmtCastle(ocrCastle), color: "#F472B6" });
+                            }
+                            if (willWriteRank && String(existing.rank || "") !== String(ocrRank).toUpperCase()) {
+                              diffs.push({ label: "Rütbe", from: fmtStr(existing.rank), to: String(ocrRank).toUpperCase(), color: "#FCD34D" });
+                            }
+                            if (willWriteAlliance && String(existing.alliance_name || "") !== String(ocrAlliance)) {
+                              diffs.push({ label: "İttifak", from: fmtStr(existing.alliance_name), to: String(ocrAlliance), color: "#93C5FD" });
+                            }
+                            if (diffs.length === 0) return null;
+                            return (
+                              <tr
+                                className="border-b border-white/5"
+                                data-testid={`ocr-row-diff-${i}`}
+                              >
+                                <td colSpan={7} className="py-1 px-2" style={{ background: "rgba(245,166,35,0.06)" }}>
+                                  <div className="flex flex-wrap items-center gap-1.5 text-[9px]">
+                                    <span
+                                      className="uppercase tracking-widest flex items-center gap-0.5"
+                                      style={{ color: "#FCD34D" }}
+                                      title="Bu satır kaydedilirse aşağıdaki mevcut değerlerin üzerine yazılacak"
+                                    >
+                                      <AlertTriangle className="w-2.5 h-2.5" /> Üzerine Yazılacak
+                                    </span>
+                                    {diffs.map((d) => (
+                                      <span
+                                        key={d.label}
+                                        className="inline-flex items-center gap-1 rounded px-1.5 py-0.5"
+                                        style={{ background: "rgba(0,0,0,0.35)", border: `1px solid ${d.color}55` }}
+                                        data-testid={`ocr-row-diff-${d.label.toLowerCase()}-${i}`}
+                                      >
+                                        <span className="uppercase tracking-widest opacity-70" style={{ color: d.color }}>{d.label}:</span>
+                                        <span className="mono opacity-60 line-through" title="Önceki değer (DB)">{d.from}</span>
+                                        <span className="opacity-60">→</span>
+                                        <span className="mono font-bold" style={{ color: d.color }} title="Yeni değer (OCR)">{d.to}</span>
+                                      </span>
+                                    ))}
+                                    <button
+                                      type="button"
+                                      onClick={() => setRowEdits((prev) => {
+                                        // Revert all diff-triggering fields back to existing DB values so
+                                        // the row becomes a no-op update (admins tap once to protect data).
+                                        const nx = { ...(prev[i] || {}) };
+                                        nx.power = Number(existing.bireysel_guc || 0);
+                                        nx.castle_level = Number(existing.castle_level || 0);
+                                        nx.rank = existing.rank || null;
+                                        nx.alliance_name = existing.alliance_name || "";
+                                        return { ...prev, [i]: nx };
+                                      })}
+                                      className="ml-auto text-[9px] underline decoration-dotted"
+                                      style={{ color: "#93C5FD" }}
+                                      data-testid={`ocr-row-diff-keep-existing-${i}`}
+                                      title="Bu satır için OCR değerlerini yok say, mevcut DB değerlerini koru"
+                                    >
+                                      ↩ mevcut değerleri koru
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })()}
+                          </React.Fragment>
                         );
                         })}
                       </tbody>
