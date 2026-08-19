@@ -64,9 +64,13 @@ _PROMPTS = {
         "• `power` = the individual might/combat power number as a raw integer (strip separators). "
         "  If the game shows suffixes like '1.5B' or '800M' or '250K', normalise: "
         "  B → *1,000,000,000 · M → *1,000,000 · K → *1,000. Example: '1.5B' → 1500000000, '800M' → 800000000. "
-        "• `castle_level` = the NUMBER shown NEXT TO the small PINK/MAGENTA HEXAGON icon "
-        "  in front of the player name (e.g. hexagon shows '38' → 38). If a letter prefix "
-        "  appears like 'F8' or 'H30', strip the letter and keep only the integer. "
+        "• `castle_level` = ONLY the number displayed DIRECTLY NEXT TO the small PINK / "
+        "  MAGENTA (Hex-shaped) HEXAGON ICON that sits right before the player name. "
+        "  Do NOT return numbers from anywhere else on the screen (row indexes, kill "
+        "  counts, side stats, might/power values, event points — none of these). "
+        "  If no pink hexagon is visible next to that row, return null. Example: hexagon "
+        "  shows '38' → 38. Letter prefix like 'F8' or 'H30' → strip the letter and keep "
+        "  only the integer part. "
         "• `rank` must be one of R1/R2/R3/R4/R5 if visible (usually a small badge near the "
         "  name), else null. "
         "• `alliance_name` = the alliance tag shown next to the name, WITHOUT any brackets. "
@@ -78,24 +82,19 @@ _PROMPTS = {
         "You are given a screenshot of an event scoreboard from a mobile strategy game. "
         "Extract EVERY visible participant row into strict JSON with this exact shape and NOTHING else: "
         "{\"event_hint\": str|null, \"participants\": [{\"name\": str, \"points\": int, "
-        "\"castle_level\": int|null, \"rank\": str|null, \"alliance_name\": str|null, "
-        "\"power\": int|null}]}. "
+        "\"alliance_name\": str|null}]}. "
         "Rules: "
         "• `event_hint` = any visible event title (SvS, Guild Fest, etc.), otherwise null. "
         "• `points` = the participant's earned points as an integer (strip separators like "
         "  commas/dots/spaces). Example '1.234.567' → 1234567. "
-        "• `castle_level` = the NUMBER shown NEXT TO the small PINK/MAGENTA HEXAGON icon "
-        "  in front of the player name. If a letter prefix appears like 'F8' strip the letter. "
-        "  If not visible, null. "
-        "• `rank` = one of R1/R2/R3/R4/R5 when a rank badge is visible near the row, else null. "
         "• `alliance_name` = the alliance tag next to the name, WITHOUT any brackets. "
         "  Return only the plain letters/digits (e.g. '[GOW] PasHa' → alliance_name='GOW', "
         "  name='PasHa'). NEVER include '[' or ']' characters. If no tag visible, null. "
-        "• `power` = individual might/combat power as a raw integer when visible. Normalise "
-        "  suffixes: B → *1e9, M → *1e6, K → *1e3. If not visible, null. "
-        "• `name` = ONLY the player's display name — do NOT include rank badges, alliance "
-        "  tags, castle level numbers, or leading row-index digits. "
-        "Return raw JSON only — no markdown fences, no commentary."
+        "• `name` = ONLY the player's display name — do NOT include alliance tags, rank "
+        "  badges, castle level numbers, or leading row-index digits. "
+        "IMPORTANT: Do NOT extract castle_level, rank, or power for event scoreboards — "
+        "these fields belong to the member-roster mode only. Return raw JSON only — no "
+        "markdown fences, no commentary."
     ),
     "war": (
         "You are given a screenshot of a battle-result screen from a mobile strategy game. "
@@ -360,12 +359,10 @@ def make_ocr_router(db, require_edit, require_auth):
             return t if t in existing_alliances else t
 
         created = 0
-        member_updates = 0
         new_members: list[str] = []
         errors: list[str] = []
         docs: list[dict] = []
         new_member_docs: list[dict] = []
-        member_patches: list[tuple[str, dict]] = []  # (member_id, $set patch)
         now_iso_str = _dt.now(_tz.utc).isoformat()
         for row in body.participants:
             raw_name = str(row.get("name") or "").strip()
@@ -378,10 +375,10 @@ def make_ocr_router(db, require_edit, require_auth):
             except Exception:
                 errors.append(f"{clean_name}: geçersiz puan '{pts}'")
                 continue
-            # Per-row optional stats (OCR reads castle/rank/power alongside points).
-            row_castle = row.get("castle_level")
-            row_rank = row.get("rank")
-            row_power = row.get("power")
+            # Event mode ONLY handles points + optional alliance for member matching.
+            # castle_level / rank / power are strictly out-of-scope here — they live in
+            # members-mode OCR. This keeps event ingestion from silently mutating
+            # curated member stats.
             row_alliance = row.get("alliance_name")
             key = _norm_key(clean_name)
             match_key = key if key in by_name else _fuzzy_match(key, by_name_keys)
@@ -392,21 +389,6 @@ def make_ocr_router(db, require_edit, require_auth):
                     "OCR" if match_key == key
                     else f"OCR (fuzzy match: '{raw_name}' → '{target_name}')"
                 )
-                # Backfill member fields if OCR read useful values (only fill
-                # missing/zero fields — never overwrite admin-curated data).
-                patch = {}
-                if isinstance(row_castle, (int, float)) and row_castle > 0:
-                    patch["castle_level"] = int(row_castle)
-                if row_rank in ("R1", "R2", "R3", "R4", "R5"):
-                    patch["rank"] = row_rank
-                if isinstance(row_power, (int, float)) and row_power > 0:
-                    patch["bireysel_guc"] = int(row_power)
-                if row_alliance:
-                    alli = str(row_alliance).replace("[", "").replace("]", "").strip()
-                    if alli:
-                        patch["alliance_name"] = alli
-                if patch:
-                    member_patches.append((target_member_id, patch))
             else:
                 # Auto-create the missing member. Extract alliance tag from raw name
                 # (e.g. "[GOW] PasHa" → alliance=GOW) or from explicit alliance_name field.
@@ -424,10 +406,10 @@ def make_ocr_router(db, require_edit, require_auth):
                 new_member_docs.append({
                     "id": new_id,
                     "name": clean_name,
-                    "rank": row_rank if row_rank in ("R1", "R2", "R3", "R4", "R5") else "R1",
+                    "rank": "R1",
                     "alliance_name": alliance_canonical or "",
-                    "bireysel_guc": int(row_power) if isinstance(row_power, (int, float)) and row_power > 0 else 0,
-                    "castle_level": int(row_castle) if isinstance(row_castle, (int, float)) and row_castle > 0 else 0,
+                    "bireysel_guc": 0,
+                    "castle_level": 0,
                 })
                 # Update the in-memory index so a repeat name in the same batch matches.
                 by_name[key] = {"id": new_id, "name": clean_name}
@@ -453,14 +435,6 @@ def make_ocr_router(db, require_edit, require_auth):
             await db.members.insert_many(new_member_docs)
         if docs:
             await db.points.insert_many(docs)
-        # Best-effort member field backfill for existing rows the OCR enriched
-        # (castle_level / rank / power / alliance_name). Uses a single $set per row.
-        for mid, patch in member_patches:
-            try:
-                await db.members.update_one({"id": mid}, {"$set": patch})
-                member_updates += 1
-            except Exception:
-                pass
         # Audit log — best-effort.
         try:
             from datetime import datetime as _dt, timezone as _tz
@@ -471,7 +445,7 @@ def make_ocr_router(db, require_edit, require_auth):
                 "event_name": ev.get("name"),
                 "event_id": body.event_id,
                 "created": created,
-                "updated": member_updates,
+                "updated": 0,
                 "new_members_created": len(new_member_docs),
                 "errors": len(errors),
                 "created_at": _dt.now(_tz.utc).isoformat(),
@@ -480,7 +454,6 @@ def make_ocr_router(db, require_edit, require_auth):
             pass
         return {
             "created": created,
-            "member_updates": member_updates,
             "new_members_created": len(new_member_docs),
             "new_member_names": new_members,
             "errors": errors,
