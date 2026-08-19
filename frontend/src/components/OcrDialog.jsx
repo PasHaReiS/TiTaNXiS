@@ -292,6 +292,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
             merged.set(key, {
               name: raw,
               points: pts,
+              rank: p.rank || null,
               alliance_name: p.alliance_name || null,
               sources: 1,
             });
@@ -302,6 +303,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
             else if (mergeStrategy === "max") cur.points = Math.max(cur.points, pts);
             // 'first' → keep original
             if (!cur.alliance_name && p.alliance_name) cur.alliance_name = p.alliance_name;
+            if (!cur.rank && p.rank) cur.rank = p.rank;
           }
         }
       } else if (mode === "members") {
@@ -416,6 +418,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
           const pts = Number(p.points || 0) || 0;
           if (!merged.has(key)) merged.set(key, {
             name: raw, points: pts,
+            rank: p.rank || null,
             alliance_name: p.alliance_name || null,
             sources: 1,
           });
@@ -425,6 +428,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
             if (nextStrategy === "sum") cur.points += pts;
             else if (nextStrategy === "max") cur.points = Math.max(cur.points, pts);
             if (!cur.alliance_name && p.alliance_name) cur.alliance_name = p.alliance_name;
+            if (!cur.rank && p.rank) cur.rank = p.rank;
           }
         }
       } else if (mode === "members") {
@@ -488,12 +492,15 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
               const clean = next.alliance_name.replace(/[\[\]]/g, "").trim();
               next.alliance_name = clean || null;
             }
-            // Event mode: castle_level / rank / power intentionally NOT sent.
-            // These stats belong to members-mode OCR only — event ingestion
-            // never mutates a member's curated castle/rank/power values.
+            // Event mode: castle_level / power intentionally NOT sent —
+            // they belong to members-mode OCR only. RANK is user-chosen via
+            // the preview dropdown (defaults to R1 if not touched) so it IS
+            // included: for existing members it backfills a missing rank,
+            // for new members it seeds the correct rank instead of R1.
             if (kind === "event") {
+              const rawRank = String((patch.rank ?? next.rank ?? "R1") || "R1").toUpperCase();
+              next.rank = ["R1","R2","R3","R4","R5"].includes(rawRank) ? rawRank : "R1";
               delete next.castle_level;
-              delete next.rank;
               delete next.power;
             }
             if (kind === "members" && patch.alliance_name !== undefined) {
@@ -1026,17 +1033,18 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             <th className="text-center py-1 w-8" title="Elenen satırlar veritabanına yazılmaz">✓</th>
                           )}
                           {mode === "members" && (<>
-                            <th className="text-left py-2 pl-2 pr-4 font-semibold text-[9px] tracking-widest text-amber-200/70">İsim</th>
-                            <th className="text-right py-2 px-2 font-semibold text-[9px] tracking-widest text-amber-200/70 w-[85px]">Güç</th>
-                            <th className="text-center py-2 px-1 font-semibold text-[9px] tracking-widest text-amber-200/70 w-[52px]">Kale</th>
-                            <th className="text-center py-2 px-1 font-semibold text-[9px] tracking-widest text-amber-200/70 w-[50px]">Rank</th>
-                            <th className="text-left py-2 pl-3 pr-1 font-semibold text-[9px] tracking-widest text-amber-200/70 w-[100px]">İttifak</th>
-                            <th className="text-center py-2 px-1 font-semibold text-[9px] tracking-widest text-amber-200/70 w-[60px]">Durum</th>
+                            <th className="text-left py-2 pl-2 pr-4 font-bold text-[10px] tracking-widest uppercase" style={{ color: "#F5A623" }}>İsim</th>
+                            <th className="text-right py-2 px-2 font-bold text-[10px] tracking-widest uppercase w-[85px]" style={{ color: "#F5A623" }}>Güç</th>
+                            <th className="text-center py-2 px-1 font-bold text-[10px] tracking-widest uppercase w-[52px]" style={{ color: "#F5A623" }}>Kale</th>
+                            <th className="text-center py-2 px-1 font-bold text-[10px] tracking-widest uppercase w-[50px]" style={{ color: "#F5A623" }}>Rank</th>
+                            <th className="text-left py-2 pl-3 pr-1 font-bold text-[10px] tracking-widest uppercase w-[100px]" style={{ color: "#F5A623" }}>İttifak</th>
+                            <th className="text-center py-2 px-1 font-bold text-[10px] tracking-widest uppercase w-[60px]" style={{ color: "#F5A623" }}>Durum</th>
                           </>)}
                           {mode === "event" && (<>
-                            <th className="text-left py-2 pl-2 pr-6 font-semibold text-[9px] tracking-widest text-amber-200/70 w-[90px]">İttifak</th>
-                            <th className="text-left py-2 pl-6 pr-1 font-semibold text-[9px] tracking-widest text-amber-200/70">Üye Adı</th>
-                            <th className="text-right py-2 pl-1 pr-2 font-semibold text-[9px] tracking-widest text-amber-200/70 w-[110px]">Puan</th>
+                            <th className="text-left py-2 pl-2 pr-6 font-bold text-[10px] tracking-widest uppercase w-[110px]" style={{ color: "#F5A623" }}>İttifak</th>
+                            <th className="text-left py-2 pl-6 pr-2 font-bold text-[10px] tracking-widest uppercase" style={{ color: "#F5A623" }}>Üye Adı</th>
+                            <th className="text-center py-2 px-1 font-bold text-[10px] tracking-widest uppercase w-[68px]" style={{ color: "#F5A623" }}>Rütbe</th>
+                            <th className="text-right py-2 pl-1 pr-2 font-bold text-[10px] tracking-widest uppercase w-[110px]" style={{ color: "#F5A623" }}>Puan</th>
                           </>)}
                           {mode === "war" && (<>
                             <th className="text-left py-1">Kazanan</th>
@@ -1068,7 +1076,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                           return (
                           <React.Fragment key={i}>
                           <tr
-                            className="border-t border-white/5"
+                            className={`border-t border-white/5 transition-colors ${i % 2 === 1 ? "bg-white/[0.02]" : ""}`}
                             data-testid={`ocr-row-${i}`}
                             style={{
                               ...(isExcluded ? { opacity: 0.35, textDecoration: "line-through" } : {}),
@@ -1080,13 +1088,13 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             title={isAutoApplied ? "Otomatik bağlandı — düzenlersen bu vurgu kalkar" : undefined}
                           >
                             {(mode === "members" || mode === "event") && (
-                              <td className="text-center py-1">
+                              <td className="text-center py-1 pl-1 pr-0 w-8">
                                 <button
                                   type="button"
                                   onClick={toggleExclude}
                                   data-testid={`ocr-row-toggle-${i}`}
-                                  title={isExcluded ? "Bu satırı geri al" : "Bu satırı elemekte"}
-                                  className="p-0.5 rounded hover:bg-white/10 transition"
+                                  title={isExcluded ? "Bu satırı geri al" : "Bu satırı ele"}
+                                  className="p-1 rounded-md hover:bg-red-500/15 transition-all border border-transparent hover:border-red-500/40"
                                   style={{ color: isExcluded ? "#93C5FD" : "#F87171" }}
                                 >
                                   {isExcluded
@@ -1319,14 +1327,14 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     {allianceNames.map((n) => (<option key={n} value={n} />))}
                                   </datalist>
                                 </td>
-                                <td className="py-1.5 pl-6 pr-1 align-middle">
+                                <td className="py-1.5 pl-6 pr-2 align-middle">
                                   <input
                                     type="text"
                                     value={rowEdits[i]?.name !== undefined ? currName : displayName}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-name-${i}`}
-                                    className="w-full bg-black/25 text-white outline-none rounded-md px-2 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[11px] transition-colors border border-white/5 focus:border-amber-400/50"
+                                    className="w-full bg-black/25 text-white outline-none rounded-md px-2 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-2 focus:ring-amber-400/70 focus:shadow-[0_0_10px_rgba(245,166,35,0.35)] text-[11px] transition-all border border-white/5 focus:border-amber-400/60"
                                     title="Adı düzeltmek için tıkla"
                                   />
                                   {dupHit && !isExcluded && (
@@ -1340,6 +1348,23 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     </div>
                                   )}
                                 </td>
+                                <td className="py-1.5 px-1 align-middle text-center">
+                                  <select
+                                    value={(rowEdits[i]?.rank ?? r.rank ?? "R1") || "R1"}
+                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], rank: e.target.value } }))}
+                                    disabled={isExcluded}
+                                    data-testid={`ocr-row-rank-${i}`}
+                                    className="w-full bg-black/25 outline-none rounded-md px-1.5 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-2 focus:ring-amber-400/70 focus:shadow-[0_0_10px_rgba(245,166,35,0.35)] text-[11px] font-bold text-center transition-all border border-white/5 focus:border-amber-400/60"
+                                    style={{ color: "#FCD34D", appearance: "none", cursor: "pointer" }}
+                                    title="Rütbe seçimi — boş bırakılırsa otomatik R1"
+                                  >
+                                    <option value="R1">R1</option>
+                                    <option value="R2">R2</option>
+                                    <option value="R3">R3</option>
+                                    <option value="R4">R4</option>
+                                    <option value="R5">R5</option>
+                                  </select>
+                                </td>
                                 <td className="py-1.5 pl-1 pr-2 align-middle">
                                   <input
                                     type="number"
@@ -1348,7 +1373,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], points: e.target.value } }))}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-points-${i}`}
-                                    className="w-full bg-black/25 gold-text mono outline-none rounded-md px-2 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[11px] text-right font-bold transition-colors border border-white/5 focus:border-amber-400/50"
+                                    className="w-full bg-black/25 gold-text mono outline-none rounded-md px-2 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-2 focus:ring-amber-400/70 focus:shadow-[0_0_10px_rgba(245,166,35,0.35)] text-[11px] text-right font-bold transition-all border border-white/5 focus:border-amber-400/60"
                                     title="Puanı düzeltmek için tıkla"
                                   />
                                 </td>

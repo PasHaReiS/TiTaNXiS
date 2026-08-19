@@ -382,11 +382,14 @@ def make_ocr_router(db, require_edit, require_auth):
             except Exception:
                 errors.append(f"{clean_name}: geçersiz puan '{pts}'")
                 continue
-            # Event mode ONLY handles points + optional alliance for member matching.
-            # castle_level / rank / power are strictly out-of-scope here — they live in
-            # members-mode OCR. This keeps event ingestion from silently mutating
-            # curated member stats.
+            # Event mode ONLY handles points + optional alliance for member matching
+            # + explicit rank (user picks it in the preview dropdown; defaults to R1
+            # client-side). castle_level / power are strictly out-of-scope here —
+            # they live in members-mode OCR.
             row_alliance = row.get("alliance_name")
+            row_rank = str(row.get("rank") or "R1").upper()
+            if row_rank not in ("R1", "R2", "R3", "R4", "R5"):
+                row_rank = "R1"
             key = _norm_key(clean_name)
             match_key = key if key in by_name else _fuzzy_match(key, by_name_keys)
             if match_key:
@@ -424,7 +427,7 @@ def make_ocr_router(db, require_edit, require_auth):
                 new_member_docs.append({
                     "id": new_id,
                     "name": clean_name,
-                    "rank": "R1",
+                    "rank": row_rank,
                     "alliance_name": alliance_canonical or "",
                     "bireysel_guc": 0,
                     "castle_level": 0,
