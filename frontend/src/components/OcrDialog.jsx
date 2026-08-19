@@ -1132,7 +1132,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             <th style={{padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Üye Adı</th>
                             <th style={{width:'56px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Rank</th>
                             <th style={{width:'58px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Kale</th>
-                            <th style={{width:'80px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Güç</th>
+                            <th style={{width:'110px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Güç</th>
                           </>)}
                           {mode === "event" && (<>
                             <th style={{width:'80px', padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>İttifak</th>
@@ -1211,9 +1211,11 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               const suggestions = !isExisting
                                 ? _fuzzyTopMatches(currName, (existingMembers || []).map((m) => m.name || ""), 3)
                                 : [];
+                              // Alliance lookup — support every field name the OCR
+                              // pipeline (and any legacy row shape) might use.
                               let allianceGuess = rowEdits[i]?.alliance_name;
-                              if (allianceGuess === undefined) {
-                                allianceGuess = r.alliance_name;
+                              if (allianceGuess === undefined || allianceGuess === null || allianceGuess === "") {
+                                allianceGuess = r.alliance_name ?? r.alliance ?? r.ittifak ?? r.tag ?? "";
                                 if (!allianceGuess) {
                                   const mm = /^\s*\[([^\]]+)\]/.exec(String(currName ?? ""));
                                   if (mm) allianceGuess = mm[1].trim();
@@ -1223,6 +1225,11 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               const currRank = (rowEdits[i]?.rank ?? r.rank ?? "R1") || "R1";
                               const currCastle = rowEdits[i]?.castle_level ?? r.castle_level ?? "";
                               const currPower = rowEdits[i]?.power ?? r.power ?? "";
+                              // Türkçe binlik ayraçlı görüntüleme — input string tabanlı,
+                              // değişimde noktalar sıyrılır ve number olarak state'e yazılır.
+                              const powerDisplay = (currPower === "" || currPower === null || currPower === undefined)
+                                ? ""
+                                : Number(currPower).toLocaleString("tr-TR");
                               const cellStyle = { padding: '4px', verticalAlign: 'middle' };
                               const inputStyle = {
                                 width: '100%',
@@ -1255,21 +1262,27 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                       fontWeight: 'bold',
                                       fontSize: '10px',
                                     }}
-                                    title="İttifak"
+                                    title={allianceGuess || "İttifak"}
                                   />
                                   <datalist id={`ocr-alliance-list-${i}`}>
                                     {allianceNames.map((n) => (<option key={n} value={n} />))}
                                   </datalist>
                                 </td>
-                                <td style={cellStyle}>
+                                <td style={{...cellStyle, minWidth:'180px', width:'auto'}}>
                                   <input
                                     type="text"
                                     value={currName}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-name-${i}`}
-                                    style={inputStyle}
-                                    title="Üye adı"
+                                    style={{
+                                      ...inputStyle,
+                                      minWidth: '160px',
+                                      whiteSpace: 'normal',
+                                      overflow: 'visible',
+                                      textOverflow: 'clip',
+                                    }}
+                                    title={currName}
                                   />
                                   {suggestions.length > 0 && !isExcluded && (
                                     <div style={{display:'flex', flexWrap:'wrap', gap:'2px', marginTop:'2px'}} data-testid={`ocr-suggest-${i}`}>
@@ -1327,23 +1340,26 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     ))}
                                   </select>
                                 </td>
-                                <td style={{...cellStyle, width:'80px', textAlign:'right'}}>
+                                <td style={{...cellStyle, width:'110px', textAlign:'right'}}>
                                   <input
-                                    type="number"
-                                    value={currPower}
-                                    min={0}
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={powerDisplay}
                                     placeholder="—"
-                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], power: e.target.value === "" ? "" : Number(e.target.value) } }))}
+                                    onChange={(e) => {
+                                      const raw = String(e.target.value || "").replace(/[^\d]/g, "");
+                                      setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], power: raw === "" ? "" : Number(raw) } }));
+                                    }}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-power-${i}`}
                                     style={{
                                       ...inputStyle,
-                                      color: '#f97316',
+                                      color: currPower ? '#f97316' : 'rgba(255,255,255,0.35)',
                                       textAlign: 'right',
                                       fontFamily: 'monospace',
                                       fontWeight: 'bold',
                                     }}
-                                    title="Güç"
+                                    title={currPower ? `Güç: ${powerDisplay}` : "Güç"}
                                   />
                                 </td>
                               </>);
