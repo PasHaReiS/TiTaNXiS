@@ -90,6 +90,9 @@ export default function Members() {
   const [profileId, setProfileId] = useState(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const [ocrOpen, setOcrOpen] = useState(false);
+  // OCR alt modları: "power" = sadece güç kaydı, "castle_rank" = kale+rank kaydı.
+  // Farklı ekranlar farklı sütunlar gösterir; backend /members/batch-create tek endpoint.
+  const [ocrSubMode, setOcrSubMode] = useState("power");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [filterAlliances, setFilterAlliances] = useState([]);
   const [filterRanks, setFilterRanks] = useState([]);
@@ -392,13 +395,22 @@ export default function Members() {
                 <Download className="w-3.5 h-3.5" /> Guild CSV
               </button>
               <button
-                data-testid="members-ocr-btn"
-                onClick={() => setOcrOpen(true)}
+                data-testid="members-ocr-power-btn"
+                onClick={() => { setOcrSubMode("power"); setOcrOpen(true); }}
                 className="chip text-xs flex items-center gap-1.5"
-                style={{ borderColor: "rgba(139,92,246,0.5)", color: "#A78BFA" }}
-                title="Ekran Görüntüsünden Aktar"
+                style={{ borderColor: "rgba(249,115,22,0.5)", color: "#FDBA74" }}
+                title="Bireysel Güç OCR — ekran görüntüsünden güç kaydet"
               >
-                <Camera className="w-3.5 h-3.5" /> OCR
+                <Camera className="w-3.5 h-3.5" /> Güç OCR
+              </button>
+              <button
+                data-testid="members-ocr-castle-btn"
+                onClick={() => { setOcrSubMode("castle_rank"); setOcrOpen(true); }}
+                className="chip text-xs flex items-center gap-1.5"
+                style={{ borderColor: "rgba(244,114,182,0.5)", color: "#F9A8D4" }}
+                title="Kale & Rank OCR — ekran görüntüsünden kale seviyesi + rütbe kaydet"
+              >
+                <Camera className="w-3.5 h-3.5" /> Kale/Rank OCR
               </button>
               <button
                 data-testid={MEMBERS.addBtn}
@@ -1210,17 +1222,18 @@ export default function Members() {
         open={ocrOpen}
         onClose={() => setOcrOpen(false)}
         mode="members"
-        title="Üye Listesi — Ekran Görüntüsünden Aktar"
+        subMode={ocrSubMode}
+        title={ocrSubMode === "castle_rank" ? "Kale & Rank OCR" : "Bireysel Güç OCR"}
         onApply={async (data) => {
           const rows = data.members || [];
-          // Send raw names (with `[TAG] Name`) — backend batch-create strips brackets
-          // and auto-resolves alliances via find_or_create_alliance().
+          // Sadece o alt modun alanları gönderilir — diğer alanlar backend tarafında
+          // dokunulmaz (batch-create null'ları görmezden gelir).
           const payload = rows.map((r) => ({
             name: r.name,
             alliance_tag: r.alliance_name || null,
-            power: r.power || null,
-            castle_level: r.castle_level || null,
-            rank: r.rank || null,
+            power: ocrSubMode === "power" ? (r.power || null) : null,
+            castle_level: ocrSubMode === "castle_rank" ? (r.castle_level || null) : null,
+            rank: ocrSubMode === "castle_rank" ? (r.rank || null) : null,
           }));
           const res = await api.post("/members/batch-create", { members: payload });
           mutate((k) => typeof k === "string" && k.startsWith("/members"));

@@ -79,7 +79,7 @@ function _stripTagAndJunk(n) {
  *   requireSelection?   — object { type: "event", options: [{id,label}] } — when set,
  *                         Apply is blocked until the user picks a value from the dropdown.
  */
-export default function OcrDialog({ open, onClose, mode, onApply, title, requireSelection }) {
+export default function OcrDialog({ open, onClose, mode, onApply, title, requireSelection, subMode }) {
   const { t } = useTranslation();
   const fileRef = useRef(null);
   const supportsMulti = mode === "event" || mode === "members";
@@ -1129,10 +1129,16 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             </>)}
                           {mode === "members" && (<>
                             <th style={{width:'36px', padding:'6px 2px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>İttf.</th>
-                            <th style={{width:'90px', padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Ad</th>
-                            <th style={{width:'60px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Rank</th>
-                            <th style={{width:'50px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Kale</th>
-                            <th style={{minWidth:'100px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Güç</th>
+                            <th style={{width:'90px', padding:'6px 4px 6px 10px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Ad</th>
+                            {subMode !== "power" && (
+                              <th style={{width:'60px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Rank</th>
+                            )}
+                            {subMode !== "power" && (
+                              <th style={{width:'50px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Kale</th>
+                            )}
+                            {subMode !== "castle_rank" && (
+                              <th style={{minWidth:'100px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.03em', textTransform:'uppercase', whiteSpace:'nowrap'}}>Güç</th>
+                            )}
                           </>)}
                           {mode === "event" && (<>
                             <th style={{width:'44px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>İttifak</th>
@@ -1271,7 +1277,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     {allianceNames.map((n) => (<option key={n} value={n} />))}
                                   </datalist>
                                 </td>
-                                <td style={{...cellStyle, width:'90px'}}>
+                                <td style={{...cellStyle, width:'90px', paddingLeft:'10px'}}>
                                   <input
                                     type="text"
                                     value={currName}
@@ -1306,6 +1312,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     </div>
                                   )}
                                 </td>
+                                {subMode !== "power" && (
                                 <td style={{...cellStyle, width:'60px', textAlign:'center'}}>
                                   <select
                                     value={currRank}
@@ -1322,6 +1329,8 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     <option value="R5">R5</option>
                                   </select>
                                 </td>
+                                )}
+                                {subMode !== "power" && (
                                 <td style={{...cellStyle, width:'50px', textAlign:'center'}}>
                                   <select
                                     value={currCastle}
@@ -1342,6 +1351,8 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     ))}
                                   </select>
                                 </td>
+                                )}
+                                {subMode !== "castle_rank" && (
                                 <td style={{...cellStyle, minWidth:'100px', textAlign:'right'}}>
                                   <input
                                     type="text"
@@ -1364,6 +1375,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     title={currPower ? `Güç: ${powerDisplay}` : "Güç"}
                                   />
                                 </td>
+                                )}
                               </>);
                             })()}
                             {mode === "event" && (() => {
