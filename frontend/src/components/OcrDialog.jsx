@@ -863,74 +863,6 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                       </button>
                     )}
                   </div>
-                  {mode === "event" && rows.length > 0 && (
-                    <div
-                      className="flex items-center gap-2 rounded-lg px-2 py-1.5 mb-2"
-                      style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(93,169,247,0.20)" }}
-                      data-testid="ocr-bulk-alliance-bar"
-                    >
-                      <span
-                        className="text-[10px] font-bold uppercase tracking-widest"
-                        style={{ color: "#93C5FD" }}
-                      >
-                        Toplu İttifak
-                      </span>
-                      <span className="text-[10px] text-white/50">
-                        · her satıra uygula
-                      </span>
-                      <div className="ml-auto flex items-center gap-1">
-                        <div className="relative">
-                          <input
-                            type="text"
-                            list="ocr-bulk-alliance-list"
-                            value={bulkAlliance}
-                            onChange={(e) => setBulkAlliance(e.target.value)}
-                            placeholder="ittifak seç…"
-                            className="bg-black/40 outline-none rounded-md pl-5 pr-2 py-1 text-[11px] w-[130px] border transition-colors focus:ring-1 focus:ring-blue-400/60"
-                            style={{ color: bulkAlliance ? "#EAD8B0" : "rgba(255,255,255,0.4)", borderColor: "rgba(255,255,255,0.10)" }}
-                            data-testid="ocr-bulk-alliance-input"
-                          />
-                          <span
-                            aria-hidden="true"
-                            className="absolute left-1.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                            style={{
-                              display: "inline-block",
-                              width: 8, height: 8, borderRadius: 999,
-                              background: allianceColor(bulkAlliance) || "rgba(148,163,184,0.35)",
-                              boxShadow: allianceColor(bulkAlliance) ? `0 0 4px ${allianceColor(bulkAlliance)}88` : "none",
-                              border: "1px solid rgba(255,255,255,0.30)",
-                            }}
-                          />
-                          <datalist id="ocr-bulk-alliance-list">
-                            {allianceNames.map((n) => (<option key={n} value={n} />))}
-                          </datalist>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={!bulkAlliance.trim()}
-                          onClick={() => {
-                            const val = bulkAlliance.trim();
-                            if (!val) return;
-                            setRowEdits((prev) => {
-                              const nx = { ...prev };
-                              rows.forEach((_, i) => {
-                                if (excludedRows.has(i)) return;
-                                nx[i] = { ...(nx[i] || {}), alliance_name: val };
-                              });
-                              return nx;
-                            });
-                            toast.success(`Tüm satırlara "${val}" ittifakı uygulandı`);
-                          }}
-                          className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                          style={{ background: bulkAlliance.trim() ? "rgba(93,169,247,0.25)" : "rgba(93,169,247,0.10)", color: "#93C5FD", border: "1px solid rgba(93,169,247,0.45)" }}
-                          data-testid="ocr-bulk-alliance-apply"
-                          title="İttifakı elenmemiş tüm satırlara uygula"
-                        >
-                          Uygula
-                        </button>
-                      </div>
-                    </div>
-                  )}
                   {mode === "event" && selection && (() => {
                     // Preflight duplicate summary — count preview rows whose
                     // resolved name already has a point row for the picked event.
@@ -1187,12 +1119,13 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             </div>
                           );
                         })()}
-                        <table className="w-full text-[10px]">
+                        <div className="overflow-x-auto -mx-1 rounded-md">
+                        <table className="w-full text-[10px] min-w-[430px]">
                       <thead>
                         <tr className="text-muted-foreground uppercase tracking-widest">
-                          {(mode === "members" || mode === "event") && (
-                            <th className="text-center py-1 w-8" title="Elenen satırlar veritabanına yazılmaz">✓</th>
-                          )}
+                            {(mode === "members" || mode === "event") && (
+                              <th className="text-center py-1 min-w-[32px] w-[32px]" title="Elenen satırlar veritabanına yazılmaz">✓</th>
+                            )}
                           {mode === "members" && (<>
                             <th className="text-left py-2 pl-2 pr-4 font-bold text-[10px] tracking-widest uppercase" style={{ color: "#F5A623" }}>İsim</th>
                             <th className="text-right py-2 px-2 font-bold text-[10px] tracking-widest uppercase w-[85px]" style={{ color: "#F5A623" }}>Güç</th>
@@ -1202,10 +1135,10 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             <th className="text-center py-2 px-1 font-bold text-[10px] tracking-widest uppercase w-[60px]" style={{ color: "#F5A623" }}>Durum</th>
                           </>)}
                           {mode === "event" && (<>
-                            <th className="text-left py-2 pl-2 pr-3 font-bold text-[10px] tracking-widest uppercase w-[95px]" style={{ color: "#F5A623" }}>İttifak</th>
-                            <th className="text-left py-2 pl-3 pr-2 font-bold text-[10px] tracking-widest uppercase min-w-[200px]" style={{ color: "#F5A623" }}>Üye Adı</th>
-                            <th className="text-center py-2 px-1 font-bold text-[10px] tracking-widest uppercase w-[64px]" style={{ color: "#F5A623" }}>Rütbe</th>
-                            <th className="text-right py-2 pl-1 pr-2 font-bold text-[10px] tracking-widest uppercase w-[95px]" style={{ color: "#F5A623" }}>Puan</th>
+                            <th className="text-left py-2 pl-2 pr-2 font-bold text-[10px] tracking-widest uppercase min-w-[80px] w-[80px]" style={{ color: "#F5A623" }}>İttifak</th>
+                            <th className="text-left py-2 pl-2 pr-2 font-bold text-[10px] tracking-widest uppercase min-w-[120px]" style={{ color: "#F5A623" }}>Üye Adı</th>
+                            <th className="text-center py-2 px-1 font-bold text-[10px] tracking-widest uppercase min-w-[60px] w-[60px]" style={{ color: "#F5A623" }}>Rütbe</th>
+                            <th className="text-right py-2 pl-1 pr-2 font-bold text-[10px] tracking-widest uppercase min-w-[90px] w-[90px]" style={{ color: "#F5A623" }}>Puan</th>
                           </>)}
                           {mode === "war" && (<>
                             <th className="text-left py-1">Kazanan</th>
@@ -1457,7 +1390,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               const dupHit = selection ? eventExistingByNameLc.get(cleanNameLc) : null;
                               const allianceC = allianceColor(allianceGuess);
                               return (<>
-                                <td className="py-1.5 pl-2 pr-3 align-middle w-[95px]">
+                                <td className="py-1.5 pl-2 pr-2 align-middle min-w-[80px] w-[80px]">
                                   <div className="relative">
                                     <input
                                       type="text"
@@ -1488,14 +1421,14 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     {allianceNames.map((n) => (<option key={n} value={n} />))}
                                   </datalist>
                                 </td>
-                                <td className="py-1.5 pl-3 pr-2 align-middle min-w-[200px]">
+                                <td className="py-1.5 pl-2 pr-2 align-middle min-w-[120px]">
                                   <input
                                     type="text"
                                     value={rowEdits[i]?.name !== undefined ? currName : displayName}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-name-${i}`}
-                                    className="w-full min-w-[190px] bg-black/25 text-white outline-none rounded-md px-2 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-2 focus:ring-amber-400/70 focus:shadow-[0_0_10px_rgba(245,166,35,0.35)] text-[11px] transition-all border border-white/5 focus:border-amber-400/60"
+                                    className="w-full min-w-[110px] bg-black/25 text-white outline-none rounded-md px-2 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-2 focus:ring-amber-400/70 focus:shadow-[0_0_10px_rgba(245,166,35,0.35)] text-[11px] transition-all border border-white/5 focus:border-amber-400/60"
                                     title="Adı düzeltmek için tıkla"
                                   />
                                   {dupHit && !isExcluded && (
@@ -1509,7 +1442,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     </div>
                                   )}
                                 </td>
-                                <td className="py-1.5 px-1 align-middle text-center">
+                                <td className="py-1.5 px-1 align-middle text-center min-w-[60px] w-[60px]">
                                   <select
                                     value={(rowEdits[i]?.rank ?? r.rank ?? "R1") || "R1"}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], rank: e.target.value } }))}
@@ -1526,7 +1459,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     <option value="R5" style={{ color: RANK_COLORS.R5 }}>R5</option>
                                   </select>
                                 </td>
-                                <td className="py-1.5 pl-1 pr-2 align-middle w-[95px]">
+                                <td className="py-1.5 pl-1 pr-2 align-middle min-w-[90px] w-[90px]">
                                   <input
                                     type="number"
                                     value={currPoints}
@@ -1786,6 +1719,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                         })}
                       </tbody>
                     </table>
+                    </div>
                     </>
                   )}
                 </div>
