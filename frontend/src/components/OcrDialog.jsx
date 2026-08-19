@@ -1143,7 +1143,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                           {mode === "event" && (<>
                             <th style={{width:'44px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>İttifak</th>
                             <th style={{padding:'6px 4px 6px 12px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Üye Adı</th>
-                            <th style={{minWidth:'110px', width:'110px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Puan</th>
+                            <th style={{minWidth:'160px', width:'160px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Puan</th>
                           </>)}
                           {mode === "war" && (<>
                             <th className="text-left py-1">Kazanan</th>
@@ -1456,7 +1456,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     title={currName || "Üye adı"}
                                   />
                                 </td>
-                                <td style={{ ...cellStyle, minWidth: '110px', width: '110px', textAlign: 'right' }}>
+                                <td style={{ ...cellStyle, minWidth: '160px', width: '160px', textAlign: 'right' }}>
                                   <input
                                     type="text"
                                     inputMode="numeric"
