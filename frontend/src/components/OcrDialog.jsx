@@ -1136,9 +1136,9 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                           </>)}
                           {mode === "event" && (<>
                             <th style={{width:'44px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>İttifak</th>
-                            <th style={{padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Üye Adı</th>
+                            <th style={{maxWidth:'100px', width:'100px', padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Üye Adı</th>
                             <th style={{width:'50px', padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Rank</th>
-                            <th style={{width:'90px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Puan</th>
+                            <th style={{minWidth:'110px', width:'110px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase', borderBottom:'1px solid rgba(245,166,35,0.4)'}}>Puan</th>
                           </>)}
                           {mode === "war" && (<>
                             <th className="text-left py-1">Kazanan</th>
@@ -1417,7 +1417,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     {allianceNames.map((n) => (<option key={n} value={n} />))}
                                   </datalist>
                                 </td>
-                                <td style={cellStyle}>
+                                <td style={{ ...cellStyle, maxWidth: '100px', width: '100px' }}>
                                   <input
                                     type="text"
                                     value={rowEdits[i]?.name !== undefined ? currName : displayName}
@@ -1449,7 +1449,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     <option value="R5">R5</option>
                                   </select>
                                 </td>
-                                <td style={{ ...cellStyle, width: '90px', textAlign: 'right' }}>
+                                <td style={{ ...cellStyle, minWidth: '110px', width: '110px', textAlign: 'right' }}>
                                   <input
                                     type="text"
                                     inputMode="numeric"

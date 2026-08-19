@@ -21,6 +21,7 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 19, 2026 (v41)**: Etkinlik OCR sütun genişlikleri ayarı. Üye Adı `maxWidth: '100px' + width: '100px'` (daha dar), Puan `minWidth: '110px' + width: '110px'` (daha geniş — "100.000.000" tam sığar). Header + body td tutarlı. Diğer sütunlar (İttifak 44 · Rank 50 · ✓ 24 · 🗑 24) korundu.
 - **Feb 19, 2026 (v40)**: Etkinlik OCR tablosu BORDER tasarımı. Yeni sütun genişlikleri: ✓ 24px · 🗑 24px · İttifak 44px (3-4 char) · Üye Adı esnek (flex) · Rank 50px · Puan 90px. Her satırda amber üst border `borderTop: 1px solid rgba(245,166,35,0.3)` ve koyu arka plan `background: rgba(0,0,0,0.2)` (tr inline style'da). Header alt border `borderBottom: 1px solid rgba(245,166,35,0.4)`. **Input/select arka planı `transparent`, border yok** — sadece amber row border'ları ile ayrılıyor. İttifak sadece 3-4 karakter (`maxLength=4`), amber renkli bold. Rank R1-R5 dropdown renkli. **Puan Türkçe format**: `type="text" inputMode="numeric"` + `toLocaleString('tr-TR')` — 67977200 → "67.977.200". Üye adı `whiteSpace:'normal' overflow:'visible'` tam görünür.
 - **Feb 19, 2026 (v39)**: Üye OCR tablosu 3 düzeltme (isim tam görünür, ittifak fallback, güç tr-TR format).
 - **Feb 19, 2026 (v38)**: OCR önizleme tabloları — tam inline-style rewrite.
