@@ -1236,13 +1236,13 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               const powerDisplay = (currPower === "" || currPower === null || currPower === undefined)
                                 ? ""
                                 : Number(currPower).toLocaleString("tr-TR");
-                              const cellStyle = { padding: '4px', verticalAlign: 'middle' };
+                              const cellStyle = { padding: '2px', verticalAlign: 'middle' };
                               const inputStyle = {
                                 width: '100%',
                                 background: 'rgba(0,0,0,0.3)',
                                 border: '1px solid rgba(255,255,255,0.1)',
                                 borderRadius: '4px',
-                                padding: '4px 6px',
+                                padding: '2px 6px',
                                 color: 'white',
                                 fontSize: '11px',
                                 outline: 'none',
@@ -1250,31 +1250,60 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               };
                               return (<>
                                 <td style={{...cellStyle, width:'36px'}}>
-                                  <input
-                                    type="text"
-                                    list={`ocr-alliance-list-${i}`}
-                                    value={allianceGuess || ''}
-                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], alliance_name: e.target.value } }))}
-                                    disabled={isExcluded}
-                                    data-testid={`ocr-row-alliance-${i}`}
-                                    placeholder="—"
-                                    maxLength={4}
-                                    style={{
-                                      ...inputStyle,
-                                      background: allianceGuess ? 'rgba(251,191,36,0.15)' : 'rgba(0,0,0,0.3)',
-                                      border: allianceGuess ? '1px solid rgba(251,191,36,0.5)' : '1px solid rgba(255,255,255,0.1)',
-                                      color: allianceGuess ? '#fbbf24' : 'rgba(255,255,255,0.4)',
-                                      borderRadius: '9999px',
-                                      textAlign: 'center',
-                                      fontWeight: 'bold',
-                                      fontSize: '11px',
-                                      padding: '3px 2px',
-                                    }}
-                                    title={allianceGuess || "İttifak"}
-                                  />
-                                  <datalist id={`ocr-alliance-list-${i}`}>
-                                    {allianceNames.map((n) => (<option key={n} value={n} />))}
-                                  </datalist>
+                                {subMode === "power" ? (
+                                  <>
+                                    <input
+                                      type="text"
+                                      list={`ocr-alliance-list-${i}`}
+                                      value={allianceGuess || ''}
+                                      onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], alliance_name: e.target.value } }))}
+                                      disabled={isExcluded}
+                                      data-testid={`ocr-row-alliance-${i}`}
+                                      placeholder="—"
+                                      maxLength={4}
+                                      style={{
+                                        ...inputStyle,
+                                        border: '1px solid rgba(255,255,255,0.15)',
+                                        color: allianceGuess ? '#fbbf24' : 'rgba(255,255,255,0.4)',
+                                        fontWeight: 'bold',
+                                        textAlign: 'center',
+                                        fontSize: '11px',
+                                      }}
+                                      title={allianceGuess || "İttifak"}
+                                    />
+                                    <datalist id={`ocr-alliance-list-${i}`}>
+                                      {allianceNames.map((n) => (<option key={n} value={n} />))}
+                                    </datalist>
+                                  </>
+                                ) : (
+                                  <>
+                                    <input
+                                      type="text"
+                                      list={`ocr-alliance-list-${i}`}
+                                      value={allianceGuess || ''}
+                                      onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], alliance_name: e.target.value } }))}
+                                      disabled={isExcluded}
+                                      data-testid={`ocr-row-alliance-${i}`}
+                                      placeholder="—"
+                                      maxLength={4}
+                                      style={{
+                                        ...inputStyle,
+                                        background: allianceGuess ? 'rgba(251,191,36,0.15)' : 'rgba(0,0,0,0.3)',
+                                        border: allianceGuess ? '1px solid rgba(251,191,36,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                                        color: allianceGuess ? '#fbbf24' : 'rgba(255,255,255,0.4)',
+                                        borderRadius: '9999px',
+                                        textAlign: 'center',
+                                        fontWeight: 'bold',
+                                        fontSize: '11px',
+                                        padding: '3px 2px',
+                                      }}
+                                      title={allianceGuess || "İttifak"}
+                                    />
+                                    <datalist id={`ocr-alliance-list-${i}`}>
+                                      {allianceNames.map((n) => (<option key={n} value={n} />))}
+                                    </datalist>
+                                  </>
+                                )}
                                 </td>
                                 <td style={{...cellStyle, width: subMode === "power" ? '160px' : '90px', minWidth: subMode === "power" ? '160px' : undefined, paddingLeft:'10px'}}>
                                   <input
@@ -1393,7 +1422,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               }
                               const displayName = _stripTagAndJunk(currName ?? "") || currName || "";
                               const pointsDisplay = currPoints ? Number(currPoints).toLocaleString("tr-TR") : "";
-                              const cellStyle = { padding: '6px 4px', borderTop: '1px solid rgba(245,166,35,0.3)', verticalAlign: 'middle' };
+                              const cellStyle = { padding: '2px 4px', borderTop: '1px solid rgba(245,166,35,0.3)', verticalAlign: 'middle' };
                               // Belirgin input box stili — kullanıcı hemen "buraya
                               // tıklayabilirim" hissini alsın: hafif koyu arka plan,
                               // ince gümüş kenarlık, focus'ta amber halka.
@@ -1402,7 +1431,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                 background: 'rgba(0,0,0,0.3)',
                                 border: '1px solid rgba(255,255,255,0.15)',
                                 borderRadius: '4px',
-                                padding: '4px 6px',
+                                padding: '2px 6px',
                                 color: 'white',
                                 fontSize: '12px',
                                 outline: 'none',
