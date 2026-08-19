@@ -470,11 +470,11 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   // render a rank pill/dropdown/badge routes through this so R5/R4/R3/R2 look
   // consistent (altın · amber · gümüş · bronz) and R1 stays a muted neutral.
   const RANK_COLORS = {
-    R5: "#FCD34D", // altın
-    R4: "#F59E0B", // amber
-    R3: "#C0C0C0", // gümüş
-    R2: "#CD7F32", // bronz
-    R1: "#94A3B8", // muted slate
+    R1: "#22c55e", // yeşil
+    R2: "#3b82f6", // mavi
+    R3: "#a855f7", // mor
+    R4: "#f97316", // turuncu
+    R5: "#ef4444", // kırmızı
   };
   const rankColor = (rk) => RANK_COLORS[String(rk || "").toUpperCase()] || RANK_COLORS.R1;
 
@@ -1124,21 +1124,21 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                       <thead>
                         <tr className="text-muted-foreground uppercase tracking-widest">
                             {(mode === "members" || mode === "event") && (<>
-                              <th className="text-center py-1 w-[24px]" title="Kaydedilecek satırlar">✓</th>
-                              <th className="text-center py-1 w-[28px]" title="Satırı ele">🗑️</th>
+                              <th style={{width:'30px', padding:'6px 4px', textAlign:'center'}}></th>
+                              <th style={{width:'30px', padding:'6px 4px', textAlign:'center'}}></th>
                             </>)}
                           {mode === "members" && (<>
-                            <th className="text-left py-2 pl-1 pr-1 font-bold text-[10px] tracking-widest uppercase w-[70px]" style={{ color: "#F5A623" }}>İttifak</th>
-                            <th className="text-left py-2 pl-1 pr-1 font-bold text-[10px] tracking-widest uppercase" style={{ color: "#F5A623" }}>Üye Adı</th>
-                            <th className="text-center py-2 px-1 font-bold text-[10px] tracking-widest uppercase w-[50px]" style={{ color: "#F5A623" }}>Rank</th>
-                            <th className="text-center py-2 px-1 font-bold text-[10px] tracking-widest uppercase w-[54px]" style={{ color: "#F5A623" }}>Kale</th>
-                            <th className="text-right py-2 pl-1 pr-1 font-bold text-[10px] tracking-widest uppercase w-[80px]" style={{ color: "#F5A623" }}>Güç</th>
+                            <th style={{width:'80px', padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>İttifak</th>
+                            <th style={{padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Üye Adı</th>
+                            <th style={{width:'56px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Rank</th>
+                            <th style={{width:'58px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Kale</th>
+                            <th style={{width:'80px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Güç</th>
                           </>)}
                           {mode === "event" && (<>
-                            <th style={{width:'60px', padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>İttifak</th>
+                            <th style={{width:'80px', padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>İttifak</th>
                             <th style={{padding:'6px 4px', textAlign:'left', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Üye Adı</th>
-                            <th style={{width:'50px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Rütbe</th>
-                            <th style={{width:'70px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Puan</th>
+                            <th style={{width:'56px', padding:'6px 4px', textAlign:'center', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Rütbe</th>
+                            <th style={{width:'80px', padding:'6px 4px', textAlign:'right', color:'#fbbf24', fontSize:'10px', fontWeight:'bold', letterSpacing:'0.05em', textTransform:'uppercase'}}>Puan</th>
                           </>)}
                           {mode === "war" && (<>
                             <th className="text-left py-1">Kazanan</th>
@@ -1182,150 +1182,144 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             title={isAutoApplied ? "Otomatik bağlandı — düzenlersen bu vurgu kalkar" : undefined}
                           >
                             {(mode === "members" || mode === "event") && (<>
-                              <td className="text-center py-1 w-[24px]">
-                                {!isExcluded ? (
-                                  <span
-                                    className="inline-flex items-center justify-center w-4 h-4 rounded-full"
-                                    style={{ background: "rgba(34,197,94,0.20)", color: "#4ade80", border: "1px solid rgba(34,197,94,0.55)" }}
-                                    title="Bu satır kaydedilecek"
-                                    data-testid={`ocr-row-status-${i}`}
-                                  >
-                                    <Check className="w-2.5 h-2.5" />
-                                  </span>
-                                ) : (
-                                  <span
-                                    className="inline-flex items-center justify-center w-4 h-4 rounded-full"
-                                    style={{ background: "rgba(148,163,184,0.20)", color: "#94A3B8", border: "1px solid rgba(148,163,184,0.55)" }}
-                                    title="Bu satır elenmiş — kaydedilmeyecek"
-                                    data-testid={`ocr-row-status-${i}`}
-                                  >
-                                    ×
-                                  </span>
-                                )}
+                              <td style={{padding:'4px', textAlign:'center', width:'30px'}}>
+                                <input
+                                  type="checkbox"
+                                  checked={!isExcluded}
+                                  onChange={toggleExclude}
+                                  data-testid={`ocr-row-status-${i}`}
+                                  style={{cursor:'pointer', accentColor:'#22c55e'}}
+                                  title="Bu satır kaydedilecek mi?"
+                                />
                               </td>
-                              <td className="text-center py-1 w-[28px]">
+                              <td style={{padding:'4px', textAlign:'center', width:'30px'}}>
                                 <button
                                   type="button"
                                   onClick={toggleExclude}
                                   data-testid={`ocr-row-toggle-${i}`}
                                   title={isExcluded ? "Bu satırı geri al" : "Bu satırı ele"}
-                                  className="p-1 rounded-md hover:bg-red-500/15 transition-all border border-transparent hover:border-red-500/40"
-                                  style={{ color: isExcluded ? "#93C5FD" : "#F87171" }}
+                                  style={{background:'none', border:'none', color:'#ef4444', cursor:'pointer', fontSize:'14px', padding:'2px'}}
                                 >
-                                  {isExcluded
-                                    ? <RotateCcw className="w-3 h-3" />
-                                    : <Trash2 className="w-3 h-3" />}
+                                  {isExcluded ? "↺" : "🗑"}
                                 </button>
                               </td>
                             </>)}
                             {mode === "members" && (() => {
-                              const cleanName = _stripTag(rowEdits[i]?.name ?? r.name);
+                              const currName = rowEdits[i]?.name ?? r.name ?? "";
+                              const cleanName = _stripTag(currName);
                               const isExisting = existingNamesLc.has(cleanName.toLowerCase());
                               const suggestions = !isExisting
-                                ? _fuzzyTopMatches(rowEdits[i]?.name ?? r.name, (existingMembers || []).map((m) => m.name || ""), 3)
+                                ? _fuzzyTopMatches(currName, (existingMembers || []).map((m) => m.name || ""), 3)
                                 : [];
-                              // Alliance guess: user edit → explicit field → bracket in name.
                               let allianceGuess = rowEdits[i]?.alliance_name;
                               if (allianceGuess === undefined) {
                                 allianceGuess = r.alliance_name;
                                 if (!allianceGuess) {
-                                  const mm = /^\s*\[([^\]]+)\]/.exec(String(rowEdits[i]?.name ?? r.name ?? ""));
+                                  const mm = /^\s*\[([^\]]+)\]/.exec(String(currName ?? ""));
                                   if (mm) allianceGuess = mm[1].trim();
                                 }
                               }
-                              const allianceKnown = allianceGuess && allianceNames.some((n) => n.toLowerCase() === String(allianceGuess).toLowerCase());
+                              if (typeof allianceGuess === "string") allianceGuess = allianceGuess.replace(/[\[\]]/g, "").trim();
                               const currRank = (rowEdits[i]?.rank ?? r.rank ?? "R1") || "R1";
                               const currCastle = rowEdits[i]?.castle_level ?? r.castle_level ?? "";
                               const currPower = rowEdits[i]?.power ?? r.power ?? "";
+                              const cellStyle = { padding: '4px', verticalAlign: 'middle' };
+                              const inputStyle = {
+                                width: '100%',
+                                background: 'rgba(0,0,0,0.3)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '4px',
+                                padding: '4px 6px',
+                                color: 'white',
+                                fontSize: '11px',
+                                outline: 'none',
+                                fontFamily: 'inherit',
+                              };
                               return (<>
-                                <td className="py-1.5 pl-1 pr-1 align-middle w-[70px]">
-                                  <div className="relative">
-                                    <input
-                                      type="text"
-                                      list={`ocr-alliance-list-${i}`}
-                                      value={allianceGuess || ""}
-                                      onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], alliance_name: e.target.value } }))}
-                                      disabled={isExcluded}
-                                      data-testid={`ocr-row-alliance-${i}`}
-                                      placeholder="—"
-                                      className="w-full bg-black/25 outline-none rounded-md pl-4 pr-1 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[10px] transition-colors border border-white/5 focus:border-amber-400/50"
-                                      style={{ color: allianceKnown ? "#86EFAC" : (allianceGuess ? "#FCD34D" : "rgba(255,255,255,0.4)") }}
-                                      title={allianceGuess ? (allianceKnown ? `Mevcut ittifak: ${allianceGuess}` : `⚠ Yeni ittifak: "${allianceGuess}"`) : "İttifak adı"}
-                                    />
-                                    <span
-                                      aria-hidden="true"
-                                      className="absolute left-1 top-1/2 -translate-y-1/2 pointer-events-none"
-                                      style={{
-                                        display: "inline-block",
-                                        width: 7, height: 7, borderRadius: 999,
-                                        background: allianceColor(allianceGuess) || "rgba(148,163,184,0.35)",
-                                        boxShadow: allianceColor(allianceGuess) ? `0 0 4px ${allianceColor(allianceGuess)}88` : "none",
-                                        border: "1px solid rgba(255,255,255,0.30)",
-                                      }}
-                                    />
-                                  </div>
+                                <td style={{...cellStyle, width:'80px'}}>
+                                  <input
+                                    type="text"
+                                    list={`ocr-alliance-list-${i}`}
+                                    value={allianceGuess || ''}
+                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], alliance_name: e.target.value } }))}
+                                    disabled={isExcluded}
+                                    data-testid={`ocr-row-alliance-${i}`}
+                                    placeholder="—"
+                                    style={{
+                                      ...inputStyle,
+                                      background: allianceGuess ? 'rgba(251,191,36,0.15)' : 'rgba(0,0,0,0.3)',
+                                      border: allianceGuess ? '1px solid rgba(251,191,36,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                                      color: allianceGuess ? '#fbbf24' : 'rgba(255,255,255,0.4)',
+                                      borderRadius: '9999px',
+                                      textAlign: 'center',
+                                      fontWeight: 'bold',
+                                      fontSize: '10px',
+                                    }}
+                                    title="İttifak"
+                                  />
                                   <datalist id={`ocr-alliance-list-${i}`}>
                                     {allianceNames.map((n) => (<option key={n} value={n} />))}
                                   </datalist>
                                 </td>
-                                <td className="py-1.5 pl-1 pr-1 align-middle">
+                                <td style={cellStyle}>
                                   <input
                                     type="text"
-                                    value={rowEdits[i]?.name ?? r.name ?? ""}
+                                    value={currName}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-name-${i}`}
-                                    className="w-full bg-black/25 text-white outline-none rounded-md px-1.5 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[10px] transition-colors border border-white/5 focus:border-amber-400/50"
-                                    title="Adı düzeltmek için tıkla"
+                                    style={inputStyle}
+                                    title="Üye adı"
                                   />
                                   {suggestions.length > 0 && !isExcluded && (
-                                    <div className="flex flex-wrap gap-0.5 mt-0.5" data-testid={`ocr-suggest-${i}`}>
-                                      {suggestions.slice(0, 2).map((s) => {
-                                        const conf = s.dist <= 1 ? { bg: "rgba(34,197,94,0.20)", fg: "#4ade80", border: "rgba(34,197,94,0.75)" }
-                                                  : s.dist <= 2 ? { bg: "rgba(74,222,128,0.14)", fg: "#86EFAC", border: "rgba(74,222,128,0.55)" }
-                                                  : { bg: "rgba(245,166,35,0.18)", fg: "#FCD34D", border: "rgba(245,166,35,0.60)" };
-                                        return (
-                                          <button
-                                            key={s.name}
-                                            type="button"
-                                            onClick={() => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: s.name } }))}
-                                            className="text-[8px] px-1 py-0.5 rounded border font-bold truncate max-w-[80px]"
-                                            style={{ background: conf.bg, color: conf.fg, borderColor: conf.border }}
-                                            title={`Levenshtein ${s.dist} — tıkla ve bu üyeye bağla`}
-                                          >
-                                            🔗 {s.name}
-                                          </button>
-                                        );
-                                      })}
+                                    <div style={{display:'flex', flexWrap:'wrap', gap:'2px', marginTop:'2px'}} data-testid={`ocr-suggest-${i}`}>
+                                      {suggestions.slice(0, 2).map((s) => (
+                                        <button
+                                          key={s.name}
+                                          type="button"
+                                          onClick={() => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: s.name } }))}
+                                          style={{
+                                            fontSize:'8px', padding:'1px 4px', borderRadius:'3px', fontWeight:'bold',
+                                            background: 'rgba(34,197,94,0.20)', color: '#4ade80',
+                                            border: '1px solid rgba(34,197,94,0.5)', cursor: 'pointer',
+                                          }}
+                                          title={`Levenshtein ${s.dist} — tıkla bağla`}
+                                        >
+                                          🔗 {s.name}
+                                        </button>
+                                      ))}
                                     </div>
                                   )}
                                 </td>
-                                <td className="py-1.5 px-1 align-middle text-center w-[50px]">
+                                <td style={{...cellStyle, width:'56px', textAlign:'center'}}>
                                   <select
                                     value={currRank}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], rank: e.target.value } }))}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-rank-${i}`}
-                                    className="w-full bg-black/25 outline-none rounded-md px-1 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[10px] font-bold text-center transition-all border focus:border-amber-400/60"
-                                    style={{ color: rankColor(currRank), borderColor: `${rankColor(currRank)}55`, appearance: "none", cursor: "pointer" }}
-                                    title="Rütbe seçimi — varsayılan R1"
+                                    style={{...inputStyle, color: rankColor(currRank), fontWeight:'bold', textAlign:'center', cursor:'pointer'}}
+                                    title="Rütbe"
                                   >
-                                    <option value="R1" style={{ color: RANK_COLORS.R1 }}>R1</option>
-                                    <option value="R2" style={{ color: RANK_COLORS.R2 }}>R2</option>
-                                    <option value="R3" style={{ color: RANK_COLORS.R3 }}>R3</option>
-                                    <option value="R4" style={{ color: RANK_COLORS.R4 }}>R4</option>
-                                    <option value="R5" style={{ color: RANK_COLORS.R5 }}>R5</option>
+                                    <option value="R1">R1</option>
+                                    <option value="R2">R2</option>
+                                    <option value="R3">R3</option>
+                                    <option value="R4">R4</option>
+                                    <option value="R5">R5</option>
                                   </select>
                                 </td>
-                                <td className="py-1.5 px-1 align-middle text-center w-[54px]">
+                                <td style={{...cellStyle, width:'58px', textAlign:'center'}}>
                                   <select
                                     value={currCastle}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], castle_level: e.target.value === "" ? "" : Number(e.target.value) } }))}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-castle-${i}`}
-                                    className="w-full bg-black/25 outline-none rounded-md px-1 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-pink-400/60 text-[10px] font-bold text-center transition-all border border-white/5 focus:border-pink-400/60 mono"
-                                    style={{ color: currCastle ? "#F472B6" : "rgba(255,255,255,0.35)", appearance: "none", cursor: "pointer" }}
-                                    title="Kale seviyesi (pembe altıgen) — OCR okuyamazsa boş"
+                                    style={{
+                                      ...inputStyle,
+                                      color: currCastle ? '#F472B6' : 'rgba(255,255,255,0.4)',
+                                      fontWeight: 'bold', textAlign: 'center', cursor: 'pointer',
+                                      fontFamily: 'monospace',
+                                    }}
+                                    title="Kale seviyesi (pembe altıgen)"
                                   >
                                     <option value="">—</option>
                                     {[1,2,3,4,5,6,7,8,9,10].map((n) => (
@@ -1333,7 +1327,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     ))}
                                   </select>
                                 </td>
-                                <td className="py-1.5 pl-1 pr-1 align-middle w-[80px]">
+                                <td style={{...cellStyle, width:'80px', textAlign:'right'}}>
                                   <input
                                     type="number"
                                     value={currPower}
@@ -1342,9 +1336,14 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], power: e.target.value === "" ? "" : Number(e.target.value) } }))}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-power-${i}`}
-                                    className="w-full bg-black/25 mono outline-none rounded-md px-1.5 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[10px] text-right font-bold transition-all border border-white/5 focus:border-amber-400/60"
-                                    style={{ color: currPower ? "#FF6B00" : "rgba(255,255,255,0.35)" }}
-                                    title="Bireysel güç — OCR'dan okundu, düzenlenebilir"
+                                    style={{
+                                      ...inputStyle,
+                                      color: '#f97316',
+                                      textAlign: 'right',
+                                      fontFamily: 'monospace',
+                                      fontWeight: 'bold',
+                                    }}
+                                    title="Güç"
                                   />
                                 </td>
                               </>);
@@ -1377,7 +1376,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                 fontFamily: 'inherit',
                               };
                               return (<>
-                                <td style={{padding:'4px', width:'60px'}}>
+                                <td style={{padding:'4px', width:'80px'}}>
                                   <input
                                     type="text"
                                     list={`ocr-ev-alliance-list-${i}`}
@@ -1386,7 +1385,19 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-alliance-${i}`}
                                     placeholder="—"
-                                    style={{...inputStyle, color: allianceGuess ? '#EAD8B0' : 'rgba(255,255,255,0.4)'}}
+                                    style={{
+                                      width: '100%',
+                                      background: allianceGuess ? 'rgba(251,191,36,0.15)' : 'rgba(0,0,0,0.3)',
+                                      border: allianceGuess ? '1px solid rgba(251,191,36,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                                      borderRadius: '9999px',
+                                      padding: '4px 8px',
+                                      color: allianceGuess ? '#fbbf24' : 'rgba(255,255,255,0.4)',
+                                      fontSize: '10px',
+                                      textAlign: 'center',
+                                      fontWeight: 'bold',
+                                      outline: 'none',
+                                      fontFamily: 'inherit',
+                                    }}
                                     title="İttifak"
                                   />
                                   <datalist id={`ocr-ev-alliance-list-${i}`}>
