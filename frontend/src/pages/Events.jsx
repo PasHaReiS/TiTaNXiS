@@ -1332,14 +1332,25 @@ export default function Events() {
           mutate("/events");
           mutate((k) => typeof k === "string" && k.startsWith("/points"));
           mutate((k) => typeof k === "string" && k.startsWith("/members"));
+          mutate(`/ocr/event-participants/${extra.event_id}`);
           mutate("/stats");
           const errs = (res.data.errors || []).length;
           const newMembers = res.data.new_members_created || 0;
-          toast.success(
+          const skipped = (res.data.skipped_duplicates || []).length;
+          const parts_msg =
             `${res.data.created} puan '${res.data.event_name}' etkinliğine eklendi` +
-              (newMembers ? ` · ${newMembers} yeni üye oluşturuldu` : "") +
-              (errs ? ` · ${errs} hata` : ""),
-          );
+            (newMembers ? ` · ${newMembers} yeni üye oluşturuldu` : "") +
+            (skipped ? ` · ${skipped} mükerrer atlandı` : "") +
+            (errs ? ` · ${errs} hata` : "");
+          if (skipped > 0) {
+            const names = (res.data.skipped_duplicates || []).slice(0, 5).map((s) => s.name).join(", ");
+            toast.success(parts_msg, {
+              description: `⚠ Atlanan (bu etkinlikte zaten puanı olan): ${names}${skipped > 5 ? ` +${skipped - 5}` : ""}`,
+              duration: 6000,
+            });
+          } else {
+            toast.success(parts_msg);
+          }
         }}
       />
     </div>

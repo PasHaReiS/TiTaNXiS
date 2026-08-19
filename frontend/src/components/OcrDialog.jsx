@@ -505,8 +505,25 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
           .filter((_, i) => !excludedRows.has(i));
       };
       const filteredData = { ...result.data };
-      if (mode === "event") filteredData.participants = applyEditsAndKeep(result.data.participants || [], "event");
-      else if (mode === "members") filteredData.members = applyEditsAndKeep(result.data.members || [], "members");
+      if (mode === "event") {
+        // Client-side duplicate guard — silently drop rows whose resolved name
+        // already has a point row for the picked event. Backend enforces the
+        // same rule, but pre-filtering avoids a confusing "5 kaydedildi · 12
+        // atlandı" result when the admin didn't manually exclude them.
+        const parts = applyEditsAndKeep(result.data.participants || [], "event");
+        filteredData.participants = parts.filter((p) => {
+          const clean = _stripTag(String(p.name || "")).toLowerCase();
+          return !(selection && eventExistingByNameLc.has(clean));
+        });
+        // If the filter drops everything, block the save.
+        if ((result.data.participants || []).length > 0 && filteredData.participants.length === 0) {
+          toast.error("Kaydedilecek satır kalmadı — tüm üyeler bu etkinlikte zaten puan almış");
+          setApplying(false);
+          return;
+        }
+      } else if (mode === "members") {
+        filteredData.members = applyEditsAndKeep(result.data.members || [], "members");
+      }
       await onApply(filteredData, extra);
       // Close the modal FIRST so the user sees an immediate return to the
       // events list; SWR revalidation kicked off inside onApply continues
@@ -1009,12 +1026,12 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             <th className="text-center py-1 w-8" title="Elenen satırlar veritabanına yazılmaz">✓</th>
                           )}
                           {mode === "members" && (<>
-                            <th className="text-left py-1">İsim</th>
-                            <th className="text-right py-1">Güç</th>
-                            <th className="text-right py-1">Kale</th>
-                            <th className="text-right py-1">Rank</th>
-                            <th className="text-right py-1">İttifak</th>
-                            <th className="text-right py-1">Durum</th>
+                            <th className="text-left py-2 pl-2 pr-4 font-semibold text-[9px] tracking-widest text-amber-200/70">İsim</th>
+                            <th className="text-right py-2 px-2 font-semibold text-[9px] tracking-widest text-amber-200/70 w-[85px]">Güç</th>
+                            <th className="text-center py-2 px-1 font-semibold text-[9px] tracking-widest text-amber-200/70 w-[52px]">Kale</th>
+                            <th className="text-center py-2 px-1 font-semibold text-[9px] tracking-widest text-amber-200/70 w-[50px]">Rank</th>
+                            <th className="text-left py-2 pl-3 pr-1 font-semibold text-[9px] tracking-widest text-amber-200/70 w-[100px]">İttifak</th>
+                            <th className="text-center py-2 px-1 font-semibold text-[9px] tracking-widest text-amber-200/70 w-[60px]">Durum</th>
                           </>)}
                           {mode === "event" && (<>
                             <th className="text-left py-2 pl-2 pr-6 font-semibold text-[9px] tracking-widest text-amber-200/70 w-[90px]">İttifak</th>
@@ -1095,14 +1112,14 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               }
                               const allianceKnown = allianceGuess && allianceNames.some((n) => n.toLowerCase() === String(allianceGuess).toLowerCase());
                               return (<>
-                                <td className="py-1 max-w-[140px]">
+                                <td className="py-1.5 pl-2 pr-4 align-middle">
                                   <input
                                     type="text"
                                     value={rowEdits[i]?.name ?? r.name ?? ""}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
                                     disabled={isExcluded}
                                     data-testid={`ocr-row-name-${i}`}
-                                    className="w-full bg-transparent text-white outline-none border-b border-transparent hover:border-white/30 focus:border-amber-400 text-[10px]"
+                                    className="w-full bg-black/25 text-white outline-none rounded-md px-2 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[11px] transition-colors border border-white/5 focus:border-amber-400/50"
                                     title="Adı düzeltmek için tıkla"
                                   />
                                   {suggestions.length > 0 && !isExcluded && (
@@ -1131,26 +1148,41 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     </div>
                                   )}
                                 </td>
-                                <td className="text-right mono py-1" style={{ color: "#FF6B00" }}>
+                                <td className="text-right mono py-1.5 px-2 align-middle text-[11px] font-bold" style={{ color: "#FF6B00" }}>
                                   {r.power ? Number(r.power).toLocaleString("tr-TR") : "—"}
                                 </td>
-                                <td className="text-right py-1 gold-text mono">{r.castle_level ? `F${r.castle_level}` : "—"}</td>
-                                <td className="text-right py-1 text-white/70">{r.rank || "—"}</td>
-                                <td className="py-1 max-w-[100px]">
-                                  <input
-                                    type="text"
-                                    list={`ocr-alliance-list-${i}`}
-                                    value={allianceGuess || ""}
-                                    onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], alliance_name: e.target.value } }))}
-                                    disabled={isExcluded}
-                                    data-testid={`ocr-row-alliance-${i}`}
-                                    placeholder="—"
-                                    className="w-full bg-transparent outline-none border-b border-transparent hover:border-white/30 focus:border-amber-400 text-[10px] text-right"
-                                    style={{ color: allianceKnown ? "#86EFAC" : (allianceGuess ? "#FCD34D" : "rgba(255,255,255,0.4)") }}
-                                    title={allianceGuess
-                                      ? (allianceKnown ? `Mevcut ittifak: ${allianceGuess}` : `⚠ Yeni ittifak: "${allianceGuess}" — kaydedilirse yeni bir grup açılır`)
-                                      : "İttifak adı — mevcut listemden seç ya da elle yaz"}
-                                  />
+                                <td className="text-center py-1.5 px-1 align-middle gold-text mono text-[11px]" style={{ color: r.castle_level ? "#F472B6" : "rgba(255,255,255,0.35)" }}>
+                                  {r.castle_level ? `F${r.castle_level}` : "—"}
+                                </td>
+                                <td className="text-center py-1.5 px-1 align-middle text-[11px]" style={{ color: r.rank ? "#FCD34D" : "rgba(255,255,255,0.35)" }}>{r.rank || "—"}</td>
+                                <td className="py-1.5 pl-3 pr-1 align-middle">
+                                  <div className="relative">
+                                    <input
+                                      type="text"
+                                      list={`ocr-alliance-list-${i}`}
+                                      value={allianceGuess || ""}
+                                      onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], alliance_name: e.target.value } }))}
+                                      disabled={isExcluded}
+                                      data-testid={`ocr-row-alliance-${i}`}
+                                      placeholder="—"
+                                      className="w-full bg-black/25 outline-none rounded-md pl-5 pr-1.5 py-1 hover:bg-black/40 focus:bg-black/50 focus:ring-1 focus:ring-amber-400/60 text-[11px] transition-colors border border-white/5 focus:border-amber-400/50"
+                                      style={{ color: allianceKnown ? "#86EFAC" : (allianceGuess ? "#FCD34D" : "rgba(255,255,255,0.4)") }}
+                                      title={allianceGuess
+                                        ? (allianceKnown ? `Mevcut ittifak: ${allianceGuess}` : `⚠ Yeni ittifak: "${allianceGuess}" — kaydedilirse yeni bir grup açılır`)
+                                        : "İttifak adı — mevcut listemden seç ya da elle yaz"}
+                                    />
+                                    <span
+                                      aria-hidden="true"
+                                      className="absolute left-1.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                                      style={{
+                                        display: "inline-block",
+                                        width: 8, height: 8, borderRadius: 999,
+                                        background: allianceColor(allianceGuess) || "rgba(148,163,184,0.35)",
+                                        boxShadow: allianceColor(allianceGuess) ? `0 0 4px ${allianceColor(allianceGuess)}88` : "none",
+                                        border: "1px solid rgba(255,255,255,0.30)",
+                                      }}
+                                    />
+                                  </div>
                                   <datalist id={`ocr-alliance-list-${i}`}>
                                     {allianceNames.map((n) => (<option key={n} value={n} />))}
                                   </datalist>
@@ -1209,7 +1241,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     );
                                   })()}
                                 </td>
-                                <td className="text-right py-1">
+                                <td className="text-center py-1.5 px-1 align-middle">
                                   {isExisting ? (
                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: "rgba(107,114,128,0.25)", color: "#9ca3af" }}>
                                       MEVCUT
