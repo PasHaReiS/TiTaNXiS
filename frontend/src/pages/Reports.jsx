@@ -11,7 +11,8 @@ import { useTranslation } from "react-i18next";
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 const PERIODS = [
-  { key: "all", label: "Tümü" },
+  { key: "1d", label: "Günlük" },
+  { key: "7d", label: "Haftalık" },
   { key: "30d", label: "30 Gün" },
   { key: "90d", label: "90 Gün" },
   { key: "180d", label: "180 Gün" },
@@ -66,7 +67,6 @@ function ReportTabs({ tab, setTab }) {
     >
       {[
         { key: "events", emoji: "📅", label: "Etkinlik Katılım" },
-        { key: "members", emoji: "👥", label: "Üye Performansı" },
       ].map((t, i) => {
         const active = tab === t.key;
         return (

@@ -53,7 +53,7 @@ function PCAdminActions({ kind }) {
         disabled={busy}
         data-testid={`pc-export-${kind}`}
         className="h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1"
-        style={{ background: "linear-gradient(135deg,#059669,#10B981)", color: "#fff" }}
+        style={{ background: "linear-gradient(135deg,#059669,#10B981)", color: "#fff", marginRight: "auto" }}
         title="Excel indir"
       >
         <Download className="w-3 h-3" /> Excel
@@ -63,7 +63,7 @@ function PCAdminActions({ kind }) {
         disabled={busy}
         data-testid={`pc-import-${kind}`}
         className="h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1"
-        style={{ background: "linear-gradient(135deg,#B45309,#F59E0B)", color: "#0B0704" }}
+        style={{ background: "linear-gradient(135deg,#B45309,#F59E0B)", color: "#0B0704", marginLeft: "auto" }}
         title="Excel geri yükle"
       >
         <Upload className="w-3 h-3" /> İçe Aktar

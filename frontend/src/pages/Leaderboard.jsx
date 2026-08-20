@@ -193,26 +193,6 @@ export default function Leaderboard() {
       <Header title={t("nav_leaderboard")} />
 
       <div className="px-4">
-        <div className="section-title">{t("general_stats")}</div>
-        <div className="grid grid-cols-2 gap-2 mb-4 fade-in">
-          <div data-testid={LEADERBOARD.statsMember} className="stat-pill">
-            <div className="stat-label flex items-center gap-1"><Users className="w-3 h-3" /> {t("member_count_stat")}</div>
-            <div className="stat-value">{fmt(stats?.member_count)}</div>
-          </div>
-          <div data-testid={LEADERBOARD.statsEvent} className="stat-pill">
-            <div className="stat-label flex items-center gap-1"><Calendar className="w-3 h-3" /> {t("event")}</div>
-            <div className="stat-value">{fmt(stats?.event_count)}</div>
-          </div>
-          <div data-testid={LEADERBOARD.statsTotal} className="stat-pill">
-            <div className="stat-label flex items-center gap-1"><Star className="w-3 h-3" /> {t("total_points")}</div>
-            <div className="stat-value">{fmt(stats?.total_points)}</div>
-          </div>
-          <div data-testid={LEADERBOARD.statsAvg} className="stat-pill">
-            <div className="stat-label flex items-center gap-1"><TrendingUp className="w-3 h-3" /> {t("event_avg")}</div>
-            <div className="stat-value">{fmt(stats?.event_avg)}</div>
-          </div>
-        </div>
-
         <div className="section-title">{t("event_filter")}</div>
         <div
           className="flex gap-2 mb-4 justify-center"

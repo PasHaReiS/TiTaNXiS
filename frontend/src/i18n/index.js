@@ -621,7 +621,7 @@ const tr = {
   // PointCalc (Puan Hesaplama)
   nav_points_about: "Puanlar Hakkında",
   nav_point_calc: "Puan Hesapla",
-  nav_reports: "Raporlar",
+  nav_reports: "Katılım Merkezi",
   // MemberHome + Breadcrumb (auto-translated by DeepL for the other 27 langs)
   home_welcome: "Hoş geldiniz, {{name}}!",
   home_calendar_title: "Etkinlik Takvimi",
