@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 const HERO_BANNER_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/3ec94e48802d40188393d56de578ede6_8c7af15c-9c2e-40cf-9dbb-0cc91f601ffe-1_all_15339.jpg";
 const STONE_CALENDAR_URL = "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/82de5ccf97bf5aa0573e1f3842df81872f0621de875297b34b0fcbd8f5facd62.jpeg";
@@ -130,6 +132,7 @@ function useEventsMap() {
 
 export default function MemberHome() {
   const { user, isAdmin, canEdit } = useAuth();
+  const { t } = useTranslation();
   const nav = useNavigate();
   const eventsMap = useEventsMap();
   const isPrivileged = isAdmin || canEdit;
@@ -149,13 +152,18 @@ export default function MemberHome() {
   const selectedIso = selectedDay ? isoFor(selectedDay) : null;
   const selectedEvents = (selectedIso && eventsMap[selectedIso]) || [];
 
-  const lockedToast = () => toast.error("Bu bölüme erişim yetkiniz yok.");
+  const lockedToast = () => toast.error(t("home_forbidden"));
 
   return (
     <div className="min-h-screen px-4 py-4" data-testid="member-home" style={{ background: "transparent" }}>
       <div className="w-full max-w-md mx-auto" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-        {/* Row 1 — Welcome subtitle (Header globally rendered by Layout) */}
+        {/* Row 0 — Top-right language switcher (only page-level control since Breadcrumb hides on /anasayfa) */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: -6 }} data-testid="member-home-lang">
+          <LanguageSwitcher />
+        </div>
+
+        {/* Row 1 — Welcome subtitle */}
         <div
           data-testid="member-home-welcome"
           style={{
@@ -169,7 +177,7 @@ export default function MemberHome() {
             marginTop: 2,
           }}
         >
-          HOŞ GELDİNİZ, {(user?.username || "MİSAFİR").toUpperCase()}!
+          {t("home_welcome", { name: (user?.username || "").toUpperCase() })}
         </div>
 
         {/* Row 2 — Hero banner */}
@@ -199,21 +207,21 @@ export default function MemberHome() {
             marginTop: 4,
           }}
         >
-          <MenuTile spriteKey="siralama"     label="SIRALAMA"      onClick={() => nav("/")} testId="menu-siralama" />
-          <MenuTile spriteKey="loj"          label="LOJ HAKKINDA"  onClick={() => nav("/komutanlar")} testId="menu-loj" />
-          <MenuTile spriteKey="hesapla"      label="PUAN HESAPLA"  onClick={() => nav("/puan-hesaplama")} testId="menu-hesapla" />
-          <MenuTile spriteKey="etkinlikler"  label="ETKİNLİKLER"   onClick={() => nav("/etkinlikler")} testId="menu-etkinlikler" />
+          <MenuTile spriteKey="siralama"     label={t("nav_leaderboard").toUpperCase()}   onClick={() => nav("/")} testId="menu-siralama" />
+          <MenuTile spriteKey="loj"          label={t("nav_commanders").toUpperCase()}    onClick={() => nav("/komutanlar")} testId="menu-loj" />
+          <MenuTile spriteKey="hesapla"      label={t("nav_point_calc").toUpperCase()}    onClick={() => nav("/puan-hesaplama")} testId="menu-hesapla" />
+          <MenuTile spriteKey="etkinlikler"  label={t("nav_events").toUpperCase()}        onClick={() => nav("/etkinlikler")} testId="menu-etkinlikler" />
           <MenuTile
             spriteKey="raporlar"
-            label="RAPORLAR"
+            label={t("nav_reports").toUpperCase()}
             locked={!isPrivileged}
             onClick={() => (isPrivileged ? nav("/raporlar") : lockedToast())}
             testId="menu-raporlar"
           />
           <MenuTile
             spriteKey="uyeler"
-            label="ÜYELER"
-            sub={isPrivileged ? undefined : "Salt Görüntüleme"}
+            label={t("nav_members").toUpperCase()}
+            sub={isPrivileged ? undefined : t("home_view_only")}
             locked={!isPrivileged}
             onClick={() => nav("/uyeler")}
             testId="menu-uyeler"
@@ -252,10 +260,10 @@ export default function MemberHome() {
                   textShadow: "0 0 6px rgba(245,166,35,0.6)",
                 }}
               >
-                YÖNETİM PANELİ
+                {t("home_admin_panel").toUpperCase()}
               </span>
               <span style={{ fontSize: 10, color: "rgba(245,240,232,0.65)", letterSpacing: "0.06em" }}>
-                Dashboard · OCR · Bildirimler · İttifaklar
+                {t("home_admin_panel_sub")}
               </span>
             </div>
             <span style={{ marginLeft: "auto", color: "#F5A623", fontSize: 18 }}>›</span>
@@ -274,9 +282,10 @@ export default function MemberHome() {
             color: "#F5A623",
             textShadow: "0 0 16px rgba(245,166,35,0.55), 0 2px 6px rgba(0,0,0,0.75)",
             marginTop: 4,
+            textTransform: "uppercase",
           }}
         >
-          ETKİNLİK TAKVİMİ
+          {t("home_calendar_title")}
         </div>
 
         {/* Row 5 — Real calendar (stone icon ghost removed) */}
@@ -383,11 +392,11 @@ export default function MemberHome() {
                   textShadow: "0 0 6px rgba(245,166,35,0.4)",
                 }}
               >
-                {String(selectedDay).padStart(2, "0")} {monthName.split(" ")[0]} · ETKİNLİKLER
+                {String(selectedDay).padStart(2, "0")} {monthName.split(" ")[0]} · {t("home_day_events_suffix").toUpperCase()}
               </div>
               {selectedEvents.length === 0 ? (
                 <div style={{ fontSize: 12, color: "rgba(245,240,232,0.5)", fontStyle: "italic" }}>
-                  Bu gün planlı etkinlik yok.
+                  {t("home_no_events_today")}
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

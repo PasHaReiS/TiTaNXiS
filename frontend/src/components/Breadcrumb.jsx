@@ -1,42 +1,44 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
-// Route path → visible name (uppercase, TR)
-const ROUTE_LABELS = {
-  "/": "SIRALAMA",
-  "/anasayfa": "ANASAYFA",
-  "/komutanlar": "LOJ HAKKINDA",
-  "/puanlar": "PUANLAR",
-  "/puan-ekle": "PUAN EKLE",
-  "/puanlar-hakkinda": "PUANLAR HAKKINDA",
-  "/puan-hesaplama": "PUAN HESAPLA",
-  "/uyeler": "ÜYELER",
-  "/etkinlikler": "ETKİNLİKLER",
-  "/duyurular": "DUYURULAR",
-  "/kullanicilar": "KULLANICILAR",
-  "/profil": "PROFİL",
-  "/gosterge-paneli": "GÖSTERGE PANELİ",
-  "/vip-destek": "VIP DESTEK",
-  "/dashboard": "DASHBOARD",
-  "/etkinlik-bildirimleri": "ETKİNLİK BİLDİRİMLERİ",
-  "/ocr/history": "OCR GEÇMİŞİ",
-  "/ittifaklar": "İTTİFAKLAR",
-  "/raporlar": "RAPORLAR",
-  "/anketler": "ANKETLER",
-  "/svs": "SvS TAKİPÇİSİ",
+// Route path → i18n key (falls back to hardcoded label if missing)
+const ROUTE_KEYS = {
+  "/": "nav_leaderboard",
+  "/anasayfa": "breadcrumb_home",
+  "/komutanlar": "nav_commanders",
+  "/puanlar": "nav_points",
+  "/puan-ekle": "nav_add_points",
+  "/puanlar-hakkinda": "nav_points_about",
+  "/puan-hesaplama": "nav_point_calc",
+  "/uyeler": "nav_members",
+  "/etkinlikler": "nav_events",
+  "/duyurular": "nav_announcements",
+  "/kullanicilar": "user_mgmt",
+  "/profil": "my_profile",
+  "/gosterge-paneli": "live_dashboard",
+  "/vip-destek": "nav_vip_support",
+  "/dashboard": "nav_dashboard",
+  "/etkinlik-bildirimleri": "nav_notifications_hub",
+  "/ocr/history": "nav_ocr_history",
+  "/ittifaklar": "alliances_title",
+  "/raporlar": "nav_reports",
+  "/anketler": "polls_title",
+  "/svs": "svs_title",
 };
 
 export default function Breadcrumb() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const path = location.pathname;
 
-  // Hide on login page and on the anasayfa itself (home doesn't crumb to itself)
+  // Hide entirely on login and on the anasayfa itself
   if (path === "/login" || path === "/anasayfa") return null;
 
-  const currentLabel =
-    ROUTE_LABELS[path] ||
-    (path.startsWith("/kayit/") ? "KAYIT" : path.replace(/^\//, "").toUpperCase());
+  const key = ROUTE_KEYS[path];
+  const currentLabel = key ? t(key) : (path.startsWith("/kayit/") ? "KAYIT" : path.replace(/^\//, ""));
 
   return (
     <nav
@@ -68,7 +70,7 @@ export default function Breadcrumb() {
           textShadow: "0 0 6px rgba(245,166,35,0.5), 0 1px 3px rgba(0,0,0,0.8)",
         }}
       >
-        🏠 Anasayfa
+        🏠 {t("breadcrumb_home")}
       </button>
       <span style={{ color: "#666", fontSize: 12 }}>/</span>
       <span
@@ -80,10 +82,14 @@ export default function Breadcrumb() {
           letterSpacing: "0.14em",
           textTransform: "uppercase",
           textShadow: "0 1px 3px rgba(0,0,0,0.8)",
+          flex: 1,
         }}
       >
-        {currentLabel}
+        {String(currentLabel).toUpperCase()}
       </span>
+      <div style={{ marginLeft: "auto" }} data-testid="breadcrumb-lang">
+        <LanguageSwitcher />
+      </div>
     </nav>
   );
 }

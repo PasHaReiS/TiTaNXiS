@@ -97,7 +97,6 @@ export default function Header({ title }) {
           />
         </div>
 
-        <LanguageSwitcher />
         <NotificationBell />
 
         <button
