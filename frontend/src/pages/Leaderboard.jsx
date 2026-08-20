@@ -629,8 +629,8 @@ export default function Leaderboard() {
                   display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer',
                 }}
               >
-                <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#c0c0c0,#8a8a8a)', color: '#0a0a0a' }}>
-                  <Medal className="w-4 h-4" />
+                <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#c0c0c0,#8a8a8a)', color: '#0a0a0a', display:'flex', alignItems:'center', justifyContent:'center', gap:4, fontFamily:'Cinzel, serif', fontWeight:800, fontSize:13 }}>
+                  <Medal className="w-4 h-4" /> 2
                 </div>
                 <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Rajdhani, sans-serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[1].name}>{top3[1].name}</div>
                 <div
@@ -665,8 +665,8 @@ export default function Leaderboard() {
                   display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer',
                 }}
               >
-                <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#D4730A,#E74C1A)', color: '#0a0a0a' }}>
-                  <Crown className="w-4 h-4" />
+                <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#D4730A,#E74C1A)', color: '#0a0a0a', display:'flex', alignItems:'center', justifyContent:'center', gap:4, fontFamily:'Cinzel, serif', fontWeight:800, fontSize:15 }}>
+                  <Crown className="w-4 h-4" /> 1
                 </div>
                 <div style={{ marginTop: 8, fontSize: 14, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[0].name}>{top3[0].name}</div>
                 <div
@@ -700,8 +700,8 @@ export default function Leaderboard() {
                   display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer',
                 }}
               >
-                <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#8B6914,#A67C00)', color: '#0a0a0a' }}>
-                  <Award className="w-4 h-4" />
+                <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#8B6914,#A67C00)', color: '#0a0a0a', display:'flex', alignItems:'center', justifyContent:'center', gap:4, fontFamily:'Cinzel, serif', fontWeight:800, fontSize:13 }}>
+                  <Award className="w-4 h-4" /> 3
                 </div>
                 <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Rajdhani, sans-serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[2].name}>{top3[2].name}</div>
                 <div
