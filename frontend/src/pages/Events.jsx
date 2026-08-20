@@ -1948,6 +1948,9 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
   const [showBreakdown, setShowBreakdown] = useState(
     initial ? initial.show_breakdown !== false : true,
   );
+  const [showInCalendar, setShowInCalendar] = useState(
+    initial ? initial.show_in_calendar !== false : true,
+  );
   const [recurInterval, setRecurInterval] = useState("none");
   const [recurCount, setRecurCount] = useState(4);
   // When editing an event that belongs to a series, this toggle routes the
@@ -1986,6 +1989,7 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
         reminder_enabled: reminderEnabled,
         hidden_from_leaderboard: hiddenFromLb,
         show_breakdown: showBreakdown,
+        show_in_calendar: showInCalendar,
         recurrence_interval: recurInterval,
         recurrence_count: Number(recurCount) || 1,
       };
@@ -2235,6 +2239,28 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
                 {hiddenFromLb
                   ? "Bu etkinlik sıralamadan gizlenir — puan girilebilir ama toplama katılmaz."
                   : "Bu etkinliğe eklenen puanlar Sıralama sayfasında toplama dahil edilir."}
+              </span>
+            </span>
+          </label>
+        </div>
+
+        <div className="mt-3 rounded p-3" style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.30)" }} data-testid="event-form-calendar-toggle">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showInCalendar}
+              onChange={(e) => setShowInCalendar(e.target.checked)}
+              data-testid="event-form-calendar-checkbox"
+              className="cursor-pointer"
+            />
+            <span className="flex-1">
+              <span className="block text-sm font-bold text-white">
+                📅 Takvimde Göster
+              </span>
+              <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
+                {showInCalendar
+                  ? "Bu etkinlik anasayfadaki etkinlik takviminde amber nokta olarak görünür."
+                  : "Bu etkinlik anasayfa takviminden gizlenir — sadece Etkinlikler sayfasında listelenir."}
               </span>
             </span>
           </label>

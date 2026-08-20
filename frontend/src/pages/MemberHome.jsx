@@ -3,7 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import useSWR from "swr";
+import { api } from "@/lib/api";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+
+const fetcher = (url) => api.get(url).then((r) => r.data);
 
 const HERO_BANNER_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/3ec94e48802d40188393d56de578ede6_8c7af15c-9c2e-40cf-9dbb-0cc91f601ffe-1_all_15339.jpg";
 const STONE_CALENDAR_URL = "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/82de5ccf97bf5aa0573e1f3842df81872f0621de875297b34b0fcbd8f5facd62.jpeg";
@@ -116,18 +120,27 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
   );
 }
 
-// Örnek etkinlik verisi — YYYY-MM-DD → [{ time, title, icon }]
+// Live event map derived from /api/events. Only events with
+// show_in_calendar !== false and archived === false surface in the calendar.
+// Keyed by "YYYY-MM-DD" (local time) → [{ id, title, time, iso }].
 function useEventsMap() {
-  const today = new Date();
-  const y = today.getFullYear();
-  const m = today.getMonth();
-  const iso = (d) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  return useMemo(() => ({
-    [iso(today.getDate())]:      [{ time: "19:00", title: "Kale Savaşı", icon: "ᚱ" }, { time: "21:00", title: "Zindan Görevi", icon: "ᚢ" }],
-    [iso(today.getDate() + 2)]:  [{ time: "20:30", title: "Kale Savaşı", icon: "ᚱ" }],
-    [iso(today.getDate() + 5)]:  [{ time: "19:00", title: "Zindan Görevi", icon: "ᚢ" }, { time: "22:00", title: "İttifak Boss", icon: "ᛒ" }],
-    [iso(today.getDate() + 8)]:  [{ time: "18:00", title: "Kale Savaşı", icon: "ᚱ" }],
-  }), [today.getDate(), m, y]);
+  const { data } = useSWR("/events?archived=false", fetcher);
+  return useMemo(() => {
+    const items = Array.isArray(data) ? data : (data?.items || []);
+    const map = {};
+    for (const ev of items) {
+      if (ev.show_in_calendar === false) continue;
+      if (!ev.date) continue;
+      const d = new Date(ev.date);
+      if (Number.isNaN(d.getTime())) continue;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      (map[key] ||= []).push({ id: ev.id, title: ev.name, time, iso: ev.date });
+    }
+    // Chronological order within each day
+    for (const k of Object.keys(map)) map[k].sort((a, b) => a.iso.localeCompare(b.iso));
+    return map;
+  }, [data]);
 }
 
 export default function MemberHome() {
@@ -149,6 +162,7 @@ export default function MemberHome() {
 
   const isoFor = (d) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   const [selectedDay, setSelectedDay] = useState(today.getDate());
+  const [popoverEvent, setPopoverEvent] = useState(null); // {id,title,time}
   const selectedIso = selectedDay ? isoFor(selectedDay) : null;
   const selectedEvents = (selectedIso && eventsMap[selectedIso]) || [];
 
@@ -400,9 +414,12 @@ export default function MemberHome() {
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {selectedEvents.map((ev, idx) => (
-                    <div
-                      key={idx}
+                  {selectedEvents.map((ev) => (
+                    <button
+                      type="button"
+                      key={ev.id}
+                      data-testid={`day-event-${ev.id}`}
+                      onClick={() => setPopoverEvent(ev)}
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -411,12 +428,14 @@ export default function MemberHome() {
                         borderRadius: 8,
                         background: "rgba(231,76,26,0.10)",
                         border: "1px solid rgba(245,166,35,0.28)",
+                        cursor: "pointer",
+                        textAlign: "left",
                       }}
                     >
-                      <span style={{ fontFamily: "Cinzel, serif", fontSize: 14, color: "#F5A623", fontWeight: 700, textShadow: "0 0 6px rgba(245,166,35,0.5)" }}>{ev.icon}</span>
+                      <span style={{ fontFamily: "Cinzel, serif", fontSize: 14, color: "#F5A623", fontWeight: 700, textShadow: "0 0 6px rgba(245,166,35,0.5)" }}>ᚱ</span>
                       <span style={{ fontSize: 12, color: "#F5F0E8", fontWeight: 700, letterSpacing: "0.04em" }}>{ev.title}</span>
                       <span style={{ marginLeft: "auto", fontSize: 12, color: "#F5A623", fontWeight: 700 }}>{ev.time}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -424,6 +443,86 @@ export default function MemberHome() {
           )}
         </div>
       </div>
+
+      {/* Etkinlik detay popover'ı */}
+      {popoverEvent && (
+        <div
+          onClick={() => setPopoverEvent(null)}
+          data-testid="event-popover-backdrop"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9990,
+            background: "rgba(0,0,0,0.65)",
+            backdropFilter: "blur(3px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            data-testid="event-popover"
+            style={{
+              width: "100%",
+              maxWidth: 320,
+              background: "linear-gradient(180deg, rgba(20,10,6,0.98) 0%, rgba(10,6,4,0.98) 100%)",
+              border: "1.5px solid rgba(245,166,35,0.55)",
+              borderRadius: 12,
+              padding: "16px 18px",
+              boxShadow: "0 12px 40px rgba(0,0,0,0.7), 0 0 24px rgba(245,166,35,0.25)",
+              position: "relative",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setPopoverEvent(null)}
+              data-testid="event-popover-close"
+              style={{
+                position: "absolute",
+                top: 6,
+                right: 10,
+                background: "transparent",
+                border: "none",
+                color: "rgba(245,240,232,0.6)",
+                fontSize: 18,
+                cursor: "pointer",
+              }}
+            >
+              ×
+            </button>
+            <div
+              style={{
+                fontFamily: "Cinzel, serif",
+                fontWeight: 800,
+                fontSize: 16,
+                color: "#F5F0E8",
+                letterSpacing: "0.04em",
+                marginBottom: 8,
+                textShadow: "0 1px 3px rgba(0,0,0,0.8)",
+                paddingRight: 20,
+              }}
+              data-testid="event-popover-title"
+            >
+              {popoverEvent.title}
+            </div>
+            <div
+              style={{
+                fontFamily: "Cinzel, serif",
+                fontSize: 14,
+                color: "#F5A623",
+                fontWeight: 700,
+                letterSpacing: "0.14em",
+                textShadow: "0 0 8px rgba(245,166,35,0.5)",
+              }}
+              data-testid="event-popover-time"
+            >
+              🕐 {popoverEvent.time}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
