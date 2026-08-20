@@ -1,12 +1,25 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 
 const HERO_BANNER_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/3ec94e48802d40188393d56de578ede6_8c7af15c-9c2e-40cf-9dbb-0cc91f601ffe-1_all_15339.jpg";
 const STONE_CALENDAR_URL = "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/82de5ccf97bf5aa0573e1f3842df81872f0621de875297b34b0fcbd8f5facd62.jpeg";
+const ICON_SPRITE_URL = "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/4f2914e2f219f1731b523b4ddab587b1a982e976a84d1585945b44ec43d46abe.jpeg";
 
-function MenuTile({ emoji, label, sub, locked, onClick, testId }) {
+// Sprite is 2 cols × 3 rows (Gemini vision analysis confirms row-by-row layout)
+// x: 0% (col 0), 100% (col 1)  |  y: 0% (row 0), 50% (row 1), 100% (row 2)
+const SPRITE_POS = {
+  siralama:     { x: "0%",   y: "0%"   }, // lightning bolt — row 0 left
+  loj:          { x: "100%", y: "0%"   }, // scroll — row 0 right
+  hesapla:      { x: "0%",   y: "50%"  }, // balance scale — row 1 left
+  etkinlikler:  { x: "100%", y: "50%"  }, // crossed swords — row 1 right
+  raporlar:     { x: "0%",   y: "100%" }, // bar graph — row 2 left
+  uyeler:       { x: "100%", y: "100%" }, // shield — row 2 right
+};
+
+function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
+  const pos = SPRITE_POS[spriteKey];
   return (
     <button
       type="button"
@@ -24,22 +37,26 @@ function MenuTile({ emoji, label, sub, locked, onClick, testId }) {
         position: "relative",
       }}
     >
-      <span
+      <div
+        aria-hidden="true"
         style={{
-          fontSize: 48,
-          lineHeight: 1,
+          width: 62,
+          height: 62,
+          backgroundImage: `url(${ICON_SPRITE_URL})`,
+          backgroundSize: "200% 300%",
+          backgroundPosition: `${pos.x} ${pos.y}`,
+          backgroundRepeat: "no-repeat",
+          mixBlendMode: "screen",
           filter: "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(249,115,22,0.4))",
           opacity: locked ? 0.65 : 1,
         }}
-      >
-        {emoji}
-      </span>
+      />
       {locked && (
         <span
           style={{
             position: "absolute",
             top: 2,
-            right: 10,
+            right: 12,
             fontSize: 14,
             filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.8))",
           }}
@@ -78,9 +95,24 @@ function MenuTile({ emoji, label, sub, locked, onClick, testId }) {
   );
 }
 
+// Örnek etkinlik verisi — YYYY-MM-DD → [{ time, title, icon }]
+function useEventsMap() {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = today.getMonth();
+  const iso = (d) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  return useMemo(() => ({
+    [iso(today.getDate())]:      [{ time: "19:00", title: "Kale Savaşı", icon: "ᚱ" }, { time: "21:00", title: "Zindan Görevi", icon: "ᚢ" }],
+    [iso(today.getDate() + 2)]:  [{ time: "20:30", title: "Kale Savaşı", icon: "ᚱ" }],
+    [iso(today.getDate() + 5)]:  [{ time: "19:00", title: "Zindan Görevi", icon: "ᚢ" }, { time: "22:00", title: "İttifak Boss", icon: "ᛒ" }],
+    [iso(today.getDate() + 8)]:  [{ time: "18:00", title: "Kale Savaşı", icon: "ᚱ" }],
+  }), [today.getDate(), m, y]);
+}
+
 export default function MemberHome() {
   const { user } = useAuth();
   const nav = useNavigate();
+  const eventsMap = useEventsMap();
 
   // Küçük takvim grid'i (mevcut ay)
   const today = new Date();
@@ -91,6 +123,11 @@ export default function MemberHome() {
   for (let i = 0; i < firstDow; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   const monthName = today.toLocaleDateString("tr-TR", { month: "long", year: "numeric" }).toUpperCase();
+
+  const isoFor = (d) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const [selectedDay, setSelectedDay] = useState(today.getDate());
+  const selectedIso = selectedDay ? isoFor(selectedDay) : null;
+  const selectedEvents = (selectedIso && eventsMap[selectedIso]) || [];
 
   const lockedToast = () => toast.error("Bu bölüme erişim yetkiniz yok.");
 
@@ -142,12 +179,12 @@ export default function MemberHome() {
             marginTop: 4,
           }}
         >
-          <MenuTile emoji="⚡" label="SIRALAMA" onClick={() => nav("/")} testId="menu-siralama" />
-          <MenuTile emoji="📜" label="LOJ HAKKINDA" onClick={() => nav("/komutanlar")} testId="menu-loj" />
-          <MenuTile emoji="⚖️" label="PUAN HESAPLA" onClick={() => nav("/puan-hesaplama")} testId="menu-hesapla" />
-          <MenuTile emoji="🗡️" label="ETKİNLİKLER" onClick={() => nav("/etkinlikler")} testId="menu-etkinlikler" />
-          <MenuTile emoji="📊" label="RAPORLAR" locked onClick={lockedToast} testId="menu-raporlar" />
-          <MenuTile emoji="🛡️" label="ÜYELER" sub="Salt Görüntüleme" locked onClick={() => nav("/uyeler")} testId="menu-uyeler" />
+          <MenuTile spriteKey="siralama"     label="SIRALAMA"      onClick={() => nav("/")} testId="menu-siralama" />
+          <MenuTile spriteKey="loj"          label="LOJ HAKKINDA"  onClick={() => nav("/komutanlar")} testId="menu-loj" />
+          <MenuTile spriteKey="hesapla"      label="PUAN HESAPLA"  onClick={() => nav("/puan-hesaplama")} testId="menu-hesapla" />
+          <MenuTile spriteKey="etkinlikler"  label="ETKİNLİKLER"   onClick={() => nav("/etkinlikler")} testId="menu-etkinlikler" />
+          <MenuTile spriteKey="raporlar"     label="RAPORLAR"      locked onClick={lockedToast} testId="menu-raporlar" />
+          <MenuTile spriteKey="uyeler"       label="ÜYELER"        sub="Salt Görüntüleme" locked onClick={() => nav("/uyeler")} testId="menu-uyeler" />
         </div>
 
         {/* Row 4 — "ETKİNLİK TAKVİMİ" title */}
@@ -218,26 +255,105 @@ export default function MemberHome() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
               {cells.map((d, i) => {
                 const isToday = d === today.getDate();
+                const isSelected = d && d === selectedDay;
+                const hasEvent = d && !!eventsMap[isoFor(d)];
                 return (
                   <div
                     key={i}
+                    data-testid={d ? `cal-day-${d}` : undefined}
+                    onClick={() => d && setSelectedDay(d)}
                     style={{
+                      position: "relative",
                       textAlign: "center",
-                      padding: "5px 0",
+                      padding: "5px 0 8px",
                       borderRadius: 4,
                       fontSize: 11,
                       fontWeight: isToday ? 800 : 400,
-                      background: isToday ? "rgba(231,76,26,0.32)" : "transparent",
-                      color: isToday ? "#F5F0E8" : d ? "rgba(245,240,232,0.55)" : "transparent",
-                      border: isToday ? "1px solid rgba(231,76,26,0.6)" : "1px solid transparent",
+                      background: isSelected ? "rgba(231,76,26,0.32)" : "transparent",
+                      color: isSelected ? "#F5F0E8" : d ? "rgba(245,240,232,0.55)" : "transparent",
+                      border: isSelected
+                        ? "1px solid rgba(231,76,26,0.6)"
+                        : (isToday ? "1px solid rgba(245,166,35,0.5)" : "1px solid transparent"),
+                      cursor: d ? "pointer" : "default",
                     }}
                   >
                     {d || "·"}
+                    {hasEvent && (
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          position: "absolute",
+                          bottom: 2,
+                          left: "50%",
+                          transform: "translateX(-50%)",
+                          width: 5,
+                          height: 5,
+                          borderRadius: "50%",
+                          background: "#F5A623",
+                          boxShadow: "0 0 4px rgba(245,166,35,0.9)",
+                        }}
+                      />
+                    )}
                   </div>
                 );
               })}
             </div>
           </div>
+
+          {/* Seçili günün etkinlikleri */}
+          {selectedDay && (
+            <div
+              data-testid="member-home-day-events"
+              style={{
+                width: "100%",
+                background: "rgba(10,6,4,0.68)",
+                border: "1px solid rgba(245,166,35,0.35)",
+                borderRadius: 10,
+                padding: "10px 14px",
+                marginTop: -4,
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: "Cinzel, serif",
+                  fontSize: 11,
+                  letterSpacing: "0.18em",
+                  color: "#F5A623",
+                  textTransform: "uppercase",
+                  marginBottom: 6,
+                  textShadow: "0 0 6px rgba(245,166,35,0.4)",
+                }}
+              >
+                {String(selectedDay).padStart(2, "0")} {monthName.split(" ")[0]} · ETKİNLİKLER
+              </div>
+              {selectedEvents.length === 0 ? (
+                <div style={{ fontSize: 12, color: "rgba(245,240,232,0.5)", fontStyle: "italic" }}>
+                  Bu gün planlı etkinlik yok.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {selectedEvents.map((ev, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "6px 10px",
+                        borderRadius: 8,
+                        background: "rgba(231,76,26,0.10)",
+                        border: "1px solid rgba(245,166,35,0.28)",
+                      }}
+                    >
+                      <span style={{ fontFamily: "Cinzel, serif", fontSize: 14, color: "#F5A623", fontWeight: 700, textShadow: "0 0 6px rgba(245,166,35,0.5)" }}>{ev.icon}</span>
+                      <span style={{ fontSize: 12, color: "#F5F0E8", fontWeight: 700, letterSpacing: "0.04em" }}>{ev.title}</span>
+                      <span style={{ marginLeft: "auto", fontSize: 12, color: "#F5A623", fontWeight: 700 }}>{ev.time}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Row 6 — Event pills */}
