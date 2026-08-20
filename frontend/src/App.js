@@ -25,6 +25,7 @@ import Dashboard from "@/pages/Dashboard";
 import EventNotifications from "@/pages/EventNotifications";
 import AccessDenied from "@/pages/AccessDenied";
 import Members from "@/pages/Members";
+import MemberHome from "@/pages/MemberHome";
 import Events from "@/pages/Events";
 import Announcements from "@/pages/Announcements";
 import Login from "@/pages/Login";
@@ -134,6 +135,7 @@ function AppShell() {
           <Route path="/anketler" element={<RequireAuth><MotionPage><Polls /></MotionPage></RequireAuth>} />
           <Route path="/kayit/:token" element={<MotionPage><Signup /></MotionPage>} />
           <Route path="/svs" element={<RequireAuth><MotionPage><SvSTracker /></MotionPage></RequireAuth>} />
+          <Route path="/anasayfa" element={<RequireAuth><MotionPage><MemberHome /></MotionPage></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </AnimatePresence>

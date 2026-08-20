@@ -29,7 +29,9 @@ export default function Login() {
     try {
       const u = await login(username.trim().toLowerCase(), password);
       toast.success(t("welcome_user", { name: u.username }));
-      nav(u.must_change_password ? "/profil" : "/dashboard", { replace: true });
+      const isRestricted = u.role !== "admin" && !u.can_edit;
+      const dest = u.must_change_password ? "/profil" : (isRestricted ? "/anasayfa" : "/dashboard");
+      nav(dest, { replace: true });
     } catch (err) { toast.error(apiErr(err)); }
     finally { setLoading(false); }
   };
