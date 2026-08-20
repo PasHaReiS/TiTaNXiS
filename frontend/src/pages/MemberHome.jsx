@@ -152,7 +152,7 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
 // Live event map derived from /api/events. Only events with
 // show_in_calendar !== false and archived === false surface in the calendar.
 // Keyed by "YYYY-MM-DD" (local time) → [{ id, title, time, iso }].
-function useEventsMap() {
+function useEventsMap(locale = "tr-TR") {
   const { data } = useSWR("/events?archived=false", fetcher);
   return useMemo(() => {
     const items = Array.isArray(data) ? data : (data?.items || []);
@@ -164,7 +164,7 @@ function useEventsMap() {
       if (Number.isNaN(d.getTime())) continue;
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-      const dateLabel = d.toLocaleDateString("tr-TR", { day: "2-digit", month: "long", year: "numeric" });
+      const dateLabel = d.toLocaleDateString(locale, { day: "2-digit", month: "long", year: "numeric" });
       (map[key] ||= []).push({
         id: ev.id,
         title: ev.name,
@@ -179,14 +179,18 @@ function useEventsMap() {
     // Chronological order within each day
     for (const k of Object.keys(map)) map[k].sort((a, b) => a.iso.localeCompare(b.iso));
     return map;
-  }, [data]);
+  }, [data, locale]);
 }
 
 export default function MemberHome() {
   const { user, isAdmin, canEdit } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const nav = useNavigate();
-  const eventsMap = useEventsMap();
+  // Map i18next language code → BCP-47 locale used by Intl.DateTimeFormat.
+  // Falls back gracefully to just the base tag (e.g. "en") so unknown codes
+  // still render localized month names instead of the Turkish default.
+  const locale = (i18n.language || "tr").replace("_", "-");
+  const eventsMap = useEventsMap(locale);
   const isPrivileged = isAdmin || canEdit;
 
   // Küçük takvim grid'i (mevcut ay)
@@ -197,7 +201,7 @@ export default function MemberHome() {
   const cells = [];
   for (let i = 0; i < firstDow; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-  const monthName = today.toLocaleDateString("tr-TR", { month: "long", year: "numeric" }).toUpperCase();
+  const monthName = today.toLocaleDateString(locale, { month: "long", year: "numeric" }).toUpperCase();
 
   const isoFor = (d) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   const [selectedDay, setSelectedDay] = useState(today.getDate());
