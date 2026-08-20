@@ -1415,6 +1415,7 @@ function MemberForm({ initial, onClose }) {
   const [allianceName, setAllianceName] = useState(initial?.alliance_name || "");
   const [name, setName] = useState(initial?.name || "");
   const [memberId, setMemberId] = useState(initial?.member_id || "");
+  const [scope, setScope] = useState(initial?.scope || "server");
   const [castleLevel, setCastleLevel] = useState(digitsOnly(initial?.castle_level));
   const [tetikciF, setTetikciF] = useState(digitsOnly(initial?.tetikci_f));
   const [tetikciT, setTetikciT] = useState(digitsOnly(initial?.tetikci_t));
@@ -1475,6 +1476,7 @@ function MemberForm({ initial, onClose }) {
         note: note.trim() || null,
         country: country || null,
         telegram_username: telegramUsername.trim().replace(/^@+/, "") || null,
+        scope,
       };
       if (initial) {
         await api.patch(`/members/${initial.id}`, body);
@@ -1575,6 +1577,28 @@ function MemberForm({ initial, onClose }) {
             </button>
           </div>
         )}
+
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Kapsam (Scope)</label>
+        <div className="flex gap-2" data-testid="member-form-scope">
+          <button
+            type="button"
+            data-testid="member-form-scope-global"
+            onClick={() => setScope("global")}
+            className="chip text-[10px] flex-1 flex items-center justify-center gap-1"
+            style={scope === "global" ? { background: "rgba(56,189,248,0.25)", borderColor: "#38BDF8", color: "#38BDF8" } : {}}
+          >
+            🌍 Global
+          </button>
+          <button
+            type="button"
+            data-testid="member-form-scope-server"
+            onClick={() => setScope("server")}
+            className="chip text-[10px] flex-1 flex items-center justify-center gap-1"
+            style={scope === "server" ? { background: "rgba(245,166,35,0.25)", borderColor: "#F5A623", color: "#F5A623" } : {}}
+          >
+            🖥️ Sunucu
+          </button>
+        </div>
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("player_name")}</label>
         <input data-testid={MEMBERS.formName} value={name} onChange={(e) => setName(e.target.value)}

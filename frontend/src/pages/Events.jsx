@@ -2171,6 +2171,9 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
   const [showInCalendar, setShowInCalendar] = useState(
     initial ? initial.show_in_calendar !== false : true,
   );
+  const [attendanceEnabled, setAttendanceEnabled] = useState(
+    initial ? initial.attendance_enabled !== false : true,
+  );
   const [recurInterval, setRecurInterval] = useState("none");
   const [recurCount, setRecurCount] = useState(4);
   // When editing an event that belongs to a series, this toggle routes the
@@ -2210,6 +2213,7 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
         hidden_from_leaderboard: hiddenFromLb,
         show_breakdown: showBreakdown,
         show_in_calendar: showInCalendar,
+        attendance_enabled: attendanceEnabled,
         recurrence_interval: recurInterval,
         recurrence_count: Number(recurCount) || 1,
       };
@@ -2460,6 +2464,28 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
                 {hiddenFromLb
                   ? "Bu etkinlik sıralamadan gizlenir — puan girilebilir ama toplama katılmaz."
                   : "Bu etkinliğe eklenen puanlar Sıralama sayfasında toplama dahil edilir."}
+              </span>
+            </span>
+          </label>
+        </div>
+
+        <div className="mt-3 rounded p-3" style={{ background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.30)" }} data-testid="event-form-attendance-toggle">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={attendanceEnabled}
+              onChange={(e) => setAttendanceEnabled(e.target.checked)}
+              data-testid="event-form-attendance-checkbox"
+              className="cursor-pointer"
+            />
+            <span className="flex-1">
+              <span className="block text-sm font-bold text-white">
+                {attendanceEnabled ? "🟢 Katılımlı" : "🔒 Katılımsız"}
+              </span>
+              <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
+                {attendanceEnabled
+                  ? "Bu etkinlik Katılım Merkezi'nde görünür, katılım istatistikleri hesaplanır."
+                  : "Bu etkinlik Katılım Merkezi'nden gizlenir — sadece Etkinlikler sayfasında listelenir."}
               </span>
             </span>
           </label>

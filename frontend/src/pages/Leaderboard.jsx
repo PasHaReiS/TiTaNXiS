@@ -16,6 +16,7 @@ export default function Leaderboard() {
   const { t } = useTranslation();
   const { canEdit } = useAuth();
   const [filter, setFilter] = useState("active");
+  const [memberScope, setMemberScope] = useState("global"); // "global" | "server" | "clan"
   const [group, setGroup] = useState(null);
   // Reset the selected group whenever the tab flips so a stale group from the
   // other scope doesn't leave the leaderboard empty.
@@ -82,15 +83,29 @@ export default function Leaderboard() {
   // list reflects only that event's scorers (rather than the aggregate).
   const { data: lb = [] } = useSWR(
     activeEventId
-      ? `/leaderboard?event_id=${encodeURIComponent(activeEventId)}`
-      : `/leaderboard?scope=${lbScope}${group ? `&group_name=${encodeURIComponent(group)}` : ""}`,
+      ? `/leaderboard?event_id=${encodeURIComponent(activeEventId)}&member_scope=${memberScope}`
+      : `/leaderboard?scope=${lbScope}&member_scope=${memberScope}${group ? `&group_name=${encodeURIComponent(group)}` : ""}`,
     fetcher,
     { refreshInterval: 5000 },
   );
   const { data: allianceColors = {} } = useSWR("/alliance-colors", fetcher, { refreshInterval: 15000 });
   const { data: allMembers = [] } = useSWR("/members", fetcher, { refreshInterval: 10000 });
-  const { data: archivedEvents = [] } = useSWR(filter === "archive" ? "/events?archived=true" : null, fetcher, { refreshInterval: 15000 });
-  const { data: activeEvents = [] } = useSWR(filter === "active" ? "/events?archived=false" : null, fetcher, { refreshInterval: 15000 });
+  const { data: archivedEvents = [] } = useSWR("/events?archived=true", fetcher, { refreshInterval: 15000 });
+  const { data: activeEvents = [] } = useSWR("/events?archived=false", fetcher, { refreshInterval: 15000 });
+  // Per-user event count rule: any grouped bundle counts as 1 (regardless of
+  // how many events sit in it) plus 1 per ungrouped event. Applied to both
+  // Active and Archive badges so admins see aggregate-friendly numbers.
+  const countGroupedPlusSolo = (list) => {
+    const groupsSeen = new Set();
+    let solo = 0;
+    (list || []).forEach((e) => {
+      const g = (e.group_name || "").trim();
+      if (g) groupsSeen.add(g); else solo += 1;
+    });
+    return groupsSeen.size + solo;
+  };
+  const activeCountAgg = countGroupedPlusSolo(activeEvents);
+  const archiveCountAgg = countGroupedPlusSolo(archivedEvents);
   const { data: groupTotalLb = [] } = useSWR(
     filter === "archive" && group ? `/leaderboard?scope=archived&group_name=${encodeURIComponent(group)}` : null,
     fetcher,
@@ -194,6 +209,34 @@ export default function Leaderboard() {
 
       <div className="px-4">
         <div className="section-title">{t("event_filter")}</div>
+        {/* Member scope 3-way filter: Global (all) / Sunucu (scope=server) / Klan (GOW alliance) */}
+        <div
+          data-testid="leaderboard-scope-bar"
+          className="flex gap-2 mb-3 justify-center"
+        >
+          {[
+            { key: "global", label: "🌍 Global" },
+            { key: "server", label: "🖥️ Sunucu" },
+            { key: "clan",   label: "🛡️ Klan"   },
+          ].map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              data-testid={`leaderboard-scope-${opt.key}`}
+              onClick={() => setMemberScope(opt.key)}
+              className={`chip ${memberScope === opt.key ? "active" : ""}`}
+              style={memberScope === opt.key ? {
+                padding: "6px 14px", fontSize: 11, fontWeight: 800, letterSpacing: "0.10em",
+                borderColor: "#F5A623", color: "#FFF7ED",
+                background: "linear-gradient(180deg, rgba(245,166,35,0.30), rgba(180,83,9,0.50))",
+                boxShadow: "0 0 10px rgba(245,166,35,0.45)",
+                textShadow: "0 1px 3px rgba(0,0,0,0.7)",
+              } : { padding: "6px 14px", fontSize: 11, fontWeight: 700, letterSpacing: "0.10em", opacity: 0.85 }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
         <div
           className="flex gap-2 mb-4 justify-center"
           data-testid="leaderboard-filter-bar"
@@ -234,7 +277,7 @@ export default function Leaderboard() {
                 textAlign: "center",
               }}
             >
-              {activeCount}
+              {activeCountAgg}
             </span>
           </button>
           <button
@@ -273,7 +316,7 @@ export default function Leaderboard() {
                 textAlign: "center",
               }}
             >
-              {archiveCount}
+              {archiveCountAgg}
             </span>
           </button>
         </div>
