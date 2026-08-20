@@ -620,7 +620,8 @@ const tr = {
   bc_save_pattern: "{{building}} • {{level}} Kaydet",
   // PointCalc (Puan Hesaplama)
   nav_points_about: "Puanlar Hakkında",
-  nav_point_calc: "Puan Hesaplama",
+  nav_point_calc: "Puan Hesapla",
+  nav_reports: "Raporlar",
   pc_tab_pre: "SVS Pre Puan Hesaplama",
   pc_tab_other: "Diğer Etkinlik Puan Hesaplamaları",
   pc_add_day: "Yeni Etkinlik Ekle",

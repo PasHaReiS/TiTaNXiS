@@ -19,7 +19,7 @@ const buildItems = () => [
   { to: "/", labelKey: "nav_leaderboard", emoji: "🏆", testId: NAV.leaderboard, guest: true },
   { to: "/komutanlar", labelKey: "nav_commanders", emoji: "⚔️", testId: NAV.commanders, guest: true },
   { to: "/puan-hesaplama", labelKey: "nav_point_calc", emoji: "🧮", testId: NAV.pointCalc, guest: true },
-  { to: "/puanlar-hakkinda", labelKey: "nav_points_about", emoji: "📊", testId: NAV.pointsAbout, guest: false },
+  { to: "/raporlar", labelKey: "nav_reports", emoji: "📊", testId: NAV.reports, guest: false, adminOnly: true },
   { to: "/uyeler", labelKey: "nav_members", emoji: "👥", testId: NAV.members, guest: false },
   { to: "/etkinlikler", labelKey: "nav_events", emoji: "📅", testId: NAV.events, guest: false },
 ];
@@ -28,12 +28,16 @@ const ACTIVE = "#E74C1A";
 const INACTIVE = "#666";
 
 export default function BottomNav() {
-  const { user, canEdit } = useAuth();
+  const { user, canEdit, isAdmin } = useAuth();
   const { t } = useTranslation();
   const location = useLocation();
   if (location.pathname === "/login") return null;
 
-  const items = buildItems().filter((it) => (it.guest ? true : !!user));
+  const items = buildItems().filter((it) => {
+    if (!it.guest && !user) return false;
+    if (it.adminOnly && !isAdmin) return false;
+    return true;
+  });
   const cols = items.length;
 
   return (
