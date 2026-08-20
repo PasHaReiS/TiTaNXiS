@@ -4,9 +4,11 @@ import { useAuth } from "@/context/AuthContext";
 import { apiErr } from "@/lib/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { LogIn, User, Lock, Calendar, Swords, Castle, X } from "lucide-react";
+import { LogIn, User, Lock, X } from "lucide-react";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 const HERO_BANNER_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/3ec94e48802d40188393d56de578ede6_8c7af15c-9c2e-40cf-9dbb-0cc91f601ffe-1_all_15339.jpg";
+const STONE_CALENDAR_URL = "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/82de5ccf97bf5aa0573e1f3842df81872f0621de875297b34b0fcbd8f5facd62.jpeg";
 const BRAND_LOGO_URL = "/brand/titanxis-logo.jpg";
 
 export default function Login() {
@@ -32,144 +34,187 @@ export default function Login() {
     finally { setLoading(false); }
   };
 
-  // Küçük takvim grid'i (mevcut ay).
-  const today = new Date();
-  const y = today.getFullYear(), m = today.getMonth();
-  const firstDow = (new Date(y, m, 1).getDay() + 6) % 7; // Pzt=0
-  const daysInMonth = new Date(y, m + 1, 0).getDate();
-  const cells = [];
-  for (let i = 0; i < firstDow; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-  const monthName = today.toLocaleDateString("tr-TR", { month: "long", year: "numeric" }).toUpperCase();
-
   return (
-    <div className="min-h-screen px-4 py-6" data-testid="guest-home">
-      <div className="w-full max-w-md mx-auto fade-in">
-        {/* Header: circular gold logo + TiTaNXiS text */}
-        <div className="flex flex-col items-center mb-4" data-testid="guest-header">
+    <div className="min-h-screen px-4 py-5" data-testid="guest-home" style={{ background: "transparent" }}>
+      <div className="w-full max-w-md mx-auto fade-in" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+        {/* Row 1 — Header: logo + title + subtitle (center), lang switcher (right) */}
+        <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 4 }} data-testid="guest-header">
+          <div style={{ position: "absolute", top: 0, right: 0 }}>
+            <LanguageSwitcher />
+          </div>
           <div
-            className="mb-3"
             style={{
-              width: 72,
-              height: 72,
+              width: 68,
+              height: 68,
               borderRadius: "50%",
               overflow: "hidden",
               border: "2px solid #F5A623",
-              boxShadow: "0 0 24px rgba(245,166,35,0.55), inset 0 0 12px rgba(212,115,10,0.35)",
+              boxShadow: "0 0 22px rgba(245,166,35,0.55), inset 0 0 12px rgba(212,115,10,0.35)",
               background: "#0a0a0a",
+              marginBottom: 8,
             }}
           >
-            <img
-              src={BRAND_LOGO_URL}
-              alt="TiTaNXiS"
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            />
+            <img src={BRAND_LOGO_URL} alt="TiTaNXiS" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           </div>
           <h1
             style={{
               fontFamily: "Cinzel, serif",
               fontWeight: 800,
-              fontSize: "28px",
+              fontSize: "26px",
               letterSpacing: "0.18em",
               color: "#F5A623",
               textShadow: "0 0 14px rgba(245,166,35,0.55), 0 2px 6px rgba(0,0,0,0.6)",
               margin: 0,
+              lineHeight: 1,
             }}
           >
             TiTaNXiS
           </h1>
+          <div
+            style={{
+              fontFamily: "Cinzel, serif",
+              fontSize: "10px",
+              letterSpacing: "0.32em",
+              color: "#D4730A",
+              marginTop: 4,
+              textShadow: "0 1px 4px rgba(0,0,0,0.7)",
+            }}
+          >
+            MİSAFİR
+          </div>
         </div>
 
-        {/* Hero Banner (referans görsel) */}
-        <div
+        {/* Row 2 — Hero banner (no border, no card) */}
+        <img
+          src={HERO_BANNER_URL}
+          alt="TiTaNXiS Hero"
           data-testid="guest-hero-banner"
-          className="mb-4"
           style={{
             width: "100%",
-            height: 170,
-            borderRadius: 14,
-            overflow: "hidden",
-            border: "1px solid rgba(245,166,35,0.55)",
-            boxShadow: "0 0 25px rgba(231,76,26,0.25), 0 4px 18px rgba(0,0,0,0.5)",
-            position: "relative",
-            background: "#0f0806",
+            height: 160,
+            objectFit: "cover",
+            display: "block",
+            borderRadius: 6,
+            border: "none",
+            boxShadow: "0 6px 18px rgba(0,0,0,0.55)",
+          }}
+        />
+
+        {/* Row 3 — "ETKİNLİK TAKVİMİ" large gold title, centered */}
+        <div
+          data-testid="guest-calendar-title"
+          style={{
+            textAlign: "center",
+            fontFamily: "Cinzel, serif",
+            fontWeight: 800,
+            fontSize: "22px",
+            letterSpacing: "0.22em",
+            color: "#F5A623",
+            textShadow: "0 0 16px rgba(245,166,35,0.55), 0 2px 6px rgba(0,0,0,0.75)",
+            marginTop: 4,
           }}
         >
-          <img
-            src={HERO_BANNER_URL}
-            alt="TiTaNXiS Hero"
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-          />
+          ETKİNLİK TAKVİMİ
         </div>
 
-        {/* Etkinlik Takvimi */}
-        <div className="card-red-gold p-4 mb-4" data-testid="guest-calendar">
-          <div className="flex items-center gap-2 mb-3">
-            <span style={{ fontSize: 18, filter: "drop-shadow(0 0 6px rgba(245,166,35,0.5))" }}>📅</span>
-            <div className="text-xs font-bold uppercase tracking-widest" style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}>
-              ETKİNLİK TAKVİMİ
-            </div>
-            <div className="ml-auto text-[10px] uppercase tracking-widest text-muted-foreground">{monthName}</div>
+        {/* Row 4 — 3D Stone Calendar image (transparent bg, no card) */}
+        <img
+          src={STONE_CALENDAR_URL}
+          alt="Etkinlik Takvimi"
+          data-testid="guest-stone-calendar"
+          style={{
+            width: "100%",
+            maxHeight: 280,
+            objectFit: "contain",
+            display: "block",
+            background: "transparent",
+            border: "none",
+            filter: "drop-shadow(0 8px 18px rgba(0,0,0,0.6))",
+          }}
+        />
+
+        {/* Row 5 — Event pills (no card wrapper) */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="guest-event-pills">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "10px 16px",
+              borderRadius: 999,
+              background: "rgba(10,6,4,0.72)",
+              border: "1.5px solid rgba(245,166,35,0.55)",
+              boxShadow: "0 0 14px rgba(245,166,35,0.15), inset 0 0 10px rgba(0,0,0,0.4)",
+            }}
+          >
+            <span style={{ fontFamily: "Cinzel, serif", fontSize: 16, color: "#F5A623", fontWeight: 700, textShadow: "0 0 8px rgba(245,166,35,0.6)" }}>ᚱ</span>
+            <span style={{ fontFamily: "Cinzel, serif", fontSize: 13, color: "#F5F0E8", fontWeight: 700, letterSpacing: "0.05em" }}>Kale Savaşı</span>
+            <span style={{ marginLeft: "auto", fontFamily: "Cinzel, serif", fontSize: 13, color: "#F5A623", fontWeight: 700, letterSpacing: "0.05em" }}>19:00</span>
           </div>
-          <div className="grid grid-cols-7 gap-1 mb-3">
-            {["Pt","Sa","Ça","Pe","Cu","Ct","Pz"].map((d) => (
-              <div key={d} className="text-[9px] text-center font-bold uppercase" style={{ color: "#D4730A" }}>{d}</div>
-            ))}
-            {cells.map((d, i) => (
-              <div key={i} className="text-[10px] text-center py-1 rounded" style={{
-                background: d === today.getDate() ? "rgba(231,76,26,0.30)" : "transparent",
-                color: d === today.getDate() ? "#F5F0E8" : d ? "rgba(245,240,232,0.55)" : "transparent",
-                border: d === today.getDate() ? "1px solid rgba(231,76,26,0.6)" : "1px solid transparent",
-                fontWeight: d === today.getDate() ? 700 : 400,
-              }}>{d || "·"}</div>
-            ))}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center gap-2 rounded-lg px-2.5 py-1.5" style={{
-              background: "rgba(231,76,26,0.10)", border: "1px solid rgba(231,76,26,0.35)",
-            }}>
-              <Castle className="w-3.5 h-3.5" style={{ color: "#E74C1A" }} />
-              <span className="text-[11px] font-bold" style={{ color: "#F5F0E8" }}>Kale Savaşı</span>
-              <span className="ml-auto text-[10px] mono" style={{ color: "#F5A623" }}>19:00</span>
-            </div>
-            <div className="flex items-center gap-2 rounded-lg px-2.5 py-1.5" style={{
-              background: "rgba(212,115,10,0.10)", border: "1px solid rgba(212,115,10,0.35)",
-            }}>
-              <Swords className="w-3.5 h-3.5" style={{ color: "#D4730A" }} />
-              <span className="text-[11px] font-bold" style={{ color: "#F5F0E8" }}>Zindan Görevi</span>
-              <span className="ml-auto text-[10px] mono" style={{ color: "#F5A623" }}>21:00</span>
-            </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "10px 16px",
+              borderRadius: 999,
+              background: "rgba(10,6,4,0.72)",
+              border: "1.5px solid rgba(245,166,35,0.55)",
+              boxShadow: "0 0 14px rgba(245,166,35,0.15), inset 0 0 10px rgba(0,0,0,0.4)",
+            }}
+          >
+            <span style={{ fontFamily: "Cinzel, serif", fontSize: 16, color: "#F5A623", fontWeight: 700, textShadow: "0 0 8px rgba(245,166,35,0.6)" }}>ᚢ</span>
+            <span style={{ fontFamily: "Cinzel, serif", fontSize: 13, color: "#F5F0E8", fontWeight: 700, letterSpacing: "0.05em" }}>Zindan Görevi</span>
+            <span style={{ marginLeft: "auto", fontFamily: "Cinzel, serif", fontSize: 13, color: "#F5A623", fontWeight: 700, letterSpacing: "0.05em" }}>21:00</span>
           </div>
         </div>
 
-        {/* Butonlar */}
-        <div className="flex flex-col gap-2.5">
-          <button
-            data-testid="guest-login-btn"
-            onClick={() => setShowLogin(true)}
-            className="w-full py-3 rounded-lg font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-2"
-            style={{
-              background: "linear-gradient(135deg, #F5A623 0%, #D4730A 50%, #E74C1A 100%)",
-              color: "#0a0a0a", boxShadow: "0 0 20px rgba(245,166,35,0.4)",
-              fontFamily: "Cinzel, serif",
-            }}
-          >
-            🔑 GİRİŞ YAP
-          </button>
-          <button
-            data-testid="guest-signup-btn"
-            onClick={() => nav("/signup")}
-            className="w-full py-3 rounded-lg font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-2"
-            style={{
-              background: "rgba(15,8,6,0.85)",
-              color: "#F5A623", border: "2px solid #D4730A",
-              boxShadow: "inset 0 0 15px rgba(212,115,10,0.15)",
-              fontFamily: "Cinzel, serif",
-            }}
-          >
-            ⚔️ KAYIT OL
-          </button>
-        </div>
+        {/* Row 6 — Login button (amber gradient) */}
+        <button
+          data-testid="guest-login-btn"
+          onClick={() => setShowLogin(true)}
+          style={{
+            width: "100%",
+            padding: "14px 20px",
+            borderRadius: 10,
+            border: "none",
+            background: "linear-gradient(135deg, #F5A623 0%, #D4730A 50%, #E74C1A 100%)",
+            color: "#0a0a0a",
+            fontFamily: "Cinzel, serif",
+            fontWeight: 800,
+            fontSize: 15,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            boxShadow: "0 0 24px rgba(245,166,35,0.5), 0 6px 14px rgba(0,0,0,0.55)",
+            cursor: "pointer",
+          }}
+        >
+          🔑 GİRİŞ YAP
+        </button>
+
+        {/* Row 7 — Signup button (dark, amber border) */}
+        <button
+          data-testid="guest-signup-btn"
+          onClick={() => nav("/signup")}
+          style={{
+            width: "100%",
+            padding: "14px 20px",
+            borderRadius: 10,
+            background: "rgba(10,6,4,0.85)",
+            color: "#F5A623",
+            border: "2px solid #D4730A",
+            fontFamily: "Cinzel, serif",
+            fontWeight: 800,
+            fontSize: 15,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            boxShadow: "inset 0 0 16px rgba(212,115,10,0.18), 0 6px 14px rgba(0,0,0,0.55)",
+            cursor: "pointer",
+          }}
+        >
+          ⚔️ KAYIT OL
+        </button>
       </div>
 
       {/* Giriş formu modalı */}
