@@ -27,7 +27,22 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
 function RsvpSummaryChip({ eventId }) {
   const { data } = useSWR(`/events/${eventId}/rsvp/summary`, fetcher, { refreshInterval: 30000 });
   const [open, setOpen] = useState(false);
+  const [reminding, setReminding] = useState(false);
+  const [reminderSent, setReminderSent] = useState(false);
   const { data: listData } = useSWR(open ? `/events/${eventId}/rsvp/list` : null, fetcher);
+  const sendReminder = async () => {
+    if (reminding || reminderSent) return;
+    setReminding(true);
+    try {
+      const r = await api.post(`/events/${eventId}/rsvp/remind`, { include_maybe: true });
+      const sent = r.data?.sent ?? 0;
+      const matched = r.data?.matched ?? 0;
+      toast.success(`✅ Hatırlatma gönderildi (${sent}/${matched} bildirim)`);
+      setReminderSent(true);
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Hatırlatma gönderilemedi");
+    } finally { setReminding(false); }
+  };
   if (!data) return null;
   const { yes_count = 0, maybe_count = 0, no_count = 0 } = data;
   if (yes_count + maybe_count + no_count === 0) return null;
@@ -112,6 +127,33 @@ function RsvpSummaryChip({ eventId }) {
                 )}
               </div>
             ))}
+            <button
+              type="button"
+              onClick={sendReminder}
+              disabled={reminding || reminderSent}
+              data-testid={`rsvp-modal-remind-${eventId}`}
+              style={{
+                width: "100%",
+                marginTop: 6,
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "none",
+                cursor: reminding || reminderSent ? "default" : "pointer",
+                background: reminderSent
+                  ? "rgba(34,197,94,0.22)"
+                  : "linear-gradient(135deg, #F5A623 0%, #D4730A 50%, #E74C1A 100%)",
+                color: reminderSent ? "#4ade80" : "#0a0a0a",
+                fontFamily: "Cinzel, serif",
+                fontWeight: 800,
+                fontSize: 12,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                boxShadow: reminderSent ? "none" : "0 4px 14px rgba(0,0,0,0.5), 0 0 16px rgba(245,166,35,0.35)",
+                opacity: reminding ? 0.6 : 1,
+              }}
+            >
+              {reminderSent ? "✅ Hatırlatma Gönderildi" : reminding ? "Gönderiliyor…" : "📣 Herkese Hatırlatma Gönder"}
+            </button>
           </div>
         </div>
       )}

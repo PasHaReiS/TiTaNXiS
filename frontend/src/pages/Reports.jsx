@@ -1052,6 +1052,7 @@ function EventsReport({ period }) {
                   <StatusChip status="maybe" n={ev.maybe} />
                   <StatusChip status="declined" n={ev.declined} />
                   <StatusChip status="no_response" n={ev.no_response} />
+                  <NoShowChip eventId={ev.id} onClick={(e) => e.stopPropagation()} />
                   <span className="text-[10px] ml-auto font-bold"
                         style={{ color: ev.participation_rate >= 75 ? "#22C55E"
                                 : ev.participation_rate >= 50 ? "#F5A623"
@@ -1084,6 +1085,63 @@ function StatusChip({ status, n }) {
       <span aria-hidden>{m.emoji}</span>
       <span>{n}</span>
     </span>
+  );
+}
+
+// Clickable "Söyledi Gelmedi 👻" chip. Renders when there is at least one
+// user who RSVP'd yes for the event but has no attendance record on any of
+// their linked members. Clicking opens a small modal with the offender list.
+function NoShowChip({ eventId, onClick }) {
+  const { data } = useSWR(`/events/${eventId}/rsvp/no-shows`, fetcher);
+  const [open, setOpen] = useState(false);
+  const count = data?.count ?? 0;
+  if (count === 0) return null;
+  const items = data?.items || [];
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => { onClick?.(e); e.stopPropagation(); setOpen(true); }}
+        data-testid={`no-show-chip-${eventId}`}
+        className="text-[10px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1 cursor-pointer hover:brightness-125"
+        style={{ background: "rgba(168,85,247,0.18)", color: "#C4B5FD", border: "1px solid rgba(168,85,247,0.45)" }}
+        title="Söyledi Gelmedi — yes RSVP olup katılmayanlar"
+      >
+        <span aria-hidden>👻</span>
+        <span>{count}</span>
+        <span className="hidden sm:inline text-[9px] opacity-70">Söyledi Gelmedi</span>
+      </button>
+      {open && (
+        <div
+          data-testid={`no-show-modal-backdrop-${eventId}`}
+          onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+          style={{ position: "fixed", inset: 0, zIndex: 9995, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            data-testid={`no-show-modal-${eventId}`}
+            style={{ width: "100%", maxWidth: 360, maxHeight: "80vh", overflow: "auto", background: "linear-gradient(180deg, rgba(20,10,6,0.98), rgba(10,6,4,0.98))", border: "1.5px solid rgba(168,85,247,0.55)", borderRadius: 12, padding: 18, position: "relative" }}
+          >
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              style={{ position: "absolute", top: 6, right: 12, background: "transparent", border: "none", color: "rgba(245,240,232,0.6)", fontSize: 20, cursor: "pointer" }}
+            >×</button>
+            <div style={{ fontFamily: "Cinzel, serif", fontWeight: 800, fontSize: 13, letterSpacing: "0.14em", color: "#C4B5FD", textTransform: "uppercase", marginBottom: 10 }}>
+              👻 Söyledi Gelmedi ({count})
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {items.map((u) => (
+                <div key={u.user_id} style={{ padding: "6px 10px", background: "rgba(255,255,255,0.03)", borderRadius: 6, border: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>👻</span>
+                  <span style={{ fontSize: 12, color: "#F5F0E8", fontWeight: 600 }}>{u.username}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

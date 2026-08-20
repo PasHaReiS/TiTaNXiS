@@ -3052,6 +3052,102 @@ async def event_rsvp_list(event_id: str, _: dict = Depends(require_edit)):
     return {"event_id": event_id, "items": rows}
 
 
+@api_router.get("/events/{event_id}/rsvp/no-shows")
+async def event_rsvp_no_shows(event_id: str, _: dict = Depends(require_edit)):
+    """RSVP no-shows: users who said "yes" for this event but have no
+    attendance record on any linked member. Powers the "Söyledi Gelmedi 👻"
+    column on /raporlar > Etkinlik Katılım."""
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1})
+    if not ev:
+        raise HTTPException(404, "Etkinlik bulunamadı")
+    yes_rows = await db.event_rsvps.find(
+        {"event_id": event_id, "status": "yes"},
+        {"_id": 0, "user_id": 1, "username": 1},
+    ).to_list(2000)
+    if not yes_rows:
+        return {"event_id": event_id, "count": 0, "items": []}
+    user_ids = [r["user_id"] for r in yes_rows if r.get("user_id")]
+    # Resolve linked member_ids per user (users.member_ids list, legacy member_id, or members.user_id)
+    users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "id": 1, "username": 1, "member_ids": 1, "member_id": 1}).to_list(2000)
+    reverse_members = await db.members.find({"user_id": {"$in": user_ids}}, {"_id": 0, "id": 1, "user_id": 1}).to_list(5000)
+    user_to_members: dict = {}
+    for u in users:
+        mids = set()
+        for m in (u.get("member_ids") or []):
+            if m: mids.add(m)
+        if u.get("member_id"): mids.add(u["member_id"])
+        user_to_members[u["id"]] = mids
+    for m in reverse_members:
+        user_to_members.setdefault(m["user_id"], set()).add(m["id"])
+    # Attendance for this event
+    att = await db.event_attendance.find({"event_id": event_id}, {"_id": 0, "member_id": 1}).to_list(5000)
+    attended_members = {a["member_id"] for a in att}
+    username_by_id = {u["id"]: u.get("username") for u in users}
+    items = []
+    for r in yes_rows:
+        uid = r.get("user_id")
+        if not uid: continue
+        linked = user_to_members.get(uid, set())
+        # User counted as no-show only if NONE of their linked members attended.
+        # Unlinked users also count (they RSVPd but can't map to a member).
+        if linked and (linked & attended_members):
+            continue
+        items.append({"user_id": uid, "username": r.get("username") or username_by_id.get(uid) or uid})
+    items.sort(key=lambda x: (x.get("username") or "").lower())
+    return {"event_id": event_id, "count": len(items), "items": items}
+
+
+class RsvpRemindBody(BaseModel):
+    include_maybe: bool = True
+
+
+@api_router.post("/events/{event_id}/rsvp/remind")
+async def event_rsvp_remind(event_id: str, body: RsvpRemindBody, _: dict = Depends(require_edit)):
+    """Manual reminder push to everyone who RSVP'd yes (+ maybe by default).
+    Uses the same VAPID webpush path as the cron job. Returns {sent, matched}."""
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1, "name": 1, "date": 1})
+    if not ev:
+        raise HTTPException(404, "Etkinlik bulunamadı")
+    statuses = ["yes", "maybe"] if body.include_maybe else ["yes"]
+    rsvps = await db.event_rsvps.find(
+        {"event_id": event_id, "status": {"$in": statuses}},
+        {"_id": 0, "user_id": 1},
+    ).to_list(2000)
+    user_ids = list({r["user_id"] for r in rsvps if r.get("user_id")})
+    if not user_ids:
+        return {"sent": 0, "matched": 0}
+    subs = await db.push_subscriptions.find({"user_id": {"$in": user_ids}}, {"_id": 0}).to_list(500)
+    if not subs:
+        return {"sent": 0, "matched": len(user_ids), "note": "no push subscriptions"}
+    try:
+        dt = datetime.fromisoformat(str(ev.get("date")).replace("Z", "+00:00"))
+        hhmm = dt.strftime("%H:%M")
+    except Exception:
+        hhmm = ""
+    private_pem, _pub = await _get_or_create_vapid()
+    payload = json.dumps({
+        "title": "📣 Etkinlik hatırlatması",
+        "body": f"{ev['name']} için hatırlatma: Bugün saat {hhmm}!",
+        "url": f"/etkinlikler#event-{event_id}",
+        "tag": f"rsvp-manual-{event_id}",
+    }, ensure_ascii=False)
+    sent = 0
+    for s in subs:
+        try:
+            webpush(
+                subscription_info={"endpoint": s["endpoint"], "keys": s["keys"]},
+                data=payload,
+                vapid_private_key=private_pem,
+                vapid_claims={"sub": os.environ.get("VAPID_SUB", "mailto:admin@titanxis.local")},
+            )
+            sent += 1
+        except WebPushException as ex:
+            code = getattr(ex.response, "status_code", None)
+            if code in (404, 410):
+                await db.push_subscriptions.delete_one({"endpoint": s["endpoint"]})
+    return {"sent": sent, "matched": len(user_ids)}
+
+
 @api_router.get("/events/{event_id}/rsvp/summary")
 async def event_rsvp_summary(event_id: str, _: dict = Depends(require_edit)):
     """Admin-only rollup of RSVP counts per event. Used by /etkinlikler cards
