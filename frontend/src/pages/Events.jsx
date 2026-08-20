@@ -2248,14 +2248,15 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
-      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="card-red-gold w-full max-w-md p-5 fade-in relative">
+      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="card-red-gold w-full max-w-md p-5 fade-in relative" style={{ maxHeight: "90vh", overflowY: "auto" }}>
         <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white">
           <X className="w-5 h-5" />
         </button>
         <h3 className="text-lg font-bold uppercase gold-text mb-4">{initial ? t("edit_event") : t("new_event")}</h3>
 
-        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("name_field")}</label>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("name_field") || "Etkinlik Adı"}</label>
         <input data-testid={EVENTS.formName} value={name} onChange={(e) => setName(e.target.value)}
+          placeholder="Örn: Kafes 1, SvS vs 10007, Kale Savaşı"
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("date")}</label>
