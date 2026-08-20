@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useTranslation } from "react-i18next";
@@ -8,6 +8,36 @@ import { api } from "@/lib/api";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
+
+// Map an event's group_name → single runic glyph. Case-insensitive substring
+// match; falls back to ⚡ so every event still gets an icon.
+function iconForGroup(group) {
+  const g = String(group || "").toLowerCase();
+  if (g.includes("kafes")) return "ᚱ";
+  if (g.includes("kristal")) return "ᚢ";
+  if (g.includes("savaş") || g.includes("savas") || g.includes("kale")) return "ᚹ";
+  return "⚡";
+}
+
+// Human-friendly countdown: returns { label, done } where done=true means the
+// event has already started. Uses the current tick as reference so callers can
+// force re-renders by bumping a `now` state each minute.
+function formatCountdown(iso, now) {
+  const start = new Date(iso).getTime();
+  const diff = start - now;
+  if (Number.isNaN(start)) return { label: "", done: false };
+  if (diff <= 0) return { label: "✅ Tamamlandı", done: true };
+  const mins = Math.floor(diff / 60000);
+  const days = Math.floor(mins / 1440);
+  const hours = Math.floor((mins % 1440) / 60);
+  const m = mins % 60;
+  let human;
+  if (days > 0)      human = `${days}g ${hours}s sonra başlıyor`;
+  else if (hours > 0) human = `${hours}s ${m}dk sonra başlıyor`;
+  else if (m > 0)     human = `${m}dk sonra başlıyor`;
+  else                human = `Şu an başlıyor`;
+  return { label: `⏱ ${human}`, done: false };
+}
 
 const HERO_BANNER_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/3ec94e48802d40188393d56de578ede6_8c7af15c-9c2e-40cf-9dbb-0cc91f601ffe-1_all_15339.jpg";
 const STONE_CALENDAR_URL = "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/82de5ccf97bf5aa0573e1f3842df81872f0621de875297b34b0fcbd8f5facd62.jpeg";
@@ -172,7 +202,38 @@ export default function MemberHome() {
 
   const isoFor = (d) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   const [selectedDay, setSelectedDay] = useState(today.getDate());
-  const [popoverEvent, setPopoverEvent] = useState(null); // {id,title,time}
+  const [popoverEvent, setPopoverEvent] = useState(null); // {id,title,time,iso,dateLabel,group}
+  const [rsvpStatus, setRsvpStatus] = useState(null);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    if (!popoverEvent) { setRsvpStatus(null); return; }
+    let alive = true;
+    api.get(`/events/${popoverEvent.id}/rsvp/me`)
+      .then((r) => { if (alive) setRsvpStatus(r.data?.status || null); })
+      .catch(() => { if (alive) setRsvpStatus(null); });
+    return () => { alive = false; };
+  }, [popoverEvent?.id]);
+  const sendRsvp = async (next) => {
+    if (!popoverEvent) return;
+    // Tapping the active choice clears it (toggle-off).
+    const effective = rsvpStatus === next ? null : next;
+    try {
+      await api.post(`/events/${popoverEvent.id}/rsvp`, { status: effective });
+      setRsvpStatus(effective);
+      toast.success(
+        effective === "yes" ? "✅ Katılacağım olarak işaretlendi"
+        : effective === "maybe" ? "🤔 Belki olarak işaretlendi"
+        : effective === "no" ? "❌ Katılamam olarak işaretlendi"
+        : "RSVP temizlendi"
+      );
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "RSVP kaydedilemedi");
+    }
+  };
   const selectedIso = selectedDay ? isoFor(selectedDay) : null;
   const selectedEvents = (selectedIso && eventsMap[selectedIso]) || [];
 
@@ -442,7 +503,7 @@ export default function MemberHome() {
                         textAlign: "left",
                       }}
                     >
-                      <span style={{ fontFamily: "Cinzel, serif", fontSize: 14, color: "#F5A623", fontWeight: 700, textShadow: "0 0 6px rgba(245,166,35,0.5)" }}>ᚱ</span>
+                      <span style={{ fontFamily: "Cinzel, serif", fontSize: 14, color: "#F5A623", fontWeight: 700, textShadow: "0 0 6px rgba(245,166,35,0.5)" }}>{iconForGroup(ev.group)}</span>
                       <span style={{ fontSize: 12, color: "#F5F0E8", fontWeight: 700, letterSpacing: "0.04em" }}>{ev.title}</span>
                       <span style={{ marginLeft: "auto", fontSize: 12, color: "#F5A623", fontWeight: 700 }}>{ev.time}</span>
                     </button>
@@ -504,6 +565,9 @@ export default function MemberHome() {
             </button>
             <div
               style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
                 fontFamily: "Cinzel, serif",
                 fontWeight: 800,
                 fontSize: 18,
@@ -515,15 +579,41 @@ export default function MemberHome() {
               }}
               data-testid="event-popover-title"
             >
-              {popoverEvent.title}
+              <span style={{ fontSize: 22, color: "#F5A623", textShadow: "0 0 8px rgba(245,166,35,0.55)" }} data-testid="event-popover-icon">
+                {iconForGroup(popoverEvent.group)}
+              </span>
+              <span>{popoverEvent.title}</span>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
               <div
                 style={{ fontSize: 13, color: "#F5A623", fontWeight: 700, letterSpacing: "0.08em", textShadow: "0 0 6px rgba(245,166,35,0.4)" }}
                 data-testid="event-popover-datetime"
               >
                 📅 {popoverEvent.dateLabel} · 🕐 {popoverEvent.time}
               </div>
+              {(() => {
+                const cd = formatCountdown(popoverEvent.iso, now);
+                return (
+                  <div
+                    data-testid="event-popover-countdown"
+                    style={{
+                      alignSelf: "flex-start",
+                      display: "inline-block",
+                      padding: "4px 10px",
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      background: cd.done ? "rgba(34,197,94,0.14)" : "rgba(245,166,35,0.14)",
+                      border: cd.done ? "1px solid rgba(34,197,94,0.5)" : "1px solid rgba(245,166,35,0.5)",
+                      color: cd.done ? "#4ade80" : "#F5A623",
+                      textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+                    }}
+                  >
+                    {cd.label}
+                  </div>
+                );
+              })()}
               {popoverEvent.group && (
                 <div
                   style={{ fontSize: 12, color: "rgba(245,240,232,0.75)", letterSpacing: "0.06em" }}
@@ -538,6 +628,44 @@ export default function MemberHome() {
                   {popoverEvent.subtitle}
                 </div>
               )}
+            </div>
+
+            {/* RSVP toggle group */}
+            <div
+              data-testid="event-popover-rsvp"
+              style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 10 }}
+            >
+              {[
+                { key: "yes",   label: "✅ Katılacağım", active: "rgba(34,197,94,0.28)",  border: "rgba(34,197,94,0.7)",  fg: "#4ade80" },
+                { key: "maybe", label: "🤔 Belki",        active: "rgba(245,166,35,0.28)", border: "rgba(245,166,35,0.7)", fg: "#F5A623" },
+                { key: "no",    label: "❌ Katılamam",   active: "rgba(220,38,38,0.28)",  border: "rgba(220,38,38,0.7)",  fg: "#fca5a5" },
+              ].map((b) => {
+                const isActive = rsvpStatus === b.key;
+                return (
+                  <button
+                    type="button"
+                    key={b.key}
+                    data-testid={`rsvp-${b.key}`}
+                    aria-pressed={isActive}
+                    onClick={() => sendRsvp(b.key)}
+                    style={{
+                      padding: "8px 4px",
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      background: isActive ? b.active : "rgba(255,255,255,0.04)",
+                      border: `1.5px solid ${isActive ? b.border : "rgba(255,255,255,0.15)"}`,
+                      color: isActive ? b.fg : "rgba(245,240,232,0.65)",
+                      fontWeight: 700,
+                      fontSize: 11,
+                      letterSpacing: "0.02em",
+                      textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+                      boxShadow: isActive ? `inset 0 0 8px ${b.active}` : "none",
+                    }}
+                  >
+                    {b.label}
+                  </button>
+                );
+              })}
             </div>
             <button
               type="button"

@@ -5952,6 +5952,44 @@ class AttendanceToggleBody(BaseModel):
 ATTENDANCE_STATUSES = {"attending", "declined", "maybe", "late"}
 
 
+class EventRsvpBody(BaseModel):
+    status: Optional[str] = None  # "yes" | "maybe" | "no" | None to clear
+
+
+@api_router.post("/events/{event_id}/rsvp")
+async def event_rsvp(event_id: str, body: EventRsvpBody, user: dict = Depends(require_auth)):
+    """Member RSVP for an event. Stored in a `event_rsvps` collection so it's
+    indexable both ways (event → members, user → events). Passing status=null
+    (or an unknown status) clears the user's response."""
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1})
+    if not ev:
+        raise HTTPException(404, "Etkinlik bulunamadı")
+    user_id = user.get("id") or user.get("username")
+    valid = {"yes", "maybe", "no"}
+    if body.status in valid:
+        await db.event_rsvps.update_one(
+            {"event_id": event_id, "user_id": user_id},
+            {"$set": {
+                "event_id": event_id,
+                "user_id": user_id,
+                "username": user.get("username"),
+                "status": body.status,
+                "updated_at": now_iso(),
+            }},
+            upsert=True,
+        )
+        return {"event_id": event_id, "status": body.status}
+    await db.event_rsvps.delete_one({"event_id": event_id, "user_id": user_id})
+    return {"event_id": event_id, "status": None}
+
+
+@api_router.get("/events/{event_id}/rsvp/me")
+async def event_rsvp_me(event_id: str, user: dict = Depends(require_auth)):
+    user_id = user.get("id") or user.get("username")
+    doc = await db.event_rsvps.find_one({"event_id": event_id, "user_id": user_id}, {"_id": 0, "status": 1})
+    return {"event_id": event_id, "status": doc.get("status") if doc else None}
+
+
 class AttendanceStatusBody(BaseModel):
     status: Optional[str] = None  # one of ATTENDANCE_STATUSES or None to clear (no-response)
 
