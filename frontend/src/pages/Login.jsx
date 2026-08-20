@@ -34,9 +34,19 @@ export default function Login() {
     finally { setLoading(false); }
   };
 
+  // Küçük takvim grid'i (mevcut ay — Ağustos 2026 vb.)
+  const today = new Date();
+  const y = today.getFullYear(), m = today.getMonth();
+  const firstDow = (new Date(y, m, 1).getDay() + 6) % 7; // Pzt=0
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  const monthName = today.toLocaleDateString("tr-TR", { month: "long", year: "numeric" }).toUpperCase();
+
   return (
     <div className="min-h-screen px-4 py-5" data-testid="guest-home" style={{ background: "transparent" }}>
-      <div className="w-full max-w-md mx-auto fade-in" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="w-full max-w-md mx-auto" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
         {/* Row 1 — Header cleaned: only language switcher top-right */}
         <div style={{ position: "relative", height: 40 }} data-testid="guest-header">
@@ -78,22 +88,81 @@ export default function Login() {
           ETKİNLİK TAKVİMİ
         </div>
 
-        {/* Row 4 — 3D Stone Calendar image (darken blend hides white/checker JPEG bg) */}
-        <div style={{ width: "100%", background: "transparent", display: "flex", justifyContent: "center", isolation: "isolate" }}>
+        {/* Row 4 — Küçük dekoratif taş takvim ikonu + gerçek interaktif takvim */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }} data-testid="guest-calendar-block">
+          {/* Dekoratif taş ikon (multiply blend beyaz JPEG kare bg'yi eritir) */}
           <img
             src={STONE_CALENDAR_URL}
-            alt="Etkinlik Takvimi"
+            alt=""
+            aria-hidden="true"
             data-testid="guest-stone-calendar"
             style={{
-              width: "100%",
-              maxHeight: 280,
+              width: 72,
+              height: 72,
               objectFit: "contain",
               display: "block",
               background: "transparent",
               border: "none",
-              mixBlendMode: "darken",
+              boxShadow: "none",
+              mixBlendMode: "multiply",
             }}
           />
+
+          {/* Gerçek interaktif takvim */}
+          <div
+            data-testid="guest-real-calendar"
+            style={{
+              width: "100%",
+              background: "rgba(10,6,4,0.72)",
+              border: "1.5px solid rgba(245,166,35,0.45)",
+              borderRadius: 12,
+              padding: "12px 14px",
+              boxShadow: "0 0 18px rgba(245,166,35,0.12), inset 0 0 12px rgba(0,0,0,0.5)",
+            }}
+          >
+            <div
+              style={{
+                textAlign: "center",
+                fontFamily: "Cinzel, serif",
+                fontWeight: 700,
+                fontSize: 12,
+                letterSpacing: "0.28em",
+                color: "#F5A623",
+                marginBottom: 10,
+                textShadow: "0 0 8px rgba(245,166,35,0.5)",
+              }}
+              data-testid="guest-real-calendar-month"
+            >
+              {monthName}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 4 }}>
+              {["Pt","Sa","Ça","Pe","Cu","Ct","Pz"].map((d) => (
+                <div key={d} style={{ fontSize: 9, textAlign: "center", fontWeight: 700, textTransform: "uppercase", color: "#D4730A", letterSpacing: "0.06em" }}>{d}</div>
+              ))}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+              {cells.map((d, i) => {
+                const isToday = d === today.getDate();
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      textAlign: "center",
+                      padding: "5px 0",
+                      borderRadius: 4,
+                      fontSize: 11,
+                      fontWeight: isToday ? 800 : 400,
+                      background: isToday ? "rgba(231,76,26,0.32)" : "transparent",
+                      color: isToday ? "#F5F0E8" : d ? "rgba(245,240,232,0.55)" : "transparent",
+                      border: isToday ? "1px solid rgba(231,76,26,0.6)" : "1px solid transparent",
+                    }}
+                  >
+                    {d || "·"}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Row 5 — Event pills (no card wrapper) */}
