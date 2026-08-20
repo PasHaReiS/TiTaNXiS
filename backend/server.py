@@ -3028,6 +3028,79 @@ async def cron_deepl_retry_i18n(request: Request):
 
 
 
+@api_router.get("/events/{event_id}/rsvp/summary")
+async def event_rsvp_summary(event_id: str, _: dict = Depends(require_edit)):
+    """Admin-only rollup of RSVP counts per event. Used by /etkinlikler cards
+    to show attendance at a glance. Regular members must never see these
+    aggregates — the endpoint is gated by `require_edit`."""
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1})
+    if not ev:
+        raise HTTPException(404, "Etkinlik bulunamadı")
+    rows = await db.event_rsvps.find({"event_id": event_id}, {"_id": 0, "status": 1}).to_list(2000)
+    yes = sum(1 for r in rows if r.get("status") == "yes")
+    maybe = sum(1 for r in rows if r.get("status") == "maybe")
+    no = sum(1 for r in rows if r.get("status") == "no")
+    return {"event_id": event_id, "yes_count": yes, "maybe_count": maybe, "no_count": no}
+
+
+async def _rsvp_reminder_task():
+    """Scans for events starting within 30 minutes that haven't yet had their
+    reminder push dispatched, then broadcasts a browser push to every user
+    who RSVP'd `yes` or `maybe`. Marks `reminder_push_sent=True` on the event
+    doc so subsequent ticks don't re-notify."""
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    now = _dt.now(_tz.utc)
+    horizon = now + _td(minutes=30)
+    q = {
+        "archived": False,
+        "reminder_push_sent": {"$ne": True},
+        "date": {"$gte": now.isoformat(), "$lte": horizon.isoformat()},
+    }
+    events = await db.events.find(q, {"_id": 0, "id": 1, "name": 1, "date": 1}).to_list(50)
+    if not events:
+        return
+    private_pem, _pub = await _get_or_create_vapid()
+    for ev in events:
+        rsvps = await db.event_rsvps.find(
+            {"event_id": ev["id"], "status": {"$in": ["yes", "maybe"]}},
+            {"_id": 0, "user_id": 1},
+        ).to_list(1000)
+        user_ids = list({r["user_id"] for r in rsvps if r.get("user_id")})
+        if user_ids:
+            subs = await db.push_subscriptions.find({"user_id": {"$in": user_ids}}, {"_id": 0}).to_list(500)
+            payload = json.dumps({
+                "title": "⏰ Etkinlik yakında başlıyor",
+                "body": f"{ev['name']} 30 dakika sonra başlıyor!",
+                "url": f"/etkinlikler#event-{ev['id']}",
+                "tag": f"rsvp-reminder-{ev['id']}",
+            }, ensure_ascii=False)
+            for s in subs:
+                try:
+                    webpush(
+                        subscription_info={"endpoint": s["endpoint"], "keys": s["keys"]},
+                        data=payload,
+                        vapid_private_key=private_pem,
+                        vapid_claims={"sub": os.environ.get("VAPID_SUB", "mailto:admin@titanxis.local")},
+                    )
+                except WebPushException as ex:
+                    code = getattr(ex.response, "status_code", None)
+                    if code in (404, 410):
+                        await db.push_subscriptions.delete_one({"endpoint": s["endpoint"]})
+        await db.events.update_one({"id": ev["id"]}, {"$set": {"reminder_push_sent": True, "reminder_push_sent_at": now.isoformat()}})
+        logger.info(f"[rsvp-reminder] pushed for event={ev['id']} users={len(user_ids)}")
+
+
+@api_router.post("/cron/rsvp-reminder-tick")
+async def cron_rsvp_reminder_tick(request: Request):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    auth = request.headers.get("authorization", "")
+    expected = f"Bearer {WEBHOOK_CRON_SECRET}"
+    if not WEBHOOK_CRON_SECRET or not _hmac_cron.compare_digest(auth, expected):
+        raise HTTPException(401, "unauthorized")
+    _asyncio_cron.create_task(_rsvp_reminder_task())
+    return {"accepted": True}
+
+
 @api_router.post("/cron/prune-deepl-log")
 async def cron_prune_deepl_log(request: Request):
     # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.

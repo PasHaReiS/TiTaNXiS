@@ -21,6 +21,34 @@ import { groupColor, groupBgTint } from "@/lib/groupColors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
+// Admin-only inline chip that shows "✅ 12 · 🤔 3 · ❌ 5" — sourced from
+// /events/:id/rsvp/summary. Rendered inside <CanEdit> so members never see it.
+function RsvpSummaryChip({ eventId }) {
+  const { data } = useSWR(`/events/${eventId}/rsvp/summary`, fetcher, { refreshInterval: 30000 });
+  if (!data) return null;
+  const { yes_count = 0, maybe_count = 0, no_count = 0 } = data;
+  if (yes_count + maybe_count + no_count === 0) return null;
+  return (
+    <span
+      onClick={(ev) => ev.stopPropagation()}
+      data-testid={`rsvp-summary-${eventId}`}
+      className="flex-shrink-0 flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold mono"
+      style={{
+        background: "rgba(0,0,0,0.35)",
+        border: "1px solid rgba(245,166,35,0.35)",
+        letterSpacing: "0.02em",
+      }}
+      title="RSVP özeti (yalnızca yetkililer görür)"
+    >
+      <span style={{ color: "#4ade80" }}>✅ {yes_count}</span>
+      <span style={{ color: "#666" }}>·</span>
+      <span style={{ color: "#F5A623" }}>🤔 {maybe_count}</span>
+      <span style={{ color: "#666" }}>·</span>
+      <span style={{ color: "#fca5a5" }}>❌ {no_count}</span>
+    </span>
+  );
+}
+
 export default function Events() {
   const { t } = useTranslation();
   const location = useLocation();
@@ -520,6 +548,9 @@ export default function Events() {
             {isTodayEvent ? t("event_today_badge") : t("event_active_badge")}
           </span>
         )}
+        <CanEdit>
+          <RsvpSummaryChip eventId={e.id} />
+        </CanEdit>
       </motion.div>
     );
   };

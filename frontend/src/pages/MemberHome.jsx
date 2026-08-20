@@ -209,6 +209,19 @@ export default function MemberHome() {
     const t = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(t);
   }, []);
+
+  // Ask for browser Notification permission once per user, right after the
+  // first anasayfa mount. If already granted or denied, nothing happens.
+  useEffect(() => {
+    if (typeof Notification === "undefined") return;
+    if (Notification.permission === "default") {
+      const asked = localStorage.getItem("mh_notif_asked");
+      if (!asked) {
+        localStorage.setItem("mh_notif_asked", "1");
+        try { Notification.requestPermission().catch(() => {}); } catch { /* ignore */ }
+      }
+    }
+  }, []);
   useEffect(() => {
     if (!popoverEvent) { setRsvpStatus(null); return; }
     let alive = true;
@@ -504,8 +517,32 @@ export default function MemberHome() {
                       }}
                     >
                       <span style={{ fontFamily: "Cinzel, serif", fontSize: 14, color: "#F5A623", fontWeight: 700, textShadow: "0 0 6px rgba(245,166,35,0.5)" }}>{iconForGroup(ev.group)}</span>
-                      <span style={{ fontSize: 12, color: "#F5F0E8", fontWeight: 700, letterSpacing: "0.04em" }}>{ev.title}</span>
-                      <span style={{ marginLeft: "auto", fontSize: 12, color: "#F5A623", fontWeight: 700 }}>{ev.time}</span>
+                      <span style={{ fontSize: 12, color: "#F5F0E8", fontWeight: 700, letterSpacing: "0.04em", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.title}</span>
+                      {(() => {
+                        const cd = formatCountdown(ev.iso, now);
+                        // Compact: strip trailing "sonra başlıyor" so the pill stays short.
+                        const compact = cd.done
+                          ? "✅"
+                          : cd.label.replace(" sonra başlıyor", "").replace("Şu an başlıyor", "🔴 canlı");
+                        return (
+                          <span
+                            data-testid={`day-event-countdown-${ev.id}`}
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              letterSpacing: "0.02em",
+                              padding: "2px 8px",
+                              borderRadius: 999,
+                              background: cd.done ? "rgba(34,197,94,0.16)" : "rgba(245,166,35,0.14)",
+                              border: cd.done ? "1px solid rgba(34,197,94,0.5)" : "1px solid rgba(245,166,35,0.45)",
+                              color: cd.done ? "#4ade80" : "#F5A623",
+                            }}
+                          >
+                            {compact}
+                          </span>
+                        );
+                      })()}
+                      <span style={{ fontSize: 12, color: "#F5A623", fontWeight: 700 }}>{ev.time}</span>
                     </button>
                   ))}
                 </div>

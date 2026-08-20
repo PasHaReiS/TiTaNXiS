@@ -4,12 +4,14 @@ crons:
     cron: "45 3 * * *"
     endpoint: "{{BASE_URL}}/api/cron/deepl-retry-i18n"
     method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
     enabled: true
-  - name: prune-deepl-log
-    description: "Deletes deepl_translate_log rows older than 90 days once a day at 03:15 UTC"
-    cron: "15 3 * * *"
-    endpoint: "{{BASE_URL}}/api/cron/prune-deepl-log"
+  - name: rsvp-reminder-tick
+    description: "Every 15 minutes pushes '⏰ starts in 30 minutes' notifications to yes/maybe RSVPers for upcoming events"
+    cron: "*/15 * * * *"
+    endpoint: "{{BASE_URL}}/api/cron/rsvp-reminder-tick"
     method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
     enabled: true
   - name: weekly-digest-email
     description: "Sends the admin a HTML DeepL usage digest every Monday at 08:00 UTC"
