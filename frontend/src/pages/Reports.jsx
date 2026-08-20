@@ -40,7 +40,7 @@ const fmtDate = (iso) => {
  * Admin-only page. Reachable via the header profile dropdown → 📊 Raporlar.
  */
 export default function Reports() {
-  const [tab, setTab] = useState("members");
+  const [tab, setTab] = useState("events");
   const [period, setPeriod] = useState("90d");
   return (
     <div data-testid="reports-page">
@@ -65,8 +65,8 @@ function ReportTabs({ tab, setTab }) {
       data-testid="reports-tabs"
     >
       {[
-        { key: "members", emoji: "👥", label: "Üye Performansı" },
         { key: "events", emoji: "📅", label: "Etkinlik Katılım" },
+        { key: "members", emoji: "👥", label: "Üye Performansı" },
       ].map((t, i) => {
         const active = tab === t.key;
         return (

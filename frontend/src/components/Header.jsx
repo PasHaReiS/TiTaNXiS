@@ -187,6 +187,14 @@ export default function Header({ title }) {
                   )}
                   {isAdmin && (
                     <MenuItem
+                      emoji="📖"
+                      label={t("nav_points_about") || "Puanlar Hakkında"}
+                      onClick={() => goto("/puanlar-hakkinda")}
+                      testId="dropdown-points-about"
+                    />
+                  )}
+                  {isAdmin && (
+                    <MenuItem
                       emoji="📊"
                       label="Raporlar"
                       onClick={() => goto("/raporlar")}
