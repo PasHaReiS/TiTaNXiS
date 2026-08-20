@@ -3099,12 +3099,15 @@ async def event_rsvp_no_shows(event_id: str, _: dict = Depends(require_edit)):
 
 class RsvpRemindBody(BaseModel):
     include_maybe: bool = True
+    custom_body: Optional[str] = None  # optional override for the push body text
 
 
 @api_router.post("/events/{event_id}/rsvp/remind")
 async def event_rsvp_remind(event_id: str, body: RsvpRemindBody, _: dict = Depends(require_edit)):
     """Manual reminder push to everyone who RSVP'd yes (+ maybe by default).
-    Uses the same VAPID webpush path as the cron job. Returns {sent, matched}."""
+    Uses the same VAPID webpush path as the cron job. If `custom_body` is
+    provided (trimmed non-empty) it replaces the default message so admins
+    can add rally cries or last-minute tips. Returns {sent, matched}."""
     ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1, "name": 1, "date": 1})
     if not ev:
         raise HTTPException(404, "Etkinlik bulunamadı")
@@ -3124,10 +3127,15 @@ async def event_rsvp_remind(event_id: str, body: RsvpRemindBody, _: dict = Depen
         hhmm = dt.strftime("%H:%M")
     except Exception:
         hhmm = ""
+    custom = (body.custom_body or "").strip()
+    push_body = custom if custom else f"{ev['name']} için hatırlatma: Bugün saat {hhmm}!"
+    # Cap length so a stray novel doesn't blow up the push payload.
+    if len(push_body) > 240:
+        push_body = push_body[:237] + "…"
     private_pem, _pub = await _get_or_create_vapid()
     payload = json.dumps({
         "title": "📣 Etkinlik hatırlatması",
-        "body": f"{ev['name']} için hatırlatma: Bugün saat {hhmm}!",
+        "body": push_body,
         "url": f"/etkinlikler#event-{event_id}",
         "tag": f"rsvp-manual-{event_id}",
     }, ensure_ascii=False)

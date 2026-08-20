@@ -29,12 +29,17 @@ function RsvpSummaryChip({ eventId }) {
   const [open, setOpen] = useState(false);
   const [reminding, setReminding] = useState(false);
   const [reminderSent, setReminderSent] = useState(false);
+  const [customMsg, setCustomMsg] = useState("");
   const { data: listData } = useSWR(open ? `/events/${eventId}/rsvp/list` : null, fetcher);
   const sendReminder = async () => {
     if (reminding || reminderSent) return;
     setReminding(true);
     try {
-      const r = await api.post(`/events/${eventId}/rsvp/remind`, { include_maybe: true });
+      const trimmed = customMsg.trim();
+      const r = await api.post(`/events/${eventId}/rsvp/remind`, {
+        include_maybe: true,
+        custom_body: trimmed || undefined,
+      });
       const sent = r.data?.sent ?? 0;
       const matched = r.data?.matched ?? 0;
       toast.success(`✅ Hatırlatma gönderildi (${sent}/${matched} bildirim)`);
@@ -127,6 +132,44 @@ function RsvpSummaryChip({ eventId }) {
                 )}
               </div>
             ))}
+            <div style={{ marginTop: 4 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.14em",
+                  color: "#D4730A",
+                  textTransform: "uppercase",
+                  marginBottom: 4,
+                }}
+              >
+                Özel Mesaj (opsiyonel)
+              </label>
+              <textarea
+                value={customMsg}
+                onChange={(e) => setCustomMsg(e.target.value.slice(0, 240))}
+                disabled={reminding || reminderSent}
+                data-testid={`rsvp-modal-custom-msg-${eventId}`}
+                placeholder="Örn: Kale surlarında toplanın, 5dk kaldı! 🏰"
+                rows={2}
+                style={{
+                  width: "100%",
+                  background: "rgba(0,0,0,0.35)",
+                  border: "1px solid rgba(245,166,35,0.35)",
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                  color: "#F5F0E8",
+                  fontSize: 12,
+                  resize: "vertical",
+                  outline: "none",
+                }}
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3, fontSize: 9, color: "rgba(245,240,232,0.5)" }}>
+                <span>Boş bırakılırsa varsayılan mesaj gönderilir</span>
+                <span style={{ fontFamily: "monospace" }}>{customMsg.length}/240</span>
+              </div>
+            </div>
             <button
               type="button"
               onClick={sendReminder}
@@ -134,7 +177,7 @@ function RsvpSummaryChip({ eventId }) {
               data-testid={`rsvp-modal-remind-${eventId}`}
               style={{
                 width: "100%",
-                marginTop: 6,
+                marginTop: 8,
                 padding: "10px 14px",
                 borderRadius: 8,
                 border: "none",
