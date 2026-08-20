@@ -7,19 +7,25 @@ const HERO_BANNER_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wing
 const STONE_CALENDAR_URL = "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/82de5ccf97bf5aa0573e1f3842df81872f0621de875297b34b0fcbd8f5facd62.jpeg";
 const ICON_SPRITE_URL = "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/4f2914e2f219f1731b523b4ddab587b1a982e976a84d1585945b44ec43d46abe.jpeg";
 
-// Sprite is 2 cols × 3 rows (Gemini vision analysis confirms row-by-row layout)
-// x: 0% (col 0), 100% (col 1)  |  y: 0% (row 0), 50% (row 1), 100% (row 2)
-const SPRITE_POS = {
-  siralama:     { x: "0%",   y: "0%"   }, // lightning bolt — row 0 left
-  loj:          { x: "100%", y: "0%"   }, // scroll — row 0 right
-  hesapla:      { x: "0%",   y: "50%"  }, // balance scale — row 1 left
-  etkinlikler:  { x: "100%", y: "50%"  }, // crossed swords — row 1 right
-  raporlar:     { x: "0%",   y: "100%" }, // bar graph — row 2 left
-  uyeler:       { x: "100%", y: "100%" }, // shield — row 2 right
+// Sprite is 2 cols × 3 rows (portrait). Pixel-precise crop with zoom so
+// baked-in corner numbers (1-6) and label texts stay outside the visible tile.
+const SPRITE_CELLS = {
+  siralama:     { col: 0, row: 0 }, // lightning
+  loj:          { col: 1, row: 0 }, // scroll
+  hesapla:      { col: 0, row: 1 }, // scales
+  etkinlikler:  { col: 1, row: 1 }, // crossed swords
+  raporlar:     { col: 0, row: 2 }, // bar graph
+  uyeler:       { col: 1, row: 2 }, // shield
 };
 
 function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
-  const pos = SPRITE_POS[spriteKey];
+  const { col, row } = SPRITE_CELLS[spriteKey];
+  // Sprite scaled so each of the 2×3 cells is 100×100 in-view. Container is
+  // 62×62 → shows top-center 62px of each 100px cell (skips labels/numbers).
+  const CELL = 100;
+  const CONTAINER = 62;
+  const xShift = (CELL - CONTAINER) / 2; // center horizontally = 19
+  const yShift = 6; // slight top margin so top-corner number stays clipped
   return (
     <button
       type="button"
@@ -40,17 +46,30 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
       <div
         aria-hidden="true"
         style={{
-          width: 62,
-          height: 62,
-          backgroundImage: `url(${ICON_SPRITE_URL})`,
-          backgroundSize: "200% 300%",
-          backgroundPosition: `${pos.x} ${pos.y}`,
-          backgroundRepeat: "no-repeat",
-          mixBlendMode: "screen",
-          filter: "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(249,115,22,0.4))",
-          opacity: locked ? 0.65 : 1,
+          width: CONTAINER,
+          height: CONTAINER,
+          overflow: "hidden",
+          borderRadius: 6,
+          position: "relative",
         }}
-      />
+      >
+        <img
+          src={ICON_SPRITE_URL}
+          alt=""
+          style={{
+            position: "absolute",
+            width: CELL * 2,   // 2 columns
+            height: CELL * 3,  // 3 rows
+            left: -(col * CELL + xShift),
+            top: -(row * CELL + yShift),
+            maxWidth: "none",
+            display: "block",
+            mixBlendMode: "screen",
+            filter: "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(249,115,22,0.4))",
+            opacity: locked ? 0.65 : 1,
+          }}
+        />
+      </div>
       {locked && (
         <span
           style={{
@@ -204,24 +223,8 @@ export default function MemberHome() {
           ETKİNLİK TAKVİMİ
         </div>
 
-        {/* Row 5 — Stone icon + real calendar */}
+        {/* Row 5 — Real calendar (stone icon ghost removed) */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-          <img
-            src={STONE_CALENDAR_URL}
-            alt=""
-            aria-hidden="true"
-            data-testid="member-home-stone-icon"
-            style={{
-              width: 64,
-              height: 64,
-              objectFit: "contain",
-              display: "block",
-              background: "transparent",
-              border: "none",
-              boxShadow: "none",
-              mixBlendMode: "multiply",
-            }}
-          />
           <div
             data-testid="member-home-calendar"
             style={{
@@ -354,42 +357,6 @@ export default function MemberHome() {
               )}
             </div>
           )}
-        </div>
-
-        {/* Row 6 — Event pills */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="member-home-events">
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "10px 16px",
-              borderRadius: 999,
-              background: "rgba(10,6,4,0.72)",
-              border: "1.5px solid rgba(245,166,35,0.55)",
-              boxShadow: "0 0 14px rgba(245,166,35,0.15), inset 0 0 10px rgba(0,0,0,0.4)",
-            }}
-          >
-            <span style={{ fontFamily: "Cinzel, serif", fontSize: 16, color: "#F5A623", fontWeight: 700, textShadow: "0 0 8px rgba(245,166,35,0.6)" }}>ᚱ</span>
-            <span style={{ fontFamily: "Cinzel, serif", fontSize: 13, color: "#F5F0E8", fontWeight: 700, letterSpacing: "0.05em" }}>Kale Savaşı</span>
-            <span style={{ marginLeft: "auto", fontFamily: "Cinzel, serif", fontSize: 13, color: "#F5A623", fontWeight: 700, letterSpacing: "0.05em" }}>19:00</span>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "10px 16px",
-              borderRadius: 999,
-              background: "rgba(10,6,4,0.72)",
-              border: "1.5px solid rgba(245,166,35,0.55)",
-              boxShadow: "0 0 14px rgba(245,166,35,0.15), inset 0 0 10px rgba(0,0,0,0.4)",
-            }}
-          >
-            <span style={{ fontFamily: "Cinzel, serif", fontSize: 16, color: "#F5A623", fontWeight: 700, textShadow: "0 0 8px rgba(245,166,35,0.6)" }}>ᚢ</span>
-            <span style={{ fontFamily: "Cinzel, serif", fontSize: 13, color: "#F5F0E8", fontWeight: 700, letterSpacing: "0.05em" }}>Zindan Görevi</span>
-            <span style={{ marginLeft: "auto", fontFamily: "Cinzel, serif", fontSize: 13, color: "#F5A623", fontWeight: 700, letterSpacing: "0.05em" }}>21:00</span>
-          </div>
         </div>
       </div>
     </div>
