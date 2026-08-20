@@ -129,9 +129,10 @@ function useEventsMap() {
 }
 
 export default function MemberHome() {
-  const { user } = useAuth();
+  const { user, isAdmin, canEdit } = useAuth();
   const nav = useNavigate();
   const eventsMap = useEventsMap();
+  const isPrivileged = isAdmin || canEdit;
 
   // Küçük takvim grid'i (mevcut ay)
   const today = new Date();
@@ -202,9 +203,64 @@ export default function MemberHome() {
           <MenuTile spriteKey="loj"          label="LOJ HAKKINDA"  onClick={() => nav("/komutanlar")} testId="menu-loj" />
           <MenuTile spriteKey="hesapla"      label="PUAN HESAPLA"  onClick={() => nav("/puan-hesaplama")} testId="menu-hesapla" />
           <MenuTile spriteKey="etkinlikler"  label="ETKİNLİKLER"   onClick={() => nav("/etkinlikler")} testId="menu-etkinlikler" />
-          <MenuTile spriteKey="raporlar"     label="RAPORLAR"      locked onClick={lockedToast} testId="menu-raporlar" />
-          <MenuTile spriteKey="uyeler"       label="ÜYELER"        sub="Salt Görüntüleme" locked onClick={() => nav("/uyeler")} testId="menu-uyeler" />
+          <MenuTile
+            spriteKey="raporlar"
+            label="RAPORLAR"
+            locked={!isPrivileged}
+            onClick={() => (isPrivileged ? nav("/raporlar") : lockedToast())}
+            testId="menu-raporlar"
+          />
+          <MenuTile
+            spriteKey="uyeler"
+            label="ÜYELER"
+            sub={isPrivileged ? undefined : "Salt Görüntüleme"}
+            locked={!isPrivileged}
+            onClick={() => nav("/uyeler")}
+            testId="menu-uyeler"
+          />
         </div>
+
+        {/* Admin Dashboard strip — only visible to admin/editor */}
+        {isPrivileged && (
+          <button
+            type="button"
+            onClick={() => nav("/dashboard")}
+            data-testid="member-home-dashboard-strip"
+            style={{
+              width: "100%",
+              padding: "12px 16px",
+              borderRadius: 10,
+              border: "1.5px solid rgba(245,166,35,0.55)",
+              background: "linear-gradient(135deg, rgba(231,76,26,0.22) 0%, rgba(212,115,10,0.18) 50%, rgba(245,166,35,0.15) 100%)",
+              boxShadow: "0 0 18px rgba(245,166,35,0.20), inset 0 0 12px rgba(0,0,0,0.4)",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              cursor: "pointer",
+              marginTop: 4,
+            }}
+          >
+            <span style={{ fontSize: 22 }}>⚡</span>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
+              <span
+                style={{
+                  fontFamily: "Cinzel, serif",
+                  fontWeight: 800,
+                  fontSize: 13,
+                  letterSpacing: "0.16em",
+                  color: "#F5A623",
+                  textShadow: "0 0 6px rgba(245,166,35,0.6)",
+                }}
+              >
+                YÖNETİM PANELİ
+              </span>
+              <span style={{ fontSize: 10, color: "rgba(245,240,232,0.65)", letterSpacing: "0.06em" }}>
+                Dashboard · OCR · Bildirimler · İttifaklar
+              </span>
+            </div>
+            <span style={{ marginLeft: "auto", color: "#F5A623", fontSize: 18 }}>›</span>
+          </button>
+        )}
 
         {/* Row 4 — "ETKİNLİK TAKVİMİ" title */}
         <div
