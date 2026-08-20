@@ -23,29 +23,99 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
 
 // Admin-only inline chip that shows "✅ 12 · 🤔 3 · ❌ 5" — sourced from
 // /events/:id/rsvp/summary. Rendered inside <CanEdit> so members never see it.
+// Tapping the chip opens a modal listing exactly which users chose each option.
 function RsvpSummaryChip({ eventId }) {
   const { data } = useSWR(`/events/${eventId}/rsvp/summary`, fetcher, { refreshInterval: 30000 });
+  const [open, setOpen] = useState(false);
+  const { data: listData } = useSWR(open ? `/events/${eventId}/rsvp/list` : null, fetcher);
   if (!data) return null;
   const { yes_count = 0, maybe_count = 0, no_count = 0 } = data;
   if (yes_count + maybe_count + no_count === 0) return null;
+  const items = listData?.items || [];
+  const yesUsers   = items.filter((r) => r.status === "yes");
+  const maybeUsers = items.filter((r) => r.status === "maybe");
+  const noUsers    = items.filter((r) => r.status === "no");
   return (
-    <span
-      onClick={(ev) => ev.stopPropagation()}
-      data-testid={`rsvp-summary-${eventId}`}
-      className="flex-shrink-0 flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold mono"
-      style={{
-        background: "rgba(0,0,0,0.35)",
-        border: "1px solid rgba(245,166,35,0.35)",
-        letterSpacing: "0.02em",
-      }}
-      title="RSVP özeti (yalnızca yetkililer görür)"
-    >
-      <span style={{ color: "#4ade80" }}>✅ {yes_count}</span>
-      <span style={{ color: "#666" }}>·</span>
-      <span style={{ color: "#F5A623" }}>🤔 {maybe_count}</span>
-      <span style={{ color: "#666" }}>·</span>
-      <span style={{ color: "#fca5a5" }}>❌ {no_count}</span>
-    </span>
+    <>
+      <button
+        type="button"
+        onClick={(ev) => { ev.stopPropagation(); setOpen(true); }}
+        data-testid={`rsvp-summary-${eventId}`}
+        className="flex-shrink-0 flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold mono cursor-pointer hover:brightness-125"
+        style={{
+          background: "rgba(0,0,0,0.35)",
+          border: "1px solid rgba(245,166,35,0.35)",
+          letterSpacing: "0.02em",
+        }}
+        title="Tıkla — RSVP listesini gör (yalnızca yetkililer görür)"
+      >
+        <span style={{ color: "#4ade80" }}>✅ {yes_count}</span>
+        <span style={{ color: "#666" }}>·</span>
+        <span style={{ color: "#F5A623" }}>🤔 {maybe_count}</span>
+        <span style={{ color: "#666" }}>·</span>
+        <span style={{ color: "#fca5a5" }}>❌ {no_count}</span>
+      </button>
+      {open && (
+        <div
+          data-testid={`rsvp-modal-backdrop-${eventId}`}
+          onClick={(ev) => { ev.stopPropagation(); setOpen(false); }}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9995,
+            background: "rgba(0,0,0,0.7)", backdropFilter: "blur(3px)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
+          }}
+        >
+          <div
+            onClick={(ev) => ev.stopPropagation()}
+            data-testid={`rsvp-modal-${eventId}`}
+            style={{
+              width: "100%", maxWidth: 420, maxHeight: "80vh", overflow: "auto",
+              background: "linear-gradient(180deg, rgba(20,10,6,0.98), rgba(10,6,4,0.98))",
+              border: "1.5px solid rgba(245,166,35,0.55)",
+              borderRadius: 12, padding: 18, position: "relative",
+              boxShadow: "0 12px 40px rgba(0,0,0,0.7), 0 0 24px rgba(245,166,35,0.25)",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              data-testid={`rsvp-modal-close-${eventId}`}
+              style={{ position: "absolute", top: 6, right: 12, background: "transparent", border: "none", color: "rgba(245,240,232,0.6)", fontSize: 20, cursor: "pointer" }}
+            >
+              ×
+            </button>
+            <div style={{ fontFamily: "Cinzel, serif", fontWeight: 800, fontSize: 14, letterSpacing: "0.14em", color: "#F5A623", textTransform: "uppercase", marginBottom: 12, textShadow: "0 0 6px rgba(245,166,35,0.4)" }}>
+              RSVP Katılım Listesi
+            </div>
+            {[
+              { key: "yes",   emoji: "✅", label: "Katılacağım", color: "#4ade80", users: yesUsers },
+              { key: "maybe", emoji: "🤔", label: "Belki",       color: "#F5A623", users: maybeUsers },
+              { key: "no",    emoji: "❌", label: "Katılamam",   color: "#fca5a5", users: noUsers },
+            ].map((sec) => (
+              <div key={sec.key} data-testid={`rsvp-modal-section-${sec.key}`} style={{ marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 800, color: sec.color, marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  <span>{sec.emoji}</span>
+                  <span>{sec.label}</span>
+                  <span style={{ marginLeft: "auto", color: "#888", fontFamily: "monospace" }}>{sec.users.length}</span>
+                </div>
+                {sec.users.length === 0 ? (
+                  <div style={{ fontSize: 11, color: "rgba(245,240,232,0.4)", fontStyle: "italic", paddingLeft: 22 }}>—</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    {sec.users.map((u) => (
+                      <div key={u.user_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", background: "rgba(255,255,255,0.03)", borderRadius: 6, border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <span style={{ fontSize: 12 }}>{sec.emoji}</span>
+                        <span style={{ fontSize: 12, color: "#F5F0E8", fontWeight: 600 }}>{u.username || u.user_id}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

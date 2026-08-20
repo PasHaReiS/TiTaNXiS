@@ -3028,6 +3028,30 @@ async def cron_deepl_retry_i18n(request: Request):
 
 
 
+@api_router.get("/events/{event_id}/rsvp/list")
+async def event_rsvp_list(event_id: str, _: dict = Depends(require_edit)):
+    """Admin-only per-user RSVP list for an event. Powers the tap-through
+    modal on /etkinlikler so leadership can see exactly who said yes/maybe/no
+    and chase the absentees. Regular members must never hit this endpoint."""
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1})
+    if not ev:
+        raise HTTPException(404, "Etkinlik bulunamadı")
+    rows = await db.event_rsvps.find(
+        {"event_id": event_id},
+        {"_id": 0, "user_id": 1, "username": 1, "status": 1, "updated_at": 1},
+    ).to_list(2000)
+    # Backfill missing usernames from users collection (older RSVPs may lack it).
+    missing = [r["user_id"] for r in rows if not r.get("username") and r.get("user_id")]
+    if missing:
+        users = await db.users.find({"id": {"$in": missing}}, {"_id": 0, "id": 1, "username": 1}).to_list(2000)
+        by_id = {u["id"]: u.get("username") for u in users}
+        for r in rows:
+            if not r.get("username"):
+                r["username"] = by_id.get(r.get("user_id")) or r.get("user_id") or "—"
+    rows.sort(key=lambda r: (r.get("username") or "").lower())
+    return {"event_id": event_id, "items": rows}
+
+
 @api_router.get("/events/{event_id}/rsvp/summary")
 async def event_rsvp_summary(event_id: str, _: dict = Depends(require_edit)):
     """Admin-only rollup of RSVP counts per event. Used by /etkinlikler cards

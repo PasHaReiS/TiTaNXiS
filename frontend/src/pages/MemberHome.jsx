@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import useSWR from "swr";
 import { api } from "@/lib/api";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
-
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 // Map an event's group_name → single runic glyph. Case-insensitive substring
@@ -222,6 +221,33 @@ export default function MemberHome() {
       }
     }
   }, []);
+
+  // In-app reminder fallback for users without browser push permission. Once
+  // per session (per event) we surface the same "starts in ≤30 min" toast the
+  // cron would have pushed. Members with push granted rely on the cron job.
+  useEffect(() => {
+    if (typeof Notification === "undefined") return;
+    if (Notification.permission === "granted") return;
+    const upcoming = [];
+    for (const list of Object.values(eventsMap)) {
+      for (const ev of list) {
+        const diff = new Date(ev.iso).getTime() - now;
+        if (diff > 0 && diff <= 30 * 60 * 1000) {
+          upcoming.push({ ...ev, diffMin: Math.max(1, Math.round(diff / 60000)) });
+        }
+      }
+    }
+    for (const ev of upcoming) {
+      const key = `mh_reminder_shown_${ev.id}`;
+      if (sessionStorage.getItem(key)) continue;
+      sessionStorage.setItem(key, "1");
+      toast(`⏰ ${ev.title} ${ev.diffMin} dakika sonra başlıyor!`, {
+        duration: 10000,
+        action: { label: "Kapat", onClick: () => {} },
+      });
+    }
+  }, [eventsMap, now]);
+
   useEffect(() => {
     if (!popoverEvent) { setRsvpStatus(null); return; }
     let alive = true;
