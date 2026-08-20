@@ -135,7 +135,17 @@ function useEventsMap() {
       if (Number.isNaN(d.getTime())) continue;
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-      (map[key] ||= []).push({ id: ev.id, title: ev.name, time, iso: ev.date });
+      const dateLabel = d.toLocaleDateString("tr-TR", { day: "2-digit", month: "long", year: "numeric" });
+      (map[key] ||= []).push({
+        id: ev.id,
+        title: ev.name,
+        time,
+        iso: ev.date,
+        dateLabel,
+        group: ev.group_name || null,
+        subtitle: ev.subtitle || null,
+        multiplier: ev.multiplier || 1,
+      });
     }
     // Chronological order within each day
     for (const k of Object.keys(map)) map[k].sort((a, b) => a.iso.localeCompare(b.iso));
@@ -496,10 +506,10 @@ export default function MemberHome() {
               style={{
                 fontFamily: "Cinzel, serif",
                 fontWeight: 800,
-                fontSize: 16,
+                fontSize: 18,
                 color: "#F5F0E8",
                 letterSpacing: "0.04em",
-                marginBottom: 8,
+                marginBottom: 10,
                 textShadow: "0 1px 3px rgba(0,0,0,0.8)",
                 paddingRight: 20,
               }}
@@ -507,19 +517,53 @@ export default function MemberHome() {
             >
               {popoverEvent.title}
             </div>
-            <div
-              style={{
-                fontFamily: "Cinzel, serif",
-                fontSize: 14,
-                color: "#F5A623",
-                fontWeight: 700,
-                letterSpacing: "0.14em",
-                textShadow: "0 0 8px rgba(245,166,35,0.5)",
-              }}
-              data-testid="event-popover-time"
-            >
-              🕐 {popoverEvent.time}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
+              <div
+                style={{ fontSize: 13, color: "#F5A623", fontWeight: 700, letterSpacing: "0.08em", textShadow: "0 0 6px rgba(245,166,35,0.4)" }}
+                data-testid="event-popover-datetime"
+              >
+                📅 {popoverEvent.dateLabel} · 🕐 {popoverEvent.time}
+              </div>
+              {popoverEvent.group && (
+                <div
+                  style={{ fontSize: 12, color: "rgba(245,240,232,0.75)", letterSpacing: "0.06em" }}
+                  data-testid="event-popover-group"
+                >
+                  <span style={{ color: "#D4730A", fontWeight: 700 }}>Grup:</span>{" "}
+                  <span style={{ color: "#F5F0E8", fontWeight: 600 }}>{popoverEvent.group}</span>
+                </div>
+              )}
+              {popoverEvent.subtitle && (
+                <div style={{ fontSize: 11, color: "rgba(245,240,232,0.55)", fontStyle: "italic" }}>
+                  {popoverEvent.subtitle}
+                </div>
+              )}
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPopoverEvent(null);
+                nav(`/etkinlikler#event-${popoverEvent.id}`);
+              }}
+              data-testid="event-popover-goto"
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "none",
+                background: "linear-gradient(135deg, #F5A623 0%, #D4730A 50%, #E74C1A 100%)",
+                color: "#0a0a0a",
+                fontFamily: "Cinzel, serif",
+                fontWeight: 800,
+                fontSize: 12,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.5), 0 0 14px rgba(245,166,35,0.35)",
+                cursor: "pointer",
+              }}
+            >
+              🗡️ Etkinliğe Git
+            </button>
           </div>
         </div>
       )}

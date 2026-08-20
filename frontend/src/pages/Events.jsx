@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import useSWR, { mutate } from "swr";
+import { useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { api } from "@/lib/api";
 import { EVENTS } from "@/constants/testIds";
@@ -22,6 +23,7 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
 
 export default function Events() {
   const { t } = useTranslation();
+  const location = useLocation();
   const [tab, setTab] = useState("reminded"); // "reminded" | "unreminded" | "archive"
   // Top-level view mode — Liste (existing list layout) vs Takvim (monthly grid).
   const [view, setView] = useState(() => {
@@ -58,6 +60,38 @@ export default function Events() {
   }, [manualOrder]);
   const [dragId, setDragId] = useState(null);
   const [dragSourceBucket, setDragSourceBucket] = useState(null);
+
+  // Deep link from MemberHome: /etkinlikler#event-<id>. Waits for the event
+  // list to hydrate, switches to the tab that actually contains that event,
+  // then scrolls it into view + adds a short amber ring so users see where
+  // they landed.
+  const allEventsForHash = useSWR("/events?archived=false", fetcher).data || [];
+  const archivedForHash = useSWR("/events?archived=true", fetcher).data || [];
+  useEffect(() => {
+    const h = location.hash || "";
+    if (!h.startsWith("#event-")) return;
+    const targetId = h.slice("#event-".length);
+    // Route to correct tab so the event actually renders in the DOM.
+    const active = [...allEventsForHash];
+    const archived = [...archivedForHash];
+    const inArchived = archived.find((e) => e.id === targetId);
+    const inActive = active.find((e) => e.id === targetId);
+    if (inArchived) setTab("archive");
+    else if (inActive && inActive.reminder_enabled === false) setTab("unreminded");
+    else if (inActive) setTab("reminded");
+    setView("list");
+    // Give the DOM a beat to render the newly-active tab, then scroll.
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`event-${targetId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        const prev = el.style.boxShadow;
+        el.style.boxShadow = "0 0 0 3px rgba(245,166,35,0.9), 0 0 22px rgba(245,166,35,0.55)";
+        setTimeout(() => { el.style.boxShadow = prev; }, 2200);
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [location.hash, allEventsForHash.length, archivedForHash.length]);
   // Bulk-selection mode — when active every event card renders a checkbox
   // and the top-of-page toolbar exposes "Sıralama dışına al" / "Sıralamaya
   // ekle" batch actions.
