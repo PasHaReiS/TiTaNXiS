@@ -399,40 +399,6 @@ export default function Members() {
           </div>
         </div>
 
-        {activeCountries.length > 0 && (
-          <div
-            data-testid="members-country-filter-bar"
-            className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-1"
-            style={{ scrollbarWidth: "thin" }}
-          >
-            <span className="flex items-center gap-1 text-[10px] uppercase tracking-widest font-bold gold-text flex-shrink-0">
-              <Globe className="w-3 h-3" /> {t("filter_country")}
-            </span>
-            <button
-              type="button"
-              data-testid="filter-country-all"
-              onClick={() => setFilterCountries([])}
-              className={`chip text-[11px] flex-shrink-0 ${filterCountries.length === 0 ? "active" : ""}`}
-            >
-              {t("all_upper")}
-            </button>
-            {activeCountries.map(({ iso, count, meta }) => (
-              <button
-                key={iso}
-                type="button"
-                data-testid={`filter-country-${iso}`}
-                onClick={() => toggleCountryFilter(iso)}
-                className={`chip text-[11px] flex-shrink-0 flex items-center gap-1 ${filterCountries.includes(iso) ? "active" : ""}`}
-                title={meta ? `${meta.name} · ${count}` : iso}
-              >
-                <span>{meta?.flag || "🏳️"}</span>
-                <span className="font-bold">{iso}</span>
-                <span className="opacity-60">·{count}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
         {showCastleStats && (
           <CastleStatsCard stats={castleStats} onClose={() => setShowCastleStats(false)} t={t} />
         )}
