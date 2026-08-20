@@ -38,50 +38,10 @@ export default function Login() {
     <div className="min-h-screen px-4 py-5" data-testid="guest-home" style={{ background: "transparent" }}>
       <div className="w-full max-w-md mx-auto fade-in" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-        {/* Row 1 — Header: logo + title + subtitle (center), lang switcher (right) */}
-        <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 4 }} data-testid="guest-header">
+        {/* Row 1 — Header cleaned: only language switcher top-right */}
+        <div style={{ position: "relative", height: 40 }} data-testid="guest-header">
           <div style={{ position: "absolute", top: 0, right: 0 }}>
             <LanguageSwitcher />
-          </div>
-          <div
-            style={{
-              width: 68,
-              height: 68,
-              borderRadius: "50%",
-              overflow: "hidden",
-              border: "2px solid #F5A623",
-              boxShadow: "0 0 22px rgba(245,166,35,0.55), inset 0 0 12px rgba(212,115,10,0.35)",
-              background: "#0a0a0a",
-              marginBottom: 8,
-            }}
-          >
-            <img src={BRAND_LOGO_URL} alt="TiTaNXiS" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-          </div>
-          <h1
-            style={{
-              fontFamily: "Cinzel, serif",
-              fontWeight: 800,
-              fontSize: "26px",
-              letterSpacing: "0.18em",
-              color: "#F5A623",
-              textShadow: "0 0 14px rgba(245,166,35,0.55), 0 2px 6px rgba(0,0,0,0.6)",
-              margin: 0,
-              lineHeight: 1,
-            }}
-          >
-            TiTaNXiS
-          </h1>
-          <div
-            style={{
-              fontFamily: "Cinzel, serif",
-              fontSize: "10px",
-              letterSpacing: "0.32em",
-              color: "#D4730A",
-              marginTop: 4,
-              textShadow: "0 1px 4px rgba(0,0,0,0.7)",
-            }}
-          >
-            MİSAFİR
           </div>
         </div>
 
@@ -118,21 +78,23 @@ export default function Login() {
           ETKİNLİK TAKVİMİ
         </div>
 
-        {/* Row 4 — 3D Stone Calendar image (transparent bg, no card) */}
-        <img
-          src={STONE_CALENDAR_URL}
-          alt="Etkinlik Takvimi"
-          data-testid="guest-stone-calendar"
-          style={{
-            width: "100%",
-            maxHeight: 280,
-            objectFit: "contain",
-            display: "block",
-            background: "transparent",
-            border: "none",
-            filter: "drop-shadow(0 8px 18px rgba(0,0,0,0.6))",
-          }}
-        />
+        {/* Row 4 — 3D Stone Calendar image (darken blend hides white/checker JPEG bg) */}
+        <div style={{ width: "100%", background: "transparent", display: "flex", justifyContent: "center", isolation: "isolate" }}>
+          <img
+            src={STONE_CALENDAR_URL}
+            alt="Etkinlik Takvimi"
+            data-testid="guest-stone-calendar"
+            style={{
+              width: "100%",
+              maxHeight: 280,
+              objectFit: "contain",
+              display: "block",
+              background: "transparent",
+              border: "none",
+              mixBlendMode: "darken",
+            }}
+          />
+        </div>
 
         {/* Row 5 — Event pills (no card wrapper) */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="guest-event-pills">
