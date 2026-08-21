@@ -7488,7 +7488,22 @@ async def reports_events(period: str = "all", user: dict = Depends(require_admin
     events = await db.events.find(ev_query, {"_id": 0}).sort("date", -1).to_list(20000)
     if not events:
         return {"period": period, "items": [], "member_pool": 0}
-    member_pool = await db.members.count_documents({})
+    # v60 — per-event member pool now respects each event's alliance_scope.
+    # Case-insensitive alliance name match; `all` scope counts every member.
+    import re as _re
+    scope_counts: dict = {}
+    async def _pool_for_scope(scope: str) -> int:
+        s = (scope or "GOW").strip()
+        key = s.lower()
+        if key in scope_counts:
+            return scope_counts[key]
+        if not s or key == "all":
+            n = await db.members.count_documents({})
+        else:
+            n = await db.members.count_documents({"alliance_name": {"$regex": f"^{_re.escape(s)}$", "$options": "i"}})
+        scope_counts[key] = n
+        return n
+    default_pool = await _pool_for_scope("GOW")
     ev_ids = [e["id"] for e in events]
     attendance = await db.event_attendance.find({"event_id": {"$in": ev_ids}},
                                                 {"_id": 0}).to_list(200000)
@@ -7508,23 +7523,25 @@ async def reports_events(period: str = "all", user: dict = Depends(require_admin
         stats = per_event.get(e["id"], {"attending": 0, "declined": 0, "maybe": 0, "late": 0})
         showed_up = stats["attending"] + stats["late"]
         responded = showed_up + stats["declined"] + stats["maybe"]
-        rate = round(showed_up / member_pool * 100, 1) if member_pool else 0.0
+        ev_pool = await _pool_for_scope(e.get("alliance_scope") or "GOW")
+        rate = round(showed_up / ev_pool * 100, 1) if ev_pool else 0.0
         items.append({
             "id": e["id"],
             "name": e.get("name"),
             "group_name": e.get("group_name"),
             "date": e.get("date"),
             "series_id": e.get("series_id"),
+            "alliance_scope": e.get("alliance_scope") or "GOW",
             "attending": stats["attending"],
             "declined": stats["declined"],
             "maybe": stats["maybe"],
             "late": stats["late"],
-            "no_response": max(0, member_pool - responded),
+            "no_response": max(0, ev_pool - responded),
             "responded": responded,
-            "member_pool": member_pool,
+            "member_pool": ev_pool,
             "participation_rate": rate,
         })
-    return {"period": period, "items": items, "member_pool": member_pool}
+    return {"period": period, "items": items, "member_pool": default_pool}
 
 
 @api_router.get("/reports/events/{event_id}/attendance")

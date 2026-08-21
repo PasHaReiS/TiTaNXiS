@@ -1238,7 +1238,43 @@ button[aria-pressed="true"] > .tab-text {
     border: 1px solid rgba(138,43,226,0.55) !important;
 }
 
-/* Rehber (hesapla-category-list) sub-tab cards — larger glass cards with full-text wrap */
+/* v60 — Ralli-team style sync across ALL sub-tab lists (Rehber +
+   PointCalcPage KIND tabs + PointsAbout Puan Ekle/Liste tabs) so every
+   secondary menu shares the same violet→indigo look. Frost/blur is
+   nuked; buttons read as decisive tap targets. */
+[data-testid="pc-kind-tabs"] [data-testid^="pc-kind-tab-"],
+[data-testid="pa-sidebar-list"] button,
+[data-testid="pa-sidebar-list"] > div {
+    background:
+        radial-gradient(ellipse at 30% 20%, rgba(168,85,247,0.35) 0%, transparent 55%),
+        linear-gradient(135deg, #7C3AED 0%, #4C1D95 40%, #1E3A8A 70%, #2563EB 100%) !important;
+    border: 1.5px solid #A78BFA !important;
+    color: #FFFFFF !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow:
+        0 4px 14px rgba(0,0,0,0.55),
+        inset 0 1px 0 rgba(255,255,255,0.12),
+        0 0 14px rgba(167,139,250,0.35) !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease !important;
+}
+[data-testid="pc-kind-tabs"] [data-testid^="pc-kind-tab-"][aria-selected="true"],
+[data-testid="pa-sidebar-list"] button[aria-selected="true"],
+[data-testid="pa-sidebar-list"] button.active {
+    background:
+        radial-gradient(ellipse at 30% 20%, rgba(196,181,253,0.55) 0%, transparent 55%),
+        linear-gradient(135deg, #A855F7 0%, #7C3AED 40%, #2563EB 70%, #38BDF8 100%) !important;
+    border-color: #F5A623 !important;
+    box-shadow:
+        0 6px 20px rgba(0,0,0,0.65),
+        inset 0 1px 0 rgba(255,255,255,0.25),
+        0 0 26px rgba(245,166,35,0.55) !important;
+}
+
+/* Rehber (hesapla-category-list) sub-tab cards — v59: ralli-team siamese.
+   Buzlu cam TOTALLY killed. Same violet→indigo gradient as
+   `.sidebar-card-compact` so Rehber butonları Kahramanlar/Ralli Ekibi
+   butonlarıyla ikiz görünür. Belirgin parlak çerçeve + saturated bg. */
 [data-testid="hesapla-category-list"] .sidebar-card {
     padding: 12px 16px !important;
     min-height: 48px !important;
@@ -1246,21 +1282,40 @@ button[aria-pressed="true"] > .tab-text {
     width: 100% !important;
     justify-content: center !important;
     align-items: center !important;
-    background-color: transparent !important;
     background:
-        radial-gradient(ellipse at 30% 20%, rgba(168,85,247,0.02) 0%, transparent 55%),
-        linear-gradient(135deg, rgba(52,152,219,0.03) 0%, rgba(139,92,246,0.04) 50%, rgba(168,85,247,0.04) 100%) !important;
-    border: 1px solid rgba(139,92,246,0.08) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+        radial-gradient(ellipse at 30% 20%, rgba(168,85,247,0.35) 0%, transparent 55%),
+        linear-gradient(135deg, #7C3AED 0%, #4C1D95 40%, #1E3A8A 70%, #2563EB 100%) !important;
+    background-color: #4C1D95 !important;
+    border: 1.5px solid #A78BFA !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow:
+        0 4px 14px rgba(0,0,0,0.55),
+        inset 0 1px 0 rgba(255,255,255,0.12),
+        0 0 14px rgba(167,139,250,0.35) !important;
+    color: #FFFFFF !important;
 }
 [data-testid="hesapla-category-list"] .sidebar-card.sidebar-card-full {
     padding: 6px 10px !important;
 }
 [data-testid="hesapla-category-list"] .sidebar-card:hover {
-    border-color: rgba(168,85,247,0.5) !important;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 20px rgba(168,85,247,0.25) !important;
+    border-color: #C4B5FD !important;
+    box-shadow:
+        0 6px 20px rgba(0,0,0,0.65),
+        inset 0 1px 0 rgba(255,255,255,0.20),
+        0 0 24px rgba(167,139,250,0.65) !important;
+    transform: translateY(-1px);
+}
+[data-testid="hesapla-category-list"] .sidebar-card.active,
+[data-testid="hesapla-category-list"] .sidebar-card[aria-pressed="true"] {
+    background:
+        radial-gradient(ellipse at 30% 20%, rgba(196,181,253,0.55) 0%, transparent 55%),
+        linear-gradient(135deg, #A855F7 0%, #7C3AED 40%, #2563EB 70%, #38BDF8 100%) !important;
+    border-color: #F5A623 !important;
+    box-shadow:
+        0 6px 20px rgba(0,0,0,0.65),
+        inset 0 1px 0 rgba(255,255,255,0.25),
+        0 0 26px rgba(245,166,35,0.55) !important;
 }
 [data-testid="hesapla-category-list"] .sidebar-card .sidebar-card-label {
     flex: 1;
