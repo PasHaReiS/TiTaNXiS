@@ -67,25 +67,18 @@ export default function Header({ title, children }) {
 
   const goto = (path) => { nav(path); setMenuOpen(false); };
 
-  return (
-    <>
-      {/* SINGLE sticky wrapper — top bar + breadcrumb + title + page-specific
-          tabs (via `children`) all pin together to the top of the scroll
-          container. Do NOT split this into multiple sticky siblings — the
-          user explicitly asked for a single block that stays motionless. */}
-      <div
-        data-testid="header-sticky-slot"
-        className="sticky z-50"
-        style={{
-          top: 0,
-          background:
-            "linear-gradient(180deg, rgba(15,10,10,0.98) 0%, rgba(20,12,12,0.95) 70%, rgba(20,12,12,0.92) 100%)",
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          borderBottom: "1px solid rgba(245,166,35,0.20)",
-          boxShadow: "0 6px 18px rgba(0,0,0,0.45)",
-        }}
-      >
+  // Portal target: `#titanxis-header-slot` (a `flexShrink:0` direct child of
+  // `.app-shell`, mounted by <Layout/>). Rendering the whole header block
+  // there makes it a real flex child — no `position: sticky` involved, so no
+  // mobile-Safari sticky/transform quirks can shift it out of view.
+  const [headerSlot, setHeaderSlot] = useState(null);
+  useEffect(() => {
+    const el = document.getElementById("titanxis-header-slot");
+    if (el) setHeaderSlot(el);
+  }, []);
+
+  const headerContent = (
+    <div data-testid="header-sticky-slot">
       {/* Row 1 — Top bar: logo + notification + theme + language + profile */}
       <div
         data-testid="header-top-bar"
@@ -335,13 +328,16 @@ export default function Header({ title, children }) {
 
       {/* Row 4 — Page-injected sticky content (e.g. Leaderboard filter tabs). */}
       {children && (
-        <div data-testid="header-sticky-children" className="px-4 pb-2">
+        <div data-testid="header-sticky-children" className="px-4 pb-1">
           {children}
         </div>
       )}
       </div>
-      {/* End SINGLE sticky wrapper */}
+  );
 
+  return (
+    <>
+      {headerSlot && ReactDOM.createPortal(headerContent, headerSlot)}
       {logoVideoOpen && <LogoVideoModal onClose={() => setLogoVideoOpen(false)} />}
     </>
   );

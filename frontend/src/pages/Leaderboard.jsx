@@ -323,7 +323,7 @@ export default function Leaderboard() {
         </div>
       </Header>
 
-      <div className="px-4">
+      <div className="px-4 pt-1">
         {(() => {
           // Filter event groups by the current Active/Archive tab so the chip
           // strip only advertises groups that contain matching events.
@@ -345,7 +345,7 @@ export default function Leaderboard() {
           });
           if (visibleGroups.length === 0) return null;
           return (
-            <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1 flex-nowrap" data-testid="leaderboard-group-strip" style={{ scrollBehavior: "smooth" }}>
+            <div className="flex gap-1.5 mb-2 overflow-x-auto pb-1 flex-nowrap" data-testid="leaderboard-group-strip" style={{ scrollBehavior: "smooth" }}>
               {/* "Tümü" chip removed on Active tab — user requested that only
                   events actually included in the ranking (specific groups)
                   surface. Archive keeps its overall summary chip. */}

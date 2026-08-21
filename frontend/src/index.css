@@ -107,14 +107,16 @@ code, .mono {
 .app-shell {
     max-width: 430px;
     margin: 0 auto;
-    /* Fixed viewport height + inner scroll container so the entire header
-       block (top bar + breadcrumb + title + tabs) can sit in a single sticky
-       div and truly stay pinned as content scrolls. */
-    height: 100vh;
+    /* Fixed viewport height + inner scroll container. `100dvh` gives the
+       correct viewport on mobile browsers (accounts for URL bar). Layout
+       renders two direct children: `#titanxis-header-slot` (flexShrink:0)
+       and `#titanxis-scroll` (flex:1; overflowY:auto). `<Header>` uses a
+       React portal to inject into the header slot so the whole header block
+       is a real flex child — no `position: sticky` involved. */
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    background: linear-gradient(180deg, rgba(13,11,10,0.72) 0%, rgba(21,12,10,0.75) 60%, rgba(26,15,12,0.78) 100%);
     box-shadow: 0 0 60px rgba(231, 76, 26, 0.18);
     border-left: 1px solid rgba(231,76,26,0.12);
     border-right: 1px solid rgba(231,76,26,0.12);

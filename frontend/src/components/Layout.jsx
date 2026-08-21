@@ -3,27 +3,51 @@ import MusicButton from "@/components/MusicButton";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 
 /**
- * Layout provides the SCROLLABLE content wrapper. `.app-shell` is a flex
- * column with `height:100vh; overflow:hidden`, so this inner wrapper
- * (`flex:1; overflow-y:auto`) becomes the ONLY scroll container. The Header
- * inside pages uses `position: sticky; top: 0` and pins to this container's
- * top edge — its containing block spans the entire page height, so sticky
- * works reliably.
+ * Layout emits TWO siblings that are DIRECT children of `.app-shell`
+ * (which is `display:flex; flex-direction:column; height:100dvh; overflow:hidden`):
+ *
+ *   1. `#titanxis-header-slot` — `flexShrink:0` container. `<Header>` uses
+ *      React portal to render its whole block INTO this slot, so the header
+ *      is a real flex child (not a sticky descendant). Immune to mobile
+ *      Safari's sticky+transform bugs, no positioned-ancestor traps.
+ *   2. `#titanxis-scroll` — `flex:1; overflowY:auto`. Sole scroll container
+ *      for page content.
+ *
+ * MusicButton / PwaInstallPrompt live inside the scroll container so they
+ * scroll with the page — they are floating overlays anyway.
  */
 export default function Layout({ children }) {
   return (
-    <div
-      data-testid="layout-scroll-container"
-      style={{
-        flex: 1,
-        overflowY: "auto",
-        overflowX: "hidden",
-        minHeight: 0, // required for flex child scroll containers
-      }}
-    >
-      {children}
-      <MusicButton />
-      <PwaInstallPrompt />
-    </div>
+    <>
+      <div
+        id="titanxis-header-slot"
+        data-testid="titanxis-header-slot"
+        style={{
+          flexShrink: 0,
+          position: "relative",
+          zIndex: 100,
+          background: "linear-gradient(180deg, rgba(15,10,10,0.98) 0%, rgba(20,12,12,0.95) 70%, rgba(20,12,12,0.92) 100%)",
+          borderBottom: "1px solid rgba(245,166,35,0.20)",
+          boxShadow: "0 6px 18px rgba(0,0,0,0.45)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+        }}
+      />
+      <div
+        id="titanxis-scroll"
+        data-testid="layout-scroll-container"
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          overflowX: "hidden",
+          minHeight: 0,
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+        {children}
+        <MusicButton />
+        <PwaInstallPrompt />
+      </div>
+    </>
   );
 }

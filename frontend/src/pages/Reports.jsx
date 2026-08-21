@@ -45,7 +45,7 @@ export default function Reports() {
   const [period, setPeriod] = useState("90d");
   return (
     <div data-testid="reports-page">
-      <Header title="Raporlar Merkezi">
+      <Header title="Katılım Merkezi">
         <div className="space-y-2">
           <ReportTabs tab={tab} setTab={setTab} />
           <PeriodBar period={period} setPeriod={setPeriod} tab={tab} />
