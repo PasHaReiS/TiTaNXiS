@@ -61,19 +61,21 @@ function RsvpSummaryChip({ eventId }) {
         type="button"
         onClick={(ev) => { ev.stopPropagation(); setOpen(true); }}
         data-testid={`rsvp-summary-${eventId}`}
-        className="flex-shrink-0 flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold mono cursor-pointer hover:brightness-125"
+        className="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold mono cursor-pointer hover:brightness-125"
         style={{
           background: "rgba(0,0,0,0.35)",
           border: "1px solid rgba(245,166,35,0.35)",
           letterSpacing: "0.02em",
+          color: "#F5A623",
         }}
         title="Tıkla — RSVP listesini gör (yalnızca yetkililer görür)"
       >
-        <span style={{ color: "#4ade80" }}>✅ {yes_count}</span>
-        <span style={{ color: "#666" }}>·</span>
-        <span style={{ color: "#F5A623" }}>🤔 {maybe_count}</span>
-        <span style={{ color: "#666" }}>·</span>
-        <span style={{ color: "#fca5a5" }}>❌ {no_count}</span>
+        {/* v52 — Simplified chip: total participants + a chevron. The
+            detailed ✅/🤔/❌ breakdown lives in the modal so the card row
+            keeps maximum width for name + date. */}
+        <span aria-hidden="true">👥</span>
+        <span>{yes_count + maybe_count + no_count}</span>
+        <span aria-hidden="true" style={{ opacity: 0.7, marginLeft: 1 }}>▾</span>
       </button>
       {open && (
         <div
@@ -702,9 +704,17 @@ export default function Events() {
             {e.name}
           </div>
           <div
-            className="text-[11px] text-muted-foreground truncate mono"
+            className="text-[11px] text-muted-foreground mono"
             data-testid={`event-date-${e.id}`}
-            style={{ marginTop: 2 }}
+            style={{
+              marginTop: 2,
+              // v52 — date always on ONE line, fully readable on mobile/tablet.
+              // Removed `truncate` (which added `overflow:hidden;text-overflow:ellipsis`)
+              // and let the date extend naturally — dates are always short so no
+              // overflow issue arises.
+              whiteSpace: "nowrap",
+              overflow: "visible",
+            }}
           >
             {new Date(e.date).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" })}
           </div>

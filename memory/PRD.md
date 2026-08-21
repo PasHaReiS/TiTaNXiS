@@ -21,9 +21,9 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
-- **Feb 21, 2026 (v51)**: Mobil düzen düzeltmeleri (≤640px). **PointCalcPage**: tab bar `flex flex-wrap` → mobil'de Excel (sol %48) + İçe Aktar (sağ %48) yan yana, tabs üstte `order:-1` full-width. Tablet+desktop tek satır korundu (media query gate). **Events**: card wrapper `flex-wrap` eklendi + event name `whiteSpace:nowrap, overflow:visible` — kısa isimler (Kafes 1, Kafes 2, L1, L2) artık dikey harf bölünmüyor. Aggresif `overflowWrap:anywhere` kaldırıldı; RSVP chip taşarsa alt satıra düşer. Verify: 390px mobile — PC excel:17-191, imp:199-373 (48% side-by-side, tabs top:175 buttons top:218 stacked); Events names ws=nowrap height=19. 768/1440 sameRow=True — desktop/tablet dokunulmadı.
-- **Feb 21, 2026 (v50)**: PointCalcPage button swap + Events mor-mavi cards + isim wrap.
-- **Feb 21, 2026 (v49)**: PointCalcPage layout: İçe Aktar left / Excel right.
+- **Feb 21, 2026 (v52)**: Events UI temizliği + backend GOW default. **Frontend**: event date div `truncate` kaldırıldı, `whiteSpace:nowrap, overflow:visible` — mobil (390) ve tablet (768) hepsinde tarih tam okunur (`scrollWidth==width` tablet doğrulaması). RsvpSummaryChip 3-parçalı `✅N · 🤔N · ❌N` (~110px) → tek satır `👥N▾` (53px) sadeleştirildi; tap ile detay modalı hâlâ açılır (yes/maybe/no listeleri). **Backend**: `Event.alliance_scope: str = "GOW"` alanı (Event / EventCreate / EventUpdate) eklendi — yeni etkinlikler varsayılan olarak GOW ittifakına yönelik. Doğrulama: `POST /api/events` yanıtı `alliance_scope: "GOW"` içeriyor. RSVP filtresi (non-GOW üyeleri katılım listesinden gizle) v47'de reverted olduğu için henüz enforced değil — sadece varsayılan metadata seti.
+- **Feb 21, 2026 (v51)**: Mobil (≤640px) — PointCalc buton stack + Events name/chip flex-wrap.
+- **Feb 21, 2026 (v50)**: PointCalc swap + Events mor-mavi cards.
 - **Feb 21, 2026 (v48)**: Sticky header FULL transparent.
 - **Feb 21, 2026 (v46)**: Portal migration + Katılım Merkezi + Kristal spacing.
 - **Feb 21, 2026 (v43)**: Header layout redesign — single sticky wrapper.
