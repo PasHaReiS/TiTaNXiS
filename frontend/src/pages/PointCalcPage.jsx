@@ -219,7 +219,7 @@ export default function PointCalcPage() {
             style={{ borderColor: "rgba(231,76,26,0.35)" }}
             data-testid="pc-kind-tabs"
           >
-            <div className="flex-shrink-0"><PCAdminActions kind={kind} slot="import" /></div>
+            <div className="flex-shrink-0"><PCAdminActions kind={kind} slot="excel" /></div>
             <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
               {KINDS.map((k) => {
                 const active = kind === k.key;
@@ -247,7 +247,7 @@ export default function PointCalcPage() {
                 );
               })}
             </div>
-            <div className="flex-shrink-0"><PCAdminActions kind={kind} slot="excel" /></div>
+            <div className="flex-shrink-0"><PCAdminActions kind={kind} slot="import" /></div>
           </div>
         </Header>
 

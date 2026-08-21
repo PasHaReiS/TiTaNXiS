@@ -645,7 +645,15 @@ export default function Events() {
           backgroundImage: "repeating-linear-gradient(45deg, rgba(220,38,38,0.14), rgba(220,38,38,0.14) 6px, transparent 6px, transparent 14px)",
           borderColor: "rgba(220,38,38,0.55)",
           boxShadow: "0 0 12px rgba(220,38,38,0.25), inset 0 0 12px rgba(220,38,38,0.1)",
-        } : { borderLeft: `3px solid ${gc}`, background: group ? groupBgTint(group, 0.06) : "rgba(129,140,248,0.05)" }}
+        } : {
+          // v50 — Event cards: mor-mavi karışım, orta derecede şeffaf (semi-transparent).
+          // If the event belongs to a group we blend the group tint with the purple/blue base
+          // so themed groups still read as different, otherwise a pure violet→indigo gradient.
+          borderLeft: `3px solid ${gc}`,
+          background: group
+            ? `linear-gradient(135deg, ${groupBgTint(group, 0.32)} 0%, rgba(37, 99, 235, 0.28) 100%)`
+            : "linear-gradient(135deg, rgba(88,28,135,0.35) 0%, rgba(37,99,235,0.32) 100%)",
+        }}
       >
         {bucketKey && (
           <span
@@ -675,9 +683,19 @@ export default function Events() {
         )}
         <div className="flex-1 min-w-0">
           <div
-            className="font-bold text-white truncate"
+            className="font-bold text-white"
             data-testid={`event-name-${e.id}`}
-            style={{ fontFamily: "Rajdhani, sans-serif", fontSize: 15, letterSpacing: "0.02em" }}
+            style={{
+              fontFamily: "Rajdhani, sans-serif",
+              fontSize: 15,
+              letterSpacing: "0.02em",
+              // v50 — allow long event names to wrap onto multiple lines instead
+              // of being truncated with an ellipsis. Break long tokens too.
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
+              lineHeight: 1.25,
+            }}
           >
             {e.name}
           </div>
@@ -1328,7 +1346,7 @@ export default function Events() {
                         >
                           <div className="flex items-center gap-2">
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-bold truncate" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif" }} title={e.name}>
+                              <div className="text-sm font-bold" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif", whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: 1.25 }} title={e.name}>
                                 {e.name}
                               </div>
                               <div className="flex items-center justify-between mt-1 text-[10px]" style={{ color: "#94A3B8" }}>

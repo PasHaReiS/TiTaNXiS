@@ -21,9 +21,10 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
-- **Feb 21, 2026 (v49)**: PointCalcPage tab bar restructured — `[İçe Aktar]` (left) · `[SVS Pre / Diğer Etkinlik tabs centered]` · `[Excel]` (right). `PCAdminActions` component now accepts `slot="import"` / `slot="excel"` prop so the two buttons can be positioned independently at the ends of the flex row. Layout parent uses `flex-shrink-0` for the buttons + `flex-1 justify-center` for the tabs group. Verified 1920px viewport: import 337→418, tabs 774→1163, excel 1519→1583.
-- **Feb 21, 2026 (v48)**: Sticky header FULL transparent (border/shadow/backdrop hepsi kaldırıldı).
-- **Feb 21, 2026 (v47)**: Transparent (partial) sticky header + 3 revert.
+- **Feb 21, 2026 (v50)**: PointCalcPage button swap + Events cards mor-mavi tema + isim wrap. **PointCalcPage**: `PCAdminActions slot="excel"` LEFT, `slot="import"` RIGHT (v49 tam tersi). Verified 1920px → Excel 337→401, tabs center 774→1163, İçe Aktar 1502→1583. **Events.jsx**: main event card background from `groupBgTint(0.06)` → `linear-gradient(135deg, groupBgTint(0.32) 0%, rgba(37,99,235,0.28) 100%)` (or violet→indigo for ungrouped). Event name `.truncate` removed; `whiteSpace:normal, wordBreak:break-word, overflowWrap:anywhere, lineHeight:1.25` added so long names wrap. Same treatment for expanded archive event cards. Verified 430/768/1440 breakpoints — cards render mor-mavi tint, sticky preserved.
+- **Feb 21, 2026 (v49)**: PointCalcPage layout: İçe Aktar left / Excel right (superseded by v50 swap).
+- **Feb 21, 2026 (v48)**: Sticky header FULL transparent.
+- **Feb 21, 2026 (v47)**: Transparent (partial) + 3 revert.
 - **Feb 21, 2026 (v46)**: Portal migration + Katılım Merkezi + Kristal spacing.
 - **Feb 21, 2026 (v44)**: Sticky header 5 sayfada genişletildi.
 - **Feb 21, 2026 (v43)**: Header layout redesign — single sticky wrapper.
