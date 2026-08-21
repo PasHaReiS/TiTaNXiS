@@ -44,12 +44,18 @@ export default function Breadcrumb() {
     <nav
       data-testid="breadcrumb"
       style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 51,
         display: "flex",
         alignItems: "center",
         gap: 8,
-        padding: "10px 16px",
-        maxWidth: 720,
-        margin: "0 auto",
+        padding: "4px 16px",
+        margin: 0,
+        background: "linear-gradient(180deg, rgba(15,10,10,0.96) 0%, rgba(20,12,12,0.92) 100%)",
+        backdropFilter: "blur(6px)",
+        WebkitBackdropFilter: "blur(6px)",
+        borderBottom: "1px solid rgba(245,166,35,0.15)",
         fontFamily: "Cinzel, serif",
       }}
     >

@@ -68,8 +68,9 @@ export default function Header({ title }) {
 
   return (
     <header
-      className="px-4 pb-1 fade-in sticky top-0 z-50"
+      className="px-4 pb-1 fade-in sticky z-50"
       style={{
+        top: 32,
         background:
           "linear-gradient(180deg, rgba(15,10,10,0.96) 0%, rgba(20,12,12,0.92) 70%, rgba(20,12,12,0.85) 100%)",
         backdropFilter: "blur(6px)",
