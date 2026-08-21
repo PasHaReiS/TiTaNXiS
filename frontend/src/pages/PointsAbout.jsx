@@ -83,11 +83,9 @@ export default function PointsAbout() {
   return (
     <div className="min-h-screen" data-testid="points-about-page" style={{ paddingBottom: 80 }}>
       <div className="max-w-6xl mx-auto p-4">
-        <Header title={t("nav_points_about")} />
-
-        <div className="flex flex-col gap-4" data-testid="pa-layout">
+        <Header title={t("nav_points_about")}>
           <div
-            style={{ display: "flex", gap: 16, justifyContent: "center", marginBottom: 8, marginTop: 4 }}
+            style={{ display: "flex", gap: 16, justifyContent: "center" }}
             data-testid="pa-sidebar-list"
             role="tablist"
           >
@@ -106,7 +104,9 @@ export default function PointsAbout() {
               );
             })}
           </div>
+        </Header>
 
+        <div className="flex flex-col gap-4" data-testid="pa-layout">
           <div className="min-w-0" data-testid={`points-about-panel-${tab}`}>
             {tab === "add" ? <AddPoints hideHeader /> : <PointsList hideHeader />}
           </div>

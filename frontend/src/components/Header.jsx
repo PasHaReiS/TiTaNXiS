@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import LogoVideoModal from "@/components/LogoVideoModal";
 import NotificationBell from "@/components/NotificationBell";
+import Breadcrumb from "@/components/Breadcrumb";
 import { LEADERBOARD } from "@/constants/testIds";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -39,7 +40,7 @@ function MenuItem({ icon: Icon, emoji, label, onClick, testId }) {
   );
 }
 
-export default function Header({ title }) {
+export default function Header({ title, children }) {
   const { theme, toggle } = useTheme();
   const { user, isAdmin, canEdit, logout } = useAuth();
   const { t } = useTranslation();
@@ -67,25 +68,34 @@ export default function Header({ title }) {
   const goto = (path) => { nav(path); setMenuOpen(false); };
 
   return (
-    <header
-      className="px-4 pb-1 sticky z-50"
-      style={{
-        top: 32,
-        background:
-          "linear-gradient(180deg, rgba(15,10,10,0.96) 0%, rgba(20,12,12,0.92) 70%, rgba(20,12,12,0.85) 100%)",
-        backdropFilter: "blur(6px)",
-        WebkitBackdropFilter: "blur(6px)",
-        // Push the whole bar below the phone's notch / dynamic island / status
-        // bar. `env(safe-area-inset-top)` is 0 on desktop / non-notched devices
-        // so nothing changes there; on iPhone 14+ it becomes 47-59px.
-        // The `max(8px, ...)` floor keeps a small breathing room even when the
-        // inset is 0 so the logo never kisses the very top edge.
-        paddingTop: "max(8px, env(safe-area-inset-top))",
-        // Same treatment for landscape notches so left/right icons stay clear.
-        paddingLeft: "max(16px, env(safe-area-inset-left))",
-        paddingRight: "max(16px, env(safe-area-inset-right))",
-      }}
-    >
+    <>
+      {/* SINGLE sticky wrapper — top bar + breadcrumb + title + page-specific
+          tabs (via `children`) all pin together to the top of the scroll
+          container. Do NOT split this into multiple sticky siblings — the
+          user explicitly asked for a single block that stays motionless. */}
+      <div
+        data-testid="header-sticky-slot"
+        className="sticky z-50"
+        style={{
+          top: 0,
+          background:
+            "linear-gradient(180deg, rgba(15,10,10,0.98) 0%, rgba(20,12,12,0.95) 70%, rgba(20,12,12,0.92) 100%)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          borderBottom: "1px solid rgba(245,166,35,0.20)",
+          boxShadow: "0 6px 18px rgba(0,0,0,0.45)",
+        }}
+      >
+      {/* Row 1 — Top bar: logo + notification + theme + language + profile */}
+      <div
+        data-testid="header-top-bar"
+        className="pb-1"
+        style={{
+          paddingTop: "max(8px, env(safe-area-inset-top))",
+          paddingLeft: "max(16px, env(safe-area-inset-left))",
+          paddingRight: "max(16px, env(safe-area-inset-right))",
+        }}
+      >
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0 flex items-center gap-3">
           <img
@@ -108,6 +118,8 @@ export default function Header({ title }) {
         >
           {theme === "dark" ? <Sun className="w-3.5 h-3.5 gold-text" /> : <Moon className="w-3.5 h-3.5 red-text" />}
         </button>
+
+        <LanguageSwitcher />
 
         {user ? (
           <div ref={menuRef} className="relative">
@@ -285,8 +297,14 @@ export default function Header({ title }) {
           {!isAdmin && !canEdit && <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold">{t("view_only").toUpperCase()}</span>}
         </div>
       )}
+      </div>
+      {/* End sticky top bar */}
 
-      <div className="relative flex items-center justify-center" style={{ marginTop: title ? 2 : 0, marginBottom: title ? 6 : 0, minHeight: title ? 32 : 0 }}>
+      {/* Row 2 — Breadcrumb (non-sticky, right above the title) */}
+      <Breadcrumb />
+
+      {/* Row 3 — Page title */}
+      <div className="px-4 relative flex items-center justify-center" style={{ marginTop: title ? 2 : 0, marginBottom: title ? 6 : 0, minHeight: title ? 32 : 0 }}>
         <div className="divider-glow absolute left-0 right-0" style={{ top: "50%", transform: "translateY(-50%)" }} />
         {title && (
           <h2
@@ -315,7 +333,16 @@ export default function Header({ title }) {
         )}
       </div>
 
+      {/* Row 4 — Page-injected sticky content (e.g. Leaderboard filter tabs). */}
+      {children && (
+        <div data-testid="header-sticky-children" className="px-4 pb-2">
+          {children}
+        </div>
+      )}
+      </div>
+      {/* End SINGLE sticky wrapper */}
+
       {logoVideoOpen && <LogoVideoModal onClose={() => setLogoVideoOpen(false)} />}
-    </header>
+    </>
   );
 }

@@ -45,10 +45,13 @@ export default function Reports() {
   const [period, setPeriod] = useState("90d");
   return (
     <div data-testid="reports-page">
-      <Header title="Raporlar Merkezi" />
+      <Header title="Raporlar Merkezi">
+        <div className="space-y-2">
+          <ReportTabs tab={tab} setTab={setTab} />
+          <PeriodBar period={period} setPeriod={setPeriod} tab={tab} />
+        </div>
+      </Header>
       <div className="px-4 space-y-3">
-        <ReportTabs tab={tab} setTab={setTab} />
-        <PeriodBar period={period} setPeriod={setPeriod} tab={tab} />
         {tab === "members" ? <MembersReport period={period} /> : <EventsReport period={period} />}
       </div>
     </div>

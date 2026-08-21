@@ -385,12 +385,8 @@ export default function Members() {
 
   return (
     <div data-testid={MEMBERS.container}>
-      <Header title={t("members")} />
-
-      <div className="px-4">
-        <div className="flex items-center justify-between mb-3">
-          <div />
-          <div className="flex items-center gap-2">
+      <Header title={t("members")}>
+        <div className="flex items-center justify-end gap-2 flex-wrap">
             <CanEdit>
               <button
                 data-testid="members-guild-csv-btn"
@@ -445,9 +441,10 @@ export default function Members() {
                 <Plus className="w-4 h-4" /> {t("new_short")}
               </button>
             </CanEdit>
-          </div>
         </div>
+      </Header>
 
+      <div className="px-4">
         {showCastleStats && (
           <CastleStatsCard stats={castleStats} onClose={() => setShowCastleStats(false)} t={t} />
         )}

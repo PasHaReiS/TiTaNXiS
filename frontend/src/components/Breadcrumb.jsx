@@ -1,7 +1,6 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 // Route path → i18n key (falls back to hardcoded label if missing)
 const ROUTE_KEYS = {
@@ -28,6 +27,11 @@ const ROUTE_KEYS = {
   "/svs": "svs_title",
 };
 
+/**
+ * Inline breadcrumb (🏠 ANASAYFA / SIRALAMA). Renders directly above the page
+ * title. Non-sticky — the sticky top bar sits above and this crumb scrolls
+ * away with the page content per user request (v43).
+ */
 export default function Breadcrumb() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -44,18 +48,11 @@ export default function Breadcrumb() {
     <nav
       data-testid="breadcrumb"
       style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 51,
         display: "flex",
         alignItems: "center",
         gap: 8,
-        padding: "4px 16px",
+        padding: "6px 16px 4px",
         margin: 0,
-        background: "linear-gradient(180deg, rgba(15,10,10,0.96) 0%, rgba(20,12,12,0.92) 100%)",
-        backdropFilter: "blur(6px)",
-        WebkitBackdropFilter: "blur(6px)",
-        borderBottom: "1px solid rgba(245,166,35,0.15)",
         fontFamily: "Cinzel, serif",
       }}
     >
@@ -88,14 +85,10 @@ export default function Breadcrumb() {
           letterSpacing: "0.14em",
           textTransform: "uppercase",
           textShadow: "0 1px 3px rgba(0,0,0,0.8)",
-          flex: 1,
         }}
       >
         {String(currentLabel).toUpperCase()}
       </span>
-      <div style={{ marginLeft: "auto" }} data-testid="breadcrumb-lang">
-        <LanguageSwitcher />
-      </div>
     </nav>
   );
 }

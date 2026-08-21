@@ -107,11 +107,14 @@ code, .mono {
 .app-shell {
     max-width: 430px;
     margin: 0 auto;
-    min-height: 100vh;
+    /* Fixed viewport height + inner scroll container so the entire header
+       block (top bar + breadcrumb + title + tabs) can sit in a single sticky
+       div and truly stay pinned as content scrolls. */
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     background: linear-gradient(180deg, rgba(13,11,10,0.72) 0%, rgba(21,12,10,0.75) 60%, rgba(26,15,12,0.78) 100%);
-    /* IMPORTANT: no `overflow` here — a scrolling ancestor would trap
-       `position: sticky` inside .app-shell instead of pinning to the viewport. */
-    padding-bottom: 84px;
     box-shadow: 0 0 60px rgba(231, 76, 26, 0.18);
     border-left: 1px solid rgba(231,76,26,0.12);
     border-right: 1px solid rgba(231,76,26,0.12);

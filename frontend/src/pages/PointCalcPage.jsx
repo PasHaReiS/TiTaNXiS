@@ -204,43 +204,43 @@ export default function PointCalcPage() {
   return (
     <div className="min-h-screen" data-testid="point-calc-page" style={{ paddingBottom: 80 }}>
       <div className="max-w-6xl mx-auto p-4">
-        <Header title={t("nav_point_calc")} />
-
-        <div
-          role="tablist"
-          className="flex gap-2 mb-4 border-b"
-          style={{ borderColor: "rgba(231,76,26,0.35)" }}
-          data-testid="pc-kind-tabs"
-        >
-          {KINDS.map((k) => {
-            const active = kind === k.key;
-            return (
-              <button
-                key={k.key}
-                role="tab"
-                aria-selected={active}
-                onClick={() => { setKind(k.key); setSelectedId(null); }}
-                data-testid={`pc-kind-tab-${k.key}`}
-                className="px-4 py-2 rounded-t-lg font-bold uppercase transition-all"
-                style={{
-                  background: active ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
-                  border: `1px solid ${active ? "#F5A623" : "rgba(255,255,255,0.12)"}`,
-                  borderBottom: active ? "1px solid #E74C1A" : "1px solid transparent",
-                  color: active ? "#0B0704" : "#F5F0E8",
-                  boxShadow: active ? "0 0 10px rgba(231,76,26,0.5)" : "none",
-                  fontFamily: "Cinzel, serif",
-                  letterSpacing: "0.06em",
-                  fontSize: 12,
-                }}
-              >
-                {t(k.labelKey)}
-              </button>
-            );
-          })}
-          <div className="ml-auto flex items-center gap-2">
-            <PCAdminActions kind={kind} />
+        <Header title={t("nav_point_calc")}>
+          <div
+            role="tablist"
+            className="flex gap-2 border-b"
+            style={{ borderColor: "rgba(231,76,26,0.35)" }}
+            data-testid="pc-kind-tabs"
+          >
+            {KINDS.map((k) => {
+              const active = kind === k.key;
+              return (
+                <button
+                  key={k.key}
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => { setKind(k.key); setSelectedId(null); }}
+                  data-testid={`pc-kind-tab-${k.key}`}
+                  className="px-4 py-2 rounded-t-lg font-bold uppercase transition-all"
+                  style={{
+                    background: active ? "linear-gradient(135deg,#D4730A,#E74C1A)" : "#1A1210",
+                    border: `1px solid ${active ? "#F5A623" : "rgba(255,255,255,0.12)"}`,
+                    borderBottom: active ? "1px solid #E74C1A" : "1px solid transparent",
+                    color: active ? "#0B0704" : "#F5F0E8",
+                    boxShadow: active ? "0 0 10px rgba(231,76,26,0.5)" : "none",
+                    fontFamily: "Cinzel, serif",
+                    letterSpacing: "0.06em",
+                    fontSize: 12,
+                  }}
+                >
+                  {t(k.labelKey)}
+                </button>
+              );
+            })}
+            <div className="ml-auto flex items-center gap-2">
+              <PCAdminActions kind={kind} />
+            </div>
           </div>
-        </div>
+        </Header>
 
         <SidebarContent kind={kind} selectedId={selectedId} setSelectedId={setSelectedId} />
       </div>

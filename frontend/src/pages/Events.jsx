@@ -861,10 +861,8 @@ export default function Events() {
 
   return (
     <div data-testid={EVENTS.container}>
-      <Header title={t("nav_events")} />
-
-      <div className="px-4">
-        <div className="flex items-center justify-between mb-3">
+      <Header title={t("nav_events")}>
+        <div className="flex items-center justify-between mb-2">
           <div>
             <p className="text-xs text-muted-foreground"><span className="gold-text font-bold mono">{remindedCount + unremindedCount}</span> {t("active")}</p>
           </div>
@@ -887,11 +885,8 @@ export default function Events() {
             </button>
           </CanEdit>
         </div>
-
-        {/* View toggle — Liste vs Takvim. Sits above the tab bar so it
-            switches the whole page mode; localStorage-persisted so admins
-            return to their last view on next visit. */}
-        <div className="flex gap-1.5 mb-3" data-testid="events-view-toggle">
+        {/* View toggle — Liste vs Takvim */}
+        <div className="flex gap-1.5" data-testid="events-view-toggle">
           <button
             type="button"
             data-testid="events-view-list"
@@ -921,6 +916,9 @@ export default function Events() {
             <span aria-hidden="true" style={{ fontSize: 12 }}>📅</span> Takvim
           </button>
         </div>
+      </Header>
+
+      <div className="px-4">
 
         {selectionMode && (
           <EventsBulkToolbar

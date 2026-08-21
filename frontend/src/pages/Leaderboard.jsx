@@ -205,10 +205,11 @@ export default function Leaderboard() {
 
   return (
     <div data-testid={LEADERBOARD.container}>
-      <Header title={t("nav_leaderboard")} />
-
-      <div className="px-4">
-        <div className="section-title">{t("event_filter")}</div>
+      <Header title={t("nav_leaderboard")}>
+        {/* Sticky filter tabs (Global/Sunucu/Klan + Aktif/Arşiv) — injected
+            into the Header's sticky slot so the whole header block stays
+            pinned to the top of the scroll container. */}
+        <div className="section-title" style={{ margin: 0, marginBottom: 8 }}>{t("event_filter")}</div>
         {/* Member scope 3-way filter: Global (all) / Sunucu (scope=server) / Klan (GOW alliance) */}
         <div
           data-testid="leaderboard-scope-bar"
@@ -238,7 +239,7 @@ export default function Leaderboard() {
           ))}
         </div>
         <div
-          className="flex gap-2 mb-4 justify-center"
+          className="flex gap-2 justify-center"
           data-testid="leaderboard-filter-bar"
         >
           <button
@@ -320,7 +321,9 @@ export default function Leaderboard() {
             </span>
           </button>
         </div>
+      </Header>
 
+      <div className="px-4">
         {(() => {
           // Filter event groups by the current Active/Archive tab so the chip
           // strip only advertises groups that contain matching events.
