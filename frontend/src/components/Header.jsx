@@ -68,7 +68,7 @@ export default function Header({ title }) {
 
   return (
     <header
-      className="px-4 pb-1 fade-in sticky z-50"
+      className="px-4 pb-1 sticky z-50"
       style={{
         top: 32,
         background:

@@ -3,8 +3,10 @@
 @tailwind components;
 @tailwind utilities;
 
+/* NOTE: `overflow-x: hidden` on html/body was intentionally removed —
+   it silently breaks `position: sticky` on descendants (Breadcrumb + Header).
+   Horizontal overflow is instead contained per-container (see .app-shell). */
 html, body {
-    overflow-x: hidden;
     max-width: 100vw;
 }
 
@@ -107,12 +109,12 @@ code, .mono {
     margin: 0 auto;
     min-height: 100vh;
     background: linear-gradient(180deg, rgba(13,11,10,0.72) 0%, rgba(21,12,10,0.75) 60%, rgba(26,15,12,0.78) 100%);
-    position: relative;
+    /* IMPORTANT: no `overflow` here — a scrolling ancestor would trap
+       `position: sticky` inside .app-shell instead of pinning to the viewport. */
     padding-bottom: 84px;
     box-shadow: 0 0 60px rgba(231, 76, 26, 0.18);
     border-left: 1px solid rgba(231,76,26,0.12);
     border-right: 1px solid rgba(231,76,26,0.12);
-    overflow-x: hidden;
 }
 @media (min-width: 768px)  { .app-shell { max-width: 100%; } }
 @media (min-width: 1280px) { .app-shell { max-width: 1280px; } }
