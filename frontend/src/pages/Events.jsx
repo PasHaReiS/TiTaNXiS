@@ -636,7 +636,7 @@ export default function Events() {
         }}
         onDragEnd={() => { setDragId(null); setDragSourceBucket(null); }}
         onClick={() => { if (!dragId) setDetailId(e.id); }}
-        className={`card-dark row-hover p-3 flex items-center gap-3 cursor-pointer ${dragId === e.id ? "opacity-50" : ""}`}
+        className={`card-dark row-hover p-3 flex flex-wrap items-center gap-3 cursor-pointer ${dragId === e.id ? "opacity-50" : ""}`}
         variants={{
           hidden: { opacity: 0, y: 14 },
           visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } },
@@ -689,11 +689,13 @@ export default function Events() {
               fontFamily: "Rajdhani, sans-serif",
               fontSize: 15,
               letterSpacing: "0.02em",
-              // v50 — allow long event names to wrap onto multiple lines instead
-              // of being truncated with an ellipsis. Break long tokens too.
-              whiteSpace: "normal",
-              wordBreak: "break-word",
-              overflowWrap: "anywhere",
+              // v51 — never split a short word letter-by-letter on mobile.
+              // `nowrap` keeps names on a single line; the card wrapper has
+              // `flex-wrap:wrap` so the RSVP chip drops below the name row
+              // when there isn't enough horizontal room, giving the name
+              // its full deserved width without truncation.
+              whiteSpace: "nowrap",
+              overflow: "visible",
               lineHeight: 1.25,
             }}
           >
@@ -1346,7 +1348,7 @@ export default function Events() {
                         >
                           <div className="flex items-center gap-2">
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-bold" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif", whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: 1.25 }} title={e.name}>
+                              <div className="text-sm font-bold" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif", whiteSpace: "nowrap", overflow: "visible", lineHeight: 1.25 }} title={e.name}>
                                 {e.name}
                               </div>
                               <div className="flex items-center justify-between mt-1 text-[10px]" style={{ color: "#94A3B8" }}>

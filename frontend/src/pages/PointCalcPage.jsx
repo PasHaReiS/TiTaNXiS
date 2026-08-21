@@ -212,10 +212,12 @@ export default function PointCalcPage() {
     <div className="min-h-screen" data-testid="point-calc-page" style={{ paddingBottom: 80 }}>
       <div className="max-w-6xl mx-auto p-4">
         <Header title={t("nav_point_calc")}>
-          {/* v49 layout: [İçe Aktar] ← [tabs centered] → [Excel] */}
+          {/* v51 layout: [Excel] ← [tabs centered] → [İçe Aktar].
+              flex-wrap ensures the Excel + İçe Aktar buttons drop under the
+              centered tabs on narrow screens instead of overlapping. */}
           <div
             role="tablist"
-            className="flex items-center gap-2 border-b pb-1 w-full"
+            className="flex flex-wrap items-center gap-2 border-b pb-1 w-full"
             style={{ borderColor: "rgba(231,76,26,0.35)" }}
             data-testid="pc-kind-tabs"
           >
