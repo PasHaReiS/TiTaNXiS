@@ -21,8 +21,9 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
-- **Feb 21, 2026 (v52)**: Events UI temizliği + backend GOW default. **Frontend**: event date div `truncate` kaldırıldı, `whiteSpace:nowrap, overflow:visible` — mobil (390) ve tablet (768) hepsinde tarih tam okunur (`scrollWidth==width` tablet doğrulaması). RsvpSummaryChip 3-parçalı `✅N · 🤔N · ❌N` (~110px) → tek satır `👥N▾` (53px) sadeleştirildi; tap ile detay modalı hâlâ açılır (yes/maybe/no listeleri). **Backend**: `Event.alliance_scope: str = "GOW"` alanı (Event / EventCreate / EventUpdate) eklendi — yeni etkinlikler varsayılan olarak GOW ittifakına yönelik. Doğrulama: `POST /api/events` yanıtı `alliance_scope: "GOW"` içeriyor. RSVP filtresi (non-GOW üyeleri katılım listesinden gizle) v47'de reverted olduğu için henüz enforced değil — sadece varsayılan metadata seti.
-- **Feb 21, 2026 (v51)**: Mobil (≤640px) — PointCalc buton stack + Events name/chip flex-wrap.
+- **Feb 21, 2026 (v53)**: PointCalc sadeleştirme + mobil optimizasyon. **Multiplier alanı gizlendi**: `display:none` (hesaplama arka planda `multValue` state ile devam ediyor — tablolarda sadece Amount + Total Points görünür). **Excel/İçe Aktar mobile icon-only**: label span `hidden sm:inline` — 390px'de sadece Download/Upload ikonu, ≥640px'de tam metin. **Kind tabs mobile küçültme**: `padding:6px 8px, fontSize:10px, flex:1 1 0` → "Pre Event Scoring" + "Other Event Calculations" aynı satırda sığar. **Gün butonları grid**: `.pc-sidebar-list` mobile'da `display:grid; grid-template-columns:repeat(2,1fr); gap:6px` → butonlar 2-kolon zarif dizilim. **Padding trim**: `#titanxis-scroll` mobile'da `padding-inline: 4px`; sidebar container `p-3` → `p-2` mobile. Doğrulama 390: multRowVisible=none, tabs same-row fs=10px, listDisplay=grid columns=162px 162px, Excel/İçe Aktar 48% side-by-side. Tablet 768: text görünür, list flex — bozulmadı.
+- **Feb 21, 2026 (v52)**: Events UI temizliği + backend `alliance_scope:"GOW"` default.
+- **Feb 21, 2026 (v51)**: Mobil düzen düzeltmeleri (Excel/İçe Aktar stack, event name nowrap).
 - **Feb 21, 2026 (v50)**: PointCalc swap + Events mor-mavi cards.
 - **Feb 21, 2026 (v48)**: Sticky header FULL transparent.
 - **Feb 21, 2026 (v46)**: Portal migration + Katılım Merkezi + Kristal spacing.

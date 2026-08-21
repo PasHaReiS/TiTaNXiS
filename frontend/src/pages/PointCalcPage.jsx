@@ -52,11 +52,12 @@ function PCAdminActions({ kind, slot }) {
         onClick={download}
         disabled={busy}
         data-testid={`pc-export-${kind}`}
-        className="h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1 whitespace-nowrap"
+        className="h-8 px-2 sm:px-3 rounded-lg text-[11px] font-bold flex items-center gap-1 whitespace-nowrap"
         style={{ background: "linear-gradient(135deg,#059669,#10B981)", color: "#fff" }}
         title="Excel indir"
+        aria-label="Excel indir"
       >
-        <Download className="w-3 h-3" /> Excel
+        <Download className="w-3 h-3" /> <span className="hidden sm:inline">Excel</span>
       </button>
     );
   }
@@ -67,11 +68,12 @@ function PCAdminActions({ kind, slot }) {
           onClick={() => setShowImport(true)}
           disabled={busy}
           data-testid={`pc-import-${kind}`}
-          className="h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1 whitespace-nowrap"
+          className="h-8 px-2 sm:px-3 rounded-lg text-[11px] font-bold flex items-center gap-1 whitespace-nowrap"
           style={{ background: "linear-gradient(135deg,#B45309,#F59E0B)", color: "#0B0704" }}
           title="Excel geri yükle"
+          aria-label="Excel geri yükle (içe aktar)"
         >
-          <Upload className="w-3 h-3" /> İçe Aktar
+          <Upload className="w-3 h-3" /> <span className="hidden sm:inline">İçe Aktar</span>
         </button>
         {showImport && (
           <ImportModal
@@ -327,9 +329,11 @@ function SidebarContent({ kind, selectedId, setSelectedId }) {
 
   return (
     <div className="flex flex-col gap-3" data-testid={`pc-layout-${kind}`}>
-      {/* Horizontal chip strip */}
+      {/* Horizontal chip strip — v53: on mobile the days lay out as a
+          2-column grid so buttons never squeeze into each other. Desktop
+          keeps the horizontal wrapping flex row. */}
       <div
-        className="rounded-xl p-3"
+        className="rounded-xl p-2 sm:p-3"
         data-testid={`pc-sidebar-${kind}`}
         style={{
           background: "linear-gradient(180deg, rgba(76,29,149,0.35), rgba(30,58,138,0.35))",
@@ -337,7 +341,7 @@ function SidebarContent({ kind, selectedId, setSelectedId }) {
           boxShadow: "0 4px 20px rgba(0,0,0,0.5), inset 0 0 24px rgba(139,92,246,0.15)",
         }}
       >
-        <div className="flex flex-row flex-wrap gap-1.5" data-testid={`pc-sidebar-list-${kind}`}>
+        <div className="pc-sidebar-list flex flex-row flex-wrap gap-1.5" data-testid={`pc-sidebar-list-${kind}`}>
           {days.map((d) => {
             const active = d.id === selectedId;
             const isEditing = editingId === d.id;
@@ -906,8 +910,10 @@ function TableCard({ table, index, canEdit, translations, onUpdate, onDelete }) 
         )}
       </div>
 
-      {/* Multiplier readonly */}
-      <div className="mb-1.5">
+      {/* v53 — Multiplier row hidden per user request; hesaplama arka planda
+          `multValue` state'iyle devam ediyor. Elements kept but `display:none`
+          so QA scripts / integration data-testids don't break. */}
+      <div className="mb-1.5" style={{ display: "none" }} aria-hidden="true">
         <label className="block text-[9px] mb-0.5 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.06em" }}>
           {t("pc_multiplier")}
         </label>

@@ -122,15 +122,11 @@ code, .mono {
     border-right: 1px solid rgba(231,76,26,0.12);
 }
 
-/* v51 — Mobile-only tuning (≤640px). Keeps tablets/desktop untouched.
-   1. PointCalc buttons: on narrow widths the sticky slot has too little
-      horizontal room; force Excel + İçe Aktar to become full-width buttons
-      stacked below the tabs instead of colliding into the title area.
-   2. Event card name: kept `whiteSpace:nowrap` inline; the flex-wrap on the
-      card ensures the RSVP summary chip drops onto a second row on mobile
-      so the name column gets full width and never fragments letters. */
+/* v53 — Mobile-only tuning (≤640px). Keeps tablets/desktop untouched. */
 @media (max-width: 640px) {
-  [data-testid="pc-kind-tabs"] { row-gap: 8px; }
+  /* 1. PointCalc top bar: tabs above (full width), Excel + İçe Aktar
+        equal 48% below. Icon-only mode is handled inline via .hidden. */
+  [data-testid="pc-kind-tabs"] { row-gap: 6px; column-gap: 6px; }
   [data-testid="pc-kind-tabs"] > div:first-child,
   [data-testid="pc-kind-tabs"] > div:last-child {
     flex-basis: 48%;
@@ -141,11 +137,33 @@ code, .mono {
     width: 100%;
     justify-content: center;
   }
-  /* Center tabs group also takes full width so tabs breathe */
   [data-testid="pc-kind-tabs"] > div:nth-child(2) {
     flex-basis: 100%;
-    order: -1;              /* tabs render ABOVE the buttons on mobile */
+    order: -1;
+    gap: 6px !important;
   }
+  /* Shrink the kind tab buttons themselves so both labels fit on one line */
+  [data-testid^="pc-kind-tab-"] {
+    padding: 6px 8px !important;
+    font-size: 10px !important;
+    letter-spacing: 0.02em !important;
+    flex: 1 1 0;
+  }
+
+  /* 2. Sidebar day buttons: 2-column grid on mobile so they never collide. */
+  .pc-sidebar-list {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+  .pc-sidebar-list > * { min-width: 0; width: 100%; }
+  .pc-sidebar-list [data-testid^="pc-sidebar-item-"] {
+    justify-content: center;
+    padding: 6px 4px !important;
+  }
+
+  /* 3. Content scroll container padding trim so tables get more room. */
+  #titanxis-scroll { padding-left: 4px; padding-right: 4px; }
 }
 @media (min-width: 768px)  { .app-shell { max-width: 100%; } }
 @media (min-width: 1280px) { .app-shell { max-width: 1280px; } }
