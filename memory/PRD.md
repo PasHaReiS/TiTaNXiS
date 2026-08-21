@@ -21,8 +21,9 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
-- **Feb 21, 2026 (v48)**: Sticky header FULL transparent. `Layout.jsx` `#titanxis-header-slot` `borderBottom` + `boxShadow` + `backdropFilter` + `WebkitBackdropFilter` kaldırıldı, sadece `background: transparent` kaldı. Computed styles: `bg: rgba(0,0,0,0)`, `border: 0px`, `shadow: none`, `backdrop: none`. Sticky sağlam: `slotTop: 0` @ 900px scroll. Rune duvarı header'ın arkasından net görünür.
-- **Feb 21, 2026 (v47)**: Transparent (partial) sticky header + 3 revert (GOW gate, Members buttons, PointCalc layout).
+- **Feb 21, 2026 (v49)**: PointCalcPage tab bar restructured — `[İçe Aktar]` (left) · `[SVS Pre / Diğer Etkinlik tabs centered]` · `[Excel]` (right). `PCAdminActions` component now accepts `slot="import"` / `slot="excel"` prop so the two buttons can be positioned independently at the ends of the flex row. Layout parent uses `flex-shrink-0` for the buttons + `flex-1 justify-center` for the tabs group. Verified 1920px viewport: import 337→418, tabs 774→1163, excel 1519→1583.
+- **Feb 21, 2026 (v48)**: Sticky header FULL transparent (border/shadow/backdrop hepsi kaldırıldı).
+- **Feb 21, 2026 (v47)**: Transparent (partial) sticky header + 3 revert.
 - **Feb 21, 2026 (v46)**: Portal migration + Katılım Merkezi + Kristal spacing.
 - **Feb 21, 2026 (v44)**: Sticky header 5 sayfada genişletildi.
 - **Feb 21, 2026 (v43)**: Header layout redesign — single sticky wrapper.
