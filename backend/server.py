@@ -6473,9 +6473,37 @@ async def event_attendance_set_status(
 
 @api_router.get("/events/{event_id}/attendance")
 async def event_attendance_list(event_id: str):
-    """Return the list of member_ids marked as attended for an event."""
+    """Return the list of member_ids marked as attended for an event.
+
+    v58 — Filtered by `event.alliance_scope`: only attendance rows whose
+    member is currently in the event's target alliance are returned so the
+    frontend can never render a bogus "X/255" ratio again."""
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "alliance_scope": 1})
+    scope = ((ev or {}).get("alliance_scope") or "GOW").strip()
     docs = await db.event_attendance.find({"event_id": event_id}, {"_id": 0}).to_list(5000)
-    return {"event_id": event_id, "count": len(docs), "member_ids": [d["member_id"] for d in docs]}
+    member_ids = [d["member_id"] for d in docs]
+    if scope and scope.lower() != "all" and member_ids:
+        import re as _re
+        matched = await db.members.find(
+            {"id": {"$in": member_ids}, "alliance_name": {"$regex": f"^{_re.escape(scope)}$", "$options": "i"}},
+            {"_id": 0, "id": 1},
+        ).to_list(5000)
+        allowed = {m["id"] for m in matched}
+        member_ids = [mid for mid in member_ids if mid in allowed]
+    if not scope or scope.lower() == "all":
+        scoped_total = await db.members.count_documents({})
+    else:
+        import re as _re2
+        scoped_total = await db.members.count_documents(
+            {"alliance_name": {"$regex": f"^{_re2.escape(scope)}$", "$options": "i"}}
+        )
+    return {
+        "event_id": event_id,
+        "count": len(member_ids),
+        "member_ids": member_ids,
+        "alliance_scope": scope,
+        "scoped_total_members": scoped_total,
+    }
 
 
 class EventResultScreenshotBody(BaseModel):
@@ -7503,13 +7531,23 @@ async def reports_events(period: str = "all", user: dict = Depends(require_admin
 async def reports_event_attendance_detail(event_id: str, user: dict = Depends(require_admin)):
     """Per-member attendance rows for a single event so the frontend can
     render the editable status dropdown. Returns every member (even those
-    without a doc) so admins can promote a no-response to a status inline."""
+    without a doc) so admins can promote a no-response to a status inline.
+
+    v58 — Members list is now restricted to `event.alliance_scope` so the
+    "X/N" total never leaks non-scoped members. `all` scope still returns
+    everyone; a specific scope (e.g. "GOW") returns only that alliance."""
     ev = await db.events.find_one({"id": event_id}, {"_id": 0})
     if not ev:
         raise HTTPException(404, "Etkinlik bulunamadı")
-    members = await db.members.find({}, {"_id": 0, "id": 1, "name": 1,
-                                         "country": 1, "alliance_name": 1,
-                                         "rank": 1}).sort("name", 1).to_list(20000)
+    scope = (ev.get("alliance_scope") or "GOW").strip()
+    mfilter: dict = {}
+    if scope and scope.lower() != "all":
+        # Case-insensitive exact match — DB may hold "GOW", "gow", "Gow" mixed.
+        import re as _re
+        mfilter["alliance_name"] = {"$regex": f"^{_re.escape(scope)}$", "$options": "i"}
+    members = await db.members.find(mfilter, {"_id": 0, "id": 1, "name": 1,
+                                              "country": 1, "alliance_name": 1,
+                                              "rank": 1}).sort("name", 1).to_list(20000)
     docs = await db.event_attendance.find({"event_id": event_id}, {"_id": 0}).to_list(20000)
     by_member = {d["member_id"]: d for d in docs}
     items = []
@@ -7527,8 +7565,10 @@ async def reports_event_attendance_detail(event_id: str, user: dict = Depends(re
             "marked_by": (d or {}).get("marked_by"),
         })
     return {"event": {"id": ev["id"], "name": ev.get("name"), "date": ev.get("date"),
-                      "group_name": ev.get("group_name")},
-            "items": items}
+                      "group_name": ev.get("group_name"),
+                      "alliance_scope": scope},
+            "items": items,
+            "total_scoped_members": len(members)}
 
 
 @api_router.get("/reports/members/export.csv")

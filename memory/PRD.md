@@ -21,11 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
-- **Feb 21, 2026 (v57)**: Görsel derinlik operasyonu. **Podium** — weak transparent bg'ler kaldırıldı: p1 saturated blood-charcoal (`#3B1206→#0A0402`), p2 metallic anthracite (`#1F2937→#030712`), p3 bronze-charcoal (`#3B1F0A→#08050A`). Border+shadow saturasyonu artırıldı. **Ranking zebra** — odd `rgba(46,16,101,0.72)` derin asil mor, even `rgba(15,23,80,0.72)` gece mavisi (~%55 alpha artışı). Separator gold hairline `rgba(229,184,75,0.24)`. **Sidebar cards (Rehber/Komutanlar)** — buzlu cam `backdrop-filter: none !important`, solid gradient `#1F1224→#100716`, active state neon violet `#4C1D95→#1E1B4B`. Per-class neon accent via `data-cat-key` (Tetikçi orange / Bombacı crimson / Kalkanlı cyan / Robot lime), color-mix ile CSS variables. **Event cards** — 65-72% opak deep purple/indigo gradient + `border: 1px solid rgba(168,85,247,0.35)` + `box-shadow: 0 0 14px rgba(168,85,247,0.28)` premium border glow. Verify: LB podium computed bg saturated metallic, ranking sep gold, sidebar backdropFilter=none, event cards solid gradient. Mobile+tablet layouts korundu.
+- **Feb 21, 2026 (v58)**: **KRİTİK DÜZELTME**: `/reports/events/{id}/attendance` ve `/events/{id}/attendance` endpoint'leri artık `event.alliance_scope`'a göre members'ı filtreliyor. Case-insensitive regex match (`GOW/gow/Gow` hepsi). Response'a `total_scoped_members` / `scoped_total_members` alanları eklendi → frontend "X/N" ratio'yu doğru toplamla hesaplar, 255 yerine 102 (sadece GOW) gösterir. Kanıt: totalDB=255, gowCount=158, filter sonrası items=102 (case-insensitive önce 102 ile eşleşti), scope=GOW, first3=[GOW,GOW,GOW], leak=0. Frontend'de değişiklik yok — asıl veri kaynağı düzeltildi.
+- **Feb 21, 2026 (v57)**: Görsel derinlik: podium metallic, zebra deeper, sidebar cards solid (no backdrop), event cards opak gradient.
 - **Feb 21, 2026 (v56)**: Mistik Karargâh — zebra + GOW neon + charcoal/gold section titles.
 - **Feb 21, 2026 (v55)**: RSVP alliance query mühürlendi.
 - **Feb 21, 2026 (v54)**: Enforce GOW RSVP Filter + Alliance Scope Selector.
-- **Feb 21, 2026 (v53)**: PointCalc sadeleştirme + mobil optimizasyon.
 - **Feb 21, 2026 (v48)**: Sticky header FULL transparent.
 - **Feb 21, 2026 (v46)**: Portal migration + Katılım Merkezi.
 - **Feb 21, 2026 (v43)**: Header layout redesign — single sticky wrapper.
