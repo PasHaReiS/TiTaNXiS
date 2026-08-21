@@ -26,7 +26,10 @@ export default function Layout({ children }) {
           flexShrink: 0,
           position: "relative",
           zIndex: 100,
-          background: "linear-gradient(180deg, rgba(15,10,10,0.98) 0%, rgba(20,12,12,0.95) 70%, rgba(20,12,12,0.92) 100%)",
+          // Transparent per user request (v47) — bg color removed but border,
+          // shadow and blur stay so the header still reads as a distinct band
+          // separating it from scrollable content.
+          background: "transparent",
           borderBottom: "1px solid rgba(245,166,35,0.20)",
           boxShadow: "0 6px 18px rgba(0,0,0,0.45)",
           backdropFilter: "blur(8px)",
