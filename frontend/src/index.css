@@ -165,6 +165,80 @@ code, .mono {
   /* 3. Content scroll container padding trim so tables get more room. */
   #titanxis-scroll { padding-left: 4px; padding-right: 4px; }
 }
+
+/* ============================================================
+   v56 — Mistik Karargâh (Mystic HQ) table modernization.
+   Applies to any `.rank-row` element (currently the Leaderboard
+   full ranking rows). Zebra pattern: bir satır koyu mor, bir satır
+   gece mavisi + ince beyaz separator. GOW alliance chip gets a
+   neon-blue left glow bar. Text gains contrast + sharper letters.
+   Mobile-safe — all rules cascade from the `.rank-row` selector
+   without changing any layout dimensions.
+   ============================================================ */
+.rank-row {
+  position: relative;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  color: #F5F0E8;
+  font-feature-settings: "kern" 1, "liga" 1;
+  -webkit-font-smoothing: subpixel-antialiased;
+  text-rendering: geometricPrecision;
+}
+/* Zebra background: odd = deep violet, even = midnight navy. */
+.rank-row:nth-child(odd) {
+  background: linear-gradient(135deg, rgba(76,29,149,0.34) 0%, rgba(49,20,110,0.28) 100%);
+}
+.rank-row:nth-child(even) {
+  background: linear-gradient(135deg, rgba(30,58,138,0.34) 0%, rgba(23,37,84,0.28) 100%);
+}
+/* 10% white hairline separator between rows */
+.rank-row + .rank-row {
+  border-top: 1px solid rgba(255,255,255,0.10);
+}
+.rank-row:hover {
+  box-shadow: 0 0 12px rgba(168,85,247,0.35), inset 0 0 12px rgba(139,92,246,0.10);
+  transform: translateY(-1px);
+}
+
+/* Neon-blue glow bar on the LEFT of any GOW alliance chip. Uses
+   the `title="GOW"` attribute so we don't need per-row JS branch. */
+[data-testid^="row-alliance-badge-"][title="GOW"] {
+  position: relative;
+  box-shadow: -3px 0 10px rgba(56,189,248,0.65), 0 0 8px rgba(56,189,248,0.35);
+}
+[data-testid^="row-alliance-badge-"][title="GOW"]::before {
+  content: "";
+  position: absolute;
+  left: -3px;
+  top: 8%;
+  bottom: 8%;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #38BDF8 0%, #0EA5E9 100%);
+  box-shadow: 0 0 8px #38BDF8, 0 0 14px rgba(56,189,248,0.55);
+  animation: emberFlicker 2.4s ease-in-out infinite;
+}
+
+/* Section title (e.g. "Full Ranking") headers — deep charcoal panel
+   + antique gold text so the table gets an armored header band. The
+   `!important` fill-color override is needed because a legacy rule
+   applies `-webkit-text-fill-color:transparent` for the old gradient
+   header effect. */
+.section-title {
+  background: linear-gradient(180deg, #1A1210 0%, #0B0704 100%) !important;
+  color: #E5B84B !important;
+  -webkit-text-fill-color: #E5B84B !important;
+  background-clip: border-box !important;
+  -webkit-background-clip: border-box !important;
+  text-shadow: 0 0 8px rgba(229,184,75,0.5), 0 1px 0 rgba(0,0,0,0.9);
+  border-top: 1px solid rgba(229,184,75,0.35);
+  border-bottom: 1px solid rgba(229,184,75,0.35);
+  padding: 6px 12px;
+  letter-spacing: 0.12em;
+  font-weight: 800;
+  border-radius: 4px;
+}
 @media (min-width: 768px)  { .app-shell { max-width: 100%; } }
 @media (min-width: 1280px) { .app-shell { max-width: 1280px; } }
 .light-mode .app-shell {

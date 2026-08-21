@@ -21,11 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
-- **Feb 21, 2026 (v55)**: RSVP alliance filter — belt-and-suspenders. Added `_filter_rsvps_by_current_alliance(rows, scope)` helper that joins `users → members.alliance_name` and drops any RSVP whose user's CURRENT linked alliance doesn't match `event.alliance_scope`. Applied to `/rsvp/summary`, `/rsvp/list`, `/rsvp/no-shows`, and the 30-min `_rsvp_reminder_task` push cron. Belt (`_rsvp_alliance_query` stored-field filter) + suspenders (live-alliance recheck) → legacy pre-v54 RSVPs and users who switched alliances after voting are both pruned. Verified: GOW event → admin (GOW-linked) yes_count=1, list=['admin']. NONEXISTENT event → RSVP 403, list empty.
-- **Feb 21, 2026 (v54)**: Enforce GOW RSVP Filter + Alliance Scope Selector (backend gate + form UI).
-- **Feb 21, 2026 (v53)**: PointCalc sadeleştirme (multiplier gizli) + mobil optimizasyon.
+- **Feb 21, 2026 (v56)**: Mistik Karargâh — table modernization. `.rank-row` gets zebra (odd=deep violet, even=midnight navy, 135° gradients ~30% alpha), 10% white hairline separators between rows, hover glow. GOW alliance chip: 2px vertical neon-blue bar on left + 10-14px cyan glow (`ember-flicker` pulse), matched via `[title="GOW"]` attribute selector. Section headers (`.section-title`): deep charcoal panel + antique gold text (#E5B84B) with soft gold text-shadow — `!important` override needed because a legacy gradient rule was setting `-webkit-text-fill-color:transparent`. Leaderboard rank name for S7-prefixed members gets a soft gold aura (`textShadow` 6-12px). Verified: 252 rank-rows painted, odd/even bgs distinct, GOW box-shadow `-3px 0 10px rgba(56,189,248,0.65)`. Mobile+tablet layouts unchanged.
+- **Feb 21, 2026 (v55)**: RSVP alliance query mühürlendi — live join filter.
+- **Feb 21, 2026 (v54)**: Enforce GOW RSVP Filter + Alliance Scope Selector.
+- **Feb 21, 2026 (v53)**: PointCalc sadeleştirme + mobil optimizasyon.
 - **Feb 21, 2026 (v52)**: Events UI temizliği + backend alliance_scope default.
-- **Feb 21, 2026 (v51)**: Mobil düzen düzeltmeleri.
 - **Feb 21, 2026 (v50)**: PointCalc swap + Events mor-mavi cards.
 - **Feb 21, 2026 (v48)**: Sticky header FULL transparent.
 - **Feb 21, 2026 (v46)**: Portal migration + Katılım Merkezi + Kristal spacing.

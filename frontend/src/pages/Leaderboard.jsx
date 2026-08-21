@@ -1255,8 +1255,24 @@ export default function Leaderboard() {
               >
                 {r.alliance_name || "-"}
               </div>
-              <div className="flex-1 min-w-0 flex items-center">
-                <div className="font-bold truncate normal-case text-sm" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif", textTransform: "none" }}>{r.name}</div>
+              <div className="flex-1 min-w-0 flex items-center gap-2">
+                <div
+                  className="font-bold truncate normal-case text-sm rank-name"
+                  data-rank={r.rank_name || ""}
+                  style={{
+                    color: "#F5F0E8",
+                    fontFamily: "Rajdhani, sans-serif",
+                    textTransform: "none",
+                    // v56 — S7 (highest game rank) gets a soft gold aura so
+                    // the top brass stand out in a glance. Rank names are
+                    // stored on the member doc as `rank_name`; anything
+                    // starting with "S7" (case-insensitive) qualifies.
+                    ...((/^s7\b/i.test(r.rank_name || "")) ? {
+                      color: "#FFF6D9",
+                      textShadow: "0 0 6px rgba(229,184,75,0.6), 0 0 12px rgba(229,184,75,0.35)",
+                    } : {}),
+                  }}
+                >{r.name}</div>
               </div>
               <div className="text-right">
                 <div className="font-bold mono text-sm" style={{ color: "#E74C1A" }}>{fmt(r.total_points)}</div>
