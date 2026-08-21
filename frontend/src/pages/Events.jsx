@@ -2202,6 +2202,12 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
   const [attendanceEnabled, setAttendanceEnabled] = useState(
     initial ? initial.attendance_enabled !== false : true,
   );
+  // v54 — Alliance scope: which alliance may RSVP + receive push reminders.
+  // Backend defaults to "GOW"; keep that as the client-side default too so
+  // new events target our home alliance out of the box.
+  const [allianceScope, setAllianceScope] = useState(
+    (initial?.alliance_scope || "GOW").toString(),
+  );
   const [recurInterval, setRecurInterval] = useState("none");
   const [recurCount, setRecurCount] = useState(4);
   // When editing an event that belongs to a series, this toggle routes the
@@ -2242,6 +2248,7 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
         show_breakdown: showBreakdown,
         show_in_calendar: showInCalendar,
         attendance_enabled: attendanceEnabled,
+        alliance_scope: (allianceScope || "GOW").trim(),
         recurrence_interval: recurInterval,
         recurrence_count: Number(recurCount) || 1,
       };
@@ -2517,6 +2524,50 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
               </span>
             </span>
           </label>
+        </div>
+
+        {/* v54 — Alliance scope: gate RSVP to a specific alliance (defaults
+            to GOW). Hardcoded quick-picks + a "Diğer" free-text field so
+            admins can target any alliance name. */}
+        <div className="mt-3 rounded p-3" style={{ background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.30)" }} data-testid="event-form-alliance-scope-toggle">
+          <div className="text-sm font-bold text-white mb-1">🛡️ Katılım Ittifakı</div>
+          <div className="text-[10px] text-muted-foreground leading-snug mb-2">
+            Sadece seçili ittifaktaki üyeler bu etkinliğe RSVP verebilir ve katılım listesinde görünür.
+          </div>
+          <div className="flex flex-wrap gap-2" data-testid="event-form-alliance-scope-quicks">
+            {[
+              { key: "GOW", label: "🛡️ GOW" },
+              { key: "all", label: "🌍 Tümü" },
+            ].map((opt) => {
+              const active = allianceScope.toLowerCase() === opt.key.toLowerCase();
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  data-testid={`event-form-alliance-scope-${opt.key}`}
+                  onClick={() => setAllianceScope(opt.key)}
+                  className="px-3 py-1 rounded text-[11px] font-bold"
+                  style={{
+                    background: active ? "linear-gradient(135deg,#0EA5E9,#0369A1)" : "rgba(0,0,0,0.35)",
+                    color: active ? "#F0F9FF" : "#94A3B8",
+                    border: `1px solid ${active ? "#38BDF8" : "rgba(148,163,184,0.35)"}`,
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+            <input
+              type="text"
+              value={/^(gow|all)$/i.test(allianceScope) ? "" : allianceScope}
+              onChange={(e) => setAllianceScope(e.target.value)}
+              placeholder="Diğer ittifak…"
+              data-testid="event-form-alliance-scope-custom"
+              className="rounded px-2 py-1 text-[11px] flex-1 min-w-[100px]"
+              style={{ background: "#1A1210", border: "1px solid rgba(56,189,248,0.35)", color: "#F5F0E8" }}
+            />
+          </div>
         </div>
 
         <div className="mt-3 rounded p-3" style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.30)" }} data-testid="event-form-calendar-toggle">

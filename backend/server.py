@@ -3110,12 +3110,15 @@ async def cron_deepl_retry_i18n(request: Request):
 async def event_rsvp_list(event_id: str, _: dict = Depends(require_edit)):
     """Admin-only per-user RSVP list for an event. Powers the tap-through
     modal on /etkinlikler so leadership can see exactly who said yes/maybe/no
-    and chase the absentees. Regular members must never hit this endpoint."""
-    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1})
+    and chase the absentees. Regular members must never hit this endpoint.
+
+    Filtered by the event's `alliance_scope` (v54)."""
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1, "alliance_scope": 1})
     if not ev:
         raise HTTPException(404, "Etkinlik bulunamadı")
+    q = {"event_id": event_id, **_rsvp_alliance_query(ev.get("alliance_scope"))}
     rows = await db.event_rsvps.find(
-        {"event_id": event_id},
+        q,
         {"_id": 0, "user_id": 1, "username": 1, "status": 1, "updated_at": 1},
     ).to_list(2000)
     # Backfill missing usernames from users collection (older RSVPs may lack it).
@@ -3238,11 +3241,15 @@ async def event_rsvp_remind(event_id: str, body: RsvpRemindBody, _: dict = Depen
 async def event_rsvp_summary(event_id: str, _: dict = Depends(require_edit)):
     """Admin-only rollup of RSVP counts per event. Used by /etkinlikler cards
     to show attendance at a glance. Regular members must never see these
-    aggregates — the endpoint is gated by `require_edit`."""
-    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1})
+    aggregates — the endpoint is gated by `require_edit`.
+
+    Only RSVPs whose stored `alliance` matches the event's `alliance_scope`
+    are counted (v54) so summaries respect the GOW-only default."""
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1, "alliance_scope": 1})
     if not ev:
         raise HTTPException(404, "Etkinlik bulunamadı")
-    rows = await db.event_rsvps.find({"event_id": event_id}, {"_id": 0, "status": 1}).to_list(2000)
+    q = {"event_id": event_id, **_rsvp_alliance_query(ev.get("alliance_scope"))}
+    rows = await db.event_rsvps.find(q, {"_id": 0, "status": 1}).to_list(2000)
     yes = sum(1 for r in rows if r.get("status") == "yes")
     maybe = sum(1 for r in rows if r.get("status") == "maybe")
     no = sum(1 for r in rows if r.get("status") == "no")
@@ -6235,14 +6242,61 @@ class EventRsvpBody(BaseModel):
     status: Optional[str] = None  # "yes" | "maybe" | "no" | None to clear
 
 
+async def _resolve_user_alliances(user: dict) -> set[str]:
+    """Return the set of alliance names (uppercased) that any of the user's
+    linked members belong to. Used to gate RSVPs by `event.alliance_scope` so
+    only members of the target alliance can respond to an event.
+
+    Aggregates ids from three sources for backwards-compat:
+      * `user.member_ids` (list) — newest schema, may contain 0-N ids.
+      * `user.member_id` (str) — legacy single-link column.
+      * `members.user_id` — reverse index (member self-attached).
+    """
+    mids: set[str] = set()
+    for m in (user.get("member_ids") or []):
+        if m:
+            mids.add(m)
+    if user.get("member_id"):
+        mids.add(user["member_id"])
+    uid = user.get("id") or user.get("username")
+    if uid:
+        reverse = await db.members.find({"user_id": uid}, {"_id": 0, "id": 1}).to_list(50)
+        for r in reverse:
+            if r.get("id"):
+                mids.add(r["id"])
+    if not mids:
+        return set()
+    docs = await db.members.find({"id": {"$in": list(mids)}}, {"_id": 0, "alliance_name": 1}).to_list(200)
+    return {(d.get("alliance_name") or "").strip().upper() for d in docs if d.get("alliance_name")}
+
+
+def _rsvp_alliance_query(event_scope: Optional[str]) -> dict:
+    """Extra Mongo filter for listing/summarizing RSVPs based on the event's
+    alliance scope. `"all"` (or empty) matches every RSVP; a specific scope
+    matches only stored RSVPs whose `alliance` field equals that scope."""
+    scope = (event_scope or "").strip()
+    if not scope or scope.lower() == "all":
+        return {}
+    return {"alliance": scope.upper()}
+
+
 @api_router.post("/events/{event_id}/rsvp")
 async def event_rsvp(event_id: str, body: EventRsvpBody, user: dict = Depends(require_auth)):
     """Member RSVP for an event. Stored in a `event_rsvps` collection so it's
     indexable both ways (event → members, user → events). Passing status=null
-    (or an unknown status) clears the user's response."""
-    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1})
+    (or an unknown status) clears the user's response.
+
+    ALLIANCE GATE (v54): Only users whose linked members belong to the
+    event's `alliance_scope` may RSVP. Events default to `alliance_scope="GOW"`
+    so out of the box only GOW members can participate; admins can widen to
+    "all" or point to a different alliance via the event form."""
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1, "alliance_scope": 1})
     if not ev:
         raise HTTPException(404, "Etkinlik bulunamadı")
+    scope = (ev.get("alliance_scope") or "GOW").strip()
+    user_alliances = await _resolve_user_alliances(user)
+    if scope.lower() != "all" and scope.upper() not in user_alliances:
+        raise HTTPException(403, f"Bu etkinlik yalnızca {scope} ittifakı üyelerine açık.")
     user_id = user.get("id") or user.get("username")
     valid = {"yes", "maybe", "no"}
     if body.status in valid:
@@ -6253,6 +6307,7 @@ async def event_rsvp(event_id: str, body: EventRsvpBody, user: dict = Depends(re
                 "user_id": user_id,
                 "username": user.get("username"),
                 "status": body.status,
+                "alliance": scope.upper() if scope.lower() != "all" else None,
                 "updated_at": now_iso(),
             }},
             upsert=True,

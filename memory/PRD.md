@@ -21,9 +21,10 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
-- **Feb 21, 2026 (v53)**: PointCalc sadeleştirme + mobil optimizasyon. **Multiplier alanı gizlendi**: `display:none` (hesaplama arka planda `multValue` state ile devam ediyor — tablolarda sadece Amount + Total Points görünür). **Excel/İçe Aktar mobile icon-only**: label span `hidden sm:inline` — 390px'de sadece Download/Upload ikonu, ≥640px'de tam metin. **Kind tabs mobile küçültme**: `padding:6px 8px, fontSize:10px, flex:1 1 0` → "Pre Event Scoring" + "Other Event Calculations" aynı satırda sığar. **Gün butonları grid**: `.pc-sidebar-list` mobile'da `display:grid; grid-template-columns:repeat(2,1fr); gap:6px` → butonlar 2-kolon zarif dizilim. **Padding trim**: `#titanxis-scroll` mobile'da `padding-inline: 4px`; sidebar container `p-3` → `p-2` mobile. Doğrulama 390: multRowVisible=none, tabs same-row fs=10px, listDisplay=grid columns=162px 162px, Excel/İçe Aktar 48% side-by-side. Tablet 768: text görünür, list flex — bozulmadı.
-- **Feb 21, 2026 (v52)**: Events UI temizliği + backend `alliance_scope:"GOW"` default.
-- **Feb 21, 2026 (v51)**: Mobil düzen düzeltmeleri (Excel/İçe Aktar stack, event name nowrap).
+- **Feb 21, 2026 (v54)**: Enforce GOW RSVP Filter + Alliance Scope Selector. **Backend**: Added `_resolve_user_alliances(user)` helper that aggregates alliance names from user's linked members (via `member_ids`, `member_id`, and reverse `members.user_id`), plus `_rsvp_alliance_query(scope)` that returns the Mongo filter for scoped queries. `POST /events/{id}/rsvp` now rejects with 403 unless the user has a linked member in the event's `alliance_scope` (or scope=="all"). RSVP docs are stamped with `alliance` at insert time. `GET /rsvp/summary` and `GET /rsvp/list` filter by alliance so non-matching members disappear from counts and lists. **Frontend**: `EventForm` now includes an `event-form-alliance-scope-toggle` panel with GOW / Tümü quick-picks + a "Diğer ittifak" free-text field. Default value on new events is "GOW". `submit()` body includes `alliance_scope`. Doğrulama: `POST /events {alliance_scope:'GOW'}` returns scope="GOW"; `alliance_scope='all'` also stored and allows any linked user to RSVP.
+- **Feb 21, 2026 (v53)**: PointCalc sadeleştirme (multiplier gizli) + mobil optimizasyon.
+- **Feb 21, 2026 (v52)**: Events UI temizliği + backend `alliance_scope:"GOW"` default (metadata only, unenforced — now enforced in v54).
+- **Feb 21, 2026 (v51)**: Mobil düzen düzeltmeleri.
 - **Feb 21, 2026 (v50)**: PointCalc swap + Events mor-mavi cards.
 - **Feb 21, 2026 (v48)**: Sticky header FULL transparent.
 - **Feb 21, 2026 (v46)**: Portal migration + Katılım Merkezi + Kristal spacing.
