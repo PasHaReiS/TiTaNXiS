@@ -1763,6 +1763,37 @@ async def delete_alliance_color(name: str, _: dict = Depends(require_edit)):
     return {"deleted": True}
 
 
+class AllianceScopeBody(BaseModel):
+    scope: str  # "global" | "server"
+
+
+@api_router.get("/alliance-scopes")
+async def list_alliance_scopes():
+    """Per-alliance default scope (Global/Sunucu) used to render the toggle
+    above each alliance header on the Members page."""
+    docs = await db.alliance_scopes.find({}, {"_id": 0}).to_list(500)
+    return {d["name"]: d.get("scope", "server") for d in docs}
+
+
+@api_router.post("/alliances/{name}/scope")
+async def set_alliance_scope(name: str, body: AllianceScopeBody, _: dict = Depends(require_edit)):
+    """Sets an alliance's scope AND cascades that scope to every member with
+    the same alliance_name — so leaders can flip the whole guild in one tap
+    without having to edit each member individually."""
+    if body.scope not in ("global", "server"):
+        raise HTTPException(400, "scope must be 'global' or 'server'")
+    await db.alliance_scopes.update_one(
+        {"name": name},
+        {"$set": {"name": name, "scope": body.scope, "updated_at": now_iso()}},
+        upsert=True,
+    )
+    result = await db.members.update_many(
+        {"alliance_name": name},
+        {"$set": {"scope": body.scope}},
+    )
+    return {"name": name, "scope": body.scope, "members_updated": result.modified_count}
+
+
 # ---------- Seed ----------
 ALLIANCES = ["SvS Loncası", "Kartallar", "Bozkurtlar", "Prestige", "Osmanlı Torunu", "Ejderha Klanı"]
 

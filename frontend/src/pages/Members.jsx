@@ -19,6 +19,55 @@ import InlineCountryPicker from "@/components/InlineCountryPicker";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
+// Per-alliance Global / Sunucu toggle. Renders admin-only inside the alliance
+// header. Persists via POST /alliances/{name}/scope which cascades the new
+// scope to every member of the alliance in a single Mongo update.
+function AllianceScopeToggle({ name }) {
+  const { data: scopes = {} } = useSWR("/alliance-scopes", fetcher, { refreshInterval: 30000 });
+  const active = scopes[name] || "server";
+  const setScope = async (next, e) => {
+    e.stopPropagation();
+    if (next === active) return;
+    try {
+      const r = await api.post(`/alliances/${encodeURIComponent(name)}/scope`, { scope: next });
+      toast.success(`${name} → ${next === "global" ? "🌍 Global" : "🖥️ Sunucu"} (${r.data.members_updated} üye)`);
+      await Promise.all([mutate("/alliance-scopes"), mutate((k) => typeof k === "string" && k.startsWith("/members"), undefined, { revalidate: true })]);
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Kapsam güncellenemedi");
+    }
+  };
+  return (
+    <CanEdit>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        data-testid={`alliance-scope-${name}`}
+        className="flex items-center gap-0.5 rounded-md overflow-hidden"
+        style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.15)" }}
+      >
+        {[
+          { key: "global", label: "🌍", color: "#38BDF8", title: "Global" },
+          { key: "server", label: "🖥️", color: "#F5A623", title: "Sunucu" },
+        ].map((opt) => (
+          <button
+            key={opt.key}
+            type="button"
+            data-testid={`alliance-scope-${name}-${opt.key}`}
+            onClick={(e) => setScope(opt.key, e)}
+            title={opt.title}
+            className="px-1.5 py-0.5 text-[11px] font-bold transition-colors"
+            style={{
+              background: active === opt.key ? `${opt.color}33` : "transparent",
+              color: active === opt.key ? opt.color : "rgba(255,255,255,0.55)",
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </CanEdit>
+  );
+}
+
 const SORT_MODES = [
   "default",
   "name_asc",
@@ -802,6 +851,7 @@ export default function Members() {
                       </span>
                     )}
                   </CanEdit>
+                  <AllianceScopeToggle name={grp.name} />
                   <span className="text-xs font-bold mono opacity-95">({grp.members.length} {t("members_word")})</span>
                 </div>
               </button>
