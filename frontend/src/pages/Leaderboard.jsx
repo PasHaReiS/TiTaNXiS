@@ -648,9 +648,12 @@ export default function Leaderboard() {
                 data-testid="podium-2"
                 onClick={() => setProfileId(top3[1].member_id)}
                 style={{
-                  background: 'linear-gradient(180deg, rgba(192,192,192,0.12) 0%, #141418 100%)',
-                  border: '2px solid #8A9BB0',
-                  boxShadow: '0 0 25px rgba(192,192,192,0.5), inset 0 0 15px rgba(192,192,192,0.08)',
+                  // v57 — saturated metallic anthracite→navy replaces weak
+                  // silver transparency; still reads as 2nd-place because
+                  // border + medal + shadow keep the silver identity.
+                  background: 'linear-gradient(180deg, #1F2937 0%, #0F172A 60%, #030712 100%)',
+                  border: '2px solid #94A3B8',
+                  boxShadow: '0 0 25px rgba(148,163,184,0.55), inset 0 1px 0 rgba(255,255,255,0.10), inset 0 0 22px rgba(148,163,184,0.10)',
                   borderRadius: 12, padding: '16px 8px 12px', minHeight: 120,
                   display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer',
                 }}
@@ -683,9 +686,12 @@ export default function Leaderboard() {
                 data-testid="podium-1"
                 onClick={() => setProfileId(top3[0].member_id)}
                 style={{
-                  background: 'linear-gradient(180deg, rgba(220,38,38,0.15) 0%, #1A0E04 100%)',
-                  border: '2px solid #D4730A',
-                  boxShadow: '0 0 30px rgba(220,38,38,0.6), inset 0 0 20px rgba(220,38,38,0.1)',
+                  // v57 — saturated blood-charcoal replaces the weak red wash
+                  // so the champion tile feels metallic and premium; the fiery
+                  // orange border + medal still carry the winner identity.
+                  background: 'linear-gradient(180deg, #3B1206 0%, #1B0904 55%, #0A0402 100%)',
+                  border: '2px solid #F5A623',
+                  boxShadow: '0 0 34px rgba(245,166,35,0.55), 0 0 14px rgba(220,38,38,0.4), inset 0 1px 0 rgba(255,220,150,0.20), inset 0 0 24px rgba(220,38,38,0.15)',
                   borderRadius: 12, padding: '18px 8px 14px', minHeight: 140,
                   transform: 'scale(1.05)', zIndex: 2,
                   display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer',
@@ -719,9 +725,10 @@ export default function Leaderboard() {
                 data-testid="podium-3"
                 onClick={() => setProfileId(top3[2].member_id)}
                 style={{
-                  background: 'linear-gradient(180deg, rgba(205,127,50,0.12) 0%, #160E04 100%)',
-                  border: '2px solid #8B6914',
-                  boxShadow: '0 0 20px rgba(205,127,50,0.5), inset 0 0 15px rgba(205,127,50,0.08)',
+                  // v57 — saturated metallic bronze base replaces weak wash.
+                  background: 'linear-gradient(180deg, #3B1F0A 0%, #1B0E04 55%, #08050A 100%)',
+                  border: '2px solid #CD7F32',
+                  boxShadow: '0 0 22px rgba(205,127,50,0.55), inset 0 1px 0 rgba(255,220,150,0.15), inset 0 0 18px rgba(205,127,50,0.10)',
                   borderRadius: 12, padding: '14px 8px 10px', minHeight: 100,
                   display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer',
                 }}

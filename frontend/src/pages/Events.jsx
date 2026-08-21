@@ -648,13 +648,15 @@ export default function Events() {
           borderColor: "rgba(220,38,38,0.55)",
           boxShadow: "0 0 12px rgba(220,38,38,0.25), inset 0 0 12px rgba(220,38,38,0.1)",
         } : {
-          // v50 — Event cards: mor-mavi karışım, orta derecede şeffaf (semi-transparent).
-          // If the event belongs to a group we blend the group tint with the purple/blue base
-          // so themed groups still read as different, otherwise a pure violet→indigo gradient.
+          // v57 — Premium event card. Deep saturated purple→indigo gradient
+          // (up from ~30% alpha to solid ~65%) so cards read as opaque panels;
+          // ember-orange border-glow catches the eye without harsh contrast.
           borderLeft: `3px solid ${gc}`,
           background: group
-            ? `linear-gradient(135deg, ${groupBgTint(group, 0.32)} 0%, rgba(37, 99, 235, 0.28) 100%)`
-            : "linear-gradient(135deg, rgba(88,28,135,0.35) 0%, rgba(37,99,235,0.32) 100%)",
+            ? `linear-gradient(135deg, ${groupBgTint(group, 0.70)} 0%, rgba(30,27,75,0.62) 55%, rgba(15,10,45,0.72) 100%)`
+            : "linear-gradient(135deg, rgba(76,29,149,0.72) 0%, rgba(30,27,75,0.62) 55%, rgba(15,10,45,0.72) 100%)",
+          border: "1px solid rgba(168,85,247,0.35)",
+          boxShadow: "0 0 14px rgba(168,85,247,0.28), inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 12px rgba(0,0,0,0.55)",
         }}
       >
         {bucketKey && (

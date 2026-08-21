@@ -185,19 +185,22 @@ code, .mono {
   -webkit-font-smoothing: subpixel-antialiased;
   text-rendering: geometricPrecision;
 }
-/* Zebra background: odd = deep violet, even = midnight navy. */
+/* Zebra background: odd = deep violet, even = midnight navy.
+   v57 — Deeper, more saturated tones (~55% alpha up from 34%) so the
+   rows read as premium metal panels instead of a weak wash. */
 .rank-row:nth-child(odd) {
-  background: linear-gradient(135deg, rgba(76,29,149,0.34) 0%, rgba(49,20,110,0.28) 100%);
+  background: linear-gradient(135deg, rgba(46,16,101,0.72) 0%, rgba(30,10,66,0.68) 100%);
 }
 .rank-row:nth-child(even) {
-  background: linear-gradient(135deg, rgba(30,58,138,0.34) 0%, rgba(23,37,84,0.28) 100%);
+  background: linear-gradient(135deg, rgba(15,23,80,0.72) 0%, rgba(9,14,55,0.68) 100%);
 }
-/* 10% white hairline separator between rows */
+/* Bolder separators (was 10% → 24%) with a subtle gold hint so rows feel
+   framed rather than floating. */
 .rank-row + .rank-row {
-  border-top: 1px solid rgba(255,255,255,0.10);
+  border-top: 1px solid rgba(229,184,75,0.24);
 }
 .rank-row:hover {
-  box-shadow: 0 0 12px rgba(168,85,247,0.35), inset 0 0 12px rgba(139,92,246,0.10);
+  box-shadow: 0 0 14px rgba(168,85,247,0.55), inset 0 0 14px rgba(139,92,246,0.15);
   transform: translateY(-1px);
 }
 
@@ -238,6 +241,46 @@ code, .mono {
   letter-spacing: 0.12em;
   font-weight: 800;
   border-radius: 4px;
+}
+
+/* v57 — Rehber / Komutanlar sidebar cards: drop the frosted glass in
+   favour of a solid, saturated panel so buttons read as decisive tap
+   targets. Individual class accents (Tetikçi/Bombacı/Kalkanlı/Robot)
+   are still applied by their specific rules farther down the sheet. */
+.sidebar-card {
+  background: linear-gradient(180deg, #1F1224 0%, #100716 100%) !important;
+  border: 1px solid rgba(168,85,247,0.45) !important;
+  box-shadow: 0 0 12px rgba(168,85,247,0.22), inset 0 1px 0 rgba(255,255,255,0.06), 0 3px 10px rgba(0,0,0,0.55) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  color: #F5F0E8;
+}
+.sidebar-card.active {
+  background: linear-gradient(180deg, #4C1D95 0%, #1E1B4B 100%) !important;
+  border-color: #A78BFA !important;
+  box-shadow: 0 0 18px rgba(167,139,250,0.55), inset 0 1px 0 rgba(255,255,255,0.10), 0 4px 14px rgba(0,0,0,0.6) !important;
+}
+.sidebar-card:hover:not(.active) {
+  border-color: rgba(167,139,250,0.75) !important;
+  box-shadow: 0 0 14px rgba(167,139,250,0.35), 0 3px 10px rgba(0,0,0,0.6) !important;
+  transform: translateY(-1px);
+}
+
+/* Hero-class-specific neon accents on Komutanlar/Rehber cards. Applied
+   via `data-cat-key` attribute (set by the sidebar buttons) so each
+   class reads differently without wrapping JSX changes. */
+[data-cat-key*="tetikci"], [data-cat-key*="tetikçi"] { --hero-accent: #F97316; }  /* Tetikçi — orange */
+[data-cat-key*="bombaci"], [data-cat-key*="bombacı"] { --hero-accent: #EF4444; }  /* Bombacı — crimson */
+[data-cat-key*="kalkanli"], [data-cat-key*="kalkanlı"] { --hero-accent: #38BDF8; } /* Kalkanlı — cyan */
+[data-cat-key*="robot"] { --hero-accent: #A3E635; }                               /* Robot — lime */
+.sidebar-card[data-cat-key] {
+  border-color: color-mix(in srgb, var(--hero-accent, #A78BFA) 55%, transparent) !important;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--hero-accent, #A78BFA) 30%, transparent), inset 0 1px 0 rgba(255,255,255,0.06), 0 3px 10px rgba(0,0,0,0.55) !important;
+}
+.sidebar-card[data-cat-key].active {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--hero-accent, #A78BFA) 55%, #1B0F26) 0%, #100716 100%) !important;
+  border-color: var(--hero-accent, #A78BFA) !important;
+  box-shadow: 0 0 20px color-mix(in srgb, var(--hero-accent, #A78BFA) 65%, transparent), inset 0 1px 0 rgba(255,255,255,0.10), 0 4px 14px rgba(0,0,0,0.6) !important;
 }
 @media (min-width: 768px)  { .app-shell { max-width: 100%; } }
 @media (min-width: 1280px) { .app-shell { max-width: 1280px; } }

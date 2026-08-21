@@ -428,6 +428,7 @@ export default function Commanders() {
                     onClick={() => setSelectedCat(c.key)}
                     aria-pressed={active}
                     className={`sidebar-card ${extraClass} ${active ? "active" : ""}`}
+                    data-cat-key={c.key}
                     style={{ animationDelay: `${cidx * 80}ms` }}
                   >
                     <span className="embers" aria-hidden="true">
