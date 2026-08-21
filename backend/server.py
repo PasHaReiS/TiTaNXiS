@@ -3116,11 +3116,14 @@ async def event_rsvp_list(event_id: str, _: dict = Depends(require_edit)):
     ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1, "alliance_scope": 1})
     if not ev:
         raise HTTPException(404, "Etkinlik bulunamadı")
-    q = {"event_id": event_id, **_rsvp_alliance_query(ev.get("alliance_scope"))}
+    scope = ev.get("alliance_scope")
+    q = {"event_id": event_id, **_rsvp_alliance_query(scope)}
     rows = await db.event_rsvps.find(
         q,
         {"_id": 0, "user_id": 1, "username": 1, "status": 1, "updated_at": 1},
     ).to_list(2000)
+    # v55: live-alliance recheck — pruen legacy or stale-scope RSVPs.
+    rows = await _filter_rsvps_by_current_alliance(rows, scope)
     # Backfill missing usernames from users collection (older RSVPs may lack it).
     missing = [r["user_id"] for r in rows if not r.get("username") and r.get("user_id")]
     if missing:
@@ -3138,13 +3141,17 @@ async def event_rsvp_no_shows(event_id: str, _: dict = Depends(require_edit)):
     """RSVP no-shows: users who said "yes" for this event but have no
     attendance record on any linked member. Powers the "Söyledi Gelmedi 👻"
     column on /raporlar > Etkinlik Katılım."""
-    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1})
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1, "alliance_scope": 1})
     if not ev:
         raise HTTPException(404, "Etkinlik bulunamadı")
+    scope = ev.get("alliance_scope")
     yes_rows = await db.event_rsvps.find(
-        {"event_id": event_id, "status": "yes"},
+        {"event_id": event_id, "status": "yes", **_rsvp_alliance_query(scope)},
         {"_id": 0, "user_id": 1, "username": 1},
     ).to_list(2000)
+    # v55: live-alliance recheck — no-shows list also respects the scope so
+    # non-GOW members never surface even if they were RSVP'd legacy.
+    yes_rows = await _filter_rsvps_by_current_alliance(yes_rows, scope)
     if not yes_rows:
         return {"event_id": event_id, "count": 0, "items": []}
     user_ids = [r["user_id"] for r in yes_rows if r.get("user_id")]
@@ -3248,8 +3255,12 @@ async def event_rsvp_summary(event_id: str, _: dict = Depends(require_edit)):
     ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1, "alliance_scope": 1})
     if not ev:
         raise HTTPException(404, "Etkinlik bulunamadı")
-    q = {"event_id": event_id, **_rsvp_alliance_query(ev.get("alliance_scope"))}
-    rows = await db.event_rsvps.find(q, {"_id": 0, "status": 1}).to_list(2000)
+    scope = ev.get("alliance_scope")
+    q = {"event_id": event_id, **_rsvp_alliance_query(scope)}
+    rows = await db.event_rsvps.find(q, {"_id": 0, "status": 1, "user_id": 1}).to_list(2000)
+    # v55 belt-and-suspenders: re-check each user's LIVE alliance so stale
+    # or legacy RSVPs never leak into aggregates.
+    rows = await _filter_rsvps_by_current_alliance(rows, scope)
     yes = sum(1 for r in rows if r.get("status") == "yes")
     maybe = sum(1 for r in rows if r.get("status") == "maybe")
     no = sum(1 for r in rows if r.get("status") == "no")
@@ -3269,15 +3280,19 @@ async def _rsvp_reminder_task():
         "reminder_push_sent": {"$ne": True},
         "date": {"$gte": now.isoformat(), "$lte": horizon.isoformat()},
     }
-    events = await db.events.find(q, {"_id": 0, "id": 1, "name": 1, "date": 1}).to_list(50)
+    events = await db.events.find(q, {"_id": 0, "id": 1, "name": 1, "date": 1, "alliance_scope": 1}).to_list(50)
     if not events:
         return
     private_pem, _pub = await _get_or_create_vapid()
     for ev in events:
+        scope = ev.get("alliance_scope")
         rsvps = await db.event_rsvps.find(
-            {"event_id": ev["id"], "status": {"$in": ["yes", "maybe"]}},
+            {"event_id": ev["id"], "status": {"$in": ["yes", "maybe"]}, **_rsvp_alliance_query(scope)},
             {"_id": 0, "user_id": 1},
         ).to_list(1000)
+        # v55: live-alliance recheck — do NOT push to users whose current
+        # linked alliance no longer matches the event's scope.
+        rsvps = await _filter_rsvps_by_current_alliance(rsvps, scope)
         user_ids = list({r["user_id"] for r in rsvps if r.get("user_id")})
         if user_ids:
             subs = await db.push_subscriptions.find({"user_id": {"$in": user_ids}}, {"_id": 0}).to_list(500)
@@ -6278,6 +6293,68 @@ def _rsvp_alliance_query(event_scope: Optional[str]) -> dict:
     if not scope or scope.lower() == "all":
         return {}
     return {"alliance": scope.upper()}
+
+
+async def _filter_rsvps_by_current_alliance(rows: list, event_scope: Optional[str]) -> list:
+    """Belt-and-suspenders alliance filter for RSVP rows (v55). Even after
+    the stored-`alliance` field lookup in `_rsvp_alliance_query`, a legacy
+    RSVP (pre-v54) or a user who switched alliances after voting could still
+    leak through. This helper re-resolves each RSVP user's CURRENT linked
+    alliance via a `users → members.alliance_name` join and drops anyone
+    whose live alliance doesn't match the event's `alliance_scope`.
+
+    For `alliance_scope == "all"` (or empty) it's a passthrough.
+    """
+    scope = (event_scope or "").strip()
+    if not scope or scope.lower() == "all":
+        return rows
+    scope_upper = scope.upper()
+    uids = [r.get("user_id") for r in rows if r.get("user_id")]
+    if not uids:
+        return []
+    # Fetch link maps in one shot: user.member_ids/member_id + reverse members.user_id.
+    users = await db.users.find(
+        {"id": {"$in": uids}},
+        {"_id": 0, "id": 1, "member_ids": 1, "member_id": 1},
+    ).to_list(5000)
+    by_uid = {u["id"]: u for u in users}
+    reverse = await db.members.find(
+        {"user_id": {"$in": uids}},
+        {"_id": 0, "id": 1, "user_id": 1},
+    ).to_list(5000)
+    reverse_by_uid: dict = {}
+    for m in reverse:
+        reverse_by_uid.setdefault(m.get("user_id"), set()).add(m.get("id"))
+    per_uid_mids: dict = {}
+    all_mids: set = set()
+    for uid in uids:
+        u = by_uid.get(uid) or {}
+        mids: set = set()
+        for mid in (u.get("member_ids") or []):
+            if mid:
+                mids.add(mid)
+        if u.get("member_id"):
+            mids.add(u["member_id"])
+        mids |= reverse_by_uid.get(uid, set())
+        per_uid_mids[uid] = mids
+        all_mids |= mids
+    if not all_mids:
+        return []
+    docs = await db.members.find(
+        {"id": {"$in": list(all_mids)}},
+        {"_id": 0, "id": 1, "alliance_name": 1},
+    ).to_list(5000)
+    alliance_by_mid = {
+        d["id"]: (d.get("alliance_name") or "").strip().upper()
+        for d in docs
+    }
+    allowed: set = set()
+    for uid, mids in per_uid_mids.items():
+        for mid in mids:
+            if alliance_by_mid.get(mid) == scope_upper:
+                allowed.add(uid)
+                break
+    return [r for r in rows if r.get("user_id") in allowed]
 
 
 @api_router.post("/events/{event_id}/rsvp")

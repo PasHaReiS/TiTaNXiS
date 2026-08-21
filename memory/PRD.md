@@ -21,9 +21,10 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
-- **Feb 21, 2026 (v54)**: Enforce GOW RSVP Filter + Alliance Scope Selector. **Backend**: Added `_resolve_user_alliances(user)` helper that aggregates alliance names from user's linked members (via `member_ids`, `member_id`, and reverse `members.user_id`), plus `_rsvp_alliance_query(scope)` that returns the Mongo filter for scoped queries. `POST /events/{id}/rsvp` now rejects with 403 unless the user has a linked member in the event's `alliance_scope` (or scope=="all"). RSVP docs are stamped with `alliance` at insert time. `GET /rsvp/summary` and `GET /rsvp/list` filter by alliance so non-matching members disappear from counts and lists. **Frontend**: `EventForm` now includes an `event-form-alliance-scope-toggle` panel with GOW / Tümü quick-picks + a "Diğer ittifak" free-text field. Default value on new events is "GOW". `submit()` body includes `alliance_scope`. Doğrulama: `POST /events {alliance_scope:'GOW'}` returns scope="GOW"; `alliance_scope='all'` also stored and allows any linked user to RSVP.
+- **Feb 21, 2026 (v55)**: RSVP alliance filter — belt-and-suspenders. Added `_filter_rsvps_by_current_alliance(rows, scope)` helper that joins `users → members.alliance_name` and drops any RSVP whose user's CURRENT linked alliance doesn't match `event.alliance_scope`. Applied to `/rsvp/summary`, `/rsvp/list`, `/rsvp/no-shows`, and the 30-min `_rsvp_reminder_task` push cron. Belt (`_rsvp_alliance_query` stored-field filter) + suspenders (live-alliance recheck) → legacy pre-v54 RSVPs and users who switched alliances after voting are both pruned. Verified: GOW event → admin (GOW-linked) yes_count=1, list=['admin']. NONEXISTENT event → RSVP 403, list empty.
+- **Feb 21, 2026 (v54)**: Enforce GOW RSVP Filter + Alliance Scope Selector (backend gate + form UI).
 - **Feb 21, 2026 (v53)**: PointCalc sadeleştirme (multiplier gizli) + mobil optimizasyon.
-- **Feb 21, 2026 (v52)**: Events UI temizliği + backend `alliance_scope:"GOW"` default (metadata only, unenforced — now enforced in v54).
+- **Feb 21, 2026 (v52)**: Events UI temizliği + backend alliance_scope default.
 - **Feb 21, 2026 (v51)**: Mobil düzen düzeltmeleri.
 - **Feb 21, 2026 (v50)**: PointCalc swap + Events mor-mavi cards.
 - **Feb 21, 2026 (v48)**: Sticky header FULL transparent.
