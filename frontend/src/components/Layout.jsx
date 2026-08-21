@@ -26,14 +26,10 @@ export default function Layout({ children }) {
           flexShrink: 0,
           position: "relative",
           zIndex: 100,
-          // Transparent per user request (v47) — bg color removed but border,
-          // shadow and blur stay so the header still reads as a distinct band
-          // separating it from scrollable content.
+          // Fully transparent per user request (v48). No bg, no blur, no border,
+          // no shadow — scrolled content shows through cleanly behind the
+          // header. Only the icons/text/buttons inside are visible.
           background: "transparent",
-          borderBottom: "1px solid rgba(245,166,35,0.20)",
-          boxShadow: "0 6px 18px rgba(0,0,0,0.45)",
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
         }}
       />
       <div

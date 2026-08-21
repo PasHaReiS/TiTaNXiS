@@ -21,7 +21,8 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
-- **Feb 21, 2026 (v47)**: Transparent sticky header (`Layout.jsx` `#titanxis-header-slot` bg → `transparent`; border/shadow/blur kept for read separation). All other v47-attempt changes reverted per user request: RSVP GOW gate removed from `POST /events/{id}/rsvp`; `Members.jsx` action toolbar back to `justify-end`; `PointCalcPage.jsx` PCAdminActions back to single fragment (Excel + İçe Aktar, `marginRight/marginLeft: auto`). Verify: `slotBg: rgba(0,0,0,0)`, sticky preserved (`slotTop: 0` after 900px scroll), RSVP endpoint responds 401 without GOW gate.
+- **Feb 21, 2026 (v48)**: Sticky header FULL transparent. `Layout.jsx` `#titanxis-header-slot` `borderBottom` + `boxShadow` + `backdropFilter` + `WebkitBackdropFilter` kaldırıldı, sadece `background: transparent` kaldı. Computed styles: `bg: rgba(0,0,0,0)`, `border: 0px`, `shadow: none`, `backdrop: none`. Sticky sağlam: `slotTop: 0` @ 900px scroll. Rune duvarı header'ın arkasından net görünür.
+- **Feb 21, 2026 (v47)**: Transparent (partial) sticky header + 3 revert (GOW gate, Members buttons, PointCalc layout).
 - **Feb 21, 2026 (v46)**: Portal migration + Katılım Merkezi + Kristal spacing.
 - **Feb 21, 2026 (v44)**: Sticky header 5 sayfada genişletildi.
 - **Feb 21, 2026 (v43)**: Header layout redesign — single sticky wrapper.
