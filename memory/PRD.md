@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v76)** — Siyah JPEG Arka Planı Kesin Temizlendi:
+  - **3 Katmanlı Yaklaşım** sprite `<img>`'larda: (1) `filter: url(#titanxis-kill-black)` → SVG feColorMatrix luminance-based alpha (siyah=şeffaf); (2) `filter: brightness(1.15) contrast(1.08)` → ikonlar daha canlı; (3) `mix-blend-mode: lighten` → screen'den daha agresif, max(A,B) siyahı tamamen elimine eder.
+  - `background: transparent + backgroundColor: transparent + isolation: isolate` img'a eklendi.
+  - SVG filter tanımı `MemberHome` return'ünün en üstüne konuldu (`<svg width=0 height=0>` container).
+  - Screenshot doğrulandı: 5 sprite ikon (Şimşek, Parşömen, Terazi, Kılıç, Çubuklar) artık siyah kare olmadan, canlı ve şeffaf zeminde görünüyor.
 - **Feb 22, 2026 (v75)** — İkonlar %60 Boyutta + Tam Ortalama:
   - Tüm ikonlar (5 sprite + warband trio) `ICON_SIZE = 65px` (=%60 of 108px pedestal). `xShift=17.5, yShift=10` sprite native center'a kilitli. Pedestal `display:flex; align-items:center; justify-content:center` — hem yatay hem dikey dead-center. Sprite arka planı `mix-blend-mode: screen` ile transparent kalır (v65'ten), amber ring border (v74) korundu.
 - **Feb 22, 2026 (v74)** — Şeffaf Menü Halka Zemini:

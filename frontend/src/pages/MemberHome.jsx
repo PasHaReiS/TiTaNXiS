@@ -182,6 +182,7 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
               <img
                 src={ICON_SPRITE_URL}
                 alt=""
+                className="menu-icon"
                 style={{
                   position: "absolute",
                   width: CELL * 2,
@@ -190,8 +191,17 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
                   top: -(row * CELL + yShift),
                   maxWidth: "none",
                   display: "block",
-                  mixBlendMode: "screen",
-                  filter: "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(249,115,22,0.4))",
+                  background: "transparent",
+                  backgroundColor: "transparent",
+                  // v76 — Kombine yaklaşım: (1) SVG feColorMatrix filter siyah
+                  // pikselleri luminance-based alpha ile şeffaflaştırır, (2)
+                  // mix-blend-mode: lighten fallback olarak siyah=arka plan
+                  // yapar (max(A,B) → siyah=0, background kazanır). Ayrıca
+                  // brightness boost ile ikonlar daha canlı görünür.
+                  filter:
+                    "url(#titanxis-kill-black) brightness(1.15) contrast(1.08) drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(249,115,22,0.4))",
+                  mixBlendMode: "lighten",
+                  isolation: "isolate",
                   opacity: locked ? 0.65 : 1,
                 }}
               />
@@ -377,6 +387,22 @@ export default function MemberHome() {
 
   return (
     <div className="min-h-screen px-4 py-4" data-testid="member-home" style={{ background: "transparent" }}>
+      {/* v76 — SVG feColorMatrix filter: sprite JPEG'in siyah arka planını
+          luminance-based alpha ile şeffaflaştırır. Referans: `filter:
+          url(#titanxis-kill-black)` ikon <img>'larına uygulanıyor. */}
+      <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden>
+        <defs>
+          <filter id="titanxis-kill-black" colorInterpolationFilters="sRGB">
+            <feColorMatrix
+              type="matrix"
+              values="1 0 0 0 0
+                      0 1 0 0 0
+                      0 0 1 0 0
+                      0.4 0.4 0.4 0 -0.10"
+            />
+          </filter>
+        </defs>
+      </svg>
       <div className="w-full max-w-md mx-auto" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
         {/* Row 0 — Top-right language switcher (only page-level control since Breadcrumb hides on /anasayfa) */}
