@@ -21,6 +21,9 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v67)** — Ferah İkon Düzeni + Sparta Miğferi:
+  - **Ferah İkon Düzeni** (`MemberHome.jsx > MenuTile`): Crop penceresi `CONTAINER: 56 → 44`, pedestal `+48 → +64` (=108px), sprite yatay+dikey ortalanmış (`xShift = 28, yShift = 20`). İkon safe margin: (108-44)/2 = **32px her yön ≈ %30 iç boşluk** — kullanıcının istediği en az %20 safe margin katbekat aşıldı. İkonlar artık halkanın tam ortasında "cuk" oturuyor ve ferah şekilde yüzüyor.
+  - **Üyeler Ikonu — Sparta/Centurion Miğferi**: `UsersRound` yerine inline SVG — çift-katman altın gradient (`#FFF4B8 → #F5D06A → #C08820 → #5A3708`) helmet dome, kırmızı-altın crest plume (Roma/Sparta stili), altın crest base band, nasal bar, T-visor eye slots, cheek guards, radial white shine highlight. Sprite ikonlarla aynı 3D drop-shadow filtresi. Metalik doku ve parlaklık aynı sanatsal seviyede.
 - **Feb 22, 2026 (v66)** — İkon Sığdırma + Üyeler İkonu + Yumuşak Glow:
   - **İkon Sığdırma** (`MemberHome.jsx > MenuTile`): Sprite crop penceresi `CONTAINER: 62 → 56`, sprite `CELL: 100 → 96`. Yüzen cam pedestal `CONTAINER + 48 = 104px` — ikonun etrafında ~24px orantılı padding. Artık taşmıyor, çerçeveye sıkışmıyor.
   - **Üyeler İkonu Revizyonu**: Mavi 3D kalkan sprite yerine `lucide-react > UsersRound` — altın (`#F5D06A`) grup/birlik ikonu. Diğer 3D ikonlarla aynı katmanlı drop-shadow filtresi (siyah shadow + altın halo + soft glow).

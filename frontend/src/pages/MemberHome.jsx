@@ -6,8 +6,8 @@ import { toast } from "sonner";
 import useSWR from "swr";
 import { api } from "@/lib/api";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
-// v66 — Lucide icons for the redesigned "Üyeler" tile (altın Grup/Birlik ikonu).
-import { UsersRound } from "lucide-react";
+// v67 — no lucide icon needed anymore for uyeler (replaced with inline
+// Spartan helmet SVG). Import removed.
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 // Map an event's group_name → single runic glyph. Case-insensitive substring
@@ -57,13 +57,14 @@ const SPRITE_CELLS = {
 
 function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
   const { col, row } = SPRITE_CELLS[spriteKey];
-  // v66 — Icon sığdırma: sprite crop pencerеsini 56px'e küçülttük ama
-  // yüzen cam pedestal 104px kaldı → ikonun her yanına ~24px orantılı
-  // padding kalıyor. Böylece ikon "yüzen" görünür, çerçeveye yapışmaz.
-  const CELL = 96;                        // was 100 — leaves tighter label margin
-  const CONTAINER = 56;                   // was 62 — smaller crop = more breathing
-  const xShift = (CELL - CONTAINER) / 2;  // center horizontally
-  const yShift = 8;                       // slight top margin so top-corner number stays clipped
+  // v67 — Ferah ikon düzeni: crop penceresi 44px'e küçültüldü, pedestal
+  // 108px'de kaldı → ikonun etrafında (108-44)/2 = 32px orantılı boşluk
+  // (~30% safe margin her yönden). İkonlar artık halkaya sıkışmıyor,
+  // "yüzüyor".
+  const CELL = 100;                        // native sprite cell size
+  const CONTAINER = 44;                    // v67 — küçültüldü (was 56) — ferah
+  const xShift = (CELL - CONTAINER) / 2;   // 28 — tam yatay ortalanmış crop
+  const yShift = 20;                       // v67 — dikey merkeze denk gelen offset
   return (
     <button
       type="button"
@@ -85,8 +86,8 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
         aria-hidden="true"
         className="menu-tile-pedestal"
         style={{
-          width: CONTAINER + 48,   // v66 — pedestal 104px total → ~24px padding around 56px icon
-          height: CONTAINER + 48,
+          width: CONTAINER + 64,   // v67 — pedestal 108px → ~32px padding her yön
+          height: CONTAINER + 64,
           overflow: "visible",
           position: "relative",
           display: "flex",
@@ -146,18 +147,97 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
           }}
         >
           {spriteKey === "uyeler" ? (
-            // v66 — Üyeler ikonu artık altın "Grup/Birlik" (crowd) —
-            // diğer 3D ikonlarla aynı drop-shadow filtresi ile bütünleşiyor.
-            <UsersRound
-              size={CONTAINER - 6}
-              strokeWidth={2.25}
+            // v67 — Üyeler ikonu artık altın 3D Sparta/Centurion miğferi.
+            // Inline SVG: çift-katman gold gradient dome + kırmızı-altın
+            // crest plume + nasal bar + T-visor. Diğer sprite ikonlarla
+            // aynı drop-shadow katmanı ile bütünleşir.
+            <svg
+              viewBox="0 0 100 100"
+              width={CONTAINER + 6}
+              height={CONTAINER + 6}
+              xmlns="http://www.w3.org/2000/svg"
               style={{
-                color: "#F5D06A",
                 filter:
-                  "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(212,175,55,0.55)) drop-shadow(0 0 6px rgba(245,208,106,0.65))",
+                  "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(212,175,55,0.55)) drop-shadow(0 0 6px rgba(245,208,106,0.45))",
                 opacity: locked ? 0.65 : 1,
               }}
-            />
+              data-testid="uyeler-spartan-helmet"
+            >
+              <defs>
+                <linearGradient id="spartanGold" x1="0.5" y1="0" x2="0.5" y2="1">
+                  <stop offset="0%" stopColor="#FFF4B8" />
+                  <stop offset="28%" stopColor="#F5D06A" />
+                  <stop offset="62%" stopColor="#C08820" />
+                  <stop offset="100%" stopColor="#5A3708" />
+                </linearGradient>
+                <linearGradient id="spartanPlume" x1="0.5" y1="0" x2="0.5" y2="1">
+                  <stop offset="0%" stopColor="#F5A623" />
+                  <stop offset="45%" stopColor="#DC2626" />
+                  <stop offset="100%" stopColor="#5A0F0A" />
+                </linearGradient>
+                <radialGradient id="spartanShine" cx="0.3" cy="0.22" r="0.55">
+                  <stop offset="0%" stopColor="rgba(255,255,255,0.75)" />
+                  <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+                </radialGradient>
+                <linearGradient id="spartanCrestBase" x1="0" y1="0.5" x2="1" y2="0.5">
+                  <stop offset="0%" stopColor="#7A4E10" />
+                  <stop offset="50%" stopColor="#D4AF37" />
+                  <stop offset="100%" stopColor="#7A4E10" />
+                </linearGradient>
+              </defs>
+              {/* Crest plume — Roman/Spartan style front-to-back */}
+              <path
+                d="M 24 24 Q 50 -2 76 24 Q 72 32 68 30 Q 50 22 32 30 Q 28 32 24 24 Z"
+                fill="url(#spartanPlume)"
+                stroke="#5A0F0A"
+                strokeWidth="1"
+              />
+              {/* Plume base band (gold) */}
+              <path
+                d="M 26 28 Q 50 22 74 28 L 72 33 Q 50 28 28 33 Z"
+                fill="url(#spartanCrestBase)"
+                stroke="#5A3708"
+                strokeWidth="0.6"
+              />
+              {/* Helmet dome */}
+              <path
+                d="M 22 48 Q 22 28 50 28 Q 78 28 78 48 L 78 62 Q 78 72 72 78 L 72 68 Q 62 70 50 70 Q 38 70 28 68 L 28 78 Q 22 72 22 62 Z"
+                fill="url(#spartanGold)"
+                stroke="#5A3708"
+                strokeWidth="1.5"
+              />
+              {/* Nasal bar */}
+              <path
+                d="M 47 44 L 53 44 L 53 68 Q 50 70 47 68 Z"
+                fill="url(#spartanGold)"
+                stroke="#5A3708"
+                strokeWidth="0.9"
+              />
+              {/* Eye slots (T-visor) */}
+              <path
+                d="M 32 48 Q 40 46 45 48 L 45 55 Q 40 57 32 55 Z"
+                fill="#1A0E04"
+              />
+              <path
+                d="M 55 48 Q 60 46 68 48 L 68 55 Q 60 57 55 55 Z"
+                fill="#1A0E04"
+              />
+              {/* Dome highlight */}
+              <ellipse cx="38" cy="38" rx="12" ry="7" fill="url(#spartanShine)" />
+              {/* Cheek guards outline curve */}
+              <path
+                d="M 28 62 Q 28 74 34 80 L 30 80 Q 22 74 22 62 Z"
+                fill="url(#spartanGold)"
+                stroke="#5A3708"
+                strokeWidth="1"
+              />
+              <path
+                d="M 72 62 Q 72 74 66 80 L 70 80 Q 78 74 78 62 Z"
+                fill="url(#spartanGold)"
+                stroke="#5A3708"
+                strokeWidth="1"
+              />
+            </svg>
           ) : (
             <img
               src={ICON_SPRITE_URL}
