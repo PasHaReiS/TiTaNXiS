@@ -583,8 +583,9 @@ async def batch_create_members(body: BatchCreateBody, _: dict = Depends(require_
     # Case-SENSITIVE member key: "Ecem" and "ecem" are treated as distinct members
     # (parallels the case-sensitive alliance policy: GOW vs GoW vs GOw).
     by_name = {(x.get("name") or "").strip(): x for x in existing_members}
-    existing_alliances_lc = {
-        str(a).lower() for a in await db.members.distinct("alliance_name") if a
+    # v61 — Case-preserved set. `GOW`, `GoW`, `GOw` her biri ayrı ittifak.
+    existing_alliances_cs = {
+        str(a) for a in await db.members.distinct("alliance_name") if a
     }
 
     created_members = 0
@@ -601,11 +602,11 @@ async def batch_create_members(body: BatchCreateBody, _: dict = Depends(require_
         # Explicit alliance_tag prop wins over the one embedded in the name.
         alliance_tag = (row.alliance_tag or "").strip() or tag_from_bracket
         canonical_alliance = await find_or_create_alliance(alliance_tag) if alliance_tag else None
-        # Track brand-new alliances for the response summary.
-        if canonical_alliance and canonical_alliance.lower() not in existing_alliances_lc:
+        # Track brand-new alliances (EXACT MATCH) for the response summary.
+        if canonical_alliance and canonical_alliance not in existing_alliances_cs:
             if canonical_alliance not in new_alliances:
                 new_alliances.append(canonical_alliance)
-            existing_alliances_lc.add(canonical_alliance.lower())
+            existing_alliances_cs.add(canonical_alliance)
 
         key = clean_name  # case-sensitive; see by_name construction above
         if key in by_name:
@@ -773,7 +774,7 @@ async def delete_member(member_id: str, _: dict = Depends(require_edit)):
 
 # ---------- Events ----------
 @api_router.get("/events")
-async def list_events(archived: Optional[bool] = None, folder_id: Optional[str] = None):
+async def list_events(archived: Optional[bool] = None, folder_id: Optional[str] = None, group_name: Optional[str] = None):
     query = {}
     if archived is not None:
         query["archived"] = archived
@@ -784,6 +785,9 @@ async def list_events(archived: Optional[bool] = None, folder_id: Optional[str] 
             query["$or"] = [{"folder_id": None}, {"folder_id": {"$exists": False}}]
         else:
             query["folder_id"] = folder_id
+    # v61 — Hızlı Rapor: filter by exact group name (case-sensitive).
+    if group_name is not None and group_name.strip():
+        query["group_name"] = group_name.strip()
     docs = await db.events.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
     return docs
 
@@ -1439,9 +1443,8 @@ async def leaderboard(
     if member_scope == "server":
         member_query["scope"] = {"$in": ["server", None]}
     elif member_scope == "clan":
-        # Case-insensitive exact alliance match so "GOW" / "gow" / "Gow" all
-        # resolve to the same clan roster.
-        import re as _re_clan
+        # v61 — CASE-SENSITIVE exact alliance match. `GOW` (ana) ile
+        # `GoW` / `GOw` (akademi) birbirinden bağımsızdır.
         alliance_val = (alliance or "GOW").strip()
         member_query["alliance_name"] = alliance_val
     # member_scope="global" or missing → no extra filter
@@ -6282,17 +6285,22 @@ async def _resolve_user_alliances(user: dict) -> set[str]:
     if not mids:
         return set()
     docs = await db.members.find({"id": {"$in": list(mids)}}, {"_id": 0, "alliance_name": 1}).to_list(200)
-    return {(d.get("alliance_name") or "").strip().upper() for d in docs if d.get("alliance_name")}
+    # v61 — CASE PRESERVED. `GOW` (ana), `GoW` / `GOw` (akademi) are
+    # stratejik olarak farklı ittifaklardır. Merge YASAK.
+    return {(d.get("alliance_name") or "").strip() for d in docs if d.get("alliance_name")}
 
 
 def _rsvp_alliance_query(event_scope: Optional[str]) -> dict:
     """Extra Mongo filter for listing/summarizing RSVPs based on the event's
     alliance scope. `"all"` (or empty) matches every RSVP; a specific scope
-    matches only stored RSVPs whose `alliance` field equals that scope."""
+    matches only stored RSVPs whose `alliance` field equals that scope.
+
+    v61 — EXACT MATCH mühürlemesi: `GOW`, `GoW`, `GOw` birbirinden farklıdır
+    ve hiçbir şekilde birleştirilmez."""
     scope = (event_scope or "").strip()
     if not scope or scope.lower() == "all":
         return {}
-    return {"alliance": scope.upper()}
+    return {"alliance": scope}
 
 
 async def _filter_rsvps_by_current_alliance(rows: list, event_scope: Optional[str]) -> list:
@@ -6372,7 +6380,9 @@ async def event_rsvp(event_id: str, body: EventRsvpBody, user: dict = Depends(re
         raise HTTPException(404, "Etkinlik bulunamadı")
     scope = (ev.get("alliance_scope") or "GOW").strip()
     user_alliances = await _resolve_user_alliances(user)
-    if scope.lower() != "all" and scope.upper() not in user_alliances:
+    # v61 — EXACT case-sensitive match. `GOW` (ana) ile `GoW` / `GOw` (akademi)
+    # birbirinden bağımsızdır; birleştirme YASAK.
+    if scope.lower() != "all" and scope not in user_alliances:
         raise HTTPException(403, f"Bu etkinlik yalnızca {scope} ittifakı üyelerine açık.")
     user_id = user.get("id") or user.get("username")
     valid = {"yes", "maybe", "no"}
@@ -6384,7 +6394,9 @@ async def event_rsvp(event_id: str, body: EventRsvpBody, user: dict = Depends(re
                 "user_id": user_id,
                 "username": user.get("username"),
                 "status": body.status,
-                "alliance": scope.upper() if scope.lower() != "all" else None,
+                # v61 — store the exact scope casing so 'GOW' / 'GoW' / 'GOw'
+                # RSVP kayıtları asla birleştirilmez.
+                "alliance": scope if scope.lower() != "all" else None,
                 "updated_at": now_iso(),
             }},
             upsert=True,

@@ -703,7 +703,19 @@ export default function Events() {
               lineHeight: 1.25,
             }}
           >
-            {e.name}
+            {/* v61 — Grup Adı / Etkinlik Adı formatı. Grubu olmayan
+                etkinlikler sadece kendi adıyla gösterilir. */}
+            {e.group_name && String(e.group_name).trim() ? (
+              <>
+                <span style={{ color: "#D4AF37", fontWeight: 800, letterSpacing: "0.05em" }}>
+                  {String(e.group_name).trim()}
+                </span>
+                <span style={{ color: "#94A3B8", padding: "0 6px", fontWeight: 500 }}>/</span>
+                <span>{e.name}</span>
+              </>
+            ) : (
+              e.name
+            )}
           </div>
           <div
             className="text-[11px] text-muted-foreground mono"
@@ -1406,8 +1418,17 @@ export default function Events() {
                         >
                           <div className="flex items-center gap-2">
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-bold" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif", whiteSpace: "nowrap", overflow: "visible", lineHeight: 1.25 }} title={e.name}>
-                                {e.name}
+                              <div className="text-sm font-bold" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif", whiteSpace: "nowrap", overflow: "visible", lineHeight: 1.25 }} title={`${e.group_name ? e.group_name + " / " : ""}${e.name}`}>
+                                {/* v61 — Grup Adı / Etkinlik Adı formatı */}
+                                {e.group_name && String(e.group_name).trim() ? (
+                                  <>
+                                    <span style={{ color: "#D4AF37", fontWeight: 800 }}>{String(e.group_name).trim()}</span>
+                                    <span style={{ color: "#94A3B8", padding: "0 4px" }}>/</span>
+                                    <span>{e.name}</span>
+                                  </>
+                                ) : (
+                                  e.name
+                                )}
                               </div>
                               <div className="flex items-center justify-between mt-1 text-[10px]" style={{ color: "#94A3B8" }}>
                                 <span>{String(e.date || "").slice(0, 10)}</span>

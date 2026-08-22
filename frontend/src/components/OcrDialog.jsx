@@ -1176,9 +1176,9 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                           <React.Fragment key={i}>
                           <tr
                             className={`transition-colors ${mode === "event" ? "" : "border-t border-white/5"} ${(mode !== "event" && i % 2 === 1) ? "bg-white/[0.02]" : ""}`}
-                            style={mode === "event" ? { borderTop: '1px solid rgba(245,166,35,0.3)', background: 'rgba(0,0,0,0.2)' } : undefined}
                             data-testid={`ocr-row-${i}`}
                             style={{
+                              ...(mode === "event" ? { borderTop: '1px solid rgba(245,166,35,0.3)', background: 'rgba(0,0,0,0.2)' } : {}),
                               ...(isExcluded ? { opacity: 0.35, textDecoration: "line-through" } : {}),
                               ...(isAutoApplied && !isExcluded ? {
                                 borderLeft: "3px solid #FCD34D",

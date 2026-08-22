@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v61)** — "Exact Match" Alliance mühürlemesi + Hızlı Rapor Paneli + Grup/Etkinlik format:
+  - Alliance Case-Sensitivity Mühürlemesi (server.py): `_resolve_user_alliances`/`_rsvp_alliance_query`/`event_rsvp` gate/RSVP kaydı/import dedup — hepsinden `.upper()`/`.lower()` merge KALDIRILDI. Kanıt: `/api/leaderboard/by-alliance` → GOW (68) · GoW (9) · GOw (1) üç bağımsız ittifak.
+  - Etkinlik Adlandırma "Grup / Etkinlik Adı" formatı: Events kartları + Leaderboard aktif chip'leri (altın grup adı + gri "/" + beyaz etkinlik adı).
+  - **⚡ Hızlı Rapor Paneli** (`Reports.jsx`): Yeni tab. Grup seç → o grubun tüm etkinlikleri (aktif+arşiv, kronolojik) tek tabloda + İTTİFAK · ÜyeAdı prefix + tr-TR binlik ayraçlı puanlar + toplam satırı + CSV export. Backend `/api/events?group_name=X` (exact) eklendi.
+  - Ek fix: `OcrDialog.jsx` satır 1178 duplicate `style` prop birleştirildi.
 - **Feb 22, 2026 (v60)** — "Elite Cockpit" Tasarım Operasyonu (tek seferde mühürlendi):
   - **Floating Glass Header** (`Layout.jsx`): `#titanxis-header-slot` artık sayfa üstüne yapışık değil — 8px üst / 10px yan margin ile "yüzen bar" hâline geldi. Semi-transparent charcoal gradient (`rgba(18,12,22,0.82) → rgba(14,10,18,0.86)`), 14px rounded corners, mor ince kenarlık, inner gold sheen + drop shadow. `::after` pseudo ile altında ince, parlayan **mor → altın → mor** neon çizgi (violet 8px + gold 14px + violet 22px halo).
   - **Logo yatay + daha büyük**: `maxHeight: 96 → 112`, `maxWidth: min(78vw, 480px)`, `width:100%` — TiTaNXiS yazısı net okunur.

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import useSWR from "swr";
 import { Link } from "react-router-dom";
-import { api, apiErr } from "@/lib/api";
+import { api, apiErr, fmt } from "@/lib/api";
 import Header from "@/components/Header";
 import { toast } from "sonner";
 import { Loader2, Download, Users, CalendarDays, RefreshCw, Filter } from "lucide-react";
@@ -48,11 +48,17 @@ export default function Reports() {
       <Header title="Katılım Merkezi">
         <div className="space-y-2">
           <ReportTabs tab={tab} setTab={setTab} />
-          <PeriodBar period={period} setPeriod={setPeriod} tab={tab} />
+          {tab !== "quick" && <PeriodBar period={period} setPeriod={setPeriod} tab={tab} />}
         </div>
       </Header>
       <div className="px-4 space-y-3">
-        {tab === "members" ? <MembersReport period={period} /> : <EventsReport period={period} />}
+        {tab === "members" ? (
+          <MembersReport period={period} />
+        ) : tab === "quick" ? (
+          <QuickReport />
+        ) : (
+          <EventsReport period={period} />
+        )}
       </div>
     </div>
   );
@@ -70,7 +76,8 @@ function ReportTabs({ tab, setTab }) {
     >
       {[
         { key: "events", emoji: "📅", label: "Etkinlik Katılım" },
-      ].map((t, i) => {
+        { key: "quick", emoji: "⚡", label: "Hızlı Rapor" },
+      ].map((t, i, arr) => {
         const active = tab === t.key;
         return (
           <button
@@ -84,7 +91,7 @@ function ReportTabs({ tab, setTab }) {
                 ? "linear-gradient(180deg, rgba(245,166,35,0.28), rgba(180,83,9,0.45))"
                 : "rgba(20,15,25,0.65)",
               color: active ? "#FFEDD5" : "#78716C",
-              borderRight: i === 0 ? "1px solid rgba(120,53,15,0.35)" : "none",
+              borderRight: i < arr.length - 1 ? "1px solid rgba(120,53,15,0.35)" : "none",
               boxShadow: active ? "0 0 10px #F5A623, inset 0 0 16px rgba(245,166,35,0.20)" : "none",
             }}
           >
@@ -1235,6 +1242,247 @@ function EmptyCard({ label, testId }) {
   return (
     <div className="card-red-gold p-6 text-center text-sm text-muted-foreground" data-testid={testId}>
       {label}
+    </div>
+  );
+}
+
+
+// ============================================================
+// v61 — Hızlı Rapor Paneli
+// Bir grup seçilince, o gruba bağlı TÜM etkinlikler (aktif +
+// arşiv) ve her etkinlik için üye puanları tek tabloda özet
+// olarak gösterilir. `İttifak Adı ÜyeAdı` prefix formatı,
+// puanlar tr-TR binlik ayraçlı, gruplar KRONOLOJİK. Grupsuz
+// (`__ungrouped__`) opsiyonu da mevcut.
+// ============================================================
+function QuickReport() {
+  const { data: groups = [] } = useSWR("/event-groups", fetcher);
+  const [group, setGroup] = useState(null);
+  const [showRaw, setShowRaw] = useState(false);
+
+  // Fetch active + archived events restricted to the picked group.
+  const gk = group ? encodeURIComponent(group) : null;
+  const { data: activeEv = [] } = useSWR(gk ? `/events?archived=false&group_name=${gk}` : null, fetcher);
+  const { data: archivedEv = [] } = useSWR(gk ? `/events?archived=true&group_name=${gk}` : null, fetcher);
+
+  // Chronological order: oldest → newest (per user requirement: her grup
+  // kendi içinde kronolojik sıralanmalı).
+  const events = useMemo(() => {
+    const all = [...(activeEv || []), ...(archivedEv || [])];
+    return all.sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+  }, [activeEv, archivedEv]);
+
+  // Fetch per-event leaderboards in parallel (SWR handles dedup + cache).
+  const eventIds = events.map((e) => e.id);
+  const key = gk ? `quick-report-${gk}-${eventIds.join(",")}` : null;
+  const { data: perEvent = {}, error } = useSWR(key, async () => {
+    const out = {};
+    await Promise.all(
+      events.map(async (e) => {
+        try {
+          const r = await api.get(`/leaderboard?event_id=${encodeURIComponent(e.id)}`);
+          out[e.id] = r.data || [];
+        } catch {
+          out[e.id] = [];
+        }
+      })
+    );
+    return out;
+  });
+
+  // Build a member × event matrix. Rows = unique members that appeared in
+  // any event of the group, sorted by total points desc.
+  const { rows, totalsByEvent } = useMemo(() => {
+    const byMid = new Map();
+    const totals = {};
+    for (const ev of events) {
+      const lb = perEvent[ev.id] || [];
+      totals[ev.id] = 0;
+      for (const r of lb) {
+        const cur = byMid.get(r.member_id) || {
+          member_id: r.member_id,
+          name: r.name,
+          alliance_name: r.alliance_name,
+          total: 0,
+          per: {},
+        };
+        cur.per[ev.id] = r.total_points;
+        cur.total += r.total_points || 0;
+        totals[ev.id] += r.total_points || 0;
+        byMid.set(r.member_id, cur);
+      }
+    }
+    const arr = Array.from(byMid.values()).sort((a, b) => b.total - a.total);
+    return { rows: arr, totalsByEvent: totals };
+  }, [events, perEvent]);
+
+  const exportCsv = () => {
+    if (!rows.length) return;
+    const header = ["Sira", "Ittifak", "Uye", ...events.map((e) => `${e.group_name || ""} / ${e.name}`), "TOPLAM"];
+    const lines = [header.join(";")];
+    rows.forEach((r, idx) => {
+      const row = [
+        String(idx + 1),
+        `"${r.alliance_name || ""}"`,
+        `"${r.name || ""}"`,
+        ...events.map((e) => String(r.per[e.id] || 0)),
+        String(r.total),
+      ];
+      lines.push(row.join(";"));
+    });
+    const csv = "\uFEFF" + lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `hizli-rapor-${group}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast.success("CSV indirildi");
+  };
+
+  return (
+    <div className="space-y-3" data-testid="quick-report-root">
+      {/* Group selector */}
+      <div
+        className="flex flex-wrap items-center gap-2 p-3 rounded-lg"
+        style={{
+          background: "linear-gradient(90deg, #14081F 0%, #1F1140 50%, #0C0619 100%)",
+          border: "1px solid rgba(212,175,55,0.45)",
+          boxShadow: "inset 0 1px 0 rgba(255,220,150,0.12), 0 2px 10px rgba(0,0,0,0.55)",
+        }}
+        data-testid="quick-report-selector"
+      >
+        <span style={{ color: "#F5E7A8", fontSize: 11, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase" }}>
+          Grup
+        </span>
+        <select
+          value={group || ""}
+          onChange={(e) => setGroup(e.target.value || null)}
+          data-testid="quick-report-group-select"
+          className="text-xs px-2 py-1 rounded"
+          style={{
+            background: "#0F0716",
+            color: "#F5F0E8",
+            border: "1px solid rgba(147,51,234,0.55)",
+            minWidth: 220,
+          }}
+        >
+          <option value="">— Grup seç —</option>
+          {(groups || [])
+            .filter((g) => g.name && g.name !== "__ungrouped__")
+            .sort((a, b) => String(a.name).localeCompare(String(b.name), "tr"))
+            .map((g) => (
+              <option key={g.name} value={g.name}>
+                {g.name} · {g.count} etkinlik
+              </option>
+            ))}
+        </select>
+        {group && events.length > 0 && (
+          <button
+            onClick={exportCsv}
+            className="ml-auto chip text-[10px]"
+            data-testid="quick-report-export"
+            style={{ borderColor: "#22C55E", color: "#4ADE80" }}
+          >
+            <Download className="w-3 h-3 inline mr-1" /> CSV indir
+          </button>
+        )}
+      </div>
+
+      {!group && (
+        <div
+          className="text-center text-sm py-6"
+          style={{ color: "#94A3B8", fontFamily: "Cinzel, serif" }}
+          data-testid="quick-report-empty"
+        >
+          Bir grup seç — o gruba bağlı tüm etkinlikler ve üye puanları burada
+          tek tabloda görünecek.
+        </div>
+      )}
+
+      {group && events.length === 0 && (
+        <div className="text-center text-sm py-6" style={{ color: "#94A3B8" }} data-testid="quick-report-nomatch">
+          Bu grupta etkinlik bulunamadı.
+        </div>
+      )}
+
+      {group && events.length > 0 && (
+        <div
+          className="overflow-x-auto rounded-lg"
+          style={{
+            background: "linear-gradient(180deg, rgba(15,7,22,0.92), rgba(8,4,14,0.96))",
+            border: "1px solid rgba(212,175,55,0.35)",
+          }}
+          data-testid="quick-report-table-wrap"
+        >
+          <table className="w-full text-xs" data-testid="quick-report-table" style={{ borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "linear-gradient(90deg, #241436, #14081F)" }}>
+                <th style={{ padding: 6, color: "#D4AF37", fontFamily: "Cinzel", fontSize: 10, letterSpacing: "0.14em", textAlign: "left" }}>#</th>
+                <th style={{ padding: 6, color: "#D4AF37", fontFamily: "Cinzel", fontSize: 10, letterSpacing: "0.14em", textAlign: "left" }}>
+                  İTTİFAK · ÜYE
+                </th>
+                {events.map((e) => (
+                  <th
+                    key={e.id}
+                    title={`${e.group_name || ""} / ${e.name}`}
+                    style={{ padding: 6, color: "#F5E7A8", fontSize: 10, letterSpacing: "0.10em", textAlign: "right", whiteSpace: "nowrap" }}
+                  >
+                    {e.name}
+                    <div style={{ fontSize: 8, color: "#94A3B8" }}>
+                      {new Date(e.date || 0).toLocaleDateString("tr-TR")}
+                    </div>
+                  </th>
+                ))}
+                <th style={{ padding: 6, color: "#F97316", fontFamily: "Cinzel", fontSize: 10, letterSpacing: "0.14em", textAlign: "right" }}>
+                  TOPLAM
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, idx) => (
+                <tr
+                  key={r.member_id}
+                  data-testid={`quick-report-row-${r.member_id}`}
+                  style={{ borderTop: "1px solid rgba(212,175,55,0.10)" }}
+                >
+                  <td style={{ padding: 6, color: "#D4AF37", fontWeight: 800 }}>{idx + 1}</td>
+                  <td style={{ padding: 6, color: "#F5F0E8", whiteSpace: "nowrap" }}>
+                    {/* v61 — Alliance Adı ÜyeAdı (parantezsiz, prefix). */}
+                    <span style={{ color: "#F5A623", fontWeight: 800, letterSpacing: "0.05em" }}>{r.alliance_name || "—"}</span>
+                    <span style={{ padding: "0 6px", color: "#64748B" }}>·</span>
+                    <span>{r.name}</span>
+                  </td>
+                  {events.map((e) => (
+                    <td key={e.id} className="mono" style={{ padding: 6, color: "#EAD8B0", textAlign: "right", whiteSpace: "nowrap" }}>
+                      {r.per[e.id] ? fmt(r.per[e.id]) : "—"}
+                    </td>
+                  ))}
+                  <td className="mono" style={{ padding: 6, color: "#F97316", fontWeight: 800, textAlign: "right", whiteSpace: "nowrap" }}>
+                    {fmt(r.total)}
+                  </td>
+                </tr>
+              ))}
+              <tr style={{ background: "rgba(147,51,234,0.14)", borderTop: "2px solid rgba(212,175,55,0.35)" }}>
+                <td colSpan={2} style={{ padding: 6, color: "#F5E7A8", fontWeight: 800, letterSpacing: "0.10em", textTransform: "uppercase" }}>
+                  Etkinlik Toplamı
+                </td>
+                {events.map((e) => (
+                  <td key={e.id} className="mono" style={{ padding: 6, color: "#F5A623", fontWeight: 800, textAlign: "right", whiteSpace: "nowrap" }}>
+                    {fmt(totalsByEvent[e.id] || 0)}
+                  </td>
+                ))}
+                <td className="mono" style={{ padding: 6, color: "#F97316", fontWeight: 900, textAlign: "right", whiteSpace: "nowrap" }}>
+                  {fmt(Object.values(totalsByEvent).reduce((a, b) => a + b, 0))}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
