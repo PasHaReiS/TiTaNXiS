@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v66)** — İkon Sığdırma + Üyeler İkonu + Yumuşak Glow:
+  - **İkon Sığdırma** (`MemberHome.jsx > MenuTile`): Sprite crop penceresi `CONTAINER: 62 → 56`, sprite `CELL: 100 → 96`. Yüzen cam pedestal `CONTAINER + 48 = 104px` — ikonun etrafında ~24px orantılı padding. Artık taşmıyor, çerçeveye sıkışmıyor.
+  - **Üyeler İkonu Revizyonu**: Mavi 3D kalkan sprite yerine `lucide-react > UsersRound` — altın (`#F5D06A`) grup/birlik ikonu. Diğer 3D ikonlarla aynı katmanlı drop-shadow filtresi (siyah shadow + altın halo + soft glow).
+  - **Çerçeve Parlaması Yumuşatma**: Sert `0 0 22px -2px rgba(147,51,234,0.35)` yerine 3 katmanlı glow: deep ground shadow + soft violet halo + geniş faded gold aura → arka planla kaynaşır. Border alpha `0.35 → 0.22` daha yumuşak.
+  - Kanıt: Anasayfa screenshot'ta 6 ikon dairelerin ortasında yerleşik, MEMBERS altın UsersRound, glow arka plan taşıyla kaynaşmış — kullanıcı gözle onayladı.
 - **Feb 22, 2026 (v65)** — High-End UI Operasyonu (siyah kutu son):
   - **Anasayfa İkonları** (`MemberHome.jsx > MenuTile`): Kaba siyah kare arka planlar tamamen kaldırıldı. Her ikonun altına **circular floating glass pedestal**: radial glass gradient (`radial-gradient(circle at 32% 28%, rgba(168,85,247,0.28) → rgba(20,10,30,0.55) → rgba(8,4,14,0.75))`) + altın hairline border + üstte white sheen highlight + outer neon violet glow + drop shadow. İkon artık dairesel `borderRadius: 50%` bir cam pedestal üstünde yüzüyor.
   - **Sıralama Tablosu Evrimi** (`index.css > .rank-row`): Standart dikdörtgen kutular gitti. `clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))` — top-right + bottom-left köşeler 14px açılı kesildi ("Oyuncu Dashboard" tarzı beveled panel). Üst kenar boyunca `::before` altın sheen hairline + inner white highlight + deeper shadow. Zebra background'lara üstten beyaz sheen katmanı eklendi → metalik hissi.
