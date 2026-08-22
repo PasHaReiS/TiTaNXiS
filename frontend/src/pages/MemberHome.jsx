@@ -70,6 +70,7 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
       type="button"
       onClick={onClick}
       data-testid={testId}
+      className="menu-tile-item"
       style={{
         background: "transparent",
         border: "none",
@@ -97,6 +98,7 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
         {/* v74 — Daire zemini ŞEFFAF: arka planda taş dokusu görünüyor.
             Sadece amber halka çizgisi + yumuşak dış glow kaldı. */}
         <div
+          className="menu-tile-ring"
           style={{
             position: "absolute",
             inset: 0,
@@ -107,6 +109,7 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
               "0 8px 22px -8px rgba(0,0,0,0.65), " +
               "0 0 18px -4px rgba(249,115,22,0.45), " +
               "0 0 34px -10px rgba(245,208,106,0.28)",
+            transition: "box-shadow 0.22s ease, border-color 0.22s ease",
           }}
         />
         {/* v74 — Inner glass hi-light kaldırıldı; şeffaf zemin istendi. */}
@@ -119,11 +122,13 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
             width={ICON_SIZE}
             height={ICON_SIZE}
             xmlns="http://www.w3.org/2000/svg"
+            className="menu-tile-icon"
             style={{
               position: "relative",
               zIndex: 1,
               filter: "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(249,115,22,0.4))",
               opacity: locked ? 0.65 : 1,
+              transition: "transform 0.22s ease",
             }}
             data-testid="uyeler-warband-trio"
           >
@@ -171,12 +176,14 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
             // v75 — Sprite crop 65px (=%60 of pedestal). Doğrudan pedestal
             // flex-centered zeminine oturuyor (hem yatay hem dikey ortalı).
             <div
+              className="menu-tile-icon"
               style={{
                 width: ICON_SIZE,
                 height: ICON_SIZE,
                 overflow: "hidden",
                 position: "relative",
                 zIndex: 1,
+                transition: "transform 0.22s ease",
               }}
             >
               <img

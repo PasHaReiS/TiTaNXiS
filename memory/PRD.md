@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v77)** — Menü İkonu Hover/Active Animasyonu:
+  - `.menu-tile-item` (button), `.menu-tile-ring` (halka border div), `.menu-tile-icon` (sprite crop + warband SVG) className'leri eklendi.
+  - `:hover / :focus-visible / :active` state'lerinde: amber ring border alpha `0.6 → 0.95`, box-shadow yoğunlaşır (`0 0 20px rgba(249,115,22,0.8) + 0 0 40px rgba(249,115,22,0.4) + 0 0 56px -6px rgba(245,208,106,0.55)`), ikon `translateY(-4px) scale(1.05)` yukarı zıplama + büyütme.
+  - `transition: 0.22s ease` yumuşak animasyon. Mobil için `:active` aynı efekti tetikler + button kendisi `scale(0.98)` tap feedback verir.
+  - Screenshot doğrulandı: LEADERBOARD ikon hover'ında amber halka glow belirgin şekilde parladı, ikon yukarı zıpladı.
 - **Feb 22, 2026 (v76)** — Siyah JPEG Arka Planı Kesin Temizlendi:
   - **3 Katmanlı Yaklaşım** sprite `<img>`'larda: (1) `filter: url(#titanxis-kill-black)` → SVG feColorMatrix luminance-based alpha (siyah=şeffaf); (2) `filter: brightness(1.15) contrast(1.08)` → ikonlar daha canlı; (3) `mix-blend-mode: lighten` → screen'den daha agresif, max(A,B) siyahı tamamen elimine eder.
   - `background: transparent + backgroundColor: transparent + isolation: isolate` img'a eklendi.

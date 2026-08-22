@@ -1964,3 +1964,31 @@ body::before {
 .fixed.left-\[50\%\].top-\[50\%\].z-50 {
   z-index: 999997 !important;
 }
+
+
+/* ============================================================
+   v77 — Menü İkonu Hover / Active Animasyonu
+   - Amber halka glow yoğunlaşır (2 katmanlı büyük shadow)
+   - İkon hafifçe yukarı zıplar + %5 scale up
+   Mobile: `:active` state ile aynı efekt.
+   ============================================================ */
+.menu-tile-item:hover .menu-tile-ring,
+.menu-tile-item:focus-visible .menu-tile-ring,
+.menu-tile-item:active .menu-tile-ring {
+  border-color: rgba(249,115,22,0.95);
+  box-shadow:
+    0 0 20px rgba(249,115,22,0.8),
+    0 0 40px rgba(249,115,22,0.4),
+    0 0 56px -6px rgba(245,208,106,0.55);
+}
+.menu-tile-item:hover .menu-tile-icon,
+.menu-tile-item:focus-visible .menu-tile-icon,
+.menu-tile-item:active .menu-tile-icon {
+  transform: translateY(-4px) scale(1.05);
+}
+.menu-tile-item {
+  transition: transform 0.22s ease;
+}
+.menu-tile-item:active {
+  transform: scale(0.98);
+}
