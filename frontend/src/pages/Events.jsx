@@ -751,15 +751,17 @@ export default function Events() {
           className="flex items-center justify-between mb-2 gap-2 flex-wrap"
           data-testid={`event-group-action-bar-${group}`}
           style={{
-            /* v58 — Saturated metallic action bar. Deep charcoal → navy
-               gradient with a violet inner sheen and a thin gold hairline
-               so the group title + rename/archive/delete controls read as
-               a distinct command strip instead of floating text. */
-            background: "linear-gradient(90deg, #1B0F26 0%, #241436 40%, #1A102B 70%, #10091C 100%)",
-            borderRadius: 8,
-            border: "1px solid rgba(212,175,55,0.35)",
-            boxShadow: "inset 0 1px 0 rgba(255,220,150,0.10), 0 2px 10px rgba(0,0,0,0.55), 0 0 0 1px rgba(147,51,234,0.18)",
-            padding: "8px 12px",
+            /* v59 — Elite Cockpit action bar. Deeper, more saturated
+               charcoal→indigo→violet gradient with a gold hairline top,
+               inner violet sheen and a soft outer glow. Text sits on a
+               genuine metal panel — no longer washes into the background. */
+            background:
+              "linear-gradient(90deg, #14081F 0%, #1F1140 25%, #2A1653 55%, #1B0E38 80%, #0C0619 100%)",
+            borderRadius: 10,
+            border: "1px solid rgba(212,175,55,0.55)",
+            boxShadow:
+              "inset 0 1px 0 rgba(255,220,150,0.20), inset 0 0 22px rgba(147,51,234,0.22), 0 4px 14px rgba(0,0,0,0.65), 0 0 0 1px rgba(147,51,234,0.24)",
+            padding: "10px 14px",
           }}
         >
           <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -784,18 +786,20 @@ export default function Events() {
               <h3
                 className="text-sm font-bold uppercase tracking-wider truncate"
                 style={{
-                  /* v58 — Group title now uses a silver → antique-gold
-                     vertical gradient with a matching group-tint glow so it
-                     stays legible on the new saturated bar while still
-                     nodding to the group's assigned colour. */
-                  background: "linear-gradient(180deg, #F5E7A8 0%, #D4AF37 50%, #A87B1A 100%)",
+                  /* v59 — Elite Cockpit: bright polished silver title with a
+                     subtle group-tint glow. Uses a mirror-metal vertical
+                     gradient (bright top → cool platinum → shadow) so it
+                     reads as luminescent silver against the saturated bar. */
+                  background:
+                    "linear-gradient(180deg, #FFFFFF 0%, #E6ECF2 30%, #B8C4D0 60%, #7A8794 100%)",
                   WebkitBackgroundClip: "text",
                   backgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   color: "transparent",
-                  textShadow: `0 0 8px ${gc}55, 0 1px 0 rgba(0,0,0,0.55)`,
-                  letterSpacing: "0.14em",
+                  textShadow: `0 0 10px ${gc}66, 0 0 4px rgba(255,255,255,0.35), 0 1px 0 rgba(0,0,0,0.65)`,
+                  letterSpacing: "0.18em",
                   fontFamily: "'Cinzel', 'Rajdhani', serif",
+                  filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.55))",
                 }}
               >
                 {group}

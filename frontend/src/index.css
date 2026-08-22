@@ -1846,6 +1846,38 @@ body::before {
    primitives — force-lift them above the header slot. */
 .fixed.inset-0.z-50,
 .fixed.z-50 {
+
+/* ============================================================
+   v59 — "Elite Cockpit" Floating Header hairline
+   Renders a thin, luminous violet→gold→violet neon line directly
+   below the floating header slot. Uses a `::after` pseudo so it
+   is not clickable and doesn't disturb layout.
+   ============================================================ */
+.titanxis-floating-header::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -3px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(147,51,234,0.20) 8%,
+    rgba(168,85,247,0.95) 30%,
+    rgba(245,215,120,1) 50%,
+    rgba(168,85,247,0.95) 70%,
+    rgba(147,51,234,0.20) 92%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 8px rgba(168,85,247,0.75),
+    0 0 14px rgba(212,175,55,0.55),
+    0 0 22px rgba(147,51,234,0.35);
+  pointer-events: none;
+}
+
   z-index: 999996 !important;
 }
 /* Content variant (positioned dialog panels) */

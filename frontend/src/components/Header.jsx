@@ -91,23 +91,68 @@ export default function Header({ title, children }) {
       >
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0 flex items-center gap-3">
-          <img
-            src={BRAND_LOGO_URL}
-            alt="TiTaNXiS Game Guide"
-            data-testid="header-brand-logo"
-            onClick={() => setLogoVideoOpen(true)}
-            className="header-brand-logo cursor-pointer flex-shrink-0"
-            style={{
-              height: "auto",
-              maxHeight: 96,
-              width: "100%",
-              maxWidth: "min(78vw, 460px)",
-              objectFit: "contain",
-              objectPosition: "left center",
-              borderRadius: 6,
-              filter: "drop-shadow(0 0 6px rgba(147,51,234,0.35)) drop-shadow(0 2px 4px rgba(0,0,0,0.55))",
-            }}
-          />
+          <div
+            className="relative flex-shrink-0"
+            data-testid="header-logo-wrap"
+            style={{ width: "100%", maxWidth: "min(78vw, 480px)", lineHeight: 0 }}
+          >
+            <img
+              src={BRAND_LOGO_URL}
+              alt="TiTaNXiS Game Guide"
+              data-testid="header-brand-logo"
+              onClick={() => setLogoVideoOpen(true)}
+              className="header-brand-logo cursor-pointer"
+              style={{
+                height: "auto",
+                maxHeight: 112,
+                width: "100%",
+                objectFit: "contain",
+                objectPosition: "left center",
+                borderRadius: 8,
+                filter:
+                  "drop-shadow(0 0 8px rgba(147,51,234,0.45)) drop-shadow(0 2px 4px rgba(0,0,0,0.6))",
+              }}
+            />
+            {user && (
+              <span
+                data-testid="header-role-insignia"
+                title={isAdmin ? t("admin") : canEdit ? t("can_edit_badge") : t("view_only")}
+                style={{
+                  position: "absolute",
+                  right: -4,
+                  bottom: -6,
+                  padding: "2px 8px",
+                  fontSize: 9,
+                  fontWeight: 800,
+                  letterSpacing: "0.14em",
+                  lineHeight: 1.2,
+                  fontFamily: "'Cinzel', 'Rajdhani', serif",
+                  color: isAdmin ? "#0D0D0D" : "#F5E7A8",
+                  background: isAdmin
+                    ? "linear-gradient(180deg, #F5D06A 0%, #D4AF37 50%, #A87B1A 100%)"
+                    : canEdit
+                    ? "linear-gradient(180deg, #34D399 0%, #059669 100%)"
+                    : "linear-gradient(180deg, #6B7280 0%, #374151 100%)",
+                  border: "1px solid rgba(255,230,170,0.85)",
+                  borderRadius: 999,
+                  boxShadow:
+                    "0 0 10px rgba(212,175,55,0.55), inset 0 1px 0 rgba(255,255,255,0.35)",
+                  textShadow: isAdmin
+                    ? "0 1px 0 rgba(255,255,255,0.35)"
+                    : "0 1px 0 rgba(0,0,0,0.55)",
+                  zIndex: 3,
+                  pointerEvents: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {isAdmin
+                  ? t("admin").toUpperCase()
+                  : canEdit
+                  ? t("can_edit_badge").toUpperCase()
+                  : t("view_only").toUpperCase()}
+              </span>
+            )}
+          </div>
         </div>
 
         <NotificationBell />
@@ -292,13 +337,9 @@ export default function Header({ title, children }) {
         )}
       </div>
 
-      {user && (
-        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-          {isAdmin && <span className="text-[9px] px-1.5 py-0.5 rounded gold-gradient font-bold">{t("admin").toUpperCase()}</span>}
-          {!isAdmin && canEdit && <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/25 text-green-300 border border-green-500/40 font-bold">{t("can_edit_badge").toUpperCase()}</span>}
-          {!isAdmin && !canEdit && <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold">{t("view_only").toUpperCase()}</span>}
-        </div>
-      )}
+      {/* v59 — Admin/Editor rütbe rozeti artık logonun sağ-alt köşesinde
+          "Insignia" olarak render ediliyor (yukarıdaki header-role-insignia).
+          Bu ayrı satır kaldırıldı. */}
       </div>
       {/* End sticky top bar */}
 

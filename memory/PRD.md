@@ -21,6 +21,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v60)** — "Elite Cockpit" Tasarım Operasyonu (tek seferde mühürlendi):
+  - **Floating Glass Header** (`Layout.jsx`): `#titanxis-header-slot` artık sayfa üstüne yapışık değil — 8px üst / 10px yan margin ile "yüzen bar" hâline geldi. Semi-transparent charcoal gradient (`rgba(18,12,22,0.82) → rgba(14,10,18,0.86)`), 14px rounded corners, mor ince kenarlık, inner gold sheen + drop shadow. `::after` pseudo ile altında ince, parlayan **mor → altın → mor** neon çizgi (violet 8px + gold 14px + violet 22px halo).
+  - **Logo yatay + daha büyük**: `maxHeight: 96 → 112`, `maxWidth: min(78vw, 480px)`, `width:100%` — TiTaNXiS yazısı net okunur.
+  - **Admin Insignia**: `ADMIN`/`Editor`/`View` badge artık logonun sağ-alt köşesine absolute konumlanmış oval "rütbe rozeti" olarak entegre (altın gradient + parlak border + inner white sheen + drop shadow). Eski alt satır tamamen kaldırıldı.
+  - **Grup Aksiyon Çubuğu** (`Events.jsx > renderGroupBlock`): Daha doygun charcoal→indigo→violet gradient, altın hairline, iç violet sheen + outer glow. Grup başlığı `h3` platinum silver text-fill'e çevrildi (`#FFFFFF → #B8C4D0 → #7A8794`) + gruba özel neon glow + kara text-shadow — soluk metin sorunu çözüldü.
+  - **Z-Index Modal Mühürlemesi** (v58'den beri aktif): Radix Dialog/AlertDialog/Sheet overlay+content ve tailwind `.fixed.z-50` selector'ları `!important` ile 999996/999997'ye zorlanıyor — header slot (zIndex:100) ve nefis floating bar bile modalların altında kalıyor.
+  - Testler: preview yüklendi, screenshot'ta floating slot + neon hairline görünür, compile başarılı (mevcut tek ESLint warn korundu).
 - **Feb 22, 2026 (v59)** — "Profesyonel Elit" tasarım paketi:
   - **Header logo**: Yatay + geniş (`maxHeight: 96px`, `maxWidth: min(78vw, 460px)`, `width:100%`) — çan ikonuna doğru uzatıldı, mor drop-shadow eklendi.
   - **Header alt bordü**: `#titanxis-header-slot` altında ince parlayan mor hairline (gradient border-image + box-shadow glow).
