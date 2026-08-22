@@ -21,6 +21,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v70)** — SADELİK: Halkalar Kaldırıldı, Orijinal Ferah Düzene Dönüş:
+  - Karmaşık pedestal halkaları, altın parlama, violet echo, glass gradient, iç sheen — **hepsi silindi**.
+  - Sadece **hafif siyah radial drop shadow** (`radial-gradient(circle, rgba(0,0,0,0.35) 0%, transparent 70%)`) ikonun arkasında — arka planda belli olsun diye.
+  - Sprite crop `CONTAINER = 62` (orijinal ferah net boyut), `xShift = 19, yShift = 6` — projenin başındaki başarılı yerleşim.
+  - Warband trio SVG `width/height = CONTAINER (62px)` — diğer sprite ikonlarla (Kılıç, Şimşek) BİREBİR aynı boyut.
+  - Screenshot doğrulandı: 6 ikon (Leaderboard, About Loj, Point Calculator, Events, Katılım Merkezi, Members) sade, net, hafif gölge ile ferah düzende.
 - **Feb 22, 2026 (v69)** — Tasarım Krizi Müdahalesi (halka büyük + ikon mücevher gibi küçük):
   - Halka pedestal 108→**116px** (`CONTAINER + 86`), ferah geniş halka geri döndü.
   - İkon crop `CONTAINER: 44 → 30` (=%30 daha küçük), padding = 43px HER YÖN — ikon halka içinde ~üçte bir kaplıyor, dev boşluk kaldı.

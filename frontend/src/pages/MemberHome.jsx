@@ -57,14 +57,12 @@ const SPRITE_CELLS = {
 
 function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
   const { col, row } = SPRITE_CELLS[spriteKey];
-  // v69 — Kriz müdahalesi: halka önceki ferah boyutuna GERİ, ikonlar
-  // içerde küçük mücevher gibi. Pedestal 116px sabit, crop 30px (=%30
-  // daha küçük ikon), padding (116-30)/2 = 43px HER YÖN ≈ ikon halkanın
-  // yaklaşık üçte birini kaplıyor, geri kalan hepsi ferah boşluk.
-  const CELL = 100;                        // native sprite cell
-  const CONTAINER = 30;                    // v69 — 44→30 (=%30 daha küçük ikon)
-  const xShift = (CELL - CONTAINER) / 2;   // 35 — tam yatay ortalanmış
-  const yShift = 30;                       // v69 — dikey merkezleme (icon body ~y=45)
+  // v70 — SADELİK: halka/parlama/gradient hepsi kaldırıldı. Sprite crop
+  // orijinal 62px, sadece hafif siyah drop-shadow altlık.
+  const CELL = 100;
+  const CONTAINER = 62;
+  const xShift = (CELL - CONTAINER) / 2;   // 19
+  const yShift = 6;                        // orijinal ferah offset
   return (
     <button
       type="button"
@@ -84,55 +82,26 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
     >
       <div
         aria-hidden="true"
-        className="menu-tile-pedestal"
         style={{
-          width: CONTAINER + 86,   // v69 — pedestal 116px sabit → ~43px padding her yön
-          height: CONTAINER + 86,
+          width: CONTAINER,
+          height: CONTAINER,
           overflow: "visible",
           position: "relative",
           display: "flex",
-          alignItems: "center",     // dead-center vertical
-          justifyContent: "center", // dead-center horizontal
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
-        {/* v65 — Circular floating glass pedestal (yüzen cam altlık).
-            v68 — CANLI ALTIN halka geri getirildi. Sert değil ama parlak
-            altın halo baskın; violet echo destekleyici. Border altın
-            hairline eski canlılığında. */}
+        {/* v70 — Sadelik: halka/gradient/glow YOK.
+            Sadece çok hafif siyah-şeffaf dairesel drop shadow arka planda
+            ikonu belli etsin. */}
         <div
           style={{
             position: "absolute",
             inset: 0,
             borderRadius: "50%",
-            background:
-              "radial-gradient(circle at 32% 28%, rgba(168,85,247,0.28) 0%, rgba(20,10,30,0.55) 45%, rgba(8,4,14,0.75) 100%)",
-            border: "1px solid rgba(212,175,55,0.55)",
-            boxShadow:
-              // Deep base ground shadow
-              "0 10px 26px -8px rgba(0,0,0,0.85), " +
-              // Vibrant close-in GOLD halo (canlı altın parlama)
-              "0 0 22px -2px rgba(212,175,55,0.55), " +
-              // Mid-range violet echo
-              "0 0 32px -6px rgba(147,51,234,0.38), " +
-              // Wide outer gold aura (still soft/blended)
-              "0 0 56px -14px rgba(245,208,106,0.35), " +
-              // Inner rim highlight + bottom shadow
-              "inset 0 1px 0 rgba(255,220,150,0.28), " +
-              "inset 0 -6px 16px rgba(0,0,0,0.55)",
-          }}
-        />
-        {/* Inner glass hi-light */}
-        <div
-          style={{
-            position: "absolute",
-            top: 6,
-            left: 12,
-            right: 12,
-            height: "36%",
-            borderRadius: "50%",
-            background: "linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0) 80%)",
+            background: "radial-gradient(circle, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 70%)",
             pointerEvents: "none",
-            filter: "blur(1.8px)",
           }}
         />
         <div
@@ -149,18 +118,15 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
           }}
         >
           {spriteKey === "uyeler" ? (
-            // v68 — Warband: üçlü savaşçı silueti. Karanlık atmosfer +
-            // altın rim lighting. Ortadaki savaşçı ön planda kılıcını
-            // kaldırmış, yanlardaki iki savaşçı arka planda (opacity 0.72)
-            // mızraklarıyla. Diğer sprite ikonlarla aynı drop-shadow.
+            // v70 — Warband trio inline SVG. Diğer sprite ikonlarla
+            // birebir aynı boyutta (CONTAINER=62).
             <svg
               viewBox="0 0 100 100"
-              width={CONTAINER + 8}
-              height={CONTAINER + 8}
+              width={CONTAINER}
+              height={CONTAINER}
               xmlns="http://www.w3.org/2000/svg"
               style={{
-                filter:
-                  "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(212,175,55,0.55)) drop-shadow(0 0 6px rgba(245,208,106,0.45))",
+                filter: "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(249,115,22,0.4))",
                 opacity: locked ? 0.65 : 1,
               }}
               data-testid="uyeler-warband-trio"
@@ -177,60 +143,32 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
                   <stop offset="70%" stopColor="#C08820" />
                   <stop offset="100%" stopColor="#7A4E10" />
                 </linearGradient>
-                <radialGradient id="warriorFloor" cx="0.5" cy="0.9" r="0.55">
-                  <stop offset="0%" stopColor="rgba(212,175,55,0.35)" />
-                  <stop offset="100%" stopColor="rgba(212,175,55,0)" />
-                </radialGradient>
               </defs>
-
-              {/* Ground light bloom under the trio */}
-              <ellipse cx="50" cy="88" rx="34" ry="6" fill="url(#warriorFloor)" />
-
-              {/* LEFT warrior (background) */}
+              {/* LEFT warrior */}
               <g opacity="0.72">
-                {/* Spear */}
                 <line x1="18" y1="10" x2="18" y2="60" stroke="url(#warriorRim)" strokeWidth="1.8" strokeLinecap="round" />
-                <path d="M 15 8 L 18 3 L 21 8 L 18 14 Z" fill="url(#warriorRim)" stroke="#5A3708" strokeWidth="0.4" />
-                {/* Body/cloak */}
-                <path d="M 20 44 Q 24 32 30 32 Q 36 32 40 44 L 39 82 Q 30 86 21 82 Z"
-                  fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1" />
-                {/* Head + helmet with tiny plume */}
-                <path d="M 24 24 Q 24 16 30 16 Q 36 16 36 24 L 36 32 Q 30 34 24 32 Z"
-                  fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1" />
+                <path d="M 15 8 L 18 3 L 21 8 L 18 14 Z" fill="url(#warriorRim)" />
+                <path d="M 20 44 Q 24 32 30 32 Q 36 32 40 44 L 39 82 Q 30 86 21 82 Z" fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1" />
+                <path d="M 24 24 Q 24 16 30 16 Q 36 16 36 24 L 36 32 Q 30 34 24 32 Z" fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1" />
                 <path d="M 28 14 Q 30 8 32 14 L 31 18 Q 30 16 29 18 Z" fill="url(#warriorRim)" />
               </g>
-
-              {/* RIGHT warrior (background) */}
+              {/* RIGHT warrior */}
               <g opacity="0.72">
                 <line x1="82" y1="10" x2="82" y2="60" stroke="url(#warriorRim)" strokeWidth="1.8" strokeLinecap="round" />
-                <path d="M 79 8 L 82 3 L 85 8 L 82 14 Z" fill="url(#warriorRim)" stroke="#5A3708" strokeWidth="0.4" />
-                <path d="M 60 44 Q 64 32 70 32 Q 76 32 80 44 L 79 82 Q 70 86 61 82 Z"
-                  fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1" />
-                <path d="M 64 24 Q 64 16 70 16 Q 76 16 76 24 L 76 32 Q 70 34 64 32 Z"
-                  fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1" />
+                <path d="M 79 8 L 82 3 L 85 8 L 82 14 Z" fill="url(#warriorRim)" />
+                <path d="M 60 44 Q 64 32 70 32 Q 76 32 80 44 L 79 82 Q 70 86 61 82 Z" fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1" />
+                <path d="M 64 24 Q 64 16 70 16 Q 76 16 76 24 L 76 32 Q 70 34 64 32 Z" fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1" />
                 <path d="M 68 14 Q 70 8 72 14 L 71 18 Q 70 16 69 18 Z" fill="url(#warriorRim)" />
               </g>
-
-              {/* CENTER warrior (foreground, taller, sword raised) */}
+              {/* CENTER warrior */}
               <g>
-                {/* Raised sword blade */}
-                <path d="M 49 6 L 51 6 L 52 44 L 48 44 Z" fill="url(#warriorRim)" stroke="#5A3708" strokeWidth="0.5" />
-                {/* Sword crossguard */}
-                <rect x="42" y="43" width="16" height="3" fill="url(#warriorRim)" stroke="#5A3708" strokeWidth="0.5" />
-                {/* Sword pommel */}
-                <circle cx="50" cy="49" r="2.4" fill="url(#warriorRim)" stroke="#5A3708" strokeWidth="0.5" />
-                {/* Body/cloak */}
-                <path d="M 36 48 Q 42 34 50 34 Q 58 34 64 48 L 63 90 Q 50 94 37 90 Z"
-                  fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1.4" />
-                {/* Head with taller crested helmet */}
-                <path d="M 42 28 Q 42 18 50 18 Q 58 18 58 28 L 58 36 Q 50 39 42 36 Z"
-                  fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1.4" />
-                {/* Helmet crest */}
-                <path d="M 46 16 Q 50 6 54 16 L 53 22 Q 50 18 47 22 Z" fill="url(#warriorRim)" stroke="#5A3708" strokeWidth="0.4" />
-                {/* Eye slit */}
+                <path d="M 49 6 L 51 6 L 52 44 L 48 44 Z" fill="url(#warriorRim)" />
+                <rect x="42" y="43" width="16" height="3" fill="url(#warriorRim)" />
+                <circle cx="50" cy="49" r="2.4" fill="url(#warriorRim)" />
+                <path d="M 36 48 Q 42 34 50 34 Q 58 34 64 48 L 63 90 Q 50 94 37 90 Z" fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1.4" />
+                <path d="M 42 28 Q 42 18 50 18 Q 58 18 58 28 L 58 36 Q 50 39 42 36 Z" fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1.4" />
+                <path d="M 46 16 Q 50 6 54 16 L 53 22 Q 50 18 47 22 Z" fill="url(#warriorRim)" />
                 <rect x="46" y="27" width="8" height="1.6" fill="#08030A" />
-                {/* Shoulder highlight rim */}
-                <path d="M 37 50 Q 44 44 50 44" stroke="url(#warriorRim)" strokeWidth="1" fill="none" opacity="0.85" />
               </g>
             </svg>
           ) : (
@@ -239,8 +177,8 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
               alt=""
               style={{
                 position: "absolute",
-                width: CELL * 2,   // 2 columns
-                height: CELL * 3,  // 3 rows
+                width: CELL * 2,
+                height: CELL * 3,
                 left: -(col * CELL + xShift),
                 top: -(row * CELL + yShift),
                 maxWidth: "none",
