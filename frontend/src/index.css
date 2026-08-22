@@ -1789,3 +1789,66 @@ button[aria-pressed="true"] > .tab-text {
     transform: translateY(-1px);
 }
 
+
+
+/* ============================================================
+   v58 — "Profesyonel Elit" tasarım paketi
+   1. Readability overlay: fixed dark layer above the body stone
+      pattern so page content reads crisply while the texture
+      still peeks through (roughly 55% dimming).
+   2. Modal Z-Index Mühürlemesi: Radix Dialog / AlertDialog /
+      Sheet overlay + content forced above the header slot
+      (which sits at zIndex:100) so no modal ever slips behind
+      the sticky header, breadcrumb, or notification bell.
+   ============================================================ */
+
+/* 1) Global readability overlay — sits between the body stone
+      texture and the app-shell. `pointer-events:none` keeps it
+      inert; z-index 0 places it below the app-shell (which is
+      the natural stacking context for #titanxis-header-slot and
+      #titanxis-scroll). Uses a soft radial vignette so the
+      centre is a touch lighter than the edges — reads as a
+      cinematic frame rather than a flat wash. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse at center, rgba(10,8,6,0.42) 0%, rgba(6,4,3,0.62) 55%, rgba(3,2,2,0.78) 100%);
+}
+.light-mode body::before {
+  background:
+    radial-gradient(ellipse at center, rgba(255,255,255,0.30) 0%, rgba(240,240,240,0.55) 55%, rgba(220,220,220,0.72) 100%);
+}
+/* Ensure the app-shell paints on top of the overlay */
+.app-shell { position: relative; z-index: 1; }
+
+/* 2) Modal Z-Index Mühürlemesi — Radix uses portals rendered to
+      document.body, so we can target their default classes and
+      data-* attributes without breaking other UI. The header
+      slot sits at zIndex:100 (see Layout.jsx). We push overlay
+      to 999996 and content to 999997 so nothing slips behind. */
+[data-radix-dialog-overlay],
+[data-radix-alert-dialog-overlay],
+[data-radix-popper-content-wrapper] > [role="dialog"] ~ *,
+.radix-dialog-overlay {
+  z-index: 999996 !important;
+}
+[data-radix-dialog-content],
+[data-radix-alert-dialog-content],
+[role="dialog"][data-state="open"],
+[role="alertdialog"][data-state="open"] {
+  z-index: 999997 !important;
+}
+/* Tailwind `z-50` used by our shadcn dialog / sheet / alert-dialog
+   primitives — force-lift them above the header slot. */
+.fixed.inset-0.z-50,
+.fixed.z-50 {
+  z-index: 999996 !important;
+}
+/* Content variant (positioned dialog panels) */
+.fixed.left-\[50\%\].top-\[50\%\].z-50 {
+  z-index: 999997 !important;
+}

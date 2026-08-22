@@ -97,7 +97,16 @@ export default function Header({ title, children }) {
             data-testid="header-brand-logo"
             onClick={() => setLogoVideoOpen(true)}
             className="header-brand-logo cursor-pointer flex-shrink-0"
-            style={{ height: "auto", maxHeight: 72, width: "auto", maxWidth: "min(60vw, 320px)", objectFit: "contain", objectPosition: "left center", borderRadius: 6 }}
+            style={{
+              height: "auto",
+              maxHeight: 96,
+              width: "100%",
+              maxWidth: "min(78vw, 460px)",
+              objectFit: "contain",
+              objectPosition: "left center",
+              borderRadius: 6,
+              filter: "drop-shadow(0 0 6px rgba(147,51,234,0.35)) drop-shadow(0 2px 4px rgba(0,0,0,0.55))",
+            }}
           />
         </div>
 

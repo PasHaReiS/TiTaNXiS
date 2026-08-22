@@ -21,6 +21,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v59)** — "Profesyonel Elit" tasarım paketi:
+  - **Header logo**: Yatay + geniş (`maxHeight: 96px`, `maxWidth: min(78vw, 460px)`, `width:100%`) — çan ikonuna doğru uzatıldı, mor drop-shadow eklendi.
+  - **Header alt bordü**: `#titanxis-header-slot` altında ince parlayan mor hairline (gradient border-image + box-shadow glow).
+  - **Etkinlik Grup Aksiyon Çubuğu** (`Events.jsx > renderGroupBlock`): Grup adı + İsim Değiştir/Arşiv/Sil butonları sarılan flex row artık doygun charcoal→navy→purple gradient kutu (`border: gold hairline`, `inset gold sheen`, `outer glow`). Grup başlığı `h3` gümüş→altın vertical gradient text-fill.
+  - **Okunabilirlik Overlay**: `body::before` — fixed inset-0, pointer-events none, `z-index:0` — radyal vinyet (`rgba(10,8,6,0.42) → 0.78`) taş desenini bastırıyor ama tamamen örtmüyor. Light-mode karşılığı da var. `.app-shell` z-index:1'e çıkarıldı.
+  - **Modal Z-Index Mühürlemesi**: Radix Dialog/AlertDialog/Sheet overlay+content ve tailwind `z-50` selector'ları `!important` ile 999996/999997'ye zorlandı — header slot (zIndex:100) artık asla modalların üzerinde kalamaz.
+  - Testler: Frontend compiled with warnings (only existing eslint warn), preview loaded OK.
 - **Feb 21, 2026 (v58)**: **KRİTİK DÜZELTME**: `/reports/events/{id}/attendance` ve `/events/{id}/attendance` endpoint'leri artık `event.alliance_scope`'a göre members'ı filtreliyor. Case-insensitive regex match (`GOW/gow/Gow` hepsi). Response'a `total_scoped_members` / `scoped_total_members` alanları eklendi → frontend "X/N" ratio'yu doğru toplamla hesaplar, 255 yerine 102 (sadece GOW) gösterir. Kanıt: totalDB=255, gowCount=158, filter sonrası items=102 (case-insensitive önce 102 ile eşleşti), scope=GOW, first3=[GOW,GOW,GOW], leak=0. Frontend'de değişiklik yok — asıl veri kaynağı düzeltildi.
 - **Feb 21, 2026 (v57)**: Görsel derinlik: podium metallic, zebra deeper, sidebar cards solid (no backdrop), event cards opak gradient.
 - **Feb 21, 2026 (v56)**: Mistik Karargâh — zebra + GOW neon + charcoal/gold section titles.

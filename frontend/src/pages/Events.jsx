@@ -747,7 +747,21 @@ export default function Events() {
     const gc = groupColor(group);
     return (
       <div key={group} className="mb-5" data-testid={`event-group-block-${group}`}>
-        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+        <div
+          className="flex items-center justify-between mb-2 gap-2 flex-wrap"
+          data-testid={`event-group-action-bar-${group}`}
+          style={{
+            /* v58 — Saturated metallic action bar. Deep charcoal → navy
+               gradient with a violet inner sheen and a thin gold hairline
+               so the group title + rename/archive/delete controls read as
+               a distinct command strip instead of floating text. */
+            background: "linear-gradient(90deg, #1B0F26 0%, #241436 40%, #1A102B 70%, #10091C 100%)",
+            borderRadius: 8,
+            border: "1px solid rgba(212,175,55,0.35)",
+            boxShadow: "inset 0 1px 0 rgba(255,220,150,0.10), 0 2px 10px rgba(0,0,0,0.55), 0 0 0 1px rgba(147,51,234,0.18)",
+            padding: "8px 12px",
+          }}
+        >
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <span
               data-testid={`event-group-dot-${group}`}
@@ -767,9 +781,37 @@ export default function Events() {
                 style={{ background: "#1A1210", color: "#F5F0E8", border: `1px solid ${gc}88`, minWidth: 120 }}
               />
             ) : (
-              <h3 className="text-sm font-bold uppercase tracking-wider truncate" style={{ color: gc, textShadow: `0 0 6px ${gc}55` }}>{group}</h3>
+              <h3
+                className="text-sm font-bold uppercase tracking-wider truncate"
+                style={{
+                  /* v58 — Group title now uses a silver → antique-gold
+                     vertical gradient with a matching group-tint glow so it
+                     stays legible on the new saturated bar while still
+                     nodding to the group's assigned colour. */
+                  background: "linear-gradient(180deg, #F5E7A8 0%, #D4AF37 50%, #A87B1A 100%)",
+                  WebkitBackgroundClip: "text",
+                  backgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  color: "transparent",
+                  textShadow: `0 0 8px ${gc}55, 0 1px 0 rgba(0,0,0,0.55)`,
+                  letterSpacing: "0.14em",
+                  fontFamily: "'Cinzel', 'Rajdhani', serif",
+                }}
+              >
+                {group}
+              </h3>
             )}
-            <span className="chip" style={{ borderColor: `${gc}55`, color: gc }}>{list.length}</span>
+            <span
+              className="chip"
+              style={{
+                borderColor: "rgba(212,175,55,0.55)",
+                color: "#F5E7A8",
+                background: "linear-gradient(180deg, rgba(212,175,55,0.18), rgba(147,51,234,0.14))",
+                boxShadow: "inset 0 0 6px rgba(212,175,55,0.20)",
+              }}
+            >
+              {list.length}
+            </span>
           </div>
           <CanEdit>
             <div className="flex items-center gap-1 flex-shrink-0">

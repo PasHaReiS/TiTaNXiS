@@ -1443,7 +1443,7 @@ async def leaderboard(
         # resolve to the same clan roster.
         import re as _re_clan
         alliance_val = (alliance or "GOW").strip()
-        member_query["alliance_name"] = {"$regex": f"^{_re_clan.escape(alliance_val)}$", "$options": "i"}
+        member_query["alliance_name"] = alliance_val
     # member_scope="global" or missing → no extra filter
     members = await db.members.find(member_query, {"_id": 0}).to_list(len(member_ids)) if member_ids else []
     m_by_id = {m["id"]: m for m in members}
@@ -6308,7 +6308,6 @@ async def _filter_rsvps_by_current_alliance(rows: list, event_scope: Optional[st
     scope = (event_scope or "").strip()
     if not scope or scope.lower() == "all":
         return rows
-    scope_upper = scope.upper()
     uids = [r.get("user_id") for r in rows if r.get("user_id")]
     if not uids:
         return []
@@ -6344,14 +6343,15 @@ async def _filter_rsvps_by_current_alliance(rows: list, event_scope: Optional[st
         {"id": {"$in": list(all_mids)}},
         {"_id": 0, "id": 1, "alliance_name": 1},
     ).to_list(5000)
+    # v61 — case-preserved comparison. `GOW`, `GoW`, `gow` are distinct.
     alliance_by_mid = {
-        d["id"]: (d.get("alliance_name") or "").strip().upper()
+        d["id"]: (d.get("alliance_name") or "").strip()
         for d in docs
     }
     allowed: set = set()
     for uid, mids in per_uid_mids.items():
         for mid in mids:
-            if alliance_by_mid.get(mid) == scope_upper:
+            if alliance_by_mid.get(mid) == scope:
                 allowed.add(uid)
                 break
     return [r for r in rows if r.get("user_id") in allowed]
@@ -6483,9 +6483,9 @@ async def event_attendance_list(event_id: str):
     docs = await db.event_attendance.find({"event_id": event_id}, {"_id": 0}).to_list(5000)
     member_ids = [d["member_id"] for d in docs]
     if scope and scope.lower() != "all" and member_ids:
-        import re as _re
+        # v61 — case-sensitive alliance match (GOW ≠ GoW ≠ gow).
         matched = await db.members.find(
-            {"id": {"$in": member_ids}, "alliance_name": {"$regex": f"^{_re.escape(scope)}$", "$options": "i"}},
+            {"id": {"$in": member_ids}, "alliance_name": scope},
             {"_id": 0, "id": 1},
         ).to_list(5000)
         allowed = {m["id"] for m in matched}
@@ -6493,10 +6493,7 @@ async def event_attendance_list(event_id: str):
     if not scope or scope.lower() == "all":
         scoped_total = await db.members.count_documents({})
     else:
-        import re as _re2
-        scoped_total = await db.members.count_documents(
-            {"alliance_name": {"$regex": f"^{_re2.escape(scope)}$", "$options": "i"}}
-        )
+        scoped_total = await db.members.count_documents({"alliance_name": scope})
     return {
         "event_id": event_id,
         "count": len(member_ids),
@@ -6612,7 +6609,8 @@ async def reports_members(
 
     member_query: dict = {}
     if alliance:
-        member_query["alliance_name"] = {"$regex": f"^{__import__('re').escape(alliance)}$", "$options": "i"}
+        # v61 — case-sensitive: `GOW` ≠ `GoW` ≠ `gow`.
+        member_query["alliance_name"] = alliance
     if country:
         member_query["country"] = country.strip().upper()
     members = await db.members.find(member_query, {"_id": 0, "id": 1, "name": 1, "country": 1,
@@ -6677,7 +6675,8 @@ async def reports_trend(
 
     member_query: dict = {}
     if alliance:
-        member_query["alliance_name"] = {"$regex": f"^{__import__('re').escape(alliance)}$", "$options": "i"}
+        # v61 — case-sensitive.
+        member_query["alliance_name"] = alliance
     if country:
         member_query["country"] = country.strip().upper()
     member_ids = [m["id"] for m in await db.members.find(member_query, {"_id": 0, "id": 1}).to_list(20000)]
@@ -7489,19 +7488,17 @@ async def reports_events(period: str = "all", user: dict = Depends(require_admin
     if not events:
         return {"period": period, "items": [], "member_pool": 0}
     # v60 — per-event member pool now respects each event's alliance_scope.
-    # Case-insensitive alliance name match; `all` scope counts every member.
-    import re as _re
+    # v61 — case-SENSITIVE match: `GOW`, `GoW`, `gow` are DISTINCT alliances.
     scope_counts: dict = {}
     async def _pool_for_scope(scope: str) -> int:
         s = (scope or "GOW").strip()
-        key = s.lower()
-        if key in scope_counts:
-            return scope_counts[key]
-        if not s or key == "all":
+        if s in scope_counts:
+            return scope_counts[s]
+        if not s or s.lower() == "all":
             n = await db.members.count_documents({})
         else:
-            n = await db.members.count_documents({"alliance_name": {"$regex": f"^{_re.escape(s)}$", "$options": "i"}})
-        scope_counts[key] = n
+            n = await db.members.count_documents({"alliance_name": s})
+        scope_counts[s] = n
         return n
     default_pool = await _pool_for_scope("GOW")
     ev_ids = [e["id"] for e in events]
@@ -7559,9 +7556,8 @@ async def reports_event_attendance_detail(event_id: str, user: dict = Depends(re
     scope = (ev.get("alliance_scope") or "GOW").strip()
     mfilter: dict = {}
     if scope and scope.lower() != "all":
-        # Case-insensitive exact match — DB may hold "GOW", "gow", "Gow" mixed.
-        import re as _re
-        mfilter["alliance_name"] = {"$regex": f"^{_re.escape(scope)}$", "$options": "i"}
+        # v61 — case-SENSITIVE exact match. `GOW`, `GoW`, `gow` are distinct.
+        mfilter["alliance_name"] = scope
     members = await db.members.find(mfilter, {"_id": 0, "id": 1, "name": 1,
                                               "country": 1, "alliance_name": 1,
                                               "rank": 1}).sort("name", 1).to_list(20000)

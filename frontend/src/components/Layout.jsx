@@ -26,10 +26,14 @@ export default function Layout({ children }) {
           flexShrink: 0,
           position: "relative",
           zIndex: 100,
-          // Fully transparent per user request (v48). No bg, no blur, no border,
-          // no shadow — scrolled content shows through cleanly behind the
-          // header. Only the icons/text/buttons inside are visible.
           background: "transparent",
+          // v58 — Thin glowing violet hairline below the header. Uses a
+          // pseudo-element via inline shadow: a 1px bottom border rendered
+          // as a linear-gradient background plus a soft outer glow. Kept
+          // ultra-thin (1px) so it reads as a jewel accent, not a heavy bar.
+          borderBottom: "1px solid transparent",
+          borderImage: "linear-gradient(90deg, transparent 0%, rgba(147,51,234,0.55) 20%, rgba(168,85,247,0.95) 50%, rgba(147,51,234,0.55) 80%, transparent 100%) 1",
+          boxShadow: "0 1px 0 0 rgba(147,51,234,0.35), 0 2px 12px -2px rgba(147,51,234,0.45)",
         }}
       />
       <div
