@@ -80,30 +80,73 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
     >
       <div
         aria-hidden="true"
+        className="menu-tile-pedestal"
         style={{
-          width: CONTAINER,
-          height: CONTAINER,
-          overflow: "hidden",
-          borderRadius: 6,
+          width: CONTAINER + 18,
+          height: CONTAINER + 18,
+          overflow: "visible",
           position: "relative",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
-        <img
-          src={ICON_SPRITE_URL}
-          alt=""
+        {/* v65 — Circular floating glass pedestal (yüzen cam altlık).
+            Replaces the hard black square. Layered: outer neon glow ring,
+            radial glass fill, inner rim highlight, drop shadow. */}
+        <div
           style={{
             position: "absolute",
-            width: CELL * 2,   // 2 columns
-            height: CELL * 3,  // 3 rows
-            left: -(col * CELL + xShift),
-            top: -(row * CELL + yShift),
-            maxWidth: "none",
-            display: "block",
-            mixBlendMode: "screen",
-            filter: "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(249,115,22,0.4))",
-            opacity: locked ? 0.65 : 1,
+            inset: 0,
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle at 32% 28%, rgba(168,85,247,0.28) 0%, rgba(20,10,30,0.55) 45%, rgba(8,4,14,0.75) 100%)",
+            border: "1px solid rgba(212,175,55,0.35)",
+            boxShadow:
+              "0 8px 22px -6px rgba(0,0,0,0.85), 0 0 22px -2px rgba(147,51,234,0.35), inset 0 1px 0 rgba(255,220,150,0.22), inset 0 -6px 14px rgba(0,0,0,0.55)",
           }}
         />
+        {/* Inner glass hi-light */}
+        <div
+          style={{
+            position: "absolute",
+            top: 4,
+            left: 8,
+            right: 8,
+            height: "38%",
+            borderRadius: "50%",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0) 80%)",
+            pointerEvents: "none",
+            filter: "blur(1.5px)",
+          }}
+        />
+        <div
+          style={{
+            width: CONTAINER,
+            height: CONTAINER,
+            overflow: "hidden",
+            borderRadius: "50%",
+            position: "relative",
+            zIndex: 1,
+          }}
+        >
+          <img
+            src={ICON_SPRITE_URL}
+            alt=""
+            style={{
+              position: "absolute",
+              width: CELL * 2,   // 2 columns
+              height: CELL * 3,  // 3 rows
+              left: -(col * CELL + xShift),
+              top: -(row * CELL + yShift),
+              maxWidth: "none",
+              display: "block",
+              mixBlendMode: "screen",
+              filter: "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(249,115,22,0.4))",
+              opacity: locked ? 0.65 : 1,
+            }}
+          />
+        </div>
       </div>
       {locked && (
         <span

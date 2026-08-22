@@ -177,31 +177,91 @@ code, .mono {
    ============================================================ */
 .rank-row {
   position: relative;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border-radius: 10px;
+  border: 1px solid rgba(212,175,55,0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   color: #F5F0E8;
   font-feature-settings: "kern" 1, "liga" 1;
   -webkit-font-smoothing: subpixel-antialiased;
   text-rendering: geometricPrecision;
+  /* v65 — "Player Dashboard" evrimi: angled clip-path on the top-right +
+     bottom-left corners so rows read as beveled metal plates. Metallic
+     hairline sheen on top via a pseudo-element, deeper shadow beneath. */
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  box-shadow:
+    0 2px 8px rgba(0,0,0,0.55),
+    inset 0 1px 0 rgba(255,220,150,0.10),
+    inset 0 -1px 0 rgba(0,0,0,0.35);
+}
+.rank-row::before {
+  content: "";
+  position: absolute;
+  left: 14px; right: 14px; top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212,175,55,0.55), transparent);
+  pointer-events: none;
 }
 /* Zebra background: odd = deep violet, even = midnight navy.
-   v57 — Deeper, more saturated tones (~55% alpha up from 34%) so the
-   rows read as premium metal panels instead of a weak wash. */
+   v57 — Deeper, more saturated tones so rows read as premium metal panels.
+   v65 — Amplified via extra inner sheen (top-white → shadow-black). */
 .rank-row:nth-child(odd) {
-  background: linear-gradient(135deg, rgba(46,16,101,0.72) 0%, rgba(30,10,66,0.68) 100%);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 25%),
+    linear-gradient(135deg, rgba(46,16,101,0.82) 0%, rgba(30,10,66,0.78) 100%);
 }
 .rank-row:nth-child(even) {
-  background: linear-gradient(135deg, rgba(15,23,80,0.72) 0%, rgba(9,14,55,0.68) 100%);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 25%),
+    linear-gradient(135deg, rgba(15,23,80,0.82) 0%, rgba(9,14,55,0.78) 100%);
 }
-/* Bolder separators (was 10% → 24%) with a subtle gold hint so rows feel
-   framed rather than floating. */
 .rank-row + .rank-row {
+  margin-top: 6px;
   border-top: 1px solid rgba(229,184,75,0.24);
 }
 .rank-row:hover {
-  box-shadow: 0 0 14px rgba(168,85,247,0.55), inset 0 0 14px rgba(139,92,246,0.15);
+  border-color: rgba(212,175,55,0.55);
+  box-shadow:
+    0 0 18px rgba(168,85,247,0.55),
+    0 2px 12px rgba(0,0,0,0.65),
+    inset 0 0 14px rgba(139,92,246,0.20),
+    inset 0 1px 0 rgba(255,220,150,0.25);
   transform: translateY(-1px);
+}
+
+/* v65 — Top-3 podium ihtişamı: gold / silver / bronze metalik satırlar.
+   Applied via class `rank-row-top-1|2|3` on the row wrapper. */
+.rank-row-top-1 {
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(255,244,180,0.35) 0%, transparent 55%),
+    linear-gradient(135deg, #3D2A08 0%, #6B4A0F 45%, #2E1E05 100%) !important;
+  border-color: #D4AF37 !important;
+  box-shadow:
+    0 0 24px rgba(212,175,55,0.55),
+    0 2px 10px rgba(0,0,0,0.70),
+    inset 0 1px 0 rgba(255,244,180,0.55),
+    inset 0 0 22px rgba(212,175,55,0.20) !important;
+}
+.rank-row-top-2 {
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(230,230,240,0.28) 0%, transparent 55%),
+    linear-gradient(135deg, #2C2C33 0%, #4A4A55 45%, #1F1F26 100%) !important;
+  border-color: #C0C6D0 !important;
+  box-shadow:
+    0 0 20px rgba(192,198,208,0.45),
+    0 2px 10px rgba(0,0,0,0.70),
+    inset 0 1px 0 rgba(240,244,255,0.45),
+    inset 0 0 18px rgba(192,198,208,0.18) !important;
+}
+.rank-row-top-3 {
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(255,200,140,0.30) 0%, transparent 55%),
+    linear-gradient(135deg, #3A1E0A 0%, #5C3010 45%, #22110A 100%) !important;
+  border-color: #B87333 !important;
+  box-shadow:
+    0 0 20px rgba(184,115,51,0.50),
+    0 2px 10px rgba(0,0,0,0.70),
+    inset 0 1px 0 rgba(255,200,140,0.45),
+    inset 0 0 18px rgba(184,115,51,0.20) !important;
 }
 
 /* Neon-blue glow bar on the LEFT of any GOW alliance chip. Uses
@@ -296,21 +356,41 @@ code, .mono {
 .red-gold-gradient { background: linear-gradient(135deg, #C0392B 0%, #E74C1A 55%, #D4730A 100%); color: #F5F0E8; }
 
 .card-dark {
-    background: linear-gradient(180deg, #1E1410 0%, #251810 100%);
-    border: 1px solid rgba(231, 76, 26, 0.22);
+    /* v65 — High-End UI: dokulu, katmanlı arka plan. Diagonal metal sheen +
+       inner rim highlight + gold hairline vignette. Basit siyah kutu artık
+       değil — "yüzen metal panel" hissi verir. */
+    background:
+      radial-gradient(ellipse at 15% 0%, rgba(212,175,55,0.10) 0%, transparent 55%),
+      linear-gradient(180deg, #1E1410 0%, #251810 100%);
+    border: 1px solid rgba(231, 76, 26, 0.28);
     border-left: 3px solid #E74C1A;
     border-radius: 12px;
-    box-shadow: 0 0 8px rgba(231, 76, 26, 0.35), inset 0 0 6px rgba(200, 50, 0, 0.1);
+    box-shadow:
+      0 8px 22px -6px rgba(0,0,0,0.75),
+      0 0 12px rgba(231, 76, 26, 0.30),
+      inset 0 1px 0 rgba(255,220,150,0.10),
+      inset 0 -1px 0 rgba(0,0,0,0.40),
+      inset 0 0 8px rgba(200, 50, 0, 0.10);
 }
 .light-mode .card-dark { background: #ffffff; border: 1px solid rgba(0,0,0,0.08); box-shadow: none; }
 
 .card-red-gold {
-    background: linear-gradient(135deg, #1E1410 0%, #2A1408 60%, #180B08 100%);
+    /* v65 — Dokulu profesyonel kartuş: linear diagonal metal + üstte hafif
+       gold sheen. Border artık gradient (::before) yerine daha derin bir
+       katman + iç sheen. Basit şeffaf kutu değil. */
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(245,215,120,0.14) 0%, transparent 60%),
+      linear-gradient(135deg, #1E1410 0%, #2A1408 60%, #180B08 100%);
     border: 1px solid transparent;
     background-clip: padding-box;
     position: relative;
     border-radius: 12px;
-    box-shadow: 0 0 12px rgba(231, 76, 26, 0.35), inset 0 0 6px rgba(200, 50, 0, 0.15);
+    box-shadow:
+      0 10px 26px -8px rgba(0,0,0,0.80),
+      0 0 14px rgba(231, 76, 26, 0.35),
+      inset 0 1px 0 rgba(255,220,150,0.14),
+      inset 0 -1px 0 rgba(0,0,0,0.45),
+      inset 0 0 8px rgba(200, 50, 0, 0.15);
 }
 .card-red-gold::before {
     content: '';

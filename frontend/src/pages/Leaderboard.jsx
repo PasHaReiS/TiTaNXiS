@@ -1236,12 +1236,12 @@ export default function Leaderboard() {
             const s = debSearch.trim().toLowerCase();
             const list = s ? rest.filter((r) => (r.name || "").toLowerCase().includes(s) || String(r.member_id || "").toLowerCase().includes(s)) : rest;
             return list;
-          })().map((r) => (
+          })().map((r, idx) => (
             <button
               key={r.member_id}
               data-testid={LEADERBOARD.row(r.member_id)}
               onClick={() => setProfileId(r.member_id)}
-              className="w-full rank-row flex items-center gap-3 text-left"
+              className={`w-full rank-row flex items-center gap-3 text-left${r.position === 1 ? " rank-row-top-1" : r.position === 2 ? " rank-row-top-2" : r.position === 3 ? " rank-row-top-3" : ""}`}
               style={{ padding: "7px 12px", minHeight: 44 }}
             >
               <div className="w-8 text-center">
