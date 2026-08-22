@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { api, fmt } from "@/lib/api";
 import { POINTS } from "@/constants/testIds";
 import Header from "@/components/Header";
@@ -7,8 +7,10 @@ import CanEdit from "@/components/CanEdit";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
 import { Search, Trash2, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
-import { mutate as globalMutate } from "swr";
 import { useTranslation } from "react-i18next";
+// v63 — Alliance chip with academy overlay support (GoW/GOw automatically
+// paint themselves in academy sky-blue palette).
+import { allianceBadgeStyle } from "@/lib/colors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -20,6 +22,15 @@ export default function PointsList({ hideHeader = false }) {
   const [profileId, setProfileId] = useState(null);
   const { data: points = [] } = useSWR("/scores?limit=2000", fetcher, { refreshInterval: 5000 });
   const { data: events = [] } = useSWR("/events?archived=false", fetcher);
+  // v63 — Members fetched to enrich each score with the current alliance
+  // (case-sensitive: GOW / GoW / GOw each stay distinct).
+  const { data: members = [] } = useSWR("/members", fetcher, { refreshInterval: 30000 });
+  const { data: allianceColors = {} } = useSWR("/alliance-colors", fetcher, { refreshInterval: 30000 });
+  const allianceByMid = useMemo(() => {
+    const m = {};
+    (members || []).forEach((mm) => { if (mm?.id) m[mm.id] = (mm.alliance_name || "").trim(); });
+    return m;
+  }, [members]);
 
   useEffect(() => {
     const h = setTimeout(() => setQ(rawQ), 300);
@@ -66,6 +77,32 @@ export default function PointsList({ hideHeader = false }) {
               className="card-dark p-3 row-hover cursor-pointer"
             >
               <div className="flex items-start justify-between gap-2">
+                {/* v63 — İttifak sütunu SOLA eklendi: case-sensitive metin (GOW/GoW/GOw).
+                    Renk `allianceBadgeStyle` üzerinden geliyor — academy varyantları
+                    otomatik olarak mavi-cam gradient alır. */}
+                {(() => {
+                  const al = allianceByMid[p.member_id] || "";
+                  if (!al) return null;
+                  return (
+                    <div
+                      data-testid={`pointslist-alliance-${p.id}`}
+                      className="text-[10px] font-bold rounded-md flex items-center justify-center flex-shrink-0"
+                      style={{
+                        ...allianceBadgeStyle(al, allianceColors),
+                        minWidth: 48,
+                        padding: "4px 7px",
+                        letterSpacing: "0.06em",
+                        textTransform: "none",
+                        border: "1px solid",
+                        fontFamily: "Cinzel, Rajdhani, serif",
+                        alignSelf: "center",
+                      }}
+                      title={al}
+                    >
+                      {al}
+                    </div>
+                  );
+                })()}
                 <div className="min-w-0 flex-1">
                   <div className="font-bold text-white text-sm truncate normal-case" style={{ textTransform: "none" }}>{p.member_name}</div>
                   <div className="text-xs text-muted-foreground truncate">

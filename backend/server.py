@@ -1163,6 +1163,8 @@ async def archive_points_export_csv(_: dict = Depends(require_edit)):
         e = ev_by_id.get(p.get("event_id"), {})
         base = int(p.get("points") or 0)
         mult = float(p.get("multiplier") or 1.0)
+        # v63 — Puanlar tr-TR binlik ayraçlı.
+        _tr = lambda n: f"{int(n):,}".replace(",", ".")
         w.writerow([
             p.get("member_name") or m.get("name") or "",
             m.get("member_id") or "",
@@ -1171,8 +1173,8 @@ async def archive_points_export_csv(_: dict = Depends(require_edit)):
             str(e.get("date") or "")[:10],
             e.get("group_name") or "",
             mult,
-            base,
-            int(round(base * mult)),
+            _tr(base),
+            _tr(int(round(base * mult))),
         ])
     return Response(
         content=buf.getvalue(),
@@ -1211,23 +1213,25 @@ async def reports_guild_data_csv(_: dict = Depends(require_edit)):
             row["active"] += final_
     buf = io.StringIO()
     w = csv.writer(buf)
+    # v63 — Rütbe sütunu kaldırıldı, puanlar tr-TR binlik ayraçlı.
     w.writerow([
-        "member_id", "name", "alliance_name", "rank", "country", "power",
+        "member_id", "name", "alliance_name", "country", "power",
         "castle_level", "total_points", "active_points", "archived_points",
         "event_count",
     ])
     members_sorted = sorted(members, key=lambda m: -int(m.get("power") or 0))
     for m in members_sorted:
         t = tally.get(m.get("id"), {"total": 0, "active": 0, "archived": 0, "events": 0})
+        def _tr(n):
+            return f"{int(n):,}".replace(",", ".")
         w.writerow([
             m.get("member_id") or "",
             m.get("name") or "",
             m.get("alliance_name") or "",
-            m.get("rank") or "",
             m.get("country") or "",
             m.get("power") or 0,
             m.get("castle_level") or "",
-            t["total"], t["active"], t["archived"], t["events"],
+            _tr(t["total"]), _tr(t["active"]), _tr(t["archived"]), t["events"],
         ])
     return Response(
         content=buf.getvalue(),
@@ -1517,11 +1521,23 @@ async def multiplier_history():
 @api_router.get("/export/csv")
 async def export_csv():
     lb = await leaderboard()
+    # v63 — Enrich with alliance names for the alliance column; drop `Rütbe`.
+    m_docs = await db.members.find({}, {"_id": 0, "id": 1, "alliance_name": 1}).to_list(10000)
+    alliance_by_id = {m["id"]: (m.get("alliance_name") or "") for m in m_docs}
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Sıra", "İsim", "Rütbe", "Seviye", "Ünvan", "Toplam Puan"])
+    # v63 — İttifak sütunu solda, Rütbe kaldırıldı. Puanlar tr-TR binlik ayraçlı.
+    writer.writerow(["Sıra", "İttifak", "İsim", "Seviye", "Ünvan", "Toplam Puan"])
     for r in lb:
-        writer.writerow([r["position"], r["name"], r["rank"], r.get("level", ""), r.get("title", "") or "", r["total_points"]])
+        pts_str = f"{int(r['total_points']):,}".replace(",", ".")
+        writer.writerow([
+            r["position"],
+            alliance_by_id.get(r.get("member_id"), "") or "",
+            r["name"],
+            r.get("level", ""),
+            r.get("title", "") or "",
+            pts_str,
+        ])
     output.seek(0)
     return StreamingResponse(
         iter([output.getvalue()]),
@@ -1599,18 +1615,23 @@ async def export_xlsx():
         t = t if t not in (None, "") else "-"
         return f"F{f} / T{t}"
 
+    # v63 — Turkish thousand separator for Excel numeric cells. Excel
+    # renders this as `1.000.000` under tr-TR locale; other locales still
+    # sort numerically because we store the raw int, not a string.
+    TR_NUMBER_FMT = "#,##0"
+
     # Sheet 1: Üye Listesi — İttifak cell painted with full alliance color + contrasting text
-    ws1 = make_sheet("Üye Listesi", ["İttifak", "Üye", "Rütbe", "ID", "Kale", "Tetikçi", "Bombacı", "Kalkanlı"])
+    # v63 — "Rütbe" sütunu kaldırıldı (kullanıcı isteği).
+    ws1 = make_sheet("Üye Listesi", ["İttifak", "Üye", "ID", "Kale", "Tetikçi", "Bombacı", "Kalkanlı"])
     for i, m in enumerate(members, start=2):
         alliance = m.get("alliance_name") or ""
         ws1.cell(row=i, column=1, value=alliance)
         ws1.cell(row=i, column=2, value=m.get("name") or "")
-        ws1.cell(row=i, column=3, value=m.get("rank") or "")
-        ws1.cell(row=i, column=4, value=m.get("member_id") or "")
-        ws1.cell(row=i, column=5, value=m.get("castle_level") or "")
-        ws1.cell(row=i, column=6, value=fmt_dual(m.get("tetikci_f"), m.get("tetikci_t")))
-        ws1.cell(row=i, column=7, value=fmt_dual(m.get("bombaci_f"), m.get("bombaci_t")))
-        ws1.cell(row=i, column=8, value=fmt_dual(m.get("kalkanli_f"), m.get("kalkanli_t")))
+        ws1.cell(row=i, column=3, value=m.get("member_id") or "")
+        ws1.cell(row=i, column=4, value=m.get("castle_level") or "")
+        ws1.cell(row=i, column=5, value=fmt_dual(m.get("tetikci_f"), m.get("tetikci_t")))
+        ws1.cell(row=i, column=6, value=fmt_dual(m.get("bombaci_f"), m.get("bombaci_t")))
+        ws1.cell(row=i, column=7, value=fmt_dual(m.get("kalkanli_f"), m.get("kalkanli_t")))
         if alliance:
             c = hex_for(alliance)
             ac = ws1.cell(row=i, column=1)
@@ -1618,58 +1639,86 @@ async def export_xlsx():
             ac.font = Font(bold=True, color=contrast_text(c))
             ac.alignment = Alignment(horizontal="center", vertical="center")
 
-    # Sheet 2: Etkinlik Kayıtları — soft alliance tint across the whole row
-    ws2 = make_sheet("Etkinlik Kayıtları", ["Üye", "Rütbe", "Etkinlik", "Puan", "Not", "Tarih"])
+    # Sheet 2: Etkinlik Kayıtları — v63: İttifak sütunu (metin, sola), Rütbe kaldırıldı.
+    ws2 = make_sheet("Etkinlik Kayıtları", ["İttifak", "Üye", "Etkinlik", "Puan", "Not", "Tarih"])
     for i, p in enumerate(points, start=2):
         m = m_by_id.get(p["member_id"], {})
-        ws2.cell(row=i, column=1, value=p.get("member_name") or m.get("name") or "")
-        ws2.cell(row=i, column=2, value=m.get("rank") or "")
+        alliance = m.get("alliance_name") or ""
+        ws2.cell(row=i, column=1, value=alliance)
+        ws2.cell(row=i, column=2, value=p.get("member_name") or m.get("name") or "")
         ws2.cell(row=i, column=3, value=p.get("event_name") or "")
         pts = int(p["points"]) * float(p.get("multiplier", 1.0))
-        ws2.cell(row=i, column=4, value=int(pts))
+        pts_cell = ws2.cell(row=i, column=4, value=int(pts))
+        pts_cell.number_format = TR_NUMBER_FMT
         ws2.cell(row=i, column=5, value=p.get("note") or "")
         try:
             dt = datetime.fromisoformat(str(p["date"]).replace("Z", "+00:00"))
             ws2.cell(row=i, column=6, value=dt.strftime("%d.%m.%Y %H:%M"))
         except Exception:
             ws2.cell(row=i, column=6, value=str(p.get("date") or ""))
-        alliance = m.get("alliance_name")
         if alliance:
             soft = blend_with_white(hex_for(alliance), 0.22)
             row_fill = PatternFill("solid", fgColor=soft)
             for col in range(1, 7):
                 ws2.cell(row=i, column=col).fill = row_fill
+            # v63 — Solid alliance color on the İttifak cell (col 1) for scanability
+            full = hex_for(alliance)
+            ac = ws2.cell(row=i, column=1)
+            ac.fill = PatternFill("solid", fgColor=full)
+            ac.font = Font(bold=True, color=contrast_text(full))
+            ac.alignment = Alignment(horizontal="center", vertical="center")
 
-    # Sheet 3: Sıralama Listesi — soft alliance tint across the row, full color on Alliance cell.
-    # Include ALL members (zero-point ones appended after scored) so col A always has a rank.
+    # Sheet 3: Sıralama Listesi — v63: Rütbe kaldırıldı, "Etkinlik Bileşimi" eklendi.
     lb = await leaderboard()
     scored_ids = {r["member_id"] for r in lb}
     full_lb = list(lb) + [
         {"member_id": m["id"], "name": m.get("name") or "", "rank": m.get("rank") or "", "total_points": 0}
         for m in members if m["id"] not in scored_ids
     ]
-    ws3 = make_sheet("Sıralama Listesi", ["Sıra", "Üye", "Rütbe", "İttifak", "Puan"])
+    # v63 — Build per-member event breakdown (event_name → summed final points).
+    # Rapor detayı: "Toplam = SvS + KaFeS + ..." açıkça belirtilsin.
+    breakdown_by_mid: dict = {}
+    for p in points:
+        mid = p.get("member_id")
+        if not mid:
+            continue
+        ev_name = (p.get("event_name") or "?").strip()
+        pts_final = int(int(p.get("points") or 0) * float(p.get("multiplier") or 1.0))
+        breakdown_by_mid.setdefault(mid, {})[ev_name] = breakdown_by_mid.get(mid, {}).get(ev_name, 0) + pts_final
+
+    def _fmt_breakdown(mid: str, total: int) -> str:
+        parts = breakdown_by_mid.get(mid, {})
+        if not parts:
+            return ""
+        # Show as "SvS (1.200.000) + KaFeS (400.000) = 1.600.000" — grouped, largest first.
+        items = sorted(parts.items(), key=lambda x: -x[1])
+        rendered = " + ".join(f"{ev} ({v:,})".replace(",", ".") for ev, v in items)
+        total_str = f"{total:,}".replace(",", ".")
+        return f"{rendered} = {total_str}"
+
+    ws3 = make_sheet("Sıralama Listesi", ["Sıra", "Üye", "İttifak", "Puan", "Etkinlik Bileşimi"])
     for idx, r in enumerate(full_lb, start=1):
         i = idx + 1
         m = m_by_id.get(r["member_id"], {})
         alliance = m.get("alliance_name") or ""
         ws3.cell(row=i, column=1, value=idx)
         ws3.cell(row=i, column=2, value=r["name"])
-        ws3.cell(row=i, column=3, value=r["rank"])
-        ws3.cell(row=i, column=4, value=alliance)
-        ws3.cell(row=i, column=5, value=r["total_points"])
+        ws3.cell(row=i, column=3, value=alliance)
+        pts_cell = ws3.cell(row=i, column=4, value=int(r["total_points"]))
+        pts_cell.number_format = TR_NUMBER_FMT
+        ws3.cell(row=i, column=5, value=_fmt_breakdown(r["member_id"], int(r["total_points"])))
         if alliance:
             full = hex_for(alliance)
             soft = blend_with_white(full, 0.22)
             row_fill = PatternFill("solid", fgColor=soft)
             for col in range(1, 6):
                 ws3.cell(row=i, column=col).fill = row_fill
-            ac = ws3.cell(row=i, column=4)
+            ac = ws3.cell(row=i, column=3)
             ac.fill = PatternFill("solid", fgColor=full)
             ac.font = Font(bold=True, color=contrast_text(full))
             ac.alignment = Alignment(horizontal="center", vertical="center")
 
-    # Sheet 4: İttifak Sıralaması — İttifak cell = full color, rest of row = soft tint
+    # Sheet 4: İttifak Sıralaması — v63: Puan sütunu binlik ayraçlı.
     alliance_stats = defaultdict(lambda: {"members": 0, "points": 0})
     for m in members:
         alliance = m.get("alliance_name") or "-"
@@ -1684,7 +1733,8 @@ async def export_xlsx():
         ws4.cell(row=i, column=1, value=i - 1)
         ws4.cell(row=i, column=2, value=name)
         ws4.cell(row=i, column=3, value=stats["members"])
-        ws4.cell(row=i, column=4, value=stats["points"])
+        pts_cell = ws4.cell(row=i, column=4, value=stats["points"])
+        pts_cell.number_format = TR_NUMBER_FMT
         if name and name != "-":
             full = hex_for(name)
             soft = blend_with_white(full, 0.22)
