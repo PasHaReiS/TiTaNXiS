@@ -1504,6 +1504,99 @@ async def leaderboard_by_alliance(event_id: Optional[str] = None, group_name: Op
     return entries
 
 
+# v64 — Alliance Drill-Down. Returns every event that had at least one
+# scoring member from the given (case-sensitive) alliance, plus a matrix of
+# per-member point rows so admins can inline-edit right from the modal.
+@api_router.get("/alliances/{alliance_name}/drill")
+async def alliance_drill(alliance_name: str):
+    """Return per-event / per-member points for a single alliance.
+
+    v64 — CASE-SENSITIVE: `GOW`, `GoW`, `GOw` are DIFFERENT alliances (main
+    vs. academy). No merging.
+
+    Shape:
+      {
+        alliance: str,
+        total_points: int,
+        events: [{event_id, event_name, group_name, date, archived,
+                   total: int, members: [{point_id, member_id, name,
+                   points, multiplier, final_points, note}]}]
+      }
+    """
+    alliance = (alliance_name or "").strip()
+    if not alliance:
+        raise HTTPException(400, "alliance_name gerekli")
+    # Case-sensitive exact match; no `.upper()`/`.lower()`.
+    m_docs = await db.members.find(
+        {"alliance_name": alliance}, {"_id": 0, "id": 1, "name": 1, "alliance_name": 1}
+    ).to_list(5000)
+    if not m_docs:
+        return {"alliance": alliance, "total_points": 0, "events": []}
+    m_by_id = {m["id"]: m for m in m_docs}
+    mids = list(m_by_id.keys())
+
+    points = await db.points.find(
+        {"member_id": {"$in": mids}}, {"_id": 0}
+    ).to_list(50000)
+    if not points:
+        return {"alliance": alliance, "total_points": 0, "events": []}
+
+    eids = list({p.get("event_id") for p in points if p.get("event_id")})
+    ev_docs = await db.events.find({"id": {"$in": eids}}, {"_id": 0}).to_list(5000)
+    ev_by_id = {e["id"]: e for e in ev_docs}
+
+    events_out: dict = {}
+    for p in points:
+        eid = p.get("event_id")
+        if not eid:
+            continue
+        ev = ev_by_id.get(eid)
+        if not ev:
+            continue
+        member = m_by_id.get(p.get("member_id"))
+        if not member:
+            continue
+        base = int(p.get("points") or 0)
+        mult = float(p.get("multiplier") or 1.0)
+        final_pts = int(round(base * mult))
+        bucket = events_out.setdefault(eid, {
+            "event_id": eid,
+            "event_name": ev.get("name") or "",
+            "group_name": ev.get("group_name") or "",
+            "date": ev.get("date") or "",
+            "archived": bool(ev.get("archived")),
+            "total": 0,
+            "members": [],
+        })
+        bucket["total"] += final_pts
+        bucket["members"].append({
+            "point_id": p.get("id"),
+            "member_id": member["id"],
+            "name": member.get("name") or "",
+            "points": base,
+            "multiplier": mult,
+            "final_points": final_pts,
+            "note": p.get("note") or "",
+            "date": p.get("date") or "",
+        })
+
+    events_list = []
+    for eid, bucket in events_out.items():
+        bucket["members"].sort(key=lambda r: r["final_points"], reverse=True)
+        events_list.append(bucket)
+    # Chronological desc (newest first)
+    events_list.sort(key=lambda e: str(e.get("date") or ""), reverse=True)
+
+    total_points = sum(e["total"] for e in events_list)
+    return {
+        "alliance": alliance,
+        "total_points": total_points,
+        "members_count": len(m_docs),
+        "events": events_list,
+    }
+
+
+
 # ---------- Multiplier history ----------
 @api_router.get("/multiplier-history")
 async def multiplier_history():

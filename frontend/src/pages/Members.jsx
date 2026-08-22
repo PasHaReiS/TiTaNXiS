@@ -16,6 +16,11 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { COUNTRIES, COUNTRY_BY_ISO2 } from "@/lib/countries";
 import InlineCountryPicker from "@/components/InlineCountryPicker";
+// v64 — recharts imports for the Guild Health Score radar detail modal.
+import {
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
+  Legend, Tooltip, ResponsiveContainer,
+} from "recharts";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -224,6 +229,8 @@ export default function Members() {
     (healthScores || []).forEach((h) => { if (h && h.member_id) m[h.member_id] = h; });
     return m;
   }, [healthScores]);
+  // v64 — Guild Health Score detay modal (30/90/180 gün radar karşılaştırma).
+  const [healthDetailMember, setHealthDetailMember] = useState(null);
   const { data: allianceStatsTop = [] } = useSWR("/alliances/stats", fetcher);
   const allianceCategoryMap = useMemo(() => {
     const m = {};
@@ -976,7 +983,7 @@ export default function Members() {
                                     >
                                       {m.name}
                                     </span>
-                                    {healthById[m.id] && <HealthChip health={healthById[m.id]} memberId={m.id} />}
+                                    {healthById[m.id] && <HealthChip health={healthById[m.id]} memberId={m.id} onOpen={() => setHealthDetailMember(m)} />}
                                     {m.note && m.note.trim() !== "" && (m.note_position || "inline") === "inline" && (
                                       <span
                                         className="text-xs truncate leading-tight"
@@ -1143,6 +1150,12 @@ export default function Members() {
       )}
 
       <MemberProfileDialog memberId={profileId} open={!!profileId} onClose={() => setProfileId(null)} />
+      {healthDetailMember && (
+        <HealthScoreDetailModal
+          member={healthDetailMember}
+          onClose={() => setHealthDetailMember(null)}
+        />
+      )}
 
       <LinkMemberDialog
         open={linkOpen}
@@ -1910,8 +1923,8 @@ function StatChip({ label, value, sub, color }) {
 
 // v62 — Guild Health Score chip (0-100). Renders inline next to member name.
 // Color bands: 80+ neon green, 60-79 gold, 40-59 orange, <40 red.
-// Tooltip breaks down RSVP / Attendance / Consistency components.
-function HealthChip({ health, memberId }) {
+// v64 — Clickable: `onOpen` opens the radar detay modal.
+function HealthChip({ health, memberId, onOpen }) {
   const s = Number(health?.score ?? 0);
   const b = health?.breakdown || {};
   let color, glow, label;
@@ -1928,12 +1941,15 @@ function HealthChip({ health, memberId }) {
 • RSVP: %${b.rsvp_rate ?? 0} (${b.yes_late ?? 0}/${b.eligible_events ?? 0})
 • Katılım: %${b.attendance_rate ?? 0} (${b.attended ?? 0} check-in)
 • Puan Tutarlılığı: %${b.consistency ?? 0} (${b.point_events ?? 0} etkinlik)
-Son 90 gün — üstteki oranlar 0.35/0.35/0.30 ağırlıklı`;
+Son 90 gün — üstteki oranlar 0.35/0.35/0.30 ağırlıklı
+Detay için tıkla`;
   return (
-    <span
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); if (onOpen) onOpen(); }}
       data-testid={`health-chip-${memberId}`}
       title={title}
-      className="mono flex-shrink-0"
+      className="mono flex-shrink-0 hover:scale-110 transition-transform"
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -1949,11 +1965,178 @@ Son 90 gün — üstteki oranlar 0.35/0.35/0.30 ağırlıklı`;
         boxShadow: `0 0 6px ${glow}`,
         fontFamily: "Cinzel, Rajdhani, serif",
         lineHeight: 1.2,
+        cursor: "pointer",
       }}
     >
       <span style={{ opacity: 0.75, fontSize: 8 }}>♥</span>
       {Math.round(s)}
-    </span>
+    </button>
+  );
+}
+
+// ============================================================
+// v64 — Guild Health Score Detay Modal
+// 30 / 90 / 180 günlük skorları paralel çeker, üç dönemi bir
+// RadarChart üzerinde karşılaştırır. Boyutlar: RSVP, Katılım,
+// Tutarlılık. Trend satırı en altta.
+// ============================================================
+function HealthScoreDetailModal({ member, onClose }) {
+  const mid = member?.id;
+  const { data: d30 } = useSWR(mid ? `/health-scores?days=30` : null, fetcher);
+  const { data: d90 } = useSWR(mid ? `/health-scores?days=90` : null, fetcher);
+  const { data: d180 } = useSWR(mid ? `/health-scores?days=180` : null, fetcher);
+
+  const pickMember = (arr) => (arr || []).find((h) => h.member_id === mid);
+  const h30 = pickMember(d30);
+  const h90 = pickMember(d90);
+  const h180 = pickMember(d180);
+
+  const radarData = useMemo(() => ([
+    {
+      dim: "RSVP",
+      "30 gün": h30?.breakdown?.rsvp_rate || 0,
+      "90 gün": h90?.breakdown?.rsvp_rate || 0,
+      "180 gün": h180?.breakdown?.rsvp_rate || 0,
+    },
+    {
+      dim: "Katılım",
+      "30 gün": h30?.breakdown?.attendance_rate || 0,
+      "90 gün": h90?.breakdown?.attendance_rate || 0,
+      "180 gün": h180?.breakdown?.attendance_rate || 0,
+    },
+    {
+      dim: "Tutarlılık",
+      "30 gün": h30?.breakdown?.consistency || 0,
+      "90 gün": h90?.breakdown?.consistency || 0,
+      "180 gün": h180?.breakdown?.consistency || 0,
+    },
+  ]), [h30, h90, h180]);
+
+  const trend = (a, b) => {
+    if (a == null || b == null) return null;
+    const d = a - b;
+    if (d > 2) return { label: "↑", color: "#22C55E" };
+    if (d < -2) return { label: "↓", color: "#EF4444" };
+    return { label: "→", color: "#94A3B8" };
+  };
+  const trend30v90 = trend(h30?.score, h90?.score);
+  const trend90v180 = trend(h90?.score, h180?.score);
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/80 flex items-start sm:items-center justify-center p-3 sm:p-6"
+      style={{ zIndex: 999997 }}
+      onClick={onClose}
+      data-testid="health-detail-overlay"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        data-testid="health-detail-modal"
+        className="w-full max-w-3xl max-h-[92vh] overflow-auto rounded-2xl fade-in"
+        style={{
+          background: "linear-gradient(180deg, #0F0716 0%, #14081F 40%, #08040E 100%)",
+          border: "1px solid rgba(212,175,55,0.45)",
+          boxShadow: "0 20px 60px -10px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,220,150,0.10)",
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center gap-3 px-5 py-4 sticky top-0"
+          style={{
+            background: "linear-gradient(90deg, #14081F, #241436 60%, #0F0716)",
+            borderBottom: "1px solid rgba(212,175,55,0.35)",
+            zIndex: 5,
+          }}
+        >
+          <div style={{ fontSize: 22 }}>♥</div>
+          <div className="flex-1 min-w-0">
+            <div style={{ color: "#F5E7A8", fontFamily: "Cinzel, serif", letterSpacing: "0.14em", fontSize: 12, textTransform: "uppercase" }}>
+              Guild Health · {member?.name}
+            </div>
+            <div style={{ color: "#94A3B8", fontSize: 11 }}>
+              {member?.alliance_name ? `${member.alliance_name} · ` : ""}
+              30/90/180 gün karşılaştırma
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-md hover:bg-white/10" data-testid="health-detail-close">
+            <X className="w-5 h-5" style={{ color: "#F5E7A8" }} />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* Score cards */}
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { key: "180", data: h180, label: "180 gün", trend: null },
+              { key: "90", data: h90, label: "90 gün", trend: trend90v180 },
+              { key: "30", data: h30, label: "30 gün", trend: trend30v90 },
+            ].map((c) => (
+              <div
+                key={c.key}
+                data-testid={`health-detail-card-${c.key}`}
+                className="p-3 rounded-lg text-center"
+                style={{
+                  background: "linear-gradient(180deg, rgba(147,51,234,0.18), rgba(20,15,25,0.85))",
+                  border: "1px solid rgba(212,175,55,0.35)",
+                }}
+              >
+                <div className="text-[9px] uppercase tracking-widest" style={{ color: "#94A3B8", letterSpacing: "0.16em", fontFamily: "Cinzel, serif" }}>
+                  {c.label}
+                </div>
+                <div className="mono font-bold" style={{ color: "#F5A623", fontSize: 26, textShadow: "0 0 10px rgba(245,166,35,0.55)" }}>
+                  {c.data ? c.data.score.toFixed(1) : "—"}
+                </div>
+                {c.trend && (
+                  <div className="text-[10px] font-bold" style={{ color: c.trend.color }}>{c.trend.label} vs önceki dönem</div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Radar */}
+          <div className="rounded-lg p-2" style={{ background: "rgba(20,15,25,0.65)", border: "1px solid rgba(212,175,55,0.25)" }}>
+            <ResponsiveContainer width="100%" height={280}>
+              <RadarChart data={radarData} outerRadius={100}>
+                <PolarGrid stroke="rgba(212,175,55,0.30)" />
+                <PolarAngleAxis dataKey="dim" tick={{ fill: "#F5E7A8", fontSize: 12, fontFamily: "Cinzel, serif" }} />
+                <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: "#94A3B8", fontSize: 9 }} stroke="rgba(212,175,55,0.25)" />
+                <Radar name="180 gün" dataKey="180 gün" stroke="#9333EA" fill="#9333EA" fillOpacity={0.15} />
+                <Radar name="90 gün" dataKey="90 gün" stroke="#F5A623" fill="#F5A623" fillOpacity={0.25} />
+                <Radar name="30 gün" dataKey="30 gün" stroke="#22C55E" fill="#22C55E" fillOpacity={0.35} />
+                <Legend wrapperStyle={{ fontSize: 11, color: "#F5E7A8", fontFamily: "Cinzel, serif" }} />
+                <Tooltip
+                  contentStyle={{ background: "#0F0716", border: "1px solid #D4AF37", borderRadius: 6, color: "#F5F0E8", fontSize: 11 }}
+                  formatter={(v) => `${v}%`}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Breakdown detail rows */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+            {[
+              { d: h30, label: "30 gün" },
+              { d: h90, label: "90 gün" },
+              { d: h180, label: "180 gün" },
+            ].map(({ d, label }) => (
+              <div key={label} className="p-3 rounded-lg" style={{ background: "rgba(20,15,25,0.65)", border: "1px solid rgba(147,51,234,0.30)" }}>
+                <div className="text-[9px] uppercase tracking-widest mb-1" style={{ color: "#D4AF37", fontFamily: "Cinzel, serif", letterSpacing: "0.14em" }}>{label}</div>
+                {d ? (
+                  <>
+                    <div className="flex justify-between"><span style={{ color: "#94A3B8" }}>Eligible</span><span className="mono" style={{ color: "#F5F0E8" }}>{d.breakdown?.eligible_events ?? 0}</span></div>
+                    <div className="flex justify-between"><span style={{ color: "#94A3B8" }}>Evet/Geç</span><span className="mono" style={{ color: "#F5F0E8" }}>{d.breakdown?.yes_late ?? 0}</span></div>
+                    <div className="flex justify-between"><span style={{ color: "#94A3B8" }}>Check-in</span><span className="mono" style={{ color: "#F5F0E8" }}>{d.breakdown?.attended ?? 0}</span></div>
+                    <div className="flex justify-between"><span style={{ color: "#94A3B8" }}>Puanlı etkinlik</span><span className="mono" style={{ color: "#F5F0E8" }}>{d.breakdown?.point_events ?? 0}</span></div>
+                  </>
+                ) : (
+                  <div className="text-slate-500">—</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

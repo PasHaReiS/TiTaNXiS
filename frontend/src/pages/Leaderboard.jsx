@@ -18,6 +18,8 @@ export default function Leaderboard() {
   const [filter, setFilter] = useState("active");
   const [memberScope, setMemberScope] = useState("global"); // "global" | "server" | "clan"
   const [group, setGroup] = useState(null);
+  // v64 — Alliance Drill-Down modal state.
+  const [drillAlliance, setDrillAlliance] = useState(null);
   // Reset the selected group whenever the tab flips so a stale group from the
   // other scope doesn't leave the leaderboard empty.
   useEffect(() => { setGroup(null); setActiveEventId(null); setFolderId(null); }, [filter]);
@@ -1245,23 +1247,25 @@ export default function Leaderboard() {
               <div className="w-8 text-center">
                 <span className="text-xs font-bold mono" style={{ color: "#D4730A", fontFamily: "Cinzel, Rajdhani, serif" }}>#{r.position}</span>
               </div>
-              <div
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); if (r.alliance_name) setDrillAlliance(r.alliance_name); }}
                 data-testid={`row-alliance-badge-${r.member_id}`}
-                className="text-[10px] font-bold rounded-full flex items-center justify-center flex-shrink-0"
+                className="text-[10px] font-bold rounded-full flex items-center justify-center flex-shrink-0 hover:scale-105 transition-transform"
                 style={{
-                  background: (r.alliance_name && allianceColors[r.alliance_name]) || "#E74C1A",
-                  color: "#fff",
+                  ...allianceBadgeStyle(r.alliance_name, allianceColors),
                   minWidth: 52,
                   padding: "4px 9px",
                   border: "1px solid rgba(255,255,255,0.15)",
                   letterSpacing: "0.06em",
                   textTransform: "none",
                   fontFamily: "Cinzel, Rajdhani, serif",
+                  cursor: r.alliance_name ? "pointer" : "default",
                 }}
-                title={r.alliance_name || ""}
+                title={r.alliance_name ? `${r.alliance_name} — Drill-Down aç` : ""}
               >
                 {r.alliance_name || "-"}
-              </div>
+              </button>
               <div className="flex-1 min-w-0 flex items-center gap-2">
                 <div
                   className="font-bold truncate normal-case text-sm rank-name"
@@ -1305,6 +1309,14 @@ export default function Leaderboard() {
       </div>
 
       <MemberProfileDialog memberId={profileId} open={!!profileId} onClose={() => setProfileId(null)} />
+      {drillAlliance && (
+        <AllianceDrillModal
+          alliance={drillAlliance}
+          canEdit={canEdit}
+          allianceColors={allianceColors}
+          onClose={() => setDrillAlliance(null)}
+        />
+      )}
       {showCompareModal && compareIds.length === 2 && (
         <CompareEventsModal
           eventIds={compareIds}
@@ -1754,11 +1766,273 @@ function CompareEventsModal({ eventIds, events, allianceColors, onClose, onPickM
                       </div>
                     )}
                   </div>
+
+
                 )}
               </div>
             ))}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// v64 — Alliance Drill-Down Modal
+// Kullanıcı bir ittifak chip'ine tıklayınca açılır. O ittifakın
+// TÜM etkinlikleri kronolojik listelenir, seçilen etkinlik için
+// üyelerin puanları tabloda gösterilir. Admin/editör inline
+// düzenleyebilir (PATCH /scores/{id}). Case-sensitive (GOW /
+// GoW / GOw hepsi bağımsızdır).
+// ============================================================
+function AllianceDrillModal({ alliance, canEdit, allianceColors, onClose }) {
+  const { data, error, mutate } = useSWR(
+    alliance ? `/alliances/${encodeURIComponent(alliance)}/drill` : null,
+    fetcher,
+    { refreshInterval: 15000 },
+  );
+  const [selectedEventId, setSelectedEventId] = useState(null);
+  const [editingPointId, setEditingPointId] = useState(null);
+  const [editPts, setEditPts] = useState("");
+  const [editMult, setEditMult] = useState("1");
+  const [saving, setSaving] = useState(false);
+
+  const events = data?.events || [];
+  const selectedEvent = useMemo(
+    () => events.find((e) => e.event_id === selectedEventId) || events[0] || null,
+    [events, selectedEventId],
+  );
+
+  const startEdit = (row) => {
+    setEditingPointId(row.point_id);
+    setEditPts(String(row.points));
+    setEditMult(String(row.multiplier || 1));
+  };
+
+  const saveEdit = async () => {
+    if (!editingPointId) return;
+    setSaving(true);
+    try {
+      await api.patch(`/scores/${editingPointId}`, {
+        points: Number(editPts) || 0,
+        multiplier: Number(editMult) || 1,
+      });
+      toast.success("Kaydedildi");
+      setEditingPointId(null);
+      await mutate();
+      swrMutate((k) => typeof k === "string" && (k.startsWith("/leaderboard") || k.startsWith("/scores") || k.startsWith("/members/")));
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const badge = allianceBadgeStyle(alliance, allianceColors);
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/80 flex items-start sm:items-center justify-center p-3 sm:p-6"
+      style={{ zIndex: 999997 }}
+      onClick={onClose}
+      data-testid="alliance-drill-modal-overlay"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        data-testid="alliance-drill-modal"
+        className="w-full max-w-5xl max-h-[92vh] overflow-auto rounded-2xl fade-in"
+        style={{
+          background: "linear-gradient(180deg, #0F0716 0%, #14081F 40%, #08040E 100%)",
+          border: "1px solid rgba(212,175,55,0.45)",
+          boxShadow: "0 20px 60px -10px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,220,150,0.10)",
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center gap-3 px-5 py-4 sticky top-0"
+          style={{
+            background: "linear-gradient(90deg, #14081F, #241436 60%, #0F0716)",
+            borderBottom: "1px solid rgba(212,175,55,0.35)",
+            zIndex: 5,
+          }}
+        >
+          <span
+            className="text-sm font-bold rounded-md flex items-center justify-center"
+            style={{ ...badge, minWidth: 72, padding: "6px 12px", border: "1px solid", fontFamily: "Cinzel, serif" }}
+            data-testid="alliance-drill-badge"
+          >
+            {alliance}
+          </span>
+          <div className="flex-1 min-w-0">
+            <div style={{ color: "#F5E7A8", fontFamily: "Cinzel, serif", letterSpacing: "0.14em", fontSize: 12, textTransform: "uppercase" }}>
+              İttifak Drill-Down
+            </div>
+            {data && (
+              <div style={{ color: "#94A3B8", fontSize: 11 }}>
+                {data.members_count} üye · {(data.events || []).length} etkinlik · Toplam <span className="mono" style={{ color: "#F5A623", fontWeight: 800 }}>{fmt(data.total_points)}</span>
+              </div>
+            )}
+          </div>
+          <button onClick={onClose} className="p-2 rounded-md hover:bg-white/10" data-testid="alliance-drill-close">
+            <X className="w-5 h-5" style={{ color: "#F5E7A8" }} />
+          </button>
+        </div>
+
+        {error && <div className="p-6 text-center text-red-400 text-sm">Yükleme hatası</div>}
+        {!error && !data && <div className="p-6 text-center text-slate-400 text-sm">Yükleniyor…</div>}
+        {data && events.length === 0 && (
+          <div className="p-6 text-center text-slate-400 text-sm">Bu ittifak için puan kaydı bulunamadı.</div>
+        )}
+
+        {data && events.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3 p-4">
+            {/* Events list */}
+            <div className="space-y-1 md:max-h-[70vh] md:overflow-auto">
+              <div className="text-[10px] uppercase tracking-widest px-1 mb-1" style={{ color: "#D4AF37", fontFamily: "Cinzel, serif" }}>
+                Etkinlikler
+              </div>
+              {events.map((ev) => {
+                const isSel = (selectedEvent && selectedEvent.event_id === ev.event_id);
+                return (
+                  <button
+                    key={ev.event_id}
+                    data-testid={`alliance-drill-event-${ev.event_id}`}
+                    onClick={() => setSelectedEventId(ev.event_id)}
+                    className="w-full text-left px-3 py-2 rounded-md transition-colors"
+                    style={{
+                      background: isSel ? "linear-gradient(90deg, rgba(147,51,234,0.35), rgba(212,175,55,0.15))" : "rgba(20,15,25,0.55)",
+                      border: `1px solid ${isSel ? "rgba(212,175,55,0.65)" : "rgba(147,51,234,0.25)"}`,
+                    }}
+                  >
+                    <div className="text-xs font-bold truncate" style={{ color: "#F5F0E8" }}>
+                      {ev.group_name ? (
+                        <>
+                          <span style={{ color: "#D4AF37" }}>{ev.group_name}</span>
+                          <span style={{ color: "#94A3B8", padding: "0 4px" }}>/</span>
+                          {ev.event_name}
+                        </>
+                      ) : ev.event_name}
+                    </div>
+                    <div className="text-[9px] mt-0.5 flex items-center gap-2" style={{ color: "#94A3B8" }}>
+                      <span>{new Date(ev.date).toLocaleDateString("tr-TR")}</span>
+                      <span className="mono" style={{ color: "#F5A623", fontWeight: 800 }}>{fmt(ev.total)}</span>
+                      {ev.archived && <span className="chip text-[8px]" style={{ borderColor: "#6B7280", color: "#94A3B8" }}>ARŞ</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Members points table */}
+            <div className="rounded-lg overflow-hidden" style={{ border: "1px solid rgba(212,175,55,0.25)" }}>
+              {selectedEvent && (
+                <>
+                  <div
+                    className="px-3 py-2 text-xs font-bold flex items-center gap-2"
+                    style={{
+                      background: "linear-gradient(90deg, #1F1140, #14081F)",
+                      color: "#F5E7A8",
+                      fontFamily: "Cinzel, serif",
+                      letterSpacing: "0.10em",
+                      borderBottom: "1px solid rgba(212,175,55,0.30)",
+                    }}
+                  >
+                    <span className="flex-1 truncate">{selectedEvent.group_name ? `${selectedEvent.group_name} / ` : ""}{selectedEvent.event_name}</span>
+                    <span className="mono" style={{ color: "#F5A623" }}>{fmt(selectedEvent.total)}</span>
+                  </div>
+                  <table className="w-full text-xs" data-testid="alliance-drill-members-table">
+                    <thead>
+                      <tr style={{ background: "rgba(147,51,234,0.10)" }}>
+                        <th style={{ padding: 6, color: "#D4AF37", textAlign: "left", fontSize: 10, letterSpacing: "0.12em" }}>#</th>
+                        <th style={{ padding: 6, color: "#D4AF37", textAlign: "left", fontSize: 10, letterSpacing: "0.12em" }}>ÜYE</th>
+                        <th style={{ padding: 6, color: "#D4AF37", textAlign: "right", fontSize: 10, letterSpacing: "0.12em" }}>PUAN</th>
+                        <th style={{ padding: 6, color: "#D4AF37", textAlign: "right", fontSize: 10, letterSpacing: "0.12em" }}>×</th>
+                        <th style={{ padding: 6, color: "#F97316", textAlign: "right", fontSize: 10, letterSpacing: "0.12em" }}>TOPLAM</th>
+                        {canEdit && <th style={{ padding: 6, width: 60 }}></th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedEvent.members.map((row, i) => {
+                        const isEditing = editingPointId === row.point_id;
+                        return (
+                          <tr key={row.point_id} style={{ borderTop: "1px solid rgba(212,175,55,0.10)" }} data-testid={`alliance-drill-row-${row.point_id}`}>
+                            <td style={{ padding: 6, color: "#D4AF37", fontWeight: 800 }}>{i + 1}</td>
+                            <td style={{ padding: 6, color: "#F5F0E8", whiteSpace: "nowrap" }}>{row.name}</td>
+                            <td style={{ padding: 6, textAlign: "right" }}>
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  value={editPts}
+                                  onChange={(e) => setEditPts(e.target.value)}
+                                  data-testid="alliance-drill-edit-points"
+                                  className="mono text-right"
+                                  style={{ width: 100, background: "#0F0716", color: "#F5F0E8", border: "1px solid #9333EA", borderRadius: 4, padding: "2px 6px", fontSize: 11 }}
+                                />
+                              ) : (
+                                <span className="mono" style={{ color: "#EAD8B0" }}>{fmt(row.points)}</span>
+                              )}
+                            </td>
+                            <td style={{ padding: 6, textAlign: "right" }}>
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  value={editMult}
+                                  onChange={(e) => setEditMult(e.target.value)}
+                                  className="mono text-right"
+                                  style={{ width: 60, background: "#0F0716", color: "#F5F0E8", border: "1px solid #9333EA", borderRadius: 4, padding: "2px 6px", fontSize: 11 }}
+                                />
+                              ) : (
+                                <span className="mono" style={{ color: "#94A3B8" }}>×{row.multiplier}</span>
+                              )}
+                            </td>
+                            <td className="mono" style={{ padding: 6, textAlign: "right", color: "#F97316", fontWeight: 800 }}>
+                              {fmt(isEditing ? Number(editPts) * Number(editMult) : row.final_points)}
+                            </td>
+                            {canEdit && (
+                              <td style={{ padding: 4, textAlign: "center" }}>
+                                {isEditing ? (
+                                  <div className="flex gap-1 justify-end">
+                                    <button
+                                      onClick={saveEdit}
+                                      disabled={saving}
+                                      data-testid="alliance-drill-save"
+                                      className="px-2 py-1 rounded text-[10px] font-bold"
+                                      style={{ background: "#22C55E", color: "#0D0D0D" }}
+                                    >
+                                      {saving ? "…" : "OK"}
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingPointId(null)}
+                                      className="px-2 py-1 rounded text-[10px]"
+                                      style={{ background: "rgba(239,68,68,0.25)", color: "#FCA5A5", border: "1px solid #EF4444" }}
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => startEdit(row)}
+                                    data-testid={`alliance-drill-edit-${row.point_id}`}
+                                    className="px-2 py-1 rounded text-[10px]"
+                                    style={{ background: "rgba(59,130,246,0.20)", color: "#93C5FD", border: "1px solid rgba(59,130,246,0.5)" }}
+                                  >
+                                    Düzenle
+                                  </button>
+                                )}
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
