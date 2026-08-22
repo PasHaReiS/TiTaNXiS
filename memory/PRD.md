@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v71)** — SON REVİZE: Görünür Altın Halka + Eşit Küçük İkonlar + Warband Trio:
+  - **Halka Geri Geldi**: Pedestal 108px sabit, görünür altın border (`rgba(212,175,55,0.55)`) + katmanlı glow (yakın altın halo 0.50 + violet echo 0.35 + geniş dış altın aura 0.32) + inner glass hi-light. Production 2. görsel stili.
+  - **İkonlar Eşit ve Küçük**: TÜM 6 ikon `CONTAINER = 50px` sabit → simetrik. Padding = (108-50)/2 = **29px her yön** ferah boşluk, kenara değmiyor.
+  - **Sprite Merkezleme**: `xShift = 25, yShift = 15` — sprite icon body native center'ına yaklaşık kilitli, flex `align+justify: center` dead-center.
+  - **Warband Trio**: SVG `50×50` — Kılıç, Şimşek, Terazi ile BİREBİR aynı boyutta.
 - **Feb 22, 2026 (v70)** — SADELİK: Halkalar Kaldırıldı, Orijinal Ferah Düzene Dönüş:
   - Karmaşık pedestal halkaları, altın parlama, violet echo, glass gradient, iç sheen — **hepsi silindi**.
   - Sadece **hafif siyah radial drop shadow** (`radial-gradient(circle, rgba(0,0,0,0.35) 0%, transparent 70%)`) ikonun arkasında — arka planda belli olsun diye.

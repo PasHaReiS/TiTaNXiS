@@ -57,12 +57,13 @@ const SPRITE_CELLS = {
 
 function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
   const { col, row } = SPRITE_CELLS[spriteKey];
-  // v70 — SADELİK: halka/parlama/gradient hepsi kaldırıldı. Sprite crop
-  // orijinal 62px, sadece hafif siyah drop-shadow altlık.
+  // v71 — FINAL: geniş görünür altın halka + içerde küçük ferah ikon.
+  // Pedestal 108px (görünür halka), ikon crop 50px sabit (tüm ikonlar EŞİT).
+  // Padding = (108-50)/2 = 29px her yön → kenara değmiyor.
   const CELL = 100;
-  const CONTAINER = 62;
-  const xShift = (CELL - CONTAINER) / 2;   // 19
-  const yShift = 6;                        // orijinal ferah offset
+  const CONTAINER = 50;                    // tüm ikonlar aynı 50px
+  const xShift = (CELL - CONTAINER) / 2;   // 25 — yatay dead-center
+  const yShift = 15;                       // dikey merkez (icon body ~y=45)
   return (
     <button
       type="button"
@@ -83,8 +84,8 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
       <div
         aria-hidden="true"
         style={{
-          width: CONTAINER,
-          height: CONTAINER,
+          width: 108,               // v71 — pedestal 108px görünür altın halka
+          height: 108,
           overflow: "visible",
           position: "relative",
           display: "flex",
@@ -92,16 +93,36 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
           justifyContent: "center",
         }}
       >
-        {/* v70 — Sadelik: halka/gradient/glow YOK.
-            Sadece çok hafif siyah-şeffaf dairesel drop shadow arka planda
-            ikonu belli etsin. */}
+        {/* v71 — Görünür altın halka pedestal (2. görsel/production stili). */}
         <div
           style={{
             position: "absolute",
             inset: 0,
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 70%)",
+            background:
+              "radial-gradient(circle at 32% 28%, rgba(168,85,247,0.26) 0%, rgba(20,10,30,0.55) 45%, rgba(8,4,14,0.72) 100%)",
+            border: "1px solid rgba(212,175,55,0.55)",
+            boxShadow:
+              "0 10px 26px -8px rgba(0,0,0,0.85), " +
+              "0 0 20px -2px rgba(212,175,55,0.50), " +
+              "0 0 30px -6px rgba(147,51,234,0.35), " +
+              "0 0 52px -14px rgba(245,208,106,0.32), " +
+              "inset 0 1px 0 rgba(255,220,150,0.24), " +
+              "inset 0 -6px 16px rgba(0,0,0,0.55)",
+          }}
+        />
+        {/* Inner glass hi-light */}
+        <div
+          style={{
+            position: "absolute",
+            top: 6,
+            left: 12,
+            right: 12,
+            height: "36%",
+            borderRadius: "50%",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0) 80%)",
             pointerEvents: "none",
+            filter: "blur(1.8px)",
           }}
         />
         <div
