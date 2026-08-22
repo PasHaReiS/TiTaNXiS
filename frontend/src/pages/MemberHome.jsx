@@ -57,17 +57,15 @@ const SPRITE_CELLS = {
 
 function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
   const { col, row } = SPRITE_CELLS[spriteKey];
-  // v72 — Inner container GENİŞLETİLDİ: 88px (was 50px). Dıştaki 108px altın
-  // halkanın hemen içinde, kenarlara değmeden ferah bir yaşam alanı.
-  // - 5 sprite ikon: 50 → 43px (=%15 küçültme)
-  // - Warband trio: 50px (aynı) — sadece genişletilmiş alana tam ortalı.
-  // Her iki türde de padding = (108-icon)/2 iyice ferah.
+  // v73 — İç koyu daire (88px overlay) KALDIRILDI. İkonlar doğrudan
+  // dıştaki 108px altın halkanın zeminine oturuyor.
+  // - 5 sprite ikon %15 daha küçültüldü: 43 → 37px
+  // - Warband trio: 50px sabit (değişmedi)
   const CELL = 100;
-  const SPRITE_CONTAINER = 43;               // 50 * 0.85
-  const WARBAND_SIZE = 50;                   // unchanged
-  const INNER_AREA = 88;                     // widened inner circle
-  const xShift = (CELL - SPRITE_CONTAINER) / 2;  // 28.5 — dead-center horizontal
-  const yShift = 18;                             // dead-center vertical (icon body ~y=45)
+  const SPRITE_CONTAINER = 37;               // v73 — 43 * 0.85
+  const WARBAND_SIZE = 50;
+  const xShift = (CELL - SPRITE_CONTAINER) / 2;  // 31.5 — dead-center horizontal
+  const yShift = 20;                             // dead-center vertical (icon body ~y=45)
   return (
     <button
       type="button"
@@ -129,33 +127,23 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
             filter: "blur(1.8px)",
           }}
         />
-        <div
-          style={{
-            width: INNER_AREA,                 // v72 — 88px genişletilmiş inner area
-            height: INNER_AREA,
-            overflow: "hidden",
-            borderRadius: "50%",
-            position: "relative",
-            zIndex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {spriteKey === "uyeler" ? (
-            // v72 — Warband trio boyutu değişmedi (50px). Sadece
-            // genişletilmiş 88px inner area'nın tam ortasında yüzüyor.
-            <svg
-              viewBox="0 0 100 100"
-              width={WARBAND_SIZE}
-              height={WARBAND_SIZE}
-              xmlns="http://www.w3.org/2000/svg"
-              style={{
-                filter: "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(249,115,22,0.4))",
-                opacity: locked ? 0.65 : 1,
-              }}
-              data-testid="uyeler-warband-trio"
-            >
+        {/* v73 — İç daire wrapper KALDIRILDI. Sprite/SVG doğrudan 108px
+            pedestal'ın flex-centered child'ı olarak zeminine oturuyor. */}
+        {spriteKey === "uyeler" ? (
+          // Warband trio 50px sabit — pedestal'ın tam ortasında
+          <svg
+            viewBox="0 0 100 100"
+            width={WARBAND_SIZE}
+            height={WARBAND_SIZE}
+            xmlns="http://www.w3.org/2000/svg"
+            style={{
+              position: "relative",
+              zIndex: 1,
+              filter: "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(249,115,22,0.4))",
+              opacity: locked ? 0.65 : 1,
+            }}
+            data-testid="uyeler-warband-trio"
+          >
               <defs>
                 <linearGradient id="warriorDark" x1="0.5" y1="0" x2="0.5" y2="1">
                   <stop offset="0%" stopColor="#3A2610" />
@@ -197,15 +185,15 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
               </g>
             </svg>
           ) : (
-            // v72 — Sprite crop artık 43px (was 50) = %15 daha küçük.
-            // Genişletilmiş 88px inner area'nın tam ortasında yüzüyor.
+            // v73 — Sprite crop 37px, doğrudan 108px pedestal'in
+            // flex-centered child'ı olarak zeminine oturuyor. İç daire yok.
             <div
               style={{
                 width: SPRITE_CONTAINER,
                 height: SPRITE_CONTAINER,
                 overflow: "hidden",
-                borderRadius: "50%",
                 position: "relative",
+                zIndex: 1,
               }}
             >
               <img
@@ -226,7 +214,6 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
               />
             </div>
           )}
-        </div>
       </div>
       {locked && (
         <span
