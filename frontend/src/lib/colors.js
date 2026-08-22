@@ -16,6 +16,13 @@ const PALETTE = [
 ];
 
 const GOW_GRADIENT = { bg: "linear-gradient(135deg,#DC2626,#F5A623)", border: "#F5A623" };
+// v62 — Akademi (case variants like `GoW` / `GOw`) için ayrık mavi-cam gradient.
+// Case-sensitive alliance mühürüyle uyumlu: sadece `GOW` (exact) ana ittifak;
+// diğer casing'ler otomatik olarak akademi olarak boyanır.
+const ACADEMY_GRADIENT = {
+  bg: "linear-gradient(135deg,#0369A1,#38BDF8)",
+  border: "#7DD3FC",
+};
 
 function hash(s) {
   let h = 0;
@@ -37,21 +44,38 @@ function lightenHex(hex, amt = 0.35) {
   return `#${mix(r)}${mix(g)}${mix(b)}`;
 }
 
+// v62 — Akademi tespiti: sadece `GOW` (exact) ANA ittifaktır; diğer tüm
+// casing varyantları (`GoW`, `GOw`, `gow`, ...) AKADEMİ olarak işaretlenir.
+// Case-sensitivity mühürüyle 1:1 uyumlu, hiçbir birleştirme yapmaz.
+export function isAcademyAlliance(name) {
+  if (!name) return false;
+  const s = String(name);
+  return s !== "GOW" && s.toUpperCase() === "GOW";
+}
+
 export function getAllianceColor(name, customColors) {
-  if (!name) return { bg: "#374151", border: "#6b7280" };
+  if (!name) return { bg: "#374151", border: "#6b7280", academy: false };
   const custom = customColors && customColors[name];
   if (custom) {
-    return { bg: custom, border: lightenHex(custom, 0.4) };
+    return { bg: custom, border: lightenHex(custom, 0.4), academy: isAcademyAlliance(name) };
   }
-  if (name === "GOW") return GOW_GRADIENT;
-  return PALETTE[hash(name) % PALETTE.length];
+  if (name === "GOW") return { ...GOW_GRADIENT, academy: false };
+  if (isAcademyAlliance(name)) return { ...ACADEMY_GRADIENT, academy: true };
+  const p = PALETTE[hash(name) % PALETTE.length];
+  return { ...p, academy: false };
 }
 
 export function allianceBadgeStyle(name, customColors) {
   const c = getAllianceColor(name, customColors);
-  return {
+  const style = {
     background: c.bg,
     borderColor: c.border,
     color: "#fff",
   };
+  if (c.academy) {
+    // Ekstra outer sky-glow + solid border kalır — akademi olduğu bir bakışta
+    // anlaşılsın diye. (Dashed border küçük chip'lerde okunmuyor.)
+    style.boxShadow = "0 0 0 1px rgba(125,211,252,0.55), 0 0 6px rgba(56,189,248,0.35)";
+  }
+  return style;
 }

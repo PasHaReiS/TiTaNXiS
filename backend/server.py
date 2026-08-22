@@ -6567,6 +6567,119 @@ async def member_attendance_stats(member_id: str, days: int = 30):
     return {"attended": attended, "total": total, "compliance": compliance, "days": days}
 
 
+# ---------- Guild Health Score (v62) ----------
+@api_router.get("/health-scores")
+async def health_scores(days: int = 90, user: dict = Depends(require_admin)):
+    """Guild Health Score — üye başına 0-100 puan.
+    Karışım: RSVP oranı (%35) + Katılım oranı (%35) + Puan tutarlılığı (%30).
+
+    - RSVP oranı: eligible etkinliklerin yüzde kaçına Evet/Geç yanıtı verildi
+    - Katılım oranı: yanıtladıklarının yüzde kaçına gerçekten check-in yapıldı
+    - Puan tutarlılığı: puan varyasyon katsayısı ne kadar düşükse o kadar yüksek
+
+    v62 — Alliance case-sensitive: `GOW` (ana) ile `GoW`/`GOw` (akademi)
+    üyeleri sadece kendi ittifaklarına scope'lu etkinlikler üzerinden değerlendirilir.
+    """
+    days = max(30, min(int(days or 90), 365))
+    cutoff_iso = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
+
+    events = await db.events.find({"date": {"$gte": cutoff_iso}}, {"_id": 0, "id": 1, "alliance_scope": 1}).to_list(5000)
+    ev_scope = {e["id"]: (e.get("alliance_scope") or "GOW").strip() for e in events}
+    event_ids = list(ev_scope.keys())
+    if not event_ids:
+        return []
+
+    members = await db.members.find({}, {"_id": 0, "id": 1, "name": 1, "alliance_name": 1}).to_list(5000)
+
+    # RSVPs
+    rsvps = await db.event_rsvps.find(
+        {"event_id": {"$in": event_ids}}, {"_id": 0, "member_id": 1, "event_id": 1, "status": 1}
+    ).to_list(50000)
+    rsvp_by_member: dict = {}
+    for r in rsvps:
+        mid_r = r.get("member_id")
+        eid_r = r.get("event_id")
+        if not mid_r or not eid_r:
+            continue
+        rsvp_by_member.setdefault(mid_r, {})[eid_r] = r.get("status")
+
+    # Attendance
+    attendance = await db.event_attendance.find(
+        {"event_id": {"$in": event_ids}}, {"_id": 0, "member_id": 1, "event_id": 1}
+    ).to_list(50000)
+    att_set = {(a.get("member_id"), a.get("event_id")) for a in attendance if a.get("member_id") and a.get("event_id")}
+
+    # Points
+    points = await db.points.find(
+        {"event_id": {"$in": event_ids}}, {"_id": 0, "member_id": 1, "event_id": 1, "points": 1}
+    ).to_list(200000)
+    pts_by_member: dict = {}
+    for p in points:
+        pmid = p.get("member_id")
+        if not pmid:
+            continue
+        pts_by_member.setdefault(pmid, []).append((p.get("event_id"), p.get("points") or 0))
+
+    out = []
+    for m in members:
+        mid = m.get("id")
+        alliance = (m.get("alliance_name") or "").strip()
+        # Case-sensitive eligibility: `GOW` scope only matches `GOW` alliance.
+        eligible = [eid for eid, sc in ev_scope.items() if sc.lower() == "all" or sc == alliance]
+        n_eligible = len(eligible)
+        if n_eligible == 0:
+            continue
+        elig_set = set(eligible)
+
+        member_rsvps = rsvp_by_member.get(mid, {})
+        yes_late = sum(1 for eid in eligible if member_rsvps.get(eid) in ("attending", "late"))
+        rsvp_rate = (yes_late / n_eligible) * 100
+
+        attended = sum(1 for eid in eligible if (mid, eid) in att_set)
+        # Attendance rate = attended / yes_late (kişi söz verdiğinde ne kadar tuttu)
+        # If member never RSVP'd yes, fall back to attended/eligible to avoid inflated 0.
+        if yes_late > 0:
+            att_rate = min(100.0, (attended / yes_late) * 100)
+        else:
+            att_rate = (attended / n_eligible) * 100
+
+        # Point consistency = 1 - (stddev/mean), clamped to [0, 100]
+        m_pts = [pts for (eid_p, pts) in pts_by_member.get(mid, []) if eid_p in elig_set]
+        m_pts = [x for x in m_pts if x is not None]
+        if len(m_pts) >= 2 and sum(m_pts) > 0:
+            mean = sum(m_pts) / len(m_pts)
+            variance = sum((x - mean) ** 2 for x in m_pts) / len(m_pts)
+            stddev = variance ** 0.5
+            cv = (stddev / mean) if mean > 0 else 1.0
+            consistency = max(0.0, min(100.0, (1 - cv) * 100))
+        else:
+            # Not enough data → neutral 50 so a single-event member isn't punished.
+            consistency = 50.0
+
+        score = 0.35 * rsvp_rate + 0.35 * att_rate + 0.30 * consistency
+        score = max(0.0, min(100.0, score))
+
+        out.append({
+            "member_id": mid,
+            "name": m.get("name"),
+            "alliance_name": alliance,
+            "score": round(score, 1),
+            "breakdown": {
+                "rsvp_rate": round(rsvp_rate, 1),
+                "attendance_rate": round(att_rate, 1),
+                "consistency": round(consistency, 1),
+                "eligible_events": n_eligible,
+                "yes_late": yes_late,
+                "attended": attended,
+                "point_events": len(m_pts),
+            },
+        })
+    out.sort(key=lambda x: x["score"], reverse=True)
+    return out
+
+
+
+
 # ---------- Raporlar Merkezi (Phase 3) ----------
 
 def _reports_period_cutoff(period: str) -> Optional[str]:

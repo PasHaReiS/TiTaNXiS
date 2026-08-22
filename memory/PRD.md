@@ -21,6 +21,9 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v62)** — Akademi Görsel Ayrımı + Guild Health Score:
+  - **Akademi Görsel Ayrımı** (`frontend/src/lib/colors.js`): `isAcademyAlliance(name)` — `GOW` (exact) ANA, herhangi bir `name.toUpperCase()==="GOW" && name!=="GOW"` (yani `GoW`, `GOw`, `gow`, ...) AKADEMİ olarak otomatik işaretlenir. `getAllianceColor` artık `{bg, border, academy}` döndürür; `ACADEMY_GRADIENT` mavi-cam gradient + `allianceBadgeStyle` akademi için `boxShadow: 0 0 0 1px rgba(125,211,252,0.55), 0 0 6px rgba(56,189,248,0.35)` sky-glow ekler. Case-sensitivity mühürüyle 1:1 uyumlu, hiçbir yerde birleşme yok. Otomatik — tüm chip'ler (Leaderboard, RSVP, Reports, Members) tek noktadan renklenir.
+  - **Guild Health Score** (`backend/server.py > /api/health-scores` + `frontend/src/pages/Members.jsx > HealthChip`): Admin-only endpoint, `days=90` (30-365). Skor formülü: `0.35·RSVP + 0.35·Katılım + 0.30·Tutarlılık`. RSVP = evet+geç / eligible; Katılım = attend / yes_late (yoksa /eligible); Tutarlılık = 1 - stddev/mean (CV). Eligibility case-sensitive scope filtresine göre hesaplanır (GOW eligibility ≠ GoW eligibility). Boş data → nötr 50. Frontend Members sayfasında üye adının yanında ♥ + puan chip'i (S/A/B/C bant renkleri, tooltip breakdown). Test: `curl` ile 102 üye skorlandı, range 2.6-32.1.
 - **Feb 22, 2026 (v61)** — "Exact Match" Alliance mühürlemesi + Hızlı Rapor Paneli + Grup/Etkinlik format:
   - Alliance Case-Sensitivity Mühürlemesi (server.py): `_resolve_user_alliances`/`_rsvp_alliance_query`/`event_rsvp` gate/RSVP kaydı/import dedup — hepsinden `.upper()`/`.lower()` merge KALDIRILDI. Kanıt: `/api/leaderboard/by-alliance` → GOW (68) · GoW (9) · GOw (1) üç bağımsız ittifak.
   - Etkinlik Adlandırma "Grup / Etkinlik Adı" formatı: Events kartları + Leaderboard aktif chip'leri (altın grup adı + gri "/" + beyaz etkinlik adı).

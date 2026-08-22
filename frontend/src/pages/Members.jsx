@@ -216,6 +216,14 @@ export default function Members() {
     refreshInterval: 8000,
   });
   const { data: allianceColors = {} } = useSWR("/alliance-colors", fetcher, { refreshInterval: 15000 });
+  // v62 — Guild Health Score (0-100) per member. Admin-only endpoint; falls
+  // back to empty map for non-admin viewers so `healthById[m.id]` stays undef.
+  const { data: healthScores = [] } = useSWR(user?.is_admin ? "/health-scores?days=90" : null, fetcher, { refreshInterval: 60000 });
+  const healthById = useMemo(() => {
+    const m = {};
+    (healthScores || []).forEach((h) => { if (h && h.member_id) m[h.member_id] = h; });
+    return m;
+  }, [healthScores]);
   const { data: allianceStatsTop = [] } = useSWR("/alliances/stats", fetcher);
   const allianceCategoryMap = useMemo(() => {
     const m = {};
@@ -968,6 +976,7 @@ export default function Members() {
                                     >
                                       {m.name}
                                     </span>
+                                    {healthById[m.id] && <HealthChip health={healthById[m.id]} memberId={m.id} />}
                                     {m.note && m.note.trim() !== "" && (m.note_position || "inline") === "inline" && (
                                       <span
                                         className="text-xs truncate leading-tight"
@@ -1898,3 +1907,53 @@ function StatChip({ label, value, sub, color }) {
     </div>
   );
 }
+
+// v62 — Guild Health Score chip (0-100). Renders inline next to member name.
+// Color bands: 80+ neon green, 60-79 gold, 40-59 orange, <40 red.
+// Tooltip breaks down RSVP / Attendance / Consistency components.
+function HealthChip({ health, memberId }) {
+  const s = Number(health?.score ?? 0);
+  const b = health?.breakdown || {};
+  let color, glow, label;
+  if (s >= 80) {
+    color = "#22C55E"; glow = "rgba(34,197,94,0.55)"; label = "S";
+  } else if (s >= 60) {
+    color = "#F5A623"; glow = "rgba(245,166,35,0.55)"; label = "A";
+  } else if (s >= 40) {
+    color = "#F97316"; glow = "rgba(249,115,22,0.55)"; label = "B";
+  } else {
+    color = "#EF4444"; glow = "rgba(239,68,68,0.55)"; label = "C";
+  }
+  const title = `Guild Health Score: ${s.toFixed(1)}/100 (${label})
+• RSVP: %${b.rsvp_rate ?? 0} (${b.yes_late ?? 0}/${b.eligible_events ?? 0})
+• Katılım: %${b.attendance_rate ?? 0} (${b.attended ?? 0} check-in)
+• Puan Tutarlılığı: %${b.consistency ?? 0} (${b.point_events ?? 0} etkinlik)
+Son 90 gün — üstteki oranlar 0.35/0.35/0.30 ağırlıklı`;
+  return (
+    <span
+      data-testid={`health-chip-${memberId}`}
+      title={title}
+      className="mono flex-shrink-0"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 3,
+        padding: "1px 6px",
+        borderRadius: 999,
+        fontSize: 9,
+        fontWeight: 900,
+        letterSpacing: "0.06em",
+        color,
+        border: `1px solid ${color}`,
+        background: `radial-gradient(circle at 30% 30%, ${color}22 0%, transparent 70%)`,
+        boxShadow: `0 0 6px ${glow}`,
+        fontFamily: "Cinzel, Rajdhani, serif",
+        lineHeight: 1.2,
+      }}
+    >
+      <span style={{ opacity: 0.75, fontSize: 8 }}>♥</span>
+      {Math.round(s)}
+    </span>
+  );
+}
+
