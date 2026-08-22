@@ -21,6 +21,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v69)** — Tasarım Krizi Müdahalesi (halka büyük + ikon mücevher gibi küçük):
+  - Halka pedestal 108→**116px** (`CONTAINER + 86`), ferah geniş halka geri döndü.
+  - İkon crop `CONTAINER: 44 → 30` (=%30 daha küçük), padding = 43px HER YÖN — ikon halka içinde ~üçte bir kaplıyor, dev boşluk kaldı.
+  - Sprite `xShift=35, yShift=30` → dead-center dikey+yatay hizalama; flex `align+justify: center`.
+  - Warband trio SVG boyutu `CONTAINER+8` (=38px) — o da halkanın içinde küçük mücevher olarak sığdı.
+  - Canlı altın halka (v68) korundu. Screenshot ile onaylandı: 6 ikon halkalarda küçük mücevherler gibi ortalı ve ferah.
 - **Feb 22, 2026 (v68)** — Canlı Altın Halka + Warband Trio Silueti:
   - **Halka Altın Canlılığı Geri**: Border alpha `0.22 → 0.55`, box-shadow katmanları güçlendirildi: `0 0 22px -2px rgba(212,175,55,0.55)` yakın altın halo + `0 0 32px -6px rgba(147,51,234,0.38)` violet echo + `0 0 56px -14px rgba(245,208,106,0.35)` geniş dış altın aura + inner rim highlight `0.18 → 0.28`. Ferah düzen (108px pedestal, 44px crop, %30 padding) korundu.
   - **Warband Trio Silueti**: Oyuncak Sparta miğferi kaldırıldı. Yerine üç savaşçı inline SVG:

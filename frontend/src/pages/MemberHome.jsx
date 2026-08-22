@@ -57,14 +57,14 @@ const SPRITE_CELLS = {
 
 function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
   const { col, row } = SPRITE_CELLS[spriteKey];
-  // v67 — Ferah ikon düzeni: crop penceresi 44px'e küçültüldü, pedestal
-  // 108px'de kaldı → ikonun etrafında (108-44)/2 = 32px orantılı boşluk
-  // (~30% safe margin her yönden). İkonlar artık halkaya sıkışmıyor,
-  // "yüzüyor".
-  const CELL = 100;                        // native sprite cell size
-  const CONTAINER = 44;                    // v67 — küçültüldü (was 56) — ferah
-  const xShift = (CELL - CONTAINER) / 2;   // 28 — tam yatay ortalanmış crop
-  const yShift = 20;                       // v67 — dikey merkeze denk gelen offset
+  // v69 — Kriz müdahalesi: halka önceki ferah boyutuna GERİ, ikonlar
+  // içerde küçük mücevher gibi. Pedestal 116px sabit, crop 30px (=%30
+  // daha küçük ikon), padding (116-30)/2 = 43px HER YÖN ≈ ikon halkanın
+  // yaklaşık üçte birini kaplıyor, geri kalan hepsi ferah boşluk.
+  const CELL = 100;                        // native sprite cell
+  const CONTAINER = 30;                    // v69 — 44→30 (=%30 daha küçük ikon)
+  const xShift = (CELL - CONTAINER) / 2;   // 35 — tam yatay ortalanmış
+  const yShift = 30;                       // v69 — dikey merkezleme (icon body ~y=45)
   return (
     <button
       type="button"
@@ -86,13 +86,13 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
         aria-hidden="true"
         className="menu-tile-pedestal"
         style={{
-          width: CONTAINER + 64,   // v67 — pedestal 108px → ~32px padding her yön
-          height: CONTAINER + 64,
+          width: CONTAINER + 86,   // v69 — pedestal 116px sabit → ~43px padding her yön
+          height: CONTAINER + 86,
           overflow: "visible",
           position: "relative",
           display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          alignItems: "center",     // dead-center vertical
+          justifyContent: "center", // dead-center horizontal
         }}
       >
         {/* v65 — Circular floating glass pedestal (yüzen cam altlık).
@@ -155,8 +155,8 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
             // mızraklarıyla. Diğer sprite ikonlarla aynı drop-shadow.
             <svg
               viewBox="0 0 100 100"
-              width={CONTAINER + 6}
-              height={CONTAINER + 6}
+              width={CONTAINER + 8}
+              height={CONTAINER + 8}
               xmlns="http://www.w3.org/2000/svg"
               style={{
                 filter:
