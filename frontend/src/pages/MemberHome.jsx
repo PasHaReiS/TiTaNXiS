@@ -57,15 +57,14 @@ const SPRITE_CELLS = {
 
 function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
   const { col, row } = SPRITE_CELLS[spriteKey];
-  // v73 — İç koyu daire (88px overlay) KALDIRILDI. İkonlar doğrudan
-  // dıştaki 108px altın halkanın zeminine oturuyor.
-  // - 5 sprite ikon %15 daha küçültüldü: 43 → 37px
-  // - Warband trio: 50px sabit (değişmedi)
+  // v75 — İkon boyutu = daire çapının %60'ı (108 * 0.6 ≈ 65px). Hem sprite
+  // hem warband trio 65px'e sabit. Pedestal flex-center içinde hem yatay
+  // hem dikey ortalanmış. object-fit spec'ini sprite'a taşıyabilmek için
+  // crop viewport 65px, sprite icon body native center'a kilitli.
   const CELL = 100;
-  const SPRITE_CONTAINER = 37;               // v73 — 43 * 0.85
-  const WARBAND_SIZE = 50;
-  const xShift = (CELL - SPRITE_CONTAINER) / 2;  // 31.5 — dead-center horizontal
-  const yShift = 20;                             // dead-center vertical (icon body ~y=45)
+  const ICON_SIZE = 65;                        // 60% of 108
+  const xShift = (CELL - ICON_SIZE) / 2;       // 17.5 — dead-center horizontal
+  const yShift = 10;                            // dead-center vertical
   return (
     <button
       type="button"
@@ -95,46 +94,30 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
           justifyContent: "center",
         }}
       >
-        {/* v71 — Görünür altın halka pedestal (2. görsel/production stili). */}
+        {/* v74 — Daire zemini ŞEFFAF: arka planda taş dokusu görünüyor.
+            Sadece amber halka çizgisi + yumuşak dış glow kaldı. */}
         <div
           style={{
             position: "absolute",
             inset: 0,
             borderRadius: "50%",
-            background:
-              "radial-gradient(circle at 32% 28%, rgba(168,85,247,0.26) 0%, rgba(20,10,30,0.55) 45%, rgba(8,4,14,0.72) 100%)",
-            border: "1px solid rgba(212,175,55,0.55)",
+            background: "transparent",
+            border: "2px solid rgba(249,115,22,0.6)",
             boxShadow:
-              "0 10px 26px -8px rgba(0,0,0,0.85), " +
-              "0 0 20px -2px rgba(212,175,55,0.50), " +
-              "0 0 30px -6px rgba(147,51,234,0.35), " +
-              "0 0 52px -14px rgba(245,208,106,0.32), " +
-              "inset 0 1px 0 rgba(255,220,150,0.24), " +
-              "inset 0 -6px 16px rgba(0,0,0,0.55)",
+              "0 8px 22px -8px rgba(0,0,0,0.65), " +
+              "0 0 18px -4px rgba(249,115,22,0.45), " +
+              "0 0 34px -10px rgba(245,208,106,0.28)",
           }}
         />
-        {/* Inner glass hi-light */}
-        <div
-          style={{
-            position: "absolute",
-            top: 6,
-            left: 12,
-            right: 12,
-            height: "36%",
-            borderRadius: "50%",
-            background: "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0) 80%)",
-            pointerEvents: "none",
-            filter: "blur(1.8px)",
-          }}
-        />
+        {/* v74 — Inner glass hi-light kaldırıldı; şeffaf zemin istendi. */}
         {/* v73 — İç daire wrapper KALDIRILDI. Sprite/SVG doğrudan 108px
             pedestal'ın flex-centered child'ı olarak zeminine oturuyor. */}
         {spriteKey === "uyeler" ? (
           // Warband trio 50px sabit — pedestal'ın tam ortasında
           <svg
             viewBox="0 0 100 100"
-            width={WARBAND_SIZE}
-            height={WARBAND_SIZE}
+            width={ICON_SIZE}
+            height={ICON_SIZE}
             xmlns="http://www.w3.org/2000/svg"
             style={{
               position: "relative",
@@ -185,12 +168,12 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
               </g>
             </svg>
           ) : (
-            // v73 — Sprite crop 37px, doğrudan 108px pedestal'in
-            // flex-centered child'ı olarak zeminine oturuyor. İç daire yok.
+            // v75 — Sprite crop 65px (=%60 of pedestal). Doğrudan pedestal
+            // flex-centered zeminine oturuyor (hem yatay hem dikey ortalı).
             <div
               style={{
-                width: SPRITE_CONTAINER,
-                height: SPRITE_CONTAINER,
+                width: ICON_SIZE,
+                height: ICON_SIZE,
                 overflow: "hidden",
                 position: "relative",
                 zIndex: 1,

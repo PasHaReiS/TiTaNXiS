@@ -21,6 +21,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v75)** — İkonlar %60 Boyutta + Tam Ortalama:
+  - Tüm ikonlar (5 sprite + warband trio) `ICON_SIZE = 65px` (=%60 of 108px pedestal). `xShift=17.5, yShift=10` sprite native center'a kilitli. Pedestal `display:flex; align-items:center; justify-content:center` — hem yatay hem dikey dead-center. Sprite arka planı `mix-blend-mode: screen` ile transparent kalır (v65'ten), amber ring border (v74) korundu.
+- **Feb 22, 2026 (v74)** — Şeffaf Menü Halka Zemini:
+  - Menu circle pedestal `background: transparent`, sadece **amber border** (`2px solid rgba(249,115,22,0.6)`) + yumuşak dış glow (amber + faded gold) kaldı.
+  - Radial dark violet gradient + inner glass hi-light overlay KALDIRILDI. Halkanın içi tamamen şeffaf → arka plandaki taş dokusu ikonun etrafından görünür.
+  - `mixBlendMode: 'screen'` sprite `<img>`'da zaten aktif (v65'ten). Screenshot doğrulandı: ikonların arkası tam şeffaf, sadece ikon + amber ring, taş dokusu net görünüyor.
 - **Feb 22, 2026 (v73)** — İç Koyu Daire Kaldırıldı + 5 Sprite %15 Daha Küçültme:
   - **İç Wrapper Silindi**: 88px inner circle overlay (`INNER_AREA`) tamamen kaldırıldı. Sprite ve SVG artık doğrudan 108px altın halka pedestal'ının flex-centered child'ı → temiz zemin.
   - **5 Sprite %15 Daha**: `SPRITE_CONTAINER: 43 → 37` (Şimşek, Parşömen, Terazi, Kılıç, Çubuklar). `xShift = 31.5, yShift = 20`.
