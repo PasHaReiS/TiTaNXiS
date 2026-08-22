@@ -57,13 +57,17 @@ const SPRITE_CELLS = {
 
 function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
   const { col, row } = SPRITE_CELLS[spriteKey];
-  // v71 — FINAL: geniş görünür altın halka + içerde küçük ferah ikon.
-  // Pedestal 108px (görünür halka), ikon crop 50px sabit (tüm ikonlar EŞİT).
-  // Padding = (108-50)/2 = 29px her yön → kenara değmiyor.
+  // v72 — Inner container GENİŞLETİLDİ: 88px (was 50px). Dıştaki 108px altın
+  // halkanın hemen içinde, kenarlara değmeden ferah bir yaşam alanı.
+  // - 5 sprite ikon: 50 → 43px (=%15 küçültme)
+  // - Warband trio: 50px (aynı) — sadece genişletilmiş alana tam ortalı.
+  // Her iki türde de padding = (108-icon)/2 iyice ferah.
   const CELL = 100;
-  const CONTAINER = 50;                    // tüm ikonlar aynı 50px
-  const xShift = (CELL - CONTAINER) / 2;   // 25 — yatay dead-center
-  const yShift = 15;                       // dikey merkez (icon body ~y=45)
+  const SPRITE_CONTAINER = 43;               // 50 * 0.85
+  const WARBAND_SIZE = 50;                   // unchanged
+  const INNER_AREA = 88;                     // widened inner circle
+  const xShift = (CELL - SPRITE_CONTAINER) / 2;  // 28.5 — dead-center horizontal
+  const yShift = 18;                             // dead-center vertical (icon body ~y=45)
   return (
     <button
       type="button"
@@ -127,8 +131,8 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
         />
         <div
           style={{
-            width: CONTAINER,
-            height: CONTAINER,
+            width: INNER_AREA,                 // v72 — 88px genişletilmiş inner area
+            height: INNER_AREA,
             overflow: "hidden",
             borderRadius: "50%",
             position: "relative",
@@ -139,12 +143,12 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
           }}
         >
           {spriteKey === "uyeler" ? (
-            // v70 — Warband trio inline SVG. Diğer sprite ikonlarla
-            // birebir aynı boyutta (CONTAINER=62).
+            // v72 — Warband trio boyutu değişmedi (50px). Sadece
+            // genişletilmiş 88px inner area'nın tam ortasında yüzüyor.
             <svg
               viewBox="0 0 100 100"
-              width={CONTAINER}
-              height={CONTAINER}
+              width={WARBAND_SIZE}
+              height={WARBAND_SIZE}
               xmlns="http://www.w3.org/2000/svg"
               style={{
                 filter: "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(249,115,22,0.4))",
@@ -193,22 +197,34 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
               </g>
             </svg>
           ) : (
-            <img
-              src={ICON_SPRITE_URL}
-              alt=""
+            // v72 — Sprite crop artık 43px (was 50) = %15 daha küçük.
+            // Genişletilmiş 88px inner area'nın tam ortasında yüzüyor.
+            <div
               style={{
-                position: "absolute",
-                width: CELL * 2,
-                height: CELL * 3,
-                left: -(col * CELL + xShift),
-                top: -(row * CELL + yShift),
-                maxWidth: "none",
-                display: "block",
-                mixBlendMode: "screen",
-                filter: "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(249,115,22,0.4))",
-                opacity: locked ? 0.65 : 1,
+                width: SPRITE_CONTAINER,
+                height: SPRITE_CONTAINER,
+                overflow: "hidden",
+                borderRadius: "50%",
+                position: "relative",
               }}
-            />
+            >
+              <img
+                src={ICON_SPRITE_URL}
+                alt=""
+                style={{
+                  position: "absolute",
+                  width: CELL * 2,
+                  height: CELL * 3,
+                  left: -(col * CELL + xShift),
+                  top: -(row * CELL + yShift),
+                  maxWidth: "none",
+                  display: "block",
+                  mixBlendMode: "screen",
+                  filter: "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(249,115,22,0.4))",
+                  opacity: locked ? 0.65 : 1,
+                }}
+              />
+            </div>
           )}
         </div>
       </div>

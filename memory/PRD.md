@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v72)** — İç Container Genişletildi + 5 Sprite %15 Küçültme:
+  - **Inner Area Genişletildi**: `50 → 88px`. Dıştaki 108px altın halkanın hemen içinde ferah yaşam alanı. Sprite/SVG ikonlar bu genişletilmiş dairenin ortasında flex-centered.
+  - **5 Sprite %15 Küçültüldü**: `SPRITE_CONTAINER: 50 → 43` (Şimşek, Parşömen, Terazi, Kılıç, Çubuklar). `xShift = 28.5, yShift = 18` icon body native center'ına kilitli.
+  - **Warband Trio Aynı**: `WARBAND_SIZE = 50` sabit — sadece genişletilmiş 88px inner area'nın tam ortasında yüzüyor.
+  - Padding: sprite icon için (108-43)/2 = **32.5px**, warband için (108-50)/2 = **29px**. İkiside kenarlara değmiyor, ferah.
 - **Feb 22, 2026 (v71)** — SON REVİZE: Görünür Altın Halka + Eşit Küçük İkonlar + Warband Trio:
   - **Halka Geri Geldi**: Pedestal 108px sabit, görünür altın border (`rgba(212,175,55,0.55)`) + katmanlı glow (yakın altın halo 0.50 + violet echo 0.35 + geniş dış altın aura 0.32) + inner glass hi-light. Production 2. görsel stili.
   - **İkonlar Eşit ve Küçük**: TÜM 6 ikon `CONTAINER = 50px` sabit → simetrik. Padding = (108-50)/2 = **29px her yön** ferah boşluk, kenara değmiyor.
