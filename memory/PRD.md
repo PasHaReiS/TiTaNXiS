@@ -21,6 +21,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v68)** — Canlı Altın Halka + Warband Trio Silueti:
+  - **Halka Altın Canlılığı Geri**: Border alpha `0.22 → 0.55`, box-shadow katmanları güçlendirildi: `0 0 22px -2px rgba(212,175,55,0.55)` yakın altın halo + `0 0 32px -6px rgba(147,51,234,0.38)` violet echo + `0 0 56px -14px rgba(245,208,106,0.35)` geniş dış altın aura + inner rim highlight `0.18 → 0.28`. Ferah düzen (108px pedestal, 44px crop, %30 padding) korundu.
+  - **Warband Trio Silueti**: Oyuncak Sparta miğferi kaldırıldı. Yerine üç savaşçı inline SVG:
+    - Merkez savaşçı ön planda — dark gradient body (`#3A2610 → #1A0F08 → #08030A`), altın rim lighting, kalkık kılıç (blade + crossguard + pommel), crested helmet, göz siperliği.
+    - Sol + sağ savaşçılar arka planda (opacity 0.72) — mızrakları yukarı, mini plume'lu miğferler.
+    - Altta altın radial floor bloom (`rgba(212,175,55,0.35)`) → grup zeminde parlıyor.
+    - Diğer sprite ikonlarla aynı drop-shadow katmanı (siyah + altın halo + soft glow).
 - **Feb 22, 2026 (v67)** — Ferah İkon Düzeni + Sparta Miğferi:
   - **Ferah İkon Düzeni** (`MemberHome.jsx > MenuTile`): Crop penceresi `CONTAINER: 56 → 44`, pedestal `+48 → +64` (=108px), sprite yatay+dikey ortalanmış (`xShift = 28, yShift = 20`). İkon safe margin: (108-44)/2 = **32px her yön ≈ %30 iç boşluk** — kullanıcının istediği en az %20 safe margin katbekat aşıldı. İkonlar artık halkanın tam ortasında "cuk" oturuyor ve ferah şekilde yüzüyor.
   - **Üyeler Ikonu — Sparta/Centurion Miğferi**: `UsersRound` yerine inline SVG — çift-katman altın gradient (`#FFF4B8 → #F5D06A → #C08820 → #5A3708`) helmet dome, kırmızı-altın crest plume (Roma/Sparta stili), altın crest base band, nasal bar, T-visor eye slots, cheek guards, radial white shine highlight. Sprite ikonlarla aynı 3D drop-shadow filtresi. Metalik doku ve parlaklık aynı sanatsal seviyede.

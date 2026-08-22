@@ -96,26 +96,28 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
         }}
       >
         {/* v65 — Circular floating glass pedestal (yüzen cam altlık).
-            v66 — Glow yumuşatıldı: 3 katmanlı halo, dış hale çok geniş ve
-            düşük alpha ile arka planla kaynaşır. Sert altın border yerine
-            yumuşak gold hairline. */}
+            v68 — CANLI ALTIN halka geri getirildi. Sert değil ama parlak
+            altın halo baskın; violet echo destekleyici. Border altın
+            hairline eski canlılığında. */}
         <div
           style={{
             position: "absolute",
             inset: 0,
             borderRadius: "50%",
             background:
-              "radial-gradient(circle at 32% 28%, rgba(168,85,247,0.24) 0%, rgba(20,10,30,0.50) 48%, rgba(8,4,14,0.72) 100%)",
-            border: "1px solid rgba(212,175,55,0.22)",
+              "radial-gradient(circle at 32% 28%, rgba(168,85,247,0.28) 0%, rgba(20,10,30,0.55) 45%, rgba(8,4,14,0.75) 100%)",
+            border: "1px solid rgba(212,175,55,0.55)",
             boxShadow:
-              // Deep base shadow (grounds the disc)
-              "0 12px 30px -10px rgba(0,0,0,0.85), " +
-              // Soft mid-range violet halo (kısa mesafe)
-              "0 0 24px -4px rgba(147,51,234,0.22), " +
-              // Wide, faded outer gold aura (geniş & yumuşak → arka planla kaynaşır)
-              "0 0 52px -14px rgba(212,175,55,0.28), " +
-              // Inner rim highlights
-              "inset 0 1px 0 rgba(255,220,150,0.18), " +
+              // Deep base ground shadow
+              "0 10px 26px -8px rgba(0,0,0,0.85), " +
+              // Vibrant close-in GOLD halo (canlı altın parlama)
+              "0 0 22px -2px rgba(212,175,55,0.55), " +
+              // Mid-range violet echo
+              "0 0 32px -6px rgba(147,51,234,0.38), " +
+              // Wide outer gold aura (still soft/blended)
+              "0 0 56px -14px rgba(245,208,106,0.35), " +
+              // Inner rim highlight + bottom shadow
+              "inset 0 1px 0 rgba(255,220,150,0.28), " +
               "inset 0 -6px 16px rgba(0,0,0,0.55)",
           }}
         />
@@ -147,10 +149,10 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
           }}
         >
           {spriteKey === "uyeler" ? (
-            // v67 — Üyeler ikonu artık altın 3D Sparta/Centurion miğferi.
-            // Inline SVG: çift-katman gold gradient dome + kırmızı-altın
-            // crest plume + nasal bar + T-visor. Diğer sprite ikonlarla
-            // aynı drop-shadow katmanı ile bütünleşir.
+            // v68 — Warband: üçlü savaşçı silueti. Karanlık atmosfer +
+            // altın rim lighting. Ortadaki savaşçı ön planda kılıcını
+            // kaldırmış, yanlardaki iki savaşçı arka planda (opacity 0.72)
+            // mızraklarıyla. Diğer sprite ikonlarla aynı drop-shadow.
             <svg
               viewBox="0 0 100 100"
               width={CONTAINER + 6}
@@ -161,82 +163,75 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
                   "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(212,175,55,0.55)) drop-shadow(0 0 6px rgba(245,208,106,0.45))",
                 opacity: locked ? 0.65 : 1,
               }}
-              data-testid="uyeler-spartan-helmet"
+              data-testid="uyeler-warband-trio"
             >
               <defs>
-                <linearGradient id="spartanGold" x1="0.5" y1="0" x2="0.5" y2="1">
+                <linearGradient id="warriorDark" x1="0.5" y1="0" x2="0.5" y2="1">
+                  <stop offset="0%" stopColor="#3A2610" />
+                  <stop offset="50%" stopColor="#1A0F08" />
+                  <stop offset="100%" stopColor="#08030A" />
+                </linearGradient>
+                <linearGradient id="warriorRim" x1="0.5" y1="0" x2="0.5" y2="1">
                   <stop offset="0%" stopColor="#FFF4B8" />
-                  <stop offset="28%" stopColor="#F5D06A" />
-                  <stop offset="62%" stopColor="#C08820" />
-                  <stop offset="100%" stopColor="#5A3708" />
-                </linearGradient>
-                <linearGradient id="spartanPlume" x1="0.5" y1="0" x2="0.5" y2="1">
-                  <stop offset="0%" stopColor="#F5A623" />
-                  <stop offset="45%" stopColor="#DC2626" />
-                  <stop offset="100%" stopColor="#5A0F0A" />
-                </linearGradient>
-                <radialGradient id="spartanShine" cx="0.3" cy="0.22" r="0.55">
-                  <stop offset="0%" stopColor="rgba(255,255,255,0.75)" />
-                  <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-                </radialGradient>
-                <linearGradient id="spartanCrestBase" x1="0" y1="0.5" x2="1" y2="0.5">
-                  <stop offset="0%" stopColor="#7A4E10" />
-                  <stop offset="50%" stopColor="#D4AF37" />
+                  <stop offset="35%" stopColor="#F5D06A" />
+                  <stop offset="70%" stopColor="#C08820" />
                   <stop offset="100%" stopColor="#7A4E10" />
                 </linearGradient>
+                <radialGradient id="warriorFloor" cx="0.5" cy="0.9" r="0.55">
+                  <stop offset="0%" stopColor="rgba(212,175,55,0.35)" />
+                  <stop offset="100%" stopColor="rgba(212,175,55,0)" />
+                </radialGradient>
               </defs>
-              {/* Crest plume — Roman/Spartan style front-to-back */}
-              <path
-                d="M 24 24 Q 50 -2 76 24 Q 72 32 68 30 Q 50 22 32 30 Q 28 32 24 24 Z"
-                fill="url(#spartanPlume)"
-                stroke="#5A0F0A"
-                strokeWidth="1"
-              />
-              {/* Plume base band (gold) */}
-              <path
-                d="M 26 28 Q 50 22 74 28 L 72 33 Q 50 28 28 33 Z"
-                fill="url(#spartanCrestBase)"
-                stroke="#5A3708"
-                strokeWidth="0.6"
-              />
-              {/* Helmet dome */}
-              <path
-                d="M 22 48 Q 22 28 50 28 Q 78 28 78 48 L 78 62 Q 78 72 72 78 L 72 68 Q 62 70 50 70 Q 38 70 28 68 L 28 78 Q 22 72 22 62 Z"
-                fill="url(#spartanGold)"
-                stroke="#5A3708"
-                strokeWidth="1.5"
-              />
-              {/* Nasal bar */}
-              <path
-                d="M 47 44 L 53 44 L 53 68 Q 50 70 47 68 Z"
-                fill="url(#spartanGold)"
-                stroke="#5A3708"
-                strokeWidth="0.9"
-              />
-              {/* Eye slots (T-visor) */}
-              <path
-                d="M 32 48 Q 40 46 45 48 L 45 55 Q 40 57 32 55 Z"
-                fill="#1A0E04"
-              />
-              <path
-                d="M 55 48 Q 60 46 68 48 L 68 55 Q 60 57 55 55 Z"
-                fill="#1A0E04"
-              />
-              {/* Dome highlight */}
-              <ellipse cx="38" cy="38" rx="12" ry="7" fill="url(#spartanShine)" />
-              {/* Cheek guards outline curve */}
-              <path
-                d="M 28 62 Q 28 74 34 80 L 30 80 Q 22 74 22 62 Z"
-                fill="url(#spartanGold)"
-                stroke="#5A3708"
-                strokeWidth="1"
-              />
-              <path
-                d="M 72 62 Q 72 74 66 80 L 70 80 Q 78 74 78 62 Z"
-                fill="url(#spartanGold)"
-                stroke="#5A3708"
-                strokeWidth="1"
-              />
+
+              {/* Ground light bloom under the trio */}
+              <ellipse cx="50" cy="88" rx="34" ry="6" fill="url(#warriorFloor)" />
+
+              {/* LEFT warrior (background) */}
+              <g opacity="0.72">
+                {/* Spear */}
+                <line x1="18" y1="10" x2="18" y2="60" stroke="url(#warriorRim)" strokeWidth="1.8" strokeLinecap="round" />
+                <path d="M 15 8 L 18 3 L 21 8 L 18 14 Z" fill="url(#warriorRim)" stroke="#5A3708" strokeWidth="0.4" />
+                {/* Body/cloak */}
+                <path d="M 20 44 Q 24 32 30 32 Q 36 32 40 44 L 39 82 Q 30 86 21 82 Z"
+                  fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1" />
+                {/* Head + helmet with tiny plume */}
+                <path d="M 24 24 Q 24 16 30 16 Q 36 16 36 24 L 36 32 Q 30 34 24 32 Z"
+                  fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1" />
+                <path d="M 28 14 Q 30 8 32 14 L 31 18 Q 30 16 29 18 Z" fill="url(#warriorRim)" />
+              </g>
+
+              {/* RIGHT warrior (background) */}
+              <g opacity="0.72">
+                <line x1="82" y1="10" x2="82" y2="60" stroke="url(#warriorRim)" strokeWidth="1.8" strokeLinecap="round" />
+                <path d="M 79 8 L 82 3 L 85 8 L 82 14 Z" fill="url(#warriorRim)" stroke="#5A3708" strokeWidth="0.4" />
+                <path d="M 60 44 Q 64 32 70 32 Q 76 32 80 44 L 79 82 Q 70 86 61 82 Z"
+                  fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1" />
+                <path d="M 64 24 Q 64 16 70 16 Q 76 16 76 24 L 76 32 Q 70 34 64 32 Z"
+                  fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1" />
+                <path d="M 68 14 Q 70 8 72 14 L 71 18 Q 70 16 69 18 Z" fill="url(#warriorRim)" />
+              </g>
+
+              {/* CENTER warrior (foreground, taller, sword raised) */}
+              <g>
+                {/* Raised sword blade */}
+                <path d="M 49 6 L 51 6 L 52 44 L 48 44 Z" fill="url(#warriorRim)" stroke="#5A3708" strokeWidth="0.5" />
+                {/* Sword crossguard */}
+                <rect x="42" y="43" width="16" height="3" fill="url(#warriorRim)" stroke="#5A3708" strokeWidth="0.5" />
+                {/* Sword pommel */}
+                <circle cx="50" cy="49" r="2.4" fill="url(#warriorRim)" stroke="#5A3708" strokeWidth="0.5" />
+                {/* Body/cloak */}
+                <path d="M 36 48 Q 42 34 50 34 Q 58 34 64 48 L 63 90 Q 50 94 37 90 Z"
+                  fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1.4" />
+                {/* Head with taller crested helmet */}
+                <path d="M 42 28 Q 42 18 50 18 Q 58 18 58 28 L 58 36 Q 50 39 42 36 Z"
+                  fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1.4" />
+                {/* Helmet crest */}
+                <path d="M 46 16 Q 50 6 54 16 L 53 22 Q 50 18 47 22 Z" fill="url(#warriorRim)" stroke="#5A3708" strokeWidth="0.4" />
+                {/* Eye slit */}
+                <rect x="46" y="27" width="8" height="1.6" fill="#08030A" />
+                {/* Shoulder highlight rim */}
+                <path d="M 37 50 Q 44 44 50 44" stroke="url(#warriorRim)" strokeWidth="1" fill="none" opacity="0.85" />
+              </g>
             </svg>
           ) : (
             <img
