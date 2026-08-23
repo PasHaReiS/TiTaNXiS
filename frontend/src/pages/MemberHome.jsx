@@ -56,7 +56,7 @@ const MENU_ICONS = {
   hesapla:     "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/2634cfd739230c64bc03ebf4e3f429ab32b234a7281f3c2c8b14d635b1d677a2.jpeg",
   etkinlikler: "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/cc9cd67a70d95650ea0f23045ece23e8f8b395e4e6f0f199155f1873257fcda3.jpeg",
   raporlar:    "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/cb567ba37163057595df7ac96d9cba3426b5ba69213f3d63fd053ffd53e12c05.jpeg",
-  uyeler:      "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/33c5f0188ba886429a9194e87cf4efc9ec47c8a3304bba4ac41e0d8ae67187bd.jpeg",
+  uyeler:      "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/f4e1061b5d251e4ac7763c3b7fcc5f27a02363232fbe05811d5efd77d9068b70.jpeg",
 };
 
 function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {

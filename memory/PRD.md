@@ -21,6 +21,9 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v84)** — ÜYELER İkonu URL Güncellendi:
+  - `MENU_ICONS.uyeler` yeni JPEG URL'e geçti (f4e1061b...). CSS aynı: `width:85 height:85 object-fit:contain mix-blend-mode:screen filter:brightness(1.2) contrast(1.1)`.
+  - URL curl 200 doğrulandı, frontend compile OK, screenshot alındı.
 - **Feb 22, 2026 (v83)** — Anasayfa İkonları Siyah-Arka-Planlı Ateş Heykelleri:
   - `MENU_ICONS` 6 URL güncellendi (siralama/loj/hesapla/etkinlikler/raporlar/uyeler). Tüm 6 URL curl 200 doğrulandı.
   - `filter: brightness(1.2) contrast(1.1) + drop-shadow` (kontrast arttırıldı 1.05→1.1, brightness 1.1→1.2). `mixBlendMode: 'screen'` siyah arka planı neutralize ediyor — sadece ateş görünüyor.
