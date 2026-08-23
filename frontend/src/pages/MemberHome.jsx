@@ -51,12 +51,12 @@ const ICON_SPRITE_URL = "https://static.prod-images.emergentagent.com/jobs/e2335
 // baked-in black background so only the fire statue shines through the
 // stone texture. No pedestal ring/box — icons float directly on the wall.
 const MENU_ICONS = {
-  siralama:    "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/ea24193415c9fee95255be500556222fb965fb6734ffe8d7a2b9633499a7f981.jpeg",
-  loj:         "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/dbdacf762a56c722e36c8362d564b949993d6d6024da5887c214b71884863020.jpeg",
-  hesapla:     "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/4631334e63ad677308061f4a66ea29b84abed3b9c74a43823e31df4c3a8c3225.jpeg",
-  etkinlikler: "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/33ccbbd80ac7859c7b27c871fc0b0e02829643135dfac97aaa43ea539aa80a11.jpeg",
-  raporlar:    "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/c736bfe00f8057a4bf06dce68b368b2a027409eb2a98983f33ca01b5613b2507.jpeg",
-  uyeler:      "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/929e07a7075b4d27741a4109659ad8f570a3b1de1eb605bf1cc59554b28e2a47.jpeg",
+  siralama:    "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/5285c96e7120a74a6612330456971d47137792f53c579f598b7040adb0c8d453.jpeg",
+  loj:         "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/7aadf8fec03c35f7d713268e27a34a44d90e4d0de0031db1c4d64737f2e247a8.jpeg",
+  hesapla:     "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/2634cfd739230c64bc03ebf4e3f429ab32b234a7281f3c2c8b14d635b1d677a2.jpeg",
+  etkinlikler: "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/cc9cd67a70d95650ea0f23045ece23e8f8b395e4e6f0f199155f1873257fcda3.jpeg",
+  raporlar:    "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/cb567ba37163057595df7ac96d9cba3426b5ba69213f3d63fd053ffd53e12c05.jpeg",
+  uyeler:      "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/33c5f0188ba886429a9194e87cf4efc9ec47c8a3304bba4ac41e0d8ae67187bd.jpeg",
 };
 
 function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
@@ -88,7 +88,7 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
           height: 85,
           objectFit: "contain",
           mixBlendMode: "screen",
-          filter: "brightness(1.1) contrast(1.05) drop-shadow(0 4px 10px rgba(0,0,0,0.7))",
+          filter: "brightness(1.2) contrast(1.1) drop-shadow(0 4px 10px rgba(0,0,0,0.7))",
           background: "transparent",
           transition: "transform 0.22s ease, filter 0.22s ease",
           opacity: locked ? 0.55 : 1,

@@ -21,6 +21,10 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v83)** — Anasayfa İkonları Siyah-Arka-Planlı Ateş Heykelleri:
+  - `MENU_ICONS` 6 URL güncellendi (siralama/loj/hesapla/etkinlikler/raporlar/uyeler). Tüm 6 URL curl 200 doğrulandı.
+  - `filter: brightness(1.2) contrast(1.1) + drop-shadow` (kontrast arttırıldı 1.05→1.1, brightness 1.1→1.2). `mixBlendMode: 'screen'` siyah arka planı neutralize ediyor — sadece ateş görünüyor.
+  - Frontend compile OK. Screenshot alındı.
 - **Feb 22, 2026 (v82)** — Anasayfa 6 İkon Ateş Heykeli JPEG'lere Geçti:
   - Sprite sheet (2×3 kesim) tamamen kaldırıldı. Her menü öğesi için ayrı standalone JPEG URL (`MENU_ICONS = {siralama, loj, hesapla, etkinlikler, raporlar, uyeler}` — 6 ateş heykeli görseli).
   - `MenuTile` sadeleştirildi: `<img width=85 height=85 objectFit=contain mixBlendMode=screen filter="brightness(1.1) contrast(1.05) drop-shadow(0 4px 10px rgba(0,0,0,0.7))">` — pedestal ring/box KALDIRILDI, ikonlar doğrudan taş dokuda yüzüyor. Label altında Cinzel altın metin (`#F5E7A8`, letter-spacing 0.14em, text-shadow gold glow).
