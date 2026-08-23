@@ -256,20 +256,20 @@ export default function Header({ title, children }) {
                   {isAdmin && (
                     <MenuItem
                       emoji="📊"
-                      label="Raporlar"
+                      label={t("dropdown_participation", "Katılım")}
                       onClick={() => goto("/raporlar")}
                       testId="dropdown-reports"
                     />
                   )}
                   <MenuItem
                     emoji="🗳️"
-                    label="Anketler"
+                    label={t("dropdown_polls", "Anketler")}
                     onClick={() => goto("/anketler")}
                     testId="dropdown-polls"
                   />
                   <MenuItem
                     emoji="⚔️"
-                    label="SvS Takip"
+                    label={t("dropdown_svs", "SvS Takip")}
                     onClick={() => goto("/svs")}
                     testId="dropdown-svs"
                   />

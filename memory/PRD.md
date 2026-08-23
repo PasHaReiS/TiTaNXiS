@@ -21,6 +21,10 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v81)** — Dropdown "Raporlar" → "Katılım" + Dropdown i18n Sweep + İkon URL doğrulandı:
+  - `Header.jsx` dropdown menüsü: "Raporlar" → `t("dropdown_participation")` = **Katılım** (link `/raporlar` aynı — Katılım Merkezi sayfası). "Anketler" → `t("dropdown_polls")`, "SvS Takip" → `t("dropdown_svs")`.
+  - 3 yeni i18n key eklendi (`dropdown_participation, dropdown_polls, dropdown_svs`) — **8 dilde tam DeepL çevirili** (tr, en, ru, de, fr, es, ko, ar). Diğer 21 dil fallbackLng ile İngilizce'ye düşer.
+  - **İkon URL doğrulandı**: `HTTP/2 200 · content-length: 566555 · image/jpeg` — sprite URL erişilebilir. Production'da ikon görünmüyorsa **titanxis.com'un henüz Republish edilmediği içindir** — v58-v80 kodları canlıda yok. Republish sonrası ikonlar görünecek.
 - **Feb 22, 2026 (v80)** — FAZ 3 Kısmi Inline Refactor (Events + Reports):
   - `Reports.jsx > ReportTabs`: "Etkinlik Katılım" → `t("reports_tab_events")`, "Hızlı Rapor" → `t("reports_tab_quick")`. `useTranslation()` hook eklendi.
   - `Events.jsx`: "Arşiv" tab → `t("archive")`, "Arşive Al" (2 yer) → `t("archive_action")`, "Arşivden Çıkar" (2 yer) → `t("unarchive")`, "Arşiv Klasörleri" → `t("archive_folders")`.
