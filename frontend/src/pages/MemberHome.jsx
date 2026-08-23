@@ -46,25 +46,21 @@ const ICON_SPRITE_URL = "https://static.prod-images.emergentagent.com/jobs/e2335
 
 // Sprite is 2 cols × 3 rows (portrait). Pixel-precise crop with zoom so
 // baked-in corner numbers (1-6) and label texts stay outside the visible tile.
-const SPRITE_CELLS = {
-  siralama:     { col: 0, row: 0 }, // lightning
-  loj:          { col: 1, row: 0 }, // scroll
-  hesapla:      { col: 0, row: 1 }, // scales
-  etkinlikler:  { col: 1, row: 1 }, // crossed swords
-  raporlar:     { col: 0, row: 2 }, // bar graph
-  uyeler:       { col: 1, row: 2 }, // shield
+// v82 — Individual fire statue icons per menu item (no sprite crop).
+// Each icon is a standalone JPEG; `mix-blend-mode: screen` neutralises the
+// baked-in black background so only the fire statue shines through the
+// stone texture. No pedestal ring/box — icons float directly on the wall.
+const MENU_ICONS = {
+  siralama:    "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/ea24193415c9fee95255be500556222fb965fb6734ffe8d7a2b9633499a7f981.jpeg",
+  loj:         "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/dbdacf762a56c722e36c8362d564b949993d6d6024da5887c214b71884863020.jpeg",
+  hesapla:     "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/4631334e63ad677308061f4a66ea29b84abed3b9c74a43823e31df4c3a8c3225.jpeg",
+  etkinlikler: "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/33ccbbd80ac7859c7b27c871fc0b0e02829643135dfac97aaa43ea539aa80a11.jpeg",
+  raporlar:    "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/c736bfe00f8057a4bf06dce68b368b2a027409eb2a98983f33ca01b5613b2507.jpeg",
+  uyeler:      "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/929e07a7075b4d27741a4109659ad8f570a3b1de1eb605bf1cc59554b28e2a47.jpeg",
 };
 
 function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
-  const { col, row } = SPRITE_CELLS[spriteKey];
-  // v75 — İkon boyutu = daire çapının %60'ı (108 * 0.6 ≈ 65px). Hem sprite
-  // hem warband trio 65px'e sabit. Pedestal flex-center içinde hem yatay
-  // hem dikey ortalanmış. object-fit spec'ini sprite'a taşıyabilmek için
-  // crop viewport 65px, sprite icon body native center'a kilitli.
-  const CELL = 100;
-  const ICON_SIZE = 65;                        // 60% of 108
-  const xShift = (CELL - ICON_SIZE) / 2;       // 17.5 — dead-center horizontal
-  const yShift = 10;                            // dead-center vertical
+  const iconUrl = MENU_ICONS[spriteKey];
   return (
     <button
       type="button"
@@ -79,178 +75,44 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 4,
+        gap: 6,
         position: "relative",
       }}
     >
-      <div
-        aria-hidden="true"
+      <img
+        src={iconUrl}
+        alt=""
+        className="menu-tile-icon"
         style={{
-          width: 108,               // v71 — pedestal 108px görünür altın halka
-          height: 108,
-          overflow: "visible",
-          position: "relative",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          width: 85,
+          height: 85,
+          objectFit: "contain",
+          mixBlendMode: "screen",
+          filter: "brightness(1.1) contrast(1.05) drop-shadow(0 4px 10px rgba(0,0,0,0.7))",
+          background: "transparent",
+          transition: "transform 0.22s ease, filter 0.22s ease",
+          opacity: locked ? 0.55 : 1,
         }}
-      >
-        {/* v74 — Daire zemini ŞEFFAF: arka planda taş dokusu görünüyor.
-            Sadece amber halka çizgisi + yumuşak dış glow kaldı. */}
-        <div
-          className="menu-tile-ring"
-          style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: "50%",
-            background: "transparent",
-            border: "2px solid rgba(249,115,22,0.6)",
-            boxShadow:
-              "0 8px 22px -8px rgba(0,0,0,0.65), " +
-              "0 0 18px -4px rgba(249,115,22,0.45), " +
-              "0 0 34px -10px rgba(245,208,106,0.28)",
-            transition: "box-shadow 0.22s ease, border-color 0.22s ease",
-          }}
-        />
-        {/* v74 — Inner glass hi-light kaldırıldı; şeffaf zemin istendi. */}
-        {/* v73 — İç daire wrapper KALDIRILDI. Sprite/SVG doğrudan 108px
-            pedestal'ın flex-centered child'ı olarak zeminine oturuyor. */}
-        {spriteKey === "uyeler" ? (
-          // Warband trio 50px sabit — pedestal'ın tam ortasında
-          <svg
-            viewBox="0 0 100 100"
-            width={ICON_SIZE}
-            height={ICON_SIZE}
-            xmlns="http://www.w3.org/2000/svg"
-            className="menu-tile-icon"
-            style={{
-              position: "relative",
-              zIndex: 1,
-              filter: "drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(249,115,22,0.4))",
-              opacity: locked ? 0.65 : 1,
-              transition: "transform 0.22s ease",
-            }}
-            data-testid="uyeler-warband-trio"
-          >
-              <defs>
-                <linearGradient id="warriorDark" x1="0.5" y1="0" x2="0.5" y2="1">
-                  <stop offset="0%" stopColor="#3A2610" />
-                  <stop offset="50%" stopColor="#1A0F08" />
-                  <stop offset="100%" stopColor="#08030A" />
-                </linearGradient>
-                <linearGradient id="warriorRim" x1="0.5" y1="0" x2="0.5" y2="1">
-                  <stop offset="0%" stopColor="#FFF4B8" />
-                  <stop offset="35%" stopColor="#F5D06A" />
-                  <stop offset="70%" stopColor="#C08820" />
-                  <stop offset="100%" stopColor="#7A4E10" />
-                </linearGradient>
-              </defs>
-              {/* LEFT warrior */}
-              <g opacity="0.72">
-                <line x1="18" y1="10" x2="18" y2="60" stroke="url(#warriorRim)" strokeWidth="1.8" strokeLinecap="round" />
-                <path d="M 15 8 L 18 3 L 21 8 L 18 14 Z" fill="url(#warriorRim)" />
-                <path d="M 20 44 Q 24 32 30 32 Q 36 32 40 44 L 39 82 Q 30 86 21 82 Z" fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1" />
-                <path d="M 24 24 Q 24 16 30 16 Q 36 16 36 24 L 36 32 Q 30 34 24 32 Z" fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1" />
-                <path d="M 28 14 Q 30 8 32 14 L 31 18 Q 30 16 29 18 Z" fill="url(#warriorRim)" />
-              </g>
-              {/* RIGHT warrior */}
-              <g opacity="0.72">
-                <line x1="82" y1="10" x2="82" y2="60" stroke="url(#warriorRim)" strokeWidth="1.8" strokeLinecap="round" />
-                <path d="M 79 8 L 82 3 L 85 8 L 82 14 Z" fill="url(#warriorRim)" />
-                <path d="M 60 44 Q 64 32 70 32 Q 76 32 80 44 L 79 82 Q 70 86 61 82 Z" fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1" />
-                <path d="M 64 24 Q 64 16 70 16 Q 76 16 76 24 L 76 32 Q 70 34 64 32 Z" fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1" />
-                <path d="M 68 14 Q 70 8 72 14 L 71 18 Q 70 16 69 18 Z" fill="url(#warriorRim)" />
-              </g>
-              {/* CENTER warrior */}
-              <g>
-                <path d="M 49 6 L 51 6 L 52 44 L 48 44 Z" fill="url(#warriorRim)" />
-                <rect x="42" y="43" width="16" height="3" fill="url(#warriorRim)" />
-                <circle cx="50" cy="49" r="2.4" fill="url(#warriorRim)" />
-                <path d="M 36 48 Q 42 34 50 34 Q 58 34 64 48 L 63 90 Q 50 94 37 90 Z" fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1.4" />
-                <path d="M 42 28 Q 42 18 50 18 Q 58 18 58 28 L 58 36 Q 50 39 42 36 Z" fill="url(#warriorDark)" stroke="url(#warriorRim)" strokeWidth="1.4" />
-                <path d="M 46 16 Q 50 6 54 16 L 53 22 Q 50 18 47 22 Z" fill="url(#warriorRim)" />
-                <rect x="46" y="27" width="8" height="1.6" fill="#08030A" />
-              </g>
-            </svg>
-          ) : (
-            // v75 — Sprite crop 65px (=%60 of pedestal). Doğrudan pedestal
-            // flex-centered zeminine oturuyor (hem yatay hem dikey ortalı).
-            <div
-              className="menu-tile-icon"
-              style={{
-                width: ICON_SIZE,
-                height: ICON_SIZE,
-                overflow: "hidden",
-                position: "relative",
-                zIndex: 1,
-                transition: "transform 0.22s ease",
-              }}
-            >
-              <img
-                src={ICON_SPRITE_URL}
-                alt=""
-                className="menu-icon"
-                style={{
-                  position: "absolute",
-                  width: CELL * 2,
-                  height: CELL * 3,
-                  left: -(col * CELL + xShift),
-                  top: -(row * CELL + yShift),
-                  maxWidth: "none",
-                  display: "block",
-                  background: "transparent",
-                  backgroundColor: "transparent",
-                  // v76 — Kombine yaklaşım: (1) SVG feColorMatrix filter siyah
-                  // pikselleri luminance-based alpha ile şeffaflaştırır, (2)
-                  // mix-blend-mode: lighten fallback olarak siyah=arka plan
-                  // yapar (max(A,B) → siyah=0, background kazanır). Ayrıca
-                  // brightness boost ile ikonlar daha canlı görünür.
-                  filter:
-                    "url(#titanxis-kill-black) brightness(1.15) contrast(1.08) drop-shadow(2px 4px 8px rgba(0,0,0,0.9)) drop-shadow(0px 2px 4px rgba(249,115,22,0.4))",
-                  mixBlendMode: "lighten",
-                  isolation: "isolate",
-                  opacity: locked ? 0.65 : 1,
-                }}
-              />
-            </div>
-          )}
-      </div>
-      {locked && (
-        <span
-          style={{
-            position: "absolute",
-            top: 2,
-            right: 12,
-            fontSize: 14,
-            filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.8))",
-          }}
-        >
-          🔒
-        </span>
-      )}
-      <p
+      />
+      <div
         style={{
-          color: "#F5F0E8",
-          fontWeight: 800,
-          fontSize: 12,
-          margin: "4px 0 0",
-          letterSpacing: "0.08em",
           fontFamily: "Cinzel, serif",
-          textShadow: "0 2px 4px rgba(0,0,0,0.9)",
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: "0.14em",
+          color: "#F5E7A8",
+          textShadow: "0 2px 4px rgba(0,0,0,0.9), 0 0 6px rgba(212,175,55,0.35)",
+          textTransform: "uppercase",
+          textAlign: "center",
+          lineHeight: 1.2,
         }}
       >
         {label}
-      </p>
+      </div>
       {sub && (
         <p
-          style={{
-            color: "#D4730A",
-            fontWeight: 600,
-            fontSize: 9,
-            margin: 0,
-            letterSpacing: "0.08em",
-            textShadow: "0 1px 3px rgba(0,0,0,0.9)",
-          }}
+          className="mono text-[10px]"
+          style={{ color: "#94A3B8", textAlign: "center", margin: 0 }}
         >
           {sub}
         </p>

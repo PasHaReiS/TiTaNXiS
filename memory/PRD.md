@@ -21,6 +21,10 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v82)** — Anasayfa 6 İkon Ateş Heykeli JPEG'lere Geçti:
+  - Sprite sheet (2×3 kesim) tamamen kaldırıldı. Her menü öğesi için ayrı standalone JPEG URL (`MENU_ICONS = {siralama, loj, hesapla, etkinlikler, raporlar, uyeler}` — 6 ateş heykeli görseli).
+  - `MenuTile` sadeleştirildi: `<img width=85 height=85 objectFit=contain mixBlendMode=screen filter="brightness(1.1) contrast(1.05) drop-shadow(0 4px 10px rgba(0,0,0,0.7))">` — pedestal ring/box KALDIRILDI, ikonlar doğrudan taş dokuda yüzüyor. Label altında Cinzel altın metin (`#F5E7A8`, letter-spacing 0.14em, text-shadow gold glow).
+  - Tüm 6 URL curl ile doğrulandı (HTTP 200). Frontend compile OK.
 - **Feb 22, 2026 (v81)** — Dropdown "Raporlar" → "Katılım" + Dropdown i18n Sweep + İkon URL doğrulandı:
   - `Header.jsx` dropdown menüsü: "Raporlar" → `t("dropdown_participation")` = **Katılım** (link `/raporlar` aynı — Katılım Merkezi sayfası). "Anketler" → `t("dropdown_polls")`, "SvS Takip" → `t("dropdown_svs")`.
   - 3 yeni i18n key eklendi (`dropdown_participation, dropdown_polls, dropdown_svs`) — **8 dilde tam DeepL çevirili** (tr, en, ru, de, fr, es, ko, ar). Diğer 21 dil fallbackLng ile İngilizce'ye düşer.
