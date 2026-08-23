@@ -218,9 +218,9 @@ export default function Leaderboard() {
           className="flex gap-2 mb-3 justify-center"
         >
           {[
-            { key: "global", label: "🌍 Global" },
-            { key: "server", label: "🖥️ Sunucu" },
-            { key: "clan",   label: "🛡️ Klan"   },
+            { key: "global", label: `🌍 ${t("scope_global")}` },
+            { key: "server", label: `🖥️ ${t("scope_server")}` },
+            { key: "clan",   label: `🛡️ ${t("scope_alliance")}` },
           ].map((opt) => (
             <button
               key={opt.key}

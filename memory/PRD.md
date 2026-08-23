@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v78)** — Sıralama Klan→İttifak + Yeni i18n Keys DeepL Çevirisi:
+  - `Leaderboard.jsx` scope selector: "🛡️ Klan" → `t("scope_alliance")` = **🛡️ İttifak**. Global/Sunucu label'ları da i18n key'leri kullanacak (`scope_global`, `scope_server`).
+  - `i18n/index.js`'te tr + en + ru + de + fr + es + ko + ar + pt için 3 yeni key eklendi (DeepL curl ile alınmış çevirilerle). Diğer 21 dil `fallbackLng: ["en", "tr"]` üzerinden İngilizce'ye düşer.
+  - DeepL bulk-translate endpoint (`/api/deepl/bulk-translate`) doğrulandı, 8 dile paralel çeviri döner (curl smoke test geçti).
+  - **Global DeepL sweep NOT YET COMPLETE**: Uygulama genelinde tüm hardcoded metinleri `t()` sarmalayıp 29 dile çevirmek büyük çoklu-tur bir refactor. Bu tur sadece kritik "Klan→İttifak" fix + demo DeepL akışı yapıldı. Genel sweep phase-based olarak devam edecek (bkz. Next Action Items).
 - **Feb 22, 2026 (v77)** — Menü İkonu Hover/Active Animasyonu:
   - `.menu-tile-item` (button), `.menu-tile-ring` (halka border div), `.menu-tile-icon` (sprite crop + warband SVG) className'leri eklendi.
   - `:hover / :focus-visible / :active` state'lerinde: amber ring border alpha `0.6 → 0.95`, box-shadow yoğunlaşır (`0 0 20px rgba(249,115,22,0.8) + 0 0 40px rgba(249,115,22,0.4) + 0 0 56px -6px rgba(245,208,106,0.55)`), ikon `translateY(-4px) scale(1.05)` yukarı zıplama + büyütme.
