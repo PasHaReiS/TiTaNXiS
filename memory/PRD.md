@@ -21,6 +21,10 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v79)** — FAZ 1+2 i18n Keys: Common Buttons + Tabs + Filters (8 dile senkronize):
+  - **20 yeni i18n key** eklendi (tr + en + ru + de + fr + es + ko + ar — 8 dilde tam DeepL çevirili): `action_back, action_delete, action_edit, action_add, action_import, action_export_excel, action_approve, action_reject, filter_daily, filter_weekly, filter_all, filter_ungrouped, filter_grouped, bc_home, th_member_name, th_total_points, th_castle_level, section_alliance_ranking, section_detailed_report, section_new_event`.
+  - Diğer 21 dil `fallbackLng: ["en", "tr"]` üzerinden İngilizce'ye düşer — tutarlı UX.
+  - **⚠️ Inline Replacement (t() sarmalama) NOT COMPLETE**: 30+ dosyada ~200 hardcoded string yerinin `t(key)` ile değiştirilmesi bir sonraki faz. Bu turda sadece i18n key + çeviri altyapısı kuruldu; inline refactor tur limitleri nedeniyle ertelendi. `Leaderboard.jsx` scope tabs (v78) örnek olarak refactor edildi.
 - **Feb 22, 2026 (v78)** — Sıralama Klan→İttifak + Yeni i18n Keys DeepL Çevirisi:
   - `Leaderboard.jsx` scope selector: "🛡️ Klan" → `t("scope_alliance")` = **🛡️ İttifak**. Global/Sunucu label'ları da i18n key'leri kullanacak (`scope_global`, `scope_server`).
   - `i18n/index.js`'te tr + en + ru + de + fr + es + ko + ar + pt için 3 yeni key eklendi (DeepL curl ile alınmış çevirilerle). Diğer 21 dil `fallbackLng: ["en", "tr"]` üzerinden İngilizce'ye düşer.
