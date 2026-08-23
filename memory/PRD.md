@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 22, 2026 (v80)** — FAZ 3 Kısmi Inline Refactor (Events + Reports):
+  - `Reports.jsx > ReportTabs`: "Etkinlik Katılım" → `t("reports_tab_events")`, "Hızlı Rapor" → `t("reports_tab_quick")`. `useTranslation()` hook eklendi.
+  - `Events.jsx`: "Arşiv" tab → `t("archive")`, "Arşive Al" (2 yer) → `t("archive_action")`, "Arşivden Çıkar" (2 yer) → `t("unarchive")`, "Arşiv Klasörleri" → `t("archive_folders")`.
+  - 5 yeni i18n key eklendi (`reports_tab_events, reports_tab_quick, archive_action, unarchive, archive_folders`) — tr + en tam çevirili. Diğer 6 dil (ru, de, fr, es, ko, ar) fallbackLng ile en'e düşer.
+  - Frontend compile OK. Screenshot ile EN dilinde Events "Archive" tab'i doğrulandı.
 - **Feb 22, 2026 (v79)** — FAZ 1+2 i18n Keys: Common Buttons + Tabs + Filters (8 dile senkronize):
   - **20 yeni i18n key** eklendi (tr + en + ru + de + fr + es + ko + ar — 8 dilde tam DeepL çevirili): `action_back, action_delete, action_edit, action_add, action_import, action_export_excel, action_approve, action_reject, filter_daily, filter_weekly, filter_all, filter_ungrouped, filter_grouped, bc_home, th_member_name, th_total_points, th_castle_level, section_alliance_ranking, section_detailed_report, section_new_event`.
   - Diğer 21 dil `fallbackLng: ["en", "tr"]` üzerinden İngilizce'ye düşer — tutarlı UX.

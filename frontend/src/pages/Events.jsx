@@ -1128,7 +1128,7 @@ export default function Events() {
           >
             <span className="flex items-center gap-1">
               <span aria-hidden="true" style={{ fontSize: 12, filter: tab === "archive" ? "none" : "grayscale(0.6)" }}>📦</span>
-              <span>Arşiv</span>
+              <span>{t("archive", "Arşiv")}</span>
             </span>
             <span className="mono text-[10px] opacity-90">({archivedCount})</span>
           </button>
@@ -1997,7 +1997,7 @@ function EventDetailModal({ event, open, onClose, onEdit, events = [], onNavigat
                   : { borderColor: "#F5A623", color: "#FCD34D", background: "rgba(245,166,35,0.10)" }
                 }
               >
-                {e.archived ? "♻️ Arşivden Çıkar" : "📦 Arşive Al"}
+                {e.archived ? `♻️ ${t("unarchive", "Arşivden Çıkar")}` : `📦 ${t("archive_action", "Arşive Al")}`}
               </button>
               <button
                 type="button"
@@ -2140,7 +2140,7 @@ function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearS
         style={{ borderColor: "rgba(148,163,184,0.55)", color: "#E5E7EB", background: "rgba(148,163,184,0.10)" }}
         title="Seçili etkinlikleri arşive al"
       >
-        <Archive className="w-3 h-3" /> Arşive Al
+        <Archive className="w-3 h-3" /> {t("archive_action", "Arşive Al")}
       </button>
       <button
         type="button"
@@ -2151,7 +2151,7 @@ function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearS
         style={{ borderColor: "rgba(34,197,94,0.55)", color: "#86EFAC", background: "rgba(34,197,94,0.10)" }}
         title="Seçili etkinlikleri arşivden çıkar"
       >
-        <ArchiveRestore className="w-3 h-3" /> Arşivden Çıkar
+        <ArchiveRestore className="w-3 h-3" /> {t("unarchive", "Arşivden Çıkar")}
       </button>
       <button
         type="button"
@@ -2871,7 +2871,7 @@ function EventFolderManager({ folders, onClose }) {
           <div className="flex items-center gap-2">
             <span style={{ fontSize: 16 }}>📁</span>
             <div className="text-sm font-bold uppercase tracking-widest" style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}>
-              Arşiv Klasörleri
+              {t("archive_folders", "Arşiv Klasörleri")}
             </div>
           </div>
           <button

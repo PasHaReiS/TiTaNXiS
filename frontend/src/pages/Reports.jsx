@@ -65,6 +65,7 @@ export default function Reports() {
 }
 
 function ReportTabs({ tab, setTab }) {
+  const { t } = useTranslation();
   return (
     <div
       className="flex rounded-lg overflow-hidden"
@@ -75,8 +76,8 @@ function ReportTabs({ tab, setTab }) {
       data-testid="reports-tabs"
     >
       {[
-        { key: "events", emoji: "📅", label: "Etkinlik Katılım" },
-        { key: "quick", emoji: "⚡", label: "Hızlı Rapor" },
+        { key: "events", emoji: "📅", label: t("reports_tab_events", "Etkinlik Katılım") },
+        { key: "quick", emoji: "⚡", label: t("reports_tab_quick", "Hızlı Rapor") },
       ].map((t, i, arr) => {
         const active = tab === t.key;
         return (
