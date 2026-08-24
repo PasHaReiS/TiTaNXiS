@@ -21,6 +21,10 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v112)** — v111 Revert: BuildingCalculator Sadece Loj Hakkında'da:
+  - `PointCalcPage.jsx`'ten `BuildingCalculator` import ve render tamamen kaldırıldı.
+  - Puan Hesapla sayfası orijinal içeriğine döndü: SVS Pre Puan Hesaplama + Diğer Etkinlik Puan Hesaplamaları tabs + SidebarContent.
+  - Toplu Seçim butonu artık sadece **Loj Hakkında → Bina** sayfasında `BuildingCalculator`'ın başlığı yanında görünüyor.
 - **Feb 24, 2026 (v111)** — Toplu Seçim'i Puan Hesapla Sayfasına Da Ekle:
   - `PointCalcPage.jsx` içine `BuildingCalculator` bileşeni Header'ın hemen altında embed edildi.
   - Böylece Toplu Seçim toggle butonu + akordeon ağaç Loj Hakkında **ve** Puan Hesapla sayfalarının ikisinde de görünüyor.

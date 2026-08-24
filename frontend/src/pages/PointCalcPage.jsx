@@ -6,7 +6,6 @@ import { useAuth } from "@/context/AuthContext";
 import { Plus, Trash2, Pencil, Check, X, Settings, ChevronRight, Globe, Download, Upload, Share2, History as HistoryIcon, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
-import BuildingCalculator from "@/components/BuildingCalculator";
 import { translateUserText } from "@/lib/deeplTranslate";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -255,13 +254,6 @@ export default function PointCalcPage() {
             <div className="flex-shrink-0"><PCAdminActions kind={kind} slot="import" /></div>
           </div>
         </Header>
-
-        {/* v111 — Bina Güncelleme + Toplu Seçim (aynı bileşen Loj Hakkında
-            sayfasıyla paylaşılıyor). Sayfa girer girmez görünür, tabloya
-            bakar bakmaz Toplu Seçim butonu yakalanır. */}
-        <div className="mb-6 rounded-xl" style={{ background: "rgba(20,12,10,0.55)", border: "1px solid rgba(245,166,35,0.35)", padding: 12 }}>
-          <BuildingCalculator />
-        </div>
 
         <SidebarContent kind={kind} selectedId={selectedId} setSelectedId={setSelectedId} />
       </div>
