@@ -46,16 +46,15 @@ const ICON_SPRITE_URL = "https://static.prod-images.emergentagent.com/jobs/e2335
 
 // Sprite is 2 cols × 3 rows (portrait). Pixel-precise crop with zoom so
 // baked-in corner numbers (1-6) and label texts stay outside the visible tile.
-// v85 — Transparent PNG icons (50x50) — no blend modes, no filters.
-// Icons sit directly on the background, centered inside the 3x2 grid tile
-// with no frame or pedestal ring. Provided by user via customer-assets CDN.
+// v86 — Higher-resolution transparent PNG icons (280px source). Rendered at
+// 70x70 for crisp edges on retina displays.
 const MENU_ICONS = {
-  siralama:    "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/4fd1b7a326884d09903806cf40859a47_siralama.png",
-  loj:         "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/d4b725e08b8249f19a3e1540ff147cd4_loj_hakkinda.png",
-  hesapla:     "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/aec9e1c0eab54af7a38171076d421644_puan_hesapla.png",
-  etkinlikler: "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/dc66ee857cd043d78019dc26891afdb8_etkinlikler.png",
-  raporlar:    "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/75f93e249130488ba56f3c12c34a97ee_katilim.png",
-  uyeler:      "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/869b98b6d3cc4ce5aea8cc24000db1f0_uyeler.png",
+  siralama:    "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/bf98124273b9447cafc9dba6b96fb8cf_siralama.png",
+  loj:         "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/e1d6cc8a38464270b9b13ebed7404ad3_loj_hakkinda.png",
+  hesapla:     "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/5b65f92ee4f148ec98c287f169d237d6_puan_hesapla.png",
+  etkinlikler: "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/0606132b2dd04361aab583e1e78ffa89_etkinlikler.png",
+  raporlar:    "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/377279baeda14126ba092e559488c7c8_katilim.png",
+  uyeler:      "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/d2f02c41130d47e7b5fd241e1ae28d0a_uyeler.png",
 };
 
 function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
@@ -83,11 +82,12 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
         alt=""
         className="menu-tile-icon"
         style={{
-          width: 50,
-          height: 50,
+          width: 70,
+          height: 70,
           objectFit: "contain",
           display: "block",
           margin: "0 auto",
+          imageRendering: "crisp-edges",
           background: "transparent",
           transition: "transform 0.22s ease, filter 0.22s ease",
           opacity: locked ? 0.55 : 1,
@@ -296,81 +296,8 @@ export default function MemberHome() {
           }}
         />
 
-        {/* Row 3 — 3x2 menu grid (fully transparent tiles) */}
-        <div
-          data-testid="member-home-menu"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gridTemplateRows: "repeat(2, auto)",
-            gap: 8,
-            marginTop: 4,
-          }}
-        >
-          <MenuTile spriteKey="siralama"     label={t("nav_leaderboard").toUpperCase()}   onClick={() => nav("/")} testId="menu-siralama" />
-          <MenuTile spriteKey="loj"          label={t("nav_commanders").toUpperCase()}    onClick={() => nav("/komutanlar")} testId="menu-loj" />
-          <MenuTile spriteKey="hesapla"      label={t("nav_point_calc").toUpperCase()}    onClick={() => nav("/puan-hesaplama")} testId="menu-hesapla" />
-          <MenuTile spriteKey="etkinlikler"  label={t("nav_events").toUpperCase()}        onClick={() => nav("/etkinlikler")} testId="menu-etkinlikler" />
-          <MenuTile
-            spriteKey="raporlar"
-            label={t("nav_reports").toUpperCase()}
-            locked={!isPrivileged}
-            onClick={() => (isPrivileged ? nav("/raporlar") : lockedToast())}
-            testId="menu-raporlar"
-          />
-          <MenuTile
-            spriteKey="uyeler"
-            label={t("nav_members").toUpperCase()}
-            sub={isPrivileged ? undefined : t("home_view_only")}
-            locked={!isPrivileged}
-            onClick={() => nav("/uyeler")}
-            testId="menu-uyeler"
-          />
-        </div>
-
-        {/* Admin Dashboard strip — only visible to admin/editor */}
-        {isPrivileged && (
-          <button
-            type="button"
-            onClick={() => nav("/dashboard")}
-            data-testid="member-home-dashboard-strip"
-            style={{
-              width: "100%",
-              padding: "12px 16px",
-              borderRadius: 10,
-              border: "1.5px solid rgba(245,166,35,0.55)",
-              background: "linear-gradient(135deg, rgba(231,76,26,0.22) 0%, rgba(212,115,10,0.18) 50%, rgba(245,166,35,0.15) 100%)",
-              boxShadow: "0 0 18px rgba(245,166,35,0.20), inset 0 0 12px rgba(0,0,0,0.4)",
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              cursor: "pointer",
-              marginTop: 4,
-            }}
-          >
-            <span style={{ fontSize: 22 }}>⚡</span>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
-              <span
-                style={{
-                  fontFamily: "Cinzel, serif",
-                  fontWeight: 800,
-                  fontSize: 13,
-                  letterSpacing: "0.16em",
-                  color: "#F5A623",
-                  textShadow: "0 0 6px rgba(245,166,35,0.6)",
-                }}
-              >
-                {t("home_admin_panel").toUpperCase()}
-              </span>
-              <span style={{ fontSize: 10, color: "rgba(245,240,232,0.65)", letterSpacing: "0.06em" }}>
-                {t("home_admin_panel_sub")}
-              </span>
-            </div>
-            <span style={{ marginLeft: "auto", color: "#F5A623", fontSize: 18 }}>›</span>
-          </button>
-        )}
-
-        {/* Row 4 — "ETKİNLİK TAKVİMİ" title */}
+        {/* v86 — Calendar moved ABOVE the menu grid; admin panel strip removed. */}
+        {/* Row 3 — "ETKİNLİK TAKVİMİ" title */}
         <div
           data-testid="member-home-calendar-title"
           style={{
@@ -551,6 +478,38 @@ export default function MemberHome() {
               )}
             </div>
           )}
+        </div>
+
+        {/* Row 5 — 3x2 menu grid (fully transparent tiles) — moved below calendar in v86 */}
+        <div
+          data-testid="member-home-menu"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gridTemplateRows: "repeat(2, auto)",
+            gap: 8,
+            marginTop: 4,
+          }}
+        >
+          <MenuTile spriteKey="siralama"     label={t("nav_leaderboard").toUpperCase()}   onClick={() => nav("/")} testId="menu-siralama" />
+          <MenuTile spriteKey="loj"          label={t("nav_commanders").toUpperCase()}    onClick={() => nav("/komutanlar")} testId="menu-loj" />
+          <MenuTile spriteKey="hesapla"      label={t("nav_point_calc").toUpperCase()}    onClick={() => nav("/puan-hesaplama")} testId="menu-hesapla" />
+          <MenuTile spriteKey="etkinlikler"  label={t("nav_events").toUpperCase()}        onClick={() => nav("/etkinlikler")} testId="menu-etkinlikler" />
+          <MenuTile
+            spriteKey="raporlar"
+            label={t("nav_reports").toUpperCase()}
+            locked={!isPrivileged}
+            onClick={() => (isPrivileged ? nav("/raporlar") : lockedToast())}
+            testId="menu-raporlar"
+          />
+          <MenuTile
+            spriteKey="uyeler"
+            label={t("nav_members").toUpperCase()}
+            sub={isPrivileged ? undefined : t("home_view_only")}
+            locked={!isPrivileged}
+            onClick={() => nav("/uyeler")}
+            testId="menu-uyeler"
+          />
         </div>
       </div>
 

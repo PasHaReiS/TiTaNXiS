@@ -21,6 +21,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v86)** — Anasayfa Yeniden Düzeni: Takvim Yukarı, Yönetim Paneli Kaldırıldı, 70px Ikonlar:
+  - Yönetim Paneli (`member-home-dashboard-strip`) anasayfadan tamamen kaldırıldı — admin erişimi header/breadcrumb üzerinden.
+  - Etkinlik Takvimi (`member-home-calendar` + gün etkinlikleri) menü grid'inin ÜSTÜNE alındı; sıralama: Welcome → Hero → Takvim → 3x2 Menu.
+  - 6 ikon URL'i yeni 280px yüksek çözünürlük PNG'lere güncellendi (customer-assets CDN, tümü curl 200 doğrulandı).
+  - Icon CSS: `width:70 height:70 object-fit:contain display:block margin:0 auto image-rendering:crisp-edges background:transparent`.
+  - Screenshot ile doğrulandı — cal Y=310, menu Y=677 (takvim üstte), admin strip count=0.
 - **Feb 24, 2026 (v85)** — Anasayfa İkonları Şeffaf PNG'lere Geçildi (Final):
   - `MENU_ICONS` 6 URL yeni transparent PNG'lerle güncellendi (customer-assets CDN, tümü curl 200 doğrulandı).
   - `mixBlendMode: 'screen'` ve `filter: brightness(1.2) contrast(1.1) drop-shadow(...)` CSS kaldırıldı (PNG'lerde arka plan zaten şeffaf).
