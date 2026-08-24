@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v106)** — Radial Menü Genişletme + Ray Pulse + Brand Logo:
+  - Yay 120° → 180° geri açıldı: `startAngle: 180, endAngle: 360, step: 36°`. Radius 130 → 170.
+  - Tüm 6 label ABOVE — LEADERBOARD ve MEMBERS artık icon'un ÜSTÜNDE (label overlap sorunu tamamen çözüldü).
+  - Central pill: "TTN" text kaldırıldı; `/brand/titanxis-logo.jpg` shield PNG entegre edildi (dairesel crop, altın kenar, inset shadow).
+  - Ray Pulse animasyonu: `@keyframes radial-ray-pulse` — 2.2s ease-in-out infinite; opacity 0.55↔0.9 ve drop-shadow blur 4px↔10px arası pulsating.
 - **Feb 24, 2026 (v105)** — Radial Menü Tüm İkonlar Yukarı Yay:
   - `startAngle: 180 → 210`, `endAngle: 360 → 330` — 6 ikon 120° yay içinde, tüm sin() değerleri negatif → hepsi TTN'nin üstünde.
   - Step = 24° (kullanıcı formülü: `angle = 210 + i * 24`).

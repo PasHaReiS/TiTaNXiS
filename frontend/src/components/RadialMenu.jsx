@@ -35,11 +35,13 @@ const ITEMS = [
 ];
 
 // Radius (px) icons orbit around the central pill.
-const RADIUS = 130;
+const RADIUS = 170;
 // Central pill diameter.
 const CENTER = 44;
 // Icon tile size.
 const ICON = 70;
+// Central pill brand mark (jpg served from /public/brand).
+const BRAND_LOGO_URL = "/brand/titanxis-logo.jpg";
 
 export default function RadialMenu() {
   const { t } = useTranslation();
@@ -59,12 +61,11 @@ export default function RadialMenu() {
   if (loc.pathname === "/login") return null;
 
   const N = ITEMS.length;
-  // Distribute all 6 icons across the UPPER 120° arc so every tile stays
-  // above the central pill (never sinks to button level or below). Angles
-  // sweep 210° → 330° with a 24° step; every sin() is negative, so each
-  // icon translates upward from the button center.
-  const startAngle = 210;
-  const endAngle = 330;
+  // Distribute icons across the FULL 180° upper semi-circle so adjacent tiles
+  // have generous breathing room. Angles run 180° → 360° with a 36° step;
+  // sin() ≤ 0 across the range so every icon stays above the pill center.
+  const startAngle = 180;
+  const endAngle = 360;
   const step = (endAngle - startAngle) / (N - 1);
 
   const handleItemClick = (item) => {
@@ -78,6 +79,14 @@ export default function RadialMenu() {
 
   return (
     <>
+      {/* v106 — Pulse keyframes for the amber connection rays. Kept inline so
+          the animation is self-contained with the component. */}
+      <style>{`
+        @keyframes radial-ray-pulse {
+          0%, 100% { filter: drop-shadow(0 0 4px #f59e0b); opacity: 0.55; }
+          50%      { filter: drop-shadow(0 0 10px #f59e0b); opacity: 0.9; }
+        }
+      `}</style>
       {/* Tap-anywhere backdrop only when open on non-home pages so users can
           dismiss the fan without picking a destination. */}
       {open && !isHome && (
@@ -125,6 +134,7 @@ export default function RadialMenu() {
                 filter: "drop-shadow(0 0 4px #f59e0b)",
                 opacity: open ? 0.7 : 0,
                 transition: "opacity 0.35s ease 0.05s",
+                animation: open ? "radial-ray-pulse 2.2s ease-in-out infinite" : "none",
               }}
             >
               <defs>
@@ -177,10 +187,8 @@ export default function RadialMenu() {
           const x = RADIUS * Math.cos(rad);
           const y = RADIUS * Math.sin(rad);
           const locked = item.adminOnly && !isPrivileged;
-          // Icons in the top arc (y significantly negative) surface their
-          // labels ABOVE the tile so they do not crash into the labels of the
-          // side icons underneath. Side icons keep their label under the tile.
-          const labelAbove = y < -RADIUS * 0.55;
+          // v106 — Every label sits ABOVE its icon so side icons (LEADERBOARD,
+          // MEMBERS) don't push labels into the space below the fan.
           return (
             <button
               key={item.key}
@@ -226,9 +234,7 @@ export default function RadialMenu() {
                   position: "absolute",
                   left: "50%",
                   transform: "translateX(-50%)",
-                  ...(labelAbove
-                    ? { bottom: "calc(100% + 4px)" }
-                    : { top: "calc(100% + 4px)" }),
+                  bottom: "calc(100% + 4px)",
                   fontFamily: "Cinzel, serif",
                   fontSize: 9,
                   fontWeight: 700,
@@ -304,8 +310,23 @@ export default function RadialMenu() {
             textShadow: "0 1px 2px rgba(0,0,0,0.9)",
           }}
         >
-          <span style={{ transform: open ? "rotate(-135deg)" : "none", display: "inline-block" }}>
-            TTN
+          <span style={{
+            transform: open ? "rotate(-135deg)" : "none",
+            display: "inline-flex",
+            width: "72%",
+            height: "72%",
+            borderRadius: "50%",
+            overflow: "hidden",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "1px solid rgba(255,220,150,0.5)",
+            boxShadow: "inset 0 0 4px rgba(0,0,0,0.5)",
+          }}>
+            <img
+              src={BRAND_LOGO_URL}
+              alt="TiTaNXiS"
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
           </span>
         </button>
       </div>
