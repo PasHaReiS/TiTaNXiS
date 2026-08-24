@@ -1285,7 +1285,7 @@ export default function Events() {
                                 onClick={(ev) => { ev.stopPropagation(); renameCard(c); }}
                                 className="p-0.5 rounded hover:bg-white/10"
                                 style={{ color: "#93C5FD" }}
-                                title="Yeniden adlandır"
+                                title={t("action_rename")}
                               >
                                 <Pencil className="w-2.5 h-2.5" />
                               </button>
@@ -1630,7 +1630,7 @@ export default function Events() {
         requireSelection={{
           type: "event",
           label: "Bu puanları hangi etkinliğe eklemek istiyorsun?",
-          placeholder: "Etkinlik seç",
+          placeholder: t("event_form_select_event"),
           options: (events || [])
             .filter((e) => !e.archived)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -1641,7 +1641,7 @@ export default function Events() {
         }}
         onApply={async (data, extra) => {
           const parts = data.participants || [];
-          if (!extra?.event_id) throw new Error("Etkinlik seçilmedi");
+          if (!extra?.event_id) throw new Error(t("event_no_event_selected"));
           const res = await api.post("/ocr/apply-event-points", {
             event_id: extra.event_id,
             participants: parts,
@@ -2631,7 +2631,7 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
               type="text"
               value={/^(gow|all)$/i.test(allianceScope) ? "" : allianceScope}
               onChange={(e) => setAllianceScope(e.target.value)}
-              placeholder="Diğer ittifak…"
+              placeholder={t("form_other_alliance")}
               data-testid="event-form-alliance-scope-custom"
               className="rounded px-2 py-1 text-[11px] flex-1 min-w-[100px]"
               style={{ background: "#1A1210", border: "1px solid rgba(56,189,248,0.35)", color: "#F5F0E8" }}
@@ -2936,7 +2936,7 @@ function EventFolderManager({ folders, onClose }) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && create()}
-              placeholder="Yeni klasör adı"
+              placeholder={t("form_new_folder_name")}
               className="flex-1 rounded px-3 py-2 text-sm text-white placeholder:text-muted-foreground focus:outline-none"
               style={{ background: "#1A1210", border: "1px solid rgba(245,166,35,0.35)" }}
             />

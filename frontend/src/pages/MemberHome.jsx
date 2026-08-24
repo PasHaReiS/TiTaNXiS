@@ -334,6 +334,74 @@ export default function MemberHome() {
           />
         </div>
 
+        {/* v96 — Today's events pinned above the calendar so members see today's schedule at a glance. */}
+        {(() => {
+          const todayIso = isoFor(today.getDate());
+          const todayEvents = eventsMap[todayIso] || [];
+          return (
+            <div
+              data-testid="member-home-today"
+              style={{
+                width: "100%",
+                background: "rgba(231,76,26,0.10)",
+                border: "1px solid rgba(245,166,35,0.45)",
+                borderRadius: 10,
+                padding: "6px 10px",
+                boxShadow: "0 0 14px rgba(231,76,26,0.15), inset 0 0 10px rgba(0,0,0,0.4)",
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: "Cinzel, serif",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.18em",
+                  color: "#F5A623",
+                  textTransform: "uppercase",
+                  marginBottom: 4,
+                  textShadow: "0 0 6px rgba(245,166,35,0.5)",
+                }}
+              >
+                {t("home_today_title")}
+              </div>
+              {todayEvents.length === 0 ? (
+                <div
+                  data-testid="member-home-today-empty"
+                  style={{ fontSize: 11, color: "rgba(245,240,232,0.55)", fontStyle: "italic" }}
+                >
+                  {t("home_today_no_events")}
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {todayEvents.map((ev) => (
+                    <button
+                      type="button"
+                      key={ev.id}
+                      data-testid={`today-event-${ev.id}`}
+                      onClick={() => setPopoverEvent(ev)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "4px 8px",
+                        borderRadius: 6,
+                        background: "rgba(10,6,4,0.55)",
+                        border: "1px solid rgba(245,166,35,0.32)",
+                        cursor: "pointer",
+                        textAlign: "left",
+                      }}
+                    >
+                      <span style={{ fontFamily: "Cinzel, serif", fontSize: 12, color: "#F5A623", fontWeight: 700 }}>{iconForGroup(ev.group)}</span>
+                      <span style={{ fontSize: 11, color: "#F5F0E8", fontWeight: 700, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.title}</span>
+                      <span style={{ fontSize: 11, color: "#F5A623", fontWeight: 700 }}>{ev.time}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Row 4 — Real calendar (compact — v90) */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <div

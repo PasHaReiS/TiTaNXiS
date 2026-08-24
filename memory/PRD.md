@@ -21,6 +21,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v97)** — DeepL Faz 3 Sweep (Events modal strings):
+  - Wrapped 5 hardcoded Turkish strings in `Events.jsx` with `t()`: `title="Yeniden adlandır"`, `placeholder: "Etkinlik seç"`, `throw new Error("Etkinlik seçilmedi")`, `placeholder="Diğer ittifak…"`, `placeholder="Yeni klasör adı"`.
+  - New i18n keys added to 29 languages via DeepL bulk-translate: `action_rename`, `event_form_select_event`, `event_no_event_selected`, `form_other_alliance`, `form_new_folder_name`, `action_save`, `action_saving`, `name_field` (skipped duplicates where keys already existed).
+  - Smoke test: no page errors, all sections (pin/menu/calendar) render correctly.
+- **Feb 24, 2026 (v96)** — Bugünün Etkinlikleri Pinned Panel:
+  - `member-home-today` paneli menü grid ile takvim arasına eklendi.
+  - `home_today_title` + `home_today_no_events` i18n key'leri 29 dilde eklendi (DeepL bulk-translate ile).
+  - Bugüne ait etkinlik yoksa "Bugün planlı etkinlik yok." (localized), varsa kompakt event listesi (title + time + iconForGroup).
+  - Etkinliğe tıklanınca mevcut popoverEvent modalı açılıyor (RSVP dahil).
 - **Feb 24, 2026 (v95)** — Anasayfa Takvimi Daha Dikey Sıkıştırma:
   - Ay başlığı fontSize 9 → 11 (daha okunur).
   - Weekday label fontSize 7 → 9.

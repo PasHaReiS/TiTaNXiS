@@ -8,6 +8,13 @@ import { initReactI18next } from "react-i18next";
 // ---------------------------------------------------------------------------
 
 const tr = {
+  action_rename: "Yeniden adlandır",
+  form_other_alliance: "Diğer ittifak…",
+  form_new_folder_name: "Yeni klasör adı",
+  event_form_select_event: "Etkinlik seç",
+  event_no_event_selected: "Etkinlik seçilmedi",
+  action_saving: "Kaydediyor…",
+  action_save: "Kaydet",
   // Header / brand
   brand_top: "GOD",
   brand_bottom: "OF WAR",
@@ -659,6 +666,8 @@ const tr = {
   nav_reports: "Katılım Merkezi",
   // MemberHome + Breadcrumb (auto-translated by DeepL for the other 27 langs)
   home_welcome: "Hoş geldiniz, {{name}}!",
+  home_today_title: "Bugünün Etkinlikleri",
+  home_today_no_events: "Bugün planlı etkinlik yok.",
   home_calendar_title: "Etkinlik Takvimi",
   home_day_events_suffix: "Etkinlikler",
   home_no_events_today: "Bu gün planlı etkinlik yok.",
@@ -1181,6 +1190,9 @@ const tr = {
 };
 
 const en = {
+  action_rename: "Rename",
+  form_other_alliance: "Another alliance…",
+  form_new_folder_name: "New folder name",
   brand_top: "GOD",
   brand_bottom: "OF WAR",
   loading: "Loading...",
@@ -1798,6 +1810,8 @@ const en = {
   nav_points_about: "About Points",
   nav_point_calc: "Point Calculator",
   home_welcome: "Welcome, {{name}}!",
+  home_today_title: "Today's Events",
+  home_today_no_events: "No events scheduled for today.",
   home_calendar_title: "Event Calendar",
   home_day_events_suffix: "Events",
   home_no_events_today: "No events scheduled for this day.",
@@ -2129,6 +2143,11 @@ const en = {
 };
 
 const ru = {
+  action_rename: "Переименовать",
+  form_other_alliance: "Другой альянс…",
+  form_new_folder_name: "Новое имя папки",
+  home_today_title: "Мероприятия сегодня",
+  home_today_no_events: "Сегодня запланированных мероприятий нет.",
   brand_top: "GOD",
   brand_bottom: "OF WAR",
   loading: "Загрузка...",
@@ -2799,6 +2818,11 @@ const ru = {
 };
 
 const de = {
+  action_rename: "Umbenennen",
+  form_other_alliance: "Ein weiteres Bündnis…",
+  form_new_folder_name: "Name des neuen Ordners",
+  home_today_title: "Veranstaltungen des Tages",
+  home_today_no_events: "Heute sind keine Veranstaltungen geplant.",
   brand_top: "GOD",
   brand_bottom: "OF WAR",
   loading: "Wird geladen...",
@@ -3382,6 +3406,11 @@ const de = {
 };
 
 const fr = {
+  action_rename: "Renommer",
+  form_other_alliance: "Une autre alliance…",
+  form_new_folder_name: "Nom du nouveau dossier",
+  home_today_title: "Événements du jour",
+  home_today_no_events: "Il n'y a pas d'activité prévue aujourd'hui.",
   brand_top: "GOD",
   brand_bottom: "OF WAR",
   loading: "Chargement...",
@@ -3957,6 +3986,11 @@ const fr = {
 };
 
 const es = {
+  action_rename: "Renombrar",
+  form_other_alliance: "La otra alianza…",
+  form_new_folder_name: "Nombre de la nueva carpeta",
+  home_today_title: "Eventos de hoy",
+  home_today_no_events: "Hoy no hay ninguna actividad programada.",
   brand_top: "GOD",
   brand_bottom: "OF WAR",
   loading: "Cargando...",
@@ -4533,6 +4567,11 @@ const es = {
 };
 
 const ko = {
+  action_rename: "이름 변경",
+  form_other_alliance: "다른 연합…",
+  form_new_folder_name: "새 폴더 이름",
+  home_today_title: "오늘의 행사",
+  home_today_no_events: "오늘은 예정된 행사가 없습니다.",
   brand_top: "GOD",
   brand_bottom: "OF WAR",
   loading: "로딩 중...",
@@ -5569,6 +5608,11 @@ const ar = {
 // Empty translation stubs for additional languages — i18next fallbackLng: "tr"
 // automatically falls back to Turkish for any missing keys.
 const bg = {
+  action_rename: "Преименувай",
+  form_other_alliance: "Другият съюз…",
+  form_new_folder_name: "Име на новата папка",
+  home_today_title: "Днешните събития",
+  home_today_no_events: "Днес няма планирани събития.",
   action_back: "Назад",
   vip_page_title: "VIP поддръжка",
   vip_search_placeholder: "Търси...",
@@ -5703,6 +5747,11 @@ const bg = {
   poll_tg_voters_header: "Гласуващите в Telegram",
 };
 const cs = {
+  action_rename: "Přejmenovat",
+  form_other_alliance: "Další aliance…",
+  form_new_folder_name: "Název nové složky",
+  home_today_title: "Dnešní akce",
+  home_today_no_events: "Dnes není na programu žádná akce.",
   action_back: "Zpět",
   vip_page_title: "VIP podpora",
   vip_search_placeholder: "Hledat...",
@@ -5848,6 +5897,11 @@ const cs = {
   poll_loading: "Načítá se…",
 };
 const da = {
+  action_rename: "Omdøb",
+  form_other_alliance: "En anden alliance…",
+  form_new_folder_name: "Navn på ny mappe",
+  home_today_title: "Dagens begivenheder",
+  home_today_no_events: "Der er ingen planlagte arrangementer i dag.",
   action_back: "Tilbage",
   vip_page_title: "VIP-support",
   vip_search_placeholder: "Søg...",
@@ -5980,6 +6034,11 @@ const da = {
   poll_loading: "Indlæser…",
 };
 const el = {
+  action_rename: "Μετονομασία",
+  form_other_alliance: "Η άλλη συμμαχία…",
+  form_new_folder_name: "Όνομα νέου φακέλου",
+  home_today_title: "Σημερινές εκδηλώσεις",
+  home_today_no_events: "Σήμερα δεν έχει προγραμματιστεί καμία εκδήλωση.",
   action_back: "Πίσω",
   vip_page_title: "Υποστήριξη VIP",
   vip_search_placeholder: "Αναζήτηση...",
@@ -6108,6 +6167,11 @@ const el = {
   ev_bulk_breakdown_hide_tip: "Απόκρυψη του πλαισίου λεπτομερειών των επιλεγμένων δραστηριοτήτων (το σύνολο της ομάδας διατηρείται)",
 };
 const et = {
+  action_rename: "Ümbernimetamine",
+  form_other_alliance: "Teine liit…",
+  form_new_folder_name: "Uue kausta nimi",
+  home_today_title: "Tänased üritused",
+  home_today_no_events: "Täna ei ole ühtegi kavandatud üritust.",
   action_back: "Tagasi",
   vip_page_title: "VIP-tugi",
   vip_search_placeholder: "Otsi...",
@@ -6240,6 +6304,11 @@ const et = {
   poll_loading: "Laaditakse…",
 };
 const fi = {
+  action_rename: "Nimeä uudelleen",
+  form_other_alliance: "Toinen liittouma…",
+  form_new_folder_name: "Uuden kansion nimi",
+  home_today_title: "Tämän päivän tapahtumat",
+  home_today_no_events: "Tänään ei ole ohjelmassa mitään tapahtumia.",
   action_back: "Takaisin",
   vip_page_title: "VIP-tuki",
   vip_search_placeholder: "Etsi...",
@@ -6375,6 +6444,11 @@ const fi = {
   poll_loading: "Ladataan…",
 };
 const hu = {
+  action_rename: "Átnevezés",
+  form_other_alliance: "Egy másik szövetség…",
+  form_new_folder_name: "Új mappa neve",
+  home_today_title: "A mai programok",
+  home_today_no_events: "Ma nincs tervezett program.",
   action_back: "Vissza",
   vip_page_title: "VIP-támogatás",
   vip_search_placeholder: "Keresés...",
@@ -6514,6 +6588,11 @@ const hu = {
   poll_tg_details_hide: "TG: a szavazási adatok elrejtése",
 };
 const id_ = {
+  action_rename: "Ganti nama",
+  form_other_alliance: "Aliansi lainnya…",
+  form_new_folder_name: "Nama folder baru",
+  home_today_title: "Acara Hari Ini",
+  home_today_no_events: "Hari ini tidak ada kegiatan yang dijadwalkan.",
   action_back: "Kembali",
   vip_page_title: "Dukungan VIP",
   vip_search_placeholder: "Cari...",
@@ -6655,6 +6734,11 @@ const id_ = {
   poll_loading: "Sedang dimuat…",
 };
 const it = {
+  action_rename: "Rinomina",
+  form_other_alliance: "L'altra alleanza…",
+  form_new_folder_name: "Nome della nuova cartella",
+  home_today_title: "Eventi di oggi",
+  home_today_no_events: "Oggi non ci sono attività in programma.",
   action_back: "Indietro",
   vip_page_title: "Assistenza VIP",
   vip_search_placeholder: "Cerca...",
@@ -6787,6 +6871,11 @@ const it = {
   poll_loading: "Caricamento in corso…",
 };
 const ja = {
+  action_rename: "名前を変更する",
+  form_other_alliance: "その他の同盟…",
+  form_new_folder_name: "新しいフォルダ名",
+  home_today_title: "本日のイベント",
+  home_today_no_events: "今日は予定されているイベントはありません。",
   action_back: "戻る",
   vip_page_title: "VIPサポート",
   vip_search_placeholder: "検索...",
@@ -6928,6 +7017,11 @@ const ja = {
   poll_tg_details_show: "TGの投票詳細を表示する",
 };
 const lt = {
+  action_rename: "Pervardyti",
+  form_other_alliance: "Kitas aljansas…",
+  form_new_folder_name: "Naujo aplanko pavadinimas",
+  home_today_title: "Šios dienos renginiai",
+  home_today_no_events: "Šiandien nėra numatytų renginių.",
   action_back: "Atgal",
   vip_page_title: "VIP pagalba",
   vip_search_placeholder: "Ieškoti...",
@@ -7073,6 +7167,11 @@ const lt = {
   poll_loading: "Įkeliama…",
 };
 const lv = {
+  action_rename: "Pārdēvēt",
+  form_other_alliance: "Cita alianse…",
+  form_new_folder_name: "Jaunā mapes nosaukums",
+  home_today_title: "Šodienas pasākumi",
+  home_today_no_events: "Šodien nav plānoto pasākumu.",
   action_back: "Atpakaļ",
   vip_page_title: "VIP atbalsts",
   vip_search_placeholder: "Meklēt...",
@@ -7218,6 +7317,11 @@ const lv = {
   poll_loading: "Tiek ielādēts…",
 };
 const nb = {
+  action_rename: "Gi nytt navn",
+  form_other_alliance: "En annen allianse…",
+  form_new_folder_name: "Navn på ny mappe",
+  home_today_title: "Dagens arrangementer",
+  home_today_no_events: "Det er ingen planlagte aktiviteter i dag.",
   action_back: "Tilbake",
   vip_page_title: "VIP-støtte",
   vip_search_placeholder: "Søk...",
@@ -7363,6 +7467,10 @@ const nb = {
   poll_loading: "Laster inn…",
 };
 const nl = {
+  action_rename: "Hernoemen",
+  form_other_alliance: "Een andere alliantie…",
+  home_today_title: "Evenementen van vandaag",
+  home_today_no_events: "Er staan vandaag geen geplande activiteiten op het programma.",
   action_back: "Terug",
   vip_page_title: "VIP-ondersteuning",
   vip_search_placeholder: "Zoek...",
@@ -7508,6 +7616,10 @@ const nl = {
   poll_loading: "Bezig met laden…",
 };
 const pl = {
+  action_rename: "Zmień nazwę",
+  form_other_alliance: "Kolejny sojusz…",
+  home_today_title: "Dzisiejsze wydarzenia",
+  home_today_no_events: "Dzisiaj nie ma zaplanowanych wydarzeń.",
   action_back: "Wstecz",
   vip_page_title: "Obsługa VIP",
   vip_search_placeholder: "Wyszukaj...",
@@ -7653,6 +7765,10 @@ const pl = {
   poll_loading: "Ładowanie…",
 };
 const pt = {
+  action_rename: "Renomear",
+  form_other_alliance: "Outra aliança…",
+  home_today_title: "Eventos de hoje",
+  home_today_no_events: "Hoje não há nenhuma atividade programada.",
   action_back: "Voltar",
   vip_page_title: "Apoio VIP",
   vip_search_placeholder: "Pesquisar...",
@@ -7794,6 +7910,10 @@ const pt = {
   poll_loading: "Carregando…",
 };
 const ro = {
+  action_rename: "Redenumește",
+  form_other_alliance: "O altă alianță…",
+  home_today_title: "Evenimentele de astăzi",
+  home_today_no_events: "Astăzi nu este programată nicio activitate.",
   action_back: "Înapoi",
   vip_page_title: "Asistență VIP",
   vip_search_placeholder: "Caută...",
@@ -7939,6 +8059,10 @@ const ro = {
   poll_loading: "Se încarcă…",
 };
 const sk = {
+  action_rename: "Pomenovať",
+  form_other_alliance: "Ďalšia aliancia…",
+  home_today_title: "Dnešné podujatia",
+  home_today_no_events: "Dnes nie je naplánovaná žiadna akcia.",
   action_back: "Späť",
   vip_page_title: "VIP podpora",
   vip_search_placeholder: "Vyhľadať...",
@@ -8084,6 +8208,10 @@ const sk = {
   poll_loading: "Načítava sa…",
 };
 const sl = {
+  action_rename: "Preimenuj",
+  form_other_alliance: "Druga zveza…",
+  home_today_title: "Današnji dogodki",
+  home_today_no_events: "Danes ni načrtovanih dogodkov.",
   action_back: "Nazaj",
   vip_page_title: "VIP podpora",
   vip_search_placeholder: "Iskanje...",
@@ -8229,6 +8357,10 @@ const sl = {
   poll_loading: "Nalaganje…",
 };
 const sv = {
+  action_rename: "Byt namn på",
+  form_other_alliance: "En annan allians…",
+  home_today_title: "Dagens evenemang",
+  home_today_no_events: "Det finns inga planerade aktiviteter idag.",
   action_back: "Tillbaka",
   vip_page_title: "VIP-support",
   vip_search_placeholder: "Sök...",
@@ -8335,6 +8467,10 @@ const sv = {
   vip_cat_faq: "Vanliga frågor",
 };
 const uk = {
+  action_rename: "Перейменувати",
+  form_other_alliance: "Інший альянс…",
+  home_today_title: "Події сьогодні",
+  home_today_no_events: "Сьогодні запланованих заходів немає.",
   action_back: "Назад",
   vip_page_title: "VIP-підтримка",
   vip_search_placeholder: "Пошук...",
@@ -8441,6 +8577,10 @@ const uk = {
   vip_cat_faq: "Часті запитання",
 };
 const zh = {
+  action_rename: "重命名",
+  form_other_alliance: "另一个联盟……",
+  home_today_title: "今天的活动",
+  home_today_no_events: "今天没有安排任何活动。",
   action_back: "返回",
   vip_page_title: "VIP支持",
   vip_search_placeholder: "搜索...",
