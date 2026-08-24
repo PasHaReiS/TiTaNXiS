@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v109)** — Bina Hesaplayıcıya "Müdür Ofisi" Eklendi (Tüm Seviyeler):
+  - `BuildingCalculator.jsx` içindeki `BUILDING_SLUGS` array'inde en üste `mudur_ofisi` slug'ı eklendi.
+  - `BUILDING_SLUGS` seviyeden bağımsız olduğu için F6, F7, F8, F9, F10 seviyelerinin HEPSİNDE dropdown'ın en üstünde görünüyor.
+  - `bc_b_mudur_ofisi` i18n key'i 29 dilin hepsine eklendi (TR "Müdür Ofisi" + 28 dil DeepL bulk-translate ile).
+  - Unit-cost kategori key'leri (`bina_mudur_ofisi_{lvl}_a{stage}`) otomatik oluşuyor — admin comparison table ile 5 aşama düzenlenebilir.
 - **Feb 24, 2026 (v108)** — Whoosh Mute Toggle + DeepL Faz 4 Members Sweep:
   - Profile.jsx yeni MENU SOUND bölümü: Switch + `Volume2/VolumeX` ikon + i18n label/desc. Persists `localStorage.ol_radial_mute` ('0'/'1'), varsayılan sesli.
   - RadialMenu.jsx open transition'da `ol_radial_mute === '1'` ise Web Audio API çağırmadan return — silent-fail.

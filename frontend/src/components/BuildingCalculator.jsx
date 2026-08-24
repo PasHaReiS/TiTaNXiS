@@ -12,6 +12,7 @@ const LEVELS = ["F10", "F9", "F8", "F7", "F6"];
 const STAGES = [1, 2, 3, 4, 5];
 
 const BUILDING_SLUGS = [
+  "mudur_ofisi",
   "komuta_merkezi",
   "kalkan_kislasi",
   "bombaci_kislasi",

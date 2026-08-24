@@ -652,6 +652,7 @@ const tr = {
   bc_level: "Seviye",
   bc_building: "Bina",
   bc_b_komuta_merkezi: "Komuta Merkezi",
+  bc_b_mudur_ofisi: "Müdür Ofisi",
   bc_b_kalkan_kislasi: "Kalkanlı Kışlası",
   bc_b_bombaci_kislasi: "Bombacı Kışlası",
   bc_b_tetikci_kislasi: "Tetikçi Kışlası",
@@ -1808,6 +1809,7 @@ const en = {
   bc_level: "Level",
   bc_building: "Building",
   bc_b_komuta_merkezi: "Command Center",
+  bc_b_mudur_ofisi: "Director’s Office",
   bc_b_kalkan_kislasi: "Shield Barracks",
   bc_b_bombaci_kislasi: "Bomber Barracks",
   bc_b_tetikci_kislasi: "Rifleman Barracks",
@@ -2656,6 +2658,7 @@ const ru = {
   bc_level: "Уровень",
   bc_building: "Здание",
   bc_b_komuta_merkezi: "Командный центр",
+  bc_b_mudur_ofisi: "Кабинет директора",
   bc_b_kalkan_kislasi: "Казарма щитовиков",
   bc_b_bombaci_kislasi: "Казарма бомбардиров",
   bc_b_tetikci_kislasi: "Казарма стрелков",
@@ -3225,6 +3228,7 @@ const de = {
   bc_level: "Stufe",
   bc_building: "Gebäude",
   bc_b_komuta_merkezi: "Kommandozentrale",
+  bc_b_mudur_ofisi: "Direktionsbüro",
   bc_b_kalkan_kislasi: "Schild-Kaserne",
   bc_b_bombaci_kislasi: "Bomber-Kaserne",
   bc_b_tetikci_kislasi: "Schützen-Kaserne",
@@ -3887,6 +3891,7 @@ const fr = {
   bc_level: "Niveau",
   bc_building: "Bâtiment",
   bc_b_komuta_merkezi: "Centre de Commandement",
+  bc_b_mudur_ofisi: "Bureau du directeur",
   bc_b_kalkan_kislasi: "Caserne des Boucliers",
   bc_b_bombaci_kislasi: "Caserne des Bombardiers",
   bc_b_tetikci_kislasi: "Caserne des Tireurs",
@@ -4415,6 +4420,7 @@ const es = {
   bc_level: "Nivel",
   bc_building: "Edificio",
   bc_b_komuta_merkezi: "Centro de Comando",
+  bc_b_mudur_ofisi: "Oficina del director",
   bc_b_kalkan_kislasi: "Cuartel de Escudos",
   bc_b_bombaci_kislasi: "Cuartel de Bombarderos",
   bc_b_tetikci_kislasi: "Cuartel de Tiradores",
@@ -5007,6 +5013,7 @@ const ko = {
   bc_level: "레벨",
   bc_building: "건물",
   bc_b_komuta_merkezi: "지휘 본부",
+  bc_b_mudur_ofisi: "이사실",
   bc_b_kalkan_kislasi: "방패병 병영",
   bc_b_bombaci_kislasi: "폭격병 병영",
   bc_b_tetikci_kislasi: "사수 병영",
@@ -5690,6 +5697,7 @@ const ar = {
 // Empty translation stubs for additional languages — i18next fallbackLng: "tr"
 // automatically falls back to Turkish for any missing keys.
 const bg = {
+  bc_b_mudur_ofisi: "Кабинет на директора",
   alliance_rename_placeholder: "Име на новия съюз",
   alliance_rename_tooltip: "Промяна на името на съюза",
   radial_menu_sound_title: "Звук на менюто",
@@ -5841,6 +5849,7 @@ const bg = {
   poll_tg_voters_header: "Гласуващите в Telegram",
 };
 const cs = {
+  bc_b_mudur_ofisi: "Kancelář ředitele",
   alliance_rename_placeholder: "Název nové koalice",
   alliance_rename_tooltip: "Aliance změnila název",
   radial_menu_sound_title: "Zvuk nabídky",
@@ -6003,6 +6012,7 @@ const cs = {
   poll_loading: "Načítá se…",
 };
 const da = {
+  bc_b_mudur_ofisi: "Direktørens kontor",
   alliance_rename_placeholder: "Navnet på den nye alliance",
   alliance_rename_tooltip: "Alliancen skifter navn",
   radial_menu_sound_title: "Menulyden",
@@ -6152,6 +6162,7 @@ const da = {
   poll_loading: "Indlæser…",
 };
 const el = {
+  bc_b_mudur_ofisi: "Γραφείο Διευθυντή",
   alliance_rename_placeholder: "Το όνομα της νέας συμμαχίας",
   alliance_rename_tooltip: "Αλλαγή ονόματος της συμμαχίας",
   radial_menu_sound_title: "Ήχος μενού",
@@ -6297,6 +6308,7 @@ const el = {
   ev_bulk_breakdown_hide_tip: "Απόκρυψη του πλαισίου λεπτομερειών των επιλεγμένων δραστηριοτήτων (το σύνολο της ομάδας διατηρείται)",
 };
 const et = {
+  bc_b_mudur_ofisi: "Direktori kabinet",
   alliance_rename_placeholder: "Uue liidu nimi",
   alliance_rename_tooltip: "Liit muudab oma nime",
   radial_menu_sound_title: "Menüüheli",
@@ -6446,6 +6458,7 @@ const et = {
   poll_loading: "Laaditakse…",
 };
 const fi = {
+  bc_b_mudur_ofisi: "Johtajan toimisto",
   alliance_rename_placeholder: "Uuden liittouman nimi",
   alliance_rename_tooltip: "Liitto vaihtaa nimensä",
   radial_menu_sound_title: "Valikon ääni",
@@ -6598,6 +6611,7 @@ const fi = {
   poll_loading: "Ladataan…",
 };
 const hu = {
+  bc_b_mudur_ofisi: "Igazgatói iroda",
   alliance_rename_placeholder: "Az új szövetség neve",
   alliance_rename_tooltip: "A szövetség nevének megváltoztatása",
   radial_menu_sound_title: "Menühang",
@@ -6754,6 +6768,7 @@ const hu = {
   poll_tg_details_hide: "TG: a szavazási adatok elrejtése",
 };
 const id_ = {
+  bc_b_mudur_ofisi: "Kantor Direktur",
   alliance_rename_placeholder: "Nama aliansi baru",
   alliance_rename_tooltip: "Aliansi mengubah namanya",
   radial_menu_sound_title: "Suara Menu",
@@ -6912,6 +6927,7 @@ const id_ = {
   poll_loading: "Sedang dimuat…",
 };
 const it = {
+  bc_b_mudur_ofisi: "Ufficio del direttore",
   alliance_rename_placeholder: "Nome della nuova alleanza",
   alliance_rename_tooltip: "Cambia il nome dell'alleanza",
   radial_menu_sound_title: "Audio del menu",
@@ -7061,6 +7077,7 @@ const it = {
   poll_loading: "Caricamento in corso…",
 };
 const ja = {
+  bc_b_mudur_ofisi: "校長室",
   alliance_rename_placeholder: "新しい同盟の名称",
   alliance_rename_tooltip: "同盟の名称を変更する",
   radial_menu_sound_title: "メニュー音",
@@ -7219,6 +7236,7 @@ const ja = {
   poll_tg_details_show: "TGの投票詳細を表示する",
 };
 const lt = {
+  bc_b_mudur_ofisi: "Direktoriaus biuras",
   alliance_rename_placeholder: "Naujos sąjungos pavadinimas",
   alliance_rename_tooltip: "Pakeisti aljanso pavadinimą",
   radial_menu_sound_title: "Meniu garsas",
@@ -7381,6 +7399,7 @@ const lt = {
   poll_loading: "Įkeliama…",
 };
 const lv = {
+  bc_b_mudur_ofisi: "Direktora birojs",
   alliance_rename_placeholder: "Jaunās alianses nosaukums",
   alliance_rename_tooltip: "Aliansei mainīt nosaukumu",
   radial_menu_sound_title: "Izvēlnes skaņa",
@@ -7543,6 +7562,7 @@ const lv = {
   poll_loading: "Tiek ielādēts…",
 };
 const nb = {
+  bc_b_mudur_ofisi: "Direktørens kontor",
   alliance_rename_placeholder: "Navnet på den nye alliansen",
   alliance_rename_tooltip: "Alliansen skifter navn",
   radial_menu_sound_title: "Menylyd",
@@ -7705,6 +7725,7 @@ const nb = {
   poll_loading: "Laster inn…",
 };
 const nl = {
+  bc_b_mudur_ofisi: "Directiekantoor",
   alliance_rename_placeholder: "De naam van de nieuwe alliantie",
   alliance_rename_tooltip: "De naam van de alliantie wijzigen",
   health_dim_participation: "Deelname",
@@ -7863,6 +7884,7 @@ const nl = {
   poll_loading: "Bezig met laden…",
 };
 const pl = {
+  bc_b_mudur_ofisi: "Biuro dyrektora",
   alliance_rename_placeholder: "Nazwa nowego sojuszu",
   alliance_rename_tooltip: "Zmiana nazwy sojuszu",
   health_dim_participation: "Udział",
@@ -8021,6 +8043,7 @@ const pl = {
   poll_loading: "Ładowanie…",
 };
 const pt = {
+  bc_b_mudur_ofisi: "Gabinete do Diretor",
   alliance_rename_placeholder: "Nome da nova aliança",
   alliance_rename_tooltip: "A aliança muda de nome",
   health_dim_participation: "Participação",
@@ -8175,6 +8198,7 @@ const pt = {
   poll_loading: "Carregando…",
 };
 const ro = {
+  bc_b_mudur_ofisi: "Biroul directorului",
   alliance_rename_placeholder: "Numele noii alianțe",
   alliance_rename_tooltip: "Schimbă numele alianței",
   health_dim_participation: "Participare",
@@ -8333,6 +8357,7 @@ const ro = {
   poll_loading: "Se încarcă…",
 };
 const sk = {
+  bc_b_mudur_ofisi: "Kancelária riaditeľa",
   alliance_rename_placeholder: "Názov novej koalície",
   alliance_rename_tooltip: "Zmena názvu aliancie",
   health_dim_participation: "Účasť",
@@ -8491,6 +8516,7 @@ const sk = {
   poll_loading: "Načítava sa…",
 };
 const sl = {
+  bc_b_mudur_ofisi: "Urad direktorja",
   alliance_rename_placeholder: "Ime nove koalicije",
   alliance_rename_tooltip: "Zavezništvo spremeni ime",
   health_dim_participation: "Udeležba",
@@ -8649,6 +8675,7 @@ const sl = {
   poll_loading: "Nalaganje…",
 };
 const sv = {
+  bc_b_mudur_ofisi: "Direktörens kontor",
   alliance_rename_placeholder: "Namnet på den nya alliansen",
   alliance_rename_tooltip: "Alliansen byter namn",
   health_dim_participation: "Deltagande",
@@ -8767,6 +8794,7 @@ const sv = {
   vip_cat_faq: "Vanliga frågor",
 };
 const uk = {
+  bc_b_mudur_ofisi: "Кабінет директора",
   alliance_rename_placeholder: "Назва нового альянсу",
   alliance_rename_tooltip: "Змінити назву альянсу",
   health_dim_participation: "Участь",
@@ -8885,6 +8913,7 @@ const uk = {
   vip_cat_faq: "Часті запитання",
 };
 const zh = {
+  bc_b_mudur_ofisi: "主任办公室",
   alliance_rename_placeholder: "新联盟名称",
   alliance_rename_tooltip: "更改联盟名称",
   health_dim_participation: "参与",
