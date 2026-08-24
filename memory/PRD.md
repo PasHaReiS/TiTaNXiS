@@ -21,6 +21,9 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v102)** — MusicButton Radial Menü Çakışması Düzeltildi:
+  - `MusicButton.jsx` `bottom: 80 → 340` — radial menünün dikey extent'inin (0-300px from bottom) üzerine çıkarıldı.
+  - Screenshot ile 6 radial ikon+label bounding box'ı ile music button bbox'ının hiçbir overlap yapmadığı doğrulandı.
 - **Feb 24, 2026 (v101)** — Radial Menü Etiket Okunabilirlik Düzeltmesi:
   - Radius 150 → 160 — ikonlar arası mesafe artırıldı, overlap engellendi.
   - Label CSS: fontSize 10 → 9, letterSpacing 0.10 → 0.06 (daha kompakt), maxWidth 96 → 78 (2-kelime labels forced wrap), lineHeight 1.15 → 1.2.
