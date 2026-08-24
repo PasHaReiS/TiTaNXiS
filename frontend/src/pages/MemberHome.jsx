@@ -342,29 +342,74 @@ export default function MemberHome() {
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {todayEvents.map((ev) => (
-                    <button
-                      type="button"
-                      key={ev.id}
-                      data-testid={`today-event-${ev.id}`}
-                      onClick={() => setPopoverEvent(ev)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        padding: "4px 8px",
-                        borderRadius: 6,
-                        background: "rgba(10,6,4,0.55)",
-                        border: "1px solid rgba(245,166,35,0.32)",
-                        cursor: "pointer",
-                        textAlign: "left",
-                      }}
-                    >
-                      <span style={{ fontFamily: "Cinzel, serif", fontSize: 12, color: "#F5A623", fontWeight: 700 }}>{iconForGroup(ev.group)}</span>
-                      <span style={{ fontSize: 11, color: "#F5F0E8", fontWeight: 700, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.title}</span>
-                      <span style={{ fontSize: 11, color: "#F5A623", fontWeight: 700 }}>{ev.time}</span>
-                    </button>
-                  ))}
+                  {todayEvents.map((ev) => {
+                    const diffMs = new Date(ev.iso).getTime() - now;
+                    const abs = Math.abs(diffMs);
+                    const mins = Math.floor(abs / 60000);
+                    const hours = Math.floor(mins / 60);
+                    let countdown;
+                    let chipTone;
+                    if (diffMs <= 0 && diffMs > -3 * 3600 * 1000) {
+                      countdown = t("home_today_live", "CANLI");
+                      chipTone = "#22c55e"; // green while active
+                    } else if (diffMs <= 0) {
+                      countdown = t("home_today_ended", "Bitti");
+                      chipTone = "#64748b";
+                    } else if (mins < 60) {
+                      countdown = `${mins} ${t("home_today_min", "dk")}`;
+                      chipTone = mins <= 15 ? "#e74c1a" : "#F5A623";
+                    } else if (hours < 24) {
+                      const remMin = mins % 60;
+                      countdown = remMin > 0
+                        ? `${hours}${t("home_today_hour_short", "s")} ${remMin}${t("home_today_min_short", "d")}`
+                        : `${hours} ${t("home_today_hour", "saat")}`;
+                      chipTone = "#F5A623";
+                    } else {
+                      const days = Math.floor(hours / 24);
+                      countdown = `${days} ${t("home_today_day", "gün")}`;
+                      chipTone = "#94a3b8";
+                    }
+                    return (
+                      <button
+                        type="button"
+                        key={ev.id}
+                        data-testid={`today-event-${ev.id}`}
+                        onClick={() => setPopoverEvent(ev)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "4px 8px",
+                          borderRadius: 6,
+                          background: "rgba(10,6,4,0.55)",
+                          border: "1px solid rgba(245,166,35,0.32)",
+                          cursor: "pointer",
+                          textAlign: "left",
+                        }}
+                      >
+                        <span style={{ fontFamily: "Cinzel, serif", fontSize: 12, color: "#F5A623", fontWeight: 700 }}>{iconForGroup(ev.group)}</span>
+                        <span style={{ fontSize: 11, color: "#F5F0E8", fontWeight: 700, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.title}</span>
+                        <span
+                          data-testid={`today-event-countdown-${ev.id}`}
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 800,
+                            color: chipTone,
+                            border: `1px solid ${chipTone}55`,
+                            background: `${chipTone}22`,
+                            padding: "1px 6px",
+                            borderRadius: 999,
+                            letterSpacing: "0.04em",
+                            textTransform: "uppercase",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {countdown}
+                        </span>
+                        <span style={{ fontSize: 11, color: "#F5A623", fontWeight: 700 }}>{ev.time}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

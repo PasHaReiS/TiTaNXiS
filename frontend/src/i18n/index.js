@@ -8,6 +8,13 @@ import { initReactI18next } from "react-i18next";
 // ---------------------------------------------------------------------------
 
 const tr = {
+  home_today_live: "CANLI",
+  home_today_ended: "Bitti",
+  home_today_min: "dk",
+  home_today_min_short: "d",
+  home_today_hour: "saat",
+  home_today_hour_short: "s",
+  home_today_day: "gün",
   action_rename: "Yeniden adlandır",
   form_other_alliance: "Diğer ittifak…",
   form_new_folder_name: "Yeni klasör adı",
@@ -1190,6 +1197,9 @@ const tr = {
 };
 
 const en = {
+  home_today_live: "LIVE",
+  home_today_ended: "That’s it",
+  home_today_min: "min",
   action_rename: "Rename",
   form_other_alliance: "Another alliance…",
   form_new_folder_name: "New folder name",
@@ -2143,6 +2153,9 @@ const en = {
 };
 
 const ru = {
+  home_today_live: "В РЕЖИМЕ РЕАЛЬНОГО ВРЕМЕНИ",
+  home_today_ended: "Все готово",
+  home_today_min: "мин",
   action_rename: "Переименовать",
   form_other_alliance: "Другой альянс…",
   form_new_folder_name: "Новое имя папки",
@@ -2818,6 +2831,9 @@ const ru = {
 };
 
 const de = {
+  home_today_live: "LIVE",
+  home_today_ended: "Fertig",
+  home_today_min: "Min.",
   action_rename: "Umbenennen",
   form_other_alliance: "Ein weiteres Bündnis…",
   form_new_folder_name: "Name des neuen Ordners",
@@ -3406,6 +3422,9 @@ const de = {
 };
 
 const fr = {
+  home_today_live: "EN DIRECT",
+  home_today_ended: "C'est fini",
+  home_today_min: "min",
   action_rename: "Renommer",
   form_other_alliance: "Une autre alliance…",
   form_new_folder_name: "Nom du nouveau dossier",
@@ -3986,6 +4005,9 @@ const fr = {
 };
 
 const es = {
+  home_today_live: "EN DIRECTO",
+  home_today_ended: "Se acabó",
+  home_today_min: "min",
   action_rename: "Renombrar",
   form_other_alliance: "La otra alianza…",
   form_new_folder_name: "Nombre de la nueva carpeta",
@@ -4567,6 +4589,9 @@ const es = {
 };
 
 const ko = {
+  home_today_live: "라이브",
+  home_today_ended: "끝났다",
+  home_today_min: "dk",
   action_rename: "이름 변경",
   form_other_alliance: "다른 연합…",
   form_new_folder_name: "새 폴더 이름",
@@ -5608,6 +5633,9 @@ const ar = {
 // Empty translation stubs for additional languages — i18next fallbackLng: "tr"
 // automatically falls back to Turkish for any missing keys.
 const bg = {
+  home_today_live: "НА ЖИВО",
+  home_today_ended: "Свърши",
+  home_today_min: "min",
   action_rename: "Преименувай",
   form_other_alliance: "Другият съюз…",
   form_new_folder_name: "Име на новата папка",
@@ -5747,6 +5775,9 @@ const bg = {
   poll_tg_voters_header: "Гласуващите в Telegram",
 };
 const cs = {
+  home_today_live: "ŽIVĚ",
+  home_today_ended: "Hotovo",
+  home_today_min: "min",
   action_rename: "Přejmenovat",
   form_other_alliance: "Další aliance…",
   form_new_folder_name: "Název nové složky",
@@ -5897,6 +5928,9 @@ const cs = {
   poll_loading: "Načítá se…",
 };
 const da = {
+  home_today_live: "LIVE",
+  home_today_ended: "Færdig",
+  home_today_min: "min",
   action_rename: "Omdøb",
   form_other_alliance: "En anden alliance…",
   form_new_folder_name: "Navn på ny mappe",
@@ -6034,6 +6068,9 @@ const da = {
   poll_loading: "Indlæser…",
 };
 const el = {
+  home_today_live: "ΖΩΝΤΑΝΑ",
+  home_today_ended: "Τέλος",
+  home_today_min: "dk",
   action_rename: "Μετονομασία",
   form_other_alliance: "Η άλλη συμμαχία…",
   form_new_folder_name: "Όνομα νέου φακέλου",
@@ -6167,6 +6204,9 @@ const el = {
   ev_bulk_breakdown_hide_tip: "Απόκρυψη του πλαισίου λεπτομερειών των επιλεγμένων δραστηριοτήτων (το σύνολο της ομάδας διατηρείται)",
 };
 const et = {
+  home_today_live: "OTSEÜLEKANNE",
+  home_today_ended: "Valmis",
+  home_today_min: "min",
   action_rename: "Ümbernimetamine",
   form_other_alliance: "Teine liit…",
   form_new_folder_name: "Uue kausta nimi",
@@ -6304,6 +6344,9 @@ const et = {
   poll_loading: "Laaditakse…",
 };
 const fi = {
+  home_today_live: "LIVE",
+  home_today_ended: "Valmis",
+  home_today_min: "min",
   action_rename: "Nimeä uudelleen",
   form_other_alliance: "Toinen liittouma…",
   form_new_folder_name: "Uuden kansion nimi",
@@ -6444,6 +6487,9 @@ const fi = {
   poll_loading: "Ladataan…",
 };
 const hu = {
+  home_today_live: "ÉLŐ",
+  home_today_ended: "Kész",
+  home_today_min: "dk",
   action_rename: "Átnevezés",
   form_other_alliance: "Egy másik szövetség…",
   form_new_folder_name: "Új mappa neve",
@@ -6588,6 +6634,9 @@ const hu = {
   poll_tg_details_hide: "TG: a szavazási adatok elrejtése",
 };
 const id_ = {
+  home_today_live: "LANGSUNG",
+  home_today_ended: "Selesai",
+  home_today_min: "menit",
   action_rename: "Ganti nama",
   form_other_alliance: "Aliansi lainnya…",
   form_new_folder_name: "Nama folder baru",
@@ -6734,6 +6783,9 @@ const id_ = {
   poll_loading: "Sedang dimuat…",
 };
 const it = {
+  home_today_live: "IN DIRETTA",
+  home_today_ended: "Finito",
+  home_today_min: "min",
   action_rename: "Rinomina",
   form_other_alliance: "L'altra alleanza…",
   form_new_folder_name: "Nome della nuova cartella",
@@ -6871,6 +6923,9 @@ const it = {
   poll_loading: "Caricamento in corso…",
 };
 const ja = {
+  home_today_live: "ライブ",
+  home_today_ended: "終わった",
+  home_today_min: "dk",
   action_rename: "名前を変更する",
   form_other_alliance: "その他の同盟…",
   form_new_folder_name: "新しいフォルダ名",
@@ -7017,6 +7072,9 @@ const ja = {
   poll_tg_details_show: "TGの投票詳細を表示する",
 };
 const lt = {
+  home_today_live: "TIEŠIOJI TRANSLIACIJA",
+  home_today_ended: "Baigta",
+  home_today_min: "min.",
   action_rename: "Pervardyti",
   form_other_alliance: "Kitas aljansas…",
   form_new_folder_name: "Naujo aplanko pavadinimas",
@@ -7167,6 +7225,9 @@ const lt = {
   poll_loading: "Įkeliama…",
 };
 const lv = {
+  home_today_live: "TIEŠRAIDE",
+  home_today_ended: "Beidzās",
+  home_today_min: "min",
   action_rename: "Pārdēvēt",
   form_other_alliance: "Cita alianse…",
   form_new_folder_name: "Jaunā mapes nosaukums",
@@ -7317,6 +7378,9 @@ const lv = {
   poll_loading: "Tiek ielādēts…",
 };
 const nb = {
+  home_today_live: "LIVE",
+  home_today_ended: "Ferdig",
+  home_today_min: "min",
   action_rename: "Gi nytt navn",
   form_other_alliance: "En annen allianse…",
   form_new_folder_name: "Navn på ny mappe",
@@ -7467,6 +7531,9 @@ const nb = {
   poll_loading: "Laster inn…",
 };
 const nl = {
+  home_today_live: "LIVE",
+  home_today_ended: "Klaar",
+  home_today_min: "min",
   action_rename: "Hernoemen",
   form_other_alliance: "Een andere alliantie…",
   home_today_title: "Evenementen van vandaag",
@@ -7616,6 +7683,9 @@ const nl = {
   poll_loading: "Bezig met laden…",
 };
 const pl = {
+  home_today_live: "NA ŻYWO",
+  home_today_ended: "Koniec",
+  home_today_min: "min",
   action_rename: "Zmień nazwę",
   form_other_alliance: "Kolejny sojusz…",
   home_today_title: "Dzisiejsze wydarzenia",
@@ -7765,6 +7835,9 @@ const pl = {
   poll_loading: "Ładowanie…",
 };
 const pt = {
+  home_today_live: "EM DIRETO",
+  home_today_ended: "Acabou",
+  home_today_min: "min",
   action_rename: "Renomear",
   form_other_alliance: "Outra aliança…",
   home_today_title: "Eventos de hoje",
@@ -7910,6 +7983,9 @@ const pt = {
   poll_loading: "Carregando…",
 };
 const ro = {
+  home_today_live: "ÎN DIRECT",
+  home_today_ended: "S-a terminat",
+  home_today_min: "min",
   action_rename: "Redenumește",
   form_other_alliance: "O altă alianță…",
   home_today_title: "Evenimentele de astăzi",
@@ -8059,6 +8135,9 @@ const ro = {
   poll_loading: "Se încarcă…",
 };
 const sk = {
+  home_today_live: "NAŽIVO",
+  home_today_ended: "Skončilo",
+  home_today_min: "min",
   action_rename: "Pomenovať",
   form_other_alliance: "Ďalšia aliancia…",
   home_today_title: "Dnešné podujatia",
@@ -8208,6 +8287,9 @@ const sk = {
   poll_loading: "Načítava sa…",
 };
 const sl = {
+  home_today_live: "V ŽIVO",
+  home_today_ended: "Končano",
+  home_today_min: "min",
   action_rename: "Preimenuj",
   form_other_alliance: "Druga zveza…",
   home_today_title: "Današnji dogodki",
@@ -8357,6 +8439,8 @@ const sl = {
   poll_loading: "Nalaganje…",
 };
 const sv = {
+  home_today_live: "LIVE",
+  home_today_ended: "Klart",
   action_rename: "Byt namn på",
   form_other_alliance: "En annan allians…",
   home_today_title: "Dagens evenemang",
@@ -8467,6 +8551,8 @@ const sv = {
   vip_cat_faq: "Vanliga frågor",
 };
 const uk = {
+  home_today_live: "НАЖИВО",
+  home_today_ended: "Закінчилося",
   action_rename: "Перейменувати",
   form_other_alliance: "Інший альянс…",
   home_today_title: "Події сьогодні",
@@ -8577,6 +8663,8 @@ const uk = {
   vip_cat_faq: "Часті запитання",
 };
 const zh = {
+  home_today_live: "直播",
+  home_today_ended: "结束了",
   action_rename: "重命名",
   form_other_alliance: "另一个联盟……",
   home_today_title: "今天的活动",

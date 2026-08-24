@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -56,6 +56,47 @@ export default function RadialMenu() {
   useEffect(() => {
     setOpen(isHome);
   }, [loc.pathname, isHome]);
+
+  // Web Audio whoosh generator — cached so we only build the AudioContext once
+  // and reuse it whenever the fan opens. Silent-fails on browsers without
+  // Web Audio (e.g. very old iOS or headless testing envs).
+  const audioCtxRef = useRef(null);
+  const prevOpenRef = useRef(open);
+  useEffect(() => {
+    if (open && !prevOpenRef.current) {
+      try {
+        if (!audioCtxRef.current) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) audioCtxRef.current = new AC();
+        }
+        const ctx = audioCtxRef.current;
+        if (ctx) {
+          if (ctx.state === "suspended") ctx.resume().catch(() => {});
+          const now = ctx.currentTime;
+          // Whoosh = short filtered noise burst with an exponential decay.
+          const bufferSize = ctx.sampleRate * 0.35;
+          const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = noiseBuffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+          const noise = ctx.createBufferSource();
+          noise.buffer = noiseBuffer;
+          const bandpass = ctx.createBiquadFilter();
+          bandpass.type = "bandpass";
+          bandpass.frequency.setValueAtTime(900, now);
+          bandpass.frequency.exponentialRampToValueAtTime(2200, now + 0.25);
+          bandpass.Q.value = 1.4;
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.22, now + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
+          noise.connect(bandpass).connect(gain).connect(ctx.destination);
+          noise.start(now);
+          noise.stop(now + 0.34);
+        }
+      } catch (_) { /* audio is optional; ignore failures */ }
+    }
+    prevOpenRef.current = open;
+  }, [open]);
 
   if (!user) return null;
   if (loc.pathname === "/login") return null;

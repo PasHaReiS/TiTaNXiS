@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v107)** — Bugünün Etkinlikleri Countdown + Radial Menü Whoosh Sesi:
+  - `MemberHome.jsx` today pin'inde her etkinlik yanına canlı countdown chip: CANLI (yeşil, <3h negatif), N dk (red ≤15, amber >15), Ns Nd, N saat, N gün — 60s'de bir güncellenen `now` state ile.
+  - i18n keys: `home_today_live`, `home_today_ended`, `home_today_min/min_short`, `home_today_hour/hour_short`, `home_today_day` — 29 dil DeepL bulk-translate ile propagate edildi.
+  - `RadialMenu.jsx` Web Audio API whoosh: bandpass filter (900→2200Hz sweep) + short noise burst + exp decay envelope; menü her açıldığında çalıyor, closed→open transition'da tetikleniyor.
+  - Test: today_pin/radial/toggle render, aria-expanded toggle çalışıyor, ray-pulse hâlâ aktif, hiçbir js hatası yok.
 - **Feb 24, 2026 (v106)** — Radial Menü Genişletme + Ray Pulse + Brand Logo:
   - Yay 120° → 180° geri açıldı: `startAngle: 180, endAngle: 360, step: 36°`. Radius 130 → 170.
   - Tüm 6 label ABOVE — LEADERBOARD ve MEMBERS artık icon'un ÜSTÜNDE (label overlap sorunu tamamen çözüldü).
