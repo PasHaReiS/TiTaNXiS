@@ -1982,6 +1982,7 @@ Detay için tıkla`;
 // Tutarlılık. Trend satırı en altta.
 // ============================================================
 function HealthScoreDetailModal({ member, onClose }) {
+  const { t } = useTranslation();
   const mid = member?.id;
   const { data: d30 } = useSWR(mid ? `/health-scores?days=30` : null, fetcher);
   const { data: d90 } = useSWR(mid ? `/health-scores?days=90` : null, fetcher);
