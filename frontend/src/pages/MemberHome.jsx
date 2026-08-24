@@ -46,17 +46,16 @@ const ICON_SPRITE_URL = "https://static.prod-images.emergentagent.com/jobs/e2335
 
 // Sprite is 2 cols × 3 rows (portrait). Pixel-precise crop with zoom so
 // baked-in corner numbers (1-6) and label texts stay outside the visible tile.
-// v82 — Individual fire statue icons per menu item (no sprite crop).
-// Each icon is a standalone JPEG; `mix-blend-mode: screen` neutralises the
-// baked-in black background so only the fire statue shines through the
-// stone texture. No pedestal ring/box — icons float directly on the wall.
+// v85 — Transparent PNG icons (50x50) — no blend modes, no filters.
+// Icons sit directly on the background, centered inside the 3x2 grid tile
+// with no frame or pedestal ring. Provided by user via customer-assets CDN.
 const MENU_ICONS = {
-  siralama:    "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/5285c96e7120a74a6612330456971d47137792f53c579f598b7040adb0c8d453.jpeg",
-  loj:         "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/7aadf8fec03c35f7d713268e27a34a44d90e4d0de0031db1c4d64737f2e247a8.jpeg",
-  hesapla:     "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/2634cfd739230c64bc03ebf4e3f429ab32b234a7281f3c2c8b14d635b1d677a2.jpeg",
-  etkinlikler: "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/cc9cd67a70d95650ea0f23045ece23e8f8b395e4e6f0f199155f1873257fcda3.jpeg",
-  raporlar:    "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/cb567ba37163057595df7ac96d9cba3426b5ba69213f3d63fd053ffd53e12c05.jpeg",
-  uyeler:      "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/f4e1061b5d251e4ac7763c3b7fcc5f27a02363232fbe05811d5efd77d9068b70.jpeg",
+  siralama:    "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/4fd1b7a326884d09903806cf40859a47_siralama.png",
+  loj:         "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/d4b725e08b8249f19a3e1540ff147cd4_loj_hakkinda.png",
+  hesapla:     "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/aec9e1c0eab54af7a38171076d421644_puan_hesapla.png",
+  etkinlikler: "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/dc66ee857cd043d78019dc26891afdb8_etkinlikler.png",
+  raporlar:    "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/75f93e249130488ba56f3c12c34a97ee_katilim.png",
+  uyeler:      "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/869b98b6d3cc4ce5aea8cc24000db1f0_uyeler.png",
 };
 
 function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
@@ -84,11 +83,11 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
         alt=""
         className="menu-tile-icon"
         style={{
-          width: 85,
-          height: 85,
+          width: 50,
+          height: 50,
           objectFit: "contain",
-          mixBlendMode: "screen",
-          filter: "brightness(1.2) contrast(1.1) drop-shadow(0 4px 10px rgba(0,0,0,0.7))",
+          display: "block",
+          margin: "0 auto",
           background: "transparent",
           transition: "transform 0.22s ease, filter 0.22s ease",
           opacity: locked ? 0.55 : 1,
@@ -256,22 +255,7 @@ export default function MemberHome() {
 
   return (
     <div className="min-h-screen px-4 py-4" data-testid="member-home" style={{ background: "transparent" }}>
-      {/* v76 — SVG feColorMatrix filter: sprite JPEG'in siyah arka planını
-          luminance-based alpha ile şeffaflaştırır. Referans: `filter:
-          url(#titanxis-kill-black)` ikon <img>'larına uygulanıyor. */}
-      <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden>
-        <defs>
-          <filter id="titanxis-kill-black" colorInterpolationFilters="sRGB">
-            <feColorMatrix
-              type="matrix"
-              values="1 0 0 0 0
-                      0 1 0 0 0
-                      0 0 1 0 0
-                      0.4 0.4 0.4 0 -0.10"
-            />
-          </filter>
-        </defs>
-      </svg>
+      {/* v85 — Transparent PNG icons; no SVG luminance filter needed. */}
       <div className="w-full max-w-md mx-auto" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
         {/* Row 0 — Top-right language switcher (only page-level control since Breadcrumb hides on /anasayfa) */}

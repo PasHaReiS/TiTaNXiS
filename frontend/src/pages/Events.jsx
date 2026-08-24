@@ -2692,6 +2692,7 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
 }
 
 function EventFolderManager({ folders, onClose }) {
+  const { t } = useTranslation();
   // 8-color curated palette — replaces the raw <input type="color"> so
   // admins land on brand-consistent options instead of the full spectrum.
   const PALETTE = [

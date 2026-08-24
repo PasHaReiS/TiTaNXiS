@@ -21,6 +21,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v85)** — Anasayfa İkonları Şeffaf PNG'lere Geçildi (Final):
+  - `MENU_ICONS` 6 URL yeni transparent PNG'lerle güncellendi (customer-assets CDN, tümü curl 200 doğrulandı).
+  - `mixBlendMode: 'screen'` ve `filter: brightness(1.2) contrast(1.1) drop-shadow(...)` CSS kaldırıldı (PNG'lerde arka plan zaten şeffaf).
+  - Icon boyutu 85px → 50px'e küçültüldü. Yeni stil: `width:50 height:50 object-fit:contain display:block margin:0 auto background:transparent`.
+  - Artık ikon çerçevesiz/kutusuz doğrudan taş duvar arka planına yerleşiyor, 3x2 grid içinde ortalı.
+  - Kullanılmayan `titanxis-kill-black` SVG feColorMatrix filter tanımı temizlendi.
+  - Ek düzeltme: `Events.jsx` `EventFolderManager` bileşenine eksik olan `const { t } = useTranslation()` eklendi (lint hatası fix).
+  - Screenshot ile 6 ikon (LEADERBOARD, ABOUT LOJ, POINT CALCULATOR, EVENTS, KATILIM MERKEZI, MEMBERS) doğrulandı.
 - **Feb 22, 2026 (v84)** — ÜYELER İkonu URL Güncellendi:
   - `MENU_ICONS.uyeler` yeni JPEG URL'e geçti (f4e1061b...). CSS aynı: `width:85 height:85 object-fit:contain mix-blend-mode:screen filter:brightness(1.2) contrast(1.1)`.
   - URL curl 200 doğrulandı, frontend compile OK, screenshot alındı.
