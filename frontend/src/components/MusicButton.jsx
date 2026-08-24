@@ -52,8 +52,8 @@ export default function MusicButton() {
       title={isPlaying ? t("music_stop") : t("music_play")}
       style={{
         position: "fixed",
-        bottom: 340,
-        left: 16,
+        top: 70,
+        right: 16,
         width: 36,
         height: 36,
         borderRadius: "50%",

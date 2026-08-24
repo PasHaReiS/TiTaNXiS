@@ -35,7 +35,7 @@ const ITEMS = [
 ];
 
 // Radius (px) icons orbit around the central pill.
-const RADIUS = 160;
+const RADIUS = 170;
 // Central pill diameter.
 const CENTER = 88;
 // Icon tile size.
@@ -176,6 +176,10 @@ export default function RadialMenu() {
           const x = RADIUS * Math.cos(rad);
           const y = RADIUS * Math.sin(rad);
           const locked = item.adminOnly && !isPrivileged;
+          // Icons in the top arc (y significantly negative) surface their
+          // labels ABOVE the tile so they do not crash into the labels of the
+          // side icons underneath. Side icons keep their label under the tile.
+          const labelAbove = y < -RADIUS * 0.55;
           return (
             <button
               key={item.key}
@@ -188,7 +192,7 @@ export default function RadialMenu() {
                 left: CENTER / 2,
                 top: CENTER / 2,
                 width: ICON,
-                height: ICON + 22, // room for the label under the icon
+                height: ICON,
                 marginLeft: -ICON / 2,
                 marginTop: -ICON / 2,
                 transform: open
@@ -201,10 +205,6 @@ export default function RadialMenu() {
                 border: "none",
                 padding: 0,
                 cursor: locked ? "not-allowed" : "pointer",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 2,
               }}
             >
               <img
@@ -217,11 +217,17 @@ export default function RadialMenu() {
                   imageRendering: "crisp-edges",
                   filter: locked ? "grayscale(1)" : "none",
                   transition: "transform 0.22s ease, filter 0.22s ease",
+                  display: "block",
                 }}
               />
               <div
                 style={{
-                  marginTop: 4,
+                  position: "absolute",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  ...(labelAbove
+                    ? { bottom: "calc(100% + 4px)" }
+                    : { top: "calc(100% + 4px)" }),
                   fontFamily: "Cinzel, serif",
                   fontSize: 9,
                   fontWeight: 700,
@@ -231,13 +237,15 @@ export default function RadialMenu() {
                   textAlign: "center",
                   letterSpacing: "0.06em",
                   lineHeight: 1.2,
-                  maxWidth: 78,
+                  width: 82,
                   whiteSpace: "normal",
                   overflowWrap: "normal",
                   wordBreak: "normal",
                   background: "rgba(0,0,0,0.65)",
                   borderRadius: 4,
                   padding: "2px 5px",
+                  boxSizing: "border-box",
+                  pointerEvents: "none",
                 }}
               >
                 {t(item.labelKey)}

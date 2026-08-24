@@ -21,6 +21,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v103)** — Radial Menü Label Overlap + MusicButton Reposition:
+  - `MusicButton.jsx`: `bottom: 340, left: 16 → top: 70, right: 16` — sağ üst köşede, radyal menüden tamamen ayrı.
+  - `RadialMenu.jsx`: RADIUS 160 → 170; label positioning refactor: labels artık `position: absolute`.
+  - Top-arc icons (i=1,2,3,4 → y < -R*0.55): label `bottom: calc(100% + 4px)` (ikonun ÜSTÜNDE).
+  - Side icons (i=0, i=5): label `top: calc(100% + 4px)` (ikonun ALTINDA).
+  - Sabit `width: 82px` + `box-sizing: border-box` — labels arası horizontal overlap engelleniyor.
 - **Feb 24, 2026 (v102)** — MusicButton Radial Menü Çakışması Düzeltildi:
   - `MusicButton.jsx` `bottom: 80 → 340` — radial menünün dikey extent'inin (0-300px from bottom) üzerine çıkarıldı.
   - Screenshot ile 6 radial ikon+label bounding box'ı ile music button bbox'ının hiçbir overlap yapmadığı doğrulandı.
