@@ -35,9 +35,9 @@ const ITEMS = [
 ];
 
 // Radius (px) icons orbit around the central pill.
-const RADIUS = 130;
+const RADIUS = 160;
 // Central pill diameter.
-const CENTER = 72;
+const CENTER = 88;
 // Icon tile size.
 const ICON = 70;
 
@@ -104,6 +104,71 @@ export default function RadialMenu() {
           zIndex: 50,
         }}
       >
+        {/* Glowing amber connection rays from center to each icon. Rendered
+            below the icons and above the backdrop. Opacity + drop-shadow are
+            driven by `open` so the rays animate in with the fan. */}
+        {(() => {
+          const svgSize = 2 * (RADIUS + ICON / 2);
+          const cx = svgSize / 2;
+          const cy = svgSize / 2;
+          return (
+            <svg
+              data-testid="radial-menu-rays"
+              width={svgSize}
+              height={svgSize}
+              style={{
+                position: "absolute",
+                left: CENTER / 2 - svgSize / 2,
+                top: CENTER / 2 - svgSize / 2,
+                pointerEvents: "none",
+                filter: "drop-shadow(0 0 4px #f59e0b)",
+                opacity: open ? 0.7 : 0,
+                transition: "opacity 0.35s ease 0.05s",
+              }}
+            >
+              <defs>
+                {ITEMS.map((_, i) => {
+                  const angle = startAngle + i * step;
+                  const rad = (angle * Math.PI) / 180;
+                  const x2 = cx + RADIUS * Math.cos(rad);
+                  const y2 = cy + RADIUS * Math.sin(rad);
+                  return (
+                    <linearGradient
+                      key={i}
+                      id={`radial-ray-${i}`}
+                      gradientUnits="userSpaceOnUse"
+                      x1={cx}
+                      y1={cy}
+                      x2={x2}
+                      y2={y2}
+                    >
+                      <stop offset="0" stopColor="#f59e0b" stopOpacity="1" />
+                      <stop offset="1" stopColor="#f59e0b" stopOpacity="0.12" />
+                    </linearGradient>
+                  );
+                })}
+              </defs>
+              {ITEMS.map((_, i) => {
+                const angle = startAngle + i * step;
+                const rad = (angle * Math.PI) / 180;
+                const x2 = cx + RADIUS * Math.cos(rad);
+                const y2 = cy + RADIUS * Math.sin(rad);
+                return (
+                  <line
+                    key={i}
+                    x1={cx}
+                    y1={cy}
+                    x2={x2}
+                    y2={y2}
+                    stroke={`url(#radial-ray-${i})`}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                  />
+                );
+              })}
+            </svg>
+          );
+        })()}
         {/* Fan icons */}
         {ITEMS.map((item, i) => {
           const angle = startAngle + i * step;
@@ -156,20 +221,23 @@ export default function RadialMenu() {
               />
               <div
                 style={{
-                  marginTop: 2,
+                  marginTop: 4,
                   fontFamily: "Cinzel, serif",
-                  fontSize: 10,
+                  fontSize: 9,
                   fontWeight: 700,
                   color: "#FFFFFF",
                   textShadow: "0 1px 3px rgba(0,0,0,0.9)",
                   textTransform: "uppercase",
                   textAlign: "center",
-                  letterSpacing: "0.10em",
-                  lineHeight: 1.15,
-                  maxWidth: 96,
+                  letterSpacing: "0.06em",
+                  lineHeight: 1.2,
+                  maxWidth: 78,
                   whiteSpace: "normal",
                   overflowWrap: "normal",
-                  wordBreak: "keep-all",
+                  wordBreak: "normal",
+                  background: "rgba(0,0,0,0.65)",
+                  borderRadius: 4,
+                  padding: "2px 5px",
                 }}
               >
                 {t(item.labelKey)}
@@ -178,7 +246,23 @@ export default function RadialMenu() {
           );
         })}
 
-        {/* Central toggle */}
+        {/* Central toggle (v100 grand medallion with outer amber ring) */}
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            left: -8,
+            top: -8,
+            width: CENTER + 16,
+            height: CENTER + 16,
+            borderRadius: "50%",
+            pointerEvents: "none",
+            border: "2px solid rgba(245,166,35,0.55)",
+            boxShadow:
+              "0 0 24px rgba(245,166,35,0.55), inset 0 0 12px rgba(245,166,35,0.35)",
+            background: "radial-gradient(circle, rgba(245,166,35,0.15) 0%, rgba(245,166,35,0) 65%)",
+          }}
+        />
         <button
           type="button"
           data-testid="radial-menu-toggle"
@@ -194,13 +278,13 @@ export default function RadialMenu() {
             borderRadius: "50%",
             background:
               "radial-gradient(circle at 30% 28%, #FFD787 0%, #F5A623 32%, #B45309 68%, #4A1B08 100%)",
-            border: "2px solid rgba(245,166,35,0.85)",
+            border: "2px solid rgba(245,166,35,0.9)",
             boxShadow:
-              "0 0 28px rgba(245,166,35,0.75), 0 0 60px rgba(231,76,26,0.35), inset 0 0 12px rgba(0,0,0,0.55)",
+              "0 0 30px rgba(245,166,35,0.8), 0 0 60px rgba(231,76,26,0.4), inset 0 0 14px rgba(0,0,0,0.6)",
             color: "#FFF5D9",
             fontFamily: "Cinzel, serif",
             fontWeight: 900,
-            fontSize: 15,
+            fontSize: 17,
             letterSpacing: "0.1em",
             cursor: "pointer",
             display: "flex",

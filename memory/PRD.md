@@ -21,6 +21,16 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v101)** — Radial Menü Etiket Okunabilirlik Düzeltmesi:
+  - Radius 150 → 160 — ikonlar arası mesafe artırıldı, overlap engellendi.
+  - Label CSS: fontSize 10 → 9, letterSpacing 0.10 → 0.06 (daha kompakt), maxWidth 96 → 78 (2-kelime labels forced wrap), lineHeight 1.15 → 1.2.
+  - Yeni: `background: rgba(0,0,0,0.65)`, `borderRadius: 4`, `padding: "2px 5px"` — taş doku üzerinde net kontrast.
+  - `wordBreak: normal`, `overflowWrap: normal`, `whiteSpace: normal` — doğal boşluk kırılımı; LOJ / HAKKINDA, PUAN / HESAPLA, KATILIM / MERKEZİ 2 satıra bölünüyor.
+- **Feb 24, 2026 (v100)** — Radial Menü Parlayan Bağlantı Hatları + Grand Medallion:
+  - SVG `radial-menu-rays` overlay eklendi: her ikon için `linearGradient` ile merkezden uca opacity fade (`stopOpacity 1 → 0.12`).
+  - Line: `stroke=url(#radial-ray-i)`, `strokeWidth: 2`, `strokeLinecap: round`, glow via `drop-shadow(0 0 4px #f59e0b)`, root opacity `0 → 0.7` open transition.
+  - Central pill CENTER 72 → 88, dış amber halka div eklendi (`+16px` inset ring, radial gradient + inset shadow).
+  - Radius 130 → 150 — fan daha geniş yayılır.
 - **Feb 24, 2026 (v99)** — Radial Menü İnce Ayar (Konum + Mesafe + Etiket):
   - Ana buton `bottom: 90 → 30` — tablolar/butonlarla çakışmıyor.
   - Radius 118 → 130 — ikonlar arası mesafe genişledi (still 6 icons over 180° = 36° step).
