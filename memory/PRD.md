@@ -21,6 +21,10 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v111)** — Toplu Seçim'i Puan Hesapla Sayfasına Da Ekle:
+  - `PointCalcPage.jsx` içine `BuildingCalculator` bileşeni Header'ın hemen altında embed edildi.
+  - Böylece Toplu Seçim toggle butonu + akordeon ağaç Loj Hakkında **ve** Puan Hesapla sayfalarının ikisinde de görünüyor.
+  - Buton position: title'ın hemen yanında (amber turuncu gradient bg, beyaz metin, ☑ ikon), tabloya bakar bakmaz göze çarpıyor.
 - **Feb 24, 2026 (v110)** — Bina Hesaplayıcı Toplu Seçim Feature:
   - `BuildingCalculator.jsx` başlık yanına belirgin **Toplu Seçim toggle butonu** (amber gradient → yeşil aktif, box-shadow glow).
   - Bulk mode ON'da mevcut single-select UI gizleniyor; yerine **3-seviyeli akordeon ağaç** (F6→F10 × 7 bina × 5 aşama = 175 leaf).
