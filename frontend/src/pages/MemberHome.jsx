@@ -297,25 +297,9 @@ export default function MemberHome() {
         />
 
         {/* v86 — Calendar moved ABOVE the menu grid; admin panel strip removed. */}
-        {/* Row 3 — "ETKİNLİK TAKVİMİ" title */}
-        <div
-          data-testid="member-home-calendar-title"
-          style={{
-            textAlign: "center",
-            fontFamily: "Cinzel, serif",
-            fontWeight: 800,
-            fontSize: 20,
-            letterSpacing: "0.22em",
-            color: "#F5A623",
-            textShadow: "0 0 16px rgba(245,166,35,0.55), 0 2px 6px rgba(0,0,0,0.75)",
-            marginTop: 4,
-            textTransform: "uppercase",
-          }}
-        >
-          {t("home_calendar_title")}
-        </div>
+        {/* v87 — "ETKİNLİK TAKVİMİ" title removed per user request. */}
 
-        {/* Row 5 — Real calendar (stone icon ghost removed) */}
+        {/* Row 3 — Real calendar (stone icon ghost removed) */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
           <div
             data-testid="member-home-calendar"
