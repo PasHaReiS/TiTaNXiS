@@ -21,6 +21,10 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v99)** — Radial Menü İnce Ayar (Konum + Mesafe + Etiket):
+  - Ana buton `bottom: 90 → 30` — tablolar/butonlarla çakışmıyor.
+  - Radius 118 → 130 — ikonlar arası mesafe genişledi (still 6 icons over 180° = 36° step).
+  - Etiket: fontSize 9 → 10, `color: #FFFFFF`, `textShadow: 0 1px 3px rgba(0,0,0,0.9)`, letterSpacing 0.12 → 0.10, maxWidth 90 → 96, `marginTop: 2` (icon'un hemen altında).
 - **Feb 24, 2026 (v98)** — Radial/Fan Menü Global Uygulama:
   - Yeni `RadialMenu.jsx` bileşeni oluşturuldu: fixed bottom-center TN toggle butonu + 6 ikon yarım daire yukarı yelpaze animasyonu.
   - Anasayfada otomatik açık, diğer sayfalarda kapalı başlar; ikona tıklanınca navigate + kapan.

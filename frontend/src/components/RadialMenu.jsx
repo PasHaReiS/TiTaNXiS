@@ -35,7 +35,7 @@ const ITEMS = [
 ];
 
 // Radius (px) icons orbit around the central pill.
-const RADIUS = 118;
+const RADIUS = 130;
 // Central pill diameter.
 const CENTER = 72;
 // Icon tile size.
@@ -96,7 +96,7 @@ export default function RadialMenu() {
         data-testid="radial-menu"
         style={{
           position: "fixed",
-          bottom: 90, // sits above the bottom nav strip
+          bottom: 30, // sits above the viewport bottom, clear of any tables/buttons
           left: "50%",
           transform: "translateX(-50%)",
           width: CENTER,
@@ -156,16 +156,17 @@ export default function RadialMenu() {
               />
               <div
                 style={{
+                  marginTop: 2,
                   fontFamily: "Cinzel, serif",
-                  fontSize: 9,
+                  fontSize: 10,
                   fontWeight: 700,
-                  color: "#F5F0E8",
-                  textShadow: "0 2px 4px rgba(0,0,0,0.9), 0 0 6px rgba(212,175,55,0.35)",
+                  color: "#FFFFFF",
+                  textShadow: "0 1px 3px rgba(0,0,0,0.9)",
                   textTransform: "uppercase",
                   textAlign: "center",
-                  letterSpacing: "0.12em",
+                  letterSpacing: "0.10em",
                   lineHeight: 1.15,
-                  maxWidth: 90,
+                  maxWidth: 96,
                   whiteSpace: "normal",
                   overflowWrap: "normal",
                   wordBreak: "keep-all",
