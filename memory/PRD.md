@@ -21,6 +21,10 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v88)** — Anasayfa sıralaması düzeltildi: İkonlar takvimin ÜSTÜNDE:
+  - `member-home-menu` (3x2 grid) hero banner'ın hemen altına, takvimin üstüne taşındı.
+  - Yeni sıra: Welcome → Hero → 3x2 İkon Menü → Takvim → Günün Etkinlikleri.
+  - Screenshot ile doğrulandı (menu_y < calendar_y).
 - **Feb 24, 2026 (v87)** — Anasayfa "Etkinlik Takvimi" başlığı kaldırıldı:
   - `member-home-calendar-title` div ve `t("home_calendar_title")` çağrısı MemberHome.jsx'ten silindi.
   - Takvim artık doğrudan ay adıyla başlıyor (AUGUST 2026), üstünde başlık yok.

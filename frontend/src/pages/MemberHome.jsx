@@ -296,10 +296,40 @@ export default function MemberHome() {
           }}
         />
 
-        {/* v86 — Calendar moved ABOVE the menu grid; admin panel strip removed. */}
-        {/* v87 — "ETKİNLİK TAKVİMİ" title removed per user request. */}
+        {/* v88 — Menu grid moved ABOVE calendar per user request. */}
+        {/* Row 3 — 3x2 menu grid (fully transparent tiles) */}
+        <div
+          data-testid="member-home-menu"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gridTemplateRows: "repeat(2, auto)",
+            gap: 8,
+            marginTop: 4,
+          }}
+        >
+          <MenuTile spriteKey="siralama"     label={t("nav_leaderboard").toUpperCase()}   onClick={() => nav("/")} testId="menu-siralama" />
+          <MenuTile spriteKey="loj"          label={t("nav_commanders").toUpperCase()}    onClick={() => nav("/komutanlar")} testId="menu-loj" />
+          <MenuTile spriteKey="hesapla"      label={t("nav_point_calc").toUpperCase()}    onClick={() => nav("/puan-hesaplama")} testId="menu-hesapla" />
+          <MenuTile spriteKey="etkinlikler"  label={t("nav_events").toUpperCase()}        onClick={() => nav("/etkinlikler")} testId="menu-etkinlikler" />
+          <MenuTile
+            spriteKey="raporlar"
+            label={t("nav_reports").toUpperCase()}
+            locked={!isPrivileged}
+            onClick={() => (isPrivileged ? nav("/raporlar") : lockedToast())}
+            testId="menu-raporlar"
+          />
+          <MenuTile
+            spriteKey="uyeler"
+            label={t("nav_members").toUpperCase()}
+            sub={isPrivileged ? undefined : t("home_view_only")}
+            locked={!isPrivileged}
+            onClick={() => nav("/uyeler")}
+            testId="menu-uyeler"
+          />
+        </div>
 
-        {/* Row 3 — Real calendar (stone icon ghost removed) */}
+        {/* Row 4 — Real calendar (stone icon ghost removed) */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
           <div
             data-testid="member-home-calendar"
@@ -462,38 +492,6 @@ export default function MemberHome() {
               )}
             </div>
           )}
-        </div>
-
-        {/* Row 5 — 3x2 menu grid (fully transparent tiles) — moved below calendar in v86 */}
-        <div
-          data-testid="member-home-menu"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gridTemplateRows: "repeat(2, auto)",
-            gap: 8,
-            marginTop: 4,
-          }}
-        >
-          <MenuTile spriteKey="siralama"     label={t("nav_leaderboard").toUpperCase()}   onClick={() => nav("/")} testId="menu-siralama" />
-          <MenuTile spriteKey="loj"          label={t("nav_commanders").toUpperCase()}    onClick={() => nav("/komutanlar")} testId="menu-loj" />
-          <MenuTile spriteKey="hesapla"      label={t("nav_point_calc").toUpperCase()}    onClick={() => nav("/puan-hesaplama")} testId="menu-hesapla" />
-          <MenuTile spriteKey="etkinlikler"  label={t("nav_events").toUpperCase()}        onClick={() => nav("/etkinlikler")} testId="menu-etkinlikler" />
-          <MenuTile
-            spriteKey="raporlar"
-            label={t("nav_reports").toUpperCase()}
-            locked={!isPrivileged}
-            onClick={() => (isPrivileged ? nav("/raporlar") : lockedToast())}
-            testId="menu-raporlar"
-          />
-          <MenuTile
-            spriteKey="uyeler"
-            label={t("nav_members").toUpperCase()}
-            sub={isPrivileged ? undefined : t("home_view_only")}
-            locked={!isPrivileged}
-            onClick={() => nav("/uyeler")}
-            testId="menu-uyeler"
-          />
         </div>
       </div>
 
