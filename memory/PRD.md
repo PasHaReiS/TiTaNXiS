@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v108)** — Whoosh Mute Toggle + DeepL Faz 4 Members Sweep:
+  - Profile.jsx yeni MENU SOUND bölümü: Switch + `Volume2/VolumeX` ikon + i18n label/desc. Persists `localStorage.ol_radial_mute` ('0'/'1'), varsayılan sesli.
+  - RadialMenu.jsx open transition'da `ol_radial_mute === '1'` ise Web Audio API çağırmadan return — silent-fail.
+  - Members.jsx 7 hardcoded TR string wrapped: `alliance_scope_update_failed`, `scope_server`, `alliance_main`, `alliance_academy`, `alliance_rename_tooltip` (×2), `alliance_rename_placeholder`, `health_dim_participation`, `health_dim_consistency`.
+  - 10 yeni i18n key eklendi DeepL bulk-translate ile 20-29 dile propagate edildi (DeepL rate-limit için retry batchleri gerekti).
 - **Feb 24, 2026 (v107)** — Bugünün Etkinlikleri Countdown + Radial Menü Whoosh Sesi:
   - `MemberHome.jsx` today pin'inde her etkinlik yanına canlı countdown chip: CANLI (yeşil, <3h negatif), N dk (red ≤15, amber >15), Ns Nd, N saat, N gün — 60s'de bir güncellenen `now` state ile.
   - i18n keys: `home_today_live`, `home_today_ended`, `home_today_min/min_short`, `home_today_hour/hour_short`, `home_today_day` — 29 dil DeepL bulk-translate ile propagate edildi.

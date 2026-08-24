@@ -64,6 +64,9 @@ export default function RadialMenu() {
   const prevOpenRef = useRef(open);
   useEffect(() => {
     if (open && !prevOpenRef.current) {
+      // Respect user's mute preference set in Profile settings.
+      const muted = typeof window !== "undefined" && localStorage.getItem("ol_radial_mute") === "1";
+      if (muted) { prevOpenRef.current = open; return; }
       try {
         if (!audioCtxRef.current) {
           const AC = window.AudioContext || window.webkitAudioContext;

@@ -38,7 +38,7 @@ function AllianceScopeToggle({ name }) {
       toast.success(`${name} → ${next === "global" ? "🌍 Global" : "🖥️ Sunucu"} (${r.data.members_updated} üye)`);
       await Promise.all([mutate("/alliance-scopes"), mutate((k) => typeof k === "string" && k.startsWith("/members"), undefined, { revalidate: true })]);
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Kapsam güncellenemedi");
+      toast.error(err?.response?.data?.detail || t("alliance_scope_update_failed"));
     }
   };
   return (
@@ -51,7 +51,7 @@ function AllianceScopeToggle({ name }) {
       >
         {[
           { key: "global", label: "🌍", color: "#38BDF8", title: "Global" },
-          { key: "server", label: "🖥️", color: "#F5A623", title: "Sunucu" },
+          { key: "server", label: "🖥️", color: "#F5A623", title: t("scope_server") },
         ].map((opt) => (
           <button
             key={opt.key}
@@ -812,7 +812,7 @@ export default function Members() {
                           border: `1px solid ${isMain ? "#F5A623" : "#38BDF8"}`,
                           letterSpacing: "0.14em",
                         }}
-                        title={isMain ? "Ana İttifak" : "Akademi"}
+                        title={isMain ? t("alliance_main") : t("alliance_academy")}
                       >
                         {isMain ? <Shield className="w-2.5 h-2.5" /> : <GraduationCap className="w-2.5 h-2.5" />}
                         {isMain ? "ANA" : "AKADEMİ"}
@@ -855,8 +855,8 @@ export default function Members() {
                           }
                         }}
                         data-testid={`alliance-rename-btn-${grp.name}`}
-                        aria-label="İttifak adını değiştir"
-                        title="İttifak adını değiştir"
+                        aria-label={t("alliance_rename_tooltip")}
+                        title={t("alliance_rename_tooltip")}
                         className="w-6 h-6 rounded-full flex items-center justify-center bg-black/30 hover:bg-black/50 transition-colors cursor-pointer"
                       >
                         <Pencil className="w-3.5 h-3.5 text-white" />
@@ -1105,7 +1105,7 @@ export default function Members() {
               onChange={(e) => setRenamingAlliance({ ...renamingAlliance, next: e.target.value })}
               data-testid="alliance-rename-input"
               className="w-full px-3 py-2 rounded bg-black/40 border border-amber-500/30 text-white text-sm"
-              placeholder="Yeni ittifak adı"
+              placeholder={t("alliance_rename_placeholder")}
             />
             <div className="flex gap-2 mt-3">
               <button
@@ -1999,13 +1999,13 @@ function HealthScoreDetailModal({ member, onClose }) {
       "180 gün": h180?.breakdown?.rsvp_rate || 0,
     },
     {
-      dim: "Katılım",
+      dim: t("health_dim_participation"),
       "30 gün": h30?.breakdown?.attendance_rate || 0,
       "90 gün": h90?.breakdown?.attendance_rate || 0,
       "180 gün": h180?.breakdown?.attendance_rate || 0,
     },
     {
-      dim: "Tutarlılık",
+      dim: t("health_dim_consistency"),
       "30 gün": h30?.breakdown?.consistency || 0,
       "90 gün": h90?.breakdown?.consistency || 0,
       "180 gün": h180?.breakdown?.consistency || 0,

@@ -8,6 +8,15 @@ import { initReactI18next } from "react-i18next";
 // ---------------------------------------------------------------------------
 
 const tr = {
+  alliance_scope_update_failed: "Kapsam güncellenemedi",
+  alliance_main: "Ana İttifak",
+  alliance_academy: "Akademi",
+  alliance_rename_placeholder: "Yeni ittifak adı",
+  alliance_rename_tooltip: "İttifak adını değiştir",
+  radial_menu_sound_title: "Menü Sesi",
+  radial_menu_sound_desc: "Radyal menü açılınca whoosh sesi çalar",
+  health_dim_participation: "Katılım",
+  health_dim_consistency: "Tutarlılık",
   home_today_live: "CANLI",
   home_today_ended: "Bitti",
   home_today_min: "dk",
@@ -1197,6 +1206,14 @@ const tr = {
 };
 
 const en = {
+  alliance_rename_placeholder: "Name of the new alliance",
+  alliance_rename_tooltip: "Change the name of the alliance",
+  radial_menu_sound_title: "Menu Sound",
+  health_dim_participation: "Participation",
+  health_dim_consistency: "Consistency",
+  alliance_scope_update_failed: "The scope could not be updated",
+  alliance_main: "Main Alliance",
+  alliance_academy: "Academy",
   home_today_live: "LIVE",
   home_today_ended: "That’s it",
   home_today_min: "min",
@@ -2153,6 +2170,14 @@ const en = {
 };
 
 const ru = {
+  alliance_rename_placeholder: "Новое название альянса",
+  alliance_rename_tooltip: "Изменить название альянса",
+  radial_menu_sound_title: "Звук меню",
+  health_dim_participation: "Участие",
+  health_dim_consistency: "Последовательность",
+  alliance_scope_update_failed: "Не удалось обновить объем",
+  alliance_main: "Главный альянс",
+  alliance_academy: "Академия",
   home_today_live: "В РЕЖИМЕ РЕАЛЬНОГО ВРЕМЕНИ",
   home_today_ended: "Все готово",
   home_today_min: "мин",
@@ -2831,6 +2856,14 @@ const ru = {
 };
 
 const de = {
+  alliance_rename_placeholder: "Name der neuen Koalition",
+  alliance_rename_tooltip: "Das Bündnis ändert seinen Namen",
+  radial_menu_sound_title: "Menü-Ton",
+  health_dim_participation: "Teilnahme",
+  health_dim_consistency: "Konsistenz",
+  alliance_scope_update_failed: "Der Umfang konnte nicht aktualisiert werden",
+  alliance_main: "Hauptbündnis",
+  alliance_academy: "Akademie",
   home_today_live: "LIVE",
   home_today_ended: "Fertig",
   home_today_min: "Min.",
@@ -3422,6 +3455,14 @@ const de = {
 };
 
 const fr = {
+  alliance_rename_placeholder: "Nom de la nouvelle alliance",
+  alliance_rename_tooltip: "Changer le nom de l'alliance",
+  radial_menu_sound_title: "Son du menu",
+  health_dim_participation: "Participation",
+  health_dim_consistency: "Cohérence",
+  alliance_scope_update_failed: "La portée n'a pas pu être mise à jour",
+  alliance_main: "Alliance principale",
+  alliance_academy: "Académie",
   home_today_live: "EN DIRECT",
   home_today_ended: "C'est fini",
   home_today_min: "min",
@@ -4005,6 +4046,14 @@ const fr = {
 };
 
 const es = {
+  alliance_rename_placeholder: "Nombre de la nueva alianza",
+  alliance_rename_tooltip: "Cambiar el nombre de la alianza",
+  radial_menu_sound_title: "Sonido del menú",
+  health_dim_participation: "Participación",
+  health_dim_consistency: "Coherencia",
+  alliance_scope_update_failed: "No se ha podido actualizar el alcance",
+  alliance_main: "Alianza Principal",
+  alliance_academy: "Academia",
   home_today_live: "EN DIRECTO",
   home_today_ended: "Se acabó",
   home_today_min: "min",
@@ -4589,6 +4638,14 @@ const es = {
 };
 
 const ko = {
+  alliance_rename_placeholder: "새로운 연합의 이름",
+  alliance_rename_tooltip: "동맹의 이름을 변경",
+  radial_menu_sound_title: "메뉴 소리",
+  health_dim_participation: "참가",
+  health_dim_consistency: "일관성",
+  alliance_scope_update_failed: "범위를 업데이트할 수 없습니다",
+  alliance_main: "주요 연합",
+  alliance_academy: "아카데미",
   home_today_live: "라이브",
   home_today_ended: "끝났다",
   home_today_min: "dk",
@@ -5633,6 +5690,15 @@ const ar = {
 // Empty translation stubs for additional languages — i18next fallbackLng: "tr"
 // automatically falls back to Turkish for any missing keys.
 const bg = {
+  alliance_rename_placeholder: "Име на новия съюз",
+  alliance_rename_tooltip: "Промяна на името на съюза",
+  radial_menu_sound_title: "Звук на менюто",
+  scope_server: "Сървър",
+  health_dim_participation: "Участие",
+  health_dim_consistency: "Последователност",
+  alliance_scope_update_failed: "Обхватът не може да бъде актуализиран",
+  alliance_main: "Основният алианс",
+  alliance_academy: "Академия",
   home_today_live: "НА ЖИВО",
   home_today_ended: "Свърши",
   home_today_min: "min",
@@ -5775,6 +5841,15 @@ const bg = {
   poll_tg_voters_header: "Гласуващите в Telegram",
 };
 const cs = {
+  alliance_rename_placeholder: "Název nové koalice",
+  alliance_rename_tooltip: "Aliance změnila název",
+  radial_menu_sound_title: "Zvuk nabídky",
+  scope_server: "Server",
+  health_dim_participation: "Účast",
+  health_dim_consistency: "Konzistence",
+  alliance_scope_update_failed: "Rozsah se nepodařilo aktualizovat",
+  alliance_main: "Hlavní koalice",
+  alliance_academy: "Akademie",
   home_today_live: "ŽIVĚ",
   home_today_ended: "Hotovo",
   home_today_min: "min",
@@ -5928,6 +6003,15 @@ const cs = {
   poll_loading: "Načítá se…",
 };
 const da = {
+  alliance_rename_placeholder: "Navnet på den nye alliance",
+  alliance_rename_tooltip: "Alliancen skifter navn",
+  radial_menu_sound_title: "Menulyden",
+  scope_server: "Server",
+  health_dim_participation: "Deltagelse",
+  health_dim_consistency: "Konsistens",
+  alliance_scope_update_failed: "Omfanget kunne ikke opdateres",
+  alliance_main: "Hovedalliancen",
+  alliance_academy: "Akademiet",
   home_today_live: "LIVE",
   home_today_ended: "Færdig",
   home_today_min: "min",
@@ -6068,6 +6152,15 @@ const da = {
   poll_loading: "Indlæser…",
 };
 const el = {
+  alliance_rename_placeholder: "Το όνομα της νέας συμμαχίας",
+  alliance_rename_tooltip: "Αλλαγή ονόματος της συμμαχίας",
+  radial_menu_sound_title: "Ήχος μενού",
+  scope_server: "Διακομιστής",
+  health_dim_participation: "Συμμετοχή",
+  health_dim_consistency: "Συνέπεια",
+  alliance_scope_update_failed: "Δεν ήταν δυνατή η ενημέρωση του πεδίου εφαρμογής",
+  alliance_main: "Κύρια Συμμαχία",
+  alliance_academy: "Ακαδημία",
   home_today_live: "ΖΩΝΤΑΝΑ",
   home_today_ended: "Τέλος",
   home_today_min: "dk",
@@ -6204,6 +6297,15 @@ const el = {
   ev_bulk_breakdown_hide_tip: "Απόκρυψη του πλαισίου λεπτομερειών των επιλεγμένων δραστηριοτήτων (το σύνολο της ομάδας διατηρείται)",
 };
 const et = {
+  alliance_rename_placeholder: "Uue liidu nimi",
+  alliance_rename_tooltip: "Liit muudab oma nime",
+  radial_menu_sound_title: "Menüüheli",
+  scope_server: "Server",
+  health_dim_participation: "Osalemine",
+  health_dim_consistency: "Järjepidevus",
+  alliance_scope_update_failed: "Ulatust ei õnnestunud uuendada",
+  alliance_main: "Pealiit",
+  alliance_academy: "Akadeemia",
   home_today_live: "OTSEÜLEKANNE",
   home_today_ended: "Valmis",
   home_today_min: "min",
@@ -6344,6 +6446,15 @@ const et = {
   poll_loading: "Laaditakse…",
 };
 const fi = {
+  alliance_rename_placeholder: "Uuden liittouman nimi",
+  alliance_rename_tooltip: "Liitto vaihtaa nimensä",
+  radial_menu_sound_title: "Valikon ääni",
+  scope_server: "Palvelin",
+  health_dim_participation: "Osallistuminen",
+  health_dim_consistency: "Johdonmukaisuus",
+  alliance_scope_update_failed: "Laajuutta ei voitu päivittää",
+  alliance_main: "Pääliitto",
+  alliance_academy: "Akatemia",
   home_today_live: "LIVE",
   home_today_ended: "Valmis",
   home_today_min: "min",
@@ -6487,6 +6598,15 @@ const fi = {
   poll_loading: "Ladataan…",
 };
 const hu = {
+  alliance_rename_placeholder: "Az új szövetség neve",
+  alliance_rename_tooltip: "A szövetség nevének megváltoztatása",
+  radial_menu_sound_title: "Menühang",
+  scope_server: "Szerver",
+  health_dim_participation: "Részvétel",
+  health_dim_consistency: "Következetesség",
+  alliance_scope_update_failed: "A hatály nem frissíthető",
+  alliance_main: "Fő Szövetség",
+  alliance_academy: "Akadémia",
   home_today_live: "ÉLŐ",
   home_today_ended: "Kész",
   home_today_min: "dk",
@@ -6634,6 +6754,15 @@ const hu = {
   poll_tg_details_hide: "TG: a szavazási adatok elrejtése",
 };
 const id_ = {
+  alliance_rename_placeholder: "Nama aliansi baru",
+  alliance_rename_tooltip: "Aliansi mengubah namanya",
+  radial_menu_sound_title: "Suara Menu",
+  scope_server: "Server",
+  health_dim_participation: "Partisipasi",
+  health_dim_consistency: "Konsistensi",
+  alliance_scope_update_failed: "Cakupan tidak dapat diperbarui",
+  alliance_main: "Aliansi Utama",
+  alliance_academy: "Akademi",
   home_today_live: "LANGSUNG",
   home_today_ended: "Selesai",
   home_today_min: "menit",
@@ -6783,6 +6912,15 @@ const id_ = {
   poll_loading: "Sedang dimuat…",
 };
 const it = {
+  alliance_rename_placeholder: "Nome della nuova alleanza",
+  alliance_rename_tooltip: "Cambia il nome dell'alleanza",
+  radial_menu_sound_title: "Audio del menu",
+  scope_server: "Server",
+  health_dim_participation: "Partecipazione",
+  health_dim_consistency: "Coerenza",
+  alliance_scope_update_failed: "Non è stato possibile aggiornare l'ambito",
+  alliance_main: "Alleanza principale",
+  alliance_academy: "Accademia",
   home_today_live: "IN DIRETTA",
   home_today_ended: "Finito",
   home_today_min: "min",
@@ -6923,6 +7061,15 @@ const it = {
   poll_loading: "Caricamento in corso…",
 };
 const ja = {
+  alliance_rename_placeholder: "新しい同盟の名称",
+  alliance_rename_tooltip: "同盟の名称を変更する",
+  radial_menu_sound_title: "メニュー音",
+  scope_server: "サーバー",
+  health_dim_participation: "参加",
+  health_dim_consistency: "一貫性",
+  alliance_scope_update_failed: "範囲を更新できませんでした",
+  alliance_main: "主要連合",
+  alliance_academy: "アカデミー",
   home_today_live: "ライブ",
   home_today_ended: "終わった",
   home_today_min: "dk",
@@ -7072,6 +7219,15 @@ const ja = {
   poll_tg_details_show: "TGの投票詳細を表示する",
 };
 const lt = {
+  alliance_rename_placeholder: "Naujos sąjungos pavadinimas",
+  alliance_rename_tooltip: "Pakeisti aljanso pavadinimą",
+  radial_menu_sound_title: "Meniu garsas",
+  scope_server: "Serveris",
+  health_dim_participation: "Dalyvavimas",
+  health_dim_consistency: "Nuoseklumas",
+  alliance_scope_update_failed: "Apimtis nebuvo atnaujinta",
+  alliance_main: "Pagrindinė sąjunga",
+  alliance_academy: "Akademija",
   home_today_live: "TIEŠIOJI TRANSLIACIJA",
   home_today_ended: "Baigta",
   home_today_min: "min.",
@@ -7225,6 +7381,15 @@ const lt = {
   poll_loading: "Įkeliama…",
 };
 const lv = {
+  alliance_rename_placeholder: "Jaunās alianses nosaukums",
+  alliance_rename_tooltip: "Aliansei mainīt nosaukumu",
+  radial_menu_sound_title: "Izvēlnes skaņa",
+  scope_server: "Serveris",
+  health_dim_participation: "Dalība",
+  health_dim_consistency: "Konsekvence",
+  alliance_scope_update_failed: "Darbības joma netika atjaunināta",
+  alliance_main: "Galvenā alianse",
+  alliance_academy: "Akadēmija",
   home_today_live: "TIEŠRAIDE",
   home_today_ended: "Beidzās",
   home_today_min: "min",
@@ -7378,6 +7543,15 @@ const lv = {
   poll_loading: "Tiek ielādēts…",
 };
 const nb = {
+  alliance_rename_placeholder: "Navnet på den nye alliansen",
+  alliance_rename_tooltip: "Alliansen skifter navn",
+  radial_menu_sound_title: "Menylyd",
+  scope_server: "Server",
+  health_dim_participation: "Deltakelse",
+  health_dim_consistency: "Konsistens",
+  alliance_scope_update_failed: "Omfanget kunne ikke oppdateres",
+  alliance_main: "Hovedalliansen",
+  alliance_academy: "Akademiet",
   home_today_live: "LIVE",
   home_today_ended: "Ferdig",
   home_today_min: "min",
@@ -7531,6 +7705,12 @@ const nb = {
   poll_loading: "Laster inn…",
 };
 const nl = {
+  alliance_rename_placeholder: "De naam van de nieuwe alliantie",
+  alliance_rename_tooltip: "De naam van de alliantie wijzigen",
+  health_dim_participation: "Deelname",
+  health_dim_consistency: "Consistentie",
+  alliance_scope_update_failed: "Het bereik kon niet worden bijgewerkt",
+  alliance_main: "Hoofdcoalitie",
   home_today_live: "LIVE",
   home_today_ended: "Klaar",
   home_today_min: "min",
@@ -7683,6 +7863,12 @@ const nl = {
   poll_loading: "Bezig met laden…",
 };
 const pl = {
+  alliance_rename_placeholder: "Nazwa nowego sojuszu",
+  alliance_rename_tooltip: "Zmiana nazwy sojuszu",
+  health_dim_participation: "Udział",
+  health_dim_consistency: "Spójność",
+  alliance_scope_update_failed: "Nie udało się zaktualizować zakresu",
+  alliance_main: "Główny Sojusz",
   home_today_live: "NA ŻYWO",
   home_today_ended: "Koniec",
   home_today_min: "min",
@@ -7835,6 +8021,12 @@ const pl = {
   poll_loading: "Ładowanie…",
 };
 const pt = {
+  alliance_rename_placeholder: "Nome da nova aliança",
+  alliance_rename_tooltip: "A aliança muda de nome",
+  health_dim_participation: "Participação",
+  health_dim_consistency: "Coerência",
+  alliance_scope_update_failed: "Não foi possível atualizar o âmbito",
+  alliance_main: "Aliança Principal",
   home_today_live: "EM DIRETO",
   home_today_ended: "Acabou",
   home_today_min: "min",
@@ -7983,6 +8175,12 @@ const pt = {
   poll_loading: "Carregando…",
 };
 const ro = {
+  alliance_rename_placeholder: "Numele noii alianțe",
+  alliance_rename_tooltip: "Schimbă numele alianței",
+  health_dim_participation: "Participare",
+  health_dim_consistency: "Coerență",
+  alliance_scope_update_failed: "Domeniul de aplicare nu a putut fi actualizat",
+  alliance_main: "Alianța Principală",
   home_today_live: "ÎN DIRECT",
   home_today_ended: "S-a terminat",
   home_today_min: "min",
@@ -8135,6 +8333,12 @@ const ro = {
   poll_loading: "Se încarcă…",
 };
 const sk = {
+  alliance_rename_placeholder: "Názov novej koalície",
+  alliance_rename_tooltip: "Zmena názvu aliancie",
+  health_dim_participation: "Účasť",
+  health_dim_consistency: "Konzistentnosť",
+  alliance_scope_update_failed: "Rozsah sa nepodarilo aktualizovať",
+  alliance_main: "Hlavná koalícia",
   home_today_live: "NAŽIVO",
   home_today_ended: "Skončilo",
   home_today_min: "min",
@@ -8287,6 +8491,12 @@ const sk = {
   poll_loading: "Načítava sa…",
 };
 const sl = {
+  alliance_rename_placeholder: "Ime nove koalicije",
+  alliance_rename_tooltip: "Zavezništvo spremeni ime",
+  health_dim_participation: "Udeležba",
+  health_dim_consistency: "Doslednost",
+  alliance_scope_update_failed: "Obsega ni bilo mogoče posodobiti",
+  alliance_main: "Glavna koalicija",
   home_today_live: "V ŽIVO",
   home_today_ended: "Končano",
   home_today_min: "min",
@@ -8439,6 +8649,12 @@ const sl = {
   poll_loading: "Nalaganje…",
 };
 const sv = {
+  alliance_rename_placeholder: "Namnet på den nya alliansen",
+  alliance_rename_tooltip: "Alliansen byter namn",
+  health_dim_participation: "Deltagande",
+  health_dim_consistency: "Konsekvens",
+  alliance_scope_update_failed: "Omfattningen kunde inte uppdateras",
+  alliance_main: "Huvudalliansen",
   home_today_live: "LIVE",
   home_today_ended: "Klart",
   action_rename: "Byt namn på",
@@ -8551,6 +8767,12 @@ const sv = {
   vip_cat_faq: "Vanliga frågor",
 };
 const uk = {
+  alliance_rename_placeholder: "Назва нового альянсу",
+  alliance_rename_tooltip: "Змінити назву альянсу",
+  health_dim_participation: "Участь",
+  health_dim_consistency: "Послідовність",
+  alliance_scope_update_failed: "Не вдалося оновити обсяг",
+  alliance_main: "Головний альянс",
   home_today_live: "НАЖИВО",
   home_today_ended: "Закінчилося",
   action_rename: "Перейменувати",
@@ -8663,6 +8885,12 @@ const uk = {
   vip_cat_faq: "Часті запитання",
 };
 const zh = {
+  alliance_rename_placeholder: "新联盟名称",
+  alliance_rename_tooltip: "更改联盟名称",
+  health_dim_participation: "参与",
+  health_dim_consistency: "一致性",
+  alliance_scope_update_failed: "无法更新范围",
+  alliance_main: "主要联盟",
   home_today_live: "直播",
   home_today_ended: "结束了",
   action_rename: "重命名",

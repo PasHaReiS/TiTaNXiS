@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
 import TelegramLinkSection from "@/components/TelegramLinkSection";
 import { Switch } from "@/components/ui/switch";
-import { KeyRound, Shield, User, LogOut, AlertTriangle, Link2, Bell, BellOff, X as XIcon, Plus, Trophy, Zap, Castle, Crown, Medal, GitCompare } from "lucide-react";
+import { KeyRound, Shield, User, LogOut, AlertTriangle, Link2, Bell, BellOff, Volume2, VolumeX, X as XIcon, Plus, Trophy, Zap, Castle, Crown, Medal, GitCompare } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -24,6 +24,14 @@ export default function Profile() {
   const [linkOpen, setLinkOpen] = useState(false);
   const [notifBusy, setNotifBusy] = useState(false);
   const [removingId, setRemovingId] = useState(null);
+  // Radial menu whoosh sound preference (persisted per browser)
+  const [radialMuted, setRadialMuted] = useState(
+    () => (typeof window !== "undefined" && localStorage.getItem("ol_radial_mute") === "1")
+  );
+  const toggleRadialMute = (nextMuted) => {
+    setRadialMuted(nextMuted);
+    localStorage.setItem("ol_radial_mute", nextMuted ? "1" : "0");
+  };
 
   const memberIds = user?.member_ids || [];
 
@@ -392,6 +400,23 @@ export default function Profile() {
             onCheckedChange={(v) => toggleNotifications(!!v)}
           />
         </div>
+
+        <div className="section-title flex items-center gap-2">
+          {radialMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+          {t("radial_menu_sound_title")}
+        </div>
+        <div className="card-dark p-3 mb-4 flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="text-sm text-white font-semibold">{t("radial_menu_sound_title")}</div>
+            <div className="text-[11px] text-muted-foreground">{t("radial_menu_sound_desc")}</div>
+          </div>
+          <Switch
+            data-testid="profile-radial-sound-toggle"
+            checked={!radialMuted}
+            onCheckedChange={(v) => toggleRadialMute(!v)}
+          />
+        </div>
+
 
         <div className="section-title flex items-center gap-2"><KeyRound className="w-3 h-3" /> {t("change_password_title")}</div>
         <form onSubmit={submit} className="space-y-3">
