@@ -96,9 +96,9 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
       <div
         style={{
           fontFamily: "Cinzel, serif",
-          fontSize: 11,
+          fontSize: 9,
           fontWeight: 700,
-          letterSpacing: "0.14em",
+          letterSpacing: "0.12em",
           color: "#F5E7A8",
           textShadow: "0 2px 4px rgba(0,0,0,0.9), 0 0 6px rgba(212,175,55,0.35)",
           textTransform: "uppercase",

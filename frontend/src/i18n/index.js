@@ -5569,6 +5569,7 @@ const ar = {
 // Empty translation stubs for additional languages — i18next fallbackLng: "tr"
 // automatically falls back to Turkish for any missing keys.
 const bg = {
+  action_back: "Назад",
   vip_page_title: "VIP поддръжка",
   vip_search_placeholder: "Търси...",
   vip_filter_all: "Всички",
@@ -5702,6 +5703,7 @@ const bg = {
   poll_tg_voters_header: "Гласуващите в Telegram",
 };
 const cs = {
+  action_back: "Zpět",
   vip_page_title: "VIP podpora",
   vip_search_placeholder: "Hledat...",
   vip_filter_all: "Vše",
@@ -5846,6 +5848,7 @@ const cs = {
   poll_loading: "Načítá se…",
 };
 const da = {
+  action_back: "Tilbage",
   vip_page_title: "VIP-support",
   vip_search_placeholder: "Søg...",
   vip_filter_all: "Alle",
@@ -5977,6 +5980,7 @@ const da = {
   poll_loading: "Indlæser…",
 };
 const el = {
+  action_back: "Πίσω",
   vip_page_title: "Υποστήριξη VIP",
   vip_search_placeholder: "Αναζήτηση...",
   vip_filter_all: "Όλα",
@@ -6104,6 +6108,7 @@ const el = {
   ev_bulk_breakdown_hide_tip: "Απόκρυψη του πλαισίου λεπτομερειών των επιλεγμένων δραστηριοτήτων (το σύνολο της ομάδας διατηρείται)",
 };
 const et = {
+  action_back: "Tagasi",
   vip_page_title: "VIP-tugi",
   vip_search_placeholder: "Otsi...",
   vip_filter_all: "Kõik",
@@ -6235,6 +6240,7 @@ const et = {
   poll_loading: "Laaditakse…",
 };
 const fi = {
+  action_back: "Takaisin",
   vip_page_title: "VIP-tuki",
   vip_search_placeholder: "Etsi...",
   vip_filter_all: "Kaikki",
@@ -6369,6 +6375,7 @@ const fi = {
   poll_loading: "Ladataan…",
 };
 const hu = {
+  action_back: "Vissza",
   vip_page_title: "VIP-támogatás",
   vip_search_placeholder: "Keresés...",
   vip_filter_all: "Összesen",
@@ -6507,6 +6514,7 @@ const hu = {
   poll_tg_details_hide: "TG: a szavazási adatok elrejtése",
 };
 const id_ = {
+  action_back: "Kembali",
   vip_page_title: "Dukungan VIP",
   vip_search_placeholder: "Cari...",
   vip_filter_all: "Semua",
@@ -6647,6 +6655,7 @@ const id_ = {
   poll_loading: "Sedang dimuat…",
 };
 const it = {
+  action_back: "Indietro",
   vip_page_title: "Assistenza VIP",
   vip_search_placeholder: "Cerca...",
   vip_filter_all: "Tutto",
@@ -6778,6 +6787,7 @@ const it = {
   poll_loading: "Caricamento in corso…",
 };
 const ja = {
+  action_back: "戻る",
   vip_page_title: "VIPサポート",
   vip_search_placeholder: "検索...",
   vip_filter_all: "すべて",
@@ -6918,6 +6928,7 @@ const ja = {
   poll_tg_details_show: "TGの投票詳細を表示する",
 };
 const lt = {
+  action_back: "Atgal",
   vip_page_title: "VIP pagalba",
   vip_search_placeholder: "Ieškoti...",
   vip_filter_all: "Visi",
@@ -7062,6 +7073,7 @@ const lt = {
   poll_loading: "Įkeliama…",
 };
 const lv = {
+  action_back: "Atpakaļ",
   vip_page_title: "VIP atbalsts",
   vip_search_placeholder: "Meklēt...",
   vip_filter_all: "Visi",
@@ -7206,6 +7218,7 @@ const lv = {
   poll_loading: "Tiek ielādēts…",
 };
 const nb = {
+  action_back: "Tilbake",
   vip_page_title: "VIP-støtte",
   vip_search_placeholder: "Søk...",
   vip_filter_all: "Alle",
@@ -7350,6 +7363,7 @@ const nb = {
   poll_loading: "Laster inn…",
 };
 const nl = {
+  action_back: "Terug",
   vip_page_title: "VIP-ondersteuning",
   vip_search_placeholder: "Zoek...",
   vip_filter_all: "Alles",
@@ -7494,6 +7508,7 @@ const nl = {
   poll_loading: "Bezig met laden…",
 };
 const pl = {
+  action_back: "Wstecz",
   vip_page_title: "Obsługa VIP",
   vip_search_placeholder: "Wyszukaj...",
   vip_filter_all: "Wszystkie",
@@ -7638,6 +7653,7 @@ const pl = {
   poll_loading: "Ładowanie…",
 };
 const pt = {
+  action_back: "Voltar",
   vip_page_title: "Apoio VIP",
   vip_search_placeholder: "Pesquisar...",
   vip_filter_all: "Todos",
@@ -7778,6 +7794,7 @@ const pt = {
   poll_loading: "Carregando…",
 };
 const ro = {
+  action_back: "Înapoi",
   vip_page_title: "Asistență VIP",
   vip_search_placeholder: "Caută...",
   vip_filter_all: "Toate",
@@ -7922,6 +7939,7 @@ const ro = {
   poll_loading: "Se încarcă…",
 };
 const sk = {
+  action_back: "Späť",
   vip_page_title: "VIP podpora",
   vip_search_placeholder: "Vyhľadať...",
   vip_filter_all: "Všetko",
@@ -8066,6 +8084,7 @@ const sk = {
   poll_loading: "Načítava sa…",
 };
 const sl = {
+  action_back: "Nazaj",
   vip_page_title: "VIP podpora",
   vip_search_placeholder: "Iskanje...",
   vip_filter_all: "Vse",
@@ -8210,6 +8229,7 @@ const sl = {
   poll_loading: "Nalaganje…",
 };
 const sv = {
+  action_back: "Tillbaka",
   vip_page_title: "VIP-support",
   vip_search_placeholder: "Sök...",
   vip_filter_all: "Alla",
@@ -8315,6 +8335,7 @@ const sv = {
   vip_cat_faq: "Vanliga frågor",
 };
 const uk = {
+  action_back: "Назад",
   vip_page_title: "VIP-підтримка",
   vip_search_placeholder: "Пошук...",
   vip_filter_all: "Усі",
@@ -8420,6 +8441,7 @@ const uk = {
   vip_cat_faq: "Часті запитання",
 };
 const zh = {
+  action_back: "返回",
   vip_page_title: "VIP支持",
   vip_search_placeholder: "搜索...",
   vip_filter_all: "全部",

@@ -21,6 +21,9 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v91)** — Anasayfa Menü Etiket Fontu Küçültüldü:
+  - `MenuTile` label div fontSize 11px → 9px, letterSpacing 0.14em → 0.12em.
+  - 6 etiket (SIRALAMA, LOJ HAKKINDA, PUAN HESAPLA, ETKİNLİKLER, KATILIM MERKEZİ, ÜYELER) daha kompakt görünüyor.
 - **Feb 24, 2026 (v90)** — Anasayfa Takvimi Agresif Sıkıştırma:
   - Takvim `maxHeight: 200px` sınırı eklendi; container padding 6/10 → 4/8.
   - Ay adı fontSize 10→9, weekday 8→7, gün hücresi padding "2px 0 4px" → "1px 0 2px".

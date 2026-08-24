@@ -1,9 +1,11 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ShieldAlert, ArrowLeft, LifeBuoy } from "lucide-react";
 
 export default function AccessDenied() {
   const nav = useNavigate();
+  const { t } = useTranslation();
   return (
     <div
       className="min-h-[calc(100vh-120px)] flex items-center justify-center p-6"
@@ -42,7 +44,7 @@ export default function AccessDenied() {
             className="flex items-center justify-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider"
             style={{ background: "#8B5CF6", color: "#fff", border: "1px solid #8B5CF6" }}
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Geri Dön
+            <ArrowLeft className="w-3.5 h-3.5" /> {t("action_back")}
           </button>
           <button
             type="button"

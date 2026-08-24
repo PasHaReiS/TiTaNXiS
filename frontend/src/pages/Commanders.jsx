@@ -265,7 +265,7 @@ export default function Commanders() {
               className="flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-bold uppercase tracking-wider commanders-back-btn"
               aria-label="Back"
             >
-              <ArrowLeft className="w-4 h-4" /> {t("back", "Geri")}
+              <ArrowLeft className="w-4 h-4" /> {t("action_back")}
             </button>
           )}
           <div className="flex-1" />
