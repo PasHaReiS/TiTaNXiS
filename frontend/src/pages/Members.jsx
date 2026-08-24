@@ -28,6 +28,7 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
 // header. Persists via POST /alliances/{name}/scope which cascades the new
 // scope to every member of the alliance in a single Mongo update.
 function AllianceScopeToggle({ name }) {
+  const { t } = useTranslation();
   const { data: scopes = {} } = useSWR("/alliance-scopes", fetcher, { refreshInterval: 30000 });
   const active = scopes[name] || "server";
   const setScope = async (next, e) => {

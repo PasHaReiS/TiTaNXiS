@@ -21,6 +21,10 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v113)** — ACİL HATA: AllianceScopeToggle useTranslation Eksik Fix:
+  - v108 sweep'inde `t("alliance_scope_update_failed")` ve `t("scope_server")` çağrıları AllianceScopeToggle bileşenine eklendi ama `useTranslation()` hook'u eksikti → TypeError: t is not a function.
+  - Fix: `Members.jsx:31` `AllianceScopeToggle` fonksiyonunun başına `const { t } = useTranslation();` eklendi.
+  - Test: Üyeler sayfası açıldı, 24 alliance-scope toggle render ediliyor, page errors=[].
 - **Feb 24, 2026 (v112)** — v111 Revert: BuildingCalculator Sadece Loj Hakkında'da:
   - `PointCalcPage.jsx`'ten `BuildingCalculator` import ve render tamamen kaldırıldı.
   - Puan Hesapla sayfası orijinal içeriğine döndü: SVS Pre Puan Hesaplama + Diğer Etkinlik Puan Hesaplamaları tabs + SidebarContent.
