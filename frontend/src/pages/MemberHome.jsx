@@ -104,6 +104,11 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
           textTransform: "uppercase",
           textAlign: "center",
           lineHeight: 1.2,
+          maxWidth: 90,
+          margin: "0 auto",
+          whiteSpace: "normal",
+          overflowWrap: "normal",
+          wordBreak: "keep-all",
         }}
       >
         {label}
@@ -348,7 +353,7 @@ export default function MemberHome() {
                 textAlign: "center",
                 fontFamily: "Cinzel, serif",
                 fontWeight: 700,
-                fontSize: 9,
+                fontSize: 11,
                 letterSpacing: "0.22em",
                 color: "#F5A623",
                 marginBottom: 2,
@@ -360,7 +365,7 @@ export default function MemberHome() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, marginBottom: 1 }}>
               {["Pt","Sa","Ça","Pe","Cu","Ct","Pz"].map((d) => (
-                <div key={d} style={{ fontSize: 7, textAlign: "center", fontWeight: 700, textTransform: "uppercase", color: "#D4730A", letterSpacing: "0.04em", lineHeight: 1 }}>{d}</div>
+                <div key={d} style={{ fontSize: 9, textAlign: "center", fontWeight: 700, textTransform: "uppercase", color: "#D4730A", letterSpacing: "0.04em", lineHeight: 1 }}>{d}</div>
               ))}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1 }}>
@@ -376,7 +381,11 @@ export default function MemberHome() {
                     style={{
                       position: "relative",
                       textAlign: "center",
-                      padding: "1px 0 2px",
+                      height: 24,
+                      padding: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                       borderRadius: 3,
                       fontSize: 10,
                       lineHeight: 1,

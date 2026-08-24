@@ -1,7 +1,5 @@
 import React, { useState, useMemo } from "react";
 import { ChevronLeft, ChevronRight, X, Calendar as CalIcon } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { createPortal } from "react-dom";
 import { groupColor } from "@/lib/groupColors";
 import EventCountdown from "@/components/EventCountdown";
 
@@ -79,7 +77,7 @@ export default function EventCalendar({ events = [], onEventClick }) {
   const selectedEvents = selectedDay ? (byDay.get(keyFor(selectedDay)) || []) : [];
 
   return (
-    <div data-testid="event-calendar" className="w-full">
+    <div data-testid="event-calendar" className="w-full" style={{ maxWidth: "80vw", margin: "0 auto" }}>
       {/* Month nav */}
       <div className="flex items-center gap-2 mb-3">
         <button
@@ -192,90 +190,76 @@ export default function EventCalendar({ events = [], onEventClick }) {
         })}
       </div>
 
-      {/* Day detail dialog — portal so it escapes the calendar overflow */}
-      <AnimatePresence>
-        {selectedDay && createPortal(
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/70 z-[1000]"
+      {/* Inline day details — shown directly below the calendar grid (v93) */}
+      {selectedDay && (
+        <div
+          data-testid="calendar-day-details"
+          className="mt-3 rounded-lg p-3"
+          style={{
+            background: "rgba(20,15,25,0.7)",
+            border: "1px solid rgba(245,166,35,0.35)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+          }}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-bold uppercase gold-text tracking-widest">
+              {selectedDay.getDate()} {MONTHS_TR[selectedDay.getMonth()]} {selectedDay.getFullYear()}
+            </h3>
+            <button
+              type="button"
               onClick={() => setSelectedDay(null)}
-              data-testid="calendar-day-dialog-backdrop"
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 24, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 24, scale: 0.96 }}
-              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="fixed z-[1001] card-red-gold p-4 w-[92vw] max-w-md max-h-[80vh] overflow-y-auto"
-              style={{
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-              }}
-              data-testid="calendar-day-dialog"
+              className="text-muted-foreground hover:text-white p-1"
+              data-testid="calendar-day-details-close"
+              aria-label="Kapat"
             >
-              <button
-                type="button"
-                onClick={() => setSelectedDay(null)}
-                className="absolute top-3 right-3 text-muted-foreground hover:text-white"
-                aria-label="Kapat"
-              >
-                <X className="w-4 h-4" />
-              </button>
-              <h3 className="text-sm font-bold uppercase gold-text tracking-widest mb-3">
-                {selectedDay.getDate()} {MONTHS_TR[selectedDay.getMonth()]} {selectedDay.getFullYear()}
-              </h3>
-              {selectedEvents.length === 0 ? (
-                <div className="text-center text-xs text-muted-foreground py-6">
-                  Bu güne ait etkinlik yok.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {selectedEvents.map((e) => {
-                    const color = e.group_name ? groupColor(e.group_name) : "#818cf8";
-                    const dt = new Date(e.date);
-                    return (
-                      <button
-                        key={e.id}
-                        type="button"
-                        onClick={() => {
-                          onEventClick?.(e);
-                          setSelectedDay(null);
-                        }}
-                        data-testid={`calendar-day-event-${e.id}`}
-                        className="w-full text-left card-dark p-2 hover:bg-white/5"
-                        style={{ borderLeft: `3px solid ${color}` }}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-bold text-white truncate">{e.name}</div>
-                            <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
-                              <span className="mono">{dt.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</span>
-                              {e.group_name && (
-                                <>
-                                  <span>·</span>
-                                  <span style={{ color }}>{e.group_name}</span>
-                                </>
-                              )}
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          {selectedEvents.length === 0 ? (
+            <div
+              data-testid="calendar-day-details-empty"
+              className="text-center text-xs text-muted-foreground py-4"
+            >
+              Etkinlik yok
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {selectedEvents.map((e) => {
+                const color = e.group_name ? groupColor(e.group_name) : "#818cf8";
+                const dt = new Date(e.date);
+                return (
+                  <button
+                    key={e.id}
+                    type="button"
+                    onClick={() => onEventClick?.(e)}
+                    data-testid={`calendar-day-event-${e.id}`}
+                    className="w-full text-left card-dark p-2 hover:bg-white/5"
+                    style={{ borderLeft: `3px solid ${color}` }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-white truncate">{e.name}</div>
+                        <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                          <span className="mono">{dt.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</span>
+                          {e.group_name && (
+                            <>
                               <span>·</span>
-                              <span>Çarpan <span className="gold-text mono">{e.multiplier}x</span></span>
-                              {dt.getTime() > Date.now() && <EventCountdown target={e.date} />}
-                            </div>
-                          </div>
+                              <span style={{ color }}>{e.group_name}</span>
+                            </>
+                          )}
+                          <span>·</span>
+                          <span>Çarpan <span className="gold-text mono">{e.multiplier}x</span></span>
+                          {dt.getTime() > Date.now() && <EventCountdown target={e.date} />}
                         </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </motion.div>
-          </>,
-          document.body,
-        )}
-      </AnimatePresence>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

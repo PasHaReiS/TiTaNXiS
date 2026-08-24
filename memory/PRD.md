@@ -21,6 +21,24 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v95)** — Anasayfa Takvimi Daha Dikey Sıkıştırma:
+  - Ay başlığı fontSize 9 → 11 (daha okunur).
+  - Weekday label fontSize 7 → 9.
+  - Gün hücresi fixed `height: 24px`, `padding: 1px`, flex-center layout (hücre içeriği ortalanmış).
+- **Feb 24, 2026 (v94)** — Menü Etiketleri Mid-Word Kırılım Düzeltmesi:
+  - `MenuTile` label maxWidth 70 → 90; `wordBreak: keep-all` + `overflowWrap: normal` uygulandı.
+  - Tek kelime uzun etiketler (ETKİNLİKLER, LEADERBOARD) artık tek satırda kalıyor — mid-word "ETKİNLİKLE/R" bug'ı düzeldi.
+  - 2 kelimeli TR etiketler (LOJ HAKKINDA, PUAN HESAPLA, KATILIM MERKEZİ) hâlâ boşlukta doğal olarak 2 satıra sarmalanıyor.
+- **Feb 24, 2026 (v93)** — Etkinlikler Sayfası Takvimi: İçeri Alınan Gün Detayları + Dar Genişlik:
+  - `EventCalendar` wrapper'a `maxWidth: 80vw; margin: 0 auto` eklendi (yatay olarak daraltıldı, ortalandı).
+  - Portal modal (framer-motion + createPortal) tamamen kaldırıldı; yerine takvimin altında inline `calendar-day-details` paneli.
+  - Etkinlik varsa liste, yoksa "Etkinlik yok" gösteriliyor. Kapatmak için X butonu.
+  - Silinen import'lar: `motion, AnimatePresence, createPortal` — dead code temizliği.
+- **Feb 24, 2026 (v92)** — Menü Etiketleri 2 Satıra Sarmalanabilir:
+  - `MenuTile` label div'e `maxWidth: 70, margin: "0 auto", whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "break-word"` eklendi.
+  - Doğal boşluk kırılımı tercih ediliyor (LOJ HAKKINDA → LOJ / HAKKINDA), gerekmezse mid-word kırılıma düşüyor.
+  - Turkish labels (LOJ HAKKINDA, PUAN HESAPLA, KATILIM MERKEZİ) 2 satıra sarmalanır; SIRALAMA, ETKİNLİKLER, ÜYELER tek satır.
+  - İkon konumları ve grid hücre genişliği değişmedi.
 - **Feb 24, 2026 (v91)** — Anasayfa Menü Etiket Fontu Küçültüldü:
   - `MenuTile` label div fontSize 11px → 9px, letterSpacing 0.14em → 0.12em.
   - 6 etiket (SIRALAMA, LOJ HAKKINDA, PUAN HESAPLA, ETKİNLİKLER, KATILIM MERKEZİ, ÜYELER) daha kompakt görünüyor.
