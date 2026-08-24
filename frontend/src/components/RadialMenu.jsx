@@ -37,7 +37,7 @@ const ITEMS = [
 // Radius (px) icons orbit around the central pill.
 const RADIUS = 170;
 // Central pill diameter.
-const CENTER = 88;
+const CENTER = 44;
 // Icon tile size.
 const ICON = 70;
 
@@ -96,7 +96,7 @@ export default function RadialMenu() {
         data-testid="radial-menu"
         style={{
           position: "fixed",
-          bottom: 30, // sits above the viewport bottom, clear of any tables/buttons
+          bottom: 16, // fixed at the very bottom; page content reserves padding above
           left: "50%",
           transform: "translateX(-50%)",
           width: CENTER,
@@ -254,20 +254,20 @@ export default function RadialMenu() {
           );
         })}
 
-        {/* Central toggle (v100 grand medallion with outer amber ring) */}
+        {/* Central toggle (v104 compact medallion 44px with outer amber ring) */}
         <div
           aria-hidden
           style={{
             position: "absolute",
-            left: -8,
-            top: -8,
-            width: CENTER + 16,
-            height: CENTER + 16,
+            left: -5,
+            top: -5,
+            width: CENTER + 10,
+            height: CENTER + 10,
             borderRadius: "50%",
             pointerEvents: "none",
-            border: "2px solid rgba(245,166,35,0.55)",
+            border: "1.5px solid rgba(245,166,35,0.55)",
             boxShadow:
-              "0 0 24px rgba(245,166,35,0.55), inset 0 0 12px rgba(245,166,35,0.35)",
+              "0 0 18px rgba(245,166,35,0.55), inset 0 0 8px rgba(245,166,35,0.35)",
             background: "radial-gradient(circle, rgba(245,166,35,0.15) 0%, rgba(245,166,35,0) 65%)",
           }}
         />
@@ -286,14 +286,14 @@ export default function RadialMenu() {
             borderRadius: "50%",
             background:
               "radial-gradient(circle at 30% 28%, #FFD787 0%, #F5A623 32%, #B45309 68%, #4A1B08 100%)",
-            border: "2px solid rgba(245,166,35,0.9)",
+            border: "1.5px solid rgba(245,166,35,0.9)",
             boxShadow:
-              "0 0 30px rgba(245,166,35,0.8), 0 0 60px rgba(231,76,26,0.4), inset 0 0 14px rgba(0,0,0,0.6)",
+              "0 0 20px rgba(245,166,35,0.8), 0 0 40px rgba(231,76,26,0.4), inset 0 0 8px rgba(0,0,0,0.6)",
             color: "#FFF5D9",
             fontFamily: "Cinzel, serif",
             fontWeight: 900,
-            fontSize: 17,
-            letterSpacing: "0.1em",
+            fontSize: 11,
+            letterSpacing: "0.05em",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -304,7 +304,7 @@ export default function RadialMenu() {
           }}
         >
           <span style={{ transform: open ? "rotate(-135deg)" : "none", display: "inline-block" }}>
-            TN
+            TTN
           </span>
         </button>
       </div>

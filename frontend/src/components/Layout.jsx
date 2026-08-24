@@ -51,6 +51,7 @@ export default function Layout({ children }) {
           overflowX: "hidden",
           minHeight: 0,
           WebkitOverflowScrolling: "touch",
+          paddingBottom: 80, // reserve space so page content clears the fixed RadialMenu
         }}
       >
         {children}

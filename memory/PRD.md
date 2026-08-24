@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v104)** — Radial Menü Ana Buton Kompakt + TTN + Sayfa Padding:
+  - CENTER 88 → 44 (kompakt medallion); outer ring +16 → +10.
+  - Metin "TN" → "TTN"; fontSize 17 → 11, letterSpacing 0.1 → 0.05.
+  - `bottom: 30 → 16` — viewport'un en altına yerleşti.
+  - `Layout.jsx` scroll container'a `paddingBottom: 80` — sayfa içeriği radyal menü altına akmıyor.
 - **Feb 24, 2026 (v103)** — Radial Menü Label Overlap + MusicButton Reposition:
   - `MusicButton.jsx`: `bottom: 340, left: 16 → top: 70, right: 16` — sağ üst köşede, radyal menüden tamamen ayrı.
   - `RadialMenu.jsx`: RADIUS 160 → 170; label positioning refactor: labels artık `position: absolute`.
