@@ -21,6 +21,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v90)** — Anasayfa Takvimi Agresif Sıkıştırma:
+  - Takvim `maxHeight: 200px` sınırı eklendi; container padding 6/10 → 4/8.
+  - Ay adı fontSize 10→9, weekday 8→7, gün hücresi padding "2px 0 4px" → "1px 0 2px".
+  - `lineHeight: 1` tüm hücrelere uygulandı; grid gap 2→1, marginBottom 4→2 ve 2→1.
+  - Screenshot ile tek ekran fit doğrulandı (banner + ikonlar + takvim + gün etkinlikleri).
+- **Feb 24, 2026 (v89)** — Anasayfa Takvimi Dikey Sıkıştırıldı:
+  - Takvim container padding 12/14 → 6/10; hücre padding "5px 0 8px" → "2px 0 4px".
+  - Font boyutları: ay adı 12→10, weekday 9→8, gün 11→10; `line-height: 1.1` eklendi.
+  - Grid gap 4 → 2, marginBottom değerleri 10→4 ve 4→2'ye düştü.
+  - Günün etkinlikleri paneli padding/margin/font küçültüldü.
+  - Screenshot ile tek ekran (viewport 900px) fit doğrulandı.
 - **Feb 24, 2026 (v88)** — Anasayfa sıralaması düzeltildi: İkonlar takvimin ÜSTÜNDE:
   - `member-home-menu` (3x2 grid) hero banner'ın hemen altına, takvimin üstüne taşındı.
   - Yeni sıra: Welcome → Hero → 3x2 İkon Menü → Takvim → Günün Etkinlikleri.

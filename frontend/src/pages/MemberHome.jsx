@@ -329,16 +329,17 @@ export default function MemberHome() {
           />
         </div>
 
-        {/* Row 4 — Real calendar (stone icon ghost removed) */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+        {/* Row 4 — Real calendar (compact — v90) */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <div
             data-testid="member-home-calendar"
             style={{
               width: "100%",
+              maxHeight: 200,
               background: "rgba(10,6,4,0.72)",
               border: "1.5px solid rgba(245,166,35,0.45)",
-              borderRadius: 12,
-              padding: "12px 14px",
+              borderRadius: 10,
+              padding: "4px 8px",
               boxShadow: "0 0 18px rgba(245,166,35,0.12), inset 0 0 12px rgba(0,0,0,0.5)",
             }}
           >
@@ -347,21 +348,22 @@ export default function MemberHome() {
                 textAlign: "center",
                 fontFamily: "Cinzel, serif",
                 fontWeight: 700,
-                fontSize: 12,
-                letterSpacing: "0.28em",
+                fontSize: 9,
+                letterSpacing: "0.22em",
                 color: "#F5A623",
-                marginBottom: 10,
+                marginBottom: 2,
+                lineHeight: 1.1,
                 textShadow: "0 0 8px rgba(245,166,35,0.5)",
               }}
             >
               {monthName}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 4 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, marginBottom: 1 }}>
               {["Pt","Sa","Ça","Pe","Cu","Ct","Pz"].map((d) => (
-                <div key={d} style={{ fontSize: 9, textAlign: "center", fontWeight: 700, textTransform: "uppercase", color: "#D4730A", letterSpacing: "0.06em" }}>{d}</div>
+                <div key={d} style={{ fontSize: 7, textAlign: "center", fontWeight: 700, textTransform: "uppercase", color: "#D4730A", letterSpacing: "0.04em", lineHeight: 1 }}>{d}</div>
               ))}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1 }}>
               {cells.map((d, i) => {
                 const isToday = d === today.getDate();
                 const isSelected = d && d === selectedDay;
@@ -374,9 +376,10 @@ export default function MemberHome() {
                     style={{
                       position: "relative",
                       textAlign: "center",
-                      padding: "5px 0 8px",
-                      borderRadius: 4,
-                      fontSize: 11,
+                      padding: "1px 0 2px",
+                      borderRadius: 3,
+                      fontSize: 10,
+                      lineHeight: 1,
                       fontWeight: isToday ? 800 : 400,
                       background: isSelected ? "rgba(231,76,26,0.32)" : "transparent",
                       color: isSelected ? "#F5F0E8" : d ? "rgba(245,240,232,0.55)" : "transparent",
@@ -418,18 +421,18 @@ export default function MemberHome() {
                 background: "rgba(10,6,4,0.68)",
                 border: "1px solid rgba(245,166,35,0.35)",
                 borderRadius: 10,
-                padding: "10px 14px",
-                marginTop: -4,
+                padding: "6px 10px",
+                marginTop: -2,
               }}
             >
               <div
                 style={{
                   fontFamily: "Cinzel, serif",
-                  fontSize: 11,
-                  letterSpacing: "0.18em",
+                  fontSize: 10,
+                  letterSpacing: "0.16em",
                   color: "#F5A623",
                   textTransform: "uppercase",
-                  marginBottom: 6,
+                  marginBottom: 4,
                   textShadow: "0 0 6px rgba(245,166,35,0.4)",
                 }}
               >
