@@ -1,6 +1,7 @@
 import React from "react";
 import MusicButton from "@/components/MusicButton";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
+import RadialMenu from "@/components/RadialMenu";
 
 /**
  * Layout emits TWO siblings that are DIRECT children of `.app-shell`
@@ -56,6 +57,7 @@ export default function Layout({ children }) {
         <MusicButton />
         <PwaInstallPrompt />
       </div>
+      <RadialMenu />
     </>
   );
 }

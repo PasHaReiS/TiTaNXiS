@@ -21,6 +21,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v98)** — Radial/Fan Menü Global Uygulama:
+  - Yeni `RadialMenu.jsx` bileşeni oluşturuldu: fixed bottom-center TN toggle butonu + 6 ikon yarım daire yukarı yelpaze animasyonu.
+  - Anasayfada otomatik açık, diğer sayfalarda kapalı başlar; ikona tıklanınca navigate + kapan.
+  - `Layout.jsx` içine global mount, tüm sayfalarda erişilebilir.
+  - MemberHome.jsx içindeki 3x2 grid tamamen kaldırıldı; artık sadece welcome + banner + today pin + calendar var.
+  - Animasyon: `cubic-bezier(0.34, 1.56, 0.64, 1)` spring, ikon başı 40ms delay ile staggered reveal.
+  - Non-home sayfalarda tap-outside kapatan backdrop katmanı.
 - **Feb 24, 2026 (v97)** — DeepL Faz 3 Sweep (Events modal strings):
   - Wrapped 5 hardcoded Turkish strings in `Events.jsx` with `t()`: `title="Yeniden adlandır"`, `placeholder: "Etkinlik seç"`, `throw new Error("Etkinlik seçilmedi")`, `placeholder="Diğer ittifak…"`, `placeholder="Yeni klasör adı"`.
   - New i18n keys added to 29 languages via DeepL bulk-translate: `action_rename`, `event_form_select_event`, `event_no_event_selected`, `form_other_alliance`, `form_new_folder_name`, `action_save`, `action_saving`, `name_field` (skipped duplicates where keys already existed).
