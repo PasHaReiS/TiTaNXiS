@@ -21,6 +21,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v110)** — Bina Hesaplayıcı Toplu Seçim Feature:
+  - `BuildingCalculator.jsx` başlık yanına belirgin **Toplu Seçim toggle butonu** (amber gradient → yeşil aktif, box-shadow glow).
+  - Bulk mode ON'da mevcut single-select UI gizleniyor; yerine **3-seviyeli akordeon ağaç** (F6→F10 × 7 bina × 5 aşama = 175 leaf).
+  - Hiyerarşik tick mantığı: F level checkbox → tüm 35 alt-leaf; bina checkbox → 5 aşama; individual A1-A5 chip'leri de tekil tick.
+  - "TAMAM" butonu → `Promise.all` ile seçili leaves için unit-cost fetch → topla → altında yeşil result panelinde göster (yemek/çelik/odun/benzin/forticlad/gelişmiş + gün/saat/dk/sn).
+  - Toggle OFF → seçim ve result sıfırlanır.
+  - Compilation onaylandı, hata yok. `bc-bulk-mode-toggle`, `bc-bulk-picker`, `bc-bulk-compute`, `bc-bulk-result` testid'leri eklendi.
 - **Feb 24, 2026 (v109)** — Bina Hesaplayıcıya "Müdür Ofisi" Eklendi (Tüm Seviyeler):
   - `BuildingCalculator.jsx` içindeki `BUILDING_SLUGS` array'inde en üste `mudur_ofisi` slug'ı eklendi.
   - `BUILDING_SLUGS` seviyeden bağımsız olduğu için F6, F7, F8, F9, F10 seviyelerinin HEPSİNDE dropdown'ın en üstünde görünüyor.

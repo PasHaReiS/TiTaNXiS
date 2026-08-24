@@ -112,6 +112,104 @@ export default function BuildingCalculator() {
   const [building, setBuilding] = useState(BUILDING_SLUGS[0]);
   const [showUnitModal, setShowUnitModal] = useState(false);
 
+  // v110 — Toplu Seçim (bulk pick): admins & members alike can tick a mix of
+  // F6-F10 × 7 buildings × 5 stages, hit "TAMAM" and get the aggregate cost of
+  // every selected upgrade. Each leaf key follows the pattern `${lv}|${slug}|${st}`.
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkLeaves, setBulkLeaves] = useState(() => new Set());
+  const [bulkExpanded, setBulkExpanded] = useState(() => new Set(["F9"]));
+  const [bulkBuildingExpanded, setBulkBuildingExpanded] = useState(() => new Set());
+  const [bulkResult, setBulkResult] = useState(null); // {count, totals:{...}, dhms:{...}}
+  const [bulkLoading, setBulkLoading] = useState(false);
+
+  const leafId = (lv, slug, st) => `${lv}|${slug}|${st}`;
+  const parseLeaf = (id) => {
+    const [lv, slug, st] = id.split("|");
+    return { lv, slug, st: Number(st) };
+  };
+
+  const leavesForLevel = (lv) =>
+    BUILDING_SLUGS.flatMap((slug) => STAGES.map((st) => leafId(lv, slug, st)));
+  const leavesForBuilding = (lv, slug) =>
+    STAGES.map((st) => leafId(lv, slug, st));
+
+  const isLeafOn = (id) => bulkLeaves.has(id);
+  const toggleLeaf = (id) => {
+    setBulkLeaves((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const setMany = (ids, on) => {
+    setBulkLeaves((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => { if (on) next.add(id); else next.delete(id); });
+      return next;
+    });
+  };
+  const buildingState = (lv, slug) => {
+    const ids = leavesForBuilding(lv, slug);
+    const on = ids.filter((id) => bulkLeaves.has(id)).length;
+    if (on === 0) return "off";
+    if (on === ids.length) return "all";
+    return "some";
+  };
+  const levelState = (lv) => {
+    const ids = leavesForLevel(lv);
+    const on = ids.filter((id) => bulkLeaves.has(id)).length;
+    if (on === 0) return "off";
+    if (on === ids.length) return "all";
+    return "some";
+  };
+
+  const computeBulkTotals = async () => {
+    if (bulkLeaves.size === 0) {
+      toast.info("Önce en az bir satır seç");
+      return;
+    }
+    setBulkLoading(true);
+    try {
+      const ids = Array.from(bulkLeaves);
+      const results = await Promise.all(
+        ids.map((id) => {
+          const { lv, slug, st } = parseLeaf(id);
+          return api.get(`/unit-costs/${catFor(slug, lv, st)}`).then((r) => r.data).catch(() => EMPTY_COSTS);
+        })
+      );
+      const totals = { yemek: 0, odun: 0, celik: 0, benzin: 0, forticlad: 0, gelismis_forticlad: 0 };
+      let sure = 0;
+      results.forEach((c) => {
+        totals.yemek += Number(c.yemek || 0);
+        totals.odun += Number(c.odun || 0);
+        totals.celik += Number(c.celik || 0);
+        totals.benzin += Number(c.benzin || 0);
+        totals.forticlad += Number(c.forticlad || 0);
+        totals.gelismis_forticlad += Number(c.gelismis_forticlad || 0);
+        sure += Number(c.sure_saniye || 0);
+      });
+      setBulkResult({ count: ids.length, totals, dhms: secondsToDHMS(sure) });
+      toast.success(`${ids.length} satırın toplam maliyeti hesaplandı`);
+    } catch (e) {
+      toast.error(e?.message || "Toplam hesaplanamadı");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const clearBulk = () => {
+    setBulkLeaves(new Set());
+    setBulkResult(null);
+  };
+
+  // Reset selections whenever bulk mode is toggled OFF so re-opening starts fresh.
+  useEffect(() => {
+    if (!bulkMode) {
+      setBulkLeaves(new Set());
+      setBulkResult(null);
+    }
+  }, [bulkMode]);
+
   const category = catFor(building, level, stage);
   const { data: unitCosts = EMPTY_COSTS } = useSWR(`/unit-costs/${category}`, fetcher);
 
@@ -130,12 +228,55 @@ export default function BuildingCalculator() {
 
   return (
     <div className="p-1" data-testid="building-calculator">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <h2 className="text-lg font-bold" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}>
           {t("bc_title")}
         </h2>
+        <button
+          type="button"
+          onClick={() => setBulkMode((v) => !v)}
+          data-testid="bc-bulk-mode-toggle"
+          className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase flex items-center gap-1.5 tracking-widest"
+          style={{
+            background: bulkMode
+              ? "linear-gradient(135deg,#059669,#10B981)"
+              : "linear-gradient(135deg,#B45309,#F59E0B)",
+            color: bulkMode ? "#FFFFFF" : "#0B0704",
+            border: "1.5px solid rgba(0,0,0,0.35)",
+            boxShadow: bulkMode
+              ? "0 0 12px rgba(16,185,129,0.55)"
+              : "0 0 12px rgba(245,158,11,0.55)",
+          }}
+          title="F6-F10 × 7 bina × 5 aşama arasından çoklu seçim yap"
+        >
+          <span aria-hidden>{bulkMode ? "✓" : "☑"}</span>
+          {bulkMode ? "Toplu Seçim Aktif" : "Toplu Seçim"}
+        </button>
       </div>
 
+      {bulkMode && (
+        <BulkPicker
+          bulkLeaves={bulkLeaves}
+          bulkExpanded={bulkExpanded}
+          setBulkExpanded={setBulkExpanded}
+          bulkBuildingExpanded={bulkBuildingExpanded}
+          setBulkBuildingExpanded={setBulkBuildingExpanded}
+          isLeafOn={isLeafOn}
+          toggleLeaf={toggleLeaf}
+          setMany={setMany}
+          levelState={levelState}
+          buildingState={buildingState}
+          leavesForLevel={leavesForLevel}
+          leavesForBuilding={leavesForBuilding}
+          onCompute={computeBulkTotals}
+          onClear={clearBulk}
+          loading={bulkLoading}
+          result={bulkResult}
+          t={t}
+        />
+      )}
+
+      {!bulkMode && (<>
       {/* Level selector */}
       <div className="mb-4">
         <label className="block text-xs mb-1 font-bold uppercase" style={{ color: "#D4730A", letterSpacing: "0.08em" }}>{t("bc_level")}</label>
@@ -266,6 +407,7 @@ export default function BuildingCalculator() {
           ))}
         </div>
       </div>
+      </>)}
 
       {showUnitModal && (
         <BinaUnitCostModal
@@ -274,6 +416,180 @@ export default function BuildingCalculator() {
           initialStage={stage}
           onClose={() => setShowUnitModal(false)}
         />
+      )}
+    </div>
+  );
+}
+
+function BulkPicker({
+  bulkLeaves, bulkExpanded, setBulkExpanded, bulkBuildingExpanded, setBulkBuildingExpanded,
+  isLeafOn, toggleLeaf, setMany, levelState, buildingState, leavesForLevel, leavesForBuilding,
+  onCompute, onClear, loading, result, t,
+}) {
+  const toggleExpand = (key, setter) => {
+    setter((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const CheckSquare = ({ state, onClick, testId }) => (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      data-testid={testId}
+      aria-checked={state === "all"}
+      className="w-4 h-4 rounded flex items-center justify-center text-[10px] font-black shrink-0"
+      style={{
+        background: state === "all" ? "#10B981" : state === "some" ? "#F59E0B" : "#1A1210",
+        border: `1.5px solid ${state === "off" ? "rgba(245,166,35,0.45)" : state === "some" ? "#F59E0B" : "#10B981"}`,
+        color: "#0B0704",
+        lineHeight: 1,
+      }}
+    >
+      {state === "all" ? "✓" : state === "some" ? "−" : ""}
+    </button>
+  );
+
+  return (
+    <div data-testid="bc-bulk-picker" className="mb-3 rounded-lg" style={{ background: "rgba(20,12,10,0.55)", border: "1px solid rgba(245,166,35,0.45)", padding: 8 }}>
+      <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#F5A623", letterSpacing: "0.14em" }}>
+        F6→F10 × 7 Bina × 5 Aşama
+      </div>
+      <div className="flex flex-col gap-1">
+        {LEVELS.slice().reverse().map((lv) => {
+          const state = levelState(lv);
+          const open = bulkExpanded.has(lv);
+          return (
+            <div key={lv} className="rounded" style={{ background: "rgba(10,6,4,0.5)", border: "1px solid rgba(245,166,35,0.22)" }}>
+              <div
+                className="flex items-center gap-2 px-2 py-1.5 cursor-pointer select-none"
+                onClick={() => toggleExpand(lv, setBulkExpanded)}
+                data-testid={`bc-bulk-lv-header-${lv}`}
+              >
+                <CheckSquare
+                  state={state}
+                  onClick={() => setMany(leavesForLevel(lv), state !== "all")}
+                  testId={`bc-bulk-lv-${lv}-check`}
+                />
+                <span className="font-bold text-sm" style={{ color: "#F5A623", fontFamily: "Cinzel, serif", letterSpacing: "0.1em" }}>{lv}</span>
+                <span className="ml-auto text-[10px]" style={{ color: "#A855F7" }}>{open ? "▲" : "▼"}</span>
+              </div>
+              {open && (
+                <div className="pl-4 pb-2 flex flex-col gap-1">
+                  {BUILDING_SLUGS.map((slug) => {
+                    const bstate = buildingState(lv, slug);
+                    const bopen = bulkBuildingExpanded.has(`${lv}|${slug}`);
+                    return (
+                      <div key={slug} className="rounded" style={{ background: "rgba(20,12,10,0.6)" }}>
+                        <div
+                          className="flex items-center gap-2 px-2 py-1 cursor-pointer select-none"
+                          onClick={() => toggleExpand(`${lv}|${slug}`, setBulkBuildingExpanded)}
+                          data-testid={`bc-bulk-b-header-${lv}-${slug}`}
+                        >
+                          <CheckSquare
+                            state={bstate}
+                            onClick={() => setMany(leavesForBuilding(lv, slug), bstate !== "all")}
+                            testId={`bc-bulk-b-${lv}-${slug}-check`}
+                          />
+                          <span className="text-xs font-semibold" style={{ color: "#EAD8B0" }}>{t(`bc_b_${slug}`)}</span>
+                          <span className="ml-auto text-[9px]" style={{ color: "#A855F7" }}>{bopen ? "▲" : "▼"}</span>
+                        </div>
+                        {bopen && (
+                          <div className="pl-4 pb-1.5 flex flex-wrap gap-1">
+                            {STAGES.map((st) => {
+                              const id = `${lv}|${slug}|${st}`;
+                              const on = isLeafOn(id);
+                              return (
+                                <button
+                                  type="button"
+                                  key={st}
+                                  onClick={() => toggleLeaf(id)}
+                                  data-testid={`bc-bulk-leaf-${lv}-${slug}-a${st}`}
+                                  className="px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1"
+                                  style={{
+                                    background: on ? "#10B981" : "#1A1210",
+                                    color: on ? "#0B0704" : "#F5F0E8",
+                                    border: `1px solid ${on ? "#10B981" : "rgba(245,166,35,0.35)"}`,
+                                  }}
+                                >
+                                  {on ? "✓" : ""}A{st}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center gap-2 mt-2">
+        <button
+          type="button"
+          onClick={onCompute}
+          disabled={loading}
+          data-testid="bc-bulk-compute"
+          className="flex-1 py-2 rounded-lg text-white font-bold text-sm"
+          style={{ background: "linear-gradient(135deg,#059669,#10B981)", opacity: loading ? 0.6 : 1 }}
+        >
+          {loading ? "Hesaplanıyor…" : `TAMAM — ${bulkLeaves.size} SATIR`}
+        </button>
+        <button
+          type="button"
+          onClick={onClear}
+          data-testid="bc-bulk-clear"
+          className="px-3 py-2 rounded-lg text-xs font-bold"
+          style={{ background: "#1A1210", color: "#F5F0E8", border: "1px solid rgba(245,166,35,0.35)" }}
+        >
+          Temizle
+        </button>
+      </div>
+
+      {result && (
+        <div data-testid="bc-bulk-result" className="mt-3 rounded-lg p-3" style={{ background: "rgba(16,185,129,0.10)", border: "1px solid rgba(16,185,129,0.55)" }}>
+          <div className="text-[11px] font-bold uppercase mb-2 tracking-widest" style={{ color: "#10B981", letterSpacing: "0.14em" }}>
+            Seçilen: {result.count} satır — Toplam Maliyet
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { label: t("bc_forticlad"), value: result.totals.forticlad },
+              { label: t("bc_gelismis_forticlad"), value: result.totals.gelismis_forticlad },
+              { label: t("bc_food"), value: result.totals.yemek },
+              { label: t("bc_steel"), value: result.totals.celik },
+              { label: t("bc_wood"), value: result.totals.odun },
+              { label: t("bc_gas"), value: result.totals.benzin },
+            ].map((it) => (
+              <div key={it.label}>
+                <div className="text-[9px] uppercase tracking-widest opacity-70" style={{ color: "#F5F0E8" }}>{it.label}</div>
+                <div className="rounded font-bold text-sm" style={{ background: "#1A1210", border: "1px solid #333", color: "#F5A623", padding: "3px 6px", textAlign: "center" }}>
+                  {fmt(it.value)}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-4 gap-2 mt-2">
+            {[
+              { label: t("bc_days"), value: result.dhms.gun },
+              { label: t("bc_hours"), value: result.dhms.saat },
+              { label: t("bc_minutes"), value: result.dhms.dakika },
+              { label: t("bc_seconds"), value: result.dhms.saniye },
+            ].map((it) => (
+              <div key={it.label} className="text-center">
+                <div className="text-[9px] opacity-70" style={{ color: "#F5F0E8" }}>{it.label}</div>
+                <div className="rounded font-bold text-base" style={{ background: "#1A1210", border: "1px solid #333", color: "#F5A623", padding: "2px 4px" }}>
+                  {pad2(it.value)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
