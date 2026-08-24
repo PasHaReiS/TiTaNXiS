@@ -35,7 +35,7 @@ const ITEMS = [
 ];
 
 // Radius (px) icons orbit around the central pill.
-const RADIUS = 170;
+const RADIUS = 130;
 // Central pill diameter.
 const CENTER = 44;
 // Icon tile size.
@@ -59,11 +59,12 @@ export default function RadialMenu() {
   if (loc.pathname === "/login") return null;
 
   const N = ITEMS.length;
-  // Distribute icons across the upper semi-circle. Angles run from 180° (left)
-  // to 360° (right) sweeping through 270° at the top. sin() is negative there
-  // so translate(y) moves each icon upward automatically.
-  const startAngle = 180;
-  const endAngle = 360;
+  // Distribute all 6 icons across the UPPER 120° arc so every tile stays
+  // above the central pill (never sinks to button level or below). Angles
+  // sweep 210° → 330° with a 24° step; every sin() is negative, so each
+  // icon translates upward from the button center.
+  const startAngle = 210;
+  const endAngle = 330;
   const step = (endAngle - startAngle) / (N - 1);
 
   const handleItemClick = (item) => {
@@ -96,7 +97,7 @@ export default function RadialMenu() {
         data-testid="radial-menu"
         style={{
           position: "fixed",
-          bottom: 16, // fixed at the very bottom; page content reserves padding above
+          bottom: 20, // fixed at the very bottom; page content reserves padding above
           left: "50%",
           transform: "translateX(-50%)",
           width: CENTER,

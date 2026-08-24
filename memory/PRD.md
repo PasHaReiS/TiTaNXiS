@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v105)** — Radial Menü Tüm İkonlar Yukarı Yay:
+  - `startAngle: 180 → 210`, `endAngle: 360 → 330` — 6 ikon 120° yay içinde, tüm sin() değerleri negatif → hepsi TTN'nin üstünde.
+  - Step = 24° (kullanıcı formülü: `angle = 210 + i * 24`).
+  - RADIUS 170 → 130 — kullanıcı spec'i.
+  - `bottom: 16 → 20`.
 - **Feb 24, 2026 (v104)** — Radial Menü Ana Buton Kompakt + TTN + Sayfa Padding:
   - CENTER 88 → 44 (kompakt medallion); outer ring +16 → +10.
   - Metin "TN" → "TTN"; fontSize 17 → 11, letterSpacing 0.1 → 0.05.
