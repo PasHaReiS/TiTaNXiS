@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 25, 2026 (v122)** — Aydınlatma Metni + Sadıklar Leaderboard + Loyalty Event:
+  - **Aydınlatma Metni** (`AydinlatmaMetni.jsx`, `/aydinlatma-metni` public route): KVKK Md. 10 uyumlu 7 bölüm (Veri Sorumlusu, İşlenen Veriler, Amaçlar, Aktarım, Toplama Yöntemi, Md. 11 Hakları, Başvuru Yöntemi). Layout footer'a "Aydınlatma" linki eklendi. Test: HTTP 200, 7 section render.
+  - **Event Loyalty Config** (backend Event/EventCreate/EventUpdate): `loyalty_enabled: bool` + `loyalty_threshold: int` alanları eklendi. Event form'a "🔥 Sadıklar için Puan Ver" checkbox + eşik puan input. Ticked=true olduğunda eşik alanı belirir, aksi durum ignore edilir. Test: POST /api/events with loyalty_enabled=true, threshold=1000000 → doc'a doğru yazıldı.
+  - **Sadıklar Leaderboard** (backend `GET /api/loyalty/leaderboard`): Aggregate pipeline `points` üzerinden her (event, member) toplam weighted puan hesaplar, `loyalty_enabled=true` etkinliklerde `weighted >= threshold` olan üyelere +1 loyalty verir. Result: `[{member_id, name, alliance_name, loyalty_score, events_qualified[], position}]`. Frontend Leaderboard'a **SADIKLAR** tab (Aktif/Arşiv yanında, 🔥 amber-red glow) — tab seçilince aggregate liste + her satırda 🔥 chip + qualifying event isimleri (ilk 3).
+  - Verified: Aydınlatma HTTP 200; footer link visible; Sadıklar tab render (empty state — henüz loyalty event yok).
 - **Feb 25, 2026 (v121)** — Terms Kabul Track + Members Streak Rozeti + DeepL Faz 5:
   - **Terms Kabul Track**: Signup formuna zorunlu "Kullanım Şartları'nı okudum" checkbox eklendi (`signup-terms-ack`). Submit butonu bu kutu işaretlenene kadar disabled. Backend `POST /api/invites/consume` artık `terms_accepted_at: ISO` alıyor ve `users` doc'una yazıyor (audit trail). Verified: yeni user'ın `terms_accepted_at` alanı ISO timestamp olarak kaydedildi.
   - **Members Streak Rozeti**: Backend `GET /api/members/rsvp-streaks?threshold=5` — bulk endpoint, `{member_id: streak}` map döndürür. Frontend Members.jsx her üye kartında (name yanında) 🔥 chip gösteriyor (amber-red glow, streak count + tooltip). SWR 60s refresh. Şu an dataset'te 0 üyenin streak'i ≥5, endpoint boş dönüyor (beklenen).

@@ -172,6 +172,12 @@ class Event(BaseModel):
     # because attendance tracking is disabled — e.g. announcements or
     # informational entries that shouldn't skew participation stats.
     attendance_enabled: bool = True
+    # v122 — Sadıklar (Loyalty) toggle. When enabled, members scoring at
+    # least `loyalty_threshold` weighted points in this event earn 1
+    # loyalty point that counts toward the 🔥 Sadıklar leaderboard. When
+    # `loyalty_enabled` is False the threshold is ignored.
+    loyalty_enabled: bool = False
+    loyalty_threshold: int = 0
     # v52 — alliance whose members receive RSVP notifications and show up in
     # participation lists. Defaults to "GOW" so newly created events target
     # our home alliance out of the box. Admins can widen the scope by setting
@@ -198,6 +204,9 @@ class EventCreate(BaseModel):
     show_breakdown: Optional[bool] = True
     show_in_calendar: Optional[bool] = True
     attendance_enabled: Optional[bool] = True
+    # v122 — Sadıklar (Loyalty) config on event create.
+    loyalty_enabled: Optional[bool] = False
+    loyalty_threshold: Optional[int] = 0
     # v52 — Ittifak scope. Default "GOW" so new events are targeted at our
     # home alliance by default (matches user policy).
     alliance_scope: Optional[str] = "GOW"
@@ -222,6 +231,9 @@ class EventUpdate(BaseModel):
     show_breakdown: Optional[bool] = None
     show_in_calendar: Optional[bool] = None
     attendance_enabled: Optional[bool] = None
+    # v122 — Sadıklar (Loyalty) config editable after creation.
+    loyalty_enabled: Optional[bool] = None
+    loyalty_threshold: Optional[int] = None
     # v52 — allow admins to widen/change the alliance target after creation.
     alliance_scope: Optional[str] = None
     folder_id: Optional[str] = None
@@ -393,6 +405,72 @@ async def list_alliances():
     """Return distinct alliance names for autocomplete."""
     names = await db.members.distinct("alliance_name")
     return sorted([n for n in names if n])
+
+
+# v122 — Sadıklar (Loyalty) leaderboard. For each event with
+# `loyalty_enabled=true`, every member whose weighted point total meets
+# or exceeds `loyalty_threshold` earns 1 loyalty point. The leaderboard
+# ranks members by cumulative loyalty count. Members with 0 loyalty are
+# omitted so the ranking stays focused on active loyalists.
+@api_router.get("/loyalty/leaderboard")
+async def loyalty_leaderboard():
+    events = await db.events.find(
+        {"loyalty_enabled": True, "loyalty_threshold": {"$gt": 0},
+         "hidden_from_leaderboard": {"$ne": True}},
+        {"_id": 0, "id": 1, "name": 1, "loyalty_threshold": 1, "multiplier": 1, "date": 1},
+    ).to_list(2000)
+    if not events:
+        return []
+    ev_by_id = {e["id"]: e for e in events}
+    ev_ids = list(ev_by_id.keys())
+    # Weighted point totals per (event, member).
+    pipeline = [
+        {"$match": {"event_id": {"$in": ev_ids}}},
+        {"$project": {
+            "event_id": 1, "member_id": 1,
+            "weighted": {"$multiply": ["$points", {"$ifNull": ["$multiplier", 1.0]}]},
+        }},
+        {"$group": {"_id": {"e": "$event_id", "m": "$member_id"}, "total": {"$sum": "$weighted"}}},
+    ]
+    rows = await db.points.aggregate(pipeline).to_list(50000)
+    # Fan-out: which members qualified for which events.
+    loyalty_by_member: Dict[str, int] = {}
+    events_by_member: Dict[str, List[str]] = {}
+    for r in rows:
+        ev_id = r["_id"]["e"]
+        mid = r["_id"]["m"]
+        ev = ev_by_id.get(ev_id)
+        if not ev:
+            continue
+        threshold = int(ev.get("loyalty_threshold") or 0)
+        if threshold <= 0:
+            continue
+        if r["total"] >= threshold:
+            loyalty_by_member[mid] = loyalty_by_member.get(mid, 0) + 1
+            events_by_member.setdefault(mid, []).append(ev.get("name") or ev_id)
+    if not loyalty_by_member:
+        return []
+    member_ids = list(loyalty_by_member.keys())
+    members = await db.members.find({"id": {"$in": member_ids}}, {"_id": 0}).to_list(len(member_ids))
+    m_by_id = {m["id"]: m for m in members}
+    result = []
+    for mid, score in loyalty_by_member.items():
+        m = m_by_id.get(mid)
+        if not m:
+            continue
+        result.append({
+            "member_id": mid,
+            "name": m.get("name"),
+            "rank": m.get("rank"),
+            "alliance_name": m.get("alliance_name"),
+            "loyalty_score": score,
+            "events_qualified": sorted(events_by_member.get(mid, [])),
+            "total_loyalty_events": len(events),
+        })
+    result.sort(key=lambda r: (-r["loyalty_score"], (r.get("name") or "").lower()))
+    for i, r in enumerate(result):
+        r["position"] = i + 1
+    return result
 
 
 # v121 — Bulk RSVP streak lookup for the Members page. Returns a

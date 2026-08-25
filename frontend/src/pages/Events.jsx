@@ -2271,6 +2271,14 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
   const [attendanceEnabled, setAttendanceEnabled] = useState(
     initial ? initial.attendance_enabled !== false : true,
   );
+  // v122 — Sadıklar (Loyalty) config. Threshold input is only meaningful
+  // when the checkbox is ticked; a 0/blank threshold is treated as "off".
+  const [loyaltyEnabled, setLoyaltyEnabled] = useState(
+    initial ? !!initial.loyalty_enabled : false,
+  );
+  const [loyaltyThreshold, setLoyaltyThreshold] = useState(
+    initial && initial.loyalty_threshold ? String(initial.loyalty_threshold) : "",
+  );
   // v54 — Alliance scope: which alliance may RSVP + receive push reminders.
   // Backend defaults to "GOW"; keep that as the client-side default too so
   // new events target our home alliance out of the box.
@@ -2317,6 +2325,8 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
         show_breakdown: showBreakdown,
         show_in_calendar: showInCalendar,
         attendance_enabled: attendanceEnabled,
+        loyalty_enabled: loyaltyEnabled,
+        loyalty_threshold: loyaltyEnabled ? Math.max(0, parseInt(loyaltyThreshold, 10) || 0) : 0,
         alliance_scope: (allianceScope || "GOW").trim(),
         recurrence_interval: recurInterval,
         recurrence_count: Number(recurCount) || 1,
@@ -2593,6 +2603,53 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
               </span>
             </span>
           </label>
+        </div>
+
+        {/* v122 — Sadıklar (Loyalty) toggle. When enabled, a threshold
+            input appears; members whose weighted points on this event
+            meet or exceed the threshold earn +1 loyalty point on the
+            🔥 Sadıklar leaderboard. */}
+        <div
+          className="mt-3 rounded p-3"
+          style={{ background: "rgba(245,166,35,0.08)", border: "1px solid rgba(245,166,35,0.4)" }}
+          data-testid="event-form-loyalty-toggle"
+        >
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={loyaltyEnabled}
+              onChange={(e) => setLoyaltyEnabled(e.target.checked)}
+              data-testid="event-form-loyalty-checkbox"
+              className="cursor-pointer"
+            />
+            <span className="flex-1">
+              <span className="block text-sm font-bold text-white">
+                🔥 Sadıklar için Puan Ver
+              </span>
+              <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
+                {loyaltyEnabled
+                  ? "Aşağıya girdiğin puana veya daha fazlasına ulaşan üyeler, bu etkinlik için 1 sadıklar puanı kazanır."
+                  : "İşaretle → sadıklar sıralaması için puan eşiği belirle."}
+              </span>
+            </span>
+          </label>
+          {loyaltyEnabled && (
+            <div className="mt-3 flex items-center gap-2" data-testid="event-form-loyalty-threshold-row">
+              <label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">Eşik Puan</label>
+              <input
+                data-testid="event-form-loyalty-threshold"
+                type="number"
+                min={0}
+                inputMode="numeric"
+                value={loyaltyThreshold}
+                onChange={(e) => setLoyaltyThreshold(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder="ör. 5000000"
+                className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono"
+                style={{ borderColor: "rgba(245,166,35,0.55)" }}
+              />
+              <span className="text-[10px] text-muted-foreground">puan</span>
+            </div>
+          )}
         </div>
 
         {/* v54 — Alliance scope: gate RSVP to a specific alliance (defaults

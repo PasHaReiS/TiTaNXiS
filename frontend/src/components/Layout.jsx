@@ -95,6 +95,19 @@ export default function Layout({ children }) {
           >
             Terms
           </Link>
+          <span style={{ margin: "0 8px", opacity: 0.4 }}>·</span>
+          <Link
+            to="/aydinlatma-metni"
+            data-testid="footer-aydinlatma-link"
+            style={{
+              color: "rgba(245,166,35,0.75)",
+              textDecoration: "none",
+              borderBottom: "1px dotted rgba(245,166,35,0.35)",
+              paddingBottom: 1,
+            }}
+          >
+            Aydınlatma
+          </Link>
         </footer>
         <MusicButton />
         <PwaInstallPrompt />

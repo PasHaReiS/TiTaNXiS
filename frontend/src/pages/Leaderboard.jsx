@@ -5,7 +5,7 @@ import { allianceBadgeStyle } from "@/lib/colors";
 import { LEADERBOARD } from "@/constants/testIds";
 import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
-import { Users, Calendar, Star, TrendingUp, Crown, Medal, Award, X, Download, GitCompare } from "lucide-react";
+import { Users, Calendar, Star, TrendingUp, Crown, Medal, Award, X, Download, GitCompare, Flame } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
@@ -15,7 +15,7 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
 export default function Leaderboard() {
   const { t } = useTranslation();
   const { canEdit } = useAuth();
-  const [filter, setFilter] = useState("active");
+  const [filter, setFilter] = useState("active"); // "active" | "archive" | "sadiklar"
   const [memberScope, setMemberScope] = useState("global"); // "global" | "server" | "clan"
   const [group, setGroup] = useState(null);
   // v64 — Alliance Drill-Down modal state.
@@ -91,6 +91,13 @@ export default function Leaderboard() {
     { refreshInterval: 5000 },
   );
   const { data: allianceColors = {} } = useSWR("/alliance-colors", fetcher, { refreshInterval: 15000 });
+  // v122 — Sadıklar (loyalty) leaderboard. Only fetched when the tab is
+  // active so we don't pay the aggregation cost on the default view.
+  const { data: loyaltyLb = [] } = useSWR(
+    filter === "sadiklar" ? "/loyalty/leaderboard" : null,
+    fetcher,
+    { refreshInterval: 15000 },
+  );
   const { data: archivedEvents = [] } = useSWR("/events?archived=true", fetcher, { refreshInterval: 15000 });
   const { data: activeEvents = [] } = useSWR("/events?archived=false", fetcher, { refreshInterval: 15000 });
   // Per-user event count rule: any grouped bundle counts as 1 (regardless of
@@ -312,11 +319,130 @@ export default function Leaderboard() {
               {archiveCountAgg}
             </span>
           </button>
+          {/* v122 — Sadıklar (loyalty) tab. Amber-red fiery styling so it
+              reads as an earned-achievement view, distinct from the
+              default point tabs. */}
+          <button
+            data-testid="leaderboard-filter-sadiklar"
+            onClick={() => setFilter("sadiklar")}
+            className={`chip ${filter === "sadiklar" ? "active" : ""}`}
+            style={filter === "sadiklar" ? {
+              padding: "10px 28px",
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: "0.14em",
+              borderColor: "#F5A623",
+              color: "#FFF7ED",
+              background: "linear-gradient(180deg, rgba(245,166,35,0.35), rgba(231,76,26,0.55))",
+              boxShadow: "0 0 14px rgba(245,166,35,0.55), inset 0 0 14px rgba(245,166,35,0.22)",
+              textShadow: "0 1px 6px rgba(0,0,0,0.7)",
+            } : {
+              padding: "10px 28px",
+              fontSize: 13,
+              fontWeight: 700,
+              letterSpacing: "0.14em",
+              opacity: 0.85,
+            }}
+          >
+            <span aria-hidden="true" style={{ marginRight: 6, fontSize: 14 }}>🔥</span>
+            SADIKLAR
+          </button>
         </div>
       </Header>
 
       <div className="px-4 pt-1">
-        {(() => {
+        {/* v122 — Sadıklar (loyalty) leaderboard view. Renders when the
+            "SADIKLAR" tab is selected. Members are ranked by cumulative
+            loyalty score (# of qualifying events). Tapping a row still
+            opens the MemberProfileDialog. */}
+        {filter === "sadiklar" && (
+          <div className="mb-6 mt-3 fade-in" data-testid="sadiklar-leaderboard">
+            <div
+              className="rounded-lg p-3 mb-3 flex items-center gap-2"
+              style={{
+                background: "linear-gradient(180deg, rgba(245,166,35,0.15), rgba(231,76,26,0.10))",
+                border: "1px solid rgba(245,166,35,0.5)",
+              }}
+            >
+              <Flame className="w-5 h-5" style={{ color: "#F5A623", filter: "drop-shadow(0 0 6px rgba(245,166,35,0.65))" }} />
+              <div className="flex-1">
+                <div className="text-sm font-bold" style={{ color: "#FFF7ED", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}>
+                  Sadıklar Sıralaması
+                </div>
+                <div className="text-[11px]" style={{ color: "#EAD8B0" }}>
+                  Etkinlik eşiklerini geçen üyeler +1 sadıklar puanı kazanır. Toplam: {loyaltyLb[0]?.total_loyalty_events || 0} sadıklar etkinliği.
+                </div>
+              </div>
+            </div>
+            {loyaltyLb.length === 0 ? (
+              <div className="card-dark p-6 text-center text-muted-foreground text-sm" data-testid="sadiklar-empty">
+                Henüz sadıklar puanı kazanan üye yok. Yönetici bir etkinlikte 🔥 Sadıklar için Puan Ver seçeneğini işaretlemeli.
+              </div>
+            ) : (
+              <div
+                className="space-y-1"
+                style={{
+                  border: "1px solid rgba(245,166,35,0.35)",
+                  borderRadius: 12,
+                  padding: 6,
+                  background: "linear-gradient(180deg, rgba(60,30,10,0.35) 0%, rgba(20,12,10,0.55) 100%)",
+                }}
+                data-testid="sadiklar-rows"
+              >
+                {loyaltyLb.map((r) => (
+                  <button
+                    key={r.member_id}
+                    data-testid={`sadiklar-row-${r.member_id}`}
+                    onClick={() => setProfileId(r.member_id)}
+                    className="w-full flex items-center gap-3 rank-row text-left"
+                    style={{ padding: "8px 10px", minHeight: 44 }}
+                  >
+                    <div className="w-8 text-center">
+                      <span className="text-sm font-bold mono" style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}>
+                        #{r.position}
+                      </span>
+                    </div>
+                    <div
+                      className="text-[9px] font-bold rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{
+                        background: (r.alliance_name && allianceColors[r.alliance_name]) || "#E74C1A",
+                        color: "#fff",
+                        minWidth: 44,
+                        padding: "3px 7px",
+                        border: "1px solid rgba(255,255,255,0.15)",
+                        letterSpacing: "0.06em",
+                      }}
+                      title={r.alliance_name || ""}
+                    >
+                      {r.alliance_name || "-"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold truncate text-sm" style={{ color: "#F5F0E8", fontFamily: "Cinzel, Rajdhani, serif" }}>
+                        {r.name}
+                      </div>
+                      <div className="text-[10px] mono" style={{ color: "#EAD8B0", opacity: 0.7 }}>
+                        {r.events_qualified.slice(0, 3).join(" · ")}
+                        {r.events_qualified.length > 3 && ` +${r.events_qualified.length - 3}`}
+                      </div>
+                    </div>
+                    <div
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1.5"
+                      style={{
+                        background: "linear-gradient(135deg, rgba(245,166,35,0.25), rgba(231,76,26,0.25))",
+                        border: "1px solid rgba(245,166,35,0.6)",
+                        boxShadow: "0 0 8px rgba(245,166,35,0.35)",
+                      }}
+                    >
+                      <Flame className="w-3.5 h-3.5" style={{ color: "#FFB347" }} />
+                      <span className="font-bold mono text-sm" style={{ color: "#FFF7ED" }}>{r.loyalty_score}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {filter !== "sadiklar" && (() => {
           // Filter event groups by the current Active/Archive tab so the chip
           // strip only advertises groups that contain matching events.
           // Hidden on the Archive tab — the new folder-card grid + group
