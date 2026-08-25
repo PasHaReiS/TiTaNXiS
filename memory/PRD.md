@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 25, 2026 (v116)** — Privacy Policy Google Play Compliance:
+  - Başlık `TiTaNXiS Bot — Privacy Policy` → `TiTaNXiS — Privacy Policy` (app scope, sadece bot değil).
+  - Bölümler 4 → **7**: Information We Collect, How We Use, Third-Party Services (DeepL/Telegram/Google Play), Data Storage & Security, Children's Privacy (<13), Changes to Policy, Contact.
+  - Her section'da bullet list (ul/disc) ile Google Play requirements karşılandı: data types, third-party disclosure, deletion right, children policy, policy changes.
+  - Email + Website ayrı linkler (titanxis.com), yeni `privacy-website-link` testid.
 - **Feb 24, 2026 (v115)** — Privacy Policy Sayfası (Telegram Bot):
   - Yeni public route `/privacy` — auth gerekmez, BotFather bot profilinden linklenebilir.
   - `Privacy.jsx`: dark stone tema (radial red/purple bg + amber card), Cinzel typography, TN shield badge, 4 numbered section (Data Collected / Usage / Retention / Contact), titanxis.com iletişim linki + Home geri buton.

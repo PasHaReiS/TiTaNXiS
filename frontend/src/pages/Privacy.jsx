@@ -55,7 +55,7 @@ export default function Privacy() {
               }}
               data-testid="privacy-title"
             >
-              TiTaNXiS Bot — Privacy Policy
+              TiTaNXiS — Privacy Policy
             </h1>
             <div
               className="text-[11px] mt-1 uppercase"
@@ -67,35 +67,82 @@ export default function Privacy() {
           </div>
         </div>
 
-        <Section number="1" title="Data Collected">
-          This bot stores only your Telegram user ID and preferred language.
-          Personal messages are not stored or logged.
+        <Section number="1" title="Information We Collect">
+          <ul className="list-disc pl-5 space-y-1">
+            <li><b>Account information:</b> nickname/username you provide</li>
+            <li><b>Usage data:</b> pages visited, features used within the app</li>
+            <li><b>Device information:</b> device type, OS version, language preference</li>
+            <li><b>Telegram user ID</b> (only if you connect Telegram notifications)</li>
+          </ul>
         </Section>
 
-        <Section number="2" title="Data Usage">
-          Data is used solely to send you notifications. It is never shared
-          with third parties.
+        <Section number="2" title="How We Use Your Information">
+          <ul className="list-disc pl-5 space-y-1">
+            <li>To provide and improve the app experience</li>
+            <li>To send event and score notifications (only if opted in)</li>
+            <li>To display content in your preferred language (29 languages supported via DeepL)</li>
+            <li>We do <b>NOT</b> sell your data to third parties</li>
+          </ul>
         </Section>
 
-        <Section number="3" title="Data Retention">
-          All your data is deleted when you stop using the bot.
+        <Section number="3" title="Third-Party Services">
+          <ul className="list-disc pl-5 space-y-1">
+            <li><b>DeepL API:</b> used for translation (your language preference is shared)</li>
+            <li><b>Telegram:</b> used for optional notifications (your Telegram ID is stored only if you opt in)</li>
+            <li><b>Google Play:</b> subject to Google's privacy policy</li>
+          </ul>
         </Section>
 
-        <Section number="4" title="Contact">
-          For questions:{" "}
-          <a
-            href="https://titanxis.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            data-testid="privacy-contact-link"
-            style={{
-              color: "#F5A623",
-              textDecoration: "underline",
-              textDecorationColor: "rgba(245,166,35,0.55)",
-            }}
-          >
-            titanxis.com
-          </a>
+        <Section number="4" title="Data Storage & Security">
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Data is stored securely on our servers</li>
+            <li>You can delete your account and all associated data at any time via the app settings</li>
+          </ul>
+        </Section>
+
+        <Section number="5" title="Children's Privacy">
+          This app is not directed at children under 13.
+        </Section>
+
+        <Section number="6" title="Changes to This Policy">
+          We may update this policy. Changes will be posted on this page.
+        </Section>
+
+        <Section number="7" title="Contact">
+          <div className="space-y-1">
+            <div>
+              Email: support via{" "}
+              <a
+                href="https://titanxis.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="privacy-contact-link"
+                style={{
+                  color: "#F5A623",
+                  textDecoration: "underline",
+                  textDecorationColor: "rgba(245,166,35,0.55)",
+                }}
+              >
+                titanxis.com
+              </a>
+            </div>
+            <div>
+              Website:{" "}
+              <a
+                href="https://titanxis.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="privacy-website-link"
+                style={{
+                  color: "#F5A623",
+                  textDecoration: "underline",
+                  textDecorationColor: "rgba(245,166,35,0.55)",
+                }}
+              >
+                titanxis.com
+              </a>
+            </div>
+          </div>
         </Section>
 
         <div
