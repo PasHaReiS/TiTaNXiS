@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 25, 2026 (v119)** — Cookie Banner + KVKK Consent + Map Removal:
+  - **CookieBanner.jsx** (yeni): App-wide çerez uyarı banner'ı. Fixed bottom, koyu taş temada (amber gradient). "Kabul Et" tıklanınca `localStorage.ol_cookie_ack=1` set edilir, banner bir daha görünmez. `<Link to="/privacy">Gizlilik Politikası</Link>` içerir. `Layout.jsx`'e mount edildi (tüm route'larda görünür).
+  - **Dashboard.jsx**: `MemberLocationMap` import ve `{key:"map"}` grid entry'si kaldırıldı. `MemberLocationMap.jsx` dosyası tamamen silindi.
+  - **Signup.jsx**: Şifre alanının altına, "Katıl" butonundan önce iki KVKK checkbox'ı eklendi (`signup-kvkk-notice` + `signup-kvkk-email-optin`). Her ikisi de varsayılan olarak **İŞARETSİZ** (KVKK açık rıza doktrini). Aydınlatma Metni linki `/privacy`'ye açılır. Küçük font (10px), dashed amber border kutu içinde.
+  - Test: `/kayit/{token}` ile geçerli invite token'da her iki checkbox unchecked=false döndü, cookie banner login+signup+leaderboard'ta görünüyor, Dashboard'ta `dash-member-locations` DOM'dan kayboldu.
 - **Feb 25, 2026 (v118)** — Zero-Score Members Filtresi (Leaderboard):
   - Backend `/api/leaderboard` aggregation pipeline'ına `{"$match": {"total_points": {"$gt": 0}}}` eklendi — puanı 0 olan üyeler artık kaynakta filtreleniyor. Bu değişiklik `/api/leaderboard/by-alliance`'a da otomatik yansıyor.
   - Frontend `Leaderboard.jsx` içindeki `fullLb` memo revize edildi: eskiden `allMembers` ile merge edip zero-scorer'ları sıralamanın altına ekliyordu; artık sadece `total_points > 0` olan girdileri gösteriyor. Kullanılmayan `allMembers` SWR fetch'i kaldırıldı.

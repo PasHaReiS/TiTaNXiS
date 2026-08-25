@@ -23,6 +23,13 @@ export default function Signup() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  // v119 — KVKK consent checkboxes. Both default UNCHECKED as required by
+  // KVKK "açık rıza" doctrine (explicit consent must be opt-in, never
+  // pre-ticked). Neither field is validated as required — they are shown
+  // for transparency and captured for audit, matching Aydınlatma /
+  // Açık Rıza distinction.
+  const [ackNotice, setAckNotice] = useState(false);
+  const [emailOptIn, setEmailOptIn] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,6 +159,61 @@ export default function Signup() {
                       className="w-full bg-background border border-border rounded-md pl-9 pr-3 py-2.5 text-sm text-white focus:outline-none focus:border-primary"
                     />
                   </div>
+                </div>
+                {/* v119 — KVKK consent block. Small font, dark theme, both
+                    opt-in checkboxes default OFF. Aydınlatma is informational;
+                    e-posta rızası is separate açık rıza per KVKK. */}
+                <div
+                  data-testid="signup-kvkk-block"
+                  className="space-y-2 rounded-md px-2.5 py-2"
+                  style={{
+                    background: "rgba(10,6,4,0.55)",
+                    border: "1px dashed rgba(245,166,35,0.28)",
+                  }}
+                >
+                  <label
+                    className="flex items-start gap-2 cursor-pointer"
+                    data-testid="signup-kvkk-notice-label"
+                  >
+                    <input
+                      type="checkbox"
+                      data-testid="signup-kvkk-notice"
+                      checked={ackNotice}
+                      onChange={(e) => setAckNotice(e.target.checked)}
+                      className="mt-0.5 flex-shrink-0 accent-amber-500"
+                      style={{ width: 12, height: 12 }}
+                    />
+                    <span className="text-[10px] leading-snug" style={{ color: "#D6C9A6" }}>
+                      <Link
+                        to="/privacy"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-bold underline"
+                        style={{ color: "#F5A623" }}
+                      >
+                        Aydınlatma Metni
+                      </Link>
+                      'ni okudum ve anladım.{" "}
+                      <span style={{ color: "rgba(214,201,166,0.55)" }}>(Bilgilendirme)</span>
+                    </span>
+                  </label>
+                  <label
+                    className="flex items-start gap-2 cursor-pointer"
+                    data-testid="signup-kvkk-email-optin-label"
+                  >
+                    <input
+                      type="checkbox"
+                      data-testid="signup-kvkk-email-optin"
+                      checked={emailOptIn}
+                      onChange={(e) => setEmailOptIn(e.target.checked)}
+                      className="mt-0.5 flex-shrink-0 accent-amber-500"
+                      style={{ width: 12, height: 12 }}
+                    />
+                    <span className="text-[10px] leading-snug" style={{ color: "#D6C9A6" }}>
+                      Tarafıma oyun ve etkinlik güncellemeleriyle ilgili e-posta gönderilmesine onay veriyorum.{" "}
+                      <span style={{ color: "rgba(214,201,166,0.55)" }}>(Açık Rıza · İsteğe bağlı)</span>
+                    </span>
+                  </label>
                 </div>
                 <button
                   data-testid="signup-submit"

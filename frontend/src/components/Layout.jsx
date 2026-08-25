@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import MusicButton from "@/components/MusicButton";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 import RadialMenu from "@/components/RadialMenu";
+import CookieBanner from "@/components/CookieBanner";
 
 /**
  * Layout emits TWO siblings that are DIRECT children of `.app-shell`
@@ -86,6 +87,7 @@ export default function Layout({ children }) {
         <PwaInstallPrompt />
       </div>
       <RadialMenu />
+      <CookieBanner />
     </>
   );
 }
