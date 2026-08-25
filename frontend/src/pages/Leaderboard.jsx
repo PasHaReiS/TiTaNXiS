@@ -91,7 +91,6 @@ export default function Leaderboard() {
     { refreshInterval: 5000 },
   );
   const { data: allianceColors = {} } = useSWR("/alliance-colors", fetcher, { refreshInterval: 15000 });
-  const { data: allMembers = [] } = useSWR("/members", fetcher, { refreshInterval: 10000 });
   const { data: archivedEvents = [] } = useSWR("/events?archived=true", fetcher, { refreshInterval: 15000 });
   const { data: activeEvents = [] } = useSWR("/events?archived=false", fetcher, { refreshInterval: 15000 });
   // Per-user event count rule: any grouped bundle counts as 1 (regardless of
@@ -171,22 +170,13 @@ export default function Leaderboard() {
     [archiveEventId, archivedEvents, activeEvents],
   );
 
-  // Merge zero-point members below scored ones so the whole guild is always listed.
+  // Only show members with at least 1 point. Zero-score / null-score members
+  // are intentionally hidden so the ranking stays focused on active scorers.
   const fullLb = useMemo(() => {
-    const scoredIds = new Set(lb.map((r) => r.member_id));
-    const zeros = allMembers
-      .filter((m) => !scoredIds.has(m.id))
-      .map((m) => ({
-        member_id: m.id,
-        name: m.name,
-        rank: m.rank || "R1",
-        alliance_name: m.alliance_name,
-        level: m.level || 1,
-        title: m.title,
-        total_points: 0,
-      }));
-    return [...lb, ...zeros].map((r, i) => ({ ...r, position: i + 1 }));
-  }, [lb, allMembers]);
+    return lb
+      .filter((r) => r && r.total_points != null && Number(r.total_points) > 0)
+      .map((r, i) => ({ ...r, position: i + 1 }));
+  }, [lb]);
 
   const top3 = useMemo(() => fullLb.slice(0, 3), [fullLb]);
   const rest = useMemo(() => fullLb.slice(3, 500), [fullLb]);

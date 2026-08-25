@@ -21,6 +21,10 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 25, 2026 (v118)** — Zero-Score Members Filtresi (Leaderboard):
+  - Backend `/api/leaderboard` aggregation pipeline'ına `{"$match": {"total_points": {"$gt": 0}}}` eklendi — puanı 0 olan üyeler artık kaynakta filtreleniyor. Bu değişiklik `/api/leaderboard/by-alliance`'a da otomatik yansıyor.
+  - Frontend `Leaderboard.jsx` içindeki `fullLb` memo revize edildi: eskiden `allMembers` ile merge edip zero-scorer'ları sıralamanın altına ekliyordu; artık sadece `total_points > 0` olan girdileri gösteriyor. Kullanılmayan `allMembers` SWR fetch'i kaldırıldı.
+  - Test: `/api/leaderboard?scope=archived` → 82 entry, 0 zero-score. `/api/leaderboard/by-alliance` → 4 grup, hepsinde 0 zeros. Aktif tab boş etkinlikte boş state gösteriyor (beklenen).
 - **Feb 25, 2026 (v117)** — App-Wide Privacy Policy Footer:
   - `Layout.jsx` scroll container'a küçük footer eklendi (children'ın altında, MusicButton'dan önce).
   - Stil: `fontSize: 10, color: rgba(245,166,35,0.55)` muted amber, ortalanmış, dotted underline; içerik: `<Link to="/privacy">Privacy Policy</Link>`.

@@ -1437,6 +1437,8 @@ async def leaderboard(
         {"$match": match_stage} if match_stage else {"$match": {}},
         {"$project": {"member_id": 1, "weighted": {"$multiply": ["$points", {"$ifNull": ["$multiplier", 1.0]}]}}},
         {"$group": {"_id": "$member_id", "total_points": {"$sum": "$weighted"}}},
+        # Only surface members with at least 1 point — zero/null scorers stay hidden.
+        {"$match": {"total_points": {"$gt": 0}}},
         {"$sort": {"total_points": -1}},
         {"$limit": 500},
     ]
