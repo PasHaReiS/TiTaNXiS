@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import MusicButton from "@/components/MusicButton";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 import RadialMenu from "@/components/RadialMenu";
@@ -55,6 +56,32 @@ export default function Layout({ children }) {
         }}
       >
         {children}
+        {/* v117 — Subtle app-wide footer with Privacy Policy link. Discreet
+            (10px muted amber) so it does not compete with page content, but
+            always reachable from every route. */}
+        <footer
+          data-testid="app-footer-privacy"
+          style={{
+            padding: "16px 12px 8px",
+            textAlign: "center",
+            fontSize: 10,
+            letterSpacing: "0.08em",
+            color: "rgba(245,166,35,0.55)",
+          }}
+        >
+          <Link
+            to="/privacy"
+            data-testid="footer-privacy-link"
+            style={{
+              color: "rgba(245,166,35,0.75)",
+              textDecoration: "none",
+              borderBottom: "1px dotted rgba(245,166,35,0.35)",
+              paddingBottom: 1,
+            }}
+          >
+            Privacy Policy
+          </Link>
+        </footer>
         <MusicButton />
         <PwaInstallPrompt />
       </div>

@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 25, 2026 (v117)** — App-Wide Privacy Policy Footer:
+  - `Layout.jsx` scroll container'a küçük footer eklendi (children'ın altında, MusicButton'dan önce).
+  - Stil: `fontSize: 10, color: rgba(245,166,35,0.55)` muted amber, ortalanmış, dotted underline; içerik: `<Link to="/privacy">Privacy Policy</Link>`.
+  - Layout tüm auth ve public route'larda kullanıldığı için footer app-wide (anasayfa, uyeler, etkinlikler, komutanlar hepsi).
+  - Test: 2 farklı sayfada `footer-privacy-link` count=1, href="/privacy", fontSize=10px.
 - **Feb 25, 2026 (v116)** — Privacy Policy Google Play Compliance:
   - Başlık `TiTaNXiS Bot — Privacy Policy` → `TiTaNXiS — Privacy Policy` (app scope, sadece bot değil).
   - Bölümler 4 → **7**: Information We Collect, How We Use, Third-Party Services (DeepL/Telegram/Google Play), Data Storage & Security, Children's Privacy (<13), Changes to Policy, Contact.
