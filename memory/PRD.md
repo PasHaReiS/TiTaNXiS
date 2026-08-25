@@ -21,6 +21,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+
+### 🗂️ Backlog / Deploy Sonrası Yapılacaklar (Feb 25, 2026)
+- **Sadıklar Ödül Sistemi**: Ay sonunda en yüksek sadıklar puanı olan 3 üyeye özel Telegram rozeti + duyuru gönder
+- **Loyalty Progress Bar**: Etkinlik detay ekranında "X üyeden Y kişi eşiği geçti" progress bar göster
+- **Sadıklar Grafik**: Aylık sadıklar puanı trendi çizgi grafiği (recharts)
+
 - **Feb 25, 2026 (v122)** — Aydınlatma Metni + Sadıklar Leaderboard + Loyalty Event:
   - **Aydınlatma Metni** (`AydinlatmaMetni.jsx`, `/aydinlatma-metni` public route): KVKK Md. 10 uyumlu 7 bölüm (Veri Sorumlusu, İşlenen Veriler, Amaçlar, Aktarım, Toplama Yöntemi, Md. 11 Hakları, Başvuru Yöntemi). Layout footer'a "Aydınlatma" linki eklendi. Test: HTTP 200, 7 section render.
   - **Event Loyalty Config** (backend Event/EventCreate/EventUpdate): `loyalty_enabled: bool` + `loyalty_threshold: int` alanları eklendi. Event form'a "🔥 Sadıklar için Puan Ver" checkbox + eşik puan input. Ticked=true olduğunda eşik alanı belirir, aksi durum ignore edilir. Test: POST /api/events with loyalty_enabled=true, threshold=1000000 → doc'a doğru yazıldı.
