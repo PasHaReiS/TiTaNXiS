@@ -45,6 +45,10 @@ class InviteConsumeBody(BaseModel):
     token: str
     username: str
     password: str
+    # v121 — KVKK Terms tracking. Frontend sets to now-ISO when the user
+    # ticks the Terms of Service checkbox at signup. Optional so admin
+    # tooling / older clients still work.
+    terms_accepted_at: Optional[str] = None
 
 
 def _invite_status(inv: dict) -> str:
@@ -162,6 +166,9 @@ def make_invites_router(db, require_admin, hash_password_fn, create_token_fn,
             "created_at": now_iso_fn(),
             "invited_by_invite_id": inv.get("id"),
             "invited_by_username": inv.get("created_by_username"),
+            # v121 — audit trail for KVKK Terms acceptance at signup.
+            # Frontend supplies ISO timestamp when the checkbox is ticked.
+            "terms_accepted_at": (body.terms_accepted_at or now_iso_fn()),
         }
         await db.users.insert_one(doc)
 

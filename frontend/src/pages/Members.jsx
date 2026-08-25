@@ -11,7 +11,7 @@ import LinkMemberDialog from "@/components/LinkMemberDialog";
 import OcrDialog from "@/components/OcrDialog";
 import CanEdit from "@/components/CanEdit";
 import CountUp from "@/components/CountUp";
-import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap, CheckSquare, Square, Globe, Castle, Download } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap, CheckSquare, Square, Globe, Castle, Download, Flame } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { COUNTRIES, COUNTRY_BY_ISO2 } from "@/lib/countries";
@@ -239,6 +239,10 @@ export default function Members() {
     return m;
   }, [allianceStatsTop]);
   const { data: alliancesList = [] } = useSWR("/alliances", fetcher);
+  // v121 — RSVP consecutive-yes streak lookup. Only members whose linked
+  // app-user has streak >= 5 are returned; empty map otherwise so the
+  // 🔥 chip renders zero-cost for the common case.
+  const { data: streakByMember = {} } = useSWR("/members/rsvp-streaks", fetcher, { refreshInterval: 60000 });
   const { data: castleStats } = useSWR(showCastleStats ? "/members/castle-stats" : null, fetcher, { refreshInterval: 30000 });
 
   const grouped = useMemo(() => {
@@ -985,6 +989,31 @@ export default function Members() {
                                       {m.name}
                                     </span>
                                     {healthById[m.id] && <HealthChip health={healthById[m.id]} memberId={m.id} onOpen={() => setHealthDetailMember(m)} />}
+                                    {/* v121 — RSVP streak fire badge.
+                                        Renders only when the linked user
+                                        has consecutively said "yes" >=5
+                                        times. Small chip, amber-red glow,
+                                        tooltip surfaces the exact count. */}
+                                    {streakByMember[m.id] && (
+                                      <span
+                                        data-testid={`member-rsvp-streak-${m.id}`}
+                                        className="inline-flex items-center gap-0.5 rounded-full flex-shrink-0"
+                                        title={`Üst üste ${streakByMember[m.id]} etkinliğe Evet dedi`}
+                                        style={{
+                                          padding: "1px 5px",
+                                          fontSize: 9,
+                                          fontWeight: 800,
+                                          background: "linear-gradient(135deg, rgba(245,166,35,0.35), rgba(231,76,26,0.35))",
+                                          color: "#FFF7ED",
+                                          border: "1px solid rgba(245,166,35,0.7)",
+                                          boxShadow: "0 0 6px rgba(245,166,35,0.55)",
+                                          letterSpacing: "0.04em",
+                                        }}
+                                      >
+                                        <Flame className="w-2.5 h-2.5" style={{ color: "#FFB347" }} />
+                                        {streakByMember[m.id]}
+                                      </span>
+                                    )}
                                     {m.note && m.note.trim() !== "" && (m.note_position || "inline") === "inline" && (
                                       <span
                                         className="text-xs truncate leading-tight"

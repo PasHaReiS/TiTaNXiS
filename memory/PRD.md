@@ -21,6 +21,10 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 25, 2026 (v121)** — Terms Kabul Track + Members Streak Rozeti + DeepL Faz 5:
+  - **Terms Kabul Track**: Signup formuna zorunlu "Kullanım Şartları'nı okudum" checkbox eklendi (`signup-terms-ack`). Submit butonu bu kutu işaretlenene kadar disabled. Backend `POST /api/invites/consume` artık `terms_accepted_at: ISO` alıyor ve `users` doc'una yazıyor (audit trail). Verified: yeni user'ın `terms_accepted_at` alanı ISO timestamp olarak kaydedildi.
+  - **Members Streak Rozeti**: Backend `GET /api/members/rsvp-streaks?threshold=5` — bulk endpoint, `{member_id: streak}` map döndürür. Frontend Members.jsx her üye kartında (name yanında) 🔥 chip gösteriyor (amber-red glow, streak count + tooltip). SWR 60s refresh. Şu an dataset'te 0 üyenin streak'i ≥5, endpoint boş dönüyor (beklenen).
+  - **DeepL Faz 5**: PointCalcPage ImportModal'daki 7 hardcoded TR string `t()` ile sarıldı (`pc_import_excel`, `pc_import_desc`, `pc_import_updated`, `pc_import_skipped`, `pc_import_upload`, `pc_import_uploading`, `pc_import_events_updated`). Backend `/api/deepl/bulk-translate` ile 28 dile çevirildi ve i18n/index.js'in tüm dil block'larına inject edildi (Python script `/tmp/inject_i18n.py`).
 - **Feb 25, 2026 (v120)** — Terms Sayfası + RSVP Streak Rozeti + Hesap Silme (KVKK):
   - **Terms Sayfası** (`Terms.jsx` yeni, `/terms` public route): 9 bölüm (Acceptance, Eligibility, Acceptable Use, User Content, Suspension, Warranty, Liability, Changes, Contact). Privacy ile aynı stone tema. `App.js`'e route eklendi, `Layout.jsx` footer'a "Terms" linki eklendi.
   - **RSVP Streak Rozeti** (backend `GET /api/auth/me/rsvp-streak`): Kullanıcının event_rsvps kayıtlarını tarihe göre desc sıralayıp en yeniden geriye "yes" streak sayıyor. Response: `{streak, has_badge, threshold=5}`. Frontend `Profile.jsx` — user meta chip'lerinin yanına `🔥 N ETKİNLİK SERİSİ` rozeti (amber/red gradient, glow). `has_badge=true` (streak≥5) durumunda gösterilir.

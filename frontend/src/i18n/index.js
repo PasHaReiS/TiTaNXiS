@@ -695,6 +695,13 @@ const tr = {
   breadcrumb_home: "Anasayfa",
   pc_tab_pre: "SVS Pre Puan Hesaplama",
   pc_tab_other: "Diğer Etkinlik Puan Hesaplamaları",
+  pc_import_excel: "Excel İçe Aktar",
+  pc_import_desc: "Dışa aktardığınız Excel'i düzenleyip aynı şablonla yükleyin. Her sayfa (etkinlik) mevcut isimle eşleşir; tablolar sıfırdan yeniden yazılır. Yedek otomatik alınır (Geçmiş'ten geri yüklenebilir).",
+  pc_import_updated: "Güncellenen",
+  pc_import_skipped: "Atlanan",
+  pc_import_upload: "Yükle",
+  pc_import_uploading: "Yükleniyor…",
+  pc_import_events_updated: "{{count}} etkinlik güncellendi",
   pc_add_day: "Yeni Etkinlik Ekle",
   pc_add_event: "Yeni Etkinlik Ekle",
   pc_event_added: "Yeni etkinlik eklendi",
@@ -1851,6 +1858,9 @@ const en = {
   breadcrumb_home: "Home",
   pc_tab_pre: "Pre Event Scoring",
   pc_tab_other: "Other Event Calculations",
+  pc_import_excel: "Import from Excel",
+  pc_import_desc: "Edit the Excel file you have exported and upload it using the same template. Each sheet (event) corresponds to the existing name; the tables are rewritten from scratch. A backup is taken automatically (and can be restored from the History).",
+  pc_import_updated: "Updated",
   pc_add_day: "Add New Event",
   pc_add_event: "Add New Event",
   pc_event_added: "Event added",
@@ -2688,6 +2698,9 @@ const ru = {
   nav_point_calc: "Калькулятор баллов",
   pc_tab_pre: "Предсобытийная система баллов",
   pc_tab_other: "Расчёты других событий",
+  pc_import_excel: "Импорт из Excel",
+  pc_import_desc: "Отредактируйте экспортированный файл Excel и загрузите его, используя тот же шаблон. Каждая страница (мероприятие) соответствует существующему названию; таблицы переписываются заново. Автоматически создается резервная копия (ее можно восстановить из раздела «История»).",
+  pc_import_updated: "Обновлено",
   pc_add_day: "Добавить событие",
   pc_add_event: "Добавить событие",
   pc_event_added: "Событие добавлено",
@@ -3290,6 +3303,9 @@ const de = {
   nav_point_calc: "Punkterechner",
   pc_tab_pre: "Pre-Event-Bewertung",
   pc_tab_other: "Andere Event-Berechnungen",
+  pc_import_excel: "Excel importieren",
+  pc_import_desc: "Bearbeiten Sie die exportierte Excel-Datei und laden Sie sie mit derselben Vorlage hoch. Jede Seite (Veranstaltung) entspricht dem bestehenden Namen; die Tabellen werden von Grund auf neu erstellt. Es wird automatisch eine Sicherungskopie erstellt (die über den Verlauf wiederhergestellt werden kann).",
+  pc_import_updated: "Aktualisiert",
   pc_add_day: "Neues Event hinzufügen",
   pc_add_event: "Neues Event hinzufügen",
   pc_event_added: "Event hinzugefügt",
@@ -3854,6 +3870,9 @@ const fr = {
   nav_point_calc: "Calculateur de points",
   pc_tab_pre: "Notation pré-événement",
   pc_tab_other: "Autres calculs d'événements",
+  pc_import_excel: "Importer depuis Excel",
+  pc_import_desc: "Modifiez le fichier Excel que vous avez exporté, puis réimportez-le en utilisant le même modèle. Chaque page (événement) correspond au nom existant ; les tableaux sont réécrits à partir de zéro. Une sauvegarde est effectuée automatiquement (elle peut être restaurée à partir de l'historique).",
+  pc_import_updated: "Mis à jour",
   pc_add_day: "Ajouter un événement",
   pc_add_event: "Ajouter un événement",
   pc_event_added: "Événement ajouté",
@@ -4482,6 +4501,9 @@ const es = {
   nav_point_calc: "Calculadora de puntos",
   pc_tab_pre: "Puntuación pre-evento",
   pc_tab_other: "Otros cálculos de eventos",
+  pc_import_excel: "Importar desde Excel",
+  pc_import_desc: "Edita el archivo de Excel que has exportado y cárgalo con la misma plantilla. Cada página (actividad) se corresponde con el nombre actual; las tablas se vuelven a escribir desde cero. Se realiza una copia de seguridad automáticamente (se puede restaurar desde el «Historial»).",
+  pc_import_updated: "Actualizado",
   pc_add_day: "Añadir evento",
   pc_add_event: "Añadir evento",
   pc_event_added: "Evento añadido",
@@ -4644,6 +4666,9 @@ const es = {
 };
 
 const ko = {
+  pc_import_excel: "Excel 가져오기",
+  pc_import_desc: "내보낸 엑셀 파일을 수정하고 동일한 템플릿으로 다시 업로드하세요. 각 페이지(이벤트)는 기존 이름과 일치하며, 표는 처음부터 다시 작성됩니다. 백업이 자동으로 생성됩니다(‘기록’에서 복원 가능).",
+  pc_import_updated: "업데이트됨",
   alliance_rename_placeholder: "새로운 연합의 이름",
   alliance_rename_tooltip: "동맹의 이름을 변경",
   radial_menu_sound_title: "메뉴 소리",
@@ -5697,6 +5722,9 @@ const ar = {
 // Empty translation stubs for additional languages — i18next fallbackLng: "tr"
 // automatically falls back to Turkish for any missing keys.
 const bg = {
+  pc_import_excel: "Импортиране от Excel",
+  pc_import_desc: "Редактирайте експортирания Excel файл и го качите, като използвате същия шаблон. Всяка страница (събитие) съответства на съществуващото име; таблиците се презаписват изцяло. Автоматично се създава резервно копие (което може да бъде възстановено от „История“).",
+  pc_import_updated: "Актуализирано",
   bc_b_mudur_ofisi: "Кабинет на директора",
   alliance_rename_placeholder: "Име на новия съюз",
   alliance_rename_tooltip: "Промяна на името на съюза",
@@ -5849,6 +5877,9 @@ const bg = {
   poll_tg_voters_header: "Гласуващите в Telegram",
 };
 const cs = {
+  pc_import_excel: "Import z Excelu",
+  pc_import_desc: "Upravte exportovaný soubor Excel a nahrajte jej pomocí stejné šablony. Každá stránka (událost) odpovídá stávajícímu názvu; tabulky se přepíší od začátku. Automaticky se vytvoří záloha (lze ji obnovit z historie).",
+  pc_import_updated: "Aktualizováno",
   bc_b_mudur_ofisi: "Kancelář ředitele",
   alliance_rename_placeholder: "Název nové koalice",
   alliance_rename_tooltip: "Aliance změnila název",
@@ -6012,6 +6043,9 @@ const cs = {
   poll_loading: "Načítá se…",
 };
 const da = {
+  pc_import_excel: "Importer fra Excel",
+  pc_import_desc: "Rediger den eksporterede Excel-fil, og upload den igen med den samme skabelon. Hver side (begivenhed) svarer til det eksisterende navn; tabellerne genopbygges fra bunden. Der tages automatisk en sikkerhedskopi (kan gendannes fra Historik).",
+  pc_import_updated: "Opdateret",
   bc_b_mudur_ofisi: "Direktørens kontor",
   alliance_rename_placeholder: "Navnet på den nye alliance",
   alliance_rename_tooltip: "Alliancen skifter navn",
@@ -6162,6 +6196,9 @@ const da = {
   poll_loading: "Indlæser…",
 };
 const el = {
+  pc_import_excel: "Εισαγωγή από το Excel",
+  pc_import_desc: "Επεξεργαστείτε το αρχείο Excel που εξαγάγατε και φορτώστε το χρησιμοποιώντας το ίδιο πρότυπο. Κάθε σελίδα (δραστηριότητα) αντιστοιχεί στο υπάρχον όνομα· οι πίνακες αναδημιουργούνται από την αρχή. Δημιουργείται αυτόματα αντίγραφο ασφαλείας (μπορεί να επαναφερθεί από το «Ιστορικό»).",
+  pc_import_updated: "Ενημερωμένο",
   bc_b_mudur_ofisi: "Γραφείο Διευθυντή",
   alliance_rename_placeholder: "Το όνομα της νέας συμμαχίας",
   alliance_rename_tooltip: "Αλλαγή ονόματος της συμμαχίας",
@@ -6308,6 +6345,9 @@ const el = {
   ev_bulk_breakdown_hide_tip: "Απόκρυψη του πλαισίου λεπτομερειών των επιλεγμένων δραστηριοτήτων (το σύνολο της ομάδας διατηρείται)",
 };
 const et = {
+  pc_import_excel: "Excelist importimine",
+  pc_import_desc: "Redigeerige eksporditud Excel-faili ja laadige see sama malliga üles. Iga leht (üritus) vastab olemasolevale nimele; tabelid kirjutatakse uuesti nullist. Varukoopia luuakse automaatselt (seda saab taastada ajaloost).",
+  pc_import_updated: "Uuendatud",
   bc_b_mudur_ofisi: "Direktori kabinet",
   alliance_rename_placeholder: "Uue liidu nimi",
   alliance_rename_tooltip: "Liit muudab oma nime",
@@ -6458,6 +6498,9 @@ const et = {
   poll_loading: "Laaditakse…",
 };
 const fi = {
+  pc_import_excel: "Tuo Excelistä",
+  pc_import_desc: "Muokkaa vientiäsi Excelissä ja lataa se takaisin samalla mallipohjalla. Jokainen sivu (tapahtuma) vastaa nykyistä nimeä; taulukot kirjoitetaan kokonaan uudelleen. Varmuuskopio otetaan automaattisesti (voidaan palauttaa Historiasta).",
+  pc_import_updated: "Päivitetty",
   bc_b_mudur_ofisi: "Johtajan toimisto",
   alliance_rename_placeholder: "Uuden liittouman nimi",
   alliance_rename_tooltip: "Liitto vaihtaa nimensä",
@@ -6611,6 +6654,9 @@ const fi = {
   poll_loading: "Ladataan…",
 };
 const hu = {
+  pc_import_excel: "Excel-import",
+  pc_import_desc: "Szerkessze az exportált Excel-fájlt, majd töltse fel ugyanazzal a sablonnal. Minden oldal (esemény) a meglévő nevével egyezik; a táblázatok teljesen újraíródnak. A rendszer automatikusan biztonsági másolatot készít (amelyet a „Előzmények” menüpontból vissza lehet állítani).",
+  pc_import_updated: "Frissítve",
   bc_b_mudur_ofisi: "Igazgatói iroda",
   alliance_rename_placeholder: "Az új szövetség neve",
   alliance_rename_tooltip: "A szövetség nevének megváltoztatása",
@@ -6768,6 +6814,9 @@ const hu = {
   poll_tg_details_hide: "TG: a szavazási adatok elrejtése",
 };
 const id_ = {
+  pc_import_excel: "Impor dari Excel",
+  pc_import_desc: "Edit file Excel yang telah Anda ekspor, lalu unggah kembali menggunakan templat yang sama. Setiap halaman (acara) akan sesuai dengan nama yang ada; tabel akan ditulis ulang dari awal. Cadangan akan dibuat secara otomatis (dapat dipulihkan dari Riwayat).",
+  pc_import_updated: "Yang telah diperbarui",
   bc_b_mudur_ofisi: "Kantor Direktur",
   alliance_rename_placeholder: "Nama aliansi baru",
   alliance_rename_tooltip: "Aliansi mengubah namanya",
@@ -6927,6 +6976,9 @@ const id_ = {
   poll_loading: "Sedang dimuat…",
 };
 const it = {
+  pc_import_excel: "Importa da Excel",
+  pc_import_desc: "Modifica il file Excel esportato e caricalo utilizzando lo stesso modello. Ogni pagina (evento) corrisponde al nome esistente; le tabelle vengono riscritte da zero. Viene creato automaticamente un backup (che può essere ripristinato dalla Cronologia).",
+  pc_import_updated: "Aggiornato",
   bc_b_mudur_ofisi: "Ufficio del direttore",
   alliance_rename_placeholder: "Nome della nuova alleanza",
   alliance_rename_tooltip: "Cambia il nome dell'alleanza",
@@ -7077,6 +7129,9 @@ const it = {
   poll_loading: "Caricamento in corso…",
 };
 const ja = {
+  pc_import_excel: "Excelからインポート",
+  pc_import_desc: "エクスポートしたExcelファイルを編集し、同じテンプレートでアップロードしてください。各シート（イベント）は既存の名前と対応しており、表のデータは最初から書き直されます。バックアップは自動的に作成されます（「履歴」から復元可能です）。",
+  pc_import_updated: "更新された",
   bc_b_mudur_ofisi: "校長室",
   alliance_rename_placeholder: "新しい同盟の名称",
   alliance_rename_tooltip: "同盟の名称を変更する",
@@ -7236,6 +7291,9 @@ const ja = {
   poll_tg_details_show: "TGの投票詳細を表示する",
 };
 const lt = {
+  pc_import_excel: "Importuoti iš „Excel“",
+  pc_import_desc: "Redaguokite eksportuotą „Excel“ failą ir įkelkite jį naudodami tą patį šabloną. Kiekvienas lapas (renginys) atitinka esamą pavadinimą; lentelės perrašomos iš naujo. Automatiškai sukuriama atsarginė kopija (ją galima atkurti iš „Istorijos“).",
+  pc_import_updated: "Atnaujinta",
   bc_b_mudur_ofisi: "Direktoriaus biuras",
   alliance_rename_placeholder: "Naujos sąjungos pavadinimas",
   alliance_rename_tooltip: "Pakeisti aljanso pavadinimą",
@@ -7399,6 +7457,9 @@ const lt = {
   poll_loading: "Įkeliama…",
 };
 const lv = {
+  pc_import_excel: "Importēt no Excel",
+  pc_import_desc: "Rediģējiet eksportēto Excel failu un augšupielādējiet to, izmantojot to pašu veidni. Katra lapa (pasākums) atbilst esošajam nosaukumam; tabulas tiek pārrakstītas no jauna. Tiek automātiski izveidota rezerves kopija (to var atjaunot no vēstures).",
+  pc_import_updated: "Atjaunināts",
   bc_b_mudur_ofisi: "Direktora birojs",
   alliance_rename_placeholder: "Jaunās alianses nosaukums",
   alliance_rename_tooltip: "Aliansei mainīt nosaukumu",
@@ -7562,6 +7623,9 @@ const lv = {
   poll_loading: "Tiek ielādēts…",
 };
 const nb = {
+  pc_import_excel: "Importer fra Excel",
+  pc_import_desc: "Rediger Excel-filen du har eksportert, og last den opp med samme mal. Hver side (aktivitet) samsvarer med det eksisterende navnet; tabellene skrives på nytt fra bunnen av. Det tas automatisk en sikkerhetskopi (kan gjenopprettes fra «Historikk»).",
+  pc_import_updated: "Oppdatert",
   bc_b_mudur_ofisi: "Direktørens kontor",
   alliance_rename_placeholder: "Navnet på den nye alliansen",
   alliance_rename_tooltip: "Alliansen skifter navn",
@@ -7725,6 +7789,8 @@ const nb = {
   poll_loading: "Laster inn…",
 };
 const nl = {
+  pc_import_excel: "Excel importeren",
+  pc_import_desc: "Bewerk het geëxporteerde Excel-bestand en upload het met hetzelfde sjabloon. Elk blad (evenement) komt overeen met de bestaande naam; de tabellen worden helemaal opnieuw aangemaakt. Er wordt automatisch een back-up gemaakt (die via ‘Geschiedenis’ kan worden teruggezet).",
   bc_b_mudur_ofisi: "Directiekantoor",
   alliance_rename_placeholder: "De naam van de nieuwe alliantie",
   alliance_rename_tooltip: "De naam van de alliantie wijzigen",
@@ -7884,6 +7950,8 @@ const nl = {
   poll_loading: "Bezig met laden…",
 };
 const pl = {
+  pc_import_excel: "Import z programu Excel",
+  pc_import_desc: "Edytuj wyeksportowany plik Excel i załaduj go przy użyciu tego samego szablonu. Każda strona (wydarzenie) odpowiada istniejącej nazwie; tabele zostaną ponownie utworzone od podstaw. Automatycznie tworzona jest kopia zapasowa (można ją przywrócić z historii).",
   bc_b_mudur_ofisi: "Biuro dyrektora",
   alliance_rename_placeholder: "Nazwa nowego sojuszu",
   alliance_rename_tooltip: "Zmiana nazwy sojuszu",
@@ -8043,6 +8111,8 @@ const pl = {
   poll_loading: "Ładowanie…",
 };
 const pt = {
+  pc_import_excel: "Importar do Excel",
+  pc_import_desc: "Edite o ficheiro Excel que exportou e carregue-o utilizando o mesmo modelo. Cada página (evento) corresponde ao nome atual; as tabelas são reescritas do zero. É criada automaticamente uma cópia de segurança (que pode ser recuperada a partir do Histórico).",
   bc_b_mudur_ofisi: "Gabinete do Diretor",
   alliance_rename_placeholder: "Nome da nova aliança",
   alliance_rename_tooltip: "A aliança muda de nome",
@@ -8198,6 +8268,8 @@ const pt = {
   poll_loading: "Carregando…",
 };
 const ro = {
+  pc_import_excel: "Import din Excel",
+  pc_import_desc: "Editați fișierul Excel exportat și încărcați-l folosind același șablon. Fiecare pagină (eveniment) corespunde cu numele existent; tabelele sunt rescrise de la zero. Se realizează automat o copie de rezervă (care poate fi restaurată din Istoric).",
   bc_b_mudur_ofisi: "Biroul directorului",
   alliance_rename_placeholder: "Numele noii alianțe",
   alliance_rename_tooltip: "Schimbă numele alianței",
@@ -8357,6 +8429,8 @@ const ro = {
   poll_loading: "Se încarcă…",
 };
 const sk = {
+  pc_import_excel: "Import z Excelu",
+  pc_import_desc: "Upravte exportovaný súbor Excel a nahrajte ho pomocou tej istej šablóny. Každá stránka (udalosť) zodpovedá existujúcemu názvu; tabuľky sa prepíšu od začiatku. Automaticky sa vytvorí záloha (možno ju obnoviť z histórie).",
   bc_b_mudur_ofisi: "Kancelária riaditeľa",
   alliance_rename_placeholder: "Názov novej koalície",
   alliance_rename_tooltip: "Zmena názvu aliancie",
@@ -8516,6 +8590,8 @@ const sk = {
   poll_loading: "Načítava sa…",
 };
 const sl = {
+  pc_import_excel: "Uvoz iz Excelja",
+  pc_import_desc: "Uvozite Excelovo datoteko, ki ste jo izvozili, jo uredite in jo naložite z isto predlogo. Vsaka stran (dogodek) se ujema z obstoječim imenom; tabele se ponovno napišejo od začetka. Samodejno se ustvari varnostna kopija (ki jo je mogoče obnoviti iz zgodovine).",
   bc_b_mudur_ofisi: "Urad direktorja",
   alliance_rename_placeholder: "Ime nove koalicije",
   alliance_rename_tooltip: "Zavezništvo spremeni ime",
@@ -8675,6 +8751,8 @@ const sl = {
   poll_loading: "Nalaganje…",
 };
 const sv = {
+  pc_import_excel: "Importera från Excel",
+  pc_import_desc: "Redigera den Excel-fil du har exporterat och ladda upp den med samma mall. Varje sida (aktivitet) motsvarar det befintliga namnet; tabellerna skrivs om från grunden. En säkerhetskopia sparas automatiskt (kan återställas från Historik).",
   bc_b_mudur_ofisi: "Direktörens kontor",
   alliance_rename_placeholder: "Namnet på den nya alliansen",
   alliance_rename_tooltip: "Alliansen byter namn",
@@ -8794,6 +8872,8 @@ const sv = {
   vip_cat_faq: "Vanliga frågor",
 };
 const uk = {
+  pc_import_excel: "Імпортувати з Excel",
+  pc_import_desc: "Відредагуйте експортований файл Excel і завантажте його, використовуючи той самий шаблон. Кожна сторінка (подія) відповідає існуючій назві; таблиці створюються заново. Автоматично створюється резервна копія (її можна відновити з розділу «Історія»).",
   bc_b_mudur_ofisi: "Кабінет директора",
   alliance_rename_placeholder: "Назва нового альянсу",
   alliance_rename_tooltip: "Змінити назву альянсу",
@@ -8913,6 +8993,8 @@ const uk = {
   vip_cat_faq: "Часті запитання",
 };
 const zh = {
+  pc_import_excel: "导入Excel",
+  pc_import_desc: "请编辑您导出的Excel文件，然后使用相同的模板重新上传。每个页面（活动）都与现有名称对应；表格将从头重新生成。系统会自动备份（可从“历史记录”中恢复）。",
   bc_b_mudur_ofisi: "主任办公室",
   alliance_rename_placeholder: "新联盟名称",
   alliance_rename_tooltip: "更改联盟名称",

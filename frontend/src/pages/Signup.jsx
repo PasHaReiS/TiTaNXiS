@@ -30,6 +30,9 @@ export default function Signup() {
   // Açık Rıza distinction.
   const [ackNotice, setAckNotice] = useState(false);
   const [emailOptIn, setEmailOptIn] = useState(false);
+  // v121 — Terms of Service acknowledgment (REQUIRED to submit). Separate
+  // from the two KVKK checkboxes above so the user reads them one by one.
+  const [ackTerms, setAckTerms] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,10 +62,19 @@ export default function Signup() {
       toast.error("Kullanıcı adı ve en az 6 karakter şifre zorunlu");
       return;
     }
+    if (!ackTerms) {
+      toast.error("Devam etmek için Kullanım Şartları'nı kabul etmelisin");
+      return;
+    }
     setBusy(true);
     try {
       const { data } = await axios.post(`${API}/invites/consume`, {
-        token, username: username.trim().toLowerCase(), password,
+        token,
+        username: username.trim().toLowerCase(),
+        password,
+        // v121 — persist Terms acceptance timestamp for KVKK audit trail.
+        // ackNotice + emailOptIn stay client-side (informational per KVKK).
+        terms_accepted_at: new Date().toISOString(),
       });
       adoptSession(data.token, data.user);
       toast.success(`Hoşgeldin ${data.user.username}!`);
@@ -214,12 +226,45 @@ export default function Signup() {
                       <span style={{ color: "rgba(214,201,166,0.55)" }}>(Açık Rıza · İsteğe bağlı)</span>
                     </span>
                   </label>
+                  {/* v121 — Terms of Service acceptance (REQUIRED). Rendered
+                      distinctly (amber accent + solid border) so users see
+                      it's a gate, not an optional flag. */}
+                  <label
+                    className="flex items-start gap-2 cursor-pointer pt-2"
+                    style={{ borderTop: "1px solid rgba(245,166,35,0.20)" }}
+                    data-testid="signup-terms-ack-label"
+                  >
+                    <input
+                      type="checkbox"
+                      data-testid="signup-terms-ack"
+                      checked={ackTerms}
+                      onChange={(e) => setAckTerms(e.target.checked)}
+                      className="mt-0.5 flex-shrink-0 accent-amber-500"
+                      style={{ width: 12, height: 12 }}
+                      required
+                    />
+                    <span className="text-[10px] leading-snug" style={{ color: "#EAD8B0" }}>
+                      <Link
+                        to="/terms"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-bold underline"
+                        style={{ color: "#F5A623" }}
+                      >
+                        Kullanım Şartları
+                      </Link>
+                      'nı okudum ve kabul ediyorum.{" "}
+                      <span style={{ color: "#F87171", fontWeight: 700 }}>(Zorunlu)</span>
+                    </span>
+                  </label>
                 </div>
                 <button
                   data-testid="signup-submit"
                   type="submit"
-                  disabled={busy}
+                  disabled={busy || !ackTerms}
                   className="btn-gold w-full flex items-center justify-center gap-2 py-3"
+                  style={(busy || !ackTerms) ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
+                  title={!ackTerms ? "Devam etmek için Kullanım Şartları'nı kabul et" : undefined}
                 >
                   {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
                   {busy ? "Kayıt yapılıyor…" : "Katıl"}

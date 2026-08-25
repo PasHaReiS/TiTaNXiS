@@ -395,6 +395,65 @@ async def list_alliances():
     return sorted([n for n in names if n])
 
 
+# v121 — Bulk RSVP streak lookup for the Members page. Returns a
+# {member_id: streak} map for members whose linked app-user has a
+# consecutive "yes" streak >= threshold (default 5). Members without a
+# linked user, or with streak < threshold, are omitted so the frontend
+# can iterate `Object.entries` without filtering. `event_rsvps` joined
+# by user_id → users.member_ids gives us the fan-out.
+@api_router.get("/members/rsvp-streaks")
+async def members_rsvp_streaks(threshold: int = 5):
+    threshold = max(1, int(threshold))
+    # Pull only users with linked member_ids to keep the pipeline lean.
+    users = await db.users.find(
+        {"member_ids": {"$exists": True, "$ne": []}},
+        {"_id": 0, "id": 1, "member_ids": 1},
+    ).to_list(5000)
+    if not users:
+        return {}
+    user_ids = [u["id"] for u in users]
+    rsvps = await db.event_rsvps.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0, "user_id": 1, "event_id": 1, "status": 1},
+    ).to_list(50000)
+    if not rsvps:
+        return {}
+    ev_ids = list({r.get("event_id") for r in rsvps if r.get("event_id")})
+    events = await db.events.find(
+        {"id": {"$in": ev_ids}, "attendance_enabled": {"$ne": False}},
+        {"_id": 0, "id": 1, "date": 1},
+    ).to_list(5000)
+    ev_date = {e["id"]: e.get("date") for e in events if e.get("date")}
+    # Group RSVPs per user, sort by event date desc, count consecutive "yes".
+    per_user: Dict[str, List[dict]] = {}
+    for r in rsvps:
+        d = ev_date.get(r.get("event_id"))
+        if not d:
+            continue
+        per_user.setdefault(r["user_id"], []).append({"status": r.get("status"), "date": d})
+    streak_by_uid: Dict[str, int] = {}
+    for uid, rows in per_user.items():
+        rows.sort(key=lambda x: x["date"], reverse=True)
+        n = 0
+        for row in rows:
+            if row["status"] == "yes":
+                n += 1
+            else:
+                break
+        if n >= threshold:
+            streak_by_uid[uid] = n
+    # Fan out to member_ids so the frontend can index by member directly.
+    result: Dict[str, int] = {}
+    for u in users:
+        n = streak_by_uid.get(u["id"])
+        if not n:
+            continue
+        for mid in (u.get("member_ids") or []):
+            # If multiple linked users share a member (rare), keep the max.
+            result[mid] = max(result.get(mid, 0), n)
+    return result
+
+
 @api_router.get("/members/trend")
 async def members_trend(ids: str = Query(...), days: int = 7):
     """Return daily weighted-points totals for each requested member_id over the last N days.

@@ -88,6 +88,7 @@ function PCAdminActions({ kind, slot }) {
 }
 
 function ImportModal({ kind, onClose }) {
+  const { t } = useTranslation();
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
@@ -102,7 +103,7 @@ function ImportModal({ kind, onClose }) {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setResult(res.data);
-      toast.success(`${res.data.updated} etkinlik güncellendi`);
+      toast.success(t("pc_import_events_updated", { count: res.data.updated }));
       globalMutate(`/point-calc?kind=${kind}`);
     } catch (e) {
       toast.error(e?.response?.data?.detail || e.message);
@@ -127,10 +128,10 @@ function ImportModal({ kind, onClose }) {
         </button>
         <h3 className="text-lg font-bold mb-3 uppercase flex items-center gap-2"
           style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}>
-          <Upload className="w-4 h-4" style={{ color: "#F59E0B" }} /> Excel İçe Aktar
+          <Upload className="w-4 h-4" style={{ color: "#F59E0B" }} /> {t("pc_import_excel")}
         </h3>
         <p className="text-[11px] mb-3" style={{ color: "#F5F0E8", opacity: 0.7 }}>
-          Dışa aktardığınız Excel'i düzenleyip aynı şablonla yükleyin. Her sayfa (etkinlik) mevcut isimle eşleşir; tablolar sıfırdan yeniden yazılır. Yedek otomatik alınır (Geçmiş'ten geri yüklenebilir).
+          {t("pc_import_desc")}
         </p>
         <input
           type="file"
@@ -144,8 +145,8 @@ function ImportModal({ kind, onClose }) {
           <div className="mb-3 p-2 rounded text-[11px]"
             style={{ background: "rgba(20,12,10,0.7)", border: "1px solid rgba(245,158,11,0.4)", color: "#F5F0E8" }}
             data-testid="pc-import-result">
-            <div><b>Güncellenen:</b> {result.updated}</div>
-            <div><b>Atlanan:</b> {result.skipped}</div>
+            <div><b>{t("pc_import_updated")}:</b> {result.updated}</div>
+            <div><b>{t("pc_import_skipped")}:</b> {result.skipped}</div>
             {result.errors && result.errors.length > 0 && (
               <ul className="mt-1 list-disc pl-4 opacity-80">
                 {result.errors.slice(0, 5).map((e, i) => <li key={i}>{e}</li>)}
@@ -161,7 +162,7 @@ function ImportModal({ kind, onClose }) {
           className="w-full py-2.5 rounded-lg font-bold flex items-center justify-center gap-2"
           style={{ background: "linear-gradient(135deg,#B45309,#F59E0B)", color: "#0B0704", opacity: (busy || !file) ? 0.6 : 1 }}
         >
-          <Upload className="w-4 h-4" /> {busy ? "Yükleniyor..." : "Yükle"}
+          <Upload className="w-4 h-4" /> {busy ? t("pc_import_uploading") : t("pc_import_upload")}
         </button>
       </div>
     </div>
