@@ -329,6 +329,74 @@ def make_auth_router(db):
         )
         return {"ok": True}
 
+    # v120 — RSVP consecutive-yes streak for the current user. Powers the
+    # "🔥 5 Etkinlik Serisi" badge on the profile page. Only events with
+    # `attendance_enabled` are counted; ties are broken by event date desc
+    # so the newest RSVP anchors the streak. A "no" or "maybe" resets the
+    # count. If the user has never RSVP'd, streak = 0.
+    @router.get("/auth/me/rsvp-streak")
+    async def rsvp_streak_me(user: dict = Depends(require_auth)):
+        rsvps = await db.event_rsvps.find(
+            {"user_id": user["id"]},
+            {"_id": 0, "event_id": 1, "status": 1},
+        ).to_list(2000)
+        if not rsvps:
+            return {"streak": 0, "has_badge": False, "threshold": 5}
+        ev_ids = list({r["event_id"] for r in rsvps if r.get("event_id")})
+        events = await db.events.find(
+            {"id": {"$in": ev_ids}, "attendance_enabled": {"$ne": False}},
+            {"_id": 0, "id": 1, "date": 1},
+        ).to_list(2000)
+        by_ev = {e["id"]: e for e in events}
+        rows = []
+        for r in rsvps:
+            ev = by_ev.get(r.get("event_id"))
+            if not ev or not ev.get("date"):
+                continue
+            rows.append({"status": r.get("status"), "date": ev["date"]})
+        rows.sort(key=lambda x: x["date"], reverse=True)
+        streak = 0
+        for r in rows:
+            if r["status"] == "yes":
+                streak += 1
+            else:
+                break
+        return {"streak": streak, "has_badge": streak >= 5, "threshold": 5}
+
+    # v120 — KVKK "silme hakkı" — user-initiated hard delete of their own
+    # account. Requires password confirmation as a safety gate (matches the
+    # change-password contract). Wipes: users doc, event_rsvps, sessions,
+    # push_subscriptions, telegram_links, notifications. Guild-side member
+    # docs (leaderboard rows) are NOT removed — those belong to the guild,
+    # not the login. Admins CANNOT delete themselves via this route to
+    # avoid locking the loncayı out.
+    @router.delete("/auth/me")
+    async def delete_me(body: dict, user: dict = Depends(require_auth)):
+        password = (body or {}).get("password") or ""
+        if not verify_password(password, user["password_hash"]):
+            raise HTTPException(400, "Mevcut şifre hatalı")
+        if user.get("role") == "admin":
+            # Guard: last-admin lockout prevention. If this is the ONLY
+            # admin, refuse and ask them to hand over the role first.
+            other_admins = await db.users.count_documents(
+                {"role": "admin", "id": {"$ne": user["id"]}}
+            )
+            if other_admins == 0:
+                raise HTTPException(
+                    400,
+                    "Son admin hesabı kendisini silemez. Önce başka bir admin atayın.",
+                )
+        uid = user["id"]
+        # Cascade delete across per-user collections. Order matters only for
+        # observability — each op is independent and idempotent.
+        await db.event_rsvps.delete_many({"user_id": uid})
+        await db.sessions.delete_many({"user_id": uid})
+        await db.push_subscriptions.delete_many({"user_id": uid})
+        await db.telegram_links.delete_many({"user_id": uid})
+        await db.notifications.delete_many({"user_id": uid})
+        await db.users.delete_one({"id": uid})
+        return {"ok": True, "deleted_user_id": uid}
+
     # ---------- Per-user manual event drag-drop order ----------
     # Stores the drag-drop reorder from the Etkinlikler page in a per-user
     # dict so a reorder done on desktop lives on the phone too. Bucket keys

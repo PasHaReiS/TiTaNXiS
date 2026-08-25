@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
 import TelegramLinkSection from "@/components/TelegramLinkSection";
 import { Switch } from "@/components/ui/switch";
-import { KeyRound, Shield, User, LogOut, AlertTriangle, Link2, Bell, BellOff, Volume2, VolumeX, X as XIcon, Plus, Trophy, Zap, Castle, Crown, Medal, GitCompare } from "lucide-react";
+import { KeyRound, Shield, User, LogOut, AlertTriangle, Link2, Bell, BellOff, Volume2, VolumeX, X as XIcon, Plus, Trophy, Zap, Castle, Crown, Medal, GitCompare, Flame, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -24,6 +24,13 @@ export default function Profile() {
   const [linkOpen, setLinkOpen] = useState(false);
   const [notifBusy, setNotifBusy] = useState(false);
   const [removingId, setRemovingId] = useState(null);
+  // v120 — Delete-account modal state (password confirm + irreversibility ack).
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [delPwd, setDelPwd] = useState("");
+  const [delAck, setDelAck] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  // v120 — Fetch user's RSVP consecutive-yes streak for the 🔥 badge.
+  const { data: streakData } = useSWR("/auth/me/rsvp-streak", fetcher, { refreshInterval: 60000 });
   // Radial menu whoosh sound preference (persisted per browser)
   const [radialMuted, setRadialMuted] = useState(
     () => (typeof window !== "undefined" && localStorage.getItem("ol_radial_mute") === "1")
@@ -101,6 +108,27 @@ export default function Profile() {
     finally { setSaving(false); }
   };
 
+  // v120 — Hard-delete the current account after password confirmation.
+  // The backend cascades RSVPs, sessions, push subs, telegram links, and
+  // notifications; guild-side member docs stay put.
+  const deleteAccount = async () => {
+    if (!delAck) { toast.error("Onay kutusunu işaretlemelisin"); return; }
+    if (!delPwd) { toast.error("Şifren gerekli"); return; }
+    setDeletingAccount(true);
+    try {
+      await api.delete("/auth/me", { data: { password: delPwd } });
+      toast.success("Hesabın kalıcı olarak silindi");
+      // Cascade UI: logout + redirect to home. AuthContext.logout() clears
+      // the local JWT so subsequent SWR calls will 401 → landing page.
+      logout();
+      nav("/", { replace: true });
+    } catch (err) {
+      toast.error(apiErr(err));
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
   return (
     <div data-testid="profile-page">
       <Header title={t("my_profile")} />
@@ -121,6 +149,25 @@ export default function Profile() {
                 )}
                 {user.role !== "admin" && user.can_edit && (
                   <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/25 text-green-300 border border-green-500/40 font-bold">{t("can_edit_upper")}</span>
+                )}
+                {/* v120 — RSVP streak badge. Only renders when streak >= 5
+                    (threshold from backend). Fiery orange glow so it reads
+                    as an earned achievement, not a system chip. */}
+                {streakData && streakData.has_badge && (
+                  <span
+                    data-testid="profile-rsvp-streak-badge"
+                    className="text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1"
+                    title={`Üst üste ${streakData.streak} etkinliğe Evet dedin`}
+                    style={{
+                      background: "linear-gradient(135deg, rgba(245,166,35,0.35), rgba(231,76,26,0.35))",
+                      color: "#FFF7ED",
+                      border: "1px solid rgba(245,166,35,0.7)",
+                      boxShadow: "0 0 8px rgba(245,166,35,0.55)",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    <Flame className="w-2.5 h-2.5" style={{ color: "#FFB347" }} /> {streakData.streak} ETKİNLİK SERİSİ
+                  </span>
                 )}
               </div>
             </div>
@@ -448,6 +495,118 @@ export default function Profile() {
           <LogOut className="w-4 h-4" />
           {t("logout")}
         </button>
+
+        {/* v120 — Delete-account (KVKK "silme hakkı"). Renders below logout
+            in a discrete danger zone; opens a confirm modal so a stray tap
+            can't nuke the user's data. */}
+        <div
+          className="mt-6 rounded-lg p-3"
+          data-testid="profile-danger-zone"
+          style={{
+            background: "rgba(239,68,68,0.05)",
+            border: "1px dashed rgba(239,68,68,0.35)",
+          }}
+        >
+          <div className="text-[10px] uppercase tracking-widest font-bold mb-1 flex items-center gap-1.5" style={{ color: "#FCA5A5" }}>
+            <AlertTriangle className="w-3 h-3" /> Tehlikeli Bölge
+          </div>
+          <div className="text-[11px] text-muted-foreground mb-2 leading-snug">
+            Hesabını sildiğinde tüm RSVP kayıtların, oturumların, push abonelikleri ve Telegram bağlantıların kalıcı olarak silinir. Lonca üye kaydın (skorlar, ittifak) yerinde kalır.
+          </div>
+          <button
+            type="button"
+            data-testid="profile-delete-account-open"
+            onClick={() => { setShowDeleteAccount(true); setDelPwd(""); setDelAck(false); }}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-md text-xs font-bold uppercase tracking-widest"
+            style={{
+              background: "rgba(239,68,68,0.15)",
+              color: "#FCA5A5",
+              border: "1px solid rgba(239,68,68,0.5)",
+            }}
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Hesabımı Sil
+          </button>
+        </div>
+
+        {showDeleteAccount && (
+          <div
+            className="fixed inset-0 z-[9998] flex items-center justify-center p-4"
+            onClick={() => !deletingAccount && setShowDeleteAccount(false)}
+            style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+            data-testid="delete-account-modal-backdrop"
+          >
+            <div
+              className="w-full max-w-sm card-red-gold p-5 space-y-3"
+              onClick={(e) => e.stopPropagation()}
+              data-testid="delete-account-modal"
+            >
+              <div className="flex items-center gap-2">
+                <Trash2 className="w-5 h-5" style={{ color: "#F87171" }} />
+                <h2 className="font-bold uppercase tracking-widest text-sm" style={{ fontFamily: "Cinzel, serif", color: "#FCA5A5" }}>
+                  Hesabı Kalıcı Sil
+                </h2>
+              </div>
+              <div className="text-xs text-white leading-relaxed">
+                Bu işlem <b>geri alınamaz</b>. Devam etmek için şifreni gir ve onay kutusunu işaretle.
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">Şifren</label>
+                <input
+                  data-testid="delete-account-password"
+                  type="password"
+                  value={delPwd}
+                  onChange={(e) => setDelPwd(e.target.value)}
+                  disabled={deletingAccount}
+                  autoFocus
+                  className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-red-400"
+                />
+              </div>
+              <label className="flex items-start gap-2 cursor-pointer" data-testid="delete-account-ack-label">
+                <input
+                  type="checkbox"
+                  data-testid="delete-account-ack"
+                  checked={delAck}
+                  onChange={(e) => setDelAck(e.target.checked)}
+                  disabled={deletingAccount}
+                  className="mt-0.5 flex-shrink-0 accent-red-500"
+                  style={{ width: 13, height: 13 }}
+                />
+                <span className="text-[11px] leading-snug text-white">
+                  Verilerimin kalıcı olarak silineceğini ve bu işlemin geri alınamayacağını anladım.
+                </span>
+              </label>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  data-testid="delete-account-cancel"
+                  onClick={() => setShowDeleteAccount(false)}
+                  disabled={deletingAccount}
+                  className="flex-1 py-2 rounded-md text-xs font-bold uppercase tracking-widest"
+                  style={{ background: "rgba(148,163,184,0.15)", color: "#CBD5E1", border: "1px solid rgba(148,163,184,0.35)" }}
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="button"
+                  data-testid="delete-account-confirm"
+                  onClick={deleteAccount}
+                  disabled={deletingAccount || !delAck || !delPwd}
+                  className="flex-1 py-2 rounded-md text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-1.5"
+                  style={{
+                    background: (deletingAccount || !delAck || !delPwd) ? "rgba(239,68,68,0.25)" : "linear-gradient(135deg, #DC2626, #991B1B)",
+                    color: "#FEF2F2",
+                    border: "1px solid rgba(239,68,68,0.6)",
+                    opacity: (deletingAccount || !delAck || !delPwd) ? 0.6 : 1,
+                    cursor: (deletingAccount || !delAck || !delPwd) ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <Trash2 className="w-3 h-3" />
+                  {deletingAccount ? "Siliniyor…" : "Kalıcı Sil"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <LinkMemberDialog

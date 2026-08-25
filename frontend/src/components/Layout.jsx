@@ -82,6 +82,19 @@ export default function Layout({ children }) {
           >
             Privacy Policy
           </Link>
+          <span style={{ margin: "0 8px", opacity: 0.4 }}>·</span>
+          <Link
+            to="/terms"
+            data-testid="footer-terms-link"
+            style={{
+              color: "rgba(245,166,35,0.75)",
+              textDecoration: "none",
+              borderBottom: "1px dotted rgba(245,166,35,0.35)",
+              paddingBottom: 1,
+            }}
+          >
+            Terms
+          </Link>
         </footer>
         <MusicButton />
         <PwaInstallPrompt />

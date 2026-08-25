@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 25, 2026 (v120)** — Terms Sayfası + RSVP Streak Rozeti + Hesap Silme (KVKK):
+  - **Terms Sayfası** (`Terms.jsx` yeni, `/terms` public route): 9 bölüm (Acceptance, Eligibility, Acceptable Use, User Content, Suspension, Warranty, Liability, Changes, Contact). Privacy ile aynı stone tema. `App.js`'e route eklendi, `Layout.jsx` footer'a "Terms" linki eklendi.
+  - **RSVP Streak Rozeti** (backend `GET /api/auth/me/rsvp-streak`): Kullanıcının event_rsvps kayıtlarını tarihe göre desc sıralayıp en yeniden geriye "yes" streak sayıyor. Response: `{streak, has_badge, threshold=5}`. Frontend `Profile.jsx` — user meta chip'lerinin yanına `🔥 N ETKİNLİK SERİSİ` rozeti (amber/red gradient, glow). `has_badge=true` (streak≥5) durumunda gösterilir.
+  - **Hesap Silme (KVKK Silme Hakkı)** (backend `DELETE /api/auth/me`): Password confirm gerektirir. Cascade: `event_rsvps`, `sessions`, `push_subscriptions`, `telegram_links`, `notifications` + `users` doc. Guild-side member kaydı korunur. Son-admin guard: yalnızca 1 admin varsa `400` döner. Frontend Profile'a Danger Zone kartı + modal (şifre + ack checkbox + "Kalıcı Sil" butonu) eklendi. Silme sonrası logout + `/` redirect.
+  - Test: `/auth/me/rsvp-streak` admin için `streak:2, has_badge:false`. `DELETE /auth/me` yanlış şifreyle 400 "Mevcut şifre hatalı". Doğru şifreyle 200 ok+cascade (verified — admin re-seed edildi).
 - **Feb 25, 2026 (v119)** — Cookie Banner + KVKK Consent + Map Removal:
   - **CookieBanner.jsx** (yeni): App-wide çerez uyarı banner'ı. Fixed bottom, koyu taş temada (amber gradient). "Kabul Et" tıklanınca `localStorage.ol_cookie_ack=1` set edilir, banner bir daha görünmez. `<Link to="/privacy">Gizlilik Politikası</Link>` içerir. `Layout.jsx`'e mount edildi (tüm route'larda görünür).
   - **Dashboard.jsx**: `MemberLocationMap` import ve `{key:"map"}` grid entry'si kaldırıldı. `MemberLocationMap.jsx` dosyası tamamen silindi.
