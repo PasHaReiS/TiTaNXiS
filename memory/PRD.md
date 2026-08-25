@@ -21,6 +21,10 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 24, 2026 (v115)** — Privacy Policy Sayfası (Telegram Bot):
+  - Yeni public route `/privacy` — auth gerekmez, BotFather bot profilinden linklenebilir.
+  - `Privacy.jsx`: dark stone tema (radial red/purple bg + amber card), Cinzel typography, TN shield badge, 4 numbered section (Data Collected / Usage / Retention / Contact), titanxis.com iletişim linki + Home geri buton.
+  - Screenshot doğruladı: title/updated/4 section/contact-link tümü render.
 - **Feb 24, 2026 (v114)** — Regression Sweep + Müdür Ofisi Maliyetleri:
   - **Regression scan** (Python AST-lite): Sadece `HealthScoreDetailModal` (Members.jsx:1984) `t()` çağırıyordu ama `useTranslation` hook'u eksikti — düzeltildi.
   - **Müdür Ofisi maliyetleri**: `PUT /api/unit-costs/bina_mudur_ofisi_{Fx}_a{n}` ile F6-F10 × A1-A5 = 25 kombinasyon dolduruldu (yemek/odun/çelik/benzin/forticlad/gelişmiş forticlad/süre_saniye). F6 base 50K yemek → F10 A5 8.1M yemek scaling; stage multiplier 1.0/1.5/2.2/3.2/4.5.

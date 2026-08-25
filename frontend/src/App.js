@@ -37,6 +37,7 @@ import Reports from "@/pages/Reports";
 import Polls from "@/pages/Polls";
 import Signup from "@/pages/Signup";
 import SvSTracker from "@/pages/SvSTracker";
+import Privacy from "@/pages/Privacy";
 import PushSoundListener from "@/components/PushSoundListener";
 import MotionPage from "@/components/MotionPage";
 
@@ -162,6 +163,7 @@ export default function App() {
           <Routes>
             <Route path="/public/puan-hesaplama/:id" element={<PublicPointCalcPage />} />
             <Route path="/public/folder/:folderId" element={<PublicFolderLeaderboard />} />
+            <Route path="/privacy" element={<Privacy />} />
             <Route path="*" element={<AppShell />} />
           </Routes>
           <PushSoundListener />
