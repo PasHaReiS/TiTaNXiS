@@ -294,6 +294,8 @@ export default function Events() {
   };
   const clearSelection = () => setSelectedIds(new Set());
   const [showForm, setShowForm] = useState(false);
+  // v132 — Bireysel Etkinlik modal state (separate quick-add form).
+  const [showBireyselForm, setShowBireyselForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [detailId, setDetailId] = useState(null);
   // v124 — Event chat drawer state. Stores the event id whose chat is open.
@@ -1052,6 +1054,15 @@ export default function Events() {
               <Camera className="w-3.5 h-3.5" /> OCR
             </button>
             <button
+              data-testid="events-bireysel-add-btn"
+              onClick={() => { setShowBireyselForm(true); }}
+              className="btn-gold flex items-center gap-1.5 text-xs"
+              title="Bireysel Etkinlik Oluştur"
+              style={{ background: "linear-gradient(135deg,#8B5CF6,#5B21B6)", borderColor: "#A78BFA" }}
+            >
+              <User className="w-4 h-4" /> Bireysel
+            </button>
+            <button
               data-testid={EVENTS.addBtn}
               onClick={() => { setEditing(null); setShowForm(true); }}
               className="btn-gold flex items-center gap-1.5 text-xs"
@@ -1687,6 +1698,9 @@ export default function Events() {
 
       {showForm && (
         <EventForm initial={editing} onClose={() => { setShowForm(false); setEditing(null); }} />
+      )}
+      {showBireyselForm && (
+        <BireyselEventForm onClose={() => setShowBireyselForm(false)} />
       )}
       {showFolderMgr && (
         <EventFolderManager
@@ -2356,32 +2370,26 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
   const [hiddenFromLb, setHiddenFromLb] = useState(
     initial ? !!initial.hidden_from_leaderboard : false,
   );
-  const [showBreakdown, setShowBreakdown] = useState(
-    initial ? initial.show_breakdown !== false : true,
-  );
-  const [showInCalendar, setShowInCalendar] = useState(
-    initial ? initial.show_in_calendar !== false : true,
-  );
   const [attendanceEnabled, setAttendanceEnabled] = useState(
     initial ? initial.attendance_enabled !== false : true,
-  );
-  // v122 — Sadıklar (Loyalty) config. Threshold input is only meaningful
-  // when the checkbox is ticked; a 0/blank threshold is treated as "off".
-  const [loyaltyEnabled, setLoyaltyEnabled] = useState(
-    initial ? !!initial.loyalty_enabled : false,
-  );
-  const [loyaltyThreshold, setLoyaltyThreshold] = useState(
-    initial && initial.loyalty_threshold ? String(initial.loyalty_threshold) : "",
   );
   // v129 — Auto-archive knobs on the event form.
   const [autoArchive, setAutoArchive] = useState(!!(initial && initial.auto_archive));
   const [autoArchiveFolderId, setAutoArchiveFolderId] = useState(
     (initial && initial.auto_archive_folder_id) || "",
   );
+  // v132 — Minimum Puan Eşiği accordion. Stores optional per-alliance
+  // (`alliance_thresholds`) and per-member (`member_thresholds`) point
+  // floors that admins can quick-fill via [50M] / [150M] chips or key in
+  // manually. Persisted on the Event doc.
+  const [thresholdOpen, setThresholdOpen] = useState(false);
+  const [allianceThresholds, setAllianceThresholds] = useState(
+    (initial && Array.isArray(initial.alliance_thresholds)) ? initial.alliance_thresholds : [],
+  );
+  const [memberThresholds, setMemberThresholds] = useState(
+    (initial && Array.isArray(initial.member_thresholds)) ? initial.member_thresholds : [],
+  );
   const { data: formFolders = [] } = useSWR("/event-folders", fetcher, { refreshInterval: 30000 });
-  // v54 — Alliance scope: which alliance may RSVP + receive push reminders.
-  // Backend defaults to "GOW"; keep that as the client-side default too so
-  // new events target our home alliance out of the box.
   const [allianceScope, setAllianceScope] = useState(
     (initial?.alliance_scope || "GOW").toString(),
   );
@@ -2422,14 +2430,17 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
         banner_url: banner[0]?.url || null,
         reminder_enabled: reminderEnabled,
         hidden_from_leaderboard: hiddenFromLb,
-        show_breakdown: showBreakdown,
-        show_in_calendar: showInCalendar,
         attendance_enabled: attendanceEnabled,
-        loyalty_enabled: loyaltyEnabled,
-        loyalty_threshold: loyaltyEnabled ? Math.max(0, parseInt(loyaltyThreshold, 10) || 0) : 0,
         auto_archive: autoArchive,
         auto_archive_folder_id: autoArchive ? (autoArchiveFolderId || null) : null,
-        alliance_scope: (allianceScope || "GOW").trim(),
+        alliance_scope: "GOW",
+        // v132 — Minimum Puan Eşiği — sadece dolu olanları gönder.
+        alliance_thresholds: (allianceThresholds || [])
+          .filter((r) => (r.alliance_name || "").trim() && (parseInt(r.threshold, 10) || 0) > 0)
+          .map((r) => ({ alliance_name: String(r.alliance_name).trim(), threshold: parseInt(r.threshold, 10) || 0 })),
+        member_thresholds: (memberThresholds || [])
+          .filter((r) => (r.member_id || "").trim() && (parseInt(r.threshold, 10) || 0) > 0)
+          .map((r) => ({ member_id: String(r.member_id).trim(), threshold: parseInt(r.threshold, 10) || 0 })),
         recurrence_interval: recurInterval,
         recurrence_count: Number(recurCount) || 1,
       };
@@ -2641,123 +2652,8 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Etkinlik Görseli</label>
         <ImageDropzone purpose="event" value={banner} onChange={setBanner} max={1} compact />
 
-        <div className="mt-4 rounded p-3" style={{ background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.30)" }} data-testid="event-form-reminder-toggle">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={reminderEnabled}
-              onChange={(e) => setReminderEnabled(e.target.checked)}
-              data-testid="event-form-reminder-checkbox"
-              className="cursor-pointer"
-            />
-            <span className="flex-1">
-              <span className="block text-sm font-bold text-white">
-                🔔 {t("event_form_reminder_label") || "Bu etkinlik için hatırlatma kurulabilir"}
-              </span>
-              <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
-                {reminderEnabled
-                  ? (t("event_form_reminder_hint_on") || "Etkinlik 'Hatırlatmalı' sekmesinde görünür — Bildirim Kur butonu aktif olur.")
-                  : (t("event_form_reminder_hint_off") || "Etkinlik 'Hatırlatmasız' sekmesine gider — sadece kayıt tutulur, hatırlatma önerilmez.")}
-              </span>
-            </span>
-          </label>
-        </div>
-
-        <div className="mt-3 rounded p-3" style={{ background: "rgba(245,166,35,0.06)", border: "1px solid rgba(245,166,35,0.30)" }} data-testid="event-form-visibility-toggle">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={!hiddenFromLb}
-              onChange={(e) => setHiddenFromLb(!e.target.checked)}
-              data-testid="event-form-visibility-checkbox"
-              className="cursor-pointer"
-            />
-            <span className="flex-1">
-              <span className="block text-sm font-bold text-white">
-                🏆 Sıralamada göster
-              </span>
-              <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
-                {hiddenFromLb
-                  ? "Bu etkinlik sıralamadan gizlenir — puan girilebilir ama toplama katılmaz."
-                  : "Bu etkinliğe eklenen puanlar Sıralama sayfasında toplama dahil edilir."}
-              </span>
-            </span>
-          </label>
-        </div>
-
-        <div className="mt-3 rounded p-3" style={{ background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.30)" }} data-testid="event-form-attendance-toggle">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={attendanceEnabled}
-              onChange={(e) => setAttendanceEnabled(e.target.checked)}
-              data-testid="event-form-attendance-checkbox"
-              className="cursor-pointer"
-            />
-            <span className="flex-1">
-              <span className="block text-sm font-bold text-white">
-                {attendanceEnabled ? "🟢 Katılımlı" : "🔒 Katılımsız"}
-              </span>
-              <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
-                {attendanceEnabled
-                  ? "Bu etkinlik Katılım Merkezi'nde görünür, katılım istatistikleri hesaplanır."
-                  : "Bu etkinlik Katılım Merkezi'nden gizlenir — sadece Etkinlikler sayfasında listelenir."}
-              </span>
-            </span>
-          </label>
-        </div>
-
-        {/* v122 — Sadıklar (Loyalty) toggle. When enabled, a threshold
-            input appears; members whose weighted points on this event
-            meet or exceed the threshold earn +1 loyalty point on the
-            🔥 Sadıklar leaderboard. */}
-        <div
-          className="mt-3 rounded p-3"
-          style={{ background: "rgba(245,166,35,0.08)", border: "1px solid rgba(245,166,35,0.4)" }}
-          data-testid="event-form-loyalty-toggle"
-        >
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={loyaltyEnabled}
-              onChange={(e) => setLoyaltyEnabled(e.target.checked)}
-              data-testid="event-form-loyalty-checkbox"
-              className="cursor-pointer"
-            />
-            <span className="flex-1">
-              <span className="block text-sm font-bold text-white">
-                🔥 Sadıklar için Puan Ver
-              </span>
-              <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
-                {loyaltyEnabled
-                  ? "Aşağıya girdiğin puana veya daha fazlasına ulaşan üyeler, bu etkinlik için 1 sadıklar puanı kazanır."
-                  : "İşaretle → sadıklar sıralaması için puan eşiği belirle."}
-              </span>
-            </span>
-          </label>
-          {loyaltyEnabled && (
-            <div className="mt-3 flex items-center gap-2" data-testid="event-form-loyalty-threshold-row">
-              <label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">Eşik Puan</label>
-              <input
-                data-testid="event-form-loyalty-threshold"
-                type="number"
-                min={0}
-                inputMode="numeric"
-                value={loyaltyThreshold}
-                onChange={(e) => setLoyaltyThreshold(e.target.value.replace(/[^0-9]/g, ""))}
-                placeholder="ör. 5000000"
-                className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono"
-                style={{ borderColor: "rgba(245,166,35,0.55)" }}
-              />
-              <span className="text-[10px] text-muted-foreground">puan</span>
-            </div>
-          )}
-        </div>
-
-        {/* v129 — Otomatik Arşiv toggle + klasör seçimi. Ticked=true iken
-            event tarihi geçince cron `auto_archive_sweep` bu etkinliği
-            `archived=true` yapar; klasör seçilmişse o klasöre taşır. */}
-        <div className="mt-3 rounded p-3" style={{ background: "rgba(148,163,184,0.06)", border: "1px solid rgba(148,163,184,0.35)" }} data-testid="event-form-auto-archive-toggle">
+        {/* v132 — Row 1: Otomatik Arşive Taşı (tek satır, full-width) */}
+        <div className="mt-4 rounded p-3" style={{ background: "rgba(148,163,184,0.06)", border: "1px solid rgba(148,163,184,0.35)" }} data-testid="event-form-auto-archive-toggle">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -2767,9 +2663,7 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
               className="cursor-pointer"
             />
             <span className="flex-1">
-              <span className="block text-sm font-bold text-white">
-                📦 Etkinlik sonrası otomatik arşive taşı
-              </span>
+              <span className="block text-sm font-bold text-white">📦 Otomatik Arşive Taşı</span>
               <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
                 {autoArchive
                   ? "Tarih geçince (ilk arşiv sweep'inde) etkinlik otomatik arşive gider — istersen belirli bir klasör seç."
@@ -2795,96 +2689,339 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
           )}
         </div>
 
-        {/* v54 — Alliance scope: gate RSVP to a specific alliance (defaults
-            to GOW). Hardcoded quick-picks + a "Diğer" free-text field so
-            admins can target any alliance name. */}
-        <div className="mt-3 rounded p-3" style={{ background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.30)" }} data-testid="event-form-alliance-scope-toggle">
-          <div className="text-sm font-bold text-white mb-1">🛡️ Katılım Ittifakı</div>
-          <div className="text-[10px] text-muted-foreground leading-snug mb-2">
-            Sadece seçili ittifaktaki üyeler bu etkinliğe RSVP verebilir ve katılım listesinde görünür.
+        {/* v132 — Row 2: [Hatırlatma kurulabilir] [Sıralamada göster] (2-col) */}
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded p-3" style={{ background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.30)" }} data-testid="event-form-reminder-toggle">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reminderEnabled}
+                onChange={(e) => setReminderEnabled(e.target.checked)}
+                data-testid="event-form-reminder-checkbox"
+                className="cursor-pointer mt-0.5"
+              />
+              <span className="block text-xs font-bold text-white leading-tight">🔔 Hatırlatma kurulabilir</span>
+            </label>
           </div>
-          <div className="flex flex-wrap gap-2" data-testid="event-form-alliance-scope-quicks">
-            {[
-              { key: "GOW", label: "🛡️ GOW" },
-              { key: "all", label: "🌍 Tümü" },
-            ].map((opt) => {
-              const active = allianceScope.toLowerCase() === opt.key.toLowerCase();
-              return (
+          <div className="rounded p-3" style={{ background: "rgba(245,166,35,0.06)", border: "1px solid rgba(245,166,35,0.30)" }} data-testid="event-form-visibility-toggle">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!hiddenFromLb}
+                onChange={(e) => setHiddenFromLb(!e.target.checked)}
+                data-testid="event-form-visibility-checkbox"
+                className="cursor-pointer mt-0.5"
+              />
+              <span className="block text-xs font-bold text-white leading-tight">🏆 Sıralamada göster</span>
+            </label>
+          </div>
+        </div>
+
+        {/* v132 — Row 3: [Katılımlı] [Etkinlik sonrası otomatik arşive taşı] (2-col; ikinci hücre yukarıdaki state'i mirror'lar) */}
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="rounded p-3" style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.30)" }} data-testid="event-form-attendance-toggle">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={attendanceEnabled}
+                onChange={(e) => setAttendanceEnabled(e.target.checked)}
+                data-testid="event-form-attendance-checkbox"
+                className="cursor-pointer mt-0.5"
+              />
+              <span className="block text-xs font-bold text-white leading-tight">
+                {attendanceEnabled ? "🟢 Katılımlı" : "🔒 Katılımsız"}
+              </span>
+            </label>
+          </div>
+          <div className="rounded p-3" style={{ background: "rgba(148,163,184,0.06)", border: "1px solid rgba(148,163,184,0.35)" }} data-testid="event-form-auto-archive-toggle-compact">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoArchive}
+                onChange={(e) => setAutoArchive(e.target.checked)}
+                data-testid="event-form-auto-archive-checkbox-compact"
+                className="cursor-pointer mt-0.5"
+              />
+              <span className="block text-[11px] font-bold text-white leading-tight">📦 Etkinlik sonrası otomatik arşive taşı</span>
+            </label>
+          </div>
+        </div>
+
+        {/* v132 — Minimum Puan Eşiği accordion. Group + per-member thresholds
+            persisted on Event doc. Quick-fill chips: 50M / 150M / Manuel. */}
+        <div className="mt-3 rounded" style={{ background: "rgba(245,166,35,0.06)", border: "1px solid rgba(245,166,35,0.35)" }}>
+          <button
+            type="button"
+            onClick={() => setThresholdOpen(!thresholdOpen)}
+            className="w-full flex items-center gap-2 p-3 text-left"
+            data-testid="event-form-threshold-accordion"
+          >
+            {thresholdOpen ? <ChevronDown className="w-4 h-4" style={{ color: "#F5A623" }} /> : <ChevronRight className="w-4 h-4" style={{ color: "#F5A623" }} />}
+            <span className="text-sm font-bold text-white flex-1">📊 Minimum Puan Eşiği</span>
+            {(allianceThresholds.length + memberThresholds.length) > 0 && (
+              <span className="chip text-[10px]" style={{ color: "#F5A623", borderColor: "rgba(245,166,35,0.55)" }}>
+                {allianceThresholds.length + memberThresholds.length} kural
+              </span>
+            )}
+          </button>
+          {thresholdOpen && (
+            <div className="p-3 pt-0 space-y-4" data-testid="event-form-threshold-panel">
+              {/* GRUP EŞİĞİ */}
+              <div>
+                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-2">GRUP EŞİĞİ</div>
+                {allianceThresholds.map((row, idx) => (
+                  <div key={idx} className="flex items-center gap-1.5 mb-1.5 flex-wrap" data-testid={`event-form-alliance-threshold-row-${idx}`}>
+                    <input
+                      value={row.alliance_name || ""}
+                      onChange={(e) => setAllianceThresholds(allianceThresholds.map((r, i) => i === idx ? { ...r, alliance_name: e.target.value } : r))}
+                      placeholder="İttifak"
+                      data-testid={`event-form-alliance-threshold-name-${idx}`}
+                      className="bg-background border border-border rounded-md px-2 py-1 text-xs text-white"
+                      style={{ minWidth: 80, flex: "1 1 80px" }}
+                    />
+                    <button type="button" onClick={() => setAllianceThresholds(allianceThresholds.map((r, i) => i === idx ? { ...r, threshold: 50_000_000 } : r))} className="chip text-[10px]" data-testid={`event-form-alliance-threshold-50m-${idx}`}>50M</button>
+                    <button type="button" onClick={() => setAllianceThresholds(allianceThresholds.map((r, i) => i === idx ? { ...r, threshold: 150_000_000 } : r))} className="chip text-[10px]" data-testid={`event-form-alliance-threshold-150m-${idx}`}>150M</button>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={row.threshold || ""}
+                      onChange={(e) => setAllianceThresholds(allianceThresholds.map((r, i) => i === idx ? { ...r, threshold: parseInt(e.target.value, 10) || 0 } : r))}
+                      placeholder="Manuel"
+                      data-testid={`event-form-alliance-threshold-manual-${idx}`}
+                      className="w-24 bg-background border border-border rounded-md px-2 py-1 text-xs text-white mono"
+                    />
+                    <button type="button" onClick={() => setAllianceThresholds(allianceThresholds.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-300 p-1" data-testid={`event-form-alliance-threshold-remove-${idx}`}>
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
                 <button
-                  key={opt.key}
                   type="button"
-                  data-testid={`event-form-alliance-scope-${opt.key}`}
-                  onClick={() => setAllianceScope(opt.key)}
-                  className="px-3 py-1 rounded text-[11px] font-bold"
-                  style={{
-                    background: active ? "linear-gradient(135deg,#0EA5E9,#0369A1)" : "rgba(0,0,0,0.35)",
-                    color: active ? "#F0F9FF" : "#94A3B8",
-                    border: `1px solid ${active ? "#38BDF8" : "rgba(148,163,184,0.35)"}`,
-                    letterSpacing: "0.06em",
-                  }}
+                  onClick={() => setAllianceThresholds([...allianceThresholds, { alliance_name: "GOW", threshold: 0 }])}
+                  className="chip text-[10px] mt-1"
+                  data-testid="event-form-alliance-threshold-add"
                 >
-                  {opt.label}
+                  <Plus className="w-3 h-3 inline mr-1" /> Grup Ekle
                 </button>
-              );
-            })}
-            <input
-              type="text"
-              value={/^(gow|all)$/i.test(allianceScope) ? "" : allianceScope}
-              onChange={(e) => setAllianceScope(e.target.value)}
-              placeholder={t("form_other_alliance")}
-              data-testid="event-form-alliance-scope-custom"
-              className="rounded px-2 py-1 text-[11px] flex-1 min-w-[100px]"
-              style={{ background: "#1A1210", border: "1px solid rgba(56,189,248,0.35)", color: "#F5F0E8" }}
-            />
-          </div>
-        </div>
+              </div>
 
-        <div className="mt-3 rounded p-3" style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.30)" }} data-testid="event-form-calendar-toggle">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showInCalendar}
-              onChange={(e) => setShowInCalendar(e.target.checked)}
-              data-testid="event-form-calendar-checkbox"
-              className="cursor-pointer"
-            />
-            <span className="flex-1">
-              <span className="block text-sm font-bold text-white">
-                📅 Takvimde Göster
-              </span>
-              <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
-                {showInCalendar
-                  ? "Bu etkinlik anasayfadaki etkinlik takviminde amber nokta olarak görünür."
-                  : "Bu etkinlik anasayfa takviminden gizlenir — sadece Etkinlikler sayfasında listelenir."}
-              </span>
-            </span>
-          </label>
-        </div>
-
-        <div className="mt-3 rounded p-3" style={{ background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.30)" }} data-testid="event-form-breakdown-toggle">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showBreakdown}
-              onChange={(e) => setShowBreakdown(e.target.checked)}
-              data-testid="event-form-breakdown-checkbox"
-              className="cursor-pointer"
-            />
-            <span className="flex-1">
-              <span className="block text-sm font-bold text-white">
-                {t("ev_show_breakdown_label")}
-              </span>
-              <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
-                {showBreakdown
-                  ? t("ev_show_breakdown_hint_on")
-                  : t("ev_show_breakdown_hint_off")}
-              </span>
-            </span>
-          </label>
+              {/* ÖZEL EŞİK */}
+              <div>
+                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-2">ÖZEL EŞİK</div>
+                {memberThresholds.map((row, idx) => (
+                  <div key={idx} className="flex items-center gap-1.5 mb-1.5 flex-wrap" data-testid={`event-form-member-threshold-row-${idx}`}>
+                    <input
+                      value={row.member_id || ""}
+                      onChange={(e) => setMemberThresholds(memberThresholds.map((r, i) => i === idx ? { ...r, member_id: e.target.value } : r))}
+                      placeholder="Üye ID / ad"
+                      data-testid={`event-form-member-threshold-name-${idx}`}
+                      className="bg-background border border-border rounded-md px-2 py-1 text-xs text-white"
+                      style={{ minWidth: 80, flex: "1 1 80px" }}
+                    />
+                    <button type="button" onClick={() => setMemberThresholds(memberThresholds.map((r, i) => i === idx ? { ...r, threshold: 50_000_000 } : r))} className="chip text-[10px]" data-testid={`event-form-member-threshold-50m-${idx}`}>50M</button>
+                    <button type="button" onClick={() => setMemberThresholds(memberThresholds.map((r, i) => i === idx ? { ...r, threshold: 150_000_000 } : r))} className="chip text-[10px]" data-testid={`event-form-member-threshold-150m-${idx}`}>150M</button>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={row.threshold || ""}
+                      onChange={(e) => setMemberThresholds(memberThresholds.map((r, i) => i === idx ? { ...r, threshold: parseInt(e.target.value, 10) || 0 } : r))}
+                      placeholder="Manuel"
+                      data-testid={`event-form-member-threshold-manual-${idx}`}
+                      className="w-24 bg-background border border-border rounded-md px-2 py-1 text-xs text-white mono"
+                    />
+                    <button type="button" onClick={() => setMemberThresholds(memberThresholds.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-300 p-1" data-testid={`event-form-member-threshold-remove-${idx}`}>
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setMemberThresholds([...memberThresholds, { member_id: "", threshold: 0 }])}
+                  className="chip text-[10px] mt-1"
+                  data-testid="event-form-member-threshold-add"
+                >
+                  <Plus className="w-3 h-3 inline mr-1" /> Kişi Ekle
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <button data-testid={EVENTS.formSubmit} type="submit" disabled={saving} className="btn-gold w-full mt-5">
           {saving ? t("saving") : initial ? t("update") : t("add_short")}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function BireyselEventForm({ onClose }) {
+  const [name, setName] = useState("");
+  const [date, setDate] = useState(
+    new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+  );
+  const [description, setDescription] = useState("");
+  const [showInLb, setShowInLb] = useState(true);
+  const [autoReport, setAutoReport] = useState(false);
+  const [channels, setChannels] = useState({ telegram: false, push: false, message: false });
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!name.trim()) { toast.error("Etkinlik adı gerekli"); return; }
+    setSaving(true);
+    try {
+      const selected = Object.keys(channels).filter((k) => channels[k]);
+      const body = {
+        name: name.trim(),
+        date: new Date(date).toISOString(),
+        subtitle: null,
+        description: description.trim() || null,
+        multiplier: 1,
+        group_name: "",           // ungrouped — individual events stand alone
+        banner_url: null,
+        hidden_from_leaderboard: !showInLb,
+        attendance_enabled: false,
+        reminder_enabled: false,
+        alliance_scope: "GOW",
+        auto_archive: false,
+        auto_report_top10: autoReport,
+        report_channels: autoReport ? selected : [],
+      };
+      await api.post("/events", body);
+      mutate((k) => typeof k === "string" && (k.startsWith("/events") || k.startsWith("/event-groups")));
+      mutate("/stats");
+      toast.success("Bireysel etkinlik oluşturuldu");
+      onClose();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4"
+      onClick={onClose}
+      data-testid="bireysel-event-modal"
+    >
+      <form
+        onSubmit={submit}
+        onClick={(e) => e.stopPropagation()}
+        className="card-red-gold w-full max-w-md p-5 fade-in relative"
+        style={{ maxHeight: "90vh", overflowY: "auto" }}
+        data-testid="bireysel-event-form"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 text-muted-foreground hover:text-white"
+          data-testid="bireysel-close-btn"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        <h3 className="text-lg font-bold uppercase gold-text mb-1 flex items-center gap-2">
+          <User className="w-4 h-4" style={{ color: "#A78BFA" }} /> Bireysel Etkinlik
+        </h3>
+        <p className="text-[11px] text-muted-foreground mb-4 leading-snug">
+          Kişisel bir görev, mini rekor veya kişisel bir hedef — grup/ittifak konfigüne gerek yok.
+        </p>
+
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">Etkinlik Adı</label>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Örn: Kişisel Kafes 500K"
+          data-testid="bireysel-name"
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
+        />
+
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Tarih / Saat</label>
+        <input
+          type="datetime-local"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          data-testid="bireysel-date"
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
+        />
+
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Açıklama</label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+          placeholder="Bu etkinliğin amacı, hedefi, notların..."
+          data-testid="bireysel-description"
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white resize-none"
+        />
+
+        <div className="mt-3 rounded p-3" style={{ background: "rgba(245,166,35,0.06)", border: "1px solid rgba(245,166,35,0.30)" }}>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showInLb}
+              onChange={(e) => setShowInLb(e.target.checked)}
+              data-testid="bireysel-visible-checkbox"
+              className="cursor-pointer"
+            />
+            <span className="text-sm font-bold text-white">🏆 Sıralamada görünsün</span>
+          </label>
+        </div>
+
+        <div className="mt-3 rounded p-3" style={{ background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.30)" }} data-testid="bireysel-reporting-section">
+          <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-2">RAPORLAMA</div>
+          <label className="flex items-center gap-2 cursor-pointer mb-2">
+            <input
+              type="checkbox"
+              checked={autoReport}
+              onChange={(e) => setAutoReport(e.target.checked)}
+              data-testid="bireysel-auto-report-checkbox"
+              className="cursor-pointer"
+            />
+            <span className="text-sm font-bold text-white">📊 İlk 10 kişiyi otomatik raporla</span>
+          </label>
+          {autoReport && (
+            <div>
+              <div className="text-[10px] text-muted-foreground mb-1.5">Raporlama kanalları (çoklu seçim)</div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { key: "telegram", label: "📨 Telegram" },
+                  { key: "push", label: "🔔 Push" },
+                  { key: "message", label: "💬 Mesaj" },
+                ].map((ch) => {
+                  const active = !!channels[ch.key];
+                  return (
+                    <button
+                      key={ch.key}
+                      type="button"
+                      onClick={() => setChannels({ ...channels, [ch.key]: !active })}
+                      className="chip justify-center text-[10px] py-1.5"
+                      data-testid={`bireysel-channel-${ch.key}`}
+                      style={active ? {
+                        background: "linear-gradient(135deg, rgba(56,189,248,0.25), rgba(3,105,161,0.25))",
+                        borderColor: "#38BDF8",
+                        color: "#F0F9FF",
+                      } : { opacity: 0.65 }}
+                      aria-pressed={active}
+                    >
+                      {ch.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <button
+          data-testid="bireysel-submit"
+          type="submit"
+          disabled={saving}
+          className="btn-gold w-full mt-5"
+          style={{ background: "linear-gradient(135deg,#8B5CF6,#5B21B6)", borderColor: "#A78BFA" }}
+        >
+          {saving ? "Kaydediliyor..." : "Bireysel Etkinlik Oluştur"}
         </button>
       </form>
     </div>

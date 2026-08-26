@@ -171,6 +171,17 @@ class Event(BaseModel):
     # v129 — Auto-archive fields (persisted on Event doc).
     auto_archive: bool = False
     auto_archive_folder_id: Optional[str] = None
+    # v132 — Bireysel Etkinlik + Minimum Puan Eşiği ek alanları.
+    # `description` = long-form açıklama (Bireysel event form textarea).
+    # `auto_report_top10` = kapanışta ilk 10 kişiyi rapor etsin mi.
+    # `report_channels` = ["telegram","push","message"] alt kümesi.
+    # `alliance_thresholds` = [{alliance_name, threshold}] grup bazlı min puan.
+    # `member_thresholds` = [{member_id, threshold}] üye bazlı özel eşik.
+    description: Optional[str] = None
+    auto_report_top10: bool = False
+    report_channels: List[str] = Field(default_factory=list)
+    alliance_thresholds: List[dict] = Field(default_factory=list)
+    member_thresholds: List[dict] = Field(default_factory=list)
     # v125 — Auto-generated DeepL translations for user-visible strings.
     # Populated by /events POST/PATCH so the frontend can render event
     # name / subtitle / group in the user's preferred language without a
@@ -226,11 +237,12 @@ class EventCreate(BaseModel):
     # `auto_archive_folder_id`) as soon as its date is in the past.
     auto_archive: Optional[bool] = False
     auto_archive_folder_id: Optional[str] = None
-    # first at `date`, each subsequent one shifted by `interval`. `interval`
-    # values: "none" (default, no expansion), "2days", "weekly", "2weekly",
-    # "monthly". `count` is clamped to [1, 52].
-    recurrence_interval: Optional[str] = "none"
-    recurrence_count: Optional[int] = 1
+    # v132 — Bireysel Etkinlik + Minimum Puan Eşiği optional fields.
+    description: Optional[str] = None
+    auto_report_top10: Optional[bool] = False
+    report_channels: Optional[List[str]] = None
+    alliance_thresholds: Optional[List[dict]] = None
+    member_thresholds: Optional[List[dict]] = None
 
 
 class EventUpdate(BaseModel):
@@ -255,6 +267,12 @@ class EventUpdate(BaseModel):
     # v129 — Same auto-archive knobs, editable via PATCH.
     auto_archive: Optional[bool] = None
     auto_archive_folder_id: Optional[str] = None
+    # v132 — Bireysel Etkinlik + Minimum Puan Eşiği editable via PATCH.
+    description: Optional[str] = None
+    auto_report_top10: Optional[bool] = None
+    report_channels: Optional[List[str]] = None
+    alliance_thresholds: Optional[List[dict]] = None
+    member_thresholds: Optional[List[dict]] = None
     # Same fields as create — when supplied on PATCH the backend will spawn
     # additional future events after the current one (without touching the
     # current one) so admins can add a "Tekrarla" schedule to any existing

@@ -20,6 +20,16 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 26, 2026 (v132 Event Form Refactor + Bireysel Event)** — Kapsamlı Form Yenileme:
+  - **Kaldırılanlar** (`Events.jsx` EventForm): "Takvimde göster" toggle, "Grup detayları göster" toggle, "Katılım İttifakı" bloğu (default artık her zaman "GOW"), "Sadıklar için Puan Ver" bloğu (loyalty), "hatırlatma açıklama satırı" kaldırıldı → tek satır.
+  - **Yeni Layout**: Row 1 full-width **📦 Otomatik Arşive Taşı** (klasör dropdown when checked) — Row 2 (2-col grid) **🔔 Hatırlatma kurulabilir** + **🏆 Sıralamada göster** — Row 3 (2-col grid) **🟢 Katılımlı** + **📦 Etkinlik sonrası otomatik arşive taşı** (aynı state'i mirror).
+  - **Minimum Puan Eşiği Accordion** (`event-form-threshold-accordion`): Chevron toggle ile açılır. `GRUP EŞİĞİ` — her satırda ittifak adı input + [50M] [150M] quick-fill chips + Manuel numeric input + kırmızı X remove. `ÖZEL EŞİK` — aynı yapı ama üye ID/ad ile. "N kural" chip başlıkta canlı sayaç.
+  - **Backend Fields** (`server.py` Event/Create/Update): `description`, `auto_report_top10`, `report_channels: List[str]`, `alliance_thresholds: List[dict]`, `member_thresholds: List[dict]` eklendi.
+  - **BireyselEventForm Component** (`Events.jsx`): Header'da mor "Bireysel" butonu (`events-bireysel-add-btn`), yeni modal — Ad + Tarih/Saat + Açıklama (textarea) + [🏆 Sıralamada görünsün] + RAPORLAMA paneli ([📊 İlk 10 kişiyi otomatik raporla] + çoklu seçim [📨 Telegram] [🔔 Push] [💬 Mesaj] chip'leri) + mor **[BİREYSEL ETKİNLİK OLUŞTUR]** buton. Grup="" (ungrouped), attendance=false, reminder=false defaultları.
+  - **Task 3 (archived groups)**: `/event-groups?active_only=true` zaten sadece `active>0` olan grupları döndürüyor — otomatik olarak arşivlenmiş grupları form listesinden gizler.
+  - **Curl Verify**: POST /events yeni alanları kabul ediyor (`auto_report_top10:true`, `report_channels:[...]`, `alliance_thresholds:[{alliance_name,threshold}]`).
+  - test-id: `event-form-{reminder,visibility,attendance,auto-archive,auto-archive-compact}-checkbox`, `event-form-threshold-accordion`, `event-form-alliance-threshold-{add,50m-N,150m-N,manual-N,remove-N}`, `event-form-member-threshold-*`, `events-bireysel-add-btn`, `bireysel-{name,date,description,visible-checkbox,auto-report-checkbox,submit}`, `bireysel-channel-{telegram,push,message}`.
+
 - **Feb 26, 2026 (v131.1 Avatar Bug Fix)** — Sıralama Avatar Görünürlük:
   - **Root Cause**: `PUT /auth/me/avatar` sadece `db.users` dokümanına yazıyordu ama `/api/leaderboard` `db.members.avatar_url`'den okuyordu; user→member propagation eksikti. Sonuç: kullanıcılar avatar yüklüyor ama sıralamada baş harf placeholder görünmeye devam ediyordu.
   - **Fix 1 - Propagation** (`auth.py` L435-457): PUT /auth/me/avatar artık `user.member_ids`'deki tüm linked members'a `update_many({$set:{avatar_url:url}})` yapıyor. Null gönderildiğinde de temizliyor.
