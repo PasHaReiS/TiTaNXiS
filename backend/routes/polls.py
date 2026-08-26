@@ -87,6 +87,9 @@ async def _poll_public(db, poll: dict, viewer_id: Optional[str]) -> dict:
         {
             "id": o["id"],
             "text": o["text"],
+            # v127 — Include per-option translations so voters can read
+            # the ballot in their own language client-side.
+            "text_translations": o.get("text_translations") or {},
             "votes": tallies.get(o["id"], 0),
             "pct": round(tallies.get(o["id"], 0) / total_choices * 100, 1),
         }
@@ -95,6 +98,8 @@ async def _poll_public(db, poll: dict, viewer_id: Optional[str]) -> dict:
     return {
         "id": poll_id,
         "question": poll.get("question"),
+        # v127 — Question translations exposed so poll cards render localized.
+        "question_translations": poll.get("question_translations") or {},
         "options": options,
         "multi_choice": bool(poll.get("multi_choice")),
         "closes_at": poll.get("closes_at"),
@@ -110,15 +115,27 @@ async def _poll_public(db, poll: dict, viewer_id: Optional[str]) -> dict:
 
 
 def make_polls_router(db, require_auth, require_admin, on_poll_created=None,
-                       on_poll_closed=None):
+                       on_poll_closed=None, auto_translate=None):
     """`on_poll_created` — optional async callback invoked with
     `(question:str, poll_id:str)` right after a poll is inserted. Wired by
     server.py to fan out Web Push + TG DM + in-app bell (Faz 5 broadcast).
 
     `on_poll_closed` — optional async callback invoked with the final poll
     document + tally right after an admin closes the poll. Wired by
-    server.py to auto-post the result card to the Telegram group."""
+    server.py to auto-post the result card to the Telegram group.
+
+    `auto_translate(text)` — optional async DeepL helper; when provided,
+    the poll question + option texts are translated to all 28 non-TR
+    languages on create (v127)."""
     router = APIRouter(prefix="/polls", tags=["polls"])
+
+    async def _tr(text):
+        if not auto_translate or not text:
+            return {}
+        try:
+            return await auto_translate(text)
+        except Exception:
+            return {}
 
     @router.get("")
     async def list_polls(user: dict = Depends(require_auth)):
@@ -144,7 +161,13 @@ def make_polls_router(db, require_auth, require_admin, on_poll_created=None,
             t = (o.text or "").strip()
             if not t:
                 continue
-            cleaned_opts.append({"id": uuid.uuid4().hex[:12], "text": t})
+            cleaned_opts.append({
+                "id": uuid.uuid4().hex[:12],
+                "text": t,
+                # v127 — Auto-translate each option so voters can read the
+                # ballot in their own language. Stored inline on the option.
+                "text_translations": await _tr(t),
+            })
         if len(cleaned_opts) < 2:
             raise HTTPException(400, "En az 2 seçenek gerekli")
         closes_at = None
@@ -161,6 +184,8 @@ def make_polls_router(db, require_auth, require_admin, on_poll_created=None,
         doc = {
             "id": str(uuid.uuid4()),
             "question": q,
+            # v127 — Auto-translate question so poll cards render localized.
+            "question_translations": await _tr(q),
             "options": cleaned_opts,
             "multi_choice": bool(body.multi_choice),
             "closes_at": closes_at,

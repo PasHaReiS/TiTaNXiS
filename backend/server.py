@@ -1355,7 +1355,12 @@ async def delete_group(group_name: str, _: dict = Depends(require_edit)):
 # identical (`/api/event-folders/*`, `/api/event-folder-templates/*`,
 # `/api/event-group-results/*`).
 from routes.event_folders import register_event_folders  # noqa: E402
-register_event_folders(api_router, db, require_edit)
+# Lambda defers the `_auto_translate_all` lookup to call time so we can
+# register before the helper is defined further down in this module.
+register_event_folders(
+    api_router, db, require_edit,
+    auto_translate=lambda t: globals()["_auto_translate_all"](t),
+)
 
 
 
@@ -6191,6 +6196,14 @@ async def announcements_create(body: AnnouncementBody, user: dict = Depends(requ
         "scheduled_at": scheduled_at_iso,
         "pending_broadcast": is_scheduled and bool(body.broadcast),
     }
+    # v127 — Auto-translate title + body to all 28 non-TR languages so
+    # the Duyurular list and push notifications can render in the user's
+    # language without a round-trip.
+    try:
+        doc["title_translations"] = await _auto_translate_all(doc["title"])
+        doc["body_translations"] = await _auto_translate_all(doc["body"])
+    except Exception as _tx_ex:
+        logger.warning(f"announcement auto-translate failed: {_tx_ex}")
     await db.announcements.insert_one(doc)
     result = {"item": {k: v for k, v in doc.items() if k != "_id"}}
     if body.broadcast and not is_scheduled:
@@ -8315,7 +8328,7 @@ async def _poll_broadcast(question: str, poll_id: str, options: Optional[list] =
 app.include_router(api_router)
 app.include_router(make_auth_router(db))
 from routes.polls import make_polls_router
-app.include_router(make_polls_router(db, require_auth, require_admin, on_poll_created=_poll_broadcast, on_poll_closed=_poll_broadcast_closed), prefix="/api")
+app.include_router(make_polls_router(db, require_auth, require_admin, on_poll_created=_poll_broadcast, on_poll_closed=_poll_broadcast_closed, auto_translate=lambda t: globals()["_auto_translate_all"](t)), prefix="/api")
 from routes.invites import make_invites_router
 from routes.svs import make_svs_router
 from auth import hash_password as _hash_password, create_token as _create_token, parse_user_agent as _parse_user_agent, public_user as _public_user

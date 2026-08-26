@@ -20,7 +20,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-## Recent Changes
+- **Feb 26, 2026 (v126-v127)** — Otomatik Çeviri Kapsamı Tüm İçeriğe Genişletildi:
+  - **Klasörler** (`event_folders.py`): `EventFolder.name_translations`, `FolderTemplate.name_translations` + `folder_name_default_translations`. POST/PATCH endpoint'lerinde otomatik DeepL çevirisi. Server.py'de lambda ile `_auto_translate_all` inject edildi.
+  - **Duyurular** (server.py `/api/announcements`): `title_translations` + `body_translations` otomatik oluşturuluyor.
+  - **Anketler** (`polls.py`): `question_translations` + her seçenekte `text_translations` otomatik. `make_polls_router` yeni `auto_translate` parametresi kabul ediyor. `_poll_public` serializer'ı translations dict'lerini response'a dahil edecek şekilde güncellendi.
+  - **Backfill** (`/tmp/backfill_v126.py`): Mevcut 3 klasör (SvS, Kafes, Kristal) + 3 grup (KaFeS/Kontrol/KristaL) + 14 event + 2 duyuru otomatik 28 dile çevirildi.
+  - Verified: yeni duyuru title/body → 28 lang, yeni anket question + 2 option → 19-28 lang ("Evet"→"Yes", "Hayır"→"No"), yeni klasör name → 28 lang.
 - **Feb 26, 2026 (v125)** — i18n buton çevirileri + Otomatik DeepL çeviri sistemi + Menü hizalaması:
   - **Buton i18n**: `event_add_to_calendar`, `event_chat`, `event_tab_reminded`, `event_tab_unreminded` yeni i18n key'leri (28 dile manuel curated + DeepL karışım). AddToCalendarButton, event card Sohbet butonu, Events.jsx tab başlıkları `t()` ile sarıldı. Verified EN: "Add to calendar" · "Chat" · "Reminders on" · "Reminders off".
   - **Menü hizalaması**: AddToCalendarButton artık açılırken viewport rect ölçüyor; buton sol kenardan 220px içindeyse menü `left:0` (içeri açılır), aksi halde default `right:0`. Sağ tarafa yakınsa flip devre dışı. Kesilme sorunu çözüldü.

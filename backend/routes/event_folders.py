@@ -40,6 +40,10 @@ class EventFolder(BaseModel):
     icon: Optional[str] = None
     order: int = 0
     event_order: List[str] = Field(default_factory=list)
+    # v126 — Auto-generated DeepL translations of the folder name so the
+    # archive views can render in the user's language. Populated by
+    # POST /event-folders and PATCH /event-folders/{id}.
+    name_translations: dict = Field(default_factory=dict)
     created_at: str = Field(default_factory=_now_iso)
 
 
@@ -82,6 +86,11 @@ class FolderTemplate(BaseModel):
     folder_name_default: Optional[str] = None
     color: Optional[str] = None
     icon: Optional[str] = None
+    # v126 — Auto-translations for the template's display name so the
+    # colour/icon preset picker in Events > Arşiv renders correctly in
+    # any language.
+    name_translations: dict = Field(default_factory=dict)
+    folder_name_default_translations: dict = Field(default_factory=dict)
     created_at: str = Field(default_factory=_now_iso)
 
 
@@ -96,8 +105,21 @@ class GroupOutcomeBody(BaseModel):
     outcome: Optional[str] = None  # "win" | "loose" | None
 
 
-def register_event_folders(api_router: APIRouter, db, require_edit):
-    """Attach folder / template / group-result routes to the shared router."""
+def register_event_folders(api_router: APIRouter, db, require_edit, auto_translate=None):
+    """Attach folder / template / group-result routes to the shared router.
+
+    `auto_translate(text)` — optional async callable that returns a dict of
+    `{lang: translated}` for every non-TR enabled language. When provided,
+    folder + template `name` fields are auto-translated on create and patch.
+    """
+
+    async def _tr(text):
+        if not auto_translate or not text:
+            return {}
+        try:
+            return await auto_translate(text)
+        except Exception:
+            return {}
 
     @api_router.get("/event-folders")
     async def list_event_folders():
@@ -120,7 +142,10 @@ def register_event_folders(api_router: APIRouter, db, require_edit):
         name = (body.name or "").strip()
         if not name:
             raise HTTPException(400, "name cannot be empty")
-        f = EventFolder(name=name, color=body.color, icon=body.icon, order=int(body.order or 0))
+        # v126 — Auto-translate the folder name to all 28 non-TR langs.
+        name_tr = await _tr(name)
+        f = EventFolder(name=name, color=body.color, icon=body.icon,
+                        order=int(body.order or 0), name_translations=name_tr)
         await db.event_folders.insert_one(f.model_dump())
         return {**f.model_dump(), "archived_count": 0}
 
@@ -132,6 +157,8 @@ def register_event_folders(api_router: APIRouter, db, require_edit):
             if not n:
                 raise HTTPException(400, "name cannot be empty")
             update["name"] = n
+            # v126 — Refresh translations whenever the TR source changes.
+            update["name_translations"] = await _tr(n)
         if not update:
             return {"modified": 0}
         res = await db.event_folders.update_one({"id": folder_id}, {"$set": update})
@@ -199,9 +226,16 @@ def register_event_folders(api_router: APIRouter, db, require_edit):
         name = (body.name or "").strip()
         if not name:
             raise HTTPException(400, "name cannot be empty")
+        # v126 — Auto-translate both the display name and the default folder
+        # name so the picker + new-folder placeholder render localized.
+        name_tr = await _tr(name)
+        fnd = (body.folder_name_default or "").strip()
+        fnd_tr = await _tr(fnd) if fnd else {}
         t = FolderTemplate(
             name=name, folder_name_default=body.folder_name_default,
             color=body.color, icon=body.icon,
+            name_translations=name_tr,
+            folder_name_default_translations=fnd_tr,
         )
         await db.folder_templates.insert_one(t.model_dump())
         return t.model_dump()
