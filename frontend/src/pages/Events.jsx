@@ -2652,45 +2652,8 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Etkinlik Görseli</label>
         <ImageDropzone purpose="event" value={banner} onChange={setBanner} max={1} compact />
 
-        {/* v132 — Row 1: Otomatik Arşive Taşı (tek satır, full-width) */}
-        <div className="mt-4 rounded p-3" style={{ background: "rgba(148,163,184,0.06)", border: "1px solid rgba(148,163,184,0.35)" }} data-testid="event-form-auto-archive-toggle">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={autoArchive}
-              onChange={(e) => setAutoArchive(e.target.checked)}
-              data-testid="event-form-auto-archive-checkbox"
-              className="cursor-pointer"
-            />
-            <span className="flex-1">
-              <span className="block text-sm font-bold text-white">📦 Otomatik Arşive Taşı</span>
-              <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
-                {autoArchive
-                  ? "Tarih geçince (ilk arşiv sweep'inde) etkinlik otomatik arşive gider — istersen belirli bir klasör seç."
-                  : "İşaretle → tarih geçtiğinde etkinlik listeden çıkıp arşive gitsin."}
-              </span>
-            </span>
-          </label>
-          {autoArchive && (
-            <div className="mt-3 flex items-center gap-2" data-testid="event-form-auto-archive-folder-row">
-              <label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">Klasör</label>
-              <select
-                data-testid="event-form-auto-archive-folder"
-                value={autoArchiveFolderId}
-                onChange={(e) => setAutoArchiveFolderId(e.target.value)}
-                className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
-              >
-                <option value="">Klasörsüz</option>
-                {formFolders.map((f) => (
-                  <option key={f.id} value={f.id}>{f.icon || "📁"} {f.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-
-        {/* v132 — Row 2: [Hatırlatma kurulabilir] [Sıralamada göster] (2-col) */}
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        {/* v132.2 — Row 1: [Hatırlatma kurulabilir] [Sıralamada göster] (2-col) */}
+        <div className="mt-4 grid grid-cols-2 gap-2">
           <div className="rounded p-3" style={{ background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.30)" }} data-testid="event-form-reminder-toggle">
             <label className="flex items-start gap-2 cursor-pointer">
               <input
@@ -2717,8 +2680,8 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
           </div>
         </div>
 
-        {/* v132.1 — Row 3: Katılımlı (full-width; ikinci otomatik-arşiv checkbox kaldırıldı, Row 1 zaten aynı state'i kontrol ediyor) */}
-        <div className="mt-2">
+        {/* v132.2 — Row 2: [Katılımlı] [Otomatik Arşive Taşı] (2-col); klasör dropdown auto-archive işaretliyken hemen altında full-width satırda açılır. */}
+        <div className="mt-2 grid grid-cols-2 gap-2">
           <div className="rounded p-3" style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.30)" }} data-testid="event-form-attendance-toggle">
             <label className="flex items-start gap-2 cursor-pointer">
               <input
@@ -2733,7 +2696,35 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
               </span>
             </label>
           </div>
+          <div className="rounded p-3" style={{ background: "rgba(148,163,184,0.06)", border: "1px solid rgba(148,163,184,0.35)" }} data-testid="event-form-auto-archive-toggle">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoArchive}
+                onChange={(e) => setAutoArchive(e.target.checked)}
+                data-testid="event-form-auto-archive-checkbox"
+                className="cursor-pointer mt-0.5"
+              />
+              <span className="block text-xs font-bold text-white leading-tight">📦 Otomatik Arşive Taşı</span>
+            </label>
+          </div>
         </div>
+        {autoArchive && (
+          <div className="mt-2 rounded p-3 flex items-center gap-2" style={{ background: "rgba(148,163,184,0.06)", border: "1px solid rgba(148,163,184,0.35)" }} data-testid="event-form-auto-archive-folder-row">
+            <label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">Klasör</label>
+            <select
+              data-testid="event-form-auto-archive-folder"
+              value={autoArchiveFolderId}
+              onChange={(e) => setAutoArchiveFolderId(e.target.value)}
+              className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
+            >
+              <option value="">Klasörsüz</option>
+              {formFolders.map((f) => (
+                <option key={f.id} value={f.id}>{f.icon || "📁"} {f.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* v132 — Minimum Puan Eşiği accordion. Group + per-member thresholds
             persisted on Event doc. Quick-fill chips: 50M / 150M / Manuel. */}
