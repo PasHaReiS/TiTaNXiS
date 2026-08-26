@@ -2717,8 +2717,8 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
           </div>
         </div>
 
-        {/* v132 — Row 3: [Katılımlı] [Etkinlik sonrası otomatik arşive taşı] (2-col; ikinci hücre yukarıdaki state'i mirror'lar) */}
-        <div className="mt-2 grid grid-cols-2 gap-2">
+        {/* v132.1 — Row 3: Katılımlı (full-width; ikinci otomatik-arşiv checkbox kaldırıldı, Row 1 zaten aynı state'i kontrol ediyor) */}
+        <div className="mt-2">
           <div className="rounded p-3" style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.30)" }} data-testid="event-form-attendance-toggle">
             <label className="flex items-start gap-2 cursor-pointer">
               <input
@@ -2731,18 +2731,6 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
               <span className="block text-xs font-bold text-white leading-tight">
                 {attendanceEnabled ? "🟢 Katılımlı" : "🔒 Katılımsız"}
               </span>
-            </label>
-          </div>
-          <div className="rounded p-3" style={{ background: "rgba(148,163,184,0.06)", border: "1px solid rgba(148,163,184,0.35)" }} data-testid="event-form-auto-archive-toggle-compact">
-            <label className="flex items-start gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={autoArchive}
-                onChange={(e) => setAutoArchive(e.target.checked)}
-                data-testid="event-form-auto-archive-checkbox-compact"
-                className="cursor-pointer mt-0.5"
-              />
-              <span className="block text-[11px] font-bold text-white leading-tight">📦 Etkinlik sonrası otomatik arşive taşı</span>
             </label>
           </div>
         </div>
