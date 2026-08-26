@@ -1803,6 +1803,9 @@ async def leaderboard(
             "level": m.get("level", 1),
             "title": m.get("title"),
             "alliance_name": m.get("alliance_name"),
+            # v131 — leaderboard cards + rows now show avatars. Return the
+            # url so the frontend doesn't need a second round-trip per row.
+            "avatar_url": m.get("avatar_url"),
             "total_points": int(r["total_points"]),
             "position": rank_pos,
         })

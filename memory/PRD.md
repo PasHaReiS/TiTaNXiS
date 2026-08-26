@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 26, 2026 (v131 Leaderboard Avatars)** — Sıralama Avatar + [Alliance]:
+  - **Backend** (`server.py` L1799-1811): `/api/leaderboard` yanıtı artık her satır için `avatar_url` içeriyor (üye dokümanından çekiliyor, ek round-trip yok).
+  - **RankAvatar helper** (`Leaderboard.jsx` L15-45): Dairesel avatar componenti — `src`, `name`, `size`, `ring`, `ringWidth` propları. Avatar yoksa üyenin adının baş harfini gradient discte gösterir (Cinzel bold).
+  - **Podium**: 1.=64px altın halka `#F5C542`, 2.=54px gümüş `#C0C7D1`, 3.=48px bronz `#CD7F32`. Her podium'da oyuncu adı altında amber renk `[AllianceName]` — tıklayınca alliance drill-down açar (event.stopPropagation).
+  - **Liste Satırları** (L1289-1361): `minHeight:56px`, `padding:8px 12px`. Struct: `#sıra | avatar | name+[alliance] | skor`. Avatar halka rengi ittifak rengi (fallback amber). Alliance amber label altına gelir; tıklanabilir → drill-down.
+  - test-id: `podium-avatar-1/2/3`, `podium-alliance-1/2/3`, `row-avatar-{member_id}`, `row-alliance-{member_id}`.
+  - Screenshot ile mobilde (390px) 5 satırlı test veri seti başarıyla doğrulandı — altın/gümüş/bronz halkalar, [GOW] amber ittifak, harf placeholder ("E"/"C"/"H"/"L") tam düzgün render oluyor.
+
 - **Feb 26, 2026 (v130 Avatar)** — Avatar Upload Fix + Crop Dialog:
   - **Regex Bug Fix** (`routes/uploads.py` L106): `/api/uploads/image?purpose=avatar` 422'ye düşüyordu — regex `^(vip|commander|event|avatar|misc)$` olarak güncellendi. Curl testi: upload+PUT+GET 200 döner.
   - **public_user Enrichment** (`auth.py` L168-183): `/auth/me` yanıtına `avatar_url` + `avatar_updated_at` alanları eklendi ki header/profil componentleri anında re-render edebilsin.

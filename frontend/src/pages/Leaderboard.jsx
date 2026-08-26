@@ -12,6 +12,41 @@ import { useAuth } from "@/context/AuthContext";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
+// v131 — Circular avatar with letter placeholder. Used across the podium
+// and list rows so the same visual language appears everywhere. `ring`
+// controls the outer stroke color (gold/silver/bronze for podium slots,
+// neutral for the list). Falls back to the first letter of `name` on a
+// tinted disc when no `src` is provided.
+const RankAvatar = ({ src, name, size = 40, ring = "rgba(212,115,10,0.55)", ringWidth = 2, testId }) => {
+  const initial = (name || "?").trim().charAt(0).toUpperCase() || "?";
+  return (
+    <div
+      data-testid={testId}
+      style={{
+        width: size, height: size, minWidth: size,
+        borderRadius: "50%",
+        border: `${ringWidth}px solid ${ring}`,
+        boxShadow: `0 0 10px ${ring}`,
+        background: "linear-gradient(135deg, #2A1810 0%, #0B0704 100%)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        overflow: "hidden", flexShrink: 0,
+      }}
+    >
+      {src ? (
+        <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : (
+        <span style={{
+          fontFamily: "'Cinzel', 'Rajdhani', serif",
+          fontWeight: 800,
+          fontSize: Math.round(size * 0.42),
+          color: "#F5E7A8",
+          textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+        }}>{initial}</span>
+      )}
+    </div>
+  );
+};
+
 export default function Leaderboard() {
   const { t } = useTranslation();
   const { canEdit } = useAuth();
@@ -653,23 +688,33 @@ export default function Leaderboard() {
                 <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#c0c0c0,#8a8a8a)', color: '#0a0a0a', display:'flex', alignItems:'center', justifyContent:'center', gap:4, fontFamily:'Cinzel, serif', fontWeight:800, fontSize:13 }}>
                   <Medal className="w-4 h-4" /> 2
                 </div>
-                <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Rajdhani, sans-serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[1].name}>{top3[1].name}</div>
-                <div
-                  data-testid={`podium-alliance-badge-2`}
-                  className="text-[9px] font-bold rounded-full mt-1"
-                  style={{
-                    background: (top3[1].alliance_name && allianceColors[top3[1].alliance_name]) || "#E74C1A",
-                    color: "#fff",
-                    padding: "2px 8px",
-                    letterSpacing: "0.06em",
-                    textTransform: "none",
-                    fontFamily: "Cinzel, Rajdhani, serif",
-                    border: "1px solid rgba(255,255,255,0.15)",
-                  }}
-                  title={top3[1].alliance_name || ""}
-                >
-                  {top3[1].alliance_name || "-"}
+                <div style={{ marginTop: 8 }}>
+                  <RankAvatar
+                    src={top3[1].avatar_url}
+                    name={top3[1].name}
+                    size={54}
+                    ring="#C0C7D1"
+                    ringWidth={3}
+                    testId="podium-avatar-2"
+                  />
                 </div>
+                <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Rajdhani, sans-serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[1].name}>{top3[1].name}</div>
+                {top3[1].alliance_name && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setDrillAlliance(top3[1].alliance_name); }}
+                    data-testid="podium-alliance-2"
+                    style={{
+                      marginTop: 2, background: "transparent", border: "none",
+                      fontSize: 11, fontWeight: 700, color: "#F5A623",
+                      fontFamily: "'Cinzel', 'Rajdhani', serif",
+                      letterSpacing: "0.05em", cursor: "pointer",
+                    }}
+                    title={`${top3[1].alliance_name} — Drill-Down aç`}
+                  >
+                    [{top3[1].alliance_name}]
+                  </button>
+                )}
                 <div style={{ marginTop: 6, fontWeight: 600, fontSize: 12, color: '#E74C1A', fontFamily: "'JetBrains Mono', monospace" }}>{fmt(top3[1].total_points)}</div>
               </div>
             )}
@@ -692,23 +737,33 @@ export default function Leaderboard() {
                 <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#D4730A,#E74C1A)', color: '#0a0a0a', display:'flex', alignItems:'center', justifyContent:'center', gap:4, fontFamily:'Cinzel, serif', fontWeight:800, fontSize:15 }}>
                   <Crown className="w-4 h-4" /> 1
                 </div>
-                <div style={{ marginTop: 8, fontSize: 14, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[0].name}>{top3[0].name}</div>
-                <div
-                  data-testid={`podium-alliance-badge-1`}
-                  className="text-[9px] font-bold rounded-full mt-1"
-                  style={{
-                    background: (top3[0].alliance_name && allianceColors[top3[0].alliance_name]) || "#E74C1A",
-                    color: "#fff",
-                    padding: "2px 8px",
-                    letterSpacing: "0.06em",
-                    textTransform: "none",
-                    fontFamily: "Cinzel, Rajdhani, serif",
-                    border: "1px solid rgba(255,255,255,0.15)",
-                  }}
-                  title={top3[0].alliance_name || ""}
-                >
-                  {top3[0].alliance_name || "-"}
+                <div style={{ marginTop: 8 }}>
+                  <RankAvatar
+                    src={top3[0].avatar_url}
+                    name={top3[0].name}
+                    size={64}
+                    ring="#F5C542"
+                    ringWidth={3}
+                    testId="podium-avatar-1"
+                  />
                 </div>
+                <div style={{ marginTop: 6, fontSize: 14, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Cinzel, serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[0].name}>{top3[0].name}</div>
+                {top3[0].alliance_name && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setDrillAlliance(top3[0].alliance_name); }}
+                    data-testid="podium-alliance-1"
+                    style={{
+                      marginTop: 2, background: "transparent", border: "none",
+                      fontSize: 12, fontWeight: 700, color: "#F5A623",
+                      fontFamily: "'Cinzel', 'Rajdhani', serif",
+                      letterSpacing: "0.05em", cursor: "pointer",
+                    }}
+                    title={`${top3[0].alliance_name} — Drill-Down aç`}
+                  >
+                    [{top3[0].alliance_name}]
+                  </button>
+                )}
                 <div style={{ marginTop: 6, fontWeight: 600, fontSize: 14, color: '#E74C1A', fontFamily: "'JetBrains Mono', monospace" }}>{fmt(top3[0].total_points)}</div>
               </div>
             )}
@@ -728,23 +783,33 @@ export default function Leaderboard() {
                 <div className="podium-medal" style={{ background: 'linear-gradient(135deg,#8B6914,#A67C00)', color: '#0a0a0a', display:'flex', alignItems:'center', justifyContent:'center', gap:4, fontFamily:'Cinzel, serif', fontWeight:800, fontSize:13 }}>
                   <Award className="w-4 h-4" /> 3
                 </div>
-                <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Rajdhani, sans-serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[2].name}>{top3[2].name}</div>
-                <div
-                  data-testid={`podium-alliance-badge-3`}
-                  className="text-[9px] font-bold rounded-full mt-1"
-                  style={{
-                    background: (top3[2].alliance_name && allianceColors[top3[2].alliance_name]) || "#E74C1A",
-                    color: "#fff",
-                    padding: "2px 8px",
-                    letterSpacing: "0.06em",
-                    textTransform: "none",
-                    fontFamily: "Cinzel, Rajdhani, serif",
-                    border: "1px solid rgba(255,255,255,0.15)",
-                  }}
-                  title={top3[2].alliance_name || ""}
-                >
-                  {top3[2].alliance_name || "-"}
+                <div style={{ marginTop: 8 }}>
+                  <RankAvatar
+                    src={top3[2].avatar_url}
+                    name={top3[2].name}
+                    size={48}
+                    ring="#CD7F32"
+                    ringWidth={3}
+                    testId="podium-avatar-3"
+                  />
                 </div>
+                <div style={{ marginTop: 6, fontSize: 12, fontWeight: 700, color: '#F5F0E8', fontFamily: 'Rajdhani, sans-serif', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'none' }} title={top3[2].name}>{top3[2].name}</div>
+                {top3[2].alliance_name && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setDrillAlliance(top3[2].alliance_name); }}
+                    data-testid="podium-alliance-3"
+                    style={{
+                      marginTop: 2, background: "transparent", border: "none",
+                      fontSize: 10, fontWeight: 700, color: "#F5A623",
+                      fontFamily: "'Cinzel', 'Rajdhani', serif",
+                      letterSpacing: "0.05em", cursor: "pointer",
+                    }}
+                    title={`${top3[2].alliance_name} — Drill-Down aç`}
+                  >
+                    [{top3[2].alliance_name}]
+                  </button>
+                )}
                 <div style={{ marginTop: 6, fontWeight: 600, fontSize: 11, color: '#E74C1A', fontFamily: "'JetBrains Mono', monospace" }}>{fmt(top3[2].total_points)}</div>
               </div>
             )}
@@ -1221,7 +1286,7 @@ export default function Leaderboard() {
             style={{ background: "#1A1210", border: "1px solid rgba(231,76,26,0.35)" }}
           />
         </div>
-        <div className="space-y-1 mb-4">
+        <div className="space-y-1.5 mb-4">
           {(() => {
             const s = debSearch.trim().toLowerCase();
             const list = s ? rest.filter((r) => (r.name || "").toLowerCase().includes(s) || String(r.member_id || "").toLowerCase().includes(s)) : rest;
@@ -1232,31 +1297,20 @@ export default function Leaderboard() {
               data-testid={LEADERBOARD.row(r.member_id)}
               onClick={() => setProfileId(r.member_id)}
               className={`w-full rank-row flex items-center gap-3 text-left${r.position === 1 ? " rank-row-top-1" : r.position === 2 ? " rank-row-top-2" : r.position === 3 ? " rank-row-top-3" : ""}`}
-              style={{ padding: "7px 12px", minHeight: 44 }}
+              style={{ padding: "8px 12px", minHeight: 56 }}
             >
-              <div className="w-8 text-center">
-                <span className="text-xs font-bold mono" style={{ color: "#D4730A", fontFamily: "Cinzel, Rajdhani, serif" }}>#{r.position}</span>
+              <div className="w-8 text-center flex-shrink-0">
+                <span className="text-sm font-bold mono" style={{ color: "#D4730A", fontFamily: "Cinzel, Rajdhani, serif" }}>#{r.position}</span>
               </div>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); if (r.alliance_name) setDrillAlliance(r.alliance_name); }}
-                data-testid={`row-alliance-badge-${r.member_id}`}
-                className="text-[10px] font-bold rounded-full flex items-center justify-center flex-shrink-0 hover:scale-105 transition-transform"
-                style={{
-                  ...allianceBadgeStyle(r.alliance_name, allianceColors),
-                  minWidth: 52,
-                  padding: "4px 9px",
-                  border: "1px solid rgba(255,255,255,0.15)",
-                  letterSpacing: "0.06em",
-                  textTransform: "none",
-                  fontFamily: "Cinzel, Rajdhani, serif",
-                  cursor: r.alliance_name ? "pointer" : "default",
-                }}
-                title={r.alliance_name ? `${r.alliance_name} — Drill-Down aç` : ""}
-              >
-                {r.alliance_name || "-"}
-              </button>
-              <div className="flex-1 min-w-0 flex items-center gap-2">
+              <RankAvatar
+                src={r.avatar_url}
+                name={r.name}
+                size={40}
+                ring={(r.alliance_name && allianceColors[r.alliance_name]) || "rgba(212,115,10,0.55)"}
+                ringWidth={2}
+                testId={`row-avatar-${r.member_id}`}
+              />
+              <div className="flex-1 min-w-0 flex flex-col justify-center" style={{ gap: 2 }}>
                 <div
                   className="font-bold truncate normal-case text-sm rank-name"
                   data-rank={r.rank_name || ""}
@@ -1264,19 +1318,36 @@ export default function Leaderboard() {
                     color: "#F5F0E8",
                     fontFamily: "Rajdhani, sans-serif",
                     textTransform: "none",
+                    lineHeight: 1.15,
                     // v56 — S7 (highest game rank) gets a soft gold aura so
-                    // the top brass stand out in a glance. Rank names are
-                    // stored on the member doc as `rank_name`; anything
-                    // starting with "S7" (case-insensitive) qualifies.
+                    // the top brass stand out in a glance.
                     ...((/^s7\b/i.test(r.rank_name || "")) ? {
                       color: "#FFF6D9",
                       textShadow: "0 0 6px rgba(229,184,75,0.6), 0 0 12px rgba(229,184,75,0.35)",
                     } : {}),
                   }}
                 >{r.name}</div>
+                {r.alliance_name && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setDrillAlliance(r.alliance_name); }}
+                    data-testid={`row-alliance-${r.member_id}`}
+                    className="self-start truncate"
+                    style={{
+                      background: "transparent", border: "none", padding: 0,
+                      color: "#F5A623", fontSize: 10.5, fontWeight: 700,
+                      fontFamily: "'Cinzel', 'Rajdhani', serif",
+                      letterSpacing: "0.05em", cursor: "pointer",
+                      maxWidth: "100%",
+                    }}
+                    title={`${r.alliance_name} — Drill-Down aç`}
+                  >
+                    [{r.alliance_name}]
+                  </button>
+                )}
               </div>
-              <div className="text-right">
-                <div className="font-bold mono text-sm" style={{ color: "#E74C1A" }}>{fmt(r.total_points)}</div>
+              <div className="text-right flex-shrink-0">
+                <div className="font-bold mono text-sm" style={{ color: "#E74C1A", fontFamily: "'JetBrains Mono', monospace" }}>{fmt(r.total_points)}</div>
               </div>
             </button>
           ))}
