@@ -1,4 +1,10 @@
 crons:
+  - name: auto-archive-sweep
+    description: "Every 30 min: archive past-dated events flagged auto_archive=true, optionally into a chosen folder"
+    cron: "*/30 * * * *"
+    endpoint: "{{BASE_URL}}/api/events/auto-archive-sweep"
+    method: POST
+    enabled: true
   - name: deepl-retry-i18n
     description: "Nightly retry of throttled v9 i18n strings — patches i18n/index.js in-place with any DeepL translations that succeeded"
     cron: "45 3 * * *"

@@ -168,6 +168,9 @@ class Event(BaseModel):
     # even though it stays visible on /etkinlikler. Lets admins hide practice/
     # internal events from members without archiving them.
     show_in_calendar: bool = True
+    # v129 — Auto-archive fields (persisted on Event doc).
+    auto_archive: bool = False
+    auto_archive_folder_id: Optional[str] = None
     # v125 — Auto-generated DeepL translations for user-visible strings.
     # Populated by /events POST/PATCH so the frontend can render event
     # name / subtitle / group in the user's preferred language without a
@@ -218,6 +221,11 @@ class EventCreate(BaseModel):
     # home alliance by default (matches user policy).
     alliance_scope: Optional[str] = "GOW"
     folder_id: Optional[str] = None
+    # v129 — Auto-archive knobs. When `auto_archive=True`, the sweep loop
+    # moves this event to `archived=True` (and optionally into
+    # `auto_archive_folder_id`) as soon as its date is in the past.
+    auto_archive: Optional[bool] = False
+    auto_archive_folder_id: Optional[str] = None
     # first at `date`, each subsequent one shifted by `interval`. `interval`
     # values: "none" (default, no expansion), "2days", "weekly", "2weekly",
     # "monthly". `count` is clamped to [1, 52].
@@ -244,6 +252,9 @@ class EventUpdate(BaseModel):
     # v52 — allow admins to widen/change the alliance target after creation.
     alliance_scope: Optional[str] = None
     folder_id: Optional[str] = None
+    # v129 — Same auto-archive knobs, editable via PATCH.
+    auto_archive: Optional[bool] = None
+    auto_archive_folder_id: Optional[str] = None
     # Same fields as create — when supplied on PATCH the backend will spawn
     # additional future events after the current one (without touching the
     # current one) so admins can add a "Tekrarla" schedule to any existing
@@ -1312,7 +1323,30 @@ async def unarchive_group(group_name: str, _: dict = Depends(require_edit)):
     return {"modified": res.modified_count}
 
 
-@api_router.post("/events/rename-group")
+@api_router.post("/events/auto-archive-sweep")
+async def auto_archive_sweep():
+    """v129 — Cron-safe sweep: flip `archived=True` on any event whose
+    `date` is in the past AND `auto_archive=True` and it's not already
+    archived. When `auto_archive_folder_id` is set, also assign the
+    event into that folder. No auth: called by /app/.emergent/crons.yml
+    (idempotent — repeated runs are cheap no-ops)."""
+    from datetime import datetime as _dt2, timezone as _tz2
+    now = _dt2.now(_tz2.utc).isoformat()
+    # Match past-dated, non-archived events flagged for auto-archive.
+    q = {"auto_archive": True, "archived": {"$ne": True}, "date": {"$lt": now}}
+    docs = await db.events.find(q, {"_id": 0, "id": 1, "auto_archive_folder_id": 1}).to_list(2000)
+    moved = 0
+    for d in docs:
+        upd = {"archived": True, "archived_at": now}
+        fid = d.get("auto_archive_folder_id")
+        if fid:
+            upd["folder_id"] = fid
+        await db.events.update_one({"id": d["id"]}, {"$set": upd})
+        moved += 1
+    return {"moved": moved, "checked": len(docs)}
+
+
+
 async def rename_group(old_name: str, new_name: str, _: dict = Depends(require_edit)):
     new_name = (new_name or "").strip()
     if not new_name:

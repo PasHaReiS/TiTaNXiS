@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 26, 2026 (v129-v130)** — Etkinlik Grup UX + Otomatik Arşiv Cron:
+  - **Otomatik Arşiv Formu** (`Events.jsx` L2332-2386, L2712-2751): `auto_archive` checkbox + `auto_archive_folder_id` select. Ticked ise cron tarih geçince event'i arşive taşır, klasör seçiliyse o klasöre koyar. Model: `Event.auto_archive: bool`, `Event.auto_archive_folder_id: Optional[str]`.
+  - **Cron Sweep** (`server.py` L1326-1346): `POST /api/events/auto-archive-sweep` — no auth, idempotent. `.emergent/crons.yml`'de `*/30 * * * *` çalışır. Test edildi: `moved=1, checked=1` başarılı.
+  - **Grup Başlığı Wrap** (`Events.jsx` L855-871): `truncate` kaldırıldı → `whiteSpace:normal, wordBreak:break-word, overflowWrap:anywhere`. Mobilde uzun grup isimleri kırılıp okunabilir görünür.
+  - **Grup Collapse/Expand** (`Events.jsx` L315-334, L836-854, L1020-1032): Her grup başlığında ChevronDown/Right toggle butonu + tıklanabilir başlık. `collapsedGroups` state localStorage'a `events_collapsed_groups` key'iyle persist edilir. Grup grid'i `!collapsedGroups[group]` ise render edilir.
+  - test-id: `event-group-toggle-{name}`, `event-group-title-{name}`, `event-form-auto-archive-checkbox`, `event-form-auto-archive-folder`.
+
 - **Feb 26, 2026 (v128)** — Ek Buton İ18N + Grup Çeviri Rendering + Arşiv Rename:
   - `event_view_list` + `event_view_calendar` yeni i18n key'leri (28 dil curated: EN List/Calendar, DE Liste/Kalender, RU Список/Календарь, JA リスト/カレンダー, ZH 列表/日历 vb.).
   - `archive` key'i "Arşivle" → "Arşiv" olarak değişti (buton chip'i için); diğer 28 dilde noun karşılıkları güncellendi (DE "Archiv", RU "Архив", JA "アーカイブ").

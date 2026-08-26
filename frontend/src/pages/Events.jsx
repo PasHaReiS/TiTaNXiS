@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { EVENTS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
-import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera, BellOff, Users, User, LayoutGrid, CalendarDays, CheckSquare, Square, EyeOff, Eye, Star } from "lucide-react";
+import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera, BellOff, Users, User, LayoutGrid, CalendarDays, CheckSquare, Square, EyeOff, Eye, Star, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import ImageDropzone from "@/components/ImageDropzone";
@@ -316,6 +316,22 @@ export default function Events() {
   // Keyed by `${folderId}::${groupKey}` so re-selecting a folder doesn't
   // lose state across sessions.
   const [openedGroups, setOpenedGroups] = useState({});
+  // v130 — Collapsed groups on the main Kolektif column. Persisted to
+  // localStorage so the accordion state survives navigation. Keyed by
+  // raw group name (case-sensitive) matching MongoDB `group_name`.
+  const [collapsedGroups, setCollapsedGroups] = useState(() => {
+    try {
+      const raw = localStorage.getItem("events_collapsed_groups");
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  });
+  const toggleCollapsedGroup = (name) => {
+    setCollapsedGroups((prev) => {
+      const next = { ...prev, [name]: !prev[name] };
+      try { localStorage.setItem("events_collapsed_groups", JSON.stringify(next)); } catch { /* private mode */ }
+      return next;
+    });
+  };
 
   const archived = tab === "archive";
   const { data: events = [] } = useSWR(`/events?archived=${archived}`, fetcher, { refreshInterval: 6000 });
@@ -817,9 +833,25 @@ export default function Events() {
           }}
         >
           <div className="flex items-center gap-2 min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={() => toggleCollapsedGroup(group)}
+              data-testid={`event-group-toggle-${group}`}
+              className="flex-shrink-0 flex items-center justify-center rounded transition-transform hover:scale-110"
+              style={{
+                width: 22, height: 22, background: "rgba(0,0,0,0.35)",
+                border: `1px solid ${gc}66`, color: "#F5E7A8",
+              }}
+              title={collapsedGroups[group] ? "Etkinlikleri göster" : "Etkinlikleri gizle"}
+              aria-expanded={!collapsedGroups[group]}
+            >
+              {collapsedGroups[group]
+                ? <ChevronRight className="w-3.5 h-3.5" />
+                : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
             <span
               data-testid={`event-group-dot-${group}`}
-              style={{ display: "inline-block", width: 10, height: 10, borderRadius: 5, background: gc, boxShadow: `0 0 6px ${gc}80` }}
+              style={{ display: "inline-block", width: 10, height: 10, borderRadius: 5, background: gc, boxShadow: `0 0 6px ${gc}80`, flexShrink: 0 }}
             />
             {renamingGroup === group ? (
               <input
@@ -836,8 +868,18 @@ export default function Events() {
               />
             ) : (
               <h3
-                className="text-sm font-bold uppercase tracking-wider truncate"
+                onClick={() => toggleCollapsedGroup(group)}
+                data-testid={`event-group-title-${group}`}
+                className="text-sm font-bold uppercase tracking-wider cursor-pointer"
                 style={{
+                  /* v130 — allow wrapping on mobile; break long group names
+                     across lines rather than truncating with ellipsis. */
+                  whiteSpace: "normal",
+                  wordBreak: "break-word",
+                  overflowWrap: "anywhere",
+                  lineHeight: 1.2,
+                  minWidth: 0,
+                  flex: "1 1 auto",
                   /* v59 — Elite Cockpit: bright polished silver title with a
                      subtle group-tint glow. Uses a mirror-metal vertical
                      gradient (bright top → cool platinum → shadow) so it
@@ -853,6 +895,7 @@ export default function Events() {
                   fontFamily: "'Cinzel', 'Rajdhani', serif",
                   filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.55))",
                 }}
+                title={group}
               >
                 {group}
               </h3>
@@ -974,17 +1017,19 @@ export default function Events() {
           </CanEdit>
         </div>
 
-        <motion.div
-          className="grid grid-cols-2 sm:grid-cols-3 gap-1.5"
-          initial="hidden"
-          animate="visible"
-          variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
-          data-testid={`event-group-grid-${group}`}
-        >
-          {applyManualOrder(list, `group:${group}`).map((e) =>
-            renderEventCard(e, gc, group, `group:${group}`)
-          )}
-        </motion.div>
+        {!collapsedGroups[group] && (
+          <motion.div
+            className="grid grid-cols-2 sm:grid-cols-3 gap-1.5"
+            initial="hidden"
+            animate="visible"
+            variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
+            data-testid={`event-group-grid-${group}`}
+          >
+            {applyManualOrder(list, `group:${group}`).map((e) =>
+              renderEventCard(e, gc, group, `group:${group}`)
+            )}
+          </motion.div>
+        )}
       </div>
     );
   };
@@ -1458,7 +1503,7 @@ export default function Events() {
                         >
                           <div className="flex items-center gap-2">
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-bold" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif", whiteSpace: "nowrap", overflow: "visible", lineHeight: 1.25 }} title={`${e.group_name ? e.group_name + " / " : ""}${e.name}`}>
+                              <div className="text-sm font-bold" style={{ color: "#F5F0E8", fontFamily: "Rajdhani, sans-serif", whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: 1.25 }} title={`${e.group_name ? e.group_name + " / " : ""}${e.name}`}>
                                 {/* v61 — Grup Adı / Etkinlik Adı formatı */}
                                 {e.group_name && String(e.group_name).trim() ? (
                                   <>
@@ -2328,6 +2373,12 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
   const [loyaltyThreshold, setLoyaltyThreshold] = useState(
     initial && initial.loyalty_threshold ? String(initial.loyalty_threshold) : "",
   );
+  // v129 — Auto-archive knobs on the event form.
+  const [autoArchive, setAutoArchive] = useState(!!(initial && initial.auto_archive));
+  const [autoArchiveFolderId, setAutoArchiveFolderId] = useState(
+    (initial && initial.auto_archive_folder_id) || "",
+  );
+  const { data: formFolders = [] } = useSWR("/event-folders", fetcher, { refreshInterval: 30000 });
   // v54 — Alliance scope: which alliance may RSVP + receive push reminders.
   // Backend defaults to "GOW"; keep that as the client-side default too so
   // new events target our home alliance out of the box.
@@ -2376,6 +2427,8 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
         attendance_enabled: attendanceEnabled,
         loyalty_enabled: loyaltyEnabled,
         loyalty_threshold: loyaltyEnabled ? Math.max(0, parseInt(loyaltyThreshold, 10) || 0) : 0,
+        auto_archive: autoArchive,
+        auto_archive_folder_id: autoArchive ? (autoArchiveFolderId || null) : null,
         alliance_scope: (allianceScope || "GOW").trim(),
         recurrence_interval: recurInterval,
         recurrence_count: Number(recurCount) || 1,
@@ -2697,6 +2750,47 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
                 style={{ borderColor: "rgba(245,166,35,0.55)" }}
               />
               <span className="text-[10px] text-muted-foreground">puan</span>
+            </div>
+          )}
+        </div>
+
+        {/* v129 — Otomatik Arşiv toggle + klasör seçimi. Ticked=true iken
+            event tarihi geçince cron `auto_archive_sweep` bu etkinliği
+            `archived=true` yapar; klasör seçilmişse o klasöre taşır. */}
+        <div className="mt-3 rounded p-3" style={{ background: "rgba(148,163,184,0.06)", border: "1px solid rgba(148,163,184,0.35)" }} data-testid="event-form-auto-archive-toggle">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoArchive}
+              onChange={(e) => setAutoArchive(e.target.checked)}
+              data-testid="event-form-auto-archive-checkbox"
+              className="cursor-pointer"
+            />
+            <span className="flex-1">
+              <span className="block text-sm font-bold text-white">
+                📦 Etkinlik sonrası otomatik arşive taşı
+              </span>
+              <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
+                {autoArchive
+                  ? "Tarih geçince (ilk arşiv sweep'inde) etkinlik otomatik arşive gider — istersen belirli bir klasör seç."
+                  : "İşaretle → tarih geçtiğinde etkinlik listeden çıkıp arşive gitsin."}
+              </span>
+            </span>
+          </label>
+          {autoArchive && (
+            <div className="mt-3 flex items-center gap-2" data-testid="event-form-auto-archive-folder-row">
+              <label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">Klasör</label>
+              <select
+                data-testid="event-form-auto-archive-folder"
+                value={autoArchiveFolderId}
+                onChange={(e) => setAutoArchiveFolderId(e.target.value)}
+                className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
+              >
+                <option value="">Klasörsüz</option>
+                {formFolders.map((f) => (
+                  <option key={f.id} value={f.id}>{f.icon || "📁"} {f.name}</option>
+                ))}
+              </select>
             </div>
           )}
         </div>
