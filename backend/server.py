@@ -1463,6 +1463,23 @@ async def public_folder_leaderboard(folder_id: str):
             r["avatar_url"] = m.get("avatar_url")
             if not r["name"]:
                 r["name"] = m.get("name") or ""
+    # v131 — Users store their avatar on the user doc; propagate to linked
+    # members here (fallback) so leaderboard rows always resolve to a URL
+    # even when the member doc hasn't been backfilled yet.
+    member_ids_needing_avatar = [r["member_id"] for r in rows if r["member_id"] and not r.get("avatar_url")]
+    if member_ids_needing_avatar:
+        linked_users = await db.users.find(
+            {"member_ids": {"$in": member_ids_needing_avatar}, "avatar_url": {"$ne": None}},
+            {"_id": 0, "avatar_url": 1, "member_ids": 1},
+        ).to_list(500)
+        user_avatar_by_member = {}
+        for u in linked_users:
+            for mid in (u.get("member_ids") or []):
+                if mid and u.get("avatar_url") and mid not in user_avatar_by_member:
+                    user_avatar_by_member[mid] = u["avatar_url"]
+        for r in rows:
+            if not r.get("avatar_url") and r["member_id"] in user_avatar_by_member:
+                r["avatar_url"] = user_avatar_by_member[r["member_id"]]
     for i, r in enumerate(rows):
         r["rank"] = i + 1
     return {"folder": folder, "events": events, "leaderboard": rows}
@@ -1809,6 +1826,23 @@ async def leaderboard(
             "total_points": int(r["total_points"]),
             "position": rank_pos,
         })
+    # v131 — Fallback lookup: if a member has no `avatar_url` yet, check if
+    # a linked user has one and surface that so the podium/rows never miss
+    # portraits when the member doc hasn't been synced.
+    member_ids_needing_avatar = [x["member_id"] for x in result if not x.get("avatar_url")]
+    if member_ids_needing_avatar:
+        linked_users = await db.users.find(
+            {"member_ids": {"$in": member_ids_needing_avatar}, "avatar_url": {"$ne": None}},
+            {"_id": 0, "avatar_url": 1, "member_ids": 1},
+        ).to_list(500)
+        user_avatar_by_member: dict = {}
+        for u in linked_users:
+            for mid in (u.get("member_ids") or []):
+                if mid and u.get("avatar_url") and mid not in user_avatar_by_member:
+                    user_avatar_by_member[mid] = u["avatar_url"]
+        for row in result:
+            if not row.get("avatar_url") and row["member_id"] in user_avatar_by_member:
+                row["avatar_url"] = user_avatar_by_member[row["member_id"]]
     return result
 
 

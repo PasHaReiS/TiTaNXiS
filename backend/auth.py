@@ -432,6 +432,10 @@ def make_auth_router(db):
     # endpoint to store the file and receive `{file_id, url}`; the URL is
     # then attached to the user doc here so it can render in headers,
     # profile card and message avatars.
+    # v131 — Propagate the avatar to every member linked to this user so
+    # the leaderboard, member list, and event chat all show the portrait
+    # without needing a second collection lookup. When `avatar_url` is null
+    # the linked members are cleared to null as well.
     @router.put("/auth/me/avatar")
     async def put_avatar(body: dict, user: dict = Depends(require_auth)):
         url = (body or {}).get("avatar_url")
@@ -442,7 +446,13 @@ def make_auth_router(db):
             {"$set": {"avatar_url": url,
                       "avatar_updated_at": now_iso()}},
         )
-        return {"ok": True, "avatar_url": url}
+        linked_ids = [x for x in (user.get("member_ids") or []) if x]
+        if linked_ids:
+            await db.members.update_many(
+                {"id": {"$in": linked_ids}},
+                {"$set": {"avatar_url": url}},
+            )
+        return {"ok": True, "avatar_url": url, "members_updated": len(linked_ids)}
 
     # ---------- Per-user manual event drag-drop order ----------
     # Stores the drag-drop reorder from the Etkinlikler page in a per-user

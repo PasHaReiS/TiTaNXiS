@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 26, 2026 (v131.1 Avatar Bug Fix)** — Sıralama Avatar Görünürlük:
+  - **Root Cause**: `PUT /auth/me/avatar` sadece `db.users` dokümanına yazıyordu ama `/api/leaderboard` `db.members.avatar_url`'den okuyordu; user→member propagation eksikti. Sonuç: kullanıcılar avatar yüklüyor ama sıralamada baş harf placeholder görünmeye devam ediyordu.
+  - **Fix 1 - Propagation** (`auth.py` L435-457): PUT /auth/me/avatar artık `user.member_ids`'deki tüm linked members'a `update_many({$set:{avatar_url:url}})` yapıyor. Null gönderildiğinde de temizliyor.
+  - **Fix 2 - Fallback** (`server.py` L1798-1830): `/api/leaderboard` avatar_url boşsa `db.users`'a fallback lookup yapıyor — `member_ids: {$in: needing}` ile users'ı çekip mapping oluşturuyor. Backfill olmasa bile leaderboard doğru avatar döndürüyor.
+  - **Fix 3 - Public Folder Leaderboard** (`server.py` L1466-1483): Aynı fallback logic public folder leaderboard'a da eklendi.
+  - **Fix 4 - Migration**: Tek seferlik backfill script çalıştırıldı; mevcut avatarlı 1 user'ın linked member'ı sync edildi (PasHa).
+  - **Verify**: Screenshot ile mobilde 390px viewport, `img` tag count=1, PasHa'nın gerçek fotoğrafı altın halkalı podium'da görünüyor.
+
 - **Feb 26, 2026 (v131 Leaderboard Avatars)** — Sıralama Avatar + [Alliance]:
   - **Backend** (`server.py` L1799-1811): `/api/leaderboard` yanıtı artık her satır için `avatar_url` içeriyor (üye dokümanından çekiliyor, ek round-trip yok).
   - **RankAvatar helper** (`Leaderboard.jsx` L15-45): Dairesel avatar componenti — `src`, `name`, `size`, `ring`, `ringWidth` propları. Avatar yoksa üyenin adının baş harfini gradient discte gösterir (Cinzel bold).
