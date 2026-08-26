@@ -5,6 +5,7 @@ import { api, apiErr } from "@/lib/api";
 import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
 import TelegramLinkSection from "@/components/TelegramLinkSection";
+import CropDialog from "@/components/CropDialog";
 import { Switch } from "@/components/ui/switch";
 import { KeyRound, Shield, User, LogOut, AlertTriangle, Link2, Bell, BellOff, Volume2, VolumeX, X as XIcon, Plus, Trophy, Zap, Castle, Crown, Medal, GitCompare, Flame, Trash2, Camera, Upload as UploadIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -35,6 +36,11 @@ export default function Profile() {
   const { data: notifPrefs, mutate: mutateNotifPrefs } = useSWR("/auth/me/notification-prefs", fetcher);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [prefBusy, setPrefBusy] = useState(false);
+  // v130 — Avatar crop flow. Users pick a file → we open CropDialog with a
+  // 1:1 square selection so the portrait always fits a circular frame; the
+  // cropped File is then uploaded via `/api/uploads/image?purpose=avatar`.
+  const [cropSrc, setCropSrc] = useState(null);       // data:URL preview
+  const [cropFile, setCropFile] = useState(null);     // original File
   // Radial menu whoosh sound preference (persisted per browser)
   const [radialMuted, setRadialMuted] = useState(
     () => (typeof window !== "undefined" && localStorage.getItem("ol_radial_mute") === "1")
@@ -114,27 +120,43 @@ export default function Profile() {
     } finally { setPrefBusy(false); }
   };
 
-  // v124 — Avatar upload. Two-step flow: POST to /api/uploads/image with
-  // purpose="avatar" → receive {url} → PUT the URL to /api/auth/me/avatar
-  // so it lands on the user doc. Clears avatar when file input is empty.
+  // v124/v130 — Avatar upload. Pick a file → read as data URL → open the
+  // CropDialog for a square trim → upload the cropped file to
+  // `/api/uploads/image?purpose=avatar` → PUT the returned URL onto the
+  // user doc via `/api/auth/me/avatar`. Clearing goes through removeAvatar().
   const onAvatarChange = async (e) => {
     const f = e.target.files?.[0];
+    e.target.value = "";  // allow re-picking the same file
     if (!f) return;
-    if (f.size > 4 * 1024 * 1024) { toast.error("Görsel 4 MB'tan büyük olamaz"); return; }
+    if (f.size > 8 * 1024 * 1024) { toast.error("Görsel 8 MB'tan büyük olamaz"); return; }
+    // Feed the file to CropDialog as a data URL.
+    const reader = new FileReader();
+    reader.onload = () => { setCropFile(f); setCropSrc(reader.result); };
+    reader.onerror = () => toast.error("Görsel okunamadı");
+    reader.readAsDataURL(f);
+  };
+
+  const uploadCroppedAvatar = async (croppedFile) => {
     setAvatarBusy(true);
     try {
       const fd = new FormData();
-      fd.append("file", f);
-      fd.append("purpose", "avatar");
-      const up = await api.post("/uploads/image", fd, { headers: { "Content-Type": "multipart/form-data" } });
-      await api.put("/auth/me/avatar", { avatar_url: up.data.url });
+      fd.append("file", croppedFile);
+      const up = await api.post("/uploads/image?purpose=avatar", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const rawUrl = up.data.url;
+      // The uploads router returns `/api/uploads/{id}` (relative). Convert
+      // to an absolute preview URL so <img src> works regardless of route.
+      const absUrl = rawUrl?.startsWith("http")
+        ? rawUrl
+        : `${process.env.REACT_APP_BACKEND_URL}${rawUrl}`;
+      await api.put("/auth/me/avatar", { avatar_url: absUrl });
       toast.success("Avatar güncellendi");
       await refreshMe();
     } catch (err) {
       toast.error(apiErr(err));
     } finally {
       setAvatarBusy(false);
-      e.target.value = "";
+      setCropSrc(null);
+      setCropFile(null);
     }
   };
 
@@ -222,6 +244,19 @@ export default function Profile() {
                   data-testid="profile-avatar-input"
                 />
               </label>
+              {user.avatar_url && (
+                <button
+                  type="button"
+                  onClick={removeAvatar}
+                  disabled={avatarBusy}
+                  data-testid="profile-avatar-remove"
+                  className="absolute -top-1 -right-1 rounded-full p-1 disabled:opacity-40"
+                  title="Avatarı kaldır"
+                  style={{ background: "rgba(0,0,0,0.75)", border: "1px solid rgba(239,68,68,0.6)", color: "#FCA5A5" }}
+                >
+                  <XIcon className="w-3 h-3" />
+                </button>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-bold text-white text-lg truncate">{user.username}</div>
@@ -732,6 +767,20 @@ export default function Profile() {
         onClose={() => setLinkOpen(false)}
         currentMemberIds={memberIds}
         onSaved={() => refreshMe()}
+      />
+
+      {/* v130 — Square avatar crop dialog. Opens after picking a file; on
+          confirm we upload the trimmed square file so the circular avatar
+          frame always renders cleanly. */}
+      <CropDialog
+        open={!!cropSrc}
+        imageUrl={cropSrc}
+        originalFile={cropFile}
+        aspect={1}
+        title="Avatarı Kırp"
+        description="Kare bir bölge seç — avatarın her yerde yuvarlak çerçeveye tam otursun."
+        onCancel={() => { setCropSrc(null); setCropFile(null); }}
+        onConfirm={(file) => uploadCroppedAvatar(file)}
       />
     </div>
   );

@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 26, 2026 (v130 Avatar)** — Avatar Upload Fix + Crop Dialog:
+  - **Regex Bug Fix** (`routes/uploads.py` L106): `/api/uploads/image?purpose=avatar` 422'ye düşüyordu — regex `^(vip|commander|event|avatar|misc)$` olarak güncellendi. Curl testi: upload+PUT+GET 200 döner.
+  - **public_user Enrichment** (`auth.py` L168-183): `/auth/me` yanıtına `avatar_url` + `avatar_updated_at` alanları eklendi ki header/profil componentleri anında re-render edebilsin.
+  - **Kare Crop Dialog** (`CropDialog.jsx`): Opsiyonel `aspect`, `title`, `description` propları eklendi. `aspect=1` verildiğinde `ReactCrop`'a locked square + `circularCrop` uygulanır. OCR/etkinlik akışları etkilenmedi (backward compatible).
+  - **Profile UX** (`Profile.jsx` L36-42, L120-160, L232-260, L750-770): Dosya seçildiğinde FileReader → CropDialog (1:1) açılır; kırpma sonrası File `/api/uploads/image?purpose=avatar` → `PUT /auth/me/avatar` chain. Avatar varsa sağ üstte kırmızı **X** (`profile-avatar-remove`) tek tıkla temizler. 8 MB üst sınır.
+  - test-id: `profile-avatar-input`, `profile-avatar-remove`, `profile-avatar-img`, `crop-dialog`, `crop-apply`.
+
 - **Feb 26, 2026 (v129-v130)** — Etkinlik Grup UX + Otomatik Arşiv Cron:
   - **Otomatik Arşiv Formu** (`Events.jsx` L2332-2386, L2712-2751): `auto_archive` checkbox + `auto_archive_folder_id` select. Ticked ise cron tarih geçince event'i arşive taşır, klasör seçiliyse o klasöre koyar. Model: `Event.auto_archive: bool`, `Event.auto_archive_folder_id: Optional[str]`.
   - **Cron Sweep** (`server.py` L1326-1346): `POST /api/events/auto-archive-sweep` — no auth, idempotent. `.emergent/crons.yml`'de `*/30 * * * *` çalışır. Test edildi: `moved=1, checked=1` başarılı.

@@ -103,7 +103,7 @@ def register_uploads(api_router: APIRouter, db, require_auth, require_admin):
     @api_router.post("/uploads/image")
     async def upload_image(
         file: UploadFile = File(...),
-        purpose: str = Query("vip", regex="^(vip|commander|event|misc)$"),
+        purpose: str = Query("vip", regex="^(vip|commander|event|avatar|misc)$"),
         user: dict = Depends(require_auth),
     ):
         filename = file.filename or "upload"

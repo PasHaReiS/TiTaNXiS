@@ -26,16 +26,27 @@ export default function CropDialog({
   canGoPrev = false, canGoNext = false,
   onGoPrev, onGoNext,
   historyIndex, historyTotal,
+  aspect,                    // v130 — optional locked aspect (e.g. 1 for avatars)
+  title = "Görüntüyü Kırp",  // v130 — customizable header for non-OCR flows
+  description,               // v130 — override the OCR-focused default blurb
 }) {
   const imgRef = useRef(null);
-  const [crop, setCrop] = useState({ unit: "%", x: 5, y: 5, width: 90, height: 90 });
+  const [crop, setCrop] = useState(() =>
+    aspect
+      ? { unit: "%", x: 10, y: 10, width: 80, height: 80, aspect }
+      : { unit: "%", x: 5, y: 5, width: 90, height: 90 }
+  );
   const [applying, setApplying] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [navigating, setNavigating] = useState(false);
 
   if (!open) return null;
 
-  const reset = () => setCrop({ unit: "%", x: 5, y: 5, width: 90, height: 90 });
+  const reset = () => setCrop(
+    aspect
+      ? { unit: "%", x: 10, y: 10, width: 80, height: 80, aspect }
+      : { unit: "%", x: 5, y: 5, width: 90, height: 90 }
+  );
 
   const goPrev = async () => {
     if (!onGoPrev || !canGoPrev) return;
@@ -148,11 +159,10 @@ export default function CropDialog({
             <X className="w-5 h-5" />
           </button>
           <h3 className="text-lg font-bold uppercase gold-text mb-1 flex items-center gap-2">
-            <Scissors className="w-4 h-4" /> Görüntüyü Kırp
+            <Scissors className="w-4 h-4" /> {title}
           </h3>
           <p className="text-xs text-muted-foreground mb-3">
-            Sadece OCR ile taranmasını istediğin bölgeyi seç. Kenarlıklar, reklam alanları veya alakasız
-            paneller kırpıldığında model çok daha az hata yapar.
+            {description || "Sadece OCR ile taranmasını istediğin bölgeyi seç. Kenarlıklar, reklam alanları veya alakasız paneller kırpıldığında model çok daha az hata yapar."}
           </p>
 
           <div
@@ -166,6 +176,8 @@ export default function CropDialog({
               keepSelection
               minWidth={20}
               minHeight={20}
+              aspect={aspect}
+              circularCrop={aspect === 1}
             >
               <img
                 ref={imgRef}

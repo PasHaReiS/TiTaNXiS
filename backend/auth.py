@@ -177,6 +177,11 @@ def public_user(u: dict) -> dict:
         "notification_enabled": bool(u.get("notification_enabled", True)),
         "preferred_language": (u.get("preferred_language") or None),
         "telegram_chat_id": (u.get("telegram_chat_id") or None),
+        # v130 — expose the avatar URL so the profile card, header dropdown
+        # and event chat can render the uploaded portrait. Nullable when
+        # the user has not yet uploaded one.
+        "avatar_url": u.get("avatar_url"),
+        "avatar_updated_at": u.get("avatar_updated_at"),
         "password_updated_at": u.get("password_updated_at"),
         "password_updated_by": u.get("password_updated_by"),
         "created_at": u.get("created_at"),
