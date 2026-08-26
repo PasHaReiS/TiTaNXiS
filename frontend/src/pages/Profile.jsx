@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
 import TelegramLinkSection from "@/components/TelegramLinkSection";
 import { Switch } from "@/components/ui/switch";
-import { KeyRound, Shield, User, LogOut, AlertTriangle, Link2, Bell, BellOff, Volume2, VolumeX, X as XIcon, Plus, Trophy, Zap, Castle, Crown, Medal, GitCompare, Flame, Trash2 } from "lucide-react";
+import { KeyRound, Shield, User, LogOut, AlertTriangle, Link2, Bell, BellOff, Volume2, VolumeX, X as XIcon, Plus, Trophy, Zap, Castle, Crown, Medal, GitCompare, Flame, Trash2, Camera, Upload as UploadIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -31,6 +31,10 @@ export default function Profile() {
   const [deletingAccount, setDeletingAccount] = useState(false);
   // v120 — Fetch user's RSVP consecutive-yes streak for the 🔥 badge.
   const { data: streakData } = useSWR("/auth/me/rsvp-streak", fetcher, { refreshInterval: 60000 });
+  // v124 — Notification preferences (per-channel toggles).
+  const { data: notifPrefs, mutate: mutateNotifPrefs } = useSWR("/auth/me/notification-prefs", fetcher);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [prefBusy, setPrefBusy] = useState(false);
   // Radial menu whoosh sound preference (persisted per browser)
   const [radialMuted, setRadialMuted] = useState(
     () => (typeof window !== "undefined" && localStorage.getItem("ol_radial_mute") === "1")
@@ -94,6 +98,56 @@ export default function Profile() {
     }
   };
 
+  // v124 — Per-channel notification preferences (rsvp / announcement /
+  // streak / sadıklar). Updates the local SWR cache optimistically so the
+  // toggle feels instant.
+  const updateNotifPref = async (key, value) => {
+    setPrefBusy(true);
+    const next = { ...(notifPrefs || {}), [key]: value };
+    mutateNotifPrefs(next, false);
+    try {
+      await api.put("/auth/me/notification-prefs", next);
+      toast.success("Bildirim tercihi kaydedildi");
+    } catch (e) {
+      toast.error(apiErr(e));
+      mutateNotifPrefs();
+    } finally { setPrefBusy(false); }
+  };
+
+  // v124 — Avatar upload. Two-step flow: POST to /api/uploads/image with
+  // purpose="avatar" → receive {url} → PUT the URL to /api/auth/me/avatar
+  // so it lands on the user doc. Clears avatar when file input is empty.
+  const onAvatarChange = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 4 * 1024 * 1024) { toast.error("Görsel 4 MB'tan büyük olamaz"); return; }
+    setAvatarBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+      fd.append("purpose", "avatar");
+      const up = await api.post("/uploads/image", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      await api.put("/auth/me/avatar", { avatar_url: up.data.url });
+      toast.success("Avatar güncellendi");
+      await refreshMe();
+    } catch (err) {
+      toast.error(apiErr(err));
+    } finally {
+      setAvatarBusy(false);
+      e.target.value = "";
+    }
+  };
+
+  const removeAvatar = async () => {
+    setAvatarBusy(true);
+    try {
+      await api.put("/auth/me/avatar", { avatar_url: null });
+      toast.success("Avatar kaldırıldı");
+      await refreshMe();
+    } catch (err) { toast.error(apiErr(err)); }
+    finally { setAvatarBusy(false); }
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     if (newPwd !== confirm) { toast.error(t("pwd_mismatch")); return; }
@@ -135,8 +189,39 @@ export default function Profile() {
       <div className="px-4">
         <div className="card-red-gold p-4 mb-4">
           <div className="flex items-center gap-3">
-            <div className={`rank-badge ${user.role === "admin" ? "rank-GOW" : user.can_edit ? "rank-R3" : "rank-R2"}`}>
-              {user.role === "admin" ? <Shield className="w-5 h-5" /> : <User className="w-5 h-5" />}
+            {/* v124 — Avatar block replaces the plain rank badge. Users
+                can upload their own image; falls back to the rank-based
+                icon when no avatar is set. */}
+            <div className="relative flex-shrink-0" data-testid="profile-avatar-block">
+              {user.avatar_url ? (
+                <img
+                  src={user.avatar_url}
+                  alt="avatar"
+                  data-testid="profile-avatar-img"
+                  className="w-12 h-12 rounded-full object-cover"
+                  style={{ border: "2px solid #F5A623", boxShadow: "0 0 10px rgba(245,166,35,0.45)" }}
+                />
+              ) : (
+                <div className={`rank-badge ${user.role === "admin" ? "rank-GOW" : user.can_edit ? "rank-R3" : "rank-R2"}`}>
+                  {user.role === "admin" ? <Shield className="w-5 h-5" /> : <User className="w-5 h-5" />}
+                </div>
+              )}
+              <label
+                data-testid="profile-avatar-upload-label"
+                className="absolute -bottom-1 -right-1 rounded-full p-1 cursor-pointer"
+                title="Avatar yükle"
+                style={{ background: "linear-gradient(135deg, #F5A623, #B45309)", border: "1px solid #0B0704" }}
+              >
+                <Camera className="w-3 h-3" style={{ color: "#0B0704" }} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={avatarBusy}
+                  onChange={onAvatarChange}
+                  data-testid="profile-avatar-input"
+                />
+              </label>
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-bold text-white text-lg truncate">{user.username}</div>
@@ -447,6 +532,39 @@ export default function Profile() {
             onCheckedChange={(v) => toggleNotifications(!!v)}
           />
         </div>
+
+        {/* v124 — Per-channel notification preferences. Only visible when
+            master notifications are on. Users can silence a specific
+            channel (streak celebrations, sadıklar mentions) without
+            disabling everything. */}
+        {user.notification_enabled !== false && notifPrefs && (
+          <div className="card-dark p-3 mb-4" data-testid="profile-notification-prefs-panel">
+            <div className="text-[10px] uppercase tracking-widest gold-text mb-2">
+              Bildirim Türleri
+            </div>
+            <div className="space-y-2">
+              {[
+                { key: "rsvp",         label: "🔔 RSVP hatırlatmaları",   hint: "Etkinlik yaklaşırken cevap ver hatırlatması" },
+                { key: "announcement", label: "📢 Genel duyurular",         hint: "Lonca duyuruları ve önemli haberler" },
+                { key: "streak",       label: "🔥 Streak kutlamaları",     hint: "Üst üste RSVP serin arttıkça bilgi" },
+                { key: "sadiklar",     label: "🏅 Sadıklar başarısı",       hint: "Etkinlik eşiğini geçtiğinde tebrik" },
+              ].map((row) => (
+                <div key={row.key} className="flex items-center justify-between gap-3 py-1" data-testid={`profile-notification-pref-${row.key}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs text-white font-semibold truncate">{row.label}</div>
+                    <div className="text-[10px] text-muted-foreground leading-snug">{row.hint}</div>
+                  </div>
+                  <Switch
+                    data-testid={`profile-notification-pref-${row.key}-switch`}
+                    checked={notifPrefs[row.key] !== false}
+                    disabled={prefBusy}
+                    onCheckedChange={(v) => updateNotifPref(row.key, !!v)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="section-title flex items-center gap-2">
           {radialMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}

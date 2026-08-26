@@ -16,7 +16,10 @@ import EventReminderDialog from "@/components/EventReminderDialog";
 import EventCountdown from "@/components/EventCountdown";
 import EventResultGallery from "@/components/EventResultGallery";
 import EventCalendar from "@/components/EventCalendar";
-import { BellRing, GripVertical, Folder } from "lucide-react";
+import { BellRing, GripVertical, Folder, MessageCircle } from "lucide-react";
+import AddToCalendarButton from "@/components/AddToCalendarButton";
+import EventChatDrawer from "@/components/EventChatDrawer";
+import { useAuth } from "@/context/AuthContext";
 import { groupColor, groupBgTint } from "@/lib/groupColors";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -293,6 +296,9 @@ export default function Events() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [detailId, setDetailId] = useState(null);
+  // v124 — Event chat drawer state. Stores the event id whose chat is open.
+  const [chatEventId, setChatEventId] = useState(null);
+  const { user: me } = useAuth();
   const [renamingGroup, setRenamingGroup] = useState(null); // group name being renamed
   const [renameValue, setRenameValue] = useState("");
   const [ocrOpen, setOcrOpen] = useState(false);
@@ -747,6 +753,26 @@ export default function Events() {
             {isTodayEvent ? t("event_today_badge") : t("event_active_badge")}
           </span>
         )}
+        {/* v124 — Takvimime Ekle + Etkinlik Sohbeti. Rendered inline as
+            secondary CTAs; stop propagation so the card click (detail
+            modal) doesn't fire. */}
+        <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(ev) => ev.stopPropagation()}>
+          <AddToCalendarButton event={e} />
+          <button
+            type="button"
+            onClick={() => setChatEventId(e.id)}
+            data-testid={`event-chat-open-${e.id}`}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest"
+            style={{
+              background: "rgba(245,166,35,0.12)",
+              color: "#F5A623",
+              border: "1px solid rgba(245,166,35,0.35)",
+            }}
+            title="Etkinlik Sohbeti"
+          >
+            <MessageCircle className="w-3 h-3" /> Sohbet
+          </button>
+        </div>
         <CanEdit>
           <RsvpSummaryChip eventId={e.id} />
         </CanEdit>
@@ -1617,6 +1643,15 @@ export default function Events() {
         events={filteredEvents}
         onNavigate={(id) => setDetailId(id)}
       />
+
+      {/* v124 — Event chat drawer. Renders when chatEventId is set. */}
+      {chatEventId && (
+        <EventChatDrawer
+          event={events.find((x) => x.id === chatEventId) || allActive.find((x) => x.id === chatEventId) || null}
+          currentUser={me}
+          onClose={() => setChatEventId(null)}
+        />
+      )}
 
       {reminderFor && (
         <EventReminderDialog event={reminderFor} onClose={() => setReminderFor(null)} />

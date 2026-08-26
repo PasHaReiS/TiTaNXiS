@@ -397,6 +397,48 @@ def make_auth_router(db):
         await db.users.delete_one({"id": uid})
         return {"ok": True, "deleted_user_id": uid}
 
+    # v124 — Notification preferences panel. Users can toggle individual
+    # channels (rsvp reminders, general announcements, streak celebrations,
+    # sadıklar mentions) without disabling notifications entirely. Missing
+    # keys default to True so existing users get all notifications by
+    # default until they explicitly opt out.
+    @router.get("/auth/me/notification-prefs")
+    async def get_notif_prefs(user: dict = Depends(require_auth)):
+        prefs = user.get("notification_prefs") or {}
+        return {
+            "rsvp": prefs.get("rsvp", True),
+            "announcement": prefs.get("announcement", True),
+            "streak": prefs.get("streak", True),
+            "sadiklar": prefs.get("sadiklar", True),
+        }
+
+    @router.put("/auth/me/notification-prefs")
+    async def put_notif_prefs(body: dict, user: dict = Depends(require_auth)):
+        allowed = {"rsvp", "announcement", "streak", "sadiklar"}
+        prefs = {k: bool(v) for k, v in (body or {}).items() if k in allowed}
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$set": {"notification_prefs": prefs,
+                      "notification_prefs_updated_at": now_iso()}},
+        )
+        return {"ok": True, "prefs": prefs}
+
+    # v124 — Avatar upload. Frontend uses the existing `/api/uploads/image`
+    # endpoint to store the file and receive `{file_id, url}`; the URL is
+    # then attached to the user doc here so it can render in headers,
+    # profile card and message avatars.
+    @router.put("/auth/me/avatar")
+    async def put_avatar(body: dict, user: dict = Depends(require_auth)):
+        url = (body or {}).get("avatar_url")
+        if url is not None and not isinstance(url, str):
+            raise HTTPException(400, "avatar_url must be a string or null")
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$set": {"avatar_url": url,
+                      "avatar_updated_at": now_iso()}},
+        )
+        return {"ok": True, "avatar_url": url}
+
     # ---------- Per-user manual event drag-drop order ----------
     # Stores the drag-drop reorder from the Etkinlikler page in a per-user
     # dict so a reorder done on desktop lives on the phone too. Bucket keys

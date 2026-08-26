@@ -21,12 +21,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
-
-### 🗂️ Backlog / Deploy Sonrası Yapılacaklar (Feb 25, 2026)
-- **Sadıklar Ödül Sistemi**: Ay sonunda en yüksek sadıklar puanı olan 3 üyeye özel Telegram rozeti + duyuru gönder
-- **Loyalty Progress Bar**: Etkinlik detay ekranında "X üyeden Y kişi eşiği geçti" progress bar göster
-- **Sadıklar Grafik**: Aylık sadıklar puanı trendi çizgi grafiği (recharts)
-
+- **Feb 26, 2026 (v124)** — 5 Yeni Özellik (Legal 29-lang + Chat + iCal + Avatar + Notif Prefs):
+  - **Legal 29-dil**: `legal_content.py` TR kaynak (privacy/terms/aydinlatma). Backend `/api/legal/{doc}?lang=xx` DeepL ile on-demand çevirir + `legal_translations` collection'da cache'ler. Frontend'de `LegalPage.jsx` unified component, Privacy/Terms/AydinlatmaMetni artık tek satırlık wrapper. Verified: TR/EN/DE/ZH tümü çalışıyor ("Datenschutzerklärung", "使用条款").
+  - **Etkinlik İçi Sohbet**: Backend `GET/POST /api/events/{id}/messages` (`event_messages` collection, max 500 char). Frontend `EventChatDrawer.jsx` sağdan slide-in, 5s polling. Event card'a "Sohbet" butonu.
+  - **Takvimime Ekle**: Backend `GET /api/events/{id}/ics` VCALENDAR export. Frontend `AddToCalendarButton.jsx` dropdown (Google Calendar deep link + .ics indir).
+  - **Avatar Yükleme**: Backend `PUT /api/auth/me/avatar` + user doc'a `avatar_url`. Profile'da kamera buton ile upload (`/api/uploads/image` → PUT), 4MB limit. Yoksa rank badge fallback.
+  - **Bildirim Tercih Paneli**: Backend `GET/PUT /api/auth/me/notification-prefs` — 4 kanal (rsvp/announcement/streak/sadiklar). Profile'da yeni panel (master toggle açıkken görünür, per-channel switch).
 - **Feb 25, 2026 (v123)** — Sadıklar Tab'ını Katılım Merkezi'ne Taşı:
   - Sıralama sayfasındaki (Arşiv yanındaki) 🔥 SADIKLAR butonu ve tüm sadıklar view kodu kaldırıldı (Leaderboard.jsx sadeleşti).
   - `Reports.jsx` ReportTabs'a 3. sekme olarak eklendi: **📅 Etkinlik Katılım · ⚡ Hızlı Rapor · 🔥 Sadıklar** — 3 menü aynı satırda hizalı ve birleşik.

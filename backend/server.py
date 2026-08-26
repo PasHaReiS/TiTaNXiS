@@ -407,6 +407,125 @@ async def list_alliances():
     return sorted([n for n in names if n])
 
 
+# v124 — Legal documents (Privacy / Terms / Aydınlatma) served in the
+# user's language. TR is the source-of-truth; other languages are
+# translated on-demand via DeepL and cached in `legal_translations`.
+@api_router.get("/legal/{doc}")
+async def get_legal(doc: str, lang: str = "tr"):
+    from legal_content import LEGAL_SOURCES, LEGAL_UPDATED
+    if doc not in LEGAL_SOURCES:
+        raise HTTPException(404, "unknown legal doc")
+    lang = (lang or "tr").lower()
+    src = LEGAL_SOURCES[doc]
+    if lang == "tr":
+        return {"doc": doc, "lang": "tr", "updated": LEGAL_UPDATED,
+                "title": src["title"], "sections": src["sections"]}
+    # Cache hit?
+    cached = await db.legal_translations.find_one({"doc": doc, "lang": lang}, {"_id": 0})
+    if cached:
+        return cached["content"]
+    # Cache miss → translate via DeepL. Loops per section to reuse the
+    # existing per-string helper (which handles quota + logging).
+    try:
+        n = len(src["sections"])
+        title_tr = (await _deepl_translate_one(src["title"], target_langs=[lang])).get(lang, src["title"])
+        sections_tr = []
+        for s in src["sections"]:
+            h_tr = (await _deepl_translate_one(s["heading"], target_langs=[lang])).get(lang, s["heading"])
+            b_tr = (await _deepl_translate_one(s["body"], target_langs=[lang])).get(lang, s["body"])
+            sections_tr.append({"heading": h_tr, "body": b_tr})
+        content = {
+            "doc": doc, "lang": lang, "updated": LEGAL_UPDATED,
+            "title": title_tr, "sections": sections_tr,
+        }
+        from datetime import datetime as _ldt, timezone as _ltz
+        await db.legal_translations.update_one(
+            {"doc": doc, "lang": lang},
+            {"$set": {"doc": doc, "lang": lang, "content": content,
+                      "cached_at": _ldt.now(_ltz.utc).isoformat()}},
+            upsert=True,
+        )
+        return content
+    except Exception as e:
+        logger.warning(f"legal translate fallback tr for {doc}/{lang}: {e}")
+        return {"doc": doc, "lang": "tr", "updated": LEGAL_UPDATED,
+                "title": src["title"], "sections": src["sections"]}
+
+
+# v124 — Google Calendar / iCal export for a single event. Serves a
+# standards-compliant .ics file so any calendar app can subscribe.
+@api_router.get("/events/{event_id}/ics")
+async def event_ics(event_id: str):
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0})
+    if not ev:
+        raise HTTPException(404, "event not found")
+    from datetime import datetime as _dt2, timezone as _tz2, timedelta as _td2
+    try:
+        start = _dt2.fromisoformat((ev.get("date") or "").replace("Z", "+00:00"))
+    except Exception:
+        raise HTTPException(400, "bad event date")
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=_tz2.utc)
+    end = start + _td2(hours=2)
+    def fmt(d: _dt2) -> str:
+        return d.astimezone(_tz2.utc).strftime("%Y%m%dT%H%M%SZ")
+    name = (ev.get("name") or "TiTaNXiS Event").replace("\n", " ").replace(",", "\\,")
+    subtitle = (ev.get("subtitle") or "").replace("\n", " ").replace(",", "\\,")
+    uid = f"{event_id}@titanxis"
+    ics = "\r\n".join([
+        "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//TiTaNXiS//EN",
+        "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+        "BEGIN:VEVENT",
+        f"UID:{uid}",
+        f"DTSTAMP:{fmt(_dt2.now(_tz2.utc))}",
+        f"DTSTART:{fmt(start)}",
+        f"DTEND:{fmt(end)}",
+        f"SUMMARY:{name}",
+        f"DESCRIPTION:{subtitle}" if subtitle else "DESCRIPTION:",
+        "END:VEVENT", "END:VCALENDAR", "",
+    ])
+    return Response(content=ics, media_type="text/calendar; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="titanxis-{event_id[:8]}.ics"'})
+
+
+# v124 — Event in-app chat. Lightweight polling-based messages; only
+# users who RSVP'd yes/maybe can post so noise stays low.
+@api_router.get("/events/{event_id}/messages")
+async def event_messages_list(event_id: str, since: Optional[str] = None):
+    q: dict = {"event_id": event_id}
+    if since:
+        q["ts"] = {"$gt": since}
+    rows = await db.event_messages.find(q, {"_id": 0}).sort("ts", 1).to_list(500)
+    return rows
+
+
+class EventMsgBody(BaseModel):
+    text: str
+
+
+@api_router.post("/events/{event_id}/messages")
+async def event_messages_post(event_id: str, body: EventMsgBody, user: dict = Depends(require_auth)):
+    text = (body.text or "").strip()
+    if not text:
+        raise HTTPException(400, "empty message")
+    if len(text) > 500:
+        raise HTTPException(400, "message too long (max 500)")
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0, "id": 1})
+    if not ev:
+        raise HTTPException(404, "event not found")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "event_id": event_id,
+        "user_id": user["id"],
+        "username": user.get("username"),
+        "avatar_url": user.get("avatar_url"),
+        "text": text,
+        "ts": now_iso(),
+    }
+    await db.event_messages.insert_one({**doc})
+    return doc
+
+
 # v122 — Sadıklar (Loyalty) leaderboard. For each event with
 # `loyalty_enabled=true`, every member whose weighted point total meets
 # or exceeds `loyalty_threshold` earns 1 loyalty point. The leaderboard
