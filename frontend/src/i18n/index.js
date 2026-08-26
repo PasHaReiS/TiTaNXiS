@@ -103,7 +103,7 @@ const tr = {
   update: "Güncelle",
   add_short: "Ekle",
   create: "Oluştur",
-  archive: "Arşivle",
+  archive: "Arşiv",
   loading_short: "...",
   select_placeholder: "-- Seç --",
 
@@ -699,6 +699,8 @@ const tr = {
   event_chat: "Sohbet",
   event_tab_reminded: "Hatırlatma Açık",
   event_tab_unreminded: "Hatırlatma Kapalı",
+  event_view_list: "Liste",
+  event_view_calendar: "Takvim",
   pc_import_excel: "Excel İçe Aktar",
   pc_import_desc: "Dışa aktardığınız Excel'i düzenleyip aynı şablonla yükleyin. Her sayfa (etkinlik) mevcut isimle eşleşir; tablolar sıfırdan yeniden yazılır. Yedek otomatik alınır (Geçmiş'ten geri yüklenebilir).",
   pc_import_updated: "Güncellenen",
@@ -2187,8 +2189,9 @@ const en = {
   poll_tg_voters_header: "Telegram Voters",
   poll_tg_admin_only_note: "Detailed list is only visible to admins.",
   poll_loading: "Loading…",
+  event_view_list: "List",
+  event_view_calendar: "Calendar",
 };
-
 const ru = {
   event_add_to_calendar: "Добавить в календарь",
   event_chat: "Чат",
@@ -2350,7 +2353,7 @@ const ru = {
   update: "Обновить",
   add_short: "Добавить",
   create: "Создать",
-  archive: "Архивировать",
+  archive: "Архив",
   select_placeholder: "-- Выбрать --",
   login: "Войти",
   logout: "Выйти",
@@ -2881,8 +2884,9 @@ const ru = {
   poll_tg_voters_header: "Голосовавшие в Telegram",
   poll_tg_admin_only_note: "Подробный список виден только администраторам.",
   poll_loading: "Загрузка…",
+  event_view_list: "Список",
+  event_view_calendar: "Календарь",
 };
-
 const de = {
   event_add_to_calendar: "Zum Kalender hinzufügen",
   event_chat: "Chat",
@@ -2957,7 +2961,7 @@ const de = {
   update: "Aktualisieren",
   add_short: "Hinzufügen",
   create: "Erstellen",
-  archive: "Archivieren",
+  archive: "Archiv",
   select_placeholder: "-- Auswählen --",
   login: "Anmelden",
   logout: "Abmelden",
@@ -3488,6 +3492,8 @@ const de = {
   poll_tg_details_toggle: "📡 Details zur TG-Abstimmung",
   poll_tg_details_hide: "TG: Details zur Abstimmung ausblenden",
   poll_tg_details_show: "TG-Stimmenergebnisse anzeigen",
+  event_view_list: "Liste",
+  event_view_calendar: "Kalender",
 };
 
 const fr = {
@@ -3564,7 +3570,7 @@ const fr = {
   update: "Mettre à jour",
   add_short: "Ajouter",
   create: "Créer",
-  archive: "Archiver",
+  archive: "Archive",
   select_placeholder: "-- Choisir --",
   login: "Connexion",
   logout: "Déconnexion",
@@ -4087,6 +4093,8 @@ const fr = {
   poll_tg_voters_header: "Les votants sur Telegram",
   poll_tg_admin_only_note: "La liste détaillée n'est disponible que dans la vue administrateur.",
   poll_loading: "Chargement en cours…",
+  event_view_calendar: "Calendrier",
+  event_view_list: "Liste",
 };
 
 const es = {
@@ -4163,7 +4171,7 @@ const es = {
   update: "Actualizar",
   add_short: "Añadir",
   create: "Crear",
-  archive: "Archivar",
+  archive: "Archivo",
   select_placeholder: "-- Elegir --",
   login: "Entrar",
   logout: "Salir",
@@ -4687,6 +4695,8 @@ const es = {
   poll_tg_voters_header: "Votantes de Telegram",
   poll_tg_admin_only_note: "La lista detallada solo está disponible en la vista de administrador.",
   poll_loading: "Cargando…",
+  event_view_list: "Lista",
+  event_view_calendar: "Calendario",
 };
 
 const ko = {
@@ -5264,6 +5274,8 @@ const ko = {
   poll_tg_voters_header: "텔레그램 투표자",
   poll_tg_admin_only_note: "상세 목록은 관리자 화면에서만 확인할 수 있습니다.",
   poll_loading: "로딩 중…",
+  event_view_calendar: "캘린더",
+  event_view_list: "목록",
 };
 
 const ar = {
@@ -5907,7 +5919,11 @@ const bg = {
   ev_group_hidden_hint_visible: "Скриване на цялата група от списъка",
   ev_group_hide_confirm: "Да се скрият ли {{n}} събития от групата „{{group}}“ от списъка?",
   poll_tg_voters_header: "Гласуващите в Telegram",
+  event_view_list: "Списък",
+  event_view_calendar: "Календар",
+  archive: "Archiv",
 };
+
 const cs = {
   event_add_to_calendar: "Přidat do kalendáře",
   event_chat: "Chat",
@@ -6077,6 +6093,8 @@ const cs = {
   poll_tg_voters_header: "Hlasující na Telegramu",
   poll_tg_admin_only_note: "Podrobný seznam je k dispozici pouze v režimu pro správce.",
   poll_loading: "Načítá se…",
+  event_view_list: "Seznam",
+  event_view_calendar: "Kalendář",
 };
 const da = {
   event_add_to_calendar: "Føj til kalender",
@@ -6234,7 +6252,11 @@ const da = {
   poll_tg_no_votes: "Der er endnu ingen TG-stemmer",
   poll_tg_admin_only_note: "Den detaljerede liste vises kun i administratorvisningen.",
   poll_loading: "Indlæser…",
+  event_view_list: "Liste",
+  event_view_calendar: "Kalender",
+  archive: "Αρχείο",
 };
+
 const el = {
   event_add_to_calendar: "Προσθήκη στο ημερολόγιο",
   event_chat: "Συνομιλία",
@@ -6387,6 +6409,8 @@ const el = {
   ev_bulk_breakdown_hide: "🔍❌ Απόκρυψη λεπτομερειών",
   ev_bulk_breakdown_show: "🔍✓ Εμφάνιση περαιτέρω λεπτομερειών",
   ev_bulk_breakdown_hide_tip: "Απόκρυψη του πλαισίου λεπτομερειών των επιλεγμένων δραστηριοτήτων (το σύνολο της ομάδας διατηρείται)",
+  event_view_list: "Λίστα",
+  event_view_calendar: "Ημερολόγιο",
 };
 const et = {
   event_add_to_calendar: "Lisa kalendrisse",
@@ -6544,7 +6568,11 @@ const et = {
   poll_tg_voters_header: "Telegramis hääletajad",
   poll_tg_admin_only_note: "Üksikasjalik nimekiri on nähtav ainult administraatori vaates.",
   poll_loading: "Laaditakse…",
+  event_view_list: "Loend",
+  event_view_calendar: "Kalender",
+  archive: "Arkisto",
 };
+
 const fi = {
   event_add_to_calendar: "Lisää kalenteriin",
   event_chat: "Keskustelu",
@@ -6704,6 +6732,8 @@ const fi = {
   poll_tg_voters_header: "Telegram-äänestäjät",
   poll_tg_admin_only_note: "Yksityiskohtainen luettelo näkyy vain järjestelmänvalvojan näkymässä.",
   poll_loading: "Ladataan…",
+  event_view_list: "Lista",
+  event_view_calendar: "Kalenteri",
 };
 const hu = {
   event_add_to_calendar: "Hozzáadás naptárhoz",
@@ -6868,7 +6898,11 @@ const hu = {
   ev_ungrouped_events_label: "Csoporton kívüli programok",
   poll_tg_details_toggle: "📡 TG-szavazás részletei",
   poll_tg_details_hide: "TG: a szavazási adatok elrejtése",
+  event_view_list: "Lista",
+  event_view_calendar: "Naptár",
+  archive: "Arsip",
 };
+
 const id_ = {
   event_add_to_calendar: "Tambahkan ke kalender",
   event_chat: "Obrolan",
@@ -7034,6 +7068,8 @@ const id_ = {
   poll_tg_voters_header: "Para Pemilih di Telegram",
   poll_tg_admin_only_note: "Daftar terperinci hanya tersedia di tampilan administrator.",
   poll_loading: "Sedang dimuat…",
+  event_view_list: "Daftar",
+  event_view_calendar: "Kalender",
 };
 const it = {
   event_add_to_calendar: "Aggiungi al calendario",
@@ -7191,7 +7227,11 @@ const it = {
   poll_tg_no_votes: "Non ci sono ancora voti per TG",
   poll_tg_admin_only_note: "L'elenco dettagliato è disponibile solo nella vista amministratore.",
   poll_loading: "Caricamento in corso…",
+  event_view_list: "Elenco",
+  event_view_calendar: "Calendario",
+  archive: "アーカイブ",
 };
+
 const ja = {
   event_add_to_calendar: "カレンダーに追加",
   event_chat: "チャット",
@@ -7357,6 +7397,8 @@ const ja = {
   poll_tg_details_toggle: "📡 TG投票の詳細",
   poll_tg_details_hide: "TGの投票詳細を非表示にする",
   poll_tg_details_show: "TGの投票詳細を表示する",
+  event_view_list: "リスト",
+  event_view_calendar: "カレンダー",
 };
 const lt = {
   event_add_to_calendar: "Pridėti į kalendorių",
@@ -7527,7 +7569,11 @@ const lt = {
   poll_tg_voters_header: "„Telegram“ balsuotojai",
   poll_tg_admin_only_note: "Išsamus sąrašas rodomas tik administratoriaus peržiūros režime.",
   poll_loading: "Įkeliama…",
+  event_view_list: "Sąrašas",
+  event_view_calendar: "Kalendorius",
+  archive: "Arhīvs",
 };
+
 const lv = {
   event_add_to_calendar: "Pievienot kalendāram",
   event_chat: "Tērzēšana",
@@ -7697,6 +7743,8 @@ const lv = {
   poll_tg_voters_header: "Telegram balsotāji",
   poll_tg_admin_only_note: "Detalizēts saraksts ir pieejams tikai administratora skatā.",
   poll_loading: "Tiek ielādēts…",
+  event_view_list: "Saraksts",
+  event_view_calendar: "Kalendārs",
 };
 const nb = {
   event_add_to_calendar: "Legg til i kalender",
@@ -7867,7 +7915,11 @@ const nb = {
   poll_tg_voters_header: "De som stemte på Telegram",
   poll_tg_admin_only_note: "Den detaljerte listen vises kun i administratorvisningen.",
   poll_loading: "Laster inn…",
+  event_view_list: "Liste",
+  event_view_calendar: "Kalender",
+  archive: "Archief",
 };
+
 const nl = {
   event_add_to_calendar: "Toevoegen aan agenda",
   event_chat: "Chat",
@@ -8032,6 +8084,8 @@ const nl = {
   poll_tg_voters_header: "Stemmers op Telegram",
   poll_tg_admin_only_note: "De gedetailleerde lijst is alleen zichtbaar in de beheerdersweergave.",
   poll_loading: "Bezig met laden…",
+  event_view_list: "Lijst",
+  event_view_calendar: "Kalender",
 };
 const pl = {
   event_add_to_calendar: "Dodaj do kalendarza",
@@ -8197,7 +8251,11 @@ const pl = {
   poll_tg_voters_header: "Głosujący na Telegramie",
   poll_tg_admin_only_note: "Szczegółowa lista jest dostępna wyłącznie w widoku administratora.",
   poll_loading: "Ładowanie…",
+  event_view_list: "Lista",
+  event_view_calendar: "Kalendarz",
+  archive: "Arquivo",
 };
+
 const pt = {
   event_add_to_calendar: "Adicionar ao calendário",
   event_chat: "Conversa",
@@ -8358,6 +8416,8 @@ const pt = {
   poll_tg_voters_header: "Eleitores do Telegram",
   poll_tg_admin_only_note: "Lista detalhada visível apenas para administradores.",
   poll_loading: "Carregando…",
+  event_view_list: "Lista",
+  event_view_calendar: "Calendário",
 };
 const ro = {
   event_add_to_calendar: "Adaugă în calendar",
@@ -8523,7 +8583,11 @@ const ro = {
   poll_tg_voters_header: "Cei care au votat pe Telegram",
   poll_tg_admin_only_note: "Lista detaliată este disponibilă numai în vizualizarea pentru administratori.",
   poll_loading: "Se încarcă…",
+  event_view_list: "Listă",
+  event_view_calendar: "Calendar",
+  archive: "Archív",
 };
+
 const sk = {
   event_add_to_calendar: "Pridať do kalendára",
   event_chat: "Chat",
@@ -8688,6 +8752,8 @@ const sk = {
   poll_tg_voters_header: "Hlasujúci v Telegrame",
   poll_tg_admin_only_note: "Podrobný zoznam je k dispozícii iba v správcovskom zobrazení.",
   poll_loading: "Načítava sa…",
+  event_view_list: "Zoznam",
+  event_view_calendar: "Kalendár",
 };
 const sl = {
   event_add_to_calendar: "Dodaj v koledar",
@@ -8853,7 +8919,11 @@ const sl = {
   poll_tg_voters_header: "Glasovalci na Telegramu",
   poll_tg_admin_only_note: "Podroben seznam je na voljo le v upraviteljskem pogledu.",
   poll_loading: "Nalaganje…",
+  event_view_list: "Seznam",
+  event_view_calendar: "Koledar",
+  archive: "Arkiv",
 };
+
 const sv = {
   event_add_to_calendar: "Lägg till i kalender",
   event_chat: "Chatt",
@@ -8978,6 +9048,8 @@ const sv = {
   vip_cat_suggestions: "Förslag",
   vip_cat_announcements: "Meddelanden",
   vip_cat_faq: "Vanliga frågor",
+  event_view_list: "Lista",
+  event_view_calendar: "Kalender",
 };
 const uk = {
   event_add_to_calendar: "Додати до календаря",
@@ -9103,7 +9175,11 @@ const uk = {
   vip_cat_suggestions: "Пропозиції",
   vip_cat_announcements: "Оголошення",
   vip_cat_faq: "Часті запитання",
+  event_view_list: "Список",
+  event_view_calendar: "Календар",
+  archive: "存档",
 };
+
 const zh = {
   event_add_to_calendar: "添加到日历",
   event_chat: "聊天",
@@ -9228,6 +9304,8 @@ const zh = {
   vip_cat_suggestions: "建议",
   vip_cat_announcements: "公告",
   vip_cat_faq: "常见问题解答",
+  event_view_list: "列表",
+  event_view_calendar: "日历",
 };
 
 const resources = {

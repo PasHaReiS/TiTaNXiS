@@ -210,7 +210,7 @@ function RsvpSummaryChip({ eventId }) {
 }
 
 export default function Events() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const [tab, setTab] = useState("reminded"); // "reminded" | "unreminded" | "archive"
   // Top-level view mode — Liste (existing list layout) vs Takvim (monthly grid).
@@ -709,18 +709,32 @@ export default function Events() {
               lineHeight: 1.25,
             }}
           >
-            {/* v61 — Grup Adı / Etkinlik Adı formatı. Grubu olmayan
-                etkinlikler sadece kendi adıyla gösterilir. */}
+            {/* v128 — Grup Adı / Etkinlik Adı formatı. group_translations
+                ve name_translations dict'lerini kullanarak kullanıcının
+                diline göre lokalize eder; yoksa TR fallback. */}
             {e.group_name && String(e.group_name).trim() ? (
               <>
                 <span style={{ color: "#D4AF37", fontWeight: 800, letterSpacing: "0.05em" }}>
-                  {String(e.group_name).trim()}
+                  {(() => {
+                    const lng = (i18n.language || "tr").split("-")[0].toLowerCase();
+                    const raw = String(e.group_name).trim();
+                    if (lng === "tr") return raw;
+                    return (e.group_translations || {})[lng] || raw;
+                  })()}
                 </span>
                 <span style={{ color: "#94A3B8", padding: "0 6px", fontWeight: 500 }}>/</span>
-                <span>{e.name}</span>
+                <span>{(() => {
+                  const lng = (i18n.language || "tr").split("-")[0].toLowerCase();
+                  if (lng === "tr") return e.name;
+                  return (e.name_translations || {})[lng] || e.name;
+                })()}</span>
               </>
             ) : (
-              e.name
+              (() => {
+                const lng = (i18n.language || "tr").split("-")[0].toLowerCase();
+                if (lng === "tr") return e.name;
+                return (e.name_translations || {})[lng] || e.name;
+              })()
             )}
           </div>
           <div
@@ -1015,7 +1029,7 @@ export default function Events() {
               boxShadow: "0 0 8px rgba(245,166,35,0.35)",
             } : { opacity: 0.7 }}
           >
-            <span aria-hidden="true" style={{ fontSize: 12 }}>📋</span> Liste
+            <span aria-hidden="true" style={{ fontSize: 12 }}>📋</span> {t("event_view_list", "Liste")}
           </button>
           <button
             type="button"
@@ -1029,7 +1043,7 @@ export default function Events() {
               boxShadow: "0 0 8px rgba(139,92,246,0.35)",
             } : { opacity: 0.7 }}
           >
-            <span aria-hidden="true" style={{ fontSize: 12 }}>📅</span> Takvim
+            <span aria-hidden="true" style={{ fontSize: 12 }}>📅</span> {t("event_view_calendar", "Takvim")}
           </button>
         </div>
       </Header>

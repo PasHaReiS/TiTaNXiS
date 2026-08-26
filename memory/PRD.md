@@ -20,6 +20,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 26, 2026 (v128)** — Ek Buton İ18N + Grup Çeviri Rendering + Arşiv Rename:
+  - `event_view_list` + `event_view_calendar` yeni i18n key'leri (28 dil curated: EN List/Calendar, DE Liste/Kalender, RU Список/Календарь, JA リスト/カレンダー, ZH 列表/日历 vb.).
+  - `archive` key'i "Arşivle" → "Arşiv" olarak değişti (buton chip'i için); diğer 28 dilde noun karşılıkları güncellendi (DE "Archiv", RU "Архив", JA "アーカイブ").
+  - Etkinlik kartı grup adı + etkinlik adı artık `group_translations` + `name_translations`'ı i18n.language'a göre kullanıyor; TR fallback korunuyor.
+  - `Events.jsx` main component'e `i18n` destructure eklendi.
+  - i18n dosyasındaki 15 orphan blok temizlendi (v128 injection script'inin yan etkisi). Cleanup script `/app/scripts/cleanup_i18n_orphans.py` olarak kalıcılaştırıldı.
 - **Feb 26, 2026 (v126-v127)** — Otomatik Çeviri Kapsamı Tüm İçeriğe Genişletildi:
   - **Klasörler** (`event_folders.py`): `EventFolder.name_translations`, `FolderTemplate.name_translations` + `folder_name_default_translations`. POST/PATCH endpoint'lerinde otomatik DeepL çevirisi. Server.py'de lambda ile `_auto_translate_all` inject edildi.
   - **Duyurular** (server.py `/api/announcements`): `title_translations` + `body_translations` otomatik oluşturuluyor.
