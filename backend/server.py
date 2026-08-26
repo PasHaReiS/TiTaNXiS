@@ -168,6 +168,13 @@ class Event(BaseModel):
     # even though it stays visible on /etkinlikler. Lets admins hide practice/
     # internal events from members without archiving them.
     show_in_calendar: bool = True
+    # v125 — Auto-generated DeepL translations for user-visible strings.
+    # Populated by /events POST/PATCH so the frontend can render event
+    # name / subtitle / group in the user's preferred language without a
+    # round-trip. Missing keys just fall back to the TR source.
+    name_translations: Dict[str, str] = Field(default_factory=dict)
+    subtitle_translations: Dict[str, str] = Field(default_factory=dict)
+    group_translations: Dict[str, str] = Field(default_factory=dict)
     # When False, this event never shows up on Katılım Merkezi (Reports)
     # because attendance tracking is disabled — e.g. announcements or
     # informational entries that shouldn't skew participation stats.
@@ -1057,6 +1064,16 @@ async def create_event(body: EventCreate, _: dict = Depends(require_edit)):
     gn = (payload.get("group_name") or "").strip()
     if not gn:
         payload["group_name"] = (payload.get("name") or "").strip() or "Özel Zaman"
+    # v125 — Auto-translate user-visible strings (name / subtitle / group)
+    # to all 28 non-TR languages via DeepL before insert. Frontend picks
+    # the right variant based on i18n.language. Runs inline so the very
+    # first render after save already has translations.
+    try:
+        payload["name_translations"] = await _auto_translate_all(payload.get("name"))
+        payload["subtitle_translations"] = await _auto_translate_all(payload.get("subtitle"))
+        payload["group_translations"] = await _auto_translate_all(payload.get("group_name"))
+    except Exception as ex:
+        logger.warning(f"auto-translate event failed: {ex}")
     # Pop the recurrence knobs off before we turn the payload into an Event —
     # we generate concrete duplicates below rather than storing a rule.
     interval = (payload.pop("recurrence_interval", None) or "none")
@@ -1137,6 +1154,17 @@ async def update_event(event_id: str, body: EventUpdate, _: dict = Depends(requi
     # Recurrence fields are handled separately below; strip before the $set.
     interval = update.pop("recurrence_interval", None) or "none"
     count = max(1, min(52, int(update.pop("recurrence_count", 1) or 1)))
+    # v125 — When the TR source of a user-visible field changes, refresh
+    # its translations dict so stale variants don't linger in other langs.
+    try:
+        if "name" in update:
+            update["name_translations"] = await _auto_translate_all(update.get("name"))
+        if "subtitle" in update:
+            update["subtitle_translations"] = await _auto_translate_all(update.get("subtitle"))
+        if "group_name" in update:
+            update["group_translations"] = await _auto_translate_all(update.get("group_name"))
+    except Exception as ex:
+        logger.warning(f"auto-translate patch failed: {ex}")
     if update:
         res = await db.events.update_one({"id": event_id}, {"$set": update})
         if res.matched_count == 0:
@@ -1291,7 +1319,17 @@ async def rename_group(old_name: str, new_name: str, _: dict = Depends(require_e
         raise HTTPException(400, "new_name cannot be empty")
     if new_name == old_name:
         return {"modified": 0}
-    res = await db.events.update_many({"group_name": old_name}, {"$set": {"group_name": new_name}})
+    # v125 — Auto-translate the renamed group so leaderboard chips and
+    # event card headers pick up localized names on the next render.
+    try:
+        translations = await _auto_translate_all(new_name)
+    except Exception as ex:
+        logger.warning(f"auto-translate rename failed: {ex}")
+        translations = {}
+    res = await db.events.update_many(
+        {"group_name": old_name},
+        {"$set": {"group_name": new_name, "group_translations": translations}},
+    )
     return {"modified": res.modified_count, "new_name": new_name}
 
 
@@ -3862,6 +3900,21 @@ async def _deepl_translate_one(text: str, target_langs=None):
             except Exception:
                 pass
     return out
+
+
+# v125 — Auto-translate a single TR field into all 28 non-TR enabled
+# languages. Returns `{}` if the field is blank or DeepL is offline.
+# Fire-and-forget: callers shouldn't await this on the request path if
+# they want a fast response; we run it inline for event create/update
+# because the extra ~1-2s is acceptable for admin actions and users
+# expect translations to be live immediately after saving.
+async def _auto_translate_all(text: Optional[str]) -> dict:
+    s = (text or "").strip()
+    if not s or not DEEPL_API_KEY:
+        return {}
+    target = [lg for lg in ENABLED_LANGS if lg != "tr"]
+    return await _deepl_translate_one(s, target_langs=target)
+
 
 
 class DeeplBulkBody(BaseModel):

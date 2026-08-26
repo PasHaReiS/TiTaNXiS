@@ -695,6 +695,10 @@ const tr = {
   breadcrumb_home: "Anasayfa",
   pc_tab_pre: "SVS Pre Puan Hesaplama",
   pc_tab_other: "Diğer Etkinlik Puan Hesaplamaları",
+  event_add_to_calendar: "Takvimime Ekle",
+  event_chat: "Sohbet",
+  event_tab_reminded: "Hatırlatıcılar açık",
+  event_tab_unreminded: "Hatırlatıcılar kapalı",
   pc_import_excel: "Excel İçe Aktar",
   pc_import_desc: "Dışa aktardığınız Excel'i düzenleyip aynı şablonla yükleyin. Her sayfa (etkinlik) mevcut isimle eşleşir; tablolar sıfırdan yeniden yazılır. Yedek otomatik alınır (Geçmiş'ten geri yüklenebilir).",
   pc_import_updated: "Güncellenen",
@@ -1214,6 +1218,10 @@ const tr = {
 };
 
 const en = {
+  event_add_to_calendar: "Add to calendar",
+  event_chat: "Chat",
+  event_tab_reminded: "Reminders on",
+  event_tab_unreminded: "Reminders off",
   alliance_rename_placeholder: "Name of the new alliance",
   alliance_rename_tooltip: "Change the name of the alliance",
   radial_menu_sound_title: "Menu Sound",
@@ -2182,6 +2190,10 @@ const en = {
 };
 
 const ru = {
+  event_add_to_calendar: "Добавить в календарь",
+  event_chat: "Чат",
+  event_tab_reminded: "Напоминания включены",
+  event_tab_unreminded: "Напоминания отключены",
   alliance_rename_placeholder: "Новое название альянса",
   alliance_rename_tooltip: "Изменить название альянса",
   radial_menu_sound_title: "Звук меню",
@@ -2872,6 +2884,10 @@ const ru = {
 };
 
 const de = {
+  event_add_to_calendar: "Zum Kalender hinzufügen",
+  event_chat: "Chat",
+  event_tab_reminded: "Erinnerungen aktiviert",
+  event_tab_unreminded: "Erinnerungen deaktiviert",
   alliance_rename_placeholder: "Name der neuen Koalition",
   alliance_rename_tooltip: "Das Bündnis ändert seinen Namen",
   radial_menu_sound_title: "Menü-Ton",
@@ -3475,6 +3491,10 @@ const de = {
 };
 
 const fr = {
+  event_add_to_calendar: "Ajouter à mon agenda",
+  event_chat: "Discussion",
+  event_tab_reminded: "Rappels activés",
+  event_tab_unreminded: "Rappels désactivés",
   alliance_rename_placeholder: "Nom de la nouvelle alliance",
   alliance_rename_tooltip: "Changer le nom de l'alliance",
   radial_menu_sound_title: "Son du menu",
@@ -4070,6 +4090,10 @@ const fr = {
 };
 
 const es = {
+  event_add_to_calendar: "Añadir al calendario",
+  event_chat: "Chat",
+  event_tab_reminded: "Recordatorios activados",
+  event_tab_unreminded: "Recordatorios desactivados",
   alliance_rename_placeholder: "Nombre de la nueva alianza",
   alliance_rename_tooltip: "Cambiar el nombre de la alianza",
   radial_menu_sound_title: "Sonido del menú",
@@ -4666,6 +4690,10 @@ const es = {
 };
 
 const ko = {
+  event_add_to_calendar: "캘린더에 추가",
+  event_chat: "채팅",
+  event_tab_reminded: "알림 켜짐",
+  event_tab_unreminded: "알림 꺼짐",
   pc_import_excel: "Excel 가져오기",
   pc_import_desc: "내보낸 엑셀 파일을 수정하고 동일한 템플릿으로 다시 업로드하세요. 각 페이지(이벤트)는 기존 이름과 일치하며, 표는 처음부터 다시 작성됩니다. 백업이 자동으로 생성됩니다(‘기록’에서 복원 가능).",
   pc_import_updated: "업데이트됨",
@@ -5722,6 +5750,10 @@ const ar = {
 // Empty translation stubs for additional languages — i18next fallbackLng: "tr"
 // automatically falls back to Turkish for any missing keys.
 const bg = {
+  event_add_to_calendar: "Добави в календара",
+  event_chat: "Чат",
+  event_tab_reminded: "Напомнянията са включени",
+  event_tab_unreminded: "Напомнянията са изключени",
   pc_import_excel: "Импортиране от Excel",
   pc_import_desc: "Редактирайте експортирания Excel файл и го качите, като използвате същия шаблон. Всяка страница (събитие) съответства на съществуващото име; таблиците се презаписват изцяло. Автоматично се създава резервно копие (което може да бъде възстановено от „История“).",
   pc_import_updated: "Актуализирано",
@@ -5877,6 +5909,10 @@ const bg = {
   poll_tg_voters_header: "Гласуващите в Telegram",
 };
 const cs = {
+  event_add_to_calendar: "Přidat do kalendáře",
+  event_chat: "Chat",
+  event_tab_reminded: "Připomenutí zapnuta",
+  event_tab_unreminded: "Připomenutí vypnuta",
   pc_import_excel: "Import z Excelu",
   pc_import_desc: "Upravte exportovaný soubor Excel a nahrajte jej pomocí stejné šablony. Každá stránka (událost) odpovídá stávajícímu názvu; tabulky se přepíší od začátku. Automaticky se vytvoří záloha (lze ji obnovit z historie).",
   pc_import_updated: "Aktualizováno",
@@ -6043,6 +6079,10 @@ const cs = {
   poll_loading: "Načítá se…",
 };
 const da = {
+  event_add_to_calendar: "Føj til kalender",
+  event_chat: "Chat",
+  event_tab_reminded: "Påmindelser til",
+  event_tab_unreminded: "Påmindelser fra",
   pc_import_excel: "Importer fra Excel",
   pc_import_desc: "Rediger den eksporterede Excel-fil, og upload den igen med den samme skabelon. Hver side (begivenhed) svarer til det eksisterende navn; tabellerne genopbygges fra bunden. Der tages automatisk en sikkerhedskopi (kan gendannes fra Historik).",
   pc_import_updated: "Opdateret",
@@ -6196,6 +6236,10 @@ const da = {
   poll_loading: "Indlæser…",
 };
 const el = {
+  event_add_to_calendar: "Προσθήκη στο ημερολόγιο",
+  event_chat: "Συνομιλία",
+  event_tab_reminded: "Υπενθυμίσεις ενεργές",
+  event_tab_unreminded: "Υπενθυμίσεις ανενεργές",
   pc_import_excel: "Εισαγωγή από το Excel",
   pc_import_desc: "Επεξεργαστείτε το αρχείο Excel που εξαγάγατε και φορτώστε το χρησιμοποιώντας το ίδιο πρότυπο. Κάθε σελίδα (δραστηριότητα) αντιστοιχεί στο υπάρχον όνομα· οι πίνακες αναδημιουργούνται από την αρχή. Δημιουργείται αυτόματα αντίγραφο ασφαλείας (μπορεί να επαναφερθεί από το «Ιστορικό»).",
   pc_import_updated: "Ενημερωμένο",
@@ -6345,6 +6389,10 @@ const el = {
   ev_bulk_breakdown_hide_tip: "Απόκρυψη του πλαισίου λεπτομερειών των επιλεγμένων δραστηριοτήτων (το σύνολο της ομάδας διατηρείται)",
 };
 const et = {
+  event_add_to_calendar: "Lisa kalendrisse",
+  event_chat: "Vestlus",
+  event_tab_reminded: "Meeldetuletused sees",
+  event_tab_unreminded: "Meeldetuletused väljas",
   pc_import_excel: "Excelist importimine",
   pc_import_desc: "Redigeerige eksporditud Excel-faili ja laadige see sama malliga üles. Iga leht (üritus) vastab olemasolevale nimele; tabelid kirjutatakse uuesti nullist. Varukoopia luuakse automaatselt (seda saab taastada ajaloost).",
   pc_import_updated: "Uuendatud",
@@ -6498,6 +6546,10 @@ const et = {
   poll_loading: "Laaditakse…",
 };
 const fi = {
+  event_add_to_calendar: "Lisää kalenteriin",
+  event_chat: "Keskustelu",
+  event_tab_reminded: "Muistutukset päällä",
+  event_tab_unreminded: "Muistutukset pois",
   pc_import_excel: "Tuo Excelistä",
   pc_import_desc: "Muokkaa vientiäsi Excelissä ja lataa se takaisin samalla mallipohjalla. Jokainen sivu (tapahtuma) vastaa nykyistä nimeä; taulukot kirjoitetaan kokonaan uudelleen. Varmuuskopio otetaan automaattisesti (voidaan palauttaa Historiasta).",
   pc_import_updated: "Päivitetty",
@@ -6654,6 +6706,10 @@ const fi = {
   poll_loading: "Ladataan…",
 };
 const hu = {
+  event_add_to_calendar: "Hozzáadás naptárhoz",
+  event_chat: "Csevegés",
+  event_tab_reminded: "Emlékeztetők bekapcsolva",
+  event_tab_unreminded: "Emlékeztetők kikapcsolva",
   pc_import_excel: "Excel-import",
   pc_import_desc: "Szerkessze az exportált Excel-fájlt, majd töltse fel ugyanazzal a sablonnal. Minden oldal (esemény) a meglévő nevével egyezik; a táblázatok teljesen újraíródnak. A rendszer automatikusan biztonsági másolatot készít (amelyet a „Előzmények” menüpontból vissza lehet állítani).",
   pc_import_updated: "Frissítve",
@@ -6814,6 +6870,10 @@ const hu = {
   poll_tg_details_hide: "TG: a szavazási adatok elrejtése",
 };
 const id_ = {
+  event_add_to_calendar: "Tambahkan ke kalender",
+  event_chat: "Obrolan",
+  event_tab_reminded: "Pengingat aktif",
+  event_tab_unreminded: "Pengingat nonaktif",
   pc_import_excel: "Impor dari Excel",
   pc_import_desc: "Edit file Excel yang telah Anda ekspor, lalu unggah kembali menggunakan templat yang sama. Setiap halaman (acara) akan sesuai dengan nama yang ada; tabel akan ditulis ulang dari awal. Cadangan akan dibuat secara otomatis (dapat dipulihkan dari Riwayat).",
   pc_import_updated: "Yang telah diperbarui",
@@ -6976,6 +7036,10 @@ const id_ = {
   poll_loading: "Sedang dimuat…",
 };
 const it = {
+  event_add_to_calendar: "Aggiungi al calendario",
+  event_chat: "Chat",
+  event_tab_reminded: "Promemoria attivi",
+  event_tab_unreminded: "Promemoria disattivati",
   pc_import_excel: "Importa da Excel",
   pc_import_desc: "Modifica il file Excel esportato e caricalo utilizzando lo stesso modello. Ogni pagina (evento) corrisponde al nome esistente; le tabelle vengono riscritte da zero. Viene creato automaticamente un backup (che può essere ripristinato dalla Cronologia).",
   pc_import_updated: "Aggiornato",
@@ -7129,6 +7193,10 @@ const it = {
   poll_loading: "Caricamento in corso…",
 };
 const ja = {
+  event_add_to_calendar: "カレンダーに追加",
+  event_chat: "チャット",
+  event_tab_reminded: "リマインダーオン",
+  event_tab_unreminded: "リマインダーオフ",
   pc_import_excel: "Excelからインポート",
   pc_import_desc: "エクスポートしたExcelファイルを編集し、同じテンプレートでアップロードしてください。各シート（イベント）は既存の名前と対応しており、表のデータは最初から書き直されます。バックアップは自動的に作成されます（「履歴」から復元可能です）。",
   pc_import_updated: "更新された",
@@ -7291,6 +7359,10 @@ const ja = {
   poll_tg_details_show: "TGの投票詳細を表示する",
 };
 const lt = {
+  event_add_to_calendar: "Pridėti į kalendorių",
+  event_chat: "Pokalbis",
+  event_tab_reminded: "Priminimai įjungti",
+  event_tab_unreminded: "Priminimai išjungti",
   pc_import_excel: "Importuoti iš „Excel“",
   pc_import_desc: "Redaguokite eksportuotą „Excel“ failą ir įkelkite jį naudodami tą patį šabloną. Kiekvienas lapas (renginys) atitinka esamą pavadinimą; lentelės perrašomos iš naujo. Automatiškai sukuriama atsarginė kopija (ją galima atkurti iš „Istorijos“).",
   pc_import_updated: "Atnaujinta",
@@ -7457,6 +7529,10 @@ const lt = {
   poll_loading: "Įkeliama…",
 };
 const lv = {
+  event_add_to_calendar: "Pievienot kalendāram",
+  event_chat: "Tērzēšana",
+  event_tab_reminded: "Atgādinājumi ieslēgti",
+  event_tab_unreminded: "Atgādinājumi izslēgti",
   pc_import_excel: "Importēt no Excel",
   pc_import_desc: "Rediģējiet eksportēto Excel failu un augšupielādējiet to, izmantojot to pašu veidni. Katra lapa (pasākums) atbilst esošajam nosaukumam; tabulas tiek pārrakstītas no jauna. Tiek automātiski izveidota rezerves kopija (to var atjaunot no vēstures).",
   pc_import_updated: "Atjaunināts",
@@ -7623,6 +7699,10 @@ const lv = {
   poll_loading: "Tiek ielādēts…",
 };
 const nb = {
+  event_add_to_calendar: "Legg til i kalender",
+  event_chat: "Chat",
+  event_tab_reminded: "Påminnelser på",
+  event_tab_unreminded: "Påminnelser av",
   pc_import_excel: "Importer fra Excel",
   pc_import_desc: "Rediger Excel-filen du har eksportert, og last den opp med samme mal. Hver side (aktivitet) samsvarer med det eksisterende navnet; tabellene skrives på nytt fra bunnen av. Det tas automatisk en sikkerhetskopi (kan gjenopprettes fra «Historikk»).",
   pc_import_updated: "Oppdatert",
@@ -7789,6 +7869,10 @@ const nb = {
   poll_loading: "Laster inn…",
 };
 const nl = {
+  event_add_to_calendar: "Toevoegen aan agenda",
+  event_chat: "Chat",
+  event_tab_reminded: "Herinneringen aan",
+  event_tab_unreminded: "Herinneringen uit",
   pc_import_excel: "Excel importeren",
   pc_import_desc: "Bewerk het geëxporteerde Excel-bestand en upload het met hetzelfde sjabloon. Elk blad (evenement) komt overeen met de bestaande naam; de tabellen worden helemaal opnieuw aangemaakt. Er wordt automatisch een back-up gemaakt (die via ‘Geschiedenis’ kan worden teruggezet).",
   bc_b_mudur_ofisi: "Directiekantoor",
@@ -7950,6 +8034,10 @@ const nl = {
   poll_loading: "Bezig met laden…",
 };
 const pl = {
+  event_add_to_calendar: "Dodaj do kalendarza",
+  event_chat: "Czat",
+  event_tab_reminded: "Przypomnienia włączone",
+  event_tab_unreminded: "Przypomnienia wyłączone",
   pc_import_excel: "Import z programu Excel",
   pc_import_desc: "Edytuj wyeksportowany plik Excel i załaduj go przy użyciu tego samego szablonu. Każda strona (wydarzenie) odpowiada istniejącej nazwie; tabele zostaną ponownie utworzone od podstaw. Automatycznie tworzona jest kopia zapasowa (można ją przywrócić z historii).",
   bc_b_mudur_ofisi: "Biuro dyrektora",
@@ -8111,6 +8199,10 @@ const pl = {
   poll_loading: "Ładowanie…",
 };
 const pt = {
+  event_add_to_calendar: "Adicionar ao calendário",
+  event_chat: "Conversa",
+  event_tab_reminded: "Lembretes ativados",
+  event_tab_unreminded: "Lembretes desativados",
   pc_import_excel: "Importar do Excel",
   pc_import_desc: "Edite o ficheiro Excel que exportou e carregue-o utilizando o mesmo modelo. Cada página (evento) corresponde ao nome atual; as tabelas são reescritas do zero. É criada automaticamente uma cópia de segurança (que pode ser recuperada a partir do Histórico).",
   bc_b_mudur_ofisi: "Gabinete do Diretor",
@@ -8268,6 +8360,10 @@ const pt = {
   poll_loading: "Carregando…",
 };
 const ro = {
+  event_add_to_calendar: "Adaugă în calendar",
+  event_chat: "Chat",
+  event_tab_reminded: "Memento-uri activate",
+  event_tab_unreminded: "Memento-uri dezactivate",
   pc_import_excel: "Import din Excel",
   pc_import_desc: "Editați fișierul Excel exportat și încărcați-l folosind același șablon. Fiecare pagină (eveniment) corespunde cu numele existent; tabelele sunt rescrise de la zero. Se realizează automat o copie de rezervă (care poate fi restaurată din Istoric).",
   bc_b_mudur_ofisi: "Biroul directorului",
@@ -8429,6 +8525,10 @@ const ro = {
   poll_loading: "Se încarcă…",
 };
 const sk = {
+  event_add_to_calendar: "Pridať do kalendára",
+  event_chat: "Chat",
+  event_tab_reminded: "Pripomienky zapnuté",
+  event_tab_unreminded: "Pripomienky vypnuté",
   pc_import_excel: "Import z Excelu",
   pc_import_desc: "Upravte exportovaný súbor Excel a nahrajte ho pomocou tej istej šablóny. Každá stránka (udalosť) zodpovedá existujúcemu názvu; tabuľky sa prepíšu od začiatku. Automaticky sa vytvorí záloha (možno ju obnoviť z histórie).",
   bc_b_mudur_ofisi: "Kancelária riaditeľa",
@@ -8590,6 +8690,10 @@ const sk = {
   poll_loading: "Načítava sa…",
 };
 const sl = {
+  event_add_to_calendar: "Dodaj v koledar",
+  event_chat: "Klepet",
+  event_tab_reminded: "Opomniki vklopljeni",
+  event_tab_unreminded: "Opomniki izklopljeni",
   pc_import_excel: "Uvoz iz Excelja",
   pc_import_desc: "Uvozite Excelovo datoteko, ki ste jo izvozili, jo uredite in jo naložite z isto predlogo. Vsaka stran (dogodek) se ujema z obstoječim imenom; tabele se ponovno napišejo od začetka. Samodejno se ustvari varnostna kopija (ki jo je mogoče obnoviti iz zgodovine).",
   bc_b_mudur_ofisi: "Urad direktorja",
@@ -8751,6 +8855,10 @@ const sl = {
   poll_loading: "Nalaganje…",
 };
 const sv = {
+  event_add_to_calendar: "Lägg till i kalender",
+  event_chat: "Chatt",
+  event_tab_reminded: "Påminnelser på",
+  event_tab_unreminded: "Påminnelser av",
   pc_import_excel: "Importera från Excel",
   pc_import_desc: "Redigera den Excel-fil du har exporterat och ladda upp den med samma mall. Varje sida (aktivitet) motsvarar det befintliga namnet; tabellerna skrivs om från grunden. En säkerhetskopia sparas automatiskt (kan återställas från Historik).",
   bc_b_mudur_ofisi: "Direktörens kontor",
@@ -8872,6 +8980,10 @@ const sv = {
   vip_cat_faq: "Vanliga frågor",
 };
 const uk = {
+  event_add_to_calendar: "Додати до календаря",
+  event_chat: "Чат",
+  event_tab_reminded: "Нагадування ввімкнено",
+  event_tab_unreminded: "Нагадування вимкнено",
   pc_import_excel: "Імпортувати з Excel",
   pc_import_desc: "Відредагуйте експортований файл Excel і завантажте його, використовуючи той самий шаблон. Кожна сторінка (подія) відповідає існуючій назві; таблиці створюються заново. Автоматично створюється резервна копія (її можна відновити з розділу «Історія»).",
   bc_b_mudur_ofisi: "Кабінет директора",
@@ -8993,6 +9105,10 @@ const uk = {
   vip_cat_faq: "Часті запитання",
 };
 const zh = {
+  event_add_to_calendar: "添加到日历",
+  event_chat: "聊天",
+  event_tab_reminded: "提醒已开启",
+  event_tab_unreminded: "提醒已关闭",
   pc_import_excel: "导入Excel",
   pc_import_desc: "请编辑您导出的Excel文件，然后使用相同的模板重新上传。每个页面（活动）都与现有名称对应；表格将从头重新生成。系统会自动备份（可从“历史记录”中恢复）。",
   bc_b_mudur_ofisi: "主任办公室",

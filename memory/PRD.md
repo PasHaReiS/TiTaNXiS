@@ -21,6 +21,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Editor** (`pasha` / `pasha123`)
 
 ## Recent Changes
+- **Feb 26, 2026 (v125)** — i18n buton çevirileri + Otomatik DeepL çeviri sistemi + Menü hizalaması:
+  - **Buton i18n**: `event_add_to_calendar`, `event_chat`, `event_tab_reminded`, `event_tab_unreminded` yeni i18n key'leri (28 dile manuel curated + DeepL karışım). AddToCalendarButton, event card Sohbet butonu, Events.jsx tab başlıkları `t()` ile sarıldı. Verified EN: "Add to calendar" · "Chat" · "Reminders on" · "Reminders off".
+  - **Menü hizalaması**: AddToCalendarButton artık açılırken viewport rect ölçüyor; buton sol kenardan 220px içindeyse menü `left:0` (içeri açılır), aksi halde default `right:0`. Sağ tarafa yakınsa flip devre dışı. Kesilme sorunu çözüldü.
+  - **Otomatik Dinamik Çeviri Sistemi**: Backend `_auto_translate_all(text)` helper (28 hedef dil için TR→X). `POST /events`, `PATCH /events/{id}`, `POST /events/rename-group` bu helper'ı otomatik çağırıyor — `name_translations`, `subtitle_translations`, `group_translations` dict'leri event doc'a otomatik yazılıyor. Verified: yeni oluşturulan event'te 28 dil için name/subtitle translations doldu ("Automatic Translation Test 2", "Test zur automatischen Übersetzung 2", "自動翻訳テスト 2"). Event modeline `Dict[str, str]` alanları eklendi.
+  - **Frontend helper**: `useLocalized(obj)` + `pickLocalized(obj, field, lang)` — event objesinden i18n.language'a göre çeviri döndürür, yoksa TR fallback.
 - **Feb 26, 2026 (v124)** — 5 Yeni Özellik (Legal 29-lang + Chat + iCal + Avatar + Notif Prefs):
   - **Legal 29-dil**: `legal_content.py` TR kaynak (privacy/terms/aydinlatma). Backend `/api/legal/{doc}?lang=xx` DeepL ile on-demand çevirir + `legal_translations` collection'da cache'ler. Frontend'de `LegalPage.jsx` unified component, Privacy/Terms/AydinlatmaMetni artık tek satırlık wrapper. Verified: TR/EN/DE/ZH tümü çalışıyor ("Datenschutzerklärung", "使用条款").
   - **Etkinlik İçi Sohbet**: Backend `GET/POST /api/events/{id}/messages` (`event_messages` collection, max 500 char). Frontend `EventChatDrawer.jsx` sağdan slide-in, 5s polling. Event card'a "Sohbet" butonu.

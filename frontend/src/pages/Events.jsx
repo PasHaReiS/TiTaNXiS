@@ -770,7 +770,7 @@ export default function Events() {
             }}
             title="Etkinlik Sohbeti"
           >
-            <MessageCircle className="w-3 h-3" /> Sohbet
+            <MessageCircle className="w-3 h-3" /> {t("event_chat")}
           </button>
         </div>
         <CanEdit>
@@ -1094,7 +1094,7 @@ export default function Events() {
           >
             <span className="flex items-center gap-1">
               <span aria-hidden="true" style={{ fontSize: 14, filter: tab === "reminded" ? "none" : "grayscale(0.6)" }}>🔔</span>
-              <span>Hatırlatmalı</span>
+              <span>{t("event_tab_reminded", "Hatırlatmalı")}</span>
             </span>
             <span className="mono text-[10px] opacity-90">({remindedCount})</span>
           </button>
@@ -1124,7 +1124,7 @@ export default function Events() {
           >
             <span className="flex items-center gap-1">
               <span aria-hidden="true" style={{ fontSize: 14, filter: tab === "unreminded" ? "none" : "grayscale(0.6)" }}>🔕</span>
-              <span>Hatırlatmasız</span>
+              <span>{t("event_tab_unreminded", "Hatırlatmasız")}</span>
             </span>
             <span className="mono text-[10px] opacity-90">({unremindedCount})</span>
           </button>
