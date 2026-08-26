@@ -27,6 +27,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Loyalty Progress Bar**: Etkinlik detay ekranında "X üyeden Y kişi eşiği geçti" progress bar göster
 - **Sadıklar Grafik**: Aylık sadıklar puanı trendi çizgi grafiği (recharts)
 
+- **Feb 25, 2026 (v123)** — Sadıklar Tab'ını Katılım Merkezi'ne Taşı:
+  - Sıralama sayfasındaki (Arşiv yanındaki) 🔥 SADIKLAR butonu ve tüm sadıklar view kodu kaldırıldı (Leaderboard.jsx sadeleşti).
+  - `Reports.jsx` ReportTabs'a 3. sekme olarak eklendi: **📅 Etkinlik Katılım · ⚡ Hızlı Rapor · 🔥 Sadıklar** — 3 menü aynı satırda hizalı ve birleşik.
+  - `SadiklarReport` component'i eklendi (aynı UI: özet kartı, empty state, aggregate rows). Data hâlâ `GET /api/loyalty/leaderboard` üzerinden.
+  - PeriodBar sadıklar sekmesinde de gizli (member/events'e özel filtre olduğu için).
+  - Verified: `/raporlar` üzerinde 3 sekme render ediyor, `[data-testid=reports-tab-sadiklar]` görünüyor, tıklayınca `[data-testid=sadiklar-report]` + `sadiklar-empty` görünüyor.
 - **Feb 25, 2026 (v122)** — Aydınlatma Metni + Sadıklar Leaderboard + Loyalty Event:
   - **Aydınlatma Metni** (`AydinlatmaMetni.jsx`, `/aydinlatma-metni` public route): KVKK Md. 10 uyumlu 7 bölüm (Veri Sorumlusu, İşlenen Veriler, Amaçlar, Aktarım, Toplama Yöntemi, Md. 11 Hakları, Başvuru Yöntemi). Layout footer'a "Aydınlatma" linki eklendi. Test: HTTP 200, 7 section render.
   - **Event Loyalty Config** (backend Event/EventCreate/EventUpdate): `loyalty_enabled: bool` + `loyalty_threshold: int` alanları eklendi. Event form'a "🔥 Sadıklar için Puan Ver" checkbox + eşik puan input. Ticked=true olduğunda eşik alanı belirir, aksi durum ignore edilir. Test: POST /api/events with loyalty_enabled=true, threshold=1000000 → doc'a doğru yazıldı.

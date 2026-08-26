@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { api, apiErr, fmt } from "@/lib/api";
 import Header from "@/components/Header";
 import { toast } from "sonner";
-import { Loader2, Download, Users, CalendarDays, RefreshCw, Filter } from "lucide-react";
+import { Loader2, Download, Users, CalendarDays, RefreshCw, Filter, Flame } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, LineChart, Line, Legend, ReferenceLine, ReferenceArea } from "recharts";
 import { useTranslation } from "react-i18next";
 
@@ -48,7 +48,7 @@ export default function Reports() {
       <Header title="Katılım Merkezi">
         <div className="space-y-2">
           <ReportTabs tab={tab} setTab={setTab} />
-          {tab !== "quick" && <PeriodBar period={period} setPeriod={setPeriod} tab={tab} />}
+          {tab !== "quick" && tab !== "sadiklar" && <PeriodBar period={period} setPeriod={setPeriod} tab={tab} />}
         </div>
       </Header>
       <div className="px-4 space-y-3">
@@ -56,6 +56,8 @@ export default function Reports() {
           <MembersReport period={period} />
         ) : tab === "quick" ? (
           <QuickReport />
+        ) : tab === "sadiklar" ? (
+          <SadiklarReport />
         ) : (
           <EventsReport period={period} />
         )}
@@ -78,6 +80,10 @@ function ReportTabs({ tab, setTab }) {
       {[
         { key: "events", emoji: "📅", label: t("reports_tab_events", "Etkinlik Katılım") },
         { key: "quick", emoji: "⚡", label: t("reports_tab_quick", "Hızlı Rapor") },
+        // v123 — Sadıklar tab moved here from the Sıralama header so all
+        // three attendance/loyalty views live on the same row inside
+        // Katılım Merkezi.
+        { key: "sadiklar", emoji: "🔥", label: "Sadıklar" },
       ].map((t, i, arr) => {
         const active = tab === t.key;
         return (
@@ -1482,6 +1488,102 @@ function QuickReport() {
               </tr>
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// v123 — Sadıklar (Loyalty) Raporu
+// Etkinlik eşiklerini geçen üyelerin toplam sadıklar puanı.
+// Backend: GET /api/loyalty/leaderboard.
+// ============================================================
+function SadiklarReport() {
+  const { data: loyaltyLb = [] } = useSWR("/loyalty/leaderboard", fetcher, { refreshInterval: 15000 });
+  const { data: allianceColors = {} } = useSWR("/alliance-colors", fetcher, { refreshInterval: 60000 });
+  return (
+    <div className="mb-6 fade-in" data-testid="sadiklar-report">
+      <div
+        className="rounded-lg p-3 mb-3 flex items-center gap-2"
+        style={{
+          background: "linear-gradient(180deg, rgba(245,166,35,0.15), rgba(231,76,26,0.10))",
+          border: "1px solid rgba(245,166,35,0.5)",
+        }}
+      >
+        <Flame className="w-5 h-5" style={{ color: "#F5A623", filter: "drop-shadow(0 0 6px rgba(245,166,35,0.65))" }} />
+        <div className="flex-1">
+          <div className="text-sm font-bold" style={{ color: "#FFF7ED", fontFamily: "Cinzel, serif", letterSpacing: "0.08em" }}>
+            Sadıklar Sıralaması
+          </div>
+          <div className="text-[11px]" style={{ color: "#EAD8B0" }}>
+            Etkinlik eşiklerini geçen üyeler +1 sadıklar puanı kazanır. Toplam: {loyaltyLb[0]?.total_loyalty_events || 0} sadıklar etkinliği.
+          </div>
+        </div>
+      </div>
+      {loyaltyLb.length === 0 ? (
+        <div className="card-dark p-6 text-center text-muted-foreground text-sm" data-testid="sadiklar-empty">
+          Henüz sadıklar puanı kazanan üye yok. Yönetici bir etkinlikte 🔥 Sadıklar için Puan Ver seçeneğini işaretlemeli.
+        </div>
+      ) : (
+        <div
+          className="space-y-1"
+          style={{
+            border: "1px solid rgba(245,166,35,0.35)",
+            borderRadius: 12,
+            padding: 6,
+            background: "linear-gradient(180deg, rgba(60,30,10,0.35) 0%, rgba(20,12,10,0.55) 100%)",
+          }}
+          data-testid="sadiklar-rows"
+        >
+          {loyaltyLb.map((r) => (
+            <div
+              key={r.member_id}
+              data-testid={`sadiklar-row-${r.member_id}`}
+              className="w-full flex items-center gap-3 rank-row"
+              style={{ padding: "8px 10px", minHeight: 44 }}
+            >
+              <div className="w-8 text-center">
+                <span className="text-sm font-bold mono" style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}>
+                  #{r.position}
+                </span>
+              </div>
+              <div
+                className="text-[9px] font-bold rounded-full flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: (r.alliance_name && allianceColors[r.alliance_name]) || "#E74C1A",
+                  color: "#fff",
+                  minWidth: 44,
+                  padding: "3px 7px",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  letterSpacing: "0.06em",
+                }}
+                title={r.alliance_name || ""}
+              >
+                {r.alliance_name || "-"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold truncate text-sm" style={{ color: "#F5F0E8", fontFamily: "Cinzel, Rajdhani, serif" }}>
+                  {r.name}
+                </div>
+                <div className="text-[10px] mono" style={{ color: "#EAD8B0", opacity: 0.7 }}>
+                  {r.events_qualified.slice(0, 3).join(" · ")}
+                  {r.events_qualified.length > 3 && ` +${r.events_qualified.length - 3}`}
+                </div>
+              </div>
+              <div
+                className="flex items-center gap-1.5 rounded-full px-3 py-1.5"
+                style={{
+                  background: "linear-gradient(135deg, rgba(245,166,35,0.25), rgba(231,76,26,0.25))",
+                  border: "1px solid rgba(245,166,35,0.6)",
+                  boxShadow: "0 0 8px rgba(245,166,35,0.35)",
+                }}
+              >
+                <Flame className="w-3.5 h-3.5" style={{ color: "#FFB347" }} />
+                <span className="font-bold mono text-sm" style={{ color: "#FFF7ED" }}>{r.loyalty_score}</span>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
