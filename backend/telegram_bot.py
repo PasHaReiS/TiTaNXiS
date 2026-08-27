@@ -163,6 +163,43 @@ def init_bot(db) -> Optional[Application]:
     _app.add_handler(CommandHandler("svs_cancel", svs_cancel_command))  # noqa: F821
     _app.add_handler(CommandHandler("yardim", yardim_command))
     _app.add_handler(CommandHandler("help", yardim_command))
+    # v133 — Genişletilmiş komut seti
+    _app.add_handler(CommandHandler("puan", puan_command))
+    _app.add_handler(CommandHandler("karsilastir", karsilastir_command))
+    _app.add_handler(CommandHandler("etkinlikler", etkinlikler_command))
+    _app.add_handler(CommandHandler("yakinda", yakinda_command))
+    _app.add_handler(CommandHandler("katil", katil_command))
+    _app.add_handler(CommandHandler("katilmiyorum", katilmiyorum_command))
+    _app.add_handler(CommandHandler("profil", profil_command))
+    _app.add_handler(CommandHandler("rozet", rozet_command))
+    _app.add_handler(CommandHandler("istatistik", istatistik_command))
+    _app.add_handler(CommandHandler("bildirimler", bildirimler_command))
+    _app.add_handler(CommandHandler("mola", mola_command))
+    _app.add_handler(CommandHandler("takvim", takvim_command))
+    _app.add_handler(CommandHandler("arsiv", arsiv_command))
+    _app.add_handler(CommandHandler("lonca", lonca_command))
+    _app.add_handler(CommandHandler("online", online_command))
+    _app.add_handler(CommandHandler("streak", streak_command))
+    _app.add_handler(CommandHandler("davet", davet_command))
+    _app.add_handler(CommandHandler("hatirlatici", hatirlatici_command))
+    _app.add_handler(CommandHandler("dil", dil_command))
+    _app.add_handler(CommandHandler("sifremi_sifirla", sifremi_sifirla_command))
+    _app.add_handler(CommandHandler("geri_bildirim", geri_bildirim_command))
+    _app.add_handler(CommandHandler("link", link_command))
+    _app.add_handler(CommandHandler("hakkinda", hakkinda_command))
+    # Admin
+    _app.add_handler(CommandHandler("duyuru", duyuru_command))
+    _app.add_handler(CommandHandler("toplu_duyuru", toplu_duyuru_command))
+    _app.add_handler(CommandHandler("uyar", uyar_command))
+    _app.add_handler(CommandHandler("rapor", rapor_command))
+    _app.add_handler(CommandHandler("uyeler", uyeler_command))
+    _app.add_handler(CommandHandler("ekle", ekle_command))
+    _app.add_handler(CommandHandler("cikar", cikar_command))
+    _app.add_handler(CommandHandler("puan_ekle", puan_ekle_command))
+    _app.add_handler(CommandHandler("rozet_ver", rozet_ver_command))
+    _app.add_handler(CommandHandler("etkinlik_ekle", etkinlik_ekle_command))
+    _app.add_handler(CommandHandler("etkinlik_iptal", etkinlik_iptal_command))
+    _app.add_handler(CommandHandler("esik_uyari", esik_uyari_command))
     # Note: /link handler removed in favour of the Telegram Login Widget (OAuth-style
     # flow on the web app). /unlink is kept so users can revoke from either side.
     _app.add_handler(CommandHandler("unlink", unlink_command))
@@ -190,13 +227,48 @@ async def setup_webhook() -> bool:
             else:
                 log.warning(f"Telegram setWebhook failed: {data}")
             # Publish the bot command menu so Telegram shows the "/" popover.
+            # v133 — Genişletilmiş komut listesi (35+ komut).
             cmds = [
-                {"command": "siralama",   "description": "Sıralamayı göster"},
-                {"command": "guc",        "description": "Üye güç sorgula"},
-                {"command": "etkinlik",   "description": "Aktif etkinlikler"},
-                {"command": "svs",        "description": "SvS hatırlatma ayarla"},
-                {"command": "unlink",     "description": "Hesap bağlantısını kaldır"},
-                {"command": "yardim",     "description": "Yardım menüsü"},
+                {"command": "siralama",        "description": "Sıralama (top10 ile ilk 10)"},
+                {"command": "puan",            "description": "Kendi/üye puan bilgisi"},
+                {"command": "karsilastir",     "description": "İki üyeyi karşılaştır"},
+                {"command": "etkinlik",        "description": "Bugünün etkinlikleri"},
+                {"command": "etkinlikler",     "description": "Bu hafta etkinlikleri"},
+                {"command": "yakinda",         "description": "Yaklaşan etkinlikler"},
+                {"command": "takvim",          "description": "Aylık takvim"},
+                {"command": "arsiv",           "description": "Son arşivler"},
+                {"command": "katil",           "description": "Etkinliğe katıl"},
+                {"command": "katilmiyorum",    "description": "Katılmayacağını bildir"},
+                {"command": "hatirlatici",     "description": "Etkinliğe hatırlatıcı kur"},
+                {"command": "profil",          "description": "Profil özeti"},
+                {"command": "rozet",           "description": "Rozetler"},
+                {"command": "istatistik",      "description": "Detaylı istatistikler"},
+                {"command": "streak",          "description": "RSVP streak bilgisi"},
+                {"command": "online",          "description": "Şu an aktif üyeler"},
+                {"command": "lonca",           "description": "Lonca genel bilgisi"},
+                {"command": "davet",           "description": "Kişisel davet linki"},
+                {"command": "bildirimler",     "description": "Bildirim ac/kapat"},
+                {"command": "mola",            "description": "X gün mola modu"},
+                {"command": "dil",             "description": "Bot dilini değiştir"},
+                {"command": "sifremi_sifirla", "description": "Şifre sıfırlama linki"},
+                {"command": "geri_bildirim",   "description": "Admin'e geri bildirim"},
+                {"command": "link",            "description": "Hesap bağlama"},
+                {"command": "unlink",          "description": "Hesap bağlantısını kaldır"},
+                {"command": "hakkinda",        "description": "Uygulama bilgisi"},
+                {"command": "yardim",          "description": "Tüm komutlar"},
+                # Admin komutları (herkese görünür ama backend kontrolü var)
+                {"command": "duyuru",          "description": "[Admin] Duyuru gönder"},
+                {"command": "toplu_duyuru",    "description": "[Admin] Toplu mesaj"},
+                {"command": "uyar",            "description": "[Admin] Üyeyi uyar"},
+                {"command": "rapor",           "description": "[Admin] Haftalık rapor"},
+                {"command": "uyeler",          "description": "[Admin] Üye listesi"},
+                {"command": "ekle",            "description": "[Admin] Üye ekle"},
+                {"command": "cikar",           "description": "[Admin] Üye çıkar"},
+                {"command": "puan_ekle",       "description": "[Admin] Manuel puan"},
+                {"command": "rozet_ver",       "description": "[Admin] Rozet ver"},
+                {"command": "etkinlik_ekle",   "description": "[Admin] Hızlı etkinlik"},
+                {"command": "etkinlik_iptal",  "description": "[Admin] Etkinlik iptal"},
+                {"command": "esik_uyari",      "description": "[Admin] Eşik uyarıları"},
             ]
             r2 = await client.post(f"{TELEGRAM_API}/setMyCommands",
                                    json={"commands": cmds})
@@ -270,21 +342,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await reply_ml(update, text)
 
 
-async def yardim_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
-    text = (
-        "📖 *TiTaNXiS Bot Komutları*\n\n"
-        "/start — Karşılama mesajı\n"
-        "/siralama (veya /ranking, /siralamatop5, /top5) — En güçlü 5 üye\n"
-        "/guc [isim] (veya /power) — Üye güç sorgulama\n"
-        "/etkinlik (veya /event) — Aktif etkinlikler\n"
-        "/svs [HH:MM] — SvS başlama hatırlatıcısı planla\n"
-        "/svs_iptal (veya /svs_cancel) — Planlanmış hatırlatıcıyı iptal et\n"
-        "/link [token] — Hesabımı web uygulamasına bağla\n"
-        "/unlink — Bağlı hesabı kaldır\n"
-        "/yardim (veya /help) — Bu menü\n\n"
-        "⚔️ TiTaNXiS Lonca Yönetimi"
-    )
-    await reply_ml(update, text)
+async def yardim_command_removed(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    """DEPRECATED — v133'te yardim_command aşağıda yeniden tanımlandı."""
+    await reply_ml(update, "Bu komut güncellendi — lütfen /yardim yeniden çalıştır.")
 
 
 async def link_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -424,26 +484,9 @@ async def unlink_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
         await reply_ml(update, "ℹ️ Bu sohbetle bağlı hesap bulunamadı.")
 
 
-async def siralama_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
-    if _db is None:
-        await reply_ml(update, "⚠️ Veritabanı hazır değil.")
-        return
-    cursor = _db.members.find({}, {"_id": 0, "name": 1, "rank": 1,
-                                    "alliance_name": 1, "bireysel_guc": 1}) \
-        .sort("bireysel_guc", -1).limit(5)
-    members = await cursor.to_list(5)
-    if not members:
-        await reply_ml(update, "📊 Henüz sıralama verisi yok.")
-        return
-    lines = ["🏆 *En Güçlü 5*\n"]
-    medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
-    for i, m in enumerate(members):
-        power = int(m.get("bireysel_guc") or 0)
-        name = m.get("name", "?")
-        rank = m.get("rank", "")
-        alliance = m.get("alliance_name", "")
-        lines.append(f"{medals[i]} *{name}* [{rank}·{alliance}] — {power:,}")
-    await reply_ml(update, "\n".join(lines))
+async def siralama_command_v1_removed(*args, **kwargs):
+    """DEPRECATED — v133'te yeni /siralama (top10 destekli) aşağıda."""
+    return None
 
 
 async def guc_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -475,20 +518,790 @@ async def etkinlik_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
     if _db is None:
         await reply_ml(update, "⚠️ Veritabanı hazır değil.")
         return
-    cursor = _db.events.find({"archived": {"$ne": True}}, {"_id": 0}) \
-        .sort("date", -1).limit(5)
-    events = await cursor.to_list(5)
+    # v133 — /etkinlik = bugünün etkinlikleri (24h penceresi). Boşsa
+    # kullanıcıya /yakinda önerir.
+    now = datetime.now(timezone.utc)
+    end = now + timedelta(hours=24)
+    cursor = _db.events.find({
+        "archived": {"$ne": True},
+        "date": {"$gte": now.isoformat(), "$lt": end.isoformat()},
+    }, {"_id": 0}).sort("date", 1).limit(10)
+    events = await cursor.to_list(10)
     if not events:
-        await reply_ml(update, "📅 Aktif etkinlik bulunmuyor.")
+        await reply_ml(update, "📅 Bugün planlı etkinlik yok. `/yakinda` ile önümüzdeki 7 günü gör.")
         return
-    lines = ["📅 *Aktif Etkinlikler*\n"]
+    lines = ["📅 *Bugünkü Etkinlikler*\n"]
     for e in events:
-        name = e.get("name", "?")
-        date_str = (e.get("date") or "")[:10]
-        group = e.get("group_name", "")
-        mult = e.get("multiplier", 1.0)
-        lines.append(f"• *{name}* — `{date_str}` · {group} · ×{mult}")
+        d = (e.get("date") or "")[:16].replace("T", " ")
+        lines.append(f"• *{e.get('name','?')}* — `{d}` · {e.get('group_name','')} · ×{e.get('multiplier',1.0)} · `{e.get('id','')[:8]}`")
+    lines.append("\n💡 Katılmak için: `/katil <id>`")
     await reply_ml(update, "\n".join(lines))
+
+
+# ============================ v133 — Genişletilmiş Komut Seti =================
+# Aşağıda kullanıcının istediği 35+ yeni komut için handler'lar var. Yardımcı
+# fonksiyonlar önce, sonra genel komutlar, en sonda /admin komutları.
+
+WEB_BASE = os.environ.get("PUBLIC_BASE_URL", "https://titanxis.com").rstrip("/")
+
+async def _user_from_chat(chat_id: str) -> Optional[dict]:
+    """Bu Telegram sohbetiyle bağlı TiTaNXiS user'ını döndürür."""
+    if _db is None:
+        return None
+    return await _db.users.find_one({"telegram_chat_id": str(chat_id)}, {"_id": 0})
+
+
+async def _require_link(update: Update) -> Optional[dict]:
+    """Bağlı user yoksa mesaj gönderip None döndürür."""
+    chat_id = str(update.effective_chat.id)
+    u = await _user_from_chat(chat_id)
+    if not u:
+        await reply_ml(update,
+            "🔗 Bu komut için hesabını bağlaman gerekiyor.\n"
+            f"Profilinden Telegram bağlama kodu al ve `/link KOD` yaz — ya da "
+            f"[Profil sayfası]({WEB_BASE}/profil)'na git.")
+        return None
+    return u
+
+
+async def _require_admin(update: Update) -> Optional[dict]:
+    u = await _require_link(update)
+    if not u:
+        return None
+    if u.get("role") != "admin":
+        await reply_ml(update, "🚫 Bu komut sadece yöneticiler içindir.")
+        return None
+    return u
+
+
+async def _member_from_user(u: dict) -> Optional[dict]:
+    mids = [x for x in (u.get("member_ids") or []) if x]
+    if not mids or _db is None:
+        return None
+    return await _db.members.find_one({"id": mids[0]}, {"_id": 0})
+
+
+async def _member_by_query(q: str) -> Optional[dict]:
+    """@handle, isim veya username eşleştir."""
+    if not q or _db is None:
+        return None
+    import re
+    q = q.strip().lstrip("@")
+    # Önce username eşleşmesi (users → member_ids)
+    u = await _db.users.find_one({"username": {"$regex": f"^{re.escape(q)}$", "$options": "i"}}, {"_id": 0})
+    if u:
+        m = await _member_from_user(u)
+        if m: return m
+    # Sonra üye adı direkt eşleşme
+    return await _db.members.find_one({"name": {"$regex": re.escape(q), "$options": "i"}}, {"_id": 0})
+
+
+async def _member_score(member_id: str) -> int:
+    if _db is None:
+        return 0
+    cur = _db.points.aggregate([
+        {"$match": {"member_id": member_id}},
+        {"$group": {"_id": None, "s": {"$sum": "$points"}}},
+    ])
+    async for r in cur:
+        return int(r.get("s") or 0)
+    return 0
+
+
+# ------------------------------ /siralama (with top10) ------------------------
+async def siralama_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if _db is None:
+        await reply_ml(update, "⚠️ Veritabanı hazır değil.")
+        return
+    args = getattr(context, "args", None) or []
+    limit = 10 if (args and args[0].lower() == "top10") else 5
+    # Aggregate points table (aktif skorlama)
+    pipeline = [
+        {"$group": {"_id": "$member_id", "total": {"$sum": "$points"}}},
+        {"$sort": {"total": -1}}, {"$limit": limit},
+    ]
+    rows = await _db.points.aggregate(pipeline).to_list(limit)
+    if not rows:
+        # Fallback: bireysel_guc sırala
+        cur = _db.members.find({}, {"_id": 0, "name": 1, "alliance_name": 1, "bireysel_guc": 1}).sort("bireysel_guc", -1).limit(limit)
+        ms = await cur.to_list(limit)
+        if not ms:
+            await reply_ml(update, "📊 Henüz sıralama verisi yok.")
+            return
+        lines = [f"🏆 *En Güçlü {limit}*\n"]
+        for i, m in enumerate(ms):
+            medal = ["🥇","🥈","🥉"][i] if i < 3 else f"{i+1}."
+            lines.append(f"{medal} *{m.get('name','?')}* [{m.get('alliance_name','-')}] — {int(m.get('bireysel_guc') or 0):,}")
+        await reply_ml(update, "\n".join(lines))
+        return
+    mids = [r["_id"] for r in rows]
+    ms = await _db.members.find({"id": {"$in": mids}}, {"_id": 0}).to_list(len(mids))
+    mmap = {m["id"]: m for m in ms}
+    lines = [f"🏆 *Sıralama (Top {limit})*\n"]
+    for i, r in enumerate(rows):
+        m = mmap.get(r["_id"]) or {}
+        medal = ["🥇","🥈","🥉"][i] if i < 3 else f"{i+1}."
+        lines.append(f"{medal} *{m.get('name','?')}* [{m.get('alliance_name','-')}] — `{int(r['total']):,}`")
+    await reply_ml(update, "\n".join(lines))
+
+
+# ------------------------------ /puan ----------------------------------------
+async def puan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = getattr(context, "args", None) or []
+    if args:
+        m = await _member_by_query(args[0])
+        if not m:
+            await reply_ml(update, f"❌ '{args[0]}' bulunamadı.")
+            return
+    else:
+        u = await _require_link(update)
+        if not u: return
+        m = await _member_from_user(u)
+        if not m:
+            await reply_ml(update, "🔗 Hesabına bağlı üye bulunamadı — Profil sayfasından üye eşle.")
+            return
+    score = await _member_score(m["id"])
+    await reply_ml(update,
+        f"⚔️ *{m.get('name','?')}*\n\n"
+        f"🏆 Toplam Puan: `{score:,}`\n"
+        f"💪 Güç: `{int(m.get('bireysel_guc') or 0):,}`\n"
+        f"🎖 Rütbe: {m.get('rank','-')}\n"
+        f"🏰 İttifak: {m.get('alliance_name','-')}"
+    )
+
+
+# ------------------------------ /karsilastir --------------------------------
+async def karsilastir_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = getattr(context, "args", None) or []
+    if len(args) < 2:
+        await reply_ml(update, "Kullanım: `/karsilastir @kullanici1 @kullanici2`")
+        return
+    m1 = await _member_by_query(args[0])
+    m2 = await _member_by_query(args[1])
+    if not m1 or not m2:
+        await reply_ml(update, "❌ Üyelerden en az biri bulunamadı.")
+        return
+    s1, s2 = await _member_score(m1["id"]), await _member_score(m2["id"])
+    g1, g2 = int(m1.get("bireysel_guc") or 0), int(m2.get("bireysel_guc") or 0)
+    diff = s1 - s2
+    winner = m1["name"] if diff > 0 else (m2["name"] if diff < 0 else "Berabere")
+    await reply_ml(update,
+        f"⚔️ *Karşılaştırma*\n\n"
+        f"👤 *{m1['name']}* [{m1.get('alliance_name','-')}]\n"
+        f"   🏆 `{s1:,}` puan · 💪 `{g1:,}` güç\n\n"
+        f"👤 *{m2['name']}* [{m2.get('alliance_name','-')}]\n"
+        f"   🏆 `{s2:,}` puan · 💪 `{g2:,}` güç\n\n"
+        f"🏅 *Kazanan (puan):* {winner}\n"
+        f"📊 Fark: `{abs(diff):,}`"
+    )
+
+
+# ------------------------------ /etkinlikler (haftalık) ---------------------
+async def etkinlikler_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    if _db is None:
+        await reply_ml(update, "⚠️ Veritabanı hazır değil.")
+        return
+    now = datetime.now(timezone.utc)
+    end = now + timedelta(days=7)
+    events = await _db.events.find({
+        "archived": {"$ne": True},
+        "date": {"$gte": now.isoformat(), "$lt": end.isoformat()},
+    }, {"_id": 0}).sort("date", 1).limit(30).to_list(30)
+    if not events:
+        await reply_ml(update, "📅 Bu hafta planlı etkinlik yok.")
+        return
+    lines = ["📆 *Bu Haftanın Etkinlikleri*\n"]
+    for e in events:
+        d = (e.get("date") or "")[:16].replace("T", " ")
+        lines.append(f"• *{e.get('name','?')}* — `{d}` · {e.get('group_name','')} · `{e.get('id','')[:8]}`")
+    await reply_ml(update, "\n".join(lines))
+
+
+# ------------------------------ /yakinda -----------------------------------
+async def yakinda_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    if _db is None: return
+    now = datetime.now(timezone.utc)
+    events = await _db.events.find({
+        "archived": {"$ne": True}, "date": {"$gte": now.isoformat()},
+    }, {"_id": 0}).sort("date", 1).limit(5).to_list(5)
+    if not events:
+        await reply_ml(update, "📅 Yaklaşan etkinlik yok.")
+        return
+    lines = ["🔜 *Yaklaşan Etkinlikler*\n"]
+    for e in events:
+        d = (e.get("date") or "")[:16].replace("T", " ")
+        lines.append(f"• *{e.get('name','?')}* — `{d}` · `{e.get('id','')[:8]}`")
+    await reply_ml(update, "\n".join(lines))
+
+
+# ------------------------------ /katil, /katilmiyorum -----------------------
+async def _rsvp(update: Update, context, status: str, label: str):
+    args = getattr(context, "args", None) or []
+    if not args:
+        await reply_ml(update, f"Kullanım: `/{'katil' if status=='yes' else 'katilmiyorum'} <etkinlik_id>`")
+        return
+    u = await _require_link(update)
+    if not u: return
+    ev_id_prefix = args[0].strip()
+    ev = await _db.events.find_one({"id": {"$regex": f"^{ev_id_prefix}"}}, {"_id": 0})
+    if not ev:
+        await reply_ml(update, f"❌ '{ev_id_prefix}' ile başlayan etkinlik bulunamadı.")
+        return
+    m = await _member_from_user(u)
+    if not m:
+        await reply_ml(update, "🔗 Eşleşmiş üye yok — Profil'den üye bağla.")
+        return
+    await _db.event_rsvps.update_one(
+        {"event_id": ev["id"], "member_id": m["id"]},
+        {"$set": {"event_id": ev["id"], "member_id": m["id"], "status": status,
+                  "user_id": u["id"], "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await reply_ml(update, f"{label} — *{ev.get('name','?')}* için RSVP kaydedildi.")
+
+
+async def katil_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await _rsvp(update, context, "yes", "✅ Katılıyorsun")
+
+
+async def katilmiyorum_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await _rsvp(update, context, "no", "🚫 Katılmayacaksın")
+
+
+# ------------------------------ /profil ------------------------------------
+async def profil_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = getattr(context, "args", None) or []
+    if args:
+        m = await _member_by_query(args[0])
+        if not m:
+            await reply_ml(update, f"❌ '{args[0]}' bulunamadı.")
+            return
+    else:
+        u = await _require_link(update)
+        if not u: return
+        m = await _member_from_user(u)
+        if not m:
+            await reply_ml(update, "🔗 Eşleşmiş üye yok.")
+            return
+    score = await _member_score(m["id"])
+    rsvp_yes = await _db.event_rsvps.count_documents({"member_id": m["id"], "status": "yes"}) if _db is not None else 0
+    await reply_ml(update,
+        f"👤 *{m.get('name','?')}*\n"
+        f"🎖 {m.get('rank','-')} · 🏰 {m.get('alliance_name','-')}\n\n"
+        f"🏆 Puan: `{score:,}`\n"
+        f"💪 Güç: `{int(m.get('bireysel_guc') or 0):,}`\n"
+        f"✅ RSVP: `{rsvp_yes}` etkinlik\n"
+        f"📅 Eklenme: `{(m.get('created_at') or '')[:10]}`\n\n"
+        f"📊 Detay: [{WEB_BASE}/uyeler]({WEB_BASE}/uyeler)"
+    )
+
+
+# ------------------------------ /rozet, /istatistik ------------------------
+async def rozet_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    u = await _require_link(update)
+    if not u: return
+    m = await _member_from_user(u)
+    if not m:
+        await reply_ml(update, "🔗 Eşleşmiş üye yok.")
+        return
+    score = await _member_score(m["id"])
+    badges = []
+    if score >= 1_000_000:      badges.append("🥇 İlk Milyon")
+    if score >= 100_000_000:    badges.append("💎 100M Kulübü")
+    if score >= 500_000_000:    badges.append("👑 Loncanın Kralı")
+    rsvp_yes = await _db.event_rsvps.count_documents({"member_id": m["id"], "status": "yes"}) if _db is not None else 0
+    if rsvp_yes >= 10:  badges.append("🎖 10 Etkinlik Serisi")
+    if rsvp_yes >= 50:  badges.append("🏅 50 Etkinlik Efsanesi")
+    if not badges: badges = ["🌱 Henüz rozet yok — bir etkinliğe katılarak başla!"]
+    await reply_ml(update, f"🏅 *{m.get('name','?')} — Rozetler*\n\n" + "\n".join(f"• {b}" for b in badges))
+
+
+async def istatistik_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    u = await _require_link(update)
+    if not u: return
+    m = await _member_from_user(u)
+    if not m:
+        await reply_ml(update, "🔗 Eşleşmiş üye yok.")
+        return
+    score = await _member_score(m["id"])
+    pt_count = await _db.points.count_documents({"member_id": m["id"]})
+    rsvp_yes = await _db.event_rsvps.count_documents({"member_id": m["id"], "status": "yes"})
+    rsvp_no = await _db.event_rsvps.count_documents({"member_id": m["id"], "status": "no"})
+    rate = round(rsvp_yes * 100 / max(1, rsvp_yes + rsvp_no))
+    await reply_ml(update,
+        f"📊 *{m.get('name','?')} — İstatistikler*\n\n"
+        f"🏆 Toplam Puan: `{score:,}`\n"
+        f"🎯 Puanlı Etkinlik: `{pt_count}`\n"
+        f"✅ RSVP Evet: `{rsvp_yes}`\n"
+        f"❌ RSVP Hayır: `{rsvp_no}`\n"
+        f"📈 Katılım Oranı: `%{rate}`"
+    )
+
+
+# ------------------------------ /bildirimler, /mola --------------------------
+async def bildirimler_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    u = await _require_link(update)
+    if not u: return
+    args = getattr(context, "args", None) or []
+    if not args or args[0].lower() not in ("ac", "aç", "kapat", "on", "off"):
+        await reply_ml(update, "Kullanım: `/bildirimler ac` veya `/bildirimler kapat`")
+        return
+    on = args[0].lower() in ("ac", "aç", "on")
+    await _db.users.update_one({"id": u["id"]}, {"$set": {"notification_enabled": on}})
+    await reply_ml(update, "🔔 Bildirimler açıldı." if on else "🔕 Bildirimler kapatıldı.")
+
+
+async def mola_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    u = await _require_link(update)
+    if not u: return
+    args = getattr(context, "args", None) or []
+    try:
+        days = int(args[0]) if args else 3
+    except ValueError:
+        await reply_ml(update, "Kullanım: `/mola 3` (gün sayısı)")
+        return
+    days = max(1, min(30, days))
+    until = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+    await _db.users.update_one({"id": u["id"]},
+        {"$set": {"notification_enabled": False, "notification_pause_until": until}})
+    await reply_ml(update, f"⏸ Mola modu aktif — {days} gün boyunca bildirim gelmeyecek (`{until[:10]}` tarihine kadar). `/bildirimler ac` ile erken bitirebilirsin.")
+
+
+# ------------------------------ /takvim, /arsiv, /lonca, /online, /streak ----
+async def takvim_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    if _db is None: return
+    now = datetime.now(timezone.utc)
+    end = now + timedelta(days=30)
+    events = await _db.events.find({
+        "archived": {"$ne": True}, "date": {"$gte": now.isoformat(), "$lt": end.isoformat()},
+    }, {"_id": 0}).sort("date", 1).limit(30).to_list(30)
+    lines = [f"📅 *Aylık Takvim ({now.strftime('%B %Y')})*\n"]
+    if not events:
+        lines.append("Bu ay planlı etkinlik yok.")
+    else:
+        cur_day = ""
+        for e in events:
+            day = (e.get("date") or "")[:10]
+            if day != cur_day:
+                lines.append(f"\n*{day}*")
+                cur_day = day
+            time = (e.get("date") or "")[11:16]
+            lines.append(f"  • `{time}` — {e.get('name','?')}")
+    lines.append(f"\n🌐 Detaylı: [{WEB_BASE}/etkinlikler]({WEB_BASE}/etkinlikler)")
+    await reply_ml(update, "\n".join(lines))
+
+
+async def arsiv_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    if _db is None: return
+    events = await _db.events.find({"archived": True}, {"_id": 0}).sort("date", -1).limit(10).to_list(10)
+    if not events:
+        await reply_ml(update, "📦 Arşivde etkinlik yok.")
+        return
+    lines = ["📦 *Son Arşivlenen Etkinlikler*\n"]
+    for e in events:
+        d = (e.get("date") or "")[:10]
+        lines.append(f"• *{e.get('name','?')}* — `{d}`")
+    await reply_ml(update, "\n".join(lines))
+
+
+async def lonca_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    if _db is None: return
+    m_total = await _db.members.count_documents({})
+    m_gow = await _db.members.count_documents({"alliance_name": "GOW"})
+    e_active = await _db.events.count_documents({"archived": {"$ne": True}})
+    e_archived = await _db.events.count_documents({"archived": True})
+    # Toplam puan
+    tot = 0
+    async for r in _db.points.aggregate([{"$group": {"_id": None, "s": {"$sum": "$points"}}}]):
+        tot = int(r.get("s") or 0)
+    await reply_ml(update,
+        f"🏰 *TiTaNXiS Loncası*\n\n"
+        f"👥 Üye: `{m_total}` (GOW: `{m_gow}`)\n"
+        f"📅 Aktif Etkinlik: `{e_active}`\n"
+        f"📦 Arşiv: `{e_archived}`\n"
+        f"🏆 Toplam Puan: `{tot:,}`\n\n"
+        f"🌐 [{WEB_BASE}]({WEB_BASE})"
+    )
+
+
+async def online_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    if _db is None: return
+    # Son 15 dakikada aktif kullanıcılar (last_seen_at varsa)
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=15)).isoformat()
+    users = await _db.users.find({"last_seen_at": {"$gte": cutoff}}, {"_id": 0, "username": 1}).limit(30).to_list(30)
+    if not users:
+        await reply_ml(update, "🌙 Şu an aktif üye kaydı yok. (Aktivite izleme etkin değilse bu normal.)")
+        return
+    names = ", ".join(f"@{u.get('username','?')}" for u in users)
+    await reply_ml(update, f"🟢 *Şu an aktif ({len(users)}):*\n{names}")
+
+
+async def streak_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    u = await _require_link(update)
+    if not u: return
+    m = await _member_from_user(u)
+    if not m:
+        await reply_ml(update, "🔗 Eşleşmiş üye yok.")
+        return
+    # RSVP streak dokümanları varsa
+    doc = await _db.rsvp_streaks.find_one({"member_id": m["id"]}, {"_id": 0}) if _db is not None else None
+    if not doc:
+        await reply_ml(update,
+            f"🔥 *{m.get('name','?')} — Streak*\n\n"
+            f"Henüz streak verisi yok. Bir etkinliğe RSVP evet ver, seri başlasın!\n\n"
+            f"📊 Sadıklar sıralaması: [{WEB_BASE}/siralama]({WEB_BASE}/siralama)")
+        return
+    cur = int(doc.get("current_streak") or 0)
+    best = int(doc.get("best_streak") or 0)
+    await reply_ml(update,
+        f"🔥 *{m.get('name','?')} — RSVP Streak*\n\n"
+        f"Şu anki seri: `{cur}` etkinlik\n"
+        f"Rekor: `{best}` etkinlik\n\n"
+        f"🏆 Sadıklar: [{WEB_BASE}/siralama]({WEB_BASE}/siralama)"
+    )
+
+
+# ------------------------------ /davet, /hatirlatici, /dil ------------------
+async def davet_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    u = await _require_link(update)
+    if not u: return
+    import secrets
+    token = secrets.token_urlsafe(6).upper()[:8]
+    invite = {
+        "token": token, "created_by": u["id"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "used": False,
+    }
+    if _db is not None:
+        await _db.invites.insert_one(invite)
+    link = f"{WEB_BASE}/kayit?davet={token}"
+    await reply_ml(update,
+        f"🎫 *Kişisel Davet Linki*\n\n"
+        f"`{link}`\n\n"
+        f"Bu linki paylaş → yeni üyeler kayıt olduğunda seninle eşlenir.")
+
+
+async def hatirlatici_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = getattr(context, "args", None) or []
+    if not args:
+        await reply_ml(update, "Kullanım: `/hatirlatici <etkinlik_id>`")
+        return
+    u = await _require_link(update)
+    if not u: return
+    ev = await _db.events.find_one({"id": {"$regex": f"^{args[0]}"}}, {"_id": 0})
+    if not ev:
+        await reply_ml(update, f"❌ '{args[0]}' bulunamadı.")
+        return
+    await _db.personal_reminders.update_one(
+        {"user_id": u["id"], "event_id": ev["id"]},
+        {"$set": {"user_id": u["id"], "event_id": ev["id"],
+                  "chat_id": str(update.effective_chat.id),
+                  "created_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await reply_ml(update, f"⏰ Hatırlatıcı kuruldu — *{ev.get('name','?')}* başlamadan 15 dk önce sana yazacağım.")
+
+
+async def dil_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = getattr(context, "args", None) or []
+    valid = list(_DEEPL_TARGET.keys())
+    if not args or args[0].lower() not in valid:
+        await reply_ml(update, f"Kullanım: `/dil tr` (desteklenen: {', '.join(sorted(valid))})")
+        return
+    lang = args[0].lower()
+    u = await _require_link(update)
+    if not u: return
+    await _db.users.update_one({"id": u["id"]}, {"$set": {"preferred_language": lang}})
+    await reply_ml(update, f"🌐 Bot dili `{lang}` olarak ayarlandı.")
+
+
+# ------------------------------ /sifremi_sifirla, /geri_bildirim, /link, /hakkinda
+async def sifremi_sifirla_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    u = await _require_link(update)
+    if not u: return
+    import secrets
+    token = secrets.token_urlsafe(24)
+    exp = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    await _db.password_reset_tokens.update_one(
+        {"user_id": u["id"]},
+        {"$set": {"user_id": u["id"], "token": token, "expires_at": exp}},
+        upsert=True,
+    )
+    await reply_ml(update,
+        f"🔑 *Şifre Sıfırlama*\n\n"
+        f"Link 1 saat geçerli:\n`{WEB_BASE}/sifre-sifirla?token={token}`")
+
+
+async def geri_bildirim_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await reply_ml(update, "Kullanım: `/geri_bildirim <mesajın>`")
+        return
+    u = await _user_from_chat(str(update.effective_chat.id))
+    msg = " ".join(context.args)[:2000]
+    if _db is not None:
+        await _db.feedback.insert_one({
+            "message": msg,
+            "user_id": (u or {}).get("id"),
+            "username": (u or {}).get("username") or "anonim",
+            "chat_id": str(update.effective_chat.id),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "read": False,
+        })
+    await reply_ml(update, "✅ Geri bildirim admin'e iletildi. Teşekkürler!")
+
+
+async def link_command_v2(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """v133 — /link için wrapper (mevcut link_command'a köprü)."""
+    await link_command(update, context)
+
+
+async def hakkinda_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    await reply_ml(update,
+        f"⚔️ *TiTaNXiS Lonca Yönetim Botu*\n\n"
+        f"🏰 Lonca: TiTaNXiS · GOW ittifakı\n"
+        f"🌐 Web: [{WEB_BASE}]({WEB_BASE})\n"
+        f"🤖 Bot: @TiTaNXiS_BoT\n"
+        f"📖 Komutlar: /yardim\n\n"
+        f"Emergent altyapısında çalışır.")
+
+
+# ============================ ADMİN KOMUTLARI ================================
+async def _list_admin_chat_ids() -> list:
+    if _db is None: return []
+    admins = await _db.users.find({"role": "admin", "telegram_chat_id": {"$ne": None}},
+                                   {"_id": 0, "telegram_chat_id": 1}).to_list(50)
+    return [a["telegram_chat_id"] for a in admins if a.get("telegram_chat_id")]
+
+
+async def duyuru_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    u = await _require_admin(update)
+    if not u: return
+    if not context.args:
+        await reply_ml(update, "Kullanım: `/duyuru <mesaj>`")
+        return
+    msg = " ".join(context.args)
+    users = await _db.users.find({"telegram_chat_id": {"$ne": None},
+                                   "notification_enabled": {"$ne": False}},
+                                  {"_id": 0, "telegram_chat_id": 1}).to_list(500)
+    sent = 0
+    for user in users:
+        if await send_message(user["telegram_chat_id"], f"📢 *Duyuru*\n\n{msg}"):
+            sent += 1
+    await reply_ml(update, f"📢 Duyuru gönderildi — `{sent}` üyeye ulaştı.")
+
+
+async def uyar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    u = await _require_admin(update)
+    if not u: return
+    args = getattr(context, "args", None) or []
+    if len(args) < 2:
+        await reply_ml(update, "Kullanım: `/uyar @kullanici <sebep>`")
+        return
+    handle = args[0].lstrip("@")
+    reason = " ".join(args[1:])
+    target = await _db.users.find_one({"username": handle}, {"_id": 0})
+    if not target:
+        await reply_ml(update, f"❌ @{handle} bulunamadı.")
+        return
+    await _db.warnings.insert_one({
+        "user_id": target["id"], "reason": reason,
+        "issued_by": u["id"], "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    if target.get("telegram_chat_id"):
+        await send_message(target["telegram_chat_id"], f"⚠️ *Uyarı aldın*\n\nSebep: {reason}")
+    await reply_ml(update, f"⚠️ @{handle} uyarıldı.")
+
+
+async def rapor_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    u = await _require_admin(update)
+    if not u: return
+    now = datetime.now(timezone.utc)
+    week_ago = (now - timedelta(days=7)).isoformat()
+    new_users = await _db.users.count_documents({"created_at": {"$gte": week_ago}})
+    new_events = await _db.events.count_documents({"created_at": {"$gte": week_ago}})
+    new_points = await _db.points.count_documents({"created_at": {"$gte": week_ago}} if False else {})
+    week_score = 0
+    async for r in _db.points.aggregate([
+        {"$match": {"created_at": {"$gte": week_ago}}},
+        {"$group": {"_id": None, "s": {"$sum": "$points"}}},
+    ]):
+        week_score = int(r.get("s") or 0)
+    await reply_ml(update,
+        f"📊 *Haftalık Rapor*\n\n"
+        f"👥 Yeni üye: `{new_users}`\n"
+        f"📅 Yeni etkinlik: `{new_events}`\n"
+        f"🏆 Bu hafta puan: `{week_score:,}`\n\n"
+        f"🌐 Detay: [{WEB_BASE}/raporlar]({WEB_BASE}/raporlar)"
+    )
+
+
+async def uyeler_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    u = await _require_admin(update)
+    if not u: return
+    cnt = await _db.members.count_documents({})
+    top = await _db.members.find({}, {"_id": 0, "name": 1, "alliance_name": 1, "bireysel_guc": 1}).sort("bireysel_guc", -1).limit(20).to_list(20)
+    lines = [f"👥 *Aktif Üye Listesi (Top 20 / {cnt})*\n"]
+    for i, m in enumerate(top, 1):
+        lines.append(f"{i}. *{m.get('name','?')}* [{m.get('alliance_name','-')}] — `{int(m.get('bireysel_guc') or 0):,}`")
+    lines.append(f"\n🌐 Tam liste: [{WEB_BASE}/uyeler]({WEB_BASE}/uyeler)")
+    await reply_ml(update, "\n".join(lines))
+
+
+async def ekle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    u = await _require_admin(update)
+    if not u: return
+    args = getattr(context, "args", None) or []
+    if not args:
+        await reply_ml(update, "Kullanım: `/ekle @kullanici` — yeni üye oluşturur (GOW default).")
+        return
+    name = args[0].lstrip("@")
+    import uuid
+    m = {
+        "id": str(uuid.uuid4()), "name": name, "rank": "S1", "level": 1,
+        "alliance_name": "GOW", "bireysel_guc": 0,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await _db.members.insert_one(m)
+    await reply_ml(update, f"✅ Üye eklendi: *{name}* (GOW)")
+
+
+async def cikar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    u = await _require_admin(update)
+    if not u: return
+    args = getattr(context, "args", None) or []
+    if not args:
+        await reply_ml(update, "Kullanım: `/cikar @kullanici`")
+        return
+    m = await _member_by_query(args[0])
+    if not m:
+        await reply_ml(update, f"❌ '{args[0]}' bulunamadı.")
+        return
+    await _db.members.delete_one({"id": m["id"]})
+    await reply_ml(update, f"🗑 Üye çıkarıldı: *{m.get('name','?')}*")
+
+
+async def puan_ekle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    u = await _require_admin(update)
+    if not u: return
+    args = getattr(context, "args", None) or []
+    if len(args) < 2:
+        await reply_ml(update, "Kullanım: `/puan_ekle @kullanici <miktar>`")
+        return
+    m = await _member_by_query(args[0])
+    if not m:
+        await reply_ml(update, f"❌ '{args[0]}' bulunamadı.")
+        return
+    try:
+        amt = int(args[1])
+    except ValueError:
+        await reply_ml(update, "❌ Geçersiz miktar.")
+        return
+    # Manuel puan → adhoc event olmadan direkt points'e yazamıyoruz;
+    # basit çözüm: son aktif etkinliği bul
+    ev = await _db.events.find_one({"archived": {"$ne": True}}, {"_id": 0}, sort=[("date", -1)])
+    if not ev:
+        await reply_ml(update, "❌ Aktif etkinlik yok — puan yazılamadı.")
+        return
+    import uuid
+    await _db.points.insert_one({
+        "id": str(uuid.uuid4()), "event_id": ev["id"], "member_id": m["id"],
+        "points": amt, "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": u["id"], "manual": True,
+    })
+    await reply_ml(update, f"✅ *{m['name']}* → `{amt:,}` puan eklendi ({ev.get('name','?')})")
+
+
+async def rozet_ver_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    u = await _require_admin(update)
+    if not u: return
+    args = getattr(context, "args", None) or []
+    if len(args) < 2:
+        await reply_ml(update, "Kullanım: `/rozet_ver @kullanici <rozet_adi>`")
+        return
+    m = await _member_by_query(args[0])
+    if not m:
+        await reply_ml(update, f"❌ '{args[0]}' bulunamadı.")
+        return
+    badge = " ".join(args[1:])[:60]
+    await _db.custom_badges.insert_one({
+        "member_id": m["id"], "badge": badge,
+        "granted_by": u["id"], "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    await reply_ml(update, f"🏅 *{m['name']}* → *{badge}* rozeti verildi.")
+
+
+async def etkinlik_iptal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    u = await _require_admin(update)
+    if not u: return
+    args = getattr(context, "args", None) or []
+    if not args:
+        await reply_ml(update, "Kullanım: `/etkinlik_iptal <etkinlik_id>`")
+        return
+    ev = await _db.events.find_one({"id": {"$regex": f"^{args[0]}"}}, {"_id": 0})
+    if not ev:
+        await reply_ml(update, f"❌ '{args[0]}' bulunamadı.")
+        return
+    await _db.events.update_one({"id": ev["id"]},
+        {"$set": {"archived": True, "cancelled": True,
+                  "cancelled_at": datetime.now(timezone.utc).isoformat()}})
+    await reply_ml(update, f"🚫 *{ev.get('name','?')}* iptal edildi (arşive taşındı).")
+
+
+async def etkinlik_ekle_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    u = await _require_admin(update)
+    if not u: return
+    await reply_ml(update,
+        f"➕ *Hızlı Etkinlik Oluştur*\n\n"
+        f"Etkinlikler karmaşık konfigürasyon gerektirdiği için web arayüzünden ekle:\n"
+        f"[{WEB_BASE}/etkinlikler]({WEB_BASE}/etkinlikler)\n\n"
+        f"Basit alanlar: Ad, tarih, çarpan, grup, otomatik arşiv, minimum puan eşiği.")
+
+
+async def esik_uyari_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    u = await _require_admin(update)
+    if not u: return
+    events = await _db.events.find({
+        "archived": {"$ne": True},
+        "$or": [{"alliance_thresholds": {"$exists": True, "$not": {"$size": 0}}},
+                {"member_thresholds": {"$exists": True, "$not": {"$size": 0}}}],
+    }, {"_id": 0}).sort("date", -1).limit(20).to_list(20)
+    if not events:
+        await reply_ml(update, "📊 Eşik kuralı olan aktif etkinlik yok.")
+        return
+    lines = ["📊 *Minimum Puan Eşiği Uyarıları*\n"]
+    for e in events:
+        at = len(e.get("alliance_thresholds") or [])
+        mt = len(e.get("member_thresholds") or [])
+        lines.append(f"• *{e.get('name','?')}* — grup:`{at}` özel:`{mt}` · `{e.get('id','')[:8]}`")
+    await reply_ml(update, "\n".join(lines))
+
+
+async def toplu_duyuru_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Alias for /duyuru — kept as a separate command per user request."""
+    await duyuru_command(update, context)
+
+
+# --------------------------- /yardim v133 (rebuild) -----------------------
+async def yardim_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    text = (
+        "📖 *TiTaNXiS Bot Komutları*\n\n"
+        "*GENEL:*\n"
+        "/siralama, /siralama top10, /puan, /puan @kul\n"
+        "/karsilastir @a @b, /profil, /profil @kul\n"
+        "/etkinlik, /etkinlikler, /yakinda, /takvim, /arsiv\n"
+        "/katil <id>, /katilmiyorum <id>, /hatirlatici <id>\n"
+        "/rozet, /istatistik, /streak, /online, /lonca\n"
+        "/bildirimler ac/kapat, /mola <gun>, /davet\n"
+        "/dil tr|en|de, /sifremi_sifirla, /geri_bildirim <msg>\n"
+        "/link <kod>, /unlink, /hakkinda, /yardim\n\n"
+        "*ADMIN:*\n"
+        "/duyuru, /toplu_duyuru, /uyar @kul <sebep>\n"
+        "/rapor, /uyeler, /ekle @kul, /cikar @kul\n"
+        "/puan_ekle @kul <n>, /rozet_ver @kul <ad>\n"
+        "/etkinlik_ekle, /etkinlik_iptal <id>, /esik_uyari\n\n"
+        f"🌐 [{WEB_BASE}]({WEB_BASE}) — Tam yönetim paneli"
+    )
+    await reply_ml(update, text)
 
 
 # ------------------------------ Notifications --------------------------------

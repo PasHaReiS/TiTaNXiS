@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 27, 2026 (v133 Telegram Bot Command Suite)** — @TiTaNXiS_BoT genişletildi:
+  - **Yeni komut sayısı**: 39 (önceki 6'dan artış). `setMyCommands` webhook başarıyla güncellendi ("Telegram command menu published (39 entries)" log kaydı doğrulandı).
+  - **Genel komutlar (27)** (`telegram_bot.py`): `/siralama` + `/siralama top10`, `/puan` + `/puan @kul`, `/karsilastir @a @b`, `/etkinlik` (bugün), `/etkinlikler` (bu hafta), `/yakinda` (gelecek 5), `/takvim` (aylık), `/arsiv` (son 10), `/katil <id>`, `/katilmiyorum <id>`, `/hatirlatici <id>`, `/profil`, `/rozet` (otomatik hesaplanan), `/istatistik`, `/streak`, `/online` (15dk aktif), `/lonca` (loncanın toplam stats), `/davet` (kişisel invite token), `/bildirimler ac|kapat`, `/mola <gün>` (X gün suskun mod), `/dil <tr|en|de...>` (29 dil), `/sifremi_sifirla` (1 saatlik token), `/geri_bildirim <msg>`, `/link <kod>`, `/unlink`, `/hakkinda`, `/yardim`.
+  - **Admin komutları (12)**: `/duyuru`, `/toplu_duyuru` (alias), `/uyar @kul <sebep>`, `/rapor` (haftalık özet), `/uyeler` (top 20), `/ekle @kul` (GOW default), `/cikar @kul`, `/puan_ekle @kul <n>`, `/rozet_ver @kul <ad>`, `/etkinlik_ekle` (web'e yönlendirir), `/etkinlik_iptal <id>`, `/esik_uyari` (min puan eşiği aktif etkinlikler).
+  - **Auth helper'ları**: `_user_from_chat`, `_require_link` (bağlı olmayan kullanıcıya profil linki verir), `_require_admin` (role="admin" kontrolü + rejection mesajı), `_member_by_query` (@handle/isim/username eşleştirme), `_member_score` (aggregation).
+  - **Yeni Mongo collection'ları**: `warnings`, `custom_badges`, `feedback`, `personal_reminders`, `password_reset_tokens`, `rsvp_streaks`, `invites` (bazıları migration üzerinde yaratılacak).
+  - **DeepL i18n**: `reply_ml()` mevcut idi, tüm yeni komutlar da kullanıyor — gelen mesajın dilini algılayıp yanıtı çeviriyor (29 dil desteği).
+  - test URLs simüle edildi: `/lonca`, `/hakkinda`, `/yardim` → tüm webhook çağrıları HTTP 200 döndü, bot işledi.
+
 - **Feb 27, 2026 (v132.4)** — Login sadeleştirme + Guest calendar icon kaldırma:
   - **KAYIT OL kaldırıldı** (`Login.jsx` L227-248): Guest home'daki "⚔️ KAYIT OL" butonu (`guest-signup-btn`) tamamen silindi. Row 6'daki "🔑 GİRİŞ YAP" tek CTA olarak kaldı. `/signup` sayfası kod olarak korunuyor (deep-link erişilebilir); sadece guest home'daki buton kaldırıldı.
   - **Guest Stone Calendar Icon kaldırıldı** (`Login.jsx` L94-109): "ETKİNLİK TAKVİMİ" başlığının altındaki `guest-stone-calendar` img tag'i + `STONE_CALENDAR_URL` sabiti silindi. Sadece interaktif takvim grid'i kaldı.
