@@ -8,7 +8,6 @@ import { LogIn, User, Lock, X } from "lucide-react";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 const HERO_BANNER_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/3ec94e48802d40188393d56de578ede6_8c7af15c-9c2e-40cf-9dbb-0cc91f601ffe-1_all_15339.jpg";
-const STONE_CALENDAR_URL = "https://static.prod-images.emergentagent.com/jobs/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/images/82de5ccf97bf5aa0573e1f3842df81872f0621de875297b34b0fcbd8f5facd62.jpeg";
 const BRAND_LOGO_URL = "/brand/titanxis-logo.jpg";
 
 export default function Login() {
@@ -71,43 +70,10 @@ export default function Login() {
           }}
         />
 
-        {/* Row 3 — "ETKİNLİK TAKVİMİ" large gold title, centered */}
-        <div
-          data-testid="guest-calendar-title"
-          style={{
-            textAlign: "center",
-            fontFamily: "Cinzel, serif",
-            fontWeight: 800,
-            fontSize: "22px",
-            letterSpacing: "0.22em",
-            color: "#F5A623",
-            textShadow: "0 0 16px rgba(245,166,35,0.55), 0 2px 6px rgba(0,0,0,0.75)",
-            marginTop: 4,
-          }}
-        >
-          ETKİNLİK TAKVİMİ
-        </div>
+        {/* Row 3 — "ETKİNLİK TAKVİMİ" başlığı v132.5'te kaldırıldı; takvim doğrudan hero banner'ın altında gösterilir. */}
 
-        {/* Row 4 — Küçük dekoratif taş takvim ikonu + gerçek interaktif takvim */}
+        {/* Row 4 — Gerçek interaktif takvim (dekoratif taş ikon v132.4'te kaldırıldı) */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }} data-testid="guest-calendar-block">
-          {/* Dekoratif taş ikon (multiply blend beyaz JPEG kare bg'yi eritir) */}
-          <img
-            src={STONE_CALENDAR_URL}
-            alt=""
-            aria-hidden="true"
-            data-testid="guest-stone-calendar"
-            style={{
-              width: 72,
-              height: 72,
-              objectFit: "contain",
-              display: "block",
-              background: "transparent",
-              border: "none",
-              boxShadow: "none",
-              mixBlendMode: "multiply",
-            }}
-          />
-
           {/* Gerçek interaktif takvim */}
           <div
             data-testid="guest-real-calendar"
@@ -222,29 +188,6 @@ export default function Login() {
           }}
         >
           🔑 GİRİŞ YAP
-        </button>
-
-        {/* Row 7 — Signup button (dark, amber border) */}
-        <button
-          data-testid="guest-signup-btn"
-          onClick={() => nav("/signup")}
-          style={{
-            width: "100%",
-            padding: "14px 20px",
-            borderRadius: 10,
-            background: "rgba(10,6,4,0.85)",
-            color: "#F5A623",
-            border: "2px solid #D4730A",
-            fontFamily: "Cinzel, serif",
-            fontWeight: 800,
-            fontSize: 15,
-            letterSpacing: "0.22em",
-            textTransform: "uppercase",
-            boxShadow: "inset 0 0 16px rgba(212,115,10,0.18), 0 6px 14px rgba(0,0,0,0.55)",
-            cursor: "pointer",
-          }}
-        >
-          ⚔️ KAYIT OL
         </button>
       </div>
 

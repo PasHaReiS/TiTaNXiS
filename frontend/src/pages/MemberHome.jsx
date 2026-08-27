@@ -89,6 +89,11 @@ function MenuTile({ spriteKey, label, sub, locked, onClick, testId }) {
           margin: "0 auto",
           imageRendering: "crisp-edges",
           background: "transparent",
+          // v132.3 — Source PNG'lerinin bazılarında (özellikle takvim ikonu)
+          // baked-in koyu arkaplan var. `screen` blend, siyah pikselleri
+          // görünmezleştirip parlak detayları koruyor — sonuç: 6 ikonun
+          // hepsi anasayfa gradient'inin üstünde şeffaf sunuluyor.
+          mixBlendMode: "screen",
           transition: "transform 0.22s ease, filter 0.22s ease",
           opacity: locked ? 0.55 : 1,
         }}

@@ -20,6 +20,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 27, 2026 (v132.4)** — Login sadeleştirme + Guest calendar icon kaldırma:
+  - **KAYIT OL kaldırıldı** (`Login.jsx` L227-248): Guest home'daki "⚔️ KAYIT OL" butonu (`guest-signup-btn`) tamamen silindi. Row 6'daki "🔑 GİRİŞ YAP" tek CTA olarak kaldı. `/signup` sayfası kod olarak korunuyor (deep-link erişilebilir); sadece guest home'daki buton kaldırıldı.
+  - **Guest Stone Calendar Icon kaldırıldı** (`Login.jsx` L94-109): "ETKİNLİK TAKVİMİ" başlığının altındaki `guest-stone-calendar` img tag'i + `STONE_CALENDAR_URL` sabiti silindi. Sadece interaktif takvim grid'i kaldı.
+  - **Screenshot doğrulaması**: `guest-signup-btn` count=0, `guest-stone-calendar` count=0, `guest-login-btn` count=1.
+
 - **Feb 26, 2026 (v132 Event Form Refactor + Bireysel Event)** — Kapsamlı Form Yenileme:
   - **Kaldırılanlar** (`Events.jsx` EventForm): "Takvimde göster" toggle, "Grup detayları göster" toggle, "Katılım İttifakı" bloğu (default artık her zaman "GOW"), "Sadıklar için Puan Ver" bloğu (loyalty), "hatırlatma açıklama satırı" kaldırıldı → tek satır.
   - **Yeni Layout**: Row 1 full-width **📦 Otomatik Arşive Taşı** (klasör dropdown when checked) — Row 2 (2-col grid) **🔔 Hatırlatma kurulabilir** + **🏆 Sıralamada göster** — Row 3 (2-col grid) **🟢 Katılımlı** + **📦 Etkinlik sonrası otomatik arşive taşı** (aynı state'i mirror).
