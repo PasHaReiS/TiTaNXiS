@@ -545,10 +545,51 @@ async def etkinlik_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
 WEB_BASE = os.environ.get("PUBLIC_BASE_URL", "https://titanxis.com").rstrip("/")
 
 async def _user_from_chat(chat_id: str) -> Optional[dict]:
-    """Bu Telegram sohbetiyle bağlı TiTaNXiS user'ını döndürür."""
+    """Bu Telegram sohbetiyle bağlı TiTaNXiS user'ını döndürür.
+
+    v133.1 — Fallback: `users.telegram_chat_id` yoksa `chat_map` collection'ına
+    bak (kullanıcı /start ile bağlanmış ama admin henüz Profile'dan eşleme
+    yapmamış olabilir). chat_map schema: {chat_id, telegram_username, user_id?}.
+    """
     if _db is None:
         return None
-    return await _db.users.find_one({"telegram_chat_id": str(chat_id)}, {"_id": 0})
+    u = await _db.users.find_one({"telegram_chat_id": str(chat_id)}, {"_id": 0})
+    if u:
+        return u
+    # Fallback via chat_map (bir /start webhook fallback tarafından yazıldı)
+    cm = await _db.chat_map.find_one({"chat_id": str(chat_id)}, {"_id": 0})
+    if not cm:
+        return None
+    uid = cm.get("user_id")
+    if uid:
+        return await _db.users.find_one({"id": uid}, {"_id": 0})
+    tg_username = (cm.get("telegram_username") or "").lstrip("@")
+    if tg_username:
+        return await _db.users.find_one({"telegram_username": tg_username}, {"_id": 0})
+    return None
+
+
+async def _all_delivery_chat_ids() -> list:
+    """v133.1 — /duyuru + /toplu_duyuru için birleşik hedef listesi:
+    (a) `users.telegram_chat_id` dolu + `notification_enabled != False` olanlar,
+    (b) `chat_map` içindeki tüm chat_id'ler (bot'a /start atmış herkes).
+    Yinelenen chat_id'ler tekilleştirilir."""
+    if _db is None:
+        return []
+    ids = set()
+    async for u in _db.users.find(
+        {"telegram_chat_id": {"$ne": None},
+         "notification_enabled": {"$ne": False}},
+        {"_id": 0, "telegram_chat_id": 1},
+    ):
+        cid = u.get("telegram_chat_id")
+        if cid:
+            ids.add(str(cid))
+    async for cm in _db.chat_map.find({}, {"_id": 0, "chat_id": 1}):
+        cid = cm.get("chat_id")
+        if cid:
+            ids.add(str(cid))
+    return sorted(ids)
 
 
 async def _require_link(update: Update) -> Optional[dict]:
@@ -1074,20 +1115,87 @@ async def _list_admin_chat_ids() -> list:
 
 
 async def duyuru_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """v133.2 — /duyuru <mesaj>
+
+    Akış:
+      1. Gönderen chat'in TiTaNXiS user'ı bulunur (users.telegram_chat_id
+         VEYA chat_map fallback).
+      2. `role == "admin"` kontrolü — değilse reddedilir.
+      3. Bağlı tüm chat_id'ler toplanır (users.telegram_chat_id + chat_map).
+      4. Her chat'e:
+         `📢 [TiTaNXiS Duyurusu]\n\n{mesaj}\n\n— {gonderen_ad}` gönderilir.
+      5. Admin'e sonuç raporu:
+         `✅ Duyuru {n} üyeye gönderildi.`
+    """
     u = await _require_admin(update)
-    if not u: return
+    if not u:
+        return  # _require_admin zaten kullanıcıya sebebi bildirdi
     if not context.args:
         await reply_ml(update, "Kullanım: `/duyuru <mesaj>`")
         return
-    msg = " ".join(context.args)
-    users = await _db.users.find({"telegram_chat_id": {"$ne": None},
-                                   "notification_enabled": {"$ne": False}},
-                                  {"_id": 0, "telegram_chat_id": 1}).to_list(500)
-    sent = 0
-    for user in users:
-        if await send_message(user["telegram_chat_id"], f"📢 *Duyuru*\n\n{msg}"):
-            sent += 1
-    await reply_ml(update, f"📢 Duyuru gönderildi — `{sent}` üyeye ulaştı.")
+    msg = " ".join(context.args).strip()
+    if not msg:
+        await reply_ml(update, "Kullanım: `/duyuru <mesaj>`")
+        return
+
+    # Gönderen adı: username öncelikli, yoksa Telegram first_name
+    sender_name = (
+        u.get("username")
+        or (update.effective_user.first_name if update.effective_user else None)
+        or "Yönetici"
+    )
+
+    chat_ids = await _all_delivery_chat_ids()
+    log.info(
+        f"/duyuru admin={sender_name} targets={len(chat_ids)} msg={msg[:80]!r}"
+    )
+
+    if not chat_ids:
+        await reply_ml(
+            update,
+            "⚠️ Hiç bağlı Telegram üye yok — duyuru gönderilemedi.\n\n"
+            f"Üyelerin *Profil* sayfasından "
+            f"([{WEB_BASE}/profil]({WEB_BASE}/profil)) "
+            "Telegram hesaplarını bağlaması gerekiyor.\n\n"
+            "Alternatif: her üye @TiTaNXiS_BoT'a `/start` yazarak da bağlanabilir.",
+        )
+        return
+
+    formatted = (
+        f"📢 *[TiTaNXiS Duyurusu]*\n\n"
+        f"{msg}\n\n"
+        f"— *{sender_name}*"
+    )
+
+    sent, failed = 0, 0
+    for cid in chat_ids:
+        try:
+            ok = await send_message(cid, formatted)
+            if ok:
+                sent += 1
+            else:
+                failed += 1
+                log.warning(f"/duyuru delivery failed chat_id={cid}")
+        except Exception as e:
+            failed += 1
+            log.warning(f"/duyuru exception chat_id={cid}: {e}")
+
+    log.info(
+        f"/duyuru delivery result: sent={sent} failed={failed} "
+        f"total={len(chat_ids)} admin={sender_name}"
+    )
+
+    # Ana rapor (kullanıcının istediği tam biçim):
+    report = f"✅ Duyuru {sent} üyeye gönderildi."
+    if failed:
+        report += f"\n❌ Başarısız: {failed} kişi (log'da detay)"
+    # Webhook simülasyonunda gerçek chat_id olmadığı için reply_text
+    # 400 dönebilir — production'da olmaz. Yine de güvenli olsun diye
+    # try/except ile sar.
+    try:
+        await reply_ml(update, report)
+    except Exception as e:
+        log.warning(f"/duyuru final reply failed: {e}")
 
 
 async def uyar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
