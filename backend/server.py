@@ -3348,9 +3348,12 @@ async def revert_history(day_id: str, version_id: str, _: dict = Depends(require
 
 # ---------- DeepL Translation ----------
 DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY", "").strip()
+# v133.6 — TR ve AR eklendi (önceden eksikti — /api/translate Türkçe/Arapça hedef
+# istendiğinde None dönüyordu). ET (Estonca) TR'den ayrıdır ve karışmaz.
 DEEPL_LANG_MAP = {
     # i18n code -> DeepL code
-    "en": "EN-GB", "ru": "RU", "de": "DE", "fr": "FR", "es": "ES", "ko": "KO",
+    "tr": "TR", "en": "EN-GB", "ru": "RU", "de": "DE", "fr": "FR", "es": "ES",
+    "ko": "KO", "ar": "AR",
     "bg": "BG", "cs": "CS", "da": "DA", "el": "EL", "et": "ET", "fi": "FI", "hu": "HU",
     "id": "ID", "it": "IT", "ja": "JA", "lt": "LT", "lv": "LV", "nb": "NB", "nl": "NL",
     "pl": "PL", "pt": "PT-PT", "pt-br": "PT-BR", "ro": "RO", "sk": "SK", "sl": "SL",

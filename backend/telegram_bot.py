@@ -63,14 +63,31 @@ async def _deepl_translate(text: str, target_lang: str,
         return None
 
 
-# ISO-ish code (lowercase) → DeepL target-lang code.
+# v133.6 — DeepL target-lang mapping (ISO 639-1 lowercase → DeepL code).
+# HER kod DeepL'in resmi /v2/languages?type=target listesine karşı doğrulandı.
+# KRİTİK: `tr` (Türkçe) ve `et` (Estonca) İKİ AYRI DİLDİR — asla karıştırma.
+# Bilinmeyen kodlar için `.get(k)` None döner → çağıran taraf TR fallback yapmalı.
 _DEEPL_TARGET = {
-    "en": "EN-GB", "ru": "RU", "de": "DE", "fr": "FR", "es": "ES", "ko": "KO",
-    "bg": "BG", "cs": "CS", "da": "DA", "el": "EL", "et": "ET", "fi": "FI",
-    "hu": "HU", "id": "ID", "it": "IT", "ja": "JA", "lt": "LT", "lv": "LV",
-    "nb": "NB", "nl": "NL", "pl": "PL", "pt": "PT-PT", "ro": "RO", "sk": "SK",
-    "sl": "SL", "sv": "SV", "uk": "UK", "zh": "ZH", "ar": "AR",
-    "tr": "TR",
+    "tr": "TR",       # Türkçe   ← varsayılan / kaynak
+    "en": "EN-GB",    # İngilizce (British)
+    "de": "DE",       # Almanca
+    "fr": "FR",       # Fransızca
+    "es": "ES",       # İspanyolca
+    "it": "IT",       # İtalyanca
+    "pt": "PT-PT",    # Portekizce (Portugal)
+    "ru": "RU",       # Rusça
+    "zh": "ZH",       # Çince
+    "ja": "JA",       # Japonca
+    "ko": "KO",       # Korece
+    "ar": "AR",       # Arapça
+    "nl": "NL",       # Hollandaca
+    "pl": "PL",       # Lehçe
+    "sv": "SV",       # İsveççe
+    "et": "ET",       # Estonca  ← TR DEĞİL, ayrı dil!
+    # Ek diller (uygulama i18n panelinden erişilebilir):
+    "bg": "BG", "cs": "CS", "da": "DA", "el": "EL", "fi": "FI",
+    "hu": "HU", "id": "ID", "lt": "LT", "lv": "LV", "nb": "NB",
+    "ro": "RO", "sk": "SK", "sl": "SL", "uk": "UK",
 }
 
 
@@ -93,32 +110,83 @@ async def _detect_source(text: str) -> Optional[str]:
 
 
 async def reply_ml(update: Update, tr_text: str, parse_mode: str = "Markdown"):
-    """Reply in the language of the incoming message.
+    """Reply in the user's chosen language (v133.5 — dil eşleştirme fix).
 
-    - Detects the user's language from `update.message.text` via DeepL.
-    - If detected language is Turkish (or detection fails / DeepL disabled),
-      sends the original Turkish text unchanged.
-    - Otherwise translates `tr_text` (Turkish source) to the detected language
-      and sends that.
+    Yeni öncelik sırası (güvenilirden güvensize):
+      1) `users.preferred_language` (kullanıcı Profile'dan seçmiş) — kesin.
+      2) Telegram `update.effective_user.language_code` (cihaz/uygulama dili).
+      3) DeepL detection (mesaj metninden) — SON çare, ambiguous kısa
+         metinlerde TR ↔ ET/AZ karışıklığı yaşandığı için kısıtlı kullanılır.
+      4) Fallback: TR (orijinal Türkçe metin gönderilir).
 
-    Markdown symbols are preserved by DeepL well enough; parse_mode="Markdown"
-    is kept so bold/italic still work in translated replies.
+    Kritik: hangi yolda olursa olsun tespit edilen kod normalize edilir
+    (lowercase, "-XX" suffix'i atılır) ve `_DEEPL_TARGET`'ta yoksa TR fallback
+    devreye girer — asla yanlış diale (örn. ET) çevrilmez.
     """
+    def _normalise(code):
+        code = (code or "").strip().lower()
+        if not code:
+            return None
+        if "-" in code:
+            code = code.split("-")[0]
+        return code
+
     src_lang = None
-    incoming = (update.message.text or "").strip() if update.message else ""
-    # Strip the leading /command so detection sees the human-typed part only.
-    if incoming.startswith("/"):
-        parts = incoming.split(None, 1)
-        incoming = parts[1] if len(parts) > 1 else ""
-    if incoming and DEEPL_API_KEY:
-        src_lang = await _detect_source(incoming)
+
+    # 1) Persisted preference — kesin doğru
+    try:
+        chat_id = str(update.effective_chat.id) if update.effective_chat else None
+        if chat_id and _db is not None:
+            u = await _db.users.find_one(
+                {"telegram_chat_id": chat_id},
+                {"_id": 0, "preferred_language": 1},
+            )
+            if not u:
+                cm = await _db.chat_map.find_one({"chat_id": chat_id}, {"_id": 0, "user_id": 1})
+                if cm and cm.get("user_id"):
+                    u = await _db.users.find_one(
+                        {"id": cm["user_id"]},
+                        {"_id": 0, "preferred_language": 1},
+                    )
+            if u and u.get("preferred_language"):
+                src_lang = _normalise(u["preferred_language"])
+    except Exception as e:
+        log.warning(f"reply_ml preferred_language lookup failed: {e}")
+
+    # 2) Telegram client language
+    if not src_lang and update.effective_user:
+        src_lang = _normalise(getattr(update.effective_user, "language_code", None))
+
+    # 3) DeepL detection — sadece yeterince uzun metinlerde (ambiguity azalır)
+    if not src_lang and DEEPL_API_KEY and update.message:
+        incoming = (update.message.text or "").strip()
+        if incoming.startswith("/"):
+            parts = incoming.split(None, 1)
+            incoming = parts[1] if len(parts) > 1 else ""
+        # 12+ karakter olsun ki "merhaba" → ET yanılgısı olmasın.
+        if incoming and len(incoming) >= 12:
+            detected = await _detect_source(incoming)
+            src_lang = _normalise(detected)
+
+    log.debug(f"reply_ml → src_lang={src_lang}")
+
+    # 4) TR ya da bilinmeyen → orijinal Türkçe metni gönder
     if not src_lang or src_lang == "tr":
         await update.message.reply_text(tr_text, parse_mode=parse_mode)
         return
+
+    # _DEEPL_TARGET'ta yoksa fallback TR
     target = _DEEPL_TARGET.get(src_lang)
     if not target:
+        log.info(f"reply_ml: unknown src_lang={src_lang!r} → falling back to TR")
         await update.message.reply_text(tr_text, parse_mode=parse_mode)
         return
+
+    # Aynı dile çeviri anlamsız
+    if target == "TR":
+        await update.message.reply_text(tr_text, parse_mode=parse_mode)
+        return
+
     res = await _deepl_translate(tr_text, target, source_lang="TR")
     out = (res or {}).get("text") or tr_text
     await update.message.reply_text(out, parse_mode=parse_mode)
@@ -543,6 +611,15 @@ async def etkinlik_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
 # fonksiyonlar önce, sonra genel komutlar, en sonda /admin komutları.
 
 WEB_BASE = os.environ.get("PUBLIC_BASE_URL", "https://titanxis.com").rstrip("/")
+
+# v133.4 — /duyuru için hedef Telegram grubu. Gerçek getChat API testi
+# gösteriyor ki bu bot için grup ID `-1003597221954` (12 hane, tek `-`).
+# Diğer varyantlar (`-100…`, prefix'siz) "chat not found" (400) döner.
+# Env'den override edilebilir; yoksa doğrulanmış varsayılan kullanılır.
+TITANXIS_GROUP_CHAT_ID = os.environ.get(
+    "TITANXIS_GROUP_CHAT_ID",
+    os.environ.get("TELEGRAM_CHANNEL_ID", "-1003597221954"),
+).strip()
 
 async def _user_from_chat(chat_id: str) -> Optional[dict]:
     """Bu Telegram sohbetiyle bağlı TiTaNXiS user'ını döndürür.
@@ -1115,21 +1192,17 @@ async def _list_admin_chat_ids() -> list:
 
 
 async def duyuru_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """v133.2 — /duyuru <mesaj>
+    """v133.4 — /duyuru <mesaj>
 
-    Akış:
-      1. Gönderen chat'in TiTaNXiS user'ı bulunur (users.telegram_chat_id
-         VEYA chat_map fallback).
-      2. `role == "admin"` kontrolü — değilse reddedilir.
-      3. Bağlı tüm chat_id'ler toplanır (users.telegram_chat_id + chat_map).
-      4. Her chat'e:
-         `📢 [TiTaNXiS Duyurusu]\n\n{mesaj}\n\n— {gonderen_ad}` gönderilir.
-      5. Admin'e sonuç raporu:
-         `✅ Duyuru {n} üyeye gönderildi.`
+    Admin ise mesajı `TITANXIS_GROUP_CHAT_ID` (doğrulanmış varsayılan:
+    `-1003597221954`) grubuna atar. Format:
+      `📢 *TiTaNXiS Duyurusu*\\n\\n{mesaj}\\n\\n— {gonderen_ad}`
+    Başarılıysa admin'e "✅ Duyuru gruba gönderildi." döner; başarısız
+    olursa Telegram'ın döndüğü tam hata metnini iletir (debug için).
     """
     u = await _require_admin(update)
     if not u:
-        return  # _require_admin zaten kullanıcıya sebebi bildirdi
+        return
     if not context.args:
         await reply_ml(update, "Kullanım: `/duyuru <mesaj>`")
         return
@@ -1138,62 +1211,51 @@ async def duyuru_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await reply_ml(update, "Kullanım: `/duyuru <mesaj>`")
         return
 
-    # Gönderen adı: username öncelikli, yoksa Telegram first_name
     sender_name = (
         u.get("username")
         or (update.effective_user.first_name if update.effective_user else None)
         or "Yönetici"
     )
-
-    chat_ids = await _all_delivery_chat_ids()
-    log.info(
-        f"/duyuru admin={sender_name} targets={len(chat_ids)} msg={msg[:80]!r}"
-    )
-
-    if not chat_ids:
-        await reply_ml(
-            update,
-            "⚠️ Hiç bağlı Telegram üye yok — duyuru gönderilemedi.\n\n"
-            f"Üyelerin *Profil* sayfasından "
-            f"([{WEB_BASE}/profil]({WEB_BASE}/profil)) "
-            "Telegram hesaplarını bağlaması gerekiyor.\n\n"
-            "Alternatif: her üye @TiTaNXiS_BoT'a `/start` yazarak da bağlanabilir.",
-        )
-        return
-
     formatted = (
-        f"📢 *[TiTaNXiS Duyurusu]*\n\n"
+        f"📢 *TiTaNXiS Duyurusu*\n\n"
         f"{msg}\n\n"
-        f"— *{sender_name}*"
+        f"— {sender_name}"
     )
 
-    sent, failed = 0, 0
-    for cid in chat_ids:
-        try:
-            ok = await send_message(cid, formatted)
-            if ok:
-                sent += 1
-            else:
-                failed += 1
-                log.warning(f"/duyuru delivery failed chat_id={cid}")
-        except Exception as e:
-            failed += 1
-            log.warning(f"/duyuru exception chat_id={cid}: {e}")
+    log.info(f"/duyuru admin={sender_name} → group={TITANXIS_GROUP_CHAT_ID} msg={msg[:80]!r}")
 
-    log.info(
-        f"/duyuru delivery result: sent={sent} failed={failed} "
-        f"total={len(chat_ids)} admin={sender_name}"
-    )
-
-    # Ana rapor (kullanıcının istediği tam biçim):
-    report = f"✅ Duyuru {sent} üyeye gönderildi."
-    if failed:
-        report += f"\n❌ Başarısız: {failed} kişi (log'da detay)"
-    # Webhook simülasyonunda gerçek chat_id olmadığı için reply_text
-    # 400 dönebilir — production'da olmaz. Yine de güvenli olsun diye
-    # try/except ile sar.
+    # Doğrudan Telegram sendMessage — hata olursa description'ı yakala.
+    reply_text = "❌ Bilinmeyen hata"
     try:
-        await reply_ml(update, report)
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(
+                f"{TELEGRAM_API}/sendMessage",
+                json={
+                    "chat_id": TITANXIS_GROUP_CHAT_ID,
+                    "text": formatted,
+                    "parse_mode": "Markdown",
+                },
+            )
+            data = r.json() if r.content else {}
+            if data.get("ok"):
+                log.info(f"/duyuru delivered to group chat_id={TITANXIS_GROUP_CHAT_ID}")
+                reply_text = "✅ Duyuru gruba gönderildi."
+            else:
+                desc = data.get("description") or "unknown"
+                code = data.get("error_code")
+                log.warning(f"/duyuru FAILED chat_id={TITANXIS_GROUP_CHAT_ID} code={code} desc={desc}")
+                reply_text = (
+                    f"❌ Duyuru gönderilemedi.\n"
+                    f"Chat ID: `{TITANXIS_GROUP_CHAT_ID}`\n"
+                    f"Hata ({code}): {desc}\n\n"
+                    f"Bot'un grupta admin olduğundan emin ol."
+                )
+    except Exception as e:
+        log.warning(f"/duyuru exception: {e}")
+        reply_text = f"❌ Hata: {e}"
+
+    try:
+        await reply_ml(update, reply_text)
     except Exception as e:
         log.warning(f"/duyuru final reply failed: {e}")
 

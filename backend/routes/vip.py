@@ -24,8 +24,10 @@ from pydantic import BaseModel, Field
 # DeepL config — key + i18n → DeepL lang code mapping. Duplicated from server.py
 # to keep vip module self-contained.
 DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY", "").strip()
+# v133.6 — TR + AR eklendi (önceden eksikti). ET (Estonca) TR ile karışmaz.
 DEEPL_LANG_MAP = {
-    "en": "EN-GB", "ru": "RU", "de": "DE", "fr": "FR", "es": "ES", "ko": "KO",
+    "tr": "TR", "en": "EN-GB", "ru": "RU", "de": "DE", "fr": "FR", "es": "ES",
+    "ko": "KO", "ar": "AR",
     "bg": "BG", "cs": "CS", "da": "DA", "el": "EL", "et": "ET", "fi": "FI",
     "hu": "HU", "id": "ID", "it": "IT", "ja": "JA", "lt": "LT", "lv": "LV",
     "nb": "NB", "nl": "NL", "pl": "PL", "pt": "PT-PT", "ro": "RO", "sk": "SK",
