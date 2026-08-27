@@ -650,6 +650,7 @@ async def _all_delivery_chat_ids() -> list:
     """v133.1 — /duyuru + /toplu_duyuru için birleşik hedef listesi:
     (a) `users.telegram_chat_id` dolu + `notification_enabled != False` olanlar,
     (b) `chat_map` içindeki tüm chat_id'ler (bot'a /start atmış herkes).
+    (c) v134 — `members.telegram_chat_id` (admin panelinden elle bağlanmış).
     Yinelenen chat_id'ler tekilleştirilir."""
     if _db is None:
         return []
@@ -664,6 +665,13 @@ async def _all_delivery_chat_ids() -> list:
             ids.add(str(cid))
     async for cm in _db.chat_map.find({}, {"_id": 0, "chat_id": 1}):
         cid = cm.get("chat_id")
+        if cid:
+            ids.add(str(cid))
+    async for m in _db.members.find(
+        {"telegram_chat_id": {"$ne": None, "$exists": True}},
+        {"_id": 0, "telegram_chat_id": 1},
+    ):
+        cid = m.get("telegram_chat_id")
         if cid:
             ids.add(str(cid))
     return sorted(ids)

@@ -20,6 +20,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 27, 2026 (v134 Manuel Telegram Eşleştirme)** — Üye listesine admin bağlama:
+  - **Backend** (`server.py`): `Member.telegram_chat_id: Optional[str]` + `MemberUpdate.telegram_chat_id` alanı eklendi. `PATCH /api/members/{id}` normalize ediyor ("" → null, aksi durum stringified). Curl testi 200 döndü, kaydet+temizle akışı çalışıyor.
+  - **`_all_delivery_chat_ids`** (`telegram_bot.py`): `members.telegram_chat_id` de dahil edildi — /duyuru artık admin panelinden manuel bağlanan üyelere de mesaj gönderiyor.
+  - **Frontend** (`Members.jsx`): `TelegramLinkModal` component + `member-telegram-btn-{id}` Send ikonlu buton her üye satırında. Bağlıysa amber renk (`rgba(245,166,35,0.55)` border + glow) + tooltip'te mevcut ID, yoksa sky mavi. Modal input sayısal, "Mevcut ID" hint bağlıysa görünür, boş bırakıp kaydet → bağlantıyı kaldırır.
+  - test-id: `member-telegram-btn-{id}`, `telegram-link-modal`, `telegram-link-form`, `telegram-link-input`, `telegram-link-save`.
+
 - **Feb 27, 2026 (v133 Telegram Bot Command Suite)** — @TiTaNXiS_BoT genişletildi:
   - **Yeni komut sayısı**: 39 (önceki 6'dan artış). `setMyCommands` webhook başarıyla güncellendi ("Telegram command menu published (39 entries)" log kaydı doğrulandı).
   - **Genel komutlar (27)** (`telegram_bot.py`): `/siralama` + `/siralama top10`, `/puan` + `/puan @kul`, `/karsilastir @a @b`, `/etkinlik` (bugün), `/etkinlikler` (bu hafta), `/yakinda` (gelecek 5), `/takvim` (aylık), `/arsiv` (son 10), `/katil <id>`, `/katilmiyorum <id>`, `/hatirlatici <id>`, `/profil`, `/rozet` (otomatik hesaplanan), `/istatistik`, `/streak`, `/online` (15dk aktif), `/lonca` (loncanın toplam stats), `/davet` (kişisel invite token), `/bildirimler ac|kapat`, `/mola <gün>` (X gün suskun mod), `/dil <tr|en|de...>` (29 dil), `/sifremi_sifirla` (1 saatlik token), `/geri_bildirim <msg>`, `/link <kod>`, `/unlink`, `/hakkinda`, `/yardim`.

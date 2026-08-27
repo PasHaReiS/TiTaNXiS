@@ -72,6 +72,10 @@ class Member(BaseModel):
     note_color: Optional[str] = "#DC2626"    # hex color for bottom-position notes
     country: Optional[str] = None            # ISO 3166-1 alpha-2 (uppercase), e.g. "TR", "US"
     telegram_username: Optional[str] = None  # Telegram @handle for username-based DM fallback (stored without @)
+    # v134 — Admin panelinden elle bağlanan Telegram sohbet ID'si. `/duyuru` +
+    # kişisel bildirimler bu değeri de hedef listesine ekler. `users` collection'ı
+    # ile bağlama yapılamayan üyeler için manuel köprü niteliğinde.
+    telegram_chat_id: Optional[str] = None
     # "server" (default — only counted in Sunucu-scoped leaderboard) or
     # "global" (rendered in Global scope as well). Members created before this
     # field existed default to "server" so the Sunucu view stays intact.
@@ -133,6 +137,7 @@ class MemberUpdate(BaseModel):
     note_color: Optional[str] = None
     country: Optional[str] = None
     telegram_username: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
     scope: Optional[str] = None
 
 
@@ -935,6 +940,13 @@ async def update_member(member_id: str, body: MemberUpdate, user: dict = Depends
     raw = body.model_dump(exclude_unset=True)
     if "telegram_username" in raw:
         update["telegram_username"] = _normalize_telegram_username(raw["telegram_username"])
+    # v134 — telegram_chat_id: normalise ("" temizler, sayısal string olarak sakla).
+    if "telegram_chat_id" in raw:
+        tcid = raw["telegram_chat_id"]
+        if tcid is None or (isinstance(tcid, str) and tcid.strip() == ""):
+            update["telegram_chat_id"] = None
+        else:
+            update["telegram_chat_id"] = str(tcid).strip()
     if not update:
         raise HTTPException(400, "Değişiklik yok")
     # Read the "before" doc so we can log field-level deltas — powers the

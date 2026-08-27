@@ -11,7 +11,7 @@ import LinkMemberDialog from "@/components/LinkMemberDialog";
 import OcrDialog from "@/components/OcrDialog";
 import CanEdit from "@/components/CanEdit";
 import CountUp from "@/components/CountUp";
-import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap, CheckSquare, Square, Globe, Castle, Download, Flame } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap, CheckSquare, Square, Globe, Castle, Download, Flame, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { COUNTRIES, COUNTRY_BY_ISO2 } from "@/lib/countries";
@@ -23,6 +23,80 @@ import {
 } from "recharts";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
+
+// v134 — Manuel Telegram Eşleştirme modalı. Admin, üyenin yanındaki send
+// ikonuna tıklar → sayısal chat_id girer → PATCH /members/{id} ile members
+// dokümanına yazılır. Bağlı üyelerde ikon amber renk + mevcut ID görünür.
+function TelegramLinkModal({ member, onClose }) {
+  const [chatId, setChatId] = useState(member.telegram_chat_id || "");
+  const [saving, setSaving] = useState(false);
+  const save = async (e) => {
+    e?.preventDefault?.();
+    const trimmed = (chatId || "").trim();
+    if (trimmed && !/^-?\d+$/.test(trimmed)) {
+      toast.error("Telegram ID sadece sayı olmalı (ör: 123456789)");
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.patch(`/members/${member.id}`, { telegram_chat_id: trimmed || "" });
+      toast.success(trimmed ? "Telegram ID kaydedildi" : "Telegram bağlantısı kaldırıldı");
+      mutate((k) => typeof k === "string" && k.startsWith("/members"));
+      onClose();
+    } catch (err) {
+      toast.error(apiErr(err));
+    } finally { setSaving(false); }
+  };
+  return (
+    <div
+      className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+      data-testid="telegram-link-modal"
+    >
+      <form
+        onSubmit={save}
+        onClick={(e) => e.stopPropagation()}
+        className="card-red-gold w-full max-w-sm p-5 relative"
+        data-testid="telegram-link-form"
+      >
+        <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white">
+          <X className="w-5 h-5" />
+        </button>
+        <h3 className="text-base font-bold uppercase gold-text mb-1 flex items-center gap-2">
+          <Send className="w-4 h-4" style={{ color: "#38BDF8" }} /> Telegram Eşleştir
+        </h3>
+        <p className="text-[11px] text-muted-foreground mb-4">
+          <strong className="text-white">{member.name}</strong> için Telegram chat_id gir. Bot @TiTaNXiS_BoT'a `/start` yazan üyenin ID'sini kullan.
+        </p>
+        <label className="block text-xs uppercase text-muted-foreground font-bold mb-1">Telegram ID</label>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={chatId}
+          onChange={(e) => setChatId(e.target.value)}
+          placeholder="ör: 123456789"
+          data-testid="telegram-link-input"
+          autoFocus
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono"
+        />
+        {member.telegram_chat_id && (
+          <p className="text-[10px] text-amber-300 mt-2">
+            🔗 Mevcut ID: <span className="mono">{member.telegram_chat_id}</span> — değiştir ya da boş bırakıp kaydet, bağlantı kalksın.
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={saving}
+          data-testid="telegram-link-save"
+          className="btn-gold w-full mt-4"
+          style={{ background: "linear-gradient(135deg,#0EA5E9,#0369A1)", borderColor: "#38BDF8" }}
+        >
+          {saving ? "Kaydediliyor..." : "Kaydet"}
+        </button>
+      </form>
+    </div>
+  );
+}
 
 // Per-alliance Global / Sunucu toggle. Renders admin-only inside the alliance
 // header. Persists via POST /alliances/{name}/scope which cascades the new
@@ -142,6 +216,8 @@ export default function Members() {
   const [q, setQ] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+  // v134 — Manuel Telegram Eşleştirme modal state
+  const [telegramLinkMember, setTelegramLinkMember] = useState(null);
   const [profileId, setProfileId] = useState(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const [ocrOpen, setOcrOpen] = useState(false);
@@ -1058,6 +1134,22 @@ export default function Members() {
                                 <CanEdit>
                                   <div className="flex items-center gap-1 flex-shrink-0">
                                     <button
+                                      data-testid={`member-telegram-btn-${m.id}`}
+                                      onClick={() => setTelegramLinkMember(m)}
+                                      className="rounded flex items-center justify-center"
+                                      style={{
+                                        width: 22, height: 22,
+                                        background: m.telegram_chat_id ? "rgba(245,166,35,0.25)" : "rgba(56,189,248,0.15)",
+                                        color: m.telegram_chat_id ? "#F5A623" : "#38BDF8",
+                                        border: m.telegram_chat_id ? "1px solid rgba(245,166,35,0.55)" : "1px solid rgba(56,189,248,0.35)",
+                                        boxShadow: m.telegram_chat_id ? "0 0 6px rgba(245,166,35,0.45)" : "none",
+                                      }}
+                                      title={m.telegram_chat_id ? `Telegram bağlı: ${m.telegram_chat_id}` : "Telegram ID eşle"}
+                                      aria-label="Telegram Eşleştir"
+                                    >
+                                      <Send style={{ width: 11, height: 11 }} />
+                                    </button>
+                                    <button
                                       data-testid={MEMBERS.editBtn(m.id)}
                                       onClick={() => { setEditing(m); setShowForm(true); }}
                                       className="rounded bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 flex items-center justify-center"
@@ -1180,6 +1272,12 @@ export default function Members() {
       )}
 
       <MemberProfileDialog memberId={profileId} open={!!profileId} onClose={() => setProfileId(null)} />
+      {telegramLinkMember && (
+        <TelegramLinkModal
+          member={telegramLinkMember}
+          onClose={() => setTelegramLinkMember(null)}
+        />
+      )}
       {healthDetailMember && (
         <HealthScoreDetailModal
           member={healthDetailMember}
