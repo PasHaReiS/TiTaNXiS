@@ -821,21 +821,14 @@ export default function Events() {
         className="mb-5 mx-auto"
         data-testid={`event-group-block-${group}`}
         style={{
-          /* v134.1 — Kart genişliğini daralt: mobilde %94, tablet+ %90.
-             `flex-wrap` action bar taşan chip'leri alt satıra atsın diye
-             hâlâ orada; sadece dış çerçeve narrow. */
           maxWidth: "min(100%, 720px)",
           width: "94%",
         }}
       >
         <div
-          className="flex items-center justify-between mb-2 gap-2 flex-wrap"
+          className="mb-2"
           data-testid={`event-group-action-bar-${group}`}
           style={{
-            /* v59 — Elite Cockpit action bar. Deeper, more saturated
-               charcoal→indigo→violet gradient with a gold hairline top,
-               inner violet sheen and a soft outer glow. Text sits on a
-               genuine metal panel — no longer washes into the background. */
             background:
               "linear-gradient(90deg, #14081F 0%, #1F1140 25%, #2A1653 55%, #1B0E38 80%, #0C0619 100%)",
             borderRadius: 10,
@@ -845,7 +838,8 @@ export default function Events() {
             padding: "10px 14px",
           }}
         >
-          <div className="flex items-center gap-2 min-w-0 flex-1">
+          {/* v134.2 — Row 1: Grup adı satırı (yatay, beyaz, ellipsis) */}
+          <div className="flex items-center gap-2 min-w-0 mb-2">
             <button
               type="button"
               onClick={() => toggleCollapsedGroup(group)}
@@ -876,20 +870,19 @@ export default function Events() {
                   if (e.key === "Enter") commitRenameGroup(group);
                   if (e.key === "Escape") setRenamingGroup(null);
                 }}
-                className="px-2 py-0.5 text-sm rounded"
-                style={{ background: "#1A1210", color: "#F5F0E8", border: `1px solid ${gc}88`, minWidth: 120 }}
+                className="flex-1 px-2 py-0.5 text-sm rounded"
+                style={{ background: "#1A1210", color: "#F5F0E8", border: `1px solid ${gc}88`, minWidth: 0 }}
               />
             ) : (
               <h3
                 onClick={() => toggleCollapsedGroup(group)}
                 data-testid={`event-group-title-${group}`}
-                className="text-sm font-bold uppercase tracking-wider cursor-pointer"
+                className="cursor-pointer"
+                title={group}
                 style={{
-                  /* v134.1 — Wrapping "normal" mobilde chevron+dot+chip
-                     ile yarışınca kalan yatay alan 1-2 karaktere düşüyordu;
-                     bu da grup adının HER karakterinin alt alta dizilip
-                     dikey görünmesine yol açıyordu. `nowrap` + ellipsis
-                     ile yatay tek satırda tutuyoruz. */
+                  /* v134.2 — Düz beyaz metin (silver-gradient kaldırıldı,
+                     bazı cihazlarda transparent render'ı grup adını
+                     görünmez yapıyordu). Yatay, tek satır, ellipsis. */
                   writingMode: "horizontal-tb",
                   transform: "none",
                   whiteSpace: "nowrap",
@@ -901,36 +894,45 @@ export default function Events() {
                   minWidth: 0,
                   flex: "1 1 auto",
                   display: "block",
-                  background:
-                    "linear-gradient(180deg, #FFFFFF 0%, #E6ECF2 30%, #B8C4D0 60%, #7A8794 100%)",
-                  WebkitBackgroundClip: "text",
-                  backgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  color: "transparent",
-                  textShadow: `0 0 10px ${gc}66, 0 0 4px rgba(255,255,255,0.35), 0 1px 0 rgba(0,0,0,0.65)`,
-                  letterSpacing: "0.18em",
+                  fontSize: 15,
+                  fontWeight: 800,
+                  color: "#FFFFFF",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.12em",
                   fontFamily: "'Cinzel', 'Rajdhani', serif",
-                  filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.55))",
+                  textShadow: `0 0 10px ${gc}, 0 2px 3px rgba(0,0,0,1)`,
                 }}
-                title={group}
               >
-                {group}
+                {(group && String(group).trim()) || `Grup ${list.length}`}
               </h3>
             )}
             <span
-              className="chip"
+              data-testid={`event-group-count-badge-${group}`}
               style={{
-                borderColor: "rgba(212,175,55,0.55)",
-                color: "#F5E7A8",
-                background: "linear-gradient(180deg, rgba(212,175,55,0.18), rgba(147,51,234,0.14))",
-                boxShadow: "inset 0 0 6px rgba(212,175,55,0.20)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 24,
+                height: 24,
+                borderRadius: "50%",
+                background: "rgba(245, 158, 11, 0.85)",
+                color: "#FFFFFF",
+                fontSize: 12,
+                fontWeight: 800,
+                fontFamily: "'JetBrains Mono', monospace",
+                boxShadow: "0 0 8px rgba(245,158,11,0.55), inset 0 -1px 2px rgba(0,0,0,0.35)",
+                border: "1px solid rgba(255,255,255,0.25)",
+                flexShrink: 0,
               }}
+              title={`${list.length} etkinlik`}
             >
               {list.length}
             </span>
           </div>
+
+          {/* v134.2 — Row 2: Aksiyon butonları (kompakt, sağa yaslı) */}
           <CanEdit>
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center justify-end gap-1 flex-wrap" data-testid={`event-group-actions-${group}`}>
               {renamingGroup === group ? (
                 <>
                   <button
@@ -950,6 +952,20 @@ export default function Events() {
                 </>
               ) : (
                 <>
+                  {/* v134.2 — Explicit "Gizle / Göster" collapse toggle button.
+                      chevron ikonu grup adının yanında zaten var; bu buton
+                      admin bar'ında da olsun ki İsim Değiştir/Sil ile aynı
+                      set içinde görünsün. */}
+                  <button
+                    onClick={() => toggleCollapsedGroup(group)}
+                    data-testid={`event-group-collapse-btn-${group}`}
+                    className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30 hover:bg-purple-500/25 flex items-center gap-1"
+                    title={collapsedGroups[group] ? "Etkinlikleri göster" : "Etkinlikleri gizle"}
+                  >
+                    {collapsedGroups[group]
+                      ? <><Eye className="w-3 h-3" /> Göster</>
+                      : <><EyeOff className="w-3 h-3" /> Gizle</>}
+                  </button>
                   <button
                     onClick={async () => {
                       const allHidden = list.every((e) => e.hidden_from_leaderboard);

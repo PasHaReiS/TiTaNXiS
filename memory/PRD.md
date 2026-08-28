@@ -20,6 +20,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 28, 2026 (v134.4 Grup Sayısı Badge)** — Etkinlik grup header:
+  - **Sayı badge'i** (`Events.jsx` renderGroupBlock): "— N etkinlik" inline text kaldırıldı; yerine `event-group-count-badge-{group}` span'i (24×24, `border-radius:50%`, `rgba(245,158,11,0.85)` amber, beyaz bold 12px). h3 sadece grup adını göstersin diye ayrıldı.
+  - **Header layout**: `[chevron] [dot] [GRUP ADI beyaz bold ellipsis] [amber badge N]` → action row: `[Gizle] [İsim Değiştir] [Arşivden Çıkar] [Sil]`.
+  - **Doğrulama**: Computed styles: `width=24 height=24 background=rgba(245,158,11,0.85) border-radius=50%`. Screenshot temiz.
+
 - **Feb 28, 2026 (v134.1 Grup Kartı Layout Fix)** — Etkinlikler sayfası:
   - **Sorun**: v130'da grup adına `whiteSpace:normal + wordBreak:break-word + overflowWrap:anywhere` verilmişti; chevron+dot+chip+rename kontrolleri yatay alanı yiyince kalan ~1-2 karakterlik alanda her harf alt alta dizilip başlık DİKEY görünüyordu. Ek olarak grup bloğu ekran genişliğini tamamen kaplıyordu.
   - **Fix — Grup Başlığı** (`Events.jsx` renderGroupBlock h3): `writingMode:"horizontal-tb"`, `transform:"none"`, `whiteSpace:"nowrap"`, `overflow:"hidden"`, `textOverflow:"ellipsis"`, `wordBreak:"normal"`, `overflowWrap:"normal"`, `display:"block"` — yatay tek satır + taşarsa `…`.
