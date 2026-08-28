@@ -1031,7 +1031,7 @@ export default function Members() {
                                     : m.rank}
                                 </button>
                                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => selectionMode ? toggleSelected(m.id) : setProfileId(m.id)}>
-                                  <div className="flex items-center gap-1.5 min-w-0">
+                                  <div className="flex items-start gap-1.5 min-w-0 flex-wrap">
                                     <CanEdit
                                       fallback={m.country && COUNTRY_BY_ISO2[m.country] ? (
                                         <span
@@ -1051,13 +1051,25 @@ export default function Members() {
                                       />
                                     </CanEdit>
                                     <span
-                                      className="text-white truncate leading-tight normal-case"
+                                      className="text-white leading-tight normal-case"
                                       style={{
                                         textTransform: "none",
                                         fontSize: displayPrefs.nameSize,
                                         fontFamily: NAME_FONTS[displayPrefs.nameFamily] || NAME_FONTS.default,
                                         fontWeight: displayPrefs.nameBold ? 700 : 500,
                                         fontStyle: displayPrefs.nameItalic ? "italic" : "normal",
+                                        // v135.2 — İsim artık kesilmez: 2+
+                                        // satıra sarılabilir, en fazla mevcut
+                                        // konteynere göre genişler. Butonlar
+                                        // sağda `flex-shrink-0` ile sabit
+                                        // kalırken parent'ın `flex-1 min-w-0`
+                                        // container'ı kalan alanı doldurur.
+                                        whiteSpace: "normal",
+                                        overflow: "visible",
+                                        wordBreak: "break-word",
+                                        overflowWrap: "anywhere",
+                                        flex: "1 1 auto",
+                                        minWidth: 0,
                                       }}
                                       title={m.name}
                                       data-testid={`member-name-${m.id}`}

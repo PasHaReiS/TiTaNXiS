@@ -1676,3 +1676,12 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Test: 12 preset rozet backend'de doğrulandı, event-templates + rollcalls endpoint 200 döndü
 - ⏳ **Kalan entegrasyonlar**: Members.jsx'e admin note button, Reports.jsx'e Yoklama button, Announcements.jsx'e pin checkbox, MemberHome.jsx'e pinned banner, Events.jsx'e şablon dropdown/checkbox ve arşiv filtre paneli — sonraki iterasyonda tamamlanacak
 
+
+## Üye İsim Kesilmesi Düzeltildi (Feb 28, 2026)
+- `/app/frontend/src/pages/Members.jsx` satır 1054'teki `truncate` Tailwind class'ı kaldırıldı — bu class `overflow:hidden; text-overflow:ellipsis; white-space:nowrap` ekleyerek "Lady..." / "LAGU..." gibi kesikler yaratıyordu
+- İsim `<span>`'ine eklenen inline style'lar: `whiteSpace:normal`, `overflow:visible`, `wordBreak:break-word`, `overflowWrap:anywhere`, `flex:1 1 auto`, `minWidth:0` — isimler artık gerektiğinde 2+ satıra sarılıyor
+- Parent flex container `items-center` → `items-start flex-wrap` yapıldı → uzun isimler alt satıra taştığında rozet/streak chip'leri hizasız görünmüyor
+- Aksiyon butonları (Telegram/Düzenle/Sil) `flex-shrink-0` ile sağda sabit kalıyor, isim alanı sol tarafta `flex-1 min-w-0` ile mevcut alanı sarıyor
+- Font size dinamik `displayPrefs.nameSize` korundu — kullanıcı isterse Görünüm panelinden 12px'e indirebilir, ama zaten sarılma olduğu için gerekmiyor
+- Test: git diff 14 insert / 2 delete — tek konum, izole değişiklik
+
