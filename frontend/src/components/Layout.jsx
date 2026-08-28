@@ -57,58 +57,10 @@ export default function Layout({ children }) {
         }}
       >
         {children}
-        {/* v117 — Subtle app-wide footer with Privacy Policy link. Discreet
-            (10px muted amber) so it does not compete with page content, but
-            always reachable from every route. */}
-        <footer
-          data-testid="app-footer-privacy"
-          style={{
-            padding: "16px 12px 8px",
-            textAlign: "center",
-            fontSize: 10,
-            letterSpacing: "0.08em",
-            color: "rgba(245,166,35,0.55)",
-          }}
-        >
-          <Link
-            to="/privacy"
-            data-testid="footer-privacy-link"
-            style={{
-              color: "rgba(245,166,35,0.75)",
-              textDecoration: "none",
-              borderBottom: "1px dotted rgba(245,166,35,0.35)",
-              paddingBottom: 1,
-            }}
-          >
-            Privacy Policy
-          </Link>
-          <span style={{ margin: "0 8px", opacity: 0.4 }}>·</span>
-          <Link
-            to="/terms"
-            data-testid="footer-terms-link"
-            style={{
-              color: "rgba(245,166,35,0.75)",
-              textDecoration: "none",
-              borderBottom: "1px dotted rgba(245,166,35,0.35)",
-              paddingBottom: 1,
-            }}
-          >
-            Terms
-          </Link>
-          <span style={{ margin: "0 8px", opacity: 0.4 }}>·</span>
-          <Link
-            to="/aydinlatma-metni"
-            data-testid="footer-aydinlatma-link"
-            style={{
-              color: "rgba(245,166,35,0.75)",
-              textDecoration: "none",
-              borderBottom: "1px dotted rgba(245,166,35,0.35)",
-              paddingBottom: 1,
-            }}
-          >
-            Aydınlatma
-          </Link>
-        </footer>
+        {/* v135.3 — Inline footer removed. `LegalFooter.jsx` now renders
+            a fixed footer (bottom:0, z-index:1500) globally at AppShell
+            root so the 3 legal links stay visible on every route without
+            competing with scrollable page content. */}
         <MusicButton />
         <PwaInstallPrompt />
       </div>

@@ -1685,3 +1685,13 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Font size dinamik `displayPrefs.nameSize` korundu — kullanıcı isterse Görünüm panelinden 12px'e indirebilir, ama zaten sarılma olduğu için gerekmiyor
 - Test: git diff 14 insert / 2 delete — tek konum, izole değişiklik
 
+
+## Fixed Legal Footer — Her Sayfada Sabit Alt Bar (Feb 28, 2026)
+- **Yeni**: `/app/frontend/src/components/LegalFooter.jsx` — position:fixed, bottom:0, z-index:1500, height:30px, rgba(15,8,6,0.92) koyu taş arkaplan + backdropFilter blur, amber (#F5A623) linkler
+- 3 link: **Gizlilik Politikası | Kullanım Koşulları | Aydınlatma Metni** — ortalanmış, `|` amber ayırıcı, 10px font, hover'da #FFD680
+- App.js AppShell'in BrowserRouter kökünden `<LegalFooter />` global olarak render ediliyor — her route'da (login dahil) görünür
+- `Layout.jsx` içindeki eski scroll-akışı footer'ı (v117 subtle privacy link) tamamen kaldırıldı; artık tek footer var → sayfa içeriği çakışmıyor, RadialMenu z-index:1000 altında kaldığı için üstünde görünür
+- Scroll container'ın mevcut `paddingBottom: 80` alanı 30px fixed footer'a yeterli — sayfa alt içeriği gizlenmez
+- Modal dialoglar (z-index 9999+) footer üstünde çıkmaya devam eder
+- data-testid'ler: `legal-footer`, `legal-footer-privacy`, `legal-footer-terms`, `legal-footer-kvkk`
+

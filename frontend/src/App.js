@@ -42,6 +42,7 @@ import Privacy from "@/pages/Privacy";
 import Terms from "@/pages/Terms";
 import AydinlatmaMetni from "@/pages/AydinlatmaMetni";
 import PushSoundListener from "@/components/PushSoundListener";
+import LegalFooter from "@/components/LegalFooter";
 import MotionPage from "@/components/MotionPage";
 
 function LoadingScreen() {
@@ -178,6 +179,7 @@ export default function App() {
             <Route path="*" element={<AppShell />} />
           </Routes>
           <PushSoundListener />
+          <LegalFooter />
           <Toaster theme="dark" position="top-center" richColors closeButton /></BrowserRouter>
       </ThemeProvider>
     </AuthProvider>
