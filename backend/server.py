@@ -3726,42 +3726,104 @@ async def _backfill_event_translations() -> dict:
     """Shared helper: scan events + event_folders for empty translation dicts
     and fill them via the active translation engine (Google preferred,
     DeepL fallback). Non-destructive.
+
+    v135.18 — When Google is active, uses batch endpoint: per target lang,
+    send all pending texts in ONE call (up to 128). Reduces backfill from
+    O(events × langs) round-trips to O(langs) round-trips per field type.
+    Falls back to per-text serial translation when Google key absent.
     """
     if not (GOOGLE_TRANSLATION_API_KEY or DEEPL_API_KEY):
         return {"skipped": "no_translation_key"}
-    scanned = filled_name = filled_group = filled_subtitle = filled_folder = 0
+    # Collect all events + folders needing translation, per field.
+    pending_events: List[dict] = []
     async for e in db.events.find({}):
-        scanned += 1
-        updates: dict = {}
-        if e.get("name") and not (e.get("name_translations") or {}):
-            tr = await _auto_translate_all(e["name"])
-            if tr:
-                updates["name_translations"] = tr
-                filled_name += 1
-        if e.get("group_name") and not (e.get("group_translations") or {}):
-            tr = await _auto_translate_all(e["group_name"])
-            if tr:
-                updates["group_translations"] = tr
-                filled_group += 1
-        if e.get("subtitle") and not (e.get("subtitle_translations") or {}):
-            tr = await _auto_translate_all(e["subtitle"])
-            if tr:
-                updates["subtitle_translations"] = tr
-                filled_subtitle += 1
-        if updates:
-            await db.events.update_one({"_id": e["_id"]}, {"$set": updates})
+        need_name = bool(e.get("name")) and not (e.get("name_translations") or {})
+        need_group = bool(e.get("group_name")) and not (e.get("group_translations") or {})
+        need_subtitle = bool(e.get("subtitle")) and not (e.get("subtitle_translations") or {})
+        if need_name or need_group or need_subtitle:
+            pending_events.append({
+                "_id": e["_id"],
+                "name": e.get("name") if need_name else None,
+                "group_name": e.get("group_name") if need_group else None,
+                "subtitle": e.get("subtitle") if need_subtitle else None,
+            })
+    pending_folders: List[dict] = []
     async for f in db.event_folders.find({}):
         if f.get("name") and not (f.get("name_translations") or {}):
+            pending_folders.append({"_id": f["_id"], "name": f["name"]})
+
+    target_langs = [lg for lg in ENABLED_LANGS if lg != "tr"]
+    filled_name = filled_group = filled_subtitle = filled_folder = 0
+
+    if GOOGLE_TRANSLATION_API_KEY:
+        # v135.18 — Batch path: per lang, one request for ALL pending texts.
+        # Build per-lang translations dict for each field, then apply.
+        def _collect(field: str, docs: List[dict]) -> List[dict]:
+            return [d for d in docs if d.get(field)]
+
+        for field in ("name", "group_name", "subtitle"):
+            docs_for_field = _collect(field, pending_events)
+            if not docs_for_field:
+                continue
+            texts = [d[field] for d in docs_for_field]
+            # per_doc_trans[i] will accumulate {lang: translation} for docs_for_field[i]
+            per_doc_trans: List[dict] = [{} for _ in docs_for_field]
+            for lang in target_langs:
+                translations = await _google_translate_batch(texts, lang)
+                for idx, tr in enumerate(translations):
+                    if tr:
+                        per_doc_trans[idx][lang] = tr
+            # Write back
+            trans_field = {"name": "name_translations", "group_name": "group_translations",
+                           "subtitle": "subtitle_translations"}[field]
+            for d, tr_dict in zip(docs_for_field, per_doc_trans):
+                if tr_dict:
+                    await db.events.update_one({"_id": d["_id"]}, {"$set": {trans_field: tr_dict}})
+                    if field == "name": filled_name += 1
+                    elif field == "group_name": filled_group += 1
+                    elif field == "subtitle": filled_subtitle += 1
+        # Folders
+        if pending_folders:
+            texts = [f["name"] for f in pending_folders]
+            per_folder_trans: List[dict] = [{} for _ in pending_folders]
+            for lang in target_langs:
+                translations = await _google_translate_batch(texts, lang)
+                for idx, tr in enumerate(translations):
+                    if tr:
+                        per_folder_trans[idx][lang] = tr
+            for f, tr_dict in zip(pending_folders, per_folder_trans):
+                if tr_dict:
+                    await db.event_folders.update_one({"_id": f["_id"]}, {"$set": {"name_translations": tr_dict}})
+                    filled_folder += 1
+    else:
+        # DeepL fallback path: original per-text serial translation.
+        for d in pending_events:
+            updates: dict = {}
+            for field, tfield in (("name", "name_translations"),
+                                    ("group_name", "group_translations"),
+                                    ("subtitle", "subtitle_translations")):
+                if d.get(field):
+                    tr = await _auto_translate_all(d[field])
+                    if tr:
+                        updates[tfield] = tr
+                        if field == "name": filled_name += 1
+                        elif field == "group_name": filled_group += 1
+                        elif field == "subtitle": filled_subtitle += 1
+            if updates:
+                await db.events.update_one({"_id": d["_id"]}, {"$set": updates})
+        for f in pending_folders:
             tr = await _auto_translate_all(f["name"])
             if tr:
                 await db.event_folders.update_one({"_id": f["_id"]}, {"$set": {"name_translations": tr}})
                 filled_folder += 1
+
     return {
-        "scanned_events": scanned,
+        "scanned_events": len(pending_events),
         "filled_name": filled_name,
         "filled_group": filled_group,
         "filled_subtitle": filled_subtitle,
         "filled_folder": filled_folder,
+        "engine": "google" if GOOGLE_TRANSLATION_API_KEY else "deepl",
     }
 
 
@@ -4217,6 +4279,59 @@ ENABLED_LANGS = ["en", "ru", "de", "fr", "es", "ko", "bg", "cs", "da", "el", "et
 # TTL yok (translations are stable), max size 512 (LRU-ish via dict order).
 _DEEPL_CACHE: dict = {}
 _DEEPL_CACHE_MAX = 512
+
+
+async def _google_translate_batch(texts: List[str], target_lang: str) -> List[str]:
+    """v135.18 — Batch translate up to 128 texts to a single target language
+    in ONE Google Cloud API v2 call. Returns list of translations parallel
+    to input order; empty string for entries that DeepL rejected. Used by
+    the backfill sweep to reduce per-lang round-trips from 9 events × 1
+    call each (9 calls) to a single batched call (~9x speedup on backfill).
+    Individual event create still uses per-lang single-text call because
+    Google's v2 API only batches TEXTS to ONE lang, not vice-versa.
+    """
+    import asyncio as _asyncio
+    if not GOOGLE_TRANSLATION_API_KEY or not texts:
+        return [""] * len(texts)
+    base = "https://translation.googleapis.com/language/translate/v2"
+    gcode = GOOGLE_LANG_MAP.get(target_lang.lower(), target_lang.lower())
+    # Chunk into 128 to respect Google's per-request limit.
+    out: List[str] = []
+    for i in range(0, len(texts), 128):
+        chunk = texts[i:i + 128]
+        attempts = 0
+        while attempts < 4:
+            attempts += 1
+            try:
+                async with httpx.AsyncClient(timeout=60) as client:
+                    r = await client.post(
+                        base,
+                        params={"key": GOOGLE_TRANSLATION_API_KEY},
+                        json={"q": chunk, "source": "tr", "target": gcode, "format": "text"},
+                    )
+                    if r.status_code in (429, 403):
+                        wait_s = 2 ** attempts
+                        try:
+                            ra = int(r.headers.get("Retry-After") or "0")
+                            if ra > 0: wait_s = min(ra, 30)
+                        except Exception: pass
+                        logger.warning(f"Google batch {r.status_code} lang={target_lang} attempt={attempts} — sleeping {wait_s}s")
+                        await _asyncio.sleep(wait_s)
+                        continue
+                    r.raise_for_status()
+                    tr_list = ((r.json().get("data") or {}).get("translations") or [])
+                    out.extend([(t.get("translatedText") or "").strip() for t in tr_list])
+                    # Pad if response shorter than input (defensive).
+                    while len(out) < i + len(chunk):
+                        out.append("")
+                    break
+            except Exception as ex:
+                if attempts >= 4:
+                    logger.warning(f"Google batch final failure lang={target_lang}: {ex}")
+                    out.extend([""] * len(chunk))
+                    break
+                await _asyncio.sleep(1.5 * attempts)
+    return out[:len(texts)]
 
 
 async def _deepl_translate_one(text: str, target_langs=None):

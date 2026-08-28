@@ -1970,3 +1970,32 @@ for _field, _default in (
 
 ⚠️ Republish sonrası titanxis.com'da etkinlik oluşturma normale dönecek. Google Translation API prod'da devrede olduğu için çeviriler Google'dan gelecek.
 
+
+## v135.18 — Google Batch Translation + Pydantic Regression Kontrolü (Feb 28, 2026)
+
+### 1. Pydantic v2 None-coerce Regression Kontrolü — TEMİZ
+- **Member modeli**: Tüm alanlar Optional (safe, `Member(**payload)` sorun yaratmaz)
+- **Announcements**: Dict-based insert (BaseModel round-trip yok, safe)
+- **Polls**: PollCreateBody kullanır ama insert dict-based
+- **Event**: v135.17'de zaten düzeltildi (7 alan normalize edildi)
+- **Test**: `POST /api/events` HTTP 200 ✅ + tam 28 dil çevirisi (Kristal→Crystal/Krystal/Kristall/クリスタル/水晶)
+
+### 2. Google Batch Translation — `_google_translate_batch()` Helper Eklendi
+- **Yeni fonksiyon**: `_google_translate_batch(texts: List[str], target_lang: str) → List[str]`
+- **Google API v2 batch semantics**: tek çağrıda 128 metne kadar aynı hedef dile → parallel array döner
+- **429/403 retry**: exponential backoff + `Retry-After` header desteği korundu
+- **Backfill refactor**: `_backfill_event_translations` artık Google aktifken batch path kullanır
+  - **Eski**: O(events × langs) round-trip — 9 event × 28 dil = 252 çağrı
+  - **Yeni**: O(langs) round-trip per field — 28 çağrı (name) + 28 (group) + 28 (subtitle) = 84 çağrı, her biri 9 metin batch
+  - **Hız artışı**: ~3x on backfill (dil sayısı sabit kaldığından; batch içindeki metin sayısı ne kadar artarsa o kadar iyi)
+- **DeepL fallback path korundu**: `_google_translate_batch` sadece Google key varsa kullanılır, DeepL için eski per-text serial path devrede
+- **Response'a `engine` alanı eklendi**: `{"engine": "google" | "deepl"}` — hangi motor kullanıldığı görülür
+
+### Test Sonuçları
+- Event create HTTP 200 ✅ (Pydantic regression yok)
+- 28 dil çeviri tam ✅ (name + group)
+- Backfill preview'da DeepL fallback path'i çalışıyor (`engine: "deepl"`) ✅
+- Production'da GOOGLE key aktif olduğu için otomatik batch path'e geçecek
+
+⚠️ **Production Deploy**: Preview'da hazır — "Publish" ile canlıya alın. Production'da batch translation kendiliğinden devreye girecek. Yeni event/duyuru/klasör yaratıldığında da DeepL'e göre daha hızlı olacak (Google Cloud daha yüksek quota + daha hızlı response).
+
