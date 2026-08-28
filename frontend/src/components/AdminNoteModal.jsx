@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { api, apiErr } from "@/lib/api";
 import { X, Save, Loader2, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
@@ -7,10 +8,12 @@ import { toast } from "sonner";
  * Admin-only hidden note modal for a member.
  * GET  /api/members/{id}/admin-note    → { admin_note }
  * PUT  /api/members/{id}/admin-note    → { note }
- * Only admins can see this — regular members never see the button or the
- * note itself.
+ * Only admins can see this — regular members never see the button or note.
+ * All UI strings routed through `t()` so the modal renders correctly across
+ * the 29 supported languages (i18n keys defined in `/app/frontend/src/i18n/index.js`).
  */
 export default function AdminNoteModal({ member, onClose, onSaved }) {
+  const { t } = useTranslation();
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -32,7 +35,7 @@ export default function AdminNoteModal({ member, onClose, onSaved }) {
     setSaving(true);
     try {
       await api.put(`/members/${member.id}/admin-note`, { note: note.trim() || null });
-      toast.success("Gizli not kaydedildi");
+      toast.success(t("admin_note_saved_toast", "Gizli not kaydedildi"));
       onSaved?.(note.trim());
       onClose();
     } catch (err) { toast.error(apiErr(err)); }
@@ -52,10 +55,10 @@ export default function AdminNoteModal({ member, onClose, onSaved }) {
         </button>
         <div className="flex items-center gap-2 mb-3">
           <ShieldAlert className="w-5 h-5" style={{ color: "#F59E0B" }} />
-          <h3 className="text-lg font-bold uppercase gold-text">Gizli Admin Notu</h3>
+          <h3 className="text-lg font-bold uppercase gold-text">{t("admin_note_title", "Gizli Admin Notu")}</h3>
         </div>
         <div className="text-xs text-muted-foreground mb-3">
-          <b className="text-white">{member.name}</b> için sadece adminlerin görebileceği not.
+          {t("admin_note_subtitle", "{{name}} için sadece adminlerin görebileceği not.", { name: member.name })}
         </div>
         {loading ? (
           <div className="flex items-center justify-center py-8">
@@ -69,7 +72,7 @@ export default function AdminNoteModal({ member, onClose, onSaved }) {
               onChange={(e) => setNote(e.target.value)}
               rows={5}
               maxLength={2000}
-              placeholder="Örn: Katılım problemi, iletişim tercihi, vb."
+              placeholder={t("admin_note_placeholder", "Örn: Katılım problemi, iletişim tercihi, vb.")}
               className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white resize-y mb-3"
             />
             <div className="text-[10px] text-muted-foreground text-right mb-3">
@@ -82,7 +85,7 @@ export default function AdminNoteModal({ member, onClose, onSaved }) {
               className="btn-primary w-full py-2 flex items-center justify-center gap-2"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Kaydet
+              {t("admin_note_save", "Kaydet")}
             </button>
           </>
         )}

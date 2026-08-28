@@ -1,23 +1,24 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Cookie, X } from "lucide-react";
 
 /**
  * v119 — App-wide cookie consent banner.
- * Renders at the very bottom of the viewport (fixed) on first visit.
- * Once the user clicks "Kabul Et", the choice is persisted in localStorage
- * under `ol_cookie_ack` so the banner never reappears on that device.
+ * v135.4 — All UI strings routed through i18n `t()` so the banner renders in
+ * the user's chosen language across all 29 supported locales. Turkish
+ * fallback baked into every `t()` call for graceful degradation.
  */
 const STORAGE_KEY = "ol_cookie_ack";
 
 export default function CookieBanner() {
+  const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     try {
       if (localStorage.getItem(STORAGE_KEY) !== "1") setVisible(true);
     } catch (_e) {
-      // localStorage blocked (private mode / SSR) → still show once per session.
       setVisible(true);
     }
   }, []);
@@ -38,8 +39,8 @@ export default function CookieBanner() {
         position: "fixed",
         left: 12,
         right: 12,
-        bottom: 12,
-        zIndex: 9997, // below modals (9998+), above RadialMenu overlays
+        bottom: 42, // v135.4 — sit above the 30px fixed LegalFooter (+12 gap)
+        zIndex: 9997,
         background: "linear-gradient(180deg, rgba(18,12,22,0.96) 0%, rgba(10,6,4,0.98) 100%)",
         border: "1px solid rgba(245,166,35,0.55)",
         borderRadius: 12,
@@ -69,8 +70,7 @@ export default function CookieBanner() {
         }}
         data-testid="cookie-banner-text"
       >
-        Bu site deneyimi iyileştirmek için çerez kullanır. Devam ederek çerez kullanımını kabul
-        etmiş olursunuz.{" "}
+        {t("cookie_banner_text", "Bu site deneyimi iyileştirmek için çerez kullanır. Devam ederek çerez kullanımını kabul etmiş olursunuz.")}{" "}
         <Link
           to="/privacy"
           data-testid="cookie-banner-privacy-link"
@@ -82,7 +82,7 @@ export default function CookieBanner() {
             fontWeight: 700,
           }}
         >
-          Gizlilik Politikası
+          {t("legal_privacy", "Gizlilik Politikası")}
         </Link>
       </div>
       <button
@@ -105,13 +105,13 @@ export default function CookieBanner() {
           whiteSpace: "nowrap",
         }}
       >
-        Kabul Et
+        {t("cookie_banner_accept", "Kabul Et")}
       </button>
       <button
         type="button"
         onClick={accept}
         data-testid="cookie-banner-close"
-        aria-label="Kapat"
+        aria-label={t("cookie_banner_close", "Kapat")}
         style={{
           padding: 4,
           borderRadius: 6,

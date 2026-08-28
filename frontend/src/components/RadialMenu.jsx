@@ -140,7 +140,7 @@ export default function RadialMenu() {
           style={{
             position: "fixed",
             inset: 0,
-            zIndex: 45,
+            zIndex: 1595, // v135.5 — above LegalFooter (z:1500) so tap-outside dismisses correctly
             background: "rgba(4,2,6,0.45)",
             backdropFilter: "blur(1px)",
           }}
@@ -150,12 +150,12 @@ export default function RadialMenu() {
         data-testid="radial-menu"
         style={{
           position: "fixed",
-          bottom: 20, // fixed at the very bottom; page content reserves padding above
+          bottom: 52, // v135.5 — was 20; lifted 32px so the button clears the fixed LegalFooter (30px + 2px breathing room)
           left: "50%",
           transform: "translateX(-50%)",
           width: CENTER,
           height: CENTER,
-          zIndex: 50,
+          zIndex: 1600, // v135.5 — above LegalFooter (z:1500) so ring always visible/clickable
         }}
       >
         {/* Glowing amber connection rays from center to each icon. Rendered

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
+import { useTranslation } from "react-i18next";
 import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
@@ -10,14 +11,12 @@ import { toast } from "sonner";
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 /**
- * Rozet Yönetimi — /rozetler
- * Sections:
- *  1. Rozet listesi (hazır + özel), üstte "Özel Rozet Ekle" butonu.
- *  2. Rozet Ata: üye seç + rozet seç → POST /members/{id}/badges
- *  3. Üye başına atanmış rozetleri tablo halinde göster + kaldır.
- * Sadece admin görebilir (RequireAdmin App.js'te sarmalar).
+ * Rozet Yönetimi — /admin/rozetler (admin-only via App.js RequireAdmin).
+ * All static labels routed through i18n `t()` — the app supports 29 languages
+ * and each key falls back to Turkish text via the second arg.
  */
 export default function BadgeManagement() {
+  const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
@@ -27,43 +26,43 @@ export default function BadgeManagement() {
   const members = Array.isArray(membersData) ? membersData : (membersData?.items || []);
 
   const del = async (bid) => {
-    if (!window.confirm("Bu özel rozeti silmek istiyor musun?")) return;
+    if (!window.confirm(t("badges_confirm_delete", "Bu özel rozeti silmek istiyor musun?"))) return;
     try {
       await api.delete(`/badges/${bid}`);
       mutateBadges();
-      toast.success("Rozet silindi");
+      toast.success(t("badges_deleted_toast", "Rozet silindi"));
     } catch (e) { toast.error(apiErr(e)); }
   };
 
   if (!isAdmin) {
     return (
       <div className="max-w-3xl mx-auto py-8 px-4">
-        <p className="text-sm text-muted-foreground">Bu sayfa yalnızca yöneticilere açıktır.</p>
+        <p className="text-sm text-muted-foreground">{t("badges_access_denied", "Bu sayfa yalnızca yöneticilere açıktır.")}</p>
       </div>
     );
   }
 
   return (
     <div data-testid="badges-page">
-      <Header title="Rozet Yönetimi" />
+      <Header title={t("badges_page_title", "Rozetler")} />
       <div className="max-w-5xl mx-auto py-4 px-4 space-y-6">
         <div className="flex items-center gap-2">
           <Award className="w-6 h-6 gold-text" />
-          <h1 className="text-2xl font-bold uppercase gold-text tracking-widest">Rozetler</h1>
+          <h1 className="text-2xl font-bold uppercase gold-text tracking-widest">{t("badges_page_title", "Rozetler")}</h1>
           <div className="ml-auto flex gap-2">
             <button
               data-testid="badge-assign-btn"
               onClick={() => setShowAssign(true)}
               className="btn-outline text-xs flex items-center gap-1.5 px-3 py-2"
             >
-              <UserPlus className="w-3.5 h-3.5" /> Üyeye Ata
+              <UserPlus className="w-3.5 h-3.5" /> {t("badges_assign_btn", "Üyeye Ata")}
             </button>
             <button
               data-testid="badge-create-btn"
               onClick={() => setShowCreate(true)}
               className="btn-primary text-xs flex items-center gap-1.5 px-3 py-2"
             >
-              <Plus className="w-3.5 h-3.5" /> Özel Rozet Ekle
+              <Plus className="w-3.5 h-3.5" /> {t("badges_create_btn", "Özel Rozet Ekle")}
             </button>
           </div>
         </div>
@@ -86,13 +85,13 @@ export default function BadgeManagement() {
                 <div className="text-[9px] text-muted-foreground line-clamp-2">{b.description}</div>
               )}
               {b.is_preset ? (
-                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 uppercase tracking-wider">Hazır</span>
+                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 uppercase tracking-wider">{t("badges_preset_label", "Hazır")}</span>
               ) : (
                 <button
                   data-testid={`badge-delete-${b.id}`}
                   onClick={() => del(b.id)}
                   className="absolute top-1 right-1 text-red-400 hover:text-red-300 p-1 rounded"
-                  aria-label="Sil"
+                  aria-label={t("badges_remove_aria", "Kaldır")}
                 >
                   <Trash2 className="w-3 h-3" />
                 </button>
@@ -101,21 +100,21 @@ export default function BadgeManagement() {
           ))}
           {badges.length === 0 && (
             <div className="col-span-full text-sm text-muted-foreground text-center py-8">
-              Rozet yok. "Özel Rozet Ekle" ile başlayın.
+              {t("badges_empty", "Rozet yok. \"Özel Rozet Ekle\" ile başlayın.")}
             </div>
           )}
         </div>
 
-        <MemberBadgesTable members={members} badges={badges} />
+        <MemberBadgesTable members={members} badges={badges} t={t} />
       </div>
 
-      {showCreate && <CreateBadgeModal onClose={() => { setShowCreate(false); mutateBadges(); }} />}
-      {showAssign && <AssignBadgeModal members={members} badges={badges} onClose={() => setShowAssign(false)} />}
+      {showCreate && <CreateBadgeModal t={t} onClose={() => { setShowCreate(false); mutateBadges(); }} />}
+      {showAssign && <AssignBadgeModal t={t} members={members} badges={badges} onClose={() => setShowAssign(false)} />}
     </div>
   );
 }
 
-function CreateBadgeModal({ onClose }) {
+function CreateBadgeModal({ t, onClose }) {
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("🏅");
   const [iconFiles, setIconFiles] = useState([]);
@@ -128,8 +127,8 @@ function CreateBadgeModal({ onClose }) {
 
   const save = async (e) => {
     e.preventDefault();
-    if (!name.trim()) { toast.error("İsim zorunlu"); return; }
-    if (!icon && !finalIconUrl) { toast.error("Emoji veya görsel gerekli"); return; }
+    if (!name.trim()) { toast.error(t("badges_form_name_required", "İsim zorunlu")); return; }
+    if (!icon && !finalIconUrl) { toast.error(t("badges_form_icon_required", "Emoji veya görsel gerekli")); return; }
     setSaving(true);
     try {
       await api.post("/badges", {
@@ -139,7 +138,7 @@ function CreateBadgeModal({ onClose }) {
         color,
         description: description.trim() || null,
       });
-      toast.success("Rozet oluşturuldu");
+      toast.success(t("badges_form_created_toast", "Rozet oluşturuldu"));
       onClose();
     } catch (err) { toast.error(apiErr(err)); }
     finally { setSaving(false); }
@@ -156,23 +155,23 @@ function CreateBadgeModal({ onClose }) {
         <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white">
           <X className="w-5 h-5" />
         </button>
-        <h3 className="text-lg font-bold uppercase gold-text mb-4">Özel Rozet</h3>
-        <label className="block text-xs uppercase font-bold text-muted-foreground mb-1">İsim *</label>
+        <h3 className="text-lg font-bold uppercase gold-text mb-4">{t("badges_create_title", "Özel Rozet")}</h3>
+        <label className="block text-xs uppercase font-bold text-muted-foreground mb-1">{t("badges_form_name", "İsim")} *</label>
         <input
           data-testid="badge-form-name"
           value={name} onChange={(e) => setName(e.target.value)}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mb-3"
         />
-        <label className="block text-xs uppercase font-bold text-muted-foreground mb-1">Emoji (kısayol)</label>
+        <label className="block text-xs uppercase font-bold text-muted-foreground mb-1">{t("badges_form_icon", "Emoji (kısayol)")}</label>
         <input
           data-testid="badge-form-icon"
           value={icon} onChange={(e) => setIcon(e.target.value)}
           maxLength={4}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-lg text-white mb-3"
         />
-        <label className="block text-xs uppercase font-bold text-muted-foreground mb-1">Görsel (opsiyonel)</label>
+        <label className="block text-xs uppercase font-bold text-muted-foreground mb-1">{t("badges_form_image", "Görsel (opsiyonel)")}</label>
         <ImageDropzone purpose="misc" value={iconFiles} onChange={setIconFiles} max={1} compact />
-        <div className="text-[10px] text-muted-foreground text-center my-1">— veya URL —</div>
+        <div className="text-[10px] text-muted-foreground text-center my-1">{t("badges_form_or_url", "— veya URL —")}</div>
         <input
           data-testid="badge-form-icon-url"
           value={iconUrl} onChange={(e) => setIconUrl(e.target.value)}
@@ -180,13 +179,13 @@ function CreateBadgeModal({ onClose }) {
           disabled={iconFiles.length > 0}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-xs text-white mb-3 disabled:opacity-40"
         />
-        <label className="block text-xs uppercase font-bold text-muted-foreground mb-1">Renk</label>
+        <label className="block text-xs uppercase font-bold text-muted-foreground mb-1">{t("badges_form_color", "Renk")}</label>
         <input
           data-testid="badge-form-color"
           type="color" value={color} onChange={(e) => setColor(e.target.value)}
           className="w-full h-9 bg-background border border-border rounded-md mb-3"
         />
-        <label className="block text-xs uppercase font-bold text-muted-foreground mb-1">Açıklama</label>
+        <label className="block text-xs uppercase font-bold text-muted-foreground mb-1">{t("badges_form_description", "Açıklama")}</label>
         <textarea
           data-testid="badge-form-description"
           value={description} onChange={(e) => setDescription(e.target.value)}
@@ -200,14 +199,14 @@ function CreateBadgeModal({ onClose }) {
           className="btn-primary w-full py-2 flex items-center justify-center gap-2"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          Oluştur
+          {t("badges_form_submit", "Oluştur")}
         </button>
       </form>
     </div>
   );
 }
 
-function AssignBadgeModal({ members, badges, onClose }) {
+function AssignBadgeModal({ t, members, badges, onClose }) {
   const [q, setQ] = useState("");
   const [selectedMember, setSelectedMember] = useState(null);
   const [selectedBadgeId, setSelectedBadgeId] = useState("");
@@ -219,11 +218,11 @@ function AssignBadgeModal({ members, badges, onClose }) {
 
   const save = async (e) => {
     e.preventDefault();
-    if (!selectedMember || !selectedBadgeId) { toast.error("Üye ve rozet seç"); return; }
+    if (!selectedMember || !selectedBadgeId) { toast.error(t("badges_assign_need_selection", "Üye ve rozet seç")); return; }
     setSaving(true);
     try {
       await api.post(`/members/${selectedMember.id}/badges`, { badge_id: selectedBadgeId });
-      toast.success(`${selectedMember.name} rozeti aldı`);
+      toast.success(t("badges_assign_awarded_toast", "{{name}} rozeti aldı", { name: selectedMember.name }));
       globalMutate((k) => typeof k === "string" && k.startsWith("/members"));
       onClose();
     } catch (err) { toast.error(apiErr(err)); }
@@ -241,15 +240,15 @@ function AssignBadgeModal({ members, badges, onClose }) {
         <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white">
           <X className="w-5 h-5" />
         </button>
-        <h3 className="text-lg font-bold uppercase gold-text mb-4">Rozet Ata</h3>
+        <h3 className="text-lg font-bold uppercase gold-text mb-4">{t("badges_assign_title", "Rozet Ata")}</h3>
 
-        <label className="block text-xs uppercase font-bold text-muted-foreground mb-1">Üye Ara</label>
+        <label className="block text-xs uppercase font-bold text-muted-foreground mb-1">{t("badges_assign_search", "Üye Ara")}</label>
         <div className="relative mb-2">
           <Search className="w-3.5 h-3.5 absolute left-2 top-3 text-muted-foreground" />
           <input
             data-testid="badge-assign-search"
             value={q} onChange={(e) => setQ(e.target.value)}
-            placeholder="İsim veya ID..."
+            placeholder={t("badges_assign_search_placeholder", "İsim veya ID...")}
             className="w-full bg-background border border-border rounded-md pl-8 pr-3 py-2 text-sm text-white"
           />
         </div>
@@ -265,16 +264,16 @@ function AssignBadgeModal({ members, badges, onClose }) {
               {m.name} {m.alliance_name && <span className="opacity-60">[{m.alliance_name}]</span>}
             </button>
           ))}
-          {filtered.length === 0 && <div className="text-xs text-muted-foreground p-3 text-center">Üye yok</div>}
+          {filtered.length === 0 && <div className="text-xs text-muted-foreground p-3 text-center">{t("badges_assign_no_members", "Üye yok")}</div>}
         </div>
 
-        <label className="block text-xs uppercase font-bold text-muted-foreground mb-1">Rozet</label>
+        <label className="block text-xs uppercase font-bold text-muted-foreground mb-1">{t("badges_assign_badge_label", "Rozet")}</label>
         <select
           data-testid="badge-assign-select"
           value={selectedBadgeId} onChange={(e) => setSelectedBadgeId(e.target.value)}
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mb-4"
         >
-          <option value="">— Seç —</option>
+          <option value="">{t("badges_assign_placeholder", "— Seç —")}</option>
           {badges.map((b) => (
             <option key={b.id} value={b.id}>{b.icon || "🏅"} {b.name}</option>
           ))}
@@ -287,14 +286,14 @@ function AssignBadgeModal({ members, badges, onClose }) {
           className="btn-primary w-full py-2 flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-          Ata
+          {t("badges_assign_submit", "Ata")}
         </button>
       </form>
     </div>
   );
 }
 
-function MemberBadgesTable({ members, badges }) {
+function MemberBadgesTable({ t, members, badges }) {
   const [q, setQ] = useState("");
   const [openMember, setOpenMember] = useState(null);
   const badgeMap = badges.reduce((acc, b) => { acc[b.id] = b; return acc; }, {});
@@ -306,27 +305,27 @@ function MemberBadgesTable({ members, badges }) {
   return (
     <div className="card-red-gold p-4" data-testid="member-badges-table">
       <div className="flex items-center gap-3 mb-3">
-        <div className="text-sm font-bold gold-text uppercase tracking-wider">Üye Rozetleri</div>
+        <div className="text-sm font-bold gold-text uppercase tracking-wider">{t("badges_members_title", "Üye Rozetleri")}</div>
         <div className="relative flex-1 max-w-xs">
           <Search className="w-3.5 h-3.5 absolute left-2 top-2.5 text-muted-foreground" />
           <input
             data-testid="member-badges-search"
             value={q} onChange={(e) => setQ(e.target.value)}
-            placeholder="Üye ara..."
+            placeholder={t("badges_members_search", "Üye ara...")}
             className="w-full bg-background border border-border rounded-md pl-8 pr-3 py-1.5 text-xs text-white"
           />
         </div>
       </div>
       <div className="space-y-1 max-h-96 overflow-y-auto">
         {filtered.map((m) => (
-          <MemberBadgesRow key={m.id} member={m} badgeMap={badgeMap} onOpen={() => setOpenMember(m)} isOpen={openMember?.id === m.id} />
+          <MemberBadgesRow key={m.id} t={t} member={m} badgeMap={badgeMap} onOpen={() => setOpenMember(m)} isOpen={openMember?.id === m.id} />
         ))}
       </div>
     </div>
   );
 }
 
-function MemberBadgesRow({ member, badgeMap, onOpen, isOpen }) {
+function MemberBadgesRow({ t, member, badgeMap, onOpen, isOpen }) {
   const { data, mutate: refresh } = useSWR(isOpen ? `/members/${member.id}/badges` : null, fetcher);
   const items = data?.items || [];
 
@@ -334,7 +333,7 @@ function MemberBadgesRow({ member, badgeMap, onOpen, isOpen }) {
     try {
       await api.delete(`/members/${member.id}/badges/${bid}`);
       refresh();
-      toast.success("Rozet kaldırıldı");
+      toast.success(t("badges_removed_toast", "Rozet kaldırıldı"));
     } catch (e) { toast.error(apiErr(e)); }
   };
 
@@ -351,7 +350,7 @@ function MemberBadgesRow({ member, badgeMap, onOpen, isOpen }) {
       {isOpen && (
         <div className="px-3 py-2 border-t border-border bg-black/40" data-testid={`member-badges-panel-${member.id}`}>
           {items.length === 0 ? (
-            <div className="text-[11px] text-muted-foreground italic">Rozet yok.</div>
+            <div className="text-[11px] text-muted-foreground italic">{t("badges_no_badges", "Rozet yok.")}</div>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {items.map((r) => {
@@ -375,7 +374,7 @@ function MemberBadgesRow({ member, badgeMap, onOpen, isOpen }) {
                     <button
                       onClick={(e) => { e.stopPropagation(); remove(r.badge_id); }}
                       className="ml-1 text-red-400 hover:text-red-300"
-                      aria-label="Kaldır"
+                      aria-label={t("badges_remove_aria", "Kaldır")}
                     >×</button>
                   </span>
                 );

@@ -1695,3 +1695,14 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Modal dialoglar (z-index 9999+) footer üstünde çıkmaya devam eder
 - data-testid'ler: `legal-footer`, `legal-footer-privacy`, `legal-footer-terms`, `legal-footer-kvkk`
 
+
+## RadialMenu vs Fixed Footer Çakışması Giderildi (Feb 28, 2026)
+- `/app/frontend/src/components/RadialMenu.jsx`:
+  - `bottom: 20` → `bottom: 52` — TTN butonu ve fan ikonları 30px yüksekliğindeki `LegalFooter`'ın üstüne kaldırıldı (+2px nefes payı)
+  - `zIndex: 50` → `zIndex: 1600` — footer (z:1500) üstünde her zaman görünür/tıklanabilir
+  - Backdrop `zIndex: 45` → `zIndex: 1595` — tap-outside dismiss doğru çalışıyor, footer üstünde
+- `/app/frontend/src/components/Layout.jsx`:
+  - `#titanxis-scroll` `paddingBottom: 80` → `paddingBottom: 112` — sayfa alt içeriği hem RadialMenu (52 bottom + ~48 buton) hem LegalFooter (30) altına gizlenmiyor
+- Modal dialoglar (z:9998+) hâlâ RadialMenu üstünde açılıyor — z-index hiyerarşisi: içerik < RadialMenu (1600) < Modal (9998+)
+- Screenshot: footer y=1050, h=30 doğrulandı
+
