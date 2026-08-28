@@ -1217,7 +1217,12 @@ const tr = {
   poll_tg_voters_header: "Telegram Oy Verenler",
   poll_tg_admin_only_note: "Detaylı liste yalnızca yönetici görünümünde.",
   poll_loading: "Yükleniyor…",
-  // v135.4 — Legal footer + Cookie banner + Badges + Admin Notes + Rollcall
+  // v135.11 — Missing hardcoded strings routed to i18n
+  hide: "Gizle",
+  show: "Göster",
+  hide_events: "Etkinlikleri gizle",
+  show_events: "Etkinlikleri göster",
+  deleted: "Silindi",
   legal_privacy: "Gizlilik Politikası",
   legal_terms: "Kullanım Koşulları",
   legal_kvkk: "Aydınlatma Metni",
@@ -2256,7 +2261,11 @@ const en = {
   poll_loading: "Loading…",
   event_view_list: "List",
   event_view_calendar: "Calendar",
-  // v135.4 — Legal footer + Cookie banner + Badges + Admin Notes + Rollcall
+  hide: "Hide",
+  show: "Show",
+  hide_events: "Hide events",
+  show_events: "Show events",
+  deleted: "Deleted",
   legal_privacy: "Privacy Policy",
   legal_terms: "Terms of Service",
   legal_kvkk: "Data Protection Notice",

@@ -984,19 +984,16 @@ export default function Events() {
                 </>
               ) : (
                 <>
-                  {/* v134.2 — Explicit "Gizle / Göster" collapse toggle button.
-                      chevron ikonu grup adının yanında zaten var; bu buton
-                      admin bar'ında da olsun ki İsim Değiştir/Sil ile aynı
-                      set içinde görünsün. */}
+                  {/* v134.2 — Explicit "Gizle / Göster" collapse toggle button. */}
                   <button
                     onClick={() => toggleCollapsedGroup(group)}
                     data-testid={`event-group-collapse-btn-${group}`}
                     className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30 hover:bg-purple-500/25 flex items-center gap-1"
-                    title={collapsedGroups[group] ? "Etkinlikleri göster" : "Etkinlikleri gizle"}
+                    title={collapsedGroups[group] ? t("show_events", "Etkinlikleri göster") : t("hide_events", "Etkinlikleri gizle")}
                   >
                     {collapsedGroups[group]
-                      ? <><Eye className="w-3 h-3" /> Göster</>
-                      : <><EyeOff className="w-3 h-3" /> Gizle</>}
+                      ? <><Eye className="w-3 h-3" /> {t("show", "Göster")}</>
+                      : <><EyeOff className="w-3 h-3" /> {t("hide", "Gizle")}</>}
                   </button>
                   <button
                     onClick={async () => {
@@ -1454,7 +1451,7 @@ export default function Events() {
                                 onClick={(ev) => { ev.stopPropagation(); deleteCard(c); }}
                                 className="p-0.5 rounded hover:bg-white/10"
                                 style={{ color: "#FCA5A5" }}
-                                title="Sil"
+                                title={t("delete", "Sil")}
                               >
                                 <Trash2 className="w-2.5 h-2.5" />
                               </button>

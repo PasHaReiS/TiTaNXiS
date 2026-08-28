@@ -1791,3 +1791,35 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 
 **Not**: Frontend zaten `(e.name_translations || {})[lng] || e.name` fallback pattern'ini kullanıyor → seçili dilde çeviri yoksa TR kaynak gösteriliyor. Backfill ile tüm 9 etkinlikte çeviriler dolu → tutarsız görünüm sorunu çözüldü.
 
+
+## v135.11 — Çeviri Sistemi + Hardcoded String Düzeltmesi (Feb 28, 2026)
+
+### Kök Sorun
+DB'de group_name "KaFeS" (bozuk case) olarak saklıydı → DeepL bunu tanınmayan sözcük sayıp çeviremiyordu. Ayrıca Events.jsx içinde bazı butonlar hâlâ hardcoded TR string kullanıyordu.
+
+### Düzeltmeler
+
+**1. Casing Normalizasyonu (backend DB migration)**:
+- `KaFeS` → `Kafes`, `KristaL` → `Kristal`, `PRE 5.GÜN` → `Pre 5.gün` — 9 event güncellendi
+- SvS klasörü acronym olarak korundu (ilk normalizasyonda `Svs` olmuştu, revert edildi)
+- Tüm event'lerin `name_translations`, `group_translations`, `subtitle_translations` boşaltılıp PATCH ile yeniden DeepL çevirisi tetiklendi
+
+**2. Hardcoded String → i18n Route (`Events.jsx`)**:
+- `<><EyeOff /> Gizle</>` → `{t("hide", "Gizle")}`
+- `<><Eye /> Göster</>` → `{t("show", "Göster")}`  
+- Group collapse button title'ları `t("show_events")` / `t("hide_events")`
+- Member delete `title="Sil"` → `title={t("delete", "Sil")}`
+- `toast.success("Silindi")` → `toast.success(t("deleted", "Silindi"))`
+
+**3. Yeni i18n Anahtarları (TR + EN)**:
+- `hide`, `show`, `hide_events`, `show_events`, `deleted`
+
+### DeepL Rate Limit Uyarısı
+9 event × 27 dil × 3 alan = 729 DeepL çağrısı serial olarak backend'de yapılıyor (~150+ sn). Toplu backfill sırasında bazı çeviriler timeout'a uğradı, kalan event'ler için tek tek re-PATCH tetiklendi. Yeni oluşturulan etkinliklerde bu sorun yok — tek etkinlik = 81 çağrı × 200ms ≈ 16 sn (kabul edilebilir).
+
+### Dil Değişince Re-render
+Events.jsx zaten `useTranslation()` hook kullanıyor (satır 213) ve group/event name render'ları `i18n.language`'ı doğrudan okuyor → dil değişince otomatik yeniden render oluyor. Ek useEffect gerekmedi.
+
+### Groupless Etkinlikler (`/` görünmez)
+Line 736: `{e.group_name && String(e.group_name).trim() ? (...)}` — group_name boşsa "/" ayırıcı zaten gösterilmiyor. Bu davranış doğru.
+
