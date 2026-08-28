@@ -662,19 +662,22 @@ export default function Events() {
         }}
         onDragEnd={() => { setDragId(null); setDragSourceBucket(null); }}
         onClick={() => { if (!dragId) setDetailId(e.id); }}
-        className={`card-dark row-hover p-3 flex flex-wrap items-center gap-3 cursor-pointer ${dragId === e.id ? "opacity-50" : ""}`}
+        className={`card-dark row-hover flex flex-wrap items-center gap-2 cursor-pointer ${dragId === e.id ? "opacity-50" : ""}`}
         variants={{
           hidden: { opacity: 0, y: 14 },
           visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } },
         }}
         style={highlight ? {
+          overflow: "hidden",
+          padding: "10px 10px 10px 10px",
+          minHeight: 96,
           backgroundImage: "repeating-linear-gradient(45deg, rgba(220,38,38,0.14), rgba(220,38,38,0.14) 6px, transparent 6px, transparent 14px)",
           borderColor: "rgba(220,38,38,0.55)",
           boxShadow: "0 0 12px rgba(220,38,38,0.25), inset 0 0 12px rgba(220,38,38,0.1)",
         } : {
-          // v57 — Premium event card. Deep saturated purple→indigo gradient
-          // (up from ~30% alpha to solid ~65%) so cards read as opaque panels;
-          // ember-orange border-glow catches the eye without harsh contrast.
+          overflow: "hidden",
+          padding: "10px 10px 10px 10px",
+          minHeight: 96,
           borderLeft: `3px solid ${gc}`,
           background: group
             ? `linear-gradient(135deg, ${groupBgTint(group, 0.70)} 0%, rgba(30,27,75,0.62) 55%, rgba(15,10,45,0.72) 100%)`
@@ -788,21 +791,24 @@ export default function Events() {
         {/* v124 — Takvimime Ekle + Etkinlik Sohbeti. Rendered inline as
             secondary CTAs; stop propagation so the card click (detail
             modal) doesn't fire. */}
-        <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(ev) => ev.stopPropagation()}>
-          <AddToCalendarButton event={e} />
+        <div className="w-full flex items-center gap-1 flex-wrap mt-1" onClick={(ev) => ev.stopPropagation()}>
+          <AddToCalendarButton event={e} compact />
           <button
             type="button"
             onClick={() => setChatEventId(e.id)}
             data-testid={`event-chat-open-${e.id}`}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest"
+            className="inline-flex items-center gap-1 rounded-md font-bold uppercase"
             style={{
+              padding: "4px 8px",
+              fontSize: 10,
+              letterSpacing: "0.08em",
               background: "rgba(245,166,35,0.12)",
               color: "#F5A623",
               border: "1px solid rgba(245,166,35,0.35)",
             }}
             title="Etkinlik Sohbeti"
           >
-            <MessageCircle className="w-3 h-3" /> {t("event_chat")}
+            <MessageCircle style={{ width: 10, height: 10 }} /> {t("event_chat")}
           </button>
         </div>
         <CanEdit>

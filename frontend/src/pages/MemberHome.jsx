@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import useSWR from "swr";
 import { api } from "@/lib/api";
+import AddToCalendarButton from "@/components/AddToCalendarButton";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 // v67 — no lucide icon needed anymore for uyeler (replaced with inline
 // Spartan helmet SVG). Import removed.
@@ -707,6 +708,19 @@ export default function MemberHome() {
                   {popoverEvent.subtitle}
                 </div>
               )}
+              {/* v134.6 — Popover içine "Takvime Ekle" butonu. Kullanıcı
+                  RSVP vermeden takvim uygulamasına ekleyebilsin. */}
+              <div style={{ marginTop: 6 }} data-testid="event-popover-calendar">
+                <AddToCalendarButton
+                  event={{
+                    id: popoverEvent.id,
+                    name: popoverEvent.title,
+                    date: popoverEvent.iso,
+                    subtitle: popoverEvent.group || popoverEvent.subtitle || null,
+                  }}
+                  compact
+                />
+              </div>
             </div>
 
             {/* RSVP toggle group */}

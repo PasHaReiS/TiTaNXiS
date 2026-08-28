@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 28, 2026 (v134.6 Takvime Ekle — Home + Popover)** — 3 konum:
+  - **Anasayfa "Bugünün Etkinlikleri"** (`MemberHome.jsx` L378-421): Her satır `<button>` yerine `<div>` + iç `<button>` (RSVP açıcı) + inline `AddToCalendarButton` (compact). `event.iso` → AddToCalendarButton'un beklediği `{id, name, date, subtitle}` shape'ine adapte.
+  - **Etkinlik Popover** (`MemberHome.jsx` L710-723): RSVP butonlarının üstüne "Takvime Ekle" bloğu (`event-popover-calendar`) eklendi.
+  - **Etkinlikler sayfası kartları**: v134.5'te zaten var.
+  - **Telegram bildirimli etkinlikler**: In-app UI'da ayrı liste değil — aynı `events` collection'ından çekildiği için otomatik kapsamda.
+  - Import: `AddToCalendarButton` component'i MemberHome.jsx L8'e eklendi. Google Calendar + iCal .ics her ikisi de dropdown'da.
+
 - **Feb 28, 2026 (v134.4 Grup Sayısı Badge)** — Etkinlik grup header:
   - **Sayı badge'i** (`Events.jsx` renderGroupBlock): "— N etkinlik" inline text kaldırıldı; yerine `event-group-count-badge-{group}` span'i (24×24, `border-radius:50%`, `rgba(245,158,11,0.85)` amber, beyaz bold 12px). h3 sadece grup adını göstersin diye ayrıldı.
   - **Header layout**: `[chevron] [dot] [GRUP ADI beyaz bold ellipsis] [amber badge N]` → action row: `[Gizle] [İsim Değiştir] [Arşivden Çıkar] [Sil]`.

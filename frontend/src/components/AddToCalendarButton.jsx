@@ -14,7 +14,7 @@ import { toast } from "sonner";
  * to the RIGHT (opens inward) instead of the default left-alignment.
  * This kills the "menu clipped by screen edge" bug the user reported.
  */
-export default function AddToCalendarButton({ event }) {
+export default function AddToCalendarButton({ event, compact = false }) {
   const { t } = useTranslation();
   const [open, setOpen] = React.useState(false);
   const [alignRight, setAlignRight] = React.useState(false);
@@ -81,14 +81,17 @@ export default function AddToCalendarButton({ event }) {
         ref={btnRef}
         onClick={toggle}
         data-testid={`event-cal-btn-${event.id}`}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest"
+        className="inline-flex items-center gap-1 rounded-md font-bold uppercase"
         style={{
+          padding: compact ? "4px 8px" : "6px 10px",
+          fontSize: compact ? 10 : 11,
+          letterSpacing: "0.08em",
           background: "rgba(59,130,246,0.12)",
           color: "#93C5FD",
           border: "1px solid rgba(59,130,246,0.35)",
         }}
       >
-        <CalendarPlus className="w-3 h-3" /> {t("event_add_to_calendar")}
+        <CalendarPlus style={{ width: 10, height: 10 }} /> {t("event_add_to_calendar")}
       </button>
       {open && (
         <div
