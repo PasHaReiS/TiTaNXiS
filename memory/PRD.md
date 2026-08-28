@@ -1937,3 +1937,36 @@ Kotayı hâlâ görebilirsiniz ama artık Google Cloud'ın quota'sını izleyece
 ### Sonraki Adım
 Preview'a da GOOGLE_TRANSLATION_API_KEY eklenirse tek key ile test edebilir; şu an DeepL fallback ile çalışıyor.
 
+
+## v135.17 — Etkinlik Oluşturma 500 Hatası Düzeltildi (Feb 28, 2026)
+
+### Kök Sorun
+Google migration ile ilgisi YOK. Latent Pydantic v2 uyumsuzluk bug'ı migration sırasında tetiklendi:
+- `Event` model: `report_channels: List[str] = Field(default_factory=list)` (Non-Optional)
+- `EventCreate` model: `report_channels: Optional[List[str]] = None`
+- Kullanıcı bu alanları girmediğinde payload'da `None` bulunuyordu
+- `Event(**payload)` → Pydantic v2 `None → []` coerce yapmıyor, `list_type` ValidationError fırlatıyor
+- HTTP 500: `3 validation errors for Event` (report_channels, alliance_thresholds, member_thresholds)
+
+### Düzeltme (server.py:1142)
+`Event(**payload)` çağrısından önce None → default_factory değerine normalize edildi:
+```python
+for _field, _default in (
+    ("report_channels", []),
+    ("alliance_thresholds", []),
+    ("member_thresholds", []),
+    ("name_translations", {}),
+    ("subtitle_translations", {}),
+    ("group_translations", {}),
+    ("result_screenshots", []),
+):
+    if payload.get(_field) is None:
+        payload[_field] = _default
+```
+
+### Doğrulama
+- **Preview POST /api/events**: HTTP 200 ✅ 
+- **Google-emulating DeepL fallback**: name → 28 dil (en:"Test", zh:"测试", ja:"テスト"...) ve group_name "Kafes" → 28 dil (en:"Cage", de:"Käfig", ru:"Клетка", ja:"ケージ", zh:"笼子") ✅
+
+⚠️ Republish sonrası titanxis.com'da etkinlik oluşturma normale dönecek. Google Translation API prod'da devrede olduğu için çeviriler Google'dan gelecek.
+

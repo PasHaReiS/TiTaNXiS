@@ -1139,6 +1139,21 @@ async def create_event(body: EventCreate, _: dict = Depends(require_edit)):
     series_id = str(uuid.uuid4()) if (interval != "none" and count > 1) else None
     if series_id:
         payload["series_id"] = series_id
+    # v135.17 — EventCreate marks list/dict fields as Optional=None but the
+    # Event storage model requires non-None (default_factory=list/dict).
+    # Pydantic v2 doesn't coerce None → default, so strip None here or
+    # Event(**payload) raises `list_type` ValidationError → 500 on POST.
+    for _field, _default in (
+        ("report_channels", []),
+        ("alliance_thresholds", []),
+        ("member_thresholds", []),
+        ("name_translations", {}),
+        ("subtitle_translations", {}),
+        ("group_translations", {}),
+        ("result_screenshots", []),
+    ):
+        if payload.get(_field) is None:
+            payload[_field] = _default
     e = Event(**payload)
     created = [e]
     if interval != "none" and count > 1:
