@@ -20,6 +20,18 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 28, 2026 (v135.22 Telegram Bildirimde Saat)** — `send_event_notification` (`/app/backend/telegram_bot.py` L1622):
+  - **Değişiklik**: Mesajdaki `🗓 Tarih` satırı artık tarih + saat gösteriyor (Türkiye saati, UTC+3). Örn `2026-03-15 21:00 (TR)`. ISO parse başarısız olursa (yalnızca `YYYY-MM-DD` verildiğinde) sadece tarih basılır (regresyon-güvenli fallback).
+  - **Refaktör**: `dt` parse blok bloğu, mesaj satırlarının üstüne çekildi ki `date_line` da aynı `dt`'yi kullansın; Google Calendar URL üretimi (`dates=YYYYMMDDTHHMMSSZ/…`) davranışı UTC'de aynı kaldı, `end = dt + 1h` mantığı korundu.
+  - **Doğrulama**: `datetime.fromisoformat('2026-03-15T18:00:00Z').astimezone(UTC+3)` → `2026-03-15 21:00 (TR)` ✅. Backend restart temiz, `sudo supervisorctl status backend` RUNNING.
+
+- **Feb 28, 2026 (v135.21 Google Çeviri Kotası E-Mail Uyarısı)** — `_send_translate_quota_alarm_if_needed` (`/app/backend/server.py`):
+  - **Yeni helper**: `_compute_translate_month_usage()` `deepl_translate_log` üzerinden bu ay tüketilen karakteri toplar; `GOOGLE_TRANSLATION_MONTHLY_LIMIT_CHARS` env değeri ile karşılaştırır (default 500 000 = Google free tier).
+  - **Alarm**: Aylık kullanım %80'i geçince Resend ile `DIGEST_ADMIN_EMAIL`'e Türkçe HTML uyarı gönderir. 24 saatlik cooldown `translate_quota_alarms` koleksiyonunda tutulur.
+  - **Endpoint'ler**: `GET /api/translate/quota-alarm/status` (admin diagnostic — mevcut kullanım + son 10 alarm), `POST /api/translate/quota-alarm/trigger?force=true|false` (manuel tetikleyici; force=true eşik+cooldown'ı bypass eder).
+  - **Cron entegrasyonu**: Gecelik i18n backfill cron'unun sonunda `try/except` ile çağrılır — hata durumunda cron akışını bozmadan warning logger.
+  - **Doğrulama**: Ruff `F821 Undefined name '_send_translate_quota_alarm_if_needed'` giderildi; backend temiz başladı.
+
 - **Feb 28, 2026 (v134.7 Telegram Etkinlik Bildirimi + Takvime Ekle)** — `send_event_notification`:
   - **Inline Keyboard**: Yeni etkinlik oluşturulduğunda `TELEGRAM_CHANNEL_ID` (-1003597221954) grubuna gönderilen mesaja `📅 Takvime Ekle` inline button eklendi.
   - **Google Calendar URL**: `render?action=TEMPLATE&text=<name>&dates=YYYYMMDDTHHMMSSZ/YYYYMMDDTHHMMSSZ&details=<group·xmult·webbase>`. Başlangıç + 1 saat default süre.

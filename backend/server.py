@@ -3710,6 +3710,12 @@ async def cron_deepl_retry_i18n(request: Request):
     # cron. Same DeepL key + rate-limit backoff apply. Non-destructive: only
     # empty translation dicts are filled; existing values are preserved.
     events_result = await _backfill_event_translations()
+    # v135.21 — Proactive quota alarm (Resend). No-op if usage < 80% or if
+    # an alarm was already sent in the last 24h.
+    try:
+        await _send_translate_quota_alarm_if_needed()
+    except Exception as _e:
+        logger.warning(f"[quota-alarm] pre-check failed: {_e}")
     return {"patched": patched, "per_locale": per_locale, "events_backfill": events_result}
 
 
@@ -4224,6 +4230,141 @@ async def cron_weekly_digest_email(request: Request):
         raise HTTPException(401, "unauthorized")
     _asyncio_cron.create_task(_weekly_digest_task())
     return {"accepted": True}
+
+
+# v135.21 — Proactive Google Cloud Translation quota alarm.
+# Google Cloud v2 API has no `/usage` endpoint (unlike DeepL), so we compute
+# character usage from our own `deepl_translate_log` for the current calendar
+# month. When usage crosses `GOOGLE_TRANSLATION_MONTHLY_LIMIT_CHARS` × 0.80,
+# we send a Resend email to `DIGEST_ADMIN_EMAIL`. A 24h cooldown record is
+# kept in `translate_quota_alarms` to prevent spam.
+GOOGLE_TRANSLATION_MONTHLY_LIMIT_CHARS = int(
+    os.environ.get("GOOGLE_TRANSLATION_MONTHLY_LIMIT_CHARS", "500000") or "500000"
+)
+
+
+async def _compute_translate_month_usage() -> dict:
+    """Return {"chars": int, "limit": int, "percent": float, "month": "YYYY-MM"}
+    for the current calendar month, aggregated from `deepl_translate_log`.
+    Non-fatal on DB errors — returns 0 usage."""
+    from datetime import datetime as _dt, timezone as _tz
+    now = _dt.now(_tz.utc)
+    month_start = _dt(now.year, now.month, 1, tzinfo=_tz.utc).isoformat()
+    limit = GOOGLE_TRANSLATION_MONTHLY_LIMIT_CHARS
+    try:
+        chars = 0
+        async for r in db.deepl_translate_log.find(
+            {"ts": {"$gte": month_start}}, {"_id": 0, "chars": 1}
+        ):
+            chars += int(r.get("chars", 0) or 0)
+    except Exception:
+        chars = 0
+    pct = round(100.0 * chars / max(1, limit), 2)
+    return {"chars": chars, "limit": limit, "percent": pct,
+            "month": f"{now.year:04d}-{now.month:02d}"}
+
+
+async def _send_translate_quota_alarm_if_needed(force: bool = False) -> dict:
+    """When monthly Google translation usage ≥ 80% of the configured limit,
+    send a Resend email to the admin. Enforces a 24h cooldown per calendar
+    month via the `translate_quota_alarms` collection. Returns a diagnostic
+    dict so the manual trigger endpoint can surface the outcome.
+    """
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    usage = await _compute_translate_month_usage()
+    result = {"sent": False, "usage": usage, "reason": None}
+    threshold_pct = 80.0
+    if not force and usage["percent"] < threshold_pct:
+        result["reason"] = "below_threshold"
+        return result
+    resend_key = os.environ.get("RESEND_API_KEY", "").strip()
+    admin_email = os.environ.get("DIGEST_ADMIN_EMAIL", "").strip()
+    sender = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev").strip()
+    if not resend_key or not admin_email:
+        result["reason"] = "resend_or_admin_not_configured"
+        return result
+    # 24h cooldown — check most recent alarm for this month.
+    try:
+        cutoff = (_dt.now(_tz.utc) - _td(hours=24)).isoformat()
+        recent = await db.translate_quota_alarms.find_one(
+            {"month": usage["month"], "ts": {"$gte": cutoff}},
+            {"_id": 0, "ts": 1},
+        )
+        if recent and not force:
+            result["reason"] = "cooldown_active"
+            return result
+    except Exception:
+        pass
+    try:
+        import resend as _resend
+        _resend.api_key = resend_key
+        pct = usage["percent"]
+        html = (
+            "<div style='background:#0F0806;color:#F5F0E8;font-family:Arial,sans-serif;padding:24px'>"
+            "<h2 style='color:#E74C1A;margin:0 0 4px 0;font-family:Georgia,serif'>TiTaNXiS · Çeviri Kotası Uyarısı</h2>"
+            f"<div style='color:#888;font-size:12px;margin-bottom:20px'>{usage['month']} · {_dt.now(_tz.utc).strftime('%Y-%m-%d %H:%M UTC')}</div>"
+            f"<div style='background:rgba(231,76,26,.12);border:1px solid rgba(231,76,26,.4);padding:16px;border-radius:8px;margin-bottom:16px'>"
+            f"<div style='color:#F5A623;font-size:11px;text-transform:uppercase;letter-spacing:.14em'>Kullanım (Bu Ay)</div>"
+            f"<div style='color:#E74C1A;font-size:28px;font-weight:bold;font-family:monospace'>{pct}%</div>"
+            f"<div style='color:#F5F0E8;font-size:13px;font-family:monospace'>{usage['chars']:,} / {usage['limit']:,} karakter</div>"
+            "</div>"
+            "<p style='color:#F5F0E8;font-size:13px;line-height:1.6'>Google Cloud Translation API aylık kotasının <b>%80'i aşıldı</b>. "
+            "Kalan kotayı korumak için lütfen kontrol panelinden <a href='https://console.cloud.google.com/apis/api/translate.googleapis.com/quotas' style='color:#C4B5FD'>Google Cloud Console</a> üzerinden limit yükseltmesi yapın ya da çeviri hacmini kısıtlayın.</p>"
+            "<p style='color:#888;font-size:11px;margin-top:20px'>Bu e-posta 24 saat cooldown ile gönderilir. Eşik: 80% · Env: <code>GOOGLE_TRANSLATION_MONTHLY_LIMIT_CHARS</code>.</p>"
+            "</div>"
+        )
+        params = {
+            "from": sender, "to": [admin_email],
+            "subject": f"[TiTaNXiS] Çeviri Kotası %{pct} — {usage['chars']:,}/{usage['limit']:,} char",
+            "html": html,
+        }
+        send_result = await _asyncio_cron.to_thread(_resend.Emails.send, params)
+        rid = send_result.get("id") if isinstance(send_result, dict) else send_result
+        await db.translate_quota_alarms.insert_one({
+            "ts": _dt.now(_tz.utc).isoformat(),
+            "month": usage["month"],
+            "chars": usage["chars"],
+            "limit": usage["limit"],
+            "percent": usage["percent"],
+            "resend_id": str(rid) if rid else None,
+            "forced": bool(force),
+        })
+        logger.info(f"[quota-alarm] Resend send OK id={rid} pct={pct} month={usage['month']}")
+        result["sent"] = True
+        result["resend_id"] = str(rid) if rid else None
+    except Exception as e:
+        logger.error(f"[quota-alarm] send failed: {e}")
+        result["reason"] = f"send_error: {str(e)[:200]}"
+    return result
+
+
+@api_router.get("/translate/quota-alarm/status")
+async def translate_quota_alarm_status(_: dict = Depends(require_admin)):
+    """Admin diagnostic — current month usage + last alarm log entries."""
+    usage = await _compute_translate_month_usage()
+    try:
+        recent = await db.translate_quota_alarms.find(
+            {}, {"_id": 0}
+        ).sort("ts", -1).to_list(10)
+    except Exception:
+        recent = []
+    return {
+        "usage": usage,
+        "threshold_percent": 80.0,
+        "recent_alarms": recent,
+        "resend_configured": bool(os.environ.get("RESEND_API_KEY", "").strip()),
+        "admin_email_configured": bool(os.environ.get("DIGEST_ADMIN_EMAIL", "").strip()),
+    }
+
+
+@api_router.post("/translate/quota-alarm/trigger")
+async def translate_quota_alarm_trigger(
+    force: bool = False, _: dict = Depends(require_admin)
+):
+    """Admin manual trigger — evaluates threshold and (optionally) sends an
+    alarm right now. Pass `?force=true` to bypass threshold + cooldown for
+    verifying the Resend path end-to-end."""
+    return await _send_translate_quota_alarm_if_needed(force=force)
 
 
 @api_router.get("/translate/usage")

@@ -1628,11 +1628,35 @@ async def send_event_notification(event_name: str, event_date: str,
     channel = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
     if not channel:
         return False
+
+    # v135.22 — Parse date first so the message body can display Turkey time
+    # (UTC+3) alongside the ISO date. Same parsed `dt` is reused later for the
+    # Google Calendar deep-link.
+    from urllib.parse import quote_plus
+    import re as _re
+    _time_known = True
+    try:
+        dt = datetime.fromisoformat(event_date.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+    except Exception:
+        # Fallback: date-only "YYYY-MM-DD" → 00:00 UTC, hide time in message.
+        digits = _re.sub(r"\D", "", (event_date or "")[:10])[:8] or "20260101"
+        dt = datetime.strptime(digits, "%Y%m%d").replace(tzinfo=timezone.utc)
+        _time_known = False
+    tr_tz = timezone(timedelta(hours=3))
+    dt_tr = dt.astimezone(tr_tz)
+    date_line = (
+        f"🗓 Tarih: `{dt_tr.strftime('%Y-%m-%d %H:%M')} (TR)`"
+        if _time_known else f"🗓 Tarih: `{dt_tr.strftime('%Y-%m-%d')}`"
+    )
     lines = [
         "🎉 *Yeni Etkinlik!*",
         "",
         f"📅 *{event_name}*",
-        f"🗓 Tarih: `{event_date[:10]}`",
+        date_line,
         f"📊 Grup: {group_name}",
         f"⚡ Çarpan: ×{multiplier}",
     ]
@@ -1641,18 +1665,6 @@ async def send_event_notification(event_name: str, event_date: str,
         lines.append(f"\n🔗 [Etkinliğe Katıl]({base}/etkinlikler#event-{event_id})")
 
     # Google Calendar deep-link: dates=YYYYMMDDTHHMMSSZ/YYYYMMDDTHHMMSSZ
-    from urllib.parse import quote_plus
-    import re as _re
-    try:
-        dt = datetime.fromisoformat(event_date.replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        else:
-            dt = dt.astimezone(timezone.utc)
-    except Exception:
-        # Fallback: date-only "YYYY-MM-DD" → 00:00 UTC
-        digits = _re.sub(r"\D", "", (event_date or "")[:10])[:8] or "20260101"
-        dt = datetime.strptime(digits, "%Y%m%d").replace(tzinfo=timezone.utc)
     end = dt + timedelta(hours=1)
     dates = f"{dt.strftime('%Y%m%dT%H%M%SZ')}/{end.strftime('%Y%m%dT%H%M%SZ')}"
     gcal = (
