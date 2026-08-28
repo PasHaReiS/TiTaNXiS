@@ -6254,6 +6254,7 @@ class AnnouncementBody(BaseModel):
     image_url: Optional[str] = None
     broadcast: Optional[bool] = True
     urgent: Optional[bool] = False
+    pinned: Optional[bool] = False  # v135 — sticky banner on home page
     scheduled_at: Optional[str] = None  # ISO8601 UTC — future time defers fan-out until due
 
 
@@ -6299,6 +6300,7 @@ async def announcements_create(body: AnnouncementBody, user: dict = Depends(requ
         "active": (not is_scheduled),
         "scheduled_at": scheduled_at_iso,
         "pending_broadcast": is_scheduled and bool(body.broadcast),
+        "pinned": bool(body.pinned),  # v135 — home banner sticky flag
     }
     # v127 — Auto-translate title + body to all 28 non-TR languages so
     # the Duyurular list and push notifications can render in the user's
@@ -6363,6 +6365,7 @@ class AnnouncementPatch(BaseModel):
     image_url: Optional[str] = None
     urgent: Optional[bool] = None
     active: Optional[bool] = None
+    pinned: Optional[bool] = None
 
 
 @api_router.patch("/announcements/{aid}")
@@ -8445,6 +8448,21 @@ from routes.ocr import make_ocr_router
 app.include_router(make_ocr_router(db, require_edit, require_auth), prefix="/api")
 from routes.alliances import make_alliances_router
 app.include_router(make_alliances_router(db, require_edit), prefix="/api")
+from routes.badges import make_badges_router, ensure_badges_indexes, seed_preset_badges
+app.include_router(make_badges_router(db, require_auth, require_admin), prefix="/api")
+from routes.event_templates import make_event_templates_router, ensure_event_templates_indexes
+app.include_router(make_event_templates_router(db, require_auth, require_admin), prefix="/api")
+from routes.rollcalls import make_rollcalls_router, ensure_rollcalls_indexes
+app.include_router(
+    make_rollcalls_router(
+        db, require_auth, require_admin,
+        broadcast_push=_broadcast_push,
+        broadcast_in_app=_broadcast_in_app,
+    ),
+    prefix="/api",
+)
+from routes.admin_notes import make_admin_notes_router
+app.include_router(make_admin_notes_router(db, require_admin), prefix="/api")
 
 app.mount("/api/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
@@ -8556,6 +8574,18 @@ async def startup():
             )
     except Exception as _e:
         logging.getLogger("server").warning(f"attendance backfill: {_e}")
+
+    # v135 — Badges + Event templates + Rollcalls indexes & preset badge seed.
+    try:
+        from routes.badges import ensure_badges_indexes as _ebi, seed_preset_badges as _spb
+        from routes.event_templates import ensure_event_templates_indexes as _eeti
+        from routes.rollcalls import ensure_rollcalls_indexes as _eri
+        await _ebi(db)
+        await _spb(db)
+        await _eeti(db)
+        await _eri(db)
+    except Exception as _e:
+        logging.getLogger("server").warning(f"v135 feature index/seed: {_e}")
 
     # Register the Telegram webhook (no-ops if TELEGRAM_BOT_TOKEN is unset).
     try:

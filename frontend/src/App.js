@@ -28,6 +28,7 @@ import Members from "@/pages/Members";
 import MemberHome from "@/pages/MemberHome";
 import Events from "@/pages/Events";
 import Announcements from "@/pages/Announcements";
+import BadgeManagement from "@/pages/BadgeManagement";
 import Login from "@/pages/Login";
 import UserManagement from "@/pages/UserManagement";
 import OcrHistory from "@/pages/OcrHistory";
@@ -126,6 +127,12 @@ function AppShell() {
           <Route path="/uyeler" element={<RequireAuth><MotionPage><Members /></MotionPage></RequireAuth>} />
           <Route path="/etkinlikler" element={<RequireAuth><MotionPage><Events /></MotionPage></RequireAuth>} />
           <Route path="/duyurular" element={<MotionPage><Announcements /></MotionPage>} />
+          <Route path="/admin/duyurular" element={<RequireAdmin><MotionPage><Announcements /></MotionPage></RequireAdmin>} />
+          <Route path="/rozetler" element={<RequireAdmin><MotionPage><BadgeManagement /></MotionPage></RequireAdmin>} />
+          <Route path="/admin/rozetler" element={<RequireAdmin><MotionPage><BadgeManagement /></MotionPage></RequireAdmin>} />
+          <Route path="/admin/uyeler" element={<RequireAdmin><MotionPage><Members /></MotionPage></RequireAdmin>} />
+          <Route path="/arsiv" element={<RequireAuth><MotionPage><Events /></MotionPage></RequireAuth>} />
+          <Route path="/katilim" element={<RequireAdmin><MotionPage><Reports /></MotionPage></RequireAdmin>} />
           <Route path="/kullanicilar" element={<RequireAdmin><MotionPage><UserManagement /></MotionPage></RequireAdmin>} />
           <Route path="/profil" element={<RequireAuth><MotionPage><Profile /></MotionPage></RequireAuth>} />
           <Route path="/gosterge-paneli" element={<RequireAuth><MotionPage><LiveDashboardPage /></MotionPage></RequireAuth>} />

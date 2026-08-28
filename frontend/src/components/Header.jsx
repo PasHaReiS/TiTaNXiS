@@ -233,14 +233,10 @@ export default function Header({ title, children }) {
                   )}
                   {isAdmin && (
                     <MenuItem
-                      emoji="✨"
-                      label={t("wiz_reopen")}
-                      onClick={() => {
-                        try { localStorage.removeItem("titanxis_notif_wizard_seen_v1"); } catch {}
-                        window.dispatchEvent(new CustomEvent("titanxis:open-wizard"));
-                        setMenuOpen(false);
-                      }}
-                      testId="dropdown-reopen-wizard"
+                      emoji="📣"
+                      label="Duyurular"
+                      onClick={() => goto("/admin/duyurular")}
+                      testId="dropdown-announcements"
                     />
                   )}
                   <MenuItem
@@ -255,6 +251,14 @@ export default function Header({ title, children }) {
                       label={t("nav_points_about") || "Puanlar Hakkında"}
                       onClick={() => goto("/puanlar-hakkinda")}
                       testId="dropdown-points-about"
+                    />
+                  )}
+                  {isAdmin && (
+                    <MenuItem
+                      emoji="🏅"
+                      label="Rozet Yönetimi"
+                      onClick={() => goto("/admin/rozetler")}
+                      testId="dropdown-badges"
                     />
                   )}
                   <MenuItem

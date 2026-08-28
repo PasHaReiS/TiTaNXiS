@@ -1657,3 +1657,22 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Kalan 10 öğe Türkçe alfabetik + Çıkış en altta: Anketler → Bildirimler → Detaylı Rapor (Excel) → Kurulumu tekrar göster → Profilim → Puanlar Hakkında → SvS Takip → VIP Destek → Yönetim → [divider] → Çıkış Yap
 - Menü şimdi çok daha kompakt ve odaklı
 
+
+## Header Dropdown — Duyurular + Rozet Yönetimi Eklendi, Kurulum Sihirbazı Kaldırıldı (Feb 28, 2026)
+- Header.jsx admin dropdown'una 2 yeni menü öğesi eklendi:
+  - 📣 **Duyurular** (`/admin/duyurular`, admin-only) — mevcut Announcements sayfasına link
+  - 🏅 **Rozet Yönetimi** (`/admin/rozetler`, admin-only) — yeni BadgeManagement sayfası
+- ✨ "Kurulumu tekrar göster" (wiz_reopen) MenuItem tamamen silindi
+- Kalan alfabetik sıra: Anketler → Bildirimler → Detaylı Rapor → Duyurular → Profilim → Puanlar Hakkında → Rozet Yönetimi → SvS Takip → VIP Destek → Yönetim → [divider] → Çıkış Yap
+
+## v135 Backend Altyapı — Rozet + Şablon + Yoklama Sistemleri (Feb 28, 2026)
+- **`/app/backend/routes/badges.py`** — 12 hazır rozet (Lider 👑, Tiran 💀, Savaşçı ⚔️, Efsane 💎, Şampiyon 🏆, Streak 🔥, İzci 👁, Zengin 💰, Fakir 🪙, Şanslı 🧲, Şanssız 🪞, Barış ☮️) startup'ta seed edilir. Özel rozet oluşturma (emoji/URL), admin ata/kaldır. Endpoints: GET/POST/DELETE /api/badges + POST/DELETE /api/members/{id}/badges + GET /api/members/{id}/badges
+- **`/app/backend/routes/event_templates.py`** — Etkinlik şablonu kaydet/yükle. Endpoints: GET/POST/DELETE /api/event-templates
+- **`/app/backend/routes/rollcalls.py`** — Yoklama sistemi. Push + in-app fan-out. Endpoints: POST /api/rollcalls (başlat), GET /api/rollcalls/{id}, POST /api/rollcalls/{id}/respond, POST /api/rollcalls/{id}/close
+- **`/app/backend/routes/admin_notes.py`** — Admin-only gizli üye notu. Endpoints: GET/PUT /api/members/{id}/admin-note
+- **server.py**: AnnouncementBody + AnnouncementPatch'e `pinned: bool` alanı eklendi (v135). Startup event'e index/seed ekleri yapıldı.
+- **Yeni sayfalar**: `/app/frontend/src/pages/BadgeManagement.jsx` (rozet CRUD + atama tablosu), `/app/frontend/src/components/AdminNoteModal.jsx`, `/app/frontend/src/components/RollcallModal.jsx`
+- **App.js rotaları**: /admin/duyurular, /rozetler, /admin/rozetler, /admin/uyeler, /arsiv, /katilim — hepsi mevcut sayfalara admin-guarded alias
+- Test: 12 preset rozet backend'de doğrulandı, event-templates + rollcalls endpoint 200 döndü
+- ⏳ **Kalan entegrasyonlar**: Members.jsx'e admin note button, Reports.jsx'e Yoklama button, Announcements.jsx'e pin checkbox, MemberHome.jsx'e pinned banner, Events.jsx'e şablon dropdown/checkbox ve arşiv filtre paneli — sonraki iterasyonda tamamlanacak
+
