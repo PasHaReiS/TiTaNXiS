@@ -309,6 +309,10 @@ export default function MemberHome() {
 
         {/* v98 — 3x2 menu grid replaced by global RadialMenu (bottom-anchored). */}
 
+        {/* v135.6 — Sabitlenmiş duyurular banner'ı. Amber gradient, top of home.
+            Fetches announcements filtered by pinned=true on the client. */}
+        <PinnedAnnouncementsBanner nav={nav} />
+
         {/* v96 — Today's events pinned above the calendar so members see today's schedule at a glance. */}
         {(() => {
           const todayIso = isoFor(today.getDate());
@@ -788,6 +792,92 @@ export default function MemberHome() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// v135.6 — Sabitlenmiş duyurular banner'ı. Amber gradient, pin ikonu,
+// tıklanınca duyurular sayfasına yönlendirir. `/api/announcements?limit=20`
+// endpoint'inden döner, client-side `pinned=true` filtresi uygular. Kullanıcı
+// aynı tarayıcıda kapadığı duyuruları localStorage'da tutar → gösterilmez.
+function PinnedAnnouncementsBanner({ nav }) {
+  const { t } = useTranslation();
+  const { data } = useSWR("/announcements?limit=20", fetcher, { refreshInterval: 60000 });
+  const items = (data?.items || []).filter((a) => a.pinned && a.active !== false);
+  const [dismissed, setDismissed] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("titanxis_pinned_dismissed_v1") || "[]"); } catch { return []; }
+  });
+  const visible = items.filter((a) => !dismissed.includes(a.id));
+  if (!visible.length) return null;
+  const dismiss = (id) => {
+    const next = [...dismissed, id];
+    setDismissed(next);
+    try { localStorage.setItem("titanxis_pinned_dismissed_v1", JSON.stringify(next.slice(-50))); } catch { /* noop */ }
+  };
+  const langKey = (localStorage.getItem("ol_lang") || "tr").split("-")[0].toLowerCase();
+  return (
+    <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6 }} data-testid="pinned-announcements-banner">
+      {visible.slice(0, 3).map((a) => {
+        const title = a.title_translations?.[langKey] || a.title || "";
+        const body = a.body_translations?.[langKey] || a.body || "";
+        return (
+          <div
+            key={a.id}
+            data-testid={`pinned-banner-${a.id}`}
+            style={{
+              width: "100%",
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "linear-gradient(90deg, rgba(245,166,35,0.20) 0%, rgba(231,76,26,0.15) 100%)",
+              border: "1px solid rgba(245,166,35,0.60)",
+              boxShadow: "0 0 14px rgba(245,166,35,0.25), inset 0 0 10px rgba(0,0,0,0.3)",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 10,
+              cursor: "pointer",
+            }}
+            onClick={() => nav("/duyurular")}
+          >
+            <div style={{ fontSize: 18, lineHeight: "1" }} aria-hidden>📌</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontFamily: "Cinzel, serif",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                  color: "#F5A623",
+                  marginBottom: 2,
+                  textShadow: "0 0 6px rgba(245,166,35,0.45)",
+                }}
+              >
+                {title}
+              </div>
+              <div style={{ fontSize: 12, color: "rgba(245,240,232,0.86)", lineHeight: 1.35, wordBreak: "break-word" }}>
+                {body.length > 180 ? body.slice(0, 180) + "…" : body}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); dismiss(a.id); }}
+              aria-label={t("legal_kvkk", "Kapat")}
+              data-testid={`pinned-banner-dismiss-${a.id}`}
+              style={{
+                width: 22, height: 22,
+                borderRadius: 6,
+                background: "rgba(0,0,0,0.35)",
+                color: "rgba(245,240,232,0.75)",
+                border: "1px solid rgba(245,166,35,0.35)",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                flexShrink: 0,
+              }}
+            >×</button>
+          </div>
+        );
+      })}
     </div>
   );
 }

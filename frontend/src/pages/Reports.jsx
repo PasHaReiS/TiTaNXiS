@@ -3,8 +3,9 @@ import useSWR from "swr";
 import { Link } from "react-router-dom";
 import { api, apiErr, fmt } from "@/lib/api";
 import Header from "@/components/Header";
+import RollcallModal from "@/components/RollcallModal";
 import { toast } from "sonner";
-import { Loader2, Download, Users, CalendarDays, RefreshCw, Filter, Flame } from "lucide-react";
+import { Loader2, Download, Users, CalendarDays, RefreshCw, Filter, Flame, Megaphone } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, LineChart, Line, Legend, ReferenceLine, ReferenceArea } from "recharts";
 import { useTranslation } from "react-i18next";
 
@@ -41,8 +42,10 @@ const fmtDate = (iso) => {
  * Admin-only page. Reachable via the header profile dropdown → 📊 Raporlar.
  */
 export default function Reports() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState("events");
   const [period, setPeriod] = useState("90d");
+  const [showRollcall, setShowRollcall] = useState(false);
   return (
     <div data-testid="reports-page">
       <Header title="Katılım Merkezi">
@@ -51,7 +54,27 @@ export default function Reports() {
           {tab !== "quick" && tab !== "sadiklar" && <PeriodBar period={period} setPeriod={setPeriod} tab={tab} />}
         </div>
       </Header>
-      <div className="px-4 space-y-3">
+      <div className="px-4 space-y-3 pt-3">
+        {/* v135.6 — Yoklama Başlat amber button: fires RollcallModal that
+            pushes to all members + Telegram + in-app. Backend endpoint is
+            /api/rollcalls (POST). */}
+        <button
+          type="button"
+          onClick={() => setShowRollcall(true)}
+          data-testid="rollcall-start-btn"
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold uppercase tracking-widest transition-all"
+          style={{
+            background: "linear-gradient(135deg, #F5A623 0%, #D4730A 60%, #E74C1A 100%)",
+            color: "#1a1108",
+            border: "1px solid rgba(245,166,35,0.75)",
+            boxShadow: "0 6px 20px rgba(231,76,26,0.35), inset 0 1px 0 rgba(255,220,150,0.35)",
+            fontSize: 13,
+            letterSpacing: "0.14em",
+          }}
+        >
+          <Megaphone className="w-4 h-4" />
+          {t("rollcall_start_title", "Yoklama Başlat")}
+        </button>
         {tab === "members" ? (
           <MembersReport period={period} />
         ) : tab === "quick" ? (
@@ -62,6 +85,7 @@ export default function Reports() {
           <EventsReport period={period} />
         )}
       </div>
+      {showRollcall && <RollcallModal onClose={() => setShowRollcall(false)} />}
     </div>
   );
 }

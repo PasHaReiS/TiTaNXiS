@@ -1706,3 +1706,42 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Modal dialoglar (z:9998+) hâlâ RadialMenu üstünde açılıyor — z-index hiyerarşisi: içerik < RadialMenu (1600) < Modal (9998+)
 - Screenshot: footer y=1050, h=30 doğrulandı
 
+
+## v135.6 — Next Action Items Tamamlandı: 4 Özellik + Footer Gradient (Feb 28, 2026)
+
+### 1. Yoklama UI Bağlama (`/katilim` → Reports.jsx)
+- `RollcallModal` import edildi, `showRollcall` state eklendi
+- Katılım Merkezi'nin üstüne amber gradient "📣 Yoklama Başlat" butonu (`rollcall-start-btn` testid)
+- Tıklanınca modal açılır, etkinlik seç + mesaj yaz → tüm üyelere push + in-app fan-out
+- Backend `/api/rollcalls` zaten hazırdı; tam entegre
+
+### 2. Duyuru Sabitle + Anasayfa Banner
+- **Announcements.jsx**: `pinned` state + "📌 Sabitle" checkbox (`announcement-pinned` testid) + submit body'ye eklendi
+- **MemberHome.jsx**: `PinnedAnnouncementsBanner` bileşeni eklendi — anasayfa üst kısmında amber gradient banner, `📌` icon, dil-farkında (title_translations + body_translations kullanır), tıklanınca `/duyurular` sayfasına gider
+- Kullanıcı bazlı dismiss: `titanxis_pinned_dismissed_v1` localStorage'da saklanır → aynı duyuru bir kez kapatılınca tekrar görünmez
+- Ekranda maksimum 3 sabit banner görünür (üst 3)
+
+### 3. Admin Gizli Not Butonu (`/uyeler` → Members.jsx)
+- `StickyNote` icon import edildi (lucide-react)
+- `AdminNoteModal` import edildi
+- Her üye satırındaki aksiyon butonlarının başına 📝 ikon butonu eklendi
+- Not olan üyelerde amber (`#F5A623` + glow), boş olanlarda slate
+- `adminNoteMember` state ile modal wire edildi, kaydedince `/members` SWR mutate
+
+### 4. Etkinlik Şablonları (Events.jsx EventForm)
+- Form üstüne "📋 Şablondan Oluştur" dropdown (`event-form-template-select`) — seçilince tarih hariç tüm alanlar dolar
+- Submit butonundan hemen önce "📋 Bu etkinliği şablon olarak kaydet" checkbox (`event-form-save-as-template`) — işaretlenince şablon adı input'u açılır
+- Etkinlik kaydedildikten sonra ayrı bir `POST /event-templates` çağrısı ile şablon oluşur, hata sessiz toast'la belirtilir
+- Sadece yeni etkinlik oluştururken görünür, edit modunda gizli
+
+### 5. Footer Gradient Fade
+- `LegalFooter.jsx` tamamen yeniden yazıldı (indentasyon düzeltildi)
+- 18px yükseklikte pseudo `<div>` üstte gradient (`linear-gradient(to bottom, transparent → koyu-taş)`)
+- Ana footer'a genişletilmiş box-shadow eklendi: `0 -18px 26px -18px rgba(245,166,35,0.55)` haleli amber ışık + `0 -4px 12px rgba(0,0,0,0.6)` derinlik
+- İçerik footer'a yaklaşırken görsel geçiş sağlanıyor, RadialMenu ile arasında zarif boşluk
+
+### Build & Deploy
+- Git diff: 6 dosya, +261 / -11 satır
+- Frontend derleme: hatasız (yalnızca webpack deprecation warning'leri — mevcut duruma özgü)
+- ⚠️ Kullanıcı Emergent UI'dan "Publish" ile production'a alacak
+

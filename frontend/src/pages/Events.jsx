@@ -2454,6 +2454,26 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState(initial?.banner_url ? [{ id: "existing", url: initial.banner_url, filename: "banner" }] : []);
   const { data: activeGroups = [] } = useSWR("/event-groups?active_only=true", fetcher);
+  // v135.6 — Etkinlik şablonu: form açılırken şablonlardan seçilerek tüm
+  // alanlar doldurulabilir (tarih hariç). Form kaydedilirken "Şablon olarak
+  // kaydet" checkbox işaretliyse POST /event-templates çağrılır.
+  const { data: templatesData } = useSWR(!initial ? "/event-templates" : null, fetcher);
+  const templates = templatesData?.items || [];
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const applyTemplate = (tid) => {
+    const tpl = templates.find((x) => x.id === tid);
+    if (!tpl) return;
+    setName(tpl.name || "");
+    setMultiplier(tpl.multiplier || 1);
+    setSubtitle(tpl.subtitle || "");
+    setGroupName(tpl.group_name || "SvS vs 10007");
+    setGrouped(!!(tpl.group_name && String(tpl.group_name).trim()));
+    setReminderEnabled(tpl.reminder_enabled !== false);
+    setHiddenFromLb(!!tpl.hidden_from_leaderboard);
+    if (tpl.banner_url) setBanner([{ id: "tpl", url: tpl.banner_url, filename: "template-banner" }]);
+    toast.success(`Şablon yüklendi: ${tpl.template_name}`);
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -2499,6 +2519,28 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
       }
       mutate((k) => typeof k === "string" && (k.startsWith("/events") || k.startsWith("/event-groups")));
       mutate("/stats");
+      // v135.6 — Şablon olarak kaydet: create/update sonrası ayrı POST
+      // /event-templates çağrısı. Hatası sessiz — asıl etkinlik yaratma
+      // başarılıyken şablon oluşturma başarısızsa toast uyarısı verir.
+      if (!initial && saveAsTemplate) {
+        try {
+          const tplBody = {
+            template_name: templateName.trim() || `${name.trim()} Şablonu`,
+            name: name.trim(),
+            group_name: grouped ? (groupName || "").trim() || null : null,
+            multiplier: Number(multiplier),
+            subtitle: subtitle.trim() || null,
+            banner_url: banner[0]?.url || null,
+            reminder_enabled: reminderEnabled,
+            hidden_from_leaderboard: hiddenFromLb,
+          };
+          await api.post("/event-templates", tplBody);
+          mutate("/event-templates");
+          toast.success(`Şablon kaydedildi: ${tplBody.template_name}`);
+        } catch (tplErr) {
+          toast.warning("Etkinlik oluşturuldu ama şablon kaydedilemedi.");
+        }
+      }
       const spawned = res?.data?.recurrence_created || 0;
       const matched = res?.data?.matched || 0;
       if (spawned > 1) {
@@ -2521,6 +2563,27 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
           <X className="w-5 h-5" />
         </button>
         <h3 className="text-lg font-bold uppercase gold-text mb-4">{initial ? t("edit_event") : t("new_event")}</h3>
+
+        {/* v135.6 — Yeni etkinlik oluştururken şablondan yükleyebilir. Edit
+            modunda gizli tutuluyor. */}
+        {!initial && templates.length > 0 && (
+          <div className="mb-3 rounded p-2" style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.35)" }} data-testid="event-form-template-row">
+            <label className="block text-[10px] uppercase font-bold tracking-widest mb-1" style={{ color: "#C4B5FD" }}>📋 Şablondan Oluştur</label>
+            <select
+              data-testid="event-form-template-select"
+              onChange={(e) => e.target.value && applyTemplate(e.target.value)}
+              defaultValue=""
+              className="w-full bg-background border border-border rounded-md px-2 py-1.5 text-xs text-white"
+            >
+              <option value="">— Şablon seç (tarih dışındaki alanları doldurur) —</option>
+              {templates.map((tpl) => (
+                <option key={tpl.id} value={tpl.id}>
+                  {tpl.template_name} · {tpl.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">{t("name_field") || "Etkinlik Adı"}</label>
         <input data-testid={EVENTS.formName} value={name} onChange={(e) => setName(e.target.value)}
@@ -2862,6 +2925,32 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
             </div>
           )}
         </div>
+
+        {/* v135.6 — Şablon olarak kaydet checkbox — sadece yeni etkinlik oluştururken görünür. */}
+        {!initial && (
+          <div className="mt-4 rounded p-3" style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.35)" }} data-testid="event-form-save-as-template-row">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={saveAsTemplate}
+                onChange={(e) => setSaveAsTemplate(e.target.checked)}
+                data-testid="event-form-save-as-template"
+                className="cursor-pointer"
+              />
+              <span className="text-xs font-bold" style={{ color: "#C4B5FD" }}>📋 Bu etkinliği şablon olarak kaydet</span>
+            </label>
+            {saveAsTemplate && (
+              <input
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                data-testid="event-form-template-name"
+                placeholder={`Şablon adı (boş bırakırsan "${(name || "…")} Şablonu")`}
+                className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs text-white mt-2"
+              />
+            )}
+          </div>
+        )}
 
         <button data-testid={EVENTS.formSubmit} type="submit" disabled={saving} className="btn-gold w-full mt-5">
           {saving ? t("saving") : initial ? t("update") : t("add_short")}

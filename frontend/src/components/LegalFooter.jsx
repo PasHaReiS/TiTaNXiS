@@ -3,11 +3,10 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 /**
- * Fixed legal footer — screen'in en altında sabit görünen 3 legal link.
- * z-index 1500 ile RadialMenu (1000) + Toaster (~999) üstünde kalır ama
- * modal dialoglar (9999+) altında. Her sayfada AppShell içinden render
- * edilir. Kullanıcı isteğiyle bottom:0 fixed, koyu taş arka plan, amber
- * ayırıcı ve ortalanmış link seti.
+ * Fixed legal footer — screen'in en altında sabit 30px yükseklik bar.
+ * z-index 1500 (RadialMenu 1600 üstte kalır, modallar 9998+ hâlâ üstte).
+ * v135.7 — Yumuşak gradient fade: üstte 18px'lik amber-siyah geçiş +
+ * dış box-shadow ile "haleli" görünüm.
  */
 export default function LegalFooter() {
   const { t } = useTranslation();
@@ -33,10 +32,22 @@ export default function LegalFooter() {
         letterSpacing: "0.03em",
         color: "rgba(245, 240, 232, 0.72)",
         fontFamily: "'Inter', system-ui, sans-serif",
-        boxShadow: "0 -4px 12px rgba(0,0,0,0.6)",
+        boxShadow: "0 -18px 26px -18px rgba(245,166,35,0.55), 0 -4px 12px rgba(0,0,0,0.6)",
         pointerEvents: "auto",
       }}
     >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          top: -18,
+          left: 0,
+          right: 0,
+          height: 18,
+          pointerEvents: "none",
+          background: "linear-gradient(to bottom, rgba(15,8,6,0) 0%, rgba(15,8,6,0.55) 60%, rgba(15,8,6,0.92) 100%)",
+        }}
+      />
       <Link
         to="/privacy"
         data-testid="legal-footer-privacy"

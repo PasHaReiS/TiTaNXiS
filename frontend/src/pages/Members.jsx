@@ -9,9 +9,10 @@ import Header from "@/components/Header";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
 import OcrDialog from "@/components/OcrDialog";
+import AdminNoteModal from "@/components/AdminNoteModal";
 import CanEdit from "@/components/CanEdit";
 import CountUp from "@/components/CountUp";
-import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap, CheckSquare, Square, Globe, Castle, Download, Flame, Send } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap, CheckSquare, Square, Globe, Castle, Download, Flame, Send, StickyNote } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { COUNTRIES, COUNTRY_BY_ISO2 } from "@/lib/countries";
@@ -218,6 +219,7 @@ export default function Members() {
   const [editing, setEditing] = useState(null);
   // v134 — Manuel Telegram Eşleştirme modal state
   const [telegramLinkMember, setTelegramLinkMember] = useState(null);
+  const [adminNoteMember, setAdminNoteMember] = useState(null); // v135.6
   const [profileId, setProfileId] = useState(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const [ocrOpen, setOcrOpen] = useState(false);
@@ -1145,6 +1147,26 @@ export default function Members() {
                                 </div>
                                 <CanEdit>
                                   <div className="flex items-center gap-1 flex-shrink-0">
+                                    {/* v135.6 — Admin-only gizli not butonu.
+                                        Amber ikon+glow "not var" durumunda,
+                                        slate ikon boş durumda. AdminNoteModal
+                                        yalnızca adminlere açılır. */}
+                                    <button
+                                      data-testid={`member-admin-note-btn-${m.id}`}
+                                      onClick={() => setAdminNoteMember(m)}
+                                      className="rounded flex items-center justify-center"
+                                      style={{
+                                        width: 22, height: 22,
+                                        background: m.admin_note ? "rgba(245,166,35,0.25)" : "rgba(148,163,184,0.12)",
+                                        color: m.admin_note ? "#F5A623" : "#94A3B8",
+                                        border: m.admin_note ? "1px solid rgba(245,166,35,0.55)" : "1px solid rgba(148,163,184,0.30)",
+                                        boxShadow: m.admin_note ? "0 0 6px rgba(245,166,35,0.45)" : "none",
+                                      }}
+                                      title={m.admin_note ? "Gizli not var (adminler görebilir)" : "Gizli not ekle"}
+                                      aria-label="Gizli Admin Notu"
+                                    >
+                                      <StickyNote style={{ width: 11, height: 11 }} />
+                                    </button>
                                     <button
                                       data-testid={`member-telegram-btn-${m.id}`}
                                       onClick={() => setTelegramLinkMember(m)}
@@ -1288,6 +1310,13 @@ export default function Members() {
         <TelegramLinkModal
           member={telegramLinkMember}
           onClose={() => setTelegramLinkMember(null)}
+        />
+      )}
+      {adminNoteMember && (
+        <AdminNoteModal
+          member={adminNoteMember}
+          onClose={() => setAdminNoteMember(null)}
+          onSaved={() => mutate((k) => typeof k === "string" && k.startsWith("/members"))}
         />
       )}
       {healthDetailMember && (

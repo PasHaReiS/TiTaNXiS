@@ -41,6 +41,7 @@ export default function Announcements({ embedded = false }) {
   const [imageFiles, setImageFiles] = useState([]);
   const [broadcast, setBroadcast] = useState(true);
   const [urgent, setUrgent] = useState(false);
+  const [pinned, setPinned] = useState(false); // v135.6 — sabit anasayfa banner'ı
   const [scheduledAt, setScheduledAt] = useState(""); // local yyyy-MM-ddTHH:mm; empty = anlık gönder
   const [sending, setSending] = useState(false);
   const [lastResult, setLastResult] = useState(null);
@@ -73,7 +74,7 @@ export default function Announcements({ embedded = false }) {
         const r = await api.post("/announcements", {
           title, body,
           image_url: finalImageUrl || undefined,
-          broadcast, urgent,
+          broadcast, urgent, pinned,
           scheduled_at: scheduledIso || undefined,
         });
         if (scheduledIso) {
@@ -84,7 +85,7 @@ export default function Announcements({ embedded = false }) {
           setLastResult(r.data.fanout || null);
         }
       }
-      setTitle(""); setBody(""); setImageUrl(""); setImageFiles([]); setUrgent(false);
+      setTitle(""); setBody(""); setImageUrl(""); setImageFiles([]); setUrgent(false); setPinned(false);
       setScheduledAt("");
       setEditingId(null);
       mutate();
@@ -251,6 +252,12 @@ export default function Announcements({ embedded = false }) {
             <input type="checkbox" checked={urgent} onChange={(e) => setUrgent(e.target.checked)}
                    data-testid="announcement-urgent" />
             <span>🚨 ACİL — başlığa alarm ikonu ekle, kırmızı rozetle işaretle</span>
+          </label>
+          {/* v135.6 — Sabitle: pinned duyuru anasayfada amber banner olarak görünür */}
+          <label className="flex items-center gap-2 text-xs font-bold" style={{ color: pinned ? "#F5A623" : "#94A3B8" }}>
+            <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)}
+                   data-testid="announcement-pinned" />
+            <span>📌 Sabitle — anasayfada amber banner olarak göster</span>
           </label>
 
           {/* Zamanlama — boş bırakılırsa anlık gönderim yapılır. Sadece yeni
