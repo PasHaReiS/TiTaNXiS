@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
 import SessionManagement from "@/components/SessionManagement";
 import InviteManagement from "@/components/InviteManagement";
+import TranslateHealthWidget from "@/components/TranslateHealthWidget";
 import { Plus, Trash2, KeyRound, Shield, User, X, ShieldCheck, PencilLine, Link2, AlertTriangle, Upload, Clock, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
@@ -94,6 +95,12 @@ export default function UserManagement() {
     <div data-testid="user-management-page">
       <Header title={t("users_page_title")} />
       <div className="px-4">
+        {/* v135.15 — Çeviri Sağlığı widget. Admin panelinde canlı DeepL durumu
+            (kota, cache, eksik çeviri sayısı, 24h çağrı). Backend polling
+            60sn'de bir. Sadece admin sayfasında olduğu için extra guard yok. */}
+        <div className="mb-3">
+          <TranslateHealthWidget />
+        </div>
         {/* Sub-nav: Kullanıcılar / Oturum Yönetimi. Sessions is Phase 2;
             for now it renders a placeholder card so the nav slot is live. */}
         <div

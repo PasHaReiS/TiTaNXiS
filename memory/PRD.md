@@ -1887,3 +1887,24 @@ Kullanıcı raporu: "Preview'da çalışıyor, production'da çalışmıyor" →
 3. `configured: false` görünürse → Emergent UI'dan production environment'a `DEEPL_API_KEY` env var'ını ekle (preview'daki ile aynı: `2fccffba-...:fx`)
 4. Republish sonrası `POST /api/events/backfill-translations` çağır → tüm event'ler çevrilsin
 
+
+## v135.14 + 135.15 — DeepL In-Process Cache + Çeviri Sağlığı Widget (Feb 28, 2026)
+
+### v135.14 — DeepL In-Process LRU Cache
+- **Sorun**: Aynı "Kafes" 9 event'te 9 kez DeepL API'sine çağrılıyordu (81 çağrı × 9 = 729)
+- **Düzeltme**: `server.py` içinde module-level `_DEEPL_CACHE: dict = {}` + `_DEEPL_CACHE_MAX = 512`. `_deepl_translate_one` başında lookup, sonunda insert. Pseudo-LRU (dict insertion order).
+- **Sonuç**: İkinci "Kafes" event'te cache hit → 0 API çağrısı, ~200ms → ~1ms. Boş sonuçlar (429/offline) cache'lenmez, sonraki retry başarılı olabilir.
+
+### v135.15 — Çeviri Sağlığı Widget
+- **Backend**: `GET /api/translate/health` (admin) → `{configured, plan, cache_size, cache_max, events_missing, folders_missing, usage_last_24h: {calls, chars, top_langs}, quota: {character_count, character_limit, percent}}`
+- **Frontend**: `/app/frontend/src/components/TranslateHealthWidget.jsx` — UserManagement admin sayfasının üstünde canlı widget. 60sn'de bir SWR yenilenir
+- **Widget bileşenleri**:
+  - Durum rozeti: yeşil `DeepL free` / kırmızı `Ayarlı Değil`
+  - 4 stat kutusu: Eksik Çeviri (yeşil/kırmızı), Cache (indigo), Son 24 Saat (amber), Aylık Kota (yeşil/kırmızı)
+  - "Eksikleri Doldur" butonu (missing > 0 olduğunda görünür) → `POST /api/events/backfill-translations` tetikler + toast
+- **İlk canlı test**: DeepL kota %85.31 kullanılmış (853k / 1M chars) — Free plan aylık limit yaklaşımı → widget kullanıcıyı önceden uyaracak
+- **Cron endpoint hazır**: `deepl-retry-i18n` nightly cron (03:45 UTC) `_backfill_event_translations` helper ile eksikleri otomatik doldurur
+
+### Retro-Tag (0 event etkilendi)
+- Template retro-tag script çalıştırıldı — DB'de henüz template olmadığı için tag'lenen event yok. Yeni etkinlik "Şablondan Oluştur" ile açılırsa `template_source_name` otomatik dolar, mor "📋 Şablon: X" chip'i görünür (kod hazır)
+

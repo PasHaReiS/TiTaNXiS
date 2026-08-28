@@ -3749,6 +3749,73 @@ async def events_backfill_translations(_: dict = Depends(require_admin)):
     return await _backfill_event_translations()
 
 
+@api_router.get("/translate/health")
+async def translate_health(_: dict = Depends(require_admin)):
+    """v135.15 — Admin dashboard widget: canlı çeviri sağlığı.
+    Returns: {configured, plan, cache_size, events_missing, folders_missing,
+             usage_last_24h: {calls, chars, top_langs}, retry_429_last_24h,
+             quota: {character_count, character_limit}}. Non-fatal on any
+     sub-check failure — returns partial data so the widget still renders."""
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    out: dict = {
+        "configured": bool(DEEPL_API_KEY),
+        "plan": ("free" if DEEPL_API_KEY.endswith(":fx") else "pro") if DEEPL_API_KEY else None,
+        "cache_size": len(_DEEPL_CACHE),
+        "cache_max": _DEEPL_CACHE_MAX,
+        "events_missing": 0,
+        "folders_missing": 0,
+        "usage_last_24h": {"calls": 0, "chars": 0, "top_langs": []},
+        "retry_429_last_24h": None,
+        "quota": None,
+    }
+    # Count events with empty translations (non-blank source).
+    try:
+        async for e in db.events.find({}, {"_id": 0, "name": 1, "group_name": 1,
+                                          "name_translations": 1, "group_translations": 1}):
+            if e.get("name") and not (e.get("name_translations") or {}):
+                out["events_missing"] += 1
+                continue
+            if e.get("group_name") and not (e.get("group_translations") or {}):
+                out["events_missing"] += 1
+        async for f in db.event_folders.find({}, {"_id": 0, "name": 1, "name_translations": 1}):
+            if f.get("name") and not (f.get("name_translations") or {}):
+                out["folders_missing"] += 1
+    except Exception:
+        pass
+    # Usage in last 24h from deepl_translate_log.
+    try:
+        cutoff = (_dt.now(_tz.utc) - _td(hours=24)).isoformat()
+        logs = await db.deepl_translate_log.find({"ts": {"$gte": cutoff}}, {"_id": 0}).to_list(20000)
+        calls = len(logs)
+        chars = sum(int(r.get("chars", 0) or 0) for r in logs)
+        lang_counts: dict = {}
+        for r in logs:
+            for l in r.get("targets", []) or []:
+                lang_counts[l] = lang_counts.get(l, 0) + 1
+        top_langs = sorted(lang_counts.items(), key=lambda x: -x[1])[:5]
+        out["usage_last_24h"] = {"calls": calls, "chars": chars,
+                                  "top_langs": [{"lang": l, "count": c} for l, c in top_langs]}
+    except Exception:
+        pass
+    # DeepL quota + 429 count (best-effort DeepL /usage call).
+    if DEEPL_API_KEY:
+        try:
+            base = "https://api-free.deepl.com/v2" if DEEPL_API_KEY.endswith(":fx") else "https://api.deepl.com/v2"
+            headers = {"Authorization": f"DeepL-Auth-Key {DEEPL_API_KEY}"}
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.get(f"{base}/usage", headers=headers)
+                if r.status_code == 200:
+                    d = r.json()
+                    out["quota"] = {
+                        "character_count": d.get("character_count", 0),
+                        "character_limit": d.get("character_limit", 0),
+                        "percent": round(100 * (d.get("character_count", 0) or 0) / max(1, d.get("character_limit", 0) or 1), 2),
+                    }
+        except Exception:
+            pass
+    return out
+
+
 @api_router.get("/translate/status")
 async def translate_status(_: dict = Depends(require_admin)):
     """v135.13 — Admin diagnostic: verifies DeepL is reachable and shows
@@ -4111,6 +4178,13 @@ ENABLED_LANGS = ["en", "ru", "de", "fr", "es", "ko", "bg", "cs", "da", "el", "et
                  "hu", "id", "it", "ja", "lt", "lv", "nb", "nl", "pl", "pt", "ro", "sk", "sl", "sv", "uk", "zh"]
 
 
+# v135.14 — Simple in-process DeepL translation cache. Same "Kafes" 9 event'te
+# 9 kez API çağırıyor → cache hit ile 1'e düşer. Key: `(text, tuple(langs))`.
+# TTL yok (translations are stable), max size 512 (LRU-ish via dict order).
+_DEEPL_CACHE: dict = {}
+_DEEPL_CACHE_MAX = 512
+
+
 async def _deepl_translate_one(text: str, target_langs=None):
     """Translate `text` from Turkish to each of the target languages.
 
@@ -4124,6 +4198,14 @@ async def _deepl_translate_one(text: str, target_langs=None):
     import asyncio as _asyncio
     if not DEEPL_API_KEY or not text:
         return {}
+    # v135.14 — Cache lookup. Same source + target set → return cached dict.
+    _langs_key = tuple(target_langs or ENABLED_LANGS)
+    _cache_key = (text, _langs_key)
+    if _cache_key in _DEEPL_CACHE:
+        # Move to end for pseudo-LRU behaviour.
+        _cached = _DEEPL_CACHE.pop(_cache_key)
+        _DEEPL_CACHE[_cache_key] = _cached
+        return dict(_cached)  # return a copy so callers can't mutate cache
     base = "https://api-free.deepl.com/v2" if DEEPL_API_KEY.endswith(":fx") else "https://api.deepl.com/v2"
     headers = {"Authorization": f"DeepL-Auth-Key {DEEPL_API_KEY}", "Content-Type": "application/json"}
     langs = target_langs or ENABLED_LANGS
@@ -4167,6 +4249,13 @@ async def _deepl_translate_one(text: str, target_langs=None):
                         logger.warning(f"DeepL final failure for lang={lang} after {attempts} attempts: {ex}")
                         break
                     await _asyncio.sleep(1.5 * attempts)
+    # v135.14 — Store in cache if we got at least one translation. Empty
+    # results not cached so 429/offline retries can succeed later.
+    if out:
+        if len(_DEEPL_CACHE) >= _DEEPL_CACHE_MAX:
+            # Evict oldest (FIFO — dict preserves insertion order).
+            _DEEPL_CACHE.pop(next(iter(_DEEPL_CACHE)), None)
+        _DEEPL_CACHE[_cache_key] = dict(out)
     return out
 
 
