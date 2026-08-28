@@ -203,11 +203,12 @@ export default function Header({ title, children }) {
                     overflow: "visible",
                   }}
                 >
-                  {/* v135 — Dropdown items sorted alphabetically per Turkish
-                      collation (a b c ç d e f g ğ h ı i j k l m n o ö p r s
-                      ş t u ü v y z). Logout is included in the sort per
-                      explicit user request; the previous divider was
-                      removed so the ordering reads as a single list. */}
+                  {/* v135.1 — Dropdown items sorted alphabetically per
+                      Turkish collation (a b c ç d e f g ğ h ı i j k l m n o
+                      ö p r s ş t u ü v y z). "Çıkış Yap" is pinned to the
+                      bottom (below a divider) regardless of alphabetical
+                      position per explicit user UX request — destructive
+                      action stays out of the sort. */}
                   <MenuItem
                     emoji="🗳️"
                     label={t("dropdown_polls", "Anketler")}
@@ -222,17 +223,6 @@ export default function Header({ title, children }) {
                       testId="dropdown-event-notifications"
                     />
                   )}
-                  <MenuItem
-                    emoji="🚪"
-                    label={t("logout")}
-                    onClick={() => {
-                      logout();
-                      nav("/");
-                      toast.success(t("logout_done"));
-                      setMenuOpen(false);
-                    }}
-                    testId="dropdown-logout"
-                  />
                   {canEdit && (
                     <MenuItem
                       emoji="📊"
@@ -315,6 +305,18 @@ export default function Header({ title, children }) {
                       testId="dropdown-users"
                     />
                   )}
+                  <div style={{ height: 1, background: "rgba(231,76,26,0.3)" }} />
+                  <MenuItem
+                    emoji="🚪"
+                    label={t("logout")}
+                    onClick={() => {
+                      logout();
+                      nav("/");
+                      toast.success(t("logout_done"));
+                      setMenuOpen(false);
+                    }}
+                    testId="dropdown-logout"
+                  />
                 </div>
               </>,
               document.body

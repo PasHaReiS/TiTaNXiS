@@ -1640,3 +1640,10 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Tüm role guard'ları (isAdmin / canEdit) korundu, sadece görünüm sırası değişti
 - Test: git diff 65 insert / 61 delete — yalnızca sıralama değişikliği
 
+
+## Header Dropdown — "Çıkış Yap" En Alta Sabitlendi (Feb 28, 2026)
+- Kullanıcı isteği: "Çıkış Yap" alfabetik sıralamadan bağımsız her zaman en altta olsun
+- Diğer 13 öğe Türkçe alfabetik kaldı: Anketler → Bildirimler → Dashboard → Detaylı Rapor (Excel) → Kurulumu tekrar göster → OCR Geçmişi → Panel → Profilim → Puanlar Hakkında → SvS Takip → Şifre Değiştir → VIP Destek → Yönetim
+- Divider (`height:1 rgba(231,76,26,0.3)`) geri getirildi, hemen altına 🚪 Çıkış Yap yerleştirildi
+- Test: git diff 18 insert / 16 delete — sadece Çıkış Yap konum değişikliği
+
