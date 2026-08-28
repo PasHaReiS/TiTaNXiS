@@ -142,9 +142,8 @@ def register_event_folders(api_router: APIRouter, db, require_edit, auto_transla
         name = (body.name or "").strip()
         if not name:
             raise HTTPException(400, "name cannot be empty")
-        # v135.9 — Klasör adı kullanıcı tarafından girilen özel bir isim.
-        # DeepL çevirisi kaldırıldı; olduğu gibi gösterilir.
-        name_tr = {}
+        # v126 — Auto-translate the folder name to all 28 non-TR langs.
+        name_tr = await _tr(name)
         f = EventFolder(name=name, color=body.color, icon=body.icon,
                         order=int(body.order or 0), name_translations=name_tr)
         await db.event_folders.insert_one(f.model_dump())
@@ -158,8 +157,8 @@ def register_event_folders(api_router: APIRouter, db, require_edit, auto_transla
             if not n:
                 raise HTTPException(400, "name cannot be empty")
             update["name"] = n
-            # v135.9 — Klasör adı çevrilmez; kaynak değişince boş dict yaz.
-            update["name_translations"] = {}
+            # v126 — Refresh translations whenever the TR source changes.
+            update["name_translations"] = await _tr(n)
         if not update:
             return {"modified": 0}
         res = await db.event_folders.update_one({"id": folder_id}, {"$set": update})
@@ -227,11 +226,11 @@ def register_event_folders(api_router: APIRouter, db, require_edit, auto_transla
         name = (body.name or "").strip()
         if not name:
             raise HTTPException(400, "name cannot be empty")
-        # v135.9 — Klasör şablon adı ve varsayılan klasör adı da kullanıcı
-        # tarafından yazılan özel isimlerdir; çevrilmez.
-        name_tr = {}
+        # v126 — Auto-translate both the display name and the default folder
+        # name so the picker + new-folder placeholder render localized.
+        name_tr = await _tr(name)
         fnd = (body.folder_name_default or "").strip()
-        fnd_tr = {}
+        fnd_tr = await _tr(fnd) if fnd else {}
         t = FolderTemplate(
             name=name, folder_name_default=body.folder_name_default,
             color=body.color, icon=body.icon,

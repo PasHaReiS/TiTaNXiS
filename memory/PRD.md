@@ -1769,3 +1769,25 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - ✅ Hâlâ çevrilir: Duyuru başlık/gövde (`title_translations`/`body_translations`), i18n bundle (UI etiketleri, sistem mesajları)
 - ❌ Artık çevrilmez: `event.name`, `event.group_name`, `event.subtitle`, `event_folder.name`, `folder_template.name`, `folder_template.folder_name_default`
 
+
+## v135.10 — DeepL Çevirisi Tüm Kullanıcı Girişleri İçin Geri Getirildi (Feb 28, 2026)
+**Kullanıcı geri bildirimi**: v135.9'daki "özel isim çevirilerini kapat" kararı geri alındı. Kullanıcı bunun yerine **tutarlılık** istiyor — hepsi çevrilsin, hiçbir istisna olmasın.
+
+**Geri alınan değişiklikler**:
+- `server.py POST /events`: `_auto_translate_all` çağrıları geri getirildi (name, subtitle, group_name)
+- `server.py PATCH /events/{id}`: Kaynak alan değişince re-translation aktif
+- `server.py PATCH /events/group/{name}`: Grup rename'de DeepL çağrısı aktif
+- `event_folders.py POST /event-folders` + PATCH: Klasör adı çevirisi aktif
+- `event_folders.py POST /event-folder-templates`: Şablon + varsayılan klasör adı çevirileri aktif
+
+**Migration/Backfill**:
+- 9 mevcut etkinlik PATCH ile tekrar tetiklendi → DeepL tüm alanları çevirdi
+- 3 klasör PATCH ile tekrar tetiklendi → DeepL tüm alanları çevirdi
+- Doğrulama: `Kafes 1` → `Cage 1` (EN), etc. çevirileri artık dolu → tüm kartlar tutarlı gösterecek
+
+**Çeviri kapsamı özet (v135.10)**:
+- ✅ **Çevrilir**: `event.name`, `event.group_name`, `event.subtitle`, `event_folder.name`, `folder_template.name`, duyuru başlık/gövde, UI etiketleri
+- ❌ **Hiçbir istisna yok** — kullanıcı tüm alanların çevrilmesini istedi
+
+**Not**: Frontend zaten `(e.name_translations || {})[lng] || e.name` fallback pattern'ini kullanıyor → seçili dilde çeviri yoksa TR kaynak gösteriliyor. Backfill ile tüm 9 etkinlikte çeviriler dolu → tutarsız görünüm sorunu çözüldü.
+

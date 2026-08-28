@@ -1115,15 +1115,12 @@ async def create_event(body: EventCreate, _: dict = Depends(require_edit)):
     # to all 28 non-TR languages via DeepL before insert. Frontend picks
     # the right variant based on i18n.language. Runs inline so the very
     # first render after save already has translations.
-    # v135.9 — Kullanıcı tarafından girilen özel isimler (etkinlik adı, grup
-    # adı, altyazı/açıklama) artık ÇEVİRİLMEZ. "KAFES" gibi özel adlar
-    # DeepL üzerinden "CAGE" gibi genel çevirilere dönüşünce üye kafası
-    # karışıyordu — bu alanlar olduğu gibi saklanır. Yalnızca UI etiketleri
-    # (butonlar, sistem mesajları) i18n bundle üzerinden çevrilir. Boş dict
-    # yazıyoruz ki frontend fallback koduyla `e.name` göstersin.
-    payload["name_translations"] = {}
-    payload["subtitle_translations"] = {}
-    payload["group_translations"] = {}
+    try:
+        payload["name_translations"] = await _auto_translate_all(payload.get("name"))
+        payload["subtitle_translations"] = await _auto_translate_all(payload.get("subtitle"))
+        payload["group_translations"] = await _auto_translate_all(payload.get("group_name"))
+    except Exception as ex:
+        logger.warning(f"auto-translate event failed: {ex}")
     # Pop the recurrence knobs off before we turn the payload into an Event —
     # we generate concrete duplicates below rather than storing a rule.
     interval = (payload.pop("recurrence_interval", None) or "none")
@@ -1204,14 +1201,17 @@ async def update_event(event_id: str, body: EventUpdate, _: dict = Depends(requi
     # Recurrence fields are handled separately below; strip before the $set.
     interval = update.pop("recurrence_interval", None) or "none"
     count = max(1, min(52, int(update.pop("recurrence_count", 1) or 1)))
-    # v135.9 — Etkinlik güncellenirken de özel isim alanları çevrilmez.
-    # Kaynak alan değişince eski çevirileri temizlemek için boş dict yaz.
-    if "name" in update:
-        update["name_translations"] = {}
-    if "subtitle" in update:
-        update["subtitle_translations"] = {}
-    if "group_name" in update:
-        update["group_translations"] = {}
+    # v125 — When the TR source of a user-visible field changes, refresh
+    # its translations dict so stale variants don't linger in other langs.
+    try:
+        if "name" in update:
+            update["name_translations"] = await _auto_translate_all(update.get("name"))
+        if "subtitle" in update:
+            update["subtitle_translations"] = await _auto_translate_all(update.get("subtitle"))
+        if "group_name" in update:
+            update["group_translations"] = await _auto_translate_all(update.get("group_name"))
+    except Exception as ex:
+        logger.warning(f"auto-translate patch failed: {ex}")
     if update:
         res = await db.events.update_one({"id": event_id}, {"$set": update})
         if res.matched_count == 0:
@@ -1391,8 +1391,11 @@ async def rename_group(old_name: str, new_name: str, _: dict = Depends(require_e
         return {"modified": 0}
     # v125 — Auto-translate the renamed group so leaderboard chips and
     # event card headers pick up localized names on the next render.
-    # v135.9 — Grup adı kullanıcı özel ismi; çevrilmez.
-    translations = {}
+    try:
+        translations = await _auto_translate_all(new_name)
+    except Exception as ex:
+        logger.warning(f"auto-translate rename failed: {ex}")
+        translations = {}
     res = await db.events.update_many(
         {"group_name": old_name},
         {"$set": {"group_name": new_name, "group_translations": translations}},
