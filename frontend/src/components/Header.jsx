@@ -223,14 +223,6 @@ export default function Header({ title, children }) {
                       testId="dropdown-event-notifications"
                     />
                   )}
-                  {canEdit && (
-                    <MenuItem
-                      emoji="📊"
-                      label={t("nav_dashboard") || "Dashboard"}
-                      onClick={() => goto("/dashboard")}
-                      testId="dropdown-dashboard"
-                    />
-                  )}
                   {isAdmin && (
                     <MenuItem
                       emoji="📥"
@@ -251,20 +243,6 @@ export default function Header({ title, children }) {
                       testId="dropdown-reopen-wizard"
                     />
                   )}
-                  {(isAdmin || canEdit) && (
-                    <MenuItem
-                      emoji="📸"
-                      label={t("nav_ocr_history") || "OCR Geçmişi"}
-                      onClick={() => goto("/ocr/history")}
-                      testId="dropdown-ocr-history"
-                    />
-                  )}
-                  <MenuItem
-                    emoji="🎛️"
-                    label={t("live_dashboard")}
-                    onClick={() => goto("/gosterge-paneli")}
-                    testId="dropdown-live-dashboard"
-                  />
                   <MenuItem
                     emoji="🙂"
                     label={t("my_profile")}
@@ -284,12 +262,6 @@ export default function Header({ title, children }) {
                     label={t("dropdown_svs", "SvS Takip")}
                     onClick={() => goto("/svs")}
                     testId="dropdown-svs"
-                  />
-                  <MenuItem
-                    emoji="🔑"
-                    label={t("change_password_title")}
-                    onClick={() => goto("/profil")}
-                    testId="dropdown-password"
                   />
                   <MenuItem
                     emoji="🎟️"

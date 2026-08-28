@@ -1647,3 +1647,13 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Divider (`height:1 rgba(231,76,26,0.3)`) geri getirildi, hemen altına 🚪 Çıkış Yap yerleştirildi
 - Test: git diff 18 insert / 16 delete — sadece Çıkış Yap konum değişikliği
 
+
+## Header Dropdown — 4 Öğe Kaldırıldı (Feb 28, 2026)
+- `/app/frontend/src/components/Header.jsx` içinden şu MenuItem blokları tamamen silindi:
+  - 📊 **Dashboard** (`/dashboard`) — canEdit guard'lı
+  - 🔑 **Şifre Değiştir** (`/profil`) — Profil sayfasında zaten mevcut, tekrar eden kaldırıldı
+  - 📸 **OCR Geçmişi** (`/ocr/history`) — kaldırıldı
+  - 🎛️ **Panel** (`/gosterge-paneli` live_dashboard) — kaldırıldı
+- Kalan 10 öğe Türkçe alfabetik + Çıkış en altta: Anketler → Bildirimler → Detaylı Rapor (Excel) → Kurulumu tekrar göster → Profilim → Puanlar Hakkında → SvS Takip → VIP Destek → Yönetim → [divider] → Çıkış Yap
+- Menü şimdi çok daha kompakt ve odaklı
+
