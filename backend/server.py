@@ -1115,19 +1115,15 @@ async def create_event(body: EventCreate, _: dict = Depends(require_edit)):
     # to all 28 non-TR languages via DeepL before insert. Frontend picks
     # the right variant based on i18n.language. Runs inline so the very
     # first render after save already has translations.
+    # v135.20 — Async translate manager: tek turda TÜM 3 alan çevirilir
+    # (Google aktifken 28 batch call yerine 84 serial). Rate-limit + retry
+    # + non-destructive semantik `_translate_fields` içinde yönetilir.
     try:
-        # v135.12 — Only overwrite if translation produced non-empty result.
-        # If DeepL is rate-limited or offline, `_auto_translate_all` returns
-        # None → we skip the assignment so the backfill sweep can retry later.
-        _n = await _auto_translate_all(payload.get("name"))
-        if _n is not None:
-            payload["name_translations"] = _n
-        _s = await _auto_translate_all(payload.get("subtitle"))
-        if _s is not None:
-            payload["subtitle_translations"] = _s
-        _g = await _auto_translate_all(payload.get("group_name"))
-        if _g is not None:
-            payload["group_translations"] = _g
+        await _translate_fields(payload, [
+            ("name", "name_translations"),
+            ("subtitle", "subtitle_translations"),
+            ("group_name", "group_translations"),
+        ])
     except Exception as ex:
         logger.warning(f"auto-translate event failed: {ex}")
     # Pop the recurrence knobs off before we turn the payload into an Event —
@@ -1229,19 +1225,14 @@ async def update_event(event_id: str, body: EventUpdate, _: dict = Depends(requi
     # its translations dict so stale variants don't linger in other langs.
     # v135.12 — DON'T overwrite with empty when DeepL is unavailable; leave
     # the existing dict so the value is not lost. Backfill sweep re-tries.
+    # v135.20 — Async translate manager: değişen alanları batch'te çevir.
     try:
-        if "name" in update:
-            _n = await _auto_translate_all(update.get("name"))
-            if _n is not None:
-                update["name_translations"] = _n
-        if "subtitle" in update:
-            _s = await _auto_translate_all(update.get("subtitle"))
-            if _s is not None:
-                update["subtitle_translations"] = _s
-        if "group_name" in update:
-            _g = await _auto_translate_all(update.get("group_name"))
-            if _g is not None:
-                update["group_translations"] = _g
+        _dirty_fields = []
+        if "name" in update: _dirty_fields.append(("name", "name_translations"))
+        if "subtitle" in update: _dirty_fields.append(("subtitle", "subtitle_translations"))
+        if "group_name" in update: _dirty_fields.append(("group_name", "group_translations"))
+        if _dirty_fields:
+            await _translate_fields(update, _dirty_fields)
     except Exception as ex:
         logger.warning(f"auto-translate patch failed: {ex}")
     if update:
@@ -4334,6 +4325,46 @@ async def _google_translate_batch(texts: List[str], target_lang: str) -> List[st
     return out[:len(texts)]
 
 
+async def _translate_fields(doc: dict, fields: List[tuple]) -> None:
+    """v135.20 — Async Translate Manager: merkezi çeviri yöneticisi.
+
+    Multi-field döküman için tek turda TÜM alan çevirilerini yürütür.
+    Google aktifken batch API path'ini kullanır (28 API call for N fields,
+    her batch içinde N source metin) → serial'a göre ~N kat hız artışı.
+    DeepL fallback'te per-field serial fallback yapar (davranış korunur).
+
+    Args:
+        doc: In-place güncellenen dict (payload / update dokümanı).
+        fields: [(source_field, translations_field), ...] tuple listesi.
+                Örn: [("name", "name_translations"), ("group_name", "group_translations")]
+
+    Semantik:
+        - Boş/None kaynak alanı atlanır
+        - Boş çeviri sonucu (None) mevcut dict'i overwrite ETMEZ → backfill retry
+        - Non-empty çeviri sonucu doc[translations_field] = {lang: tr} yazılır
+
+    Gelecekte yeni içerik tipi eklendiğinde:
+        await _translate_fields(payload, [("q", "q_translations"), ("desc", "desc_translations")])
+    """
+    texts: List[str] = []
+    slots: List[tuple] = []  # (index_in_texts, translations_field)
+    for src_field, tr_field in fields:
+        val = (doc.get(src_field) or "").strip() if isinstance(doc.get(src_field), str) else None
+        if val:
+            slots.append((len(texts), tr_field))
+            texts.append(val)
+    if not texts:
+        return
+    try:
+        results = await _auto_translate_batch(texts)
+        for idx, tr_field in slots:
+            tr = results[idx]
+            if tr is not None:  # non-destructive on empty
+                doc[tr_field] = tr
+    except Exception as ex:
+        logger.warning(f"_translate_fields failed: {ex}")
+
+
 async def _auto_translate_batch(texts: List[str]) -> List[Optional[dict]]:
     """v135.19 — Batch multiple TR source texts to all 28 non-TR target langs
     in ~28 API round-trips (one per lang) instead of `len(texts) × 28` per-text
@@ -6772,14 +6803,12 @@ async def announcements_create(body: AnnouncementBody, user: dict = Depends(requ
     # v127 — Auto-translate title + body to all 28 non-TR languages so
     # the Duyurular list and push notifications can render in the user's
     # language without a round-trip.
-    # v135.19 — Batch: single per-lang API call covers BOTH title + body,
-    # cutting round-trips from 56 (28 langs × 2 texts) to 28 (Google only).
+    # v135.20 — Async translate manager: tek çağrıda title + body çevrilir.
     try:
-        _tr_batch = await _auto_translate_batch([doc["title"], doc["body"]])
-        if _tr_batch[0] is not None:
-            doc["title_translations"] = _tr_batch[0]
-        if _tr_batch[1] is not None:
-            doc["body_translations"] = _tr_batch[1]
+        await _translate_fields(doc, [
+            ("title", "title_translations"),
+            ("body", "body_translations"),
+        ])
     except Exception as _tx_ex:
         logger.warning(f"announcement auto-translate failed: {_tx_ex}")
     await db.announcements.insert_one(doc)

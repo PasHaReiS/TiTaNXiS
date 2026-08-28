@@ -2024,3 +2024,34 @@ for _field, _default in (
 
 ⚠️ **Production Deploy**: Preview'da hazır — "Publish" ile canlıya alın. Production'da GOOGLE key ile birlikte batch path devreye girecek; her duyuru yaratımı ~2× hızlanacak.
 
+
+## v135.20 — Async Translate Manager + Batch Event Titles (Feb 28, 2026)
+
+### 1. `_translate_fields(doc, fields)` — Merkezi Async Translate Manager
+Yeni fonksiyon `server.py`'da tanımlandı. Multi-field döküman için tek turda TÜM alan çevirilerini yürüten merkezi yönetici:
+- **Signature**: `async _translate_fields(doc: dict, fields: List[tuple(source_field, translations_field)]) -> None`
+- **In-place update**: doc'a `translations_field: {lang: text}` yazar
+- **Google aktifken**: `_auto_translate_batch` üzerinden batch API path → N field için N metin × 28 dil = 28 API çağrısı (serial'a göre ~N kat hızlı)
+- **DeepL fallback**: `_auto_translate_all` üzerinden per-text serial path korunur
+- **Non-destructive**: boş/None çeviri sonucu mevcut dict'i overwrite ETMEZ
+- **Rate-limit + retry + cache**: `_translate_one` / `_google_translate_batch` primitive'lerinde zaten mevcut, manager değişmeden bunları kullanır
+
+### 2. Tüm Caller'lar Refactor Edildi
+- **Event Create (`POST /api/events`)**: 3 alan (`name`, `subtitle`, `group_name`) tek `_translate_fields` çağrısıyla batch çevriliyor. Eski: 3 × 28 = 84 serial call. Yeni: 28 batch call → **~3× hız artışı**
+- **Event Update (`PATCH /api/events/{id}`)**: Değişen alanlar (`_dirty_fields`) tek batch call ile çevriliyor
+- **Announcement Create (`POST /api/announcements`)**: `title` + `body` tek batch call ile çevriliyor (v135.19'da eklenmişti, v135.20'de manager'a taşındı)
+- Grup rename, folder create/rename ve folder template hâlâ tek alan olduğu için `_translate_one`/`_auto_translate_all` kullanmaya devam ediyor (batch avantajı olmaz)
+
+### 3. Gelecek İçin
+Yeni içerik tipi eklendiğinde çeviri desteği tek satırda gelir:
+```python
+await _translate_fields(payload, [("q", "q_translations"), ("desc", "desc_translations")])
+```
+Rate-limit, retry, backoff, cache, non-destructive semantik — hepsi merkezi manager'da.
+
+### Test Sonuçları (preview, DeepL fallback path)
+- Event: `name=Manager Test → 28 lang`, `group=Kristal → Crystal + 27 more`, `subtitle=Merkezi çeviri denemesi → Centralised translation test + 27 more` ✅
+- Announcement: `title=Manager Test → 28 lang`, `body=İkinci merkezi çeviri testi → Second centralised translation test + 27 more` ✅
+
+⚠️ **Production Deploy**: Preview'da hazır — "Publish" ile canlıya alın. Production'da GOOGLE key aktif olduğu için manager batch path'ini kullanır, event ve announcement yaratımı ~3× hızlanır.
+
