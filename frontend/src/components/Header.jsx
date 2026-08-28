@@ -203,14 +203,17 @@ export default function Header({ title, children }) {
                     overflow: "visible",
                   }}
                 >
-                  {canEdit && (
-                    <MenuItem
-                      emoji="📊"
-                      label={t("nav_dashboard") || "Dashboard"}
-                      onClick={() => goto("/dashboard")}
-                      testId="dropdown-dashboard"
-                    />
-                  )}
+                  {/* v135 — Dropdown items sorted alphabetically per Turkish
+                      collation (a b c ç d e f g ğ h ı i j k l m n o ö p r s
+                      ş t u ü v y z). Logout is included in the sort per
+                      explicit user request; the previous divider was
+                      removed so the ordering reads as a single list. */}
+                  <MenuItem
+                    emoji="🗳️"
+                    label={t("dropdown_polls", "Anketler")}
+                    onClick={() => goto("/anketler")}
+                    testId="dropdown-polls"
+                  />
                   {canEdit && (
                     <MenuItem
                       emoji="🔔"
@@ -220,63 +223,22 @@ export default function Header({ title, children }) {
                     />
                   )}
                   <MenuItem
-                    emoji="🎟️"
-                    label={t("nav_vip_support") || "VIP Destek"}
-                    onClick={() => goto("/vip-destek")}
-                    testId="dropdown-vip-support"
+                    emoji="🚪"
+                    label={t("logout")}
+                    onClick={() => {
+                      logout();
+                      nav("/");
+                      toast.success(t("logout_done"));
+                      setMenuOpen(false);
+                    }}
+                    testId="dropdown-logout"
                   />
-                  <MenuItem
-                    emoji="🎛️"
-                    label={t("live_dashboard")}
-                    onClick={() => goto("/gosterge-paneli")}
-                    testId="dropdown-live-dashboard"
-                  />
-                  <MenuItem
-                    emoji="🙂"
-                    label={t("my_profile")}
-                    onClick={() => goto("/profil")}
-                    testId="dropdown-profile"
-                  />
-                  {isAdmin && (
+                  {canEdit && (
                     <MenuItem
-                      emoji="👤"
-                      label={t("user_mgmt")}
-                      onClick={() => goto("/kullanicilar")}
-                      testId="dropdown-users"
-                    />
-                  )}
-                  {isAdmin && (
-                    <MenuItem
-                      emoji="📖"
-                      label={t("nav_points_about") || "Puanlar Hakkında"}
-                      onClick={() => goto("/puanlar-hakkinda")}
-                      testId="dropdown-points-about"
-                    />
-                  )}
-                  <MenuItem
-                    emoji="🗳️"
-                    label={t("dropdown_polls", "Anketler")}
-                    onClick={() => goto("/anketler")}
-                    testId="dropdown-polls"
-                  />
-                  <MenuItem
-                    emoji="⚔️"
-                    label={t("dropdown_svs", "SvS Takip")}
-                    onClick={() => goto("/svs")}
-                    testId="dropdown-svs"
-                  />
-                  <MenuItem
-                    emoji="🔑"
-                    label={t("change_password_title")}
-                    onClick={() => goto("/profil")}
-                    testId="dropdown-password"
-                  />
-                  {(isAdmin || canEdit) && (
-                    <MenuItem
-                      emoji="📸"
-                      label={t("nav_ocr_history") || "OCR Geçmişi"}
-                      onClick={() => goto("/ocr/history")}
-                      testId="dropdown-ocr-history"
+                      emoji="📊"
+                      label={t("nav_dashboard") || "Dashboard"}
+                      onClick={() => goto("/dashboard")}
+                      testId="dropdown-dashboard"
                     />
                   )}
                   {isAdmin && (
@@ -299,18 +261,60 @@ export default function Header({ title, children }) {
                       testId="dropdown-reopen-wizard"
                     />
                   )}
-                  <div style={{ height: 1, background: "rgba(231,76,26,0.3)" }} />
+                  {(isAdmin || canEdit) && (
+                    <MenuItem
+                      emoji="📸"
+                      label={t("nav_ocr_history") || "OCR Geçmişi"}
+                      onClick={() => goto("/ocr/history")}
+                      testId="dropdown-ocr-history"
+                    />
+                  )}
                   <MenuItem
-                    emoji="🚪"
-                    label={t("logout")}
-                    onClick={() => {
-                      logout();
-                      nav("/");
-                      toast.success(t("logout_done"));
-                      setMenuOpen(false);
-                    }}
-                    testId="dropdown-logout"
+                    emoji="🎛️"
+                    label={t("live_dashboard")}
+                    onClick={() => goto("/gosterge-paneli")}
+                    testId="dropdown-live-dashboard"
                   />
+                  <MenuItem
+                    emoji="🙂"
+                    label={t("my_profile")}
+                    onClick={() => goto("/profil")}
+                    testId="dropdown-profile"
+                  />
+                  {isAdmin && (
+                    <MenuItem
+                      emoji="📖"
+                      label={t("nav_points_about") || "Puanlar Hakkında"}
+                      onClick={() => goto("/puanlar-hakkinda")}
+                      testId="dropdown-points-about"
+                    />
+                  )}
+                  <MenuItem
+                    emoji="⚔️"
+                    label={t("dropdown_svs", "SvS Takip")}
+                    onClick={() => goto("/svs")}
+                    testId="dropdown-svs"
+                  />
+                  <MenuItem
+                    emoji="🔑"
+                    label={t("change_password_title")}
+                    onClick={() => goto("/profil")}
+                    testId="dropdown-password"
+                  />
+                  <MenuItem
+                    emoji="🎟️"
+                    label={t("nav_vip_support") || "VIP Destek"}
+                    onClick={() => goto("/vip-destek")}
+                    testId="dropdown-vip-support"
+                  />
+                  {isAdmin && (
+                    <MenuItem
+                      emoji="👤"
+                      label={t("user_mgmt")}
+                      onClick={() => goto("/kullanicilar")}
+                      testId="dropdown-users"
+                    />
+                  )}
                 </div>
               </>,
               document.body

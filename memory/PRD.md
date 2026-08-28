@@ -1632,3 +1632,11 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Test: git diff ile doğrulandı (8 satır silme)
 - Not: Preview'da hazır, kullanıcının Emergent UI'dan "Publish" ile production'a (titanxis.com) alması gerekiyor
 
+
+## Header Dropdown — Tüm Öğeler Türkçe Alfabetik Sıraya Alındı (Feb 28, 2026)
+- `/app/frontend/src/components/Header.jsx` profil dropdown içindeki 14 MenuItem Türkçe alfabetik sıraya (a b c ç d e f g ğ h ı i j k l m n o ö p r s ş t u ü v y z) göre yeniden dizildi
+- Yeni sıra: Anketler 🗳️ → Bildirimler 🔔 → Çıkış Yap 🚪 → Dashboard 📊 → Detaylı Rapor (Excel) 📥 → Kurulumu tekrar göster ✨ → OCR Geçmişi 📸 → Panel 🎛️ → Profilim 🙂 → Puanlar Hakkında 📖 → SvS Takip ⚔️ → Şifre Değiştir 🔑 → VIP Destek 🎟️ → Yönetim 👤
+- Kullanıcı isteği "tüm öğeleri alfabetik" olduğu için "Çıkış Yap" da alfabetik pozisyonuna (3.) alındı — eski divider çizgisi kaldırıldı (tek liste okunuyor)
+- Tüm role guard'ları (isAdmin / canEdit) korundu, sadece görünüm sırası değişti
+- Test: git diff 65 insert / 61 delete — yalnızca sıralama değişikliği
+
