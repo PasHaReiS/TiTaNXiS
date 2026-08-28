@@ -253,14 +253,6 @@ export default function Header({ title, children }) {
                       testId="dropdown-points-about"
                     />
                   )}
-                  {isAdmin && (
-                    <MenuItem
-                      emoji="📊"
-                      label={t("dropdown_participation", "Katılım")}
-                      onClick={() => goto("/raporlar")}
-                      testId="dropdown-reports"
-                    />
-                  )}
                   <MenuItem
                     emoji="🗳️"
                     label={t("dropdown_polls", "Anketler")}

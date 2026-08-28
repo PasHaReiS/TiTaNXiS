@@ -1624,3 +1624,11 @@ After redeploy, tail `backend.err.log` while triggering a notification:
   - Section heading marginBottom: 8 → 5
   - Root wrapper `fontSize: 11px` (child'lar da küçüldü)
 - 3 asker eğitim tablosu artık tek sayfaya sığıyor
+
+## Header Dropdown — "Katılım" Menü Öğesi Kaldırıldı (Feb 28, 2026)
+- `/app/frontend/src/components/Header.jsx` (satır 256-263) admin dropdown'daki "Katılım" (📊, `/raporlar`) MenuItem bloğu tamamen silindi
+- Katılım sayfası artık YALNIZCA MemberHome radyal menüsünden (`raporlar` node) erişilebilir
+- Diğer dropdown öğeleri (Dashboard, Bildirimler, VIP Destek, Gösterge Paneli, Profil, Kullanıcılar, Puanlar Hakkında, Anketler, SvS, Şifre, OCR, Export, Wizard, Çıkış) korundu
+- Test: git diff ile doğrulandı (8 satır silme)
+- Not: Preview'da hazır, kullanıcının Emergent UI'dan "Publish" ile production'a (titanxis.com) alması gerekiyor
+
