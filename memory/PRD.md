@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 28, 2026 (v134.7 Telegram Etkinlik Bildirimi + Takvime Ekle)** — `send_event_notification`:
+  - **Inline Keyboard**: Yeni etkinlik oluşturulduğunda `TELEGRAM_CHANNEL_ID` (-1003597221954) grubuna gönderilen mesaja `📅 Takvime Ekle` inline button eklendi.
+  - **Google Calendar URL**: `render?action=TEMPLATE&text=<name>&dates=YYYYMMDDTHHMMSSZ/YYYYMMDDTHHMMSSZ&details=<group·xmult·webbase>`. Başlangıç + 1 saat default süre.
+  - **Robust tarih parse**: `datetime.fromisoformat` ile ISO parse, timezone yoksa UTC atanır, hata durumunda "YYYY-MM-DD" digits + 00:00 UTC fallback.
+  - **quote_plus**: URL query encoding güvenli (özel karakter, boşluk).
+  - Test: `send_event_notification(name="KristaL / L2", date="2026-03-15T18:00:00Z", ...)` → inline_keyboard[0][0].url = calendar.google.com/... dates=20260315T180000Z/20260315T190000Z ✅.
+
 - **Feb 28, 2026 (v134.6 Takvime Ekle — Home + Popover)** — 3 konum:
   - **Anasayfa "Bugünün Etkinlikleri"** (`MemberHome.jsx` L378-421): Her satır `<button>` yerine `<div>` + iç `<button>` (RSVP açıcı) + inline `AddToCalendarButton` (compact). `event.iso` → AddToCalendarButton'un beklediği `{id, name, date, subtitle}` shape'ine adapte.
   - **Etkinlik Popover** (`MemberHome.jsx` L710-723): RSVP butonlarının üstüne "Takvime Ekle" bloğu (`event-popover-calendar`) eklendi.
