@@ -1999,3 +1999,28 @@ for _field, _default in (
 
 ⚠️ **Production Deploy**: Preview'da hazır — "Publish" ile canlıya alın. Production'da batch translation kendiliğinden devreye girecek. Yeni event/duyuru/klasör yaratıldığında da DeepL'e göre daha hızlı olacak (Google Cloud daha yüksek quota + daha hızlı response).
 
+
+## v135.19 — Batch Announcements + `_translate_one` Rename (Feb 28, 2026)
+
+### 1. Batch Announcements
+- **Yeni helper**: `_auto_translate_batch(texts: List[str]) → List[Optional[dict]]`
+  - Google aktifken: 28 per-lang batch call (her batch içinde tüm texts) → title+body için tek turda 28 API çağrısı
+  - DeepL fallback: eski per-text serial path
+- **Refactor**: `announcements_create` artık `_auto_translate_batch([title, body])` kullanır
+  - **Eski**: 2 × `_auto_translate_all` = 56 API çağrısı (Google) veya 56 (DeepL)
+  - **Yeni (Google)**: 28 API çağrısı (%50 azalma per-announcement)
+  - **Preview test**: title=28 lang + body=28 lang doldu ✅ ("Test Duyuru"→"Test Announcement/Testankündigung/テストのお知らせ")
+
+### 2. Kod Temizliği: `_deepl_translate_one` → `_translate_one`
+- Google migration tamamlandı; DeepL ismi kodda kalmadı
+- server.py'da `replace_all=true` ile 13 referans yeniden adlandırıldı
+- Route dosyalarında `_deepl_translate_one` referansı yoktu (0 dosyada) — sadece server.py etkilendi
+- Fonksiyon signature aynı, davranış aynı — sadece isim değişikliği
+
+### Test Sonuçları
+- Announcement create: HTTP 200 + 28+28 çeviri ✅
+- Translate status endpoint: `test_ok=true` ✅
+- Backend restart: temiz, hata yok ✅
+
+⚠️ **Production Deploy**: Preview'da hazır — "Publish" ile canlıya alın. Production'da GOOGLE key ile birlikte batch path devreye girecek; her duyuru yaratımı ~2× hızlanacak.
+

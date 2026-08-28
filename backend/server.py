@@ -475,11 +475,11 @@ async def get_legal(doc: str, lang: str = "tr"):
     # existing per-string helper (which handles quota + logging).
     try:
         n = len(src["sections"])
-        title_tr = (await _deepl_translate_one(src["title"], target_langs=[lang])).get(lang, src["title"])
+        title_tr = (await _translate_one(src["title"], target_langs=[lang])).get(lang, src["title"])
         sections_tr = []
         for s in src["sections"]:
-            h_tr = (await _deepl_translate_one(s["heading"], target_langs=[lang])).get(lang, s["heading"])
-            b_tr = (await _deepl_translate_one(s["body"], target_langs=[lang])).get(lang, s["body"])
+            h_tr = (await _translate_one(s["heading"], target_langs=[lang])).get(lang, s["heading"])
+            b_tr = (await _translate_one(s["body"], target_langs=[lang])).get(lang, s["body"])
             sections_tr.append({"heading": h_tr, "body": b_tr})
         content = {
             "doc": doc, "lang": lang, "updated": LEGAL_UPDATED,
@@ -3406,7 +3406,7 @@ async def revert_history(day_id: str, version_id: str, _: dict = Depends(require
 # ---------- Translation Engine (Google Cloud Translation API v2, DeepL fallback) ----------
 # v135.16 — Primary engine switched to Google Cloud Translation API. DeepL is
 # kept as a fallback so existing production deployments keep working during
-# migration. `_deepl_translate_one` retains its historic name so no caller
+# migration. `_translate_one` retains its historic name so no caller
 # needs to change; the function now dispatches to whichever key is set.
 GOOGLE_TRANSLATION_API_KEY = os.environ.get("GOOGLE_TRANSLATION_API_KEY", "").strip()
 DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY", "").strip()
@@ -3689,7 +3689,7 @@ async def cron_deepl_retry_i18n(request: Request):
         additions: List[str] = []
         for key in missing:
             tr_value = V9_I18N_KEYS[key]
-            translated_map = await _deepl_translate_one(tr_value, target_langs=[deepl_code])
+            translated_map = await _translate_one(tr_value, target_langs=[deepl_code])
             translated = translated_map.get(deepl_code)
             if not translated or translated.strip() == tr_value.strip():
                 continue
@@ -3833,7 +3833,7 @@ async def events_backfill_translations(_: dict = Depends(require_admin)):
     that have empty or missing `name_translations`, `group_translations` or
     `subtitle_translations`. Skips docs whose relevant source field is blank.
     Never overwrites existing non-empty translations. Respects DeepL 429
-    rate limits via the retry-with-backoff logic in `_deepl_translate_one`.
+    rate limits via the retry-with-backoff logic in `_translate_one`.
     v135.13 — Delegates to the shared `_backfill_event_translations` helper
     (nightly cron uses the same helper).
     """
@@ -3932,7 +3932,7 @@ async def translate_status(_: dict = Depends(require_admin)):
         result["sample_error"] = "DEEPL_API_KEY not set in environment"
         return result
     try:
-        out = await _deepl_translate_one("Merhaba", target_langs=["en"])
+        out = await _translate_one("Merhaba", target_langs=["en"])
         result["test_translation"] = out.get("en")
         result["test_ok"] = bool(out.get("en"))
         if not result["test_ok"]:
@@ -4334,7 +4334,33 @@ async def _google_translate_batch(texts: List[str], target_lang: str) -> List[st
     return out[:len(texts)]
 
 
-async def _deepl_translate_one(text: str, target_langs=None):
+async def _auto_translate_batch(texts: List[str]) -> List[Optional[dict]]:
+    """v135.19 — Batch multiple TR source texts to all 28 non-TR target langs
+    in ~28 API round-trips (one per lang) instead of `len(texts) × 28` per-text
+    round-trips. Returns list of translation dicts parallel to `texts`; each
+    entry is `{lang: translation}` or `None` if all langs failed for that
+    text. Google-only optimization — falls back to per-text serial via
+    `_auto_translate_all` when only DeepL is configured.
+    """
+    if not texts:
+        return []
+    if not GOOGLE_TRANSLATION_API_KEY:
+        results: List[Optional[dict]] = []
+        for t in texts:
+            r = await _auto_translate_all(t)
+            results.append(r)
+        return results
+    target_langs = [lg for lg in ENABLED_LANGS if lg != "tr"]
+    per_text: List[dict] = [{} for _ in texts]
+    for lang in target_langs:
+        translations = await _google_translate_batch(texts, lang)
+        for idx, tr in enumerate(translations):
+            if tr:
+                per_text[idx][lang] = tr
+    return [d if d else None for d in per_text]
+
+
+async def _translate_one(text: str, target_langs=None):
     """Translate `text` from Turkish to each of the target languages.
 
     v135.16 — Dispatches to Google Cloud Translation API v2 if
@@ -4458,7 +4484,7 @@ async def _auto_translate_all(text: Optional[str]) -> Optional[dict]:
     if not s or (not GOOGLE_TRANSLATION_API_KEY and not DEEPL_API_KEY):
         return {}
     target = [lg for lg in ENABLED_LANGS if lg != "tr"]
-    result = await _deepl_translate_one(s, target_langs=target)
+    result = await _translate_one(s, target_langs=target)
     if not result:
         return None
     return result
@@ -4491,7 +4517,7 @@ async def deepl_bulk_translate(body: DeeplBulkBody, _: dict = Depends(require_ad
         raise HTTPException(400, "max 100 metin per çağrı")
     result: Dict[str, Dict[str, str]] = {}
     for text in cleaned:
-        result[text] = await _deepl_translate_one(text, target_langs=body.target_langs)
+        result[text] = await _translate_one(text, target_langs=body.target_langs)
     return {"count": len(result), "translations": result}
 
 
@@ -4522,7 +4548,7 @@ async def translate_all_pc(kind: str = Query(...), _: dict = Depends(require_adm
         if not missing:
             continue
         for src in missing:
-            tr_map = await _deepl_translate_one(src)
+            tr_map = await _translate_one(src)
             if tr_map:
                 current[src] = {**(current.get(src) or {}), **tr_map}
                 translated_strings += 1
@@ -5119,7 +5145,7 @@ class PushTestBody(BaseModel):
 
 
 # Country ISO 3166-1 alpha-2 → DeepL i18n target language code (matches
-# DEEPL_LANG_MAP keys so `_deepl_translate_one` routes to the correct DeepL
+# DEEPL_LANG_MAP keys so `_translate_one` routes to the correct DeepL
 # language). Extend as new member countries appear. Countries mapped to "tr"
 # are the source language — no translation is attempted. Countries missing
 # from this map fall through to TR (safe default).
@@ -5342,7 +5368,7 @@ async def _dm_translate_and_send(chat_id: str, text: str,
                 f"lang={target_lang} src_len={len(text)} → calling DeepL"
             )
             try:
-                tr_map = await _deepl_translate_one(text, target_langs=[target_lang])
+                tr_map = await _translate_one(text, target_langs=[target_lang])
                 got = tr_map.get(target_lang)
                 if got:
                     out_text = got
@@ -6746,9 +6772,14 @@ async def announcements_create(body: AnnouncementBody, user: dict = Depends(requ
     # v127 — Auto-translate title + body to all 28 non-TR languages so
     # the Duyurular list and push notifications can render in the user's
     # language without a round-trip.
+    # v135.19 — Batch: single per-lang API call covers BOTH title + body,
+    # cutting round-trips from 56 (28 langs × 2 texts) to 28 (Google only).
     try:
-        doc["title_translations"] = await _auto_translate_all(doc["title"])
-        doc["body_translations"] = await _auto_translate_all(doc["body"])
+        _tr_batch = await _auto_translate_batch([doc["title"], doc["body"]])
+        if _tr_batch[0] is not None:
+            doc["title_translations"] = _tr_batch[0]
+        if _tr_batch[1] is not None:
+            doc["body_translations"] = _tr_batch[1]
     except Exception as _tx_ex:
         logger.warning(f"announcement auto-translate failed: {_tx_ex}")
     await db.announcements.insert_one(doc)
