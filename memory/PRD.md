@@ -20,6 +20,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 28, 2026 (v134.1 Grup Kartı Layout Fix)** — Etkinlikler sayfası:
+  - **Sorun**: v130'da grup adına `whiteSpace:normal + wordBreak:break-word + overflowWrap:anywhere` verilmişti; chevron+dot+chip+rename kontrolleri yatay alanı yiyince kalan ~1-2 karakterlik alanda her harf alt alta dizilip başlık DİKEY görünüyordu. Ek olarak grup bloğu ekran genişliğini tamamen kaplıyordu.
+  - **Fix — Grup Başlığı** (`Events.jsx` renderGroupBlock h3): `writingMode:"horizontal-tb"`, `transform:"none"`, `whiteSpace:"nowrap"`, `overflow:"hidden"`, `textOverflow:"ellipsis"`, `wordBreak:"normal"`, `overflowWrap:"normal"`, `display:"block"` — yatay tek satır + taşarsa `…`.
+  - **Fix — Kart Genişliği** (dış wrapper): `maxWidth:"min(100%, 720px)"`, `width:"94%"`, `mx-auto` — mobilde %94, tablet+/desktop'ta 720px cap. Kartlar merkezlendi, kompakt görünüm.
+  - **Doğrulama**: 390px viewport screenshot — "KRİSTAL" başlığı yatay ✅, `writing-mode=horizontal-tb`, `white-space=nowrap`, `text-overflow=ellipsis`, kart genişliği 720px (viewport 1920→ratio 0.38).
+
 - **Feb 27, 2026 (v134 Manuel Telegram Eşleştirme)** — Üye listesine admin bağlama:
   - **Backend** (`server.py`): `Member.telegram_chat_id: Optional[str]` + `MemberUpdate.telegram_chat_id` alanı eklendi. `PATCH /api/members/{id}` normalize ediyor ("" → null, aksi durum stringified). Curl testi 200 döndü, kaydet+temizle akışı çalışıyor.
   - **`_all_delivery_chat_ids`** (`telegram_bot.py`): `members.telegram_chat_id` de dahil edildi — /duyuru artık admin panelinden manuel bağlanan üyelere de mesaj gönderiyor.

@@ -816,7 +816,18 @@ export default function Events() {
   const renderGroupBlock = (group, list) => {
     const gc = groupColor(group);
     return (
-      <div key={group} className="mb-5" data-testid={`event-group-block-${group}`}>
+      <div
+        key={group}
+        className="mb-5 mx-auto"
+        data-testid={`event-group-block-${group}`}
+        style={{
+          /* v134.1 — Kart genişliğini daralt: mobilde %94, tablet+ %90.
+             `flex-wrap` action bar taşan chip'leri alt satıra atsın diye
+             hâlâ orada; sadece dış çerçeve narrow. */
+          maxWidth: "min(100%, 720px)",
+          width: "94%",
+        }}
+      >
         <div
           className="flex items-center justify-between mb-2 gap-2 flex-wrap"
           data-testid={`event-group-action-bar-${group}`}
@@ -874,18 +885,22 @@ export default function Events() {
                 data-testid={`event-group-title-${group}`}
                 className="text-sm font-bold uppercase tracking-wider cursor-pointer"
                 style={{
-                  /* v130 — allow wrapping on mobile; break long group names
-                     across lines rather than truncating with ellipsis. */
-                  whiteSpace: "normal",
-                  wordBreak: "break-word",
-                  overflowWrap: "anywhere",
+                  /* v134.1 — Wrapping "normal" mobilde chevron+dot+chip
+                     ile yarışınca kalan yatay alan 1-2 karaktere düşüyordu;
+                     bu da grup adının HER karakterinin alt alta dizilip
+                     dikey görünmesine yol açıyordu. `nowrap` + ellipsis
+                     ile yatay tek satırda tutuyoruz. */
+                  writingMode: "horizontal-tb",
+                  transform: "none",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  wordBreak: "normal",
+                  overflowWrap: "normal",
                   lineHeight: 1.2,
                   minWidth: 0,
                   flex: "1 1 auto",
-                  /* v59 — Elite Cockpit: bright polished silver title with a
-                     subtle group-tint glow. Uses a mirror-metal vertical
-                     gradient (bright top → cool platinum → shadow) so it
-                     reads as luminescent silver against the saturated bar. */
+                  display: "block",
                   background:
                     "linear-gradient(180deg, #FFFFFF 0%, #E6ECF2 30%, #B8C4D0 60%, #7A8794 100%)",
                   WebkitBackgroundClip: "text",
