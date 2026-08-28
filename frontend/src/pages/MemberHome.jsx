@@ -803,7 +803,14 @@ export default function MemberHome() {
 function PinnedAnnouncementsBanner({ nav }) {
   const { t } = useTranslation();
   const { data } = useSWR("/announcements?limit=20", fetcher, { refreshInterval: 60000 });
-  const items = (data?.items || []).filter((a) => a.pinned && a.active !== false);
+  const items = (data?.items || []).filter((a) => {
+    if (!a.pinned || a.active === false) return false;
+    // v135.8 — Auto-expire client-side. `pinned_until` in ISO UTC.
+    if (a.pinned_until) {
+      try { if (new Date(a.pinned_until).getTime() < Date.now()) return false; } catch { /* ignore */ }
+    }
+    return true;
+  });
   const [dismissed, setDismissed] = useState(() => {
     try { return JSON.parse(localStorage.getItem("titanxis_pinned_dismissed_v1") || "[]"); } catch { return []; }
   });

@@ -135,7 +135,36 @@ def make_rollcalls_router(db, require_auth, require_admin, broadcast_push=None, 
             }},
             upsert=True,
         )
-        return {"ok": True}
+        # v135.8 — Yoklama Streak: Kullanıcı son 10 yoklamada üst üste "yes"
+        # yanıtı verdiyse "streak" preset rozetini otomatik atar. Admin daha
+        # sonra manuel olarak kaldırabilir (DELETE /members/{id}/badges/{bid}).
+        # Kullanıcı bir üyeye bağlıysa (member_ids) rozet o üyeye eklenir.
+        streak_result = {"assigned": False}
+        try:
+            if resp == "yes":
+                # 10 en yeni yanıt (herhangi yoklamadaki) → hepsi 'yes' mi?
+                recent = await db.rollcall_responses.find(
+                    {"user_id": user["id"]},
+                    {"_id": 0, "response": 1, "responded_at": 1},
+                ).sort("responded_at", -1).to_list(10)
+                if len(recent) >= 10 and all((x.get("response") == "yes") for x in recent):
+                    streak_badge = await db.badges.find_one({"key": "streak"}, {"_id": 0, "id": 1})
+                    member_ids = user.get("member_ids") or []
+                    if streak_badge and member_ids:
+                        target = member_ids[0]
+                        exists = await db.member_badges.find_one({"member_id": target, "badge_id": streak_badge["id"]})
+                        if not exists:
+                            await db.member_badges.insert_one({
+                                "id": str(uuid.uuid4()),
+                                "member_id": target,
+                                "badge_id": streak_badge["id"],
+                                "awarded_at": _now_iso(),
+                                "awarded_by_username": "system:rollcall_streak",
+                            })
+                            streak_result = {"assigned": True, "member_id": target, "badge_id": streak_badge["id"]}
+        except Exception:
+            pass
+        return {"ok": True, "streak": streak_result}
 
     @router.post("/rollcalls/{rid}/close")
     async def close_rollcall(rid: str, _: dict = Depends(require_admin)):

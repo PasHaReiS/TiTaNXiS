@@ -67,7 +67,7 @@ export default function BadgeManagement() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3" data-testid="badges-grid">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3" data-testid="badges-grid">
           {badges.map((b) => (
             <div
               key={b.id}

@@ -1745,3 +1745,27 @@ After redeploy, tail `backend.err.log` while triggering a notification:
 - Frontend derleme: hatasız (yalnızca webpack deprecation warning'leri — mevcut duruma özgü)
 - ⚠️ Kullanıcı Emergent UI'dan "Publish" ile production'a alacak
 
+
+## v135.9 — Özel İsim Alanları DeepL Çevirisinden Muaf Tutuldu (Feb 28, 2026)
+**Sorun**: "KAFES" etkinliği bazı kartlarda "CAGE"e dönüşüyordu — DeepL kullanıcı tarafından yazılan özel isimleri genel İngilizce'ye çeviriyordu, üyeler için kafa karıştırıcıydı ve tutarsızdı (aynı isim bazı kartlarda TR, bazılarında EN).
+
+**Düzeltme**: Kullanıcı tarafından girilen DB kayıtları artık ÇEVRİLMEZ, olduğu gibi saklanıp gösterilir. Yalnızca UI etiketleri (butonlar, sistem mesajları) i18n bundle üzerinden çevrilir.
+
+**Backend değişiklikleri** (`/app/backend/server.py` + `/app/backend/routes/event_folders.py`):
+- `POST /api/events`: `_auto_translate_all` çağrıları kaldırıldı → `name_translations`, `subtitle_translations`, `group_translations` boş dict (`{}`) atanır
+- `PATCH /api/events/{id}`: Kaynak değişince eski çeviriler temizlensin diye boş dict yazılır
+- `PATCH /api/events/group/{name}` (grup yeniden adlandırma): DeepL kaldırıldı
+- `POST /api/event-folders` + `PATCH /api/event-folders/{id}`: Klasör adı çevirileri kaldırıldı
+- `POST /api/event-folder-templates`: Şablon adı ve varsayılan klasör adı çevirileri kaldırıldı
+
+**Migration**: Mevcut kayıtlarda stale çeviriler tek seferlik script ile temizlendi:
+- 9 etkinlik dokümanı → `name_translations={}, group_translations={}, subtitle_translations={}`
+- 3 event_folder → `name_translations={}`
+- 0 folder_template
+
+**Frontend davranışı**: Değişiklik yok — event render kodu zaten `(e.name_translations || {})[lng] || e.name` fallback pattern'ini kullanıyordu. Boş dict ile artık her zaman kaynak `e.name` gösteriliyor.
+
+**Çeviri kapsamı özet**:
+- ✅ Hâlâ çevrilir: Duyuru başlık/gövde (`title_translations`/`body_translations`), i18n bundle (UI etiketleri, sistem mesajları)
+- ❌ Artık çevrilmez: `event.name`, `event.group_name`, `event.subtitle`, `event_folder.name`, `folder_template.name`, `folder_template.folder_name_default`
+

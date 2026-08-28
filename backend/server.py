@@ -173,6 +173,10 @@ class Event(BaseModel):
     # even though it stays visible on /etkinlikler. Lets admins hide practice/
     # internal events from members without archiving them.
     show_in_calendar: bool = True
+    # v135.8 — Şablon izleme. Etkinlik bir event_template'den oluşturulduysa
+    # şablonun adı bu alanda tutulur; UI'da küçük bir "Şablon: X" chip'i
+    # olarak görünür ve hangi taslaktan geldiği izlenir. `None` → şablonsuz.
+    template_source_name: Optional[str] = None
     # v129 — Auto-archive fields (persisted on Event doc).
     auto_archive: bool = False
     auto_archive_folder_id: Optional[str] = None
@@ -248,6 +252,8 @@ class EventCreate(BaseModel):
     report_channels: Optional[List[str]] = None
     alliance_thresholds: Optional[List[dict]] = None
     member_thresholds: Optional[List[dict]] = None
+    # v135.8 — Şablon izleme (bkz. Event modeli).
+    template_source_name: Optional[str] = None
 
 
 class EventUpdate(BaseModel):
@@ -1109,12 +1115,15 @@ async def create_event(body: EventCreate, _: dict = Depends(require_edit)):
     # to all 28 non-TR languages via DeepL before insert. Frontend picks
     # the right variant based on i18n.language. Runs inline so the very
     # first render after save already has translations.
-    try:
-        payload["name_translations"] = await _auto_translate_all(payload.get("name"))
-        payload["subtitle_translations"] = await _auto_translate_all(payload.get("subtitle"))
-        payload["group_translations"] = await _auto_translate_all(payload.get("group_name"))
-    except Exception as ex:
-        logger.warning(f"auto-translate event failed: {ex}")
+    # v135.9 — Kullanıcı tarafından girilen özel isimler (etkinlik adı, grup
+    # adı, altyazı/açıklama) artık ÇEVİRİLMEZ. "KAFES" gibi özel adlar
+    # DeepL üzerinden "CAGE" gibi genel çevirilere dönüşünce üye kafası
+    # karışıyordu — bu alanlar olduğu gibi saklanır. Yalnızca UI etiketleri
+    # (butonlar, sistem mesajları) i18n bundle üzerinden çevrilir. Boş dict
+    # yazıyoruz ki frontend fallback koduyla `e.name` göstersin.
+    payload["name_translations"] = {}
+    payload["subtitle_translations"] = {}
+    payload["group_translations"] = {}
     # Pop the recurrence knobs off before we turn the payload into an Event —
     # we generate concrete duplicates below rather than storing a rule.
     interval = (payload.pop("recurrence_interval", None) or "none")
@@ -1195,17 +1204,14 @@ async def update_event(event_id: str, body: EventUpdate, _: dict = Depends(requi
     # Recurrence fields are handled separately below; strip before the $set.
     interval = update.pop("recurrence_interval", None) or "none"
     count = max(1, min(52, int(update.pop("recurrence_count", 1) or 1)))
-    # v125 — When the TR source of a user-visible field changes, refresh
-    # its translations dict so stale variants don't linger in other langs.
-    try:
-        if "name" in update:
-            update["name_translations"] = await _auto_translate_all(update.get("name"))
-        if "subtitle" in update:
-            update["subtitle_translations"] = await _auto_translate_all(update.get("subtitle"))
-        if "group_name" in update:
-            update["group_translations"] = await _auto_translate_all(update.get("group_name"))
-    except Exception as ex:
-        logger.warning(f"auto-translate patch failed: {ex}")
+    # v135.9 — Etkinlik güncellenirken de özel isim alanları çevrilmez.
+    # Kaynak alan değişince eski çevirileri temizlemek için boş dict yaz.
+    if "name" in update:
+        update["name_translations"] = {}
+    if "subtitle" in update:
+        update["subtitle_translations"] = {}
+    if "group_name" in update:
+        update["group_translations"] = {}
     if update:
         res = await db.events.update_one({"id": event_id}, {"$set": update})
         if res.matched_count == 0:
@@ -1385,11 +1391,8 @@ async def rename_group(old_name: str, new_name: str, _: dict = Depends(require_e
         return {"modified": 0}
     # v125 — Auto-translate the renamed group so leaderboard chips and
     # event card headers pick up localized names on the next render.
-    try:
-        translations = await _auto_translate_all(new_name)
-    except Exception as ex:
-        logger.warning(f"auto-translate rename failed: {ex}")
-        translations = {}
+    # v135.9 — Grup adı kullanıcı özel ismi; çevrilmez.
+    translations = {}
     res = await db.events.update_many(
         {"group_name": old_name},
         {"$set": {"group_name": new_name, "group_translations": translations}},
@@ -6255,6 +6258,7 @@ class AnnouncementBody(BaseModel):
     broadcast: Optional[bool] = True
     urgent: Optional[bool] = False
     pinned: Optional[bool] = False  # v135 — sticky banner on home page
+    pinned_until: Optional[str] = None  # v135.8 — ISO8601 UTC — banner auto-hides after this
     scheduled_at: Optional[str] = None  # ISO8601 UTC — future time defers fan-out until due
 
 
@@ -6301,6 +6305,7 @@ async def announcements_create(body: AnnouncementBody, user: dict = Depends(requ
         "scheduled_at": scheduled_at_iso,
         "pending_broadcast": is_scheduled and bool(body.broadcast),
         "pinned": bool(body.pinned),  # v135 — home banner sticky flag
+        "pinned_until": (body.pinned_until or "").strip() or None,  # v135.8 — auto-expire timestamp
     }
     # v127 — Auto-translate title + body to all 28 non-TR languages so
     # the Duyurular list and push notifications can render in the user's
@@ -6366,6 +6371,7 @@ class AnnouncementPatch(BaseModel):
     urgent: Optional[bool] = None
     active: Optional[bool] = None
     pinned: Optional[bool] = None
+    pinned_until: Optional[str] = None
 
 
 @api_router.patch("/announcements/{aid}")

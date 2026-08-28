@@ -42,6 +42,7 @@ export default function Announcements({ embedded = false }) {
   const [broadcast, setBroadcast] = useState(true);
   const [urgent, setUrgent] = useState(false);
   const [pinned, setPinned] = useState(false); // v135.6 — sabit anasayfa banner'ı
+  const [pinnedUntil, setPinnedUntil] = useState(""); // v135.8 — otomatik kaldırma zamanı (local yyyy-MM-ddTHH:mm)
   const [scheduledAt, setScheduledAt] = useState(""); // local yyyy-MM-ddTHH:mm; empty = anlık gönder
   const [sending, setSending] = useState(false);
   const [lastResult, setLastResult] = useState(null);
@@ -75,6 +76,7 @@ export default function Announcements({ embedded = false }) {
           title, body,
           image_url: finalImageUrl || undefined,
           broadcast, urgent, pinned,
+          pinned_until: pinnedUntil ? new Date(pinnedUntil).toISOString() : undefined,
           scheduled_at: scheduledIso || undefined,
         });
         if (scheduledIso) {
@@ -85,7 +87,7 @@ export default function Announcements({ embedded = false }) {
           setLastResult(r.data.fanout || null);
         }
       }
-      setTitle(""); setBody(""); setImageUrl(""); setImageFiles([]); setUrgent(false); setPinned(false);
+      setTitle(""); setBody(""); setImageUrl(""); setImageFiles([]); setUrgent(false); setPinned(false); setPinnedUntil("");
       setScheduledAt("");
       setEditingId(null);
       mutate();
@@ -259,6 +261,27 @@ export default function Announcements({ embedded = false }) {
                    data-testid="announcement-pinned" />
             <span>📌 Sabitle — anasayfada amber banner olarak göster</span>
           </label>
+          {/* v135.8 — Otomatik Kaldır: sabit duyurunun banner'ı bu zamandan
+              sonra client-side filtreyle gizlenir. Boş → süresiz. */}
+          {pinned && (
+            <div className="ml-6 flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground">⏱ Otomatik Kaldır:</span>
+              <input
+                type="datetime-local"
+                value={pinnedUntil}
+                onChange={(e) => setPinnedUntil(e.target.value)}
+                data-testid="announcement-pinned-until"
+                className="bg-background border border-border rounded-md px-2 py-1 text-xs text-white"
+              />
+              {pinnedUntil && (
+                <button
+                  type="button"
+                  onClick={() => setPinnedUntil("")}
+                  className="text-[10px] text-muted-foreground hover:text-white underline"
+                >temizle</button>
+              )}
+            </div>
+          )}
 
           {/* Zamanlama — boş bırakılırsa anlık gönderim yapılır. Sadece yeni
               duyurularda görünür (edit modunda gizli). */}

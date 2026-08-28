@@ -814,6 +814,32 @@ export default function Events() {
         <CanEdit>
           <RsvpSummaryChip eventId={e.id} />
         </CanEdit>
+        {/* v135.8 — Şablon kaynağı chip: hangi şablondan oluşturulduğunu
+            gösterir. Yalnızca template_source_name doluysa render eder.
+            Mor renk şeması Etkinlik Şablonu vurgusuyla tutarlı. */}
+        {e.template_source_name && (
+          <span
+            data-testid={`event-template-chip-${e.id}`}
+            className="inline-flex items-center gap-1 rounded-full font-bold"
+            style={{
+              padding: "2px 8px",
+              fontSize: 9,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              background: "rgba(168,85,247,0.15)",
+              color: "#C4B5FD",
+              border: "1px solid rgba(168,85,247,0.45)",
+              marginTop: 2,
+              whiteSpace: "nowrap",
+              maxWidth: "100%",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+            title={`Şablondan oluşturuldu: ${e.template_source_name}`}
+          >
+            📋 Şablon: {e.template_source_name}
+          </span>
+        )}
       </motion.div>
     );
   };
@@ -2461,6 +2487,7 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
   const templates = templatesData?.items || [];
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
+  const [templateSourceName, setTemplateSourceName] = useState(initial?.template_source_name || ""); // v135.8
   const applyTemplate = (tid) => {
     const tpl = templates.find((x) => x.id === tid);
     if (!tpl) return;
@@ -2472,6 +2499,7 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
     setReminderEnabled(tpl.reminder_enabled !== false);
     setHiddenFromLb(!!tpl.hidden_from_leaderboard);
     if (tpl.banner_url) setBanner([{ id: "tpl", url: tpl.banner_url, filename: "template-banner" }]);
+    setTemplateSourceName(tpl.template_name || tpl.name || ""); // v135.8 — chip için hatırla
     toast.success(`Şablon yüklendi: ${tpl.template_name}`);
   };
 
@@ -2500,6 +2528,10 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
           .map((r) => ({ member_id: String(r.member_id).trim(), threshold: parseInt(r.threshold, 10) || 0 })),
         recurrence_interval: recurInterval,
         recurrence_count: Number(recurCount) || 1,
+        // v135.8 — Şablon izleme: seçili bir şablondan oluşturulduysa şablon
+        // adını backend'e gönder → Event.template_source_name alanında saklanır
+        // → kartın üstünde küçük mor "Şablon: X" chip'i olarak görünür.
+        template_source_name: (!initial && templateSourceName) ? templateSourceName : undefined,
       };
       let res;
       if (initial) {
