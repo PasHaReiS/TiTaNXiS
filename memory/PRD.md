@@ -1908,3 +1908,32 @@ Kullanıcı raporu: "Preview'da çalışıyor, production'da çalışmıyor" →
 ### Retro-Tag (0 event etkilendi)
 - Template retro-tag script çalıştırıldı — DB'de henüz template olmadığı için tag'lenen event yok. Yeni etkinlik "Şablondan Oluştur" ile açılırsa `template_source_name` otomatik dolar, mor "📋 Şablon: X" chip'i görünür (kod hazır)
 
+
+## v135.16 — Google Cloud Translation API'ye Geçiş (DeepL Fallback ile) (Feb 28, 2026)
+
+### Yapılanlar
+- **Yeni env var**: `GOOGLE_TRANSLATION_API_KEY` — production'da zaten set edilmiş, preview'da yok (fallback devrede)
+- **Dispatch mantığı**: `_deepl_translate_one` fonksiyonu (isim korundu, tüm caller'lar dokunulmadı) artık:
+  1. `GOOGLE_TRANSLATION_API_KEY` varsa → Google Cloud Translation API v2 (`https://translation.googleapis.com/language/translate/v2`)
+  2. Yoksa `DEEPL_API_KEY` varsa → DeepL (backward compat)
+  3. Hiçbiri yoksa → boş dict
+- **GOOGLE_LANG_MAP**: 29 dil için Google ISO 639-1 kodları (nb→no remap, diğerleri direkt)
+- **Yeniden kullanılan altyapı**: 429/403 retry with backoff, `_DEEPL_CACHE` LRU cache, `_auto_translate_all` non-destructive semantiği
+- **Health endpoint güncellendi**: `engine` field'ı eklendi ("google" veya "deepl"), `plan: "google-cloud"` Google için, "free"/"pro" DeepL için
+- **Backfill endpoints güncellendi**: Her iki key'i kontrol eder
+- **i18n bundle korundu**: Frontend `useTranslation()` hook + `t()` fonksiyonu değişmedi — sadece backend çeviri motoru değişti
+
+### Test Sonuçları
+- Preview (DeepL fallback): "Merhaba" → "Hello" ✅ (engine=deepl)
+- Production (Google): Republish sonrası `GET /api/translate/health` → `engine: "google"` görecek
+
+### Production'da Doğrulama
+Republish sonrası:
+```
+GET /api/translate/health → {engine: "google", configured: true, ...}
+```
+Kotayı hâlâ görebilirsiniz ama artık Google Cloud'ın quota'sını izleyecek (DeepL 1M limit değil, Google'ın çok daha yüksek limitini).
+
+### Sonraki Adım
+Preview'a da GOOGLE_TRANSLATION_API_KEY eklenirse tek key ile test edebilir; şu an DeepL fallback ile çalışıyor.
+

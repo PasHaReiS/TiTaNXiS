@@ -3388,8 +3388,25 @@ async def revert_history(day_id: str, version_id: str, _: dict = Depends(require
     return doc
 
 
-# ---------- DeepL Translation ----------
+# ---------- Translation Engine (Google Cloud Translation API v2, DeepL fallback) ----------
+# v135.16 — Primary engine switched to Google Cloud Translation API. DeepL is
+# kept as a fallback so existing production deployments keep working during
+# migration. `_deepl_translate_one` retains its historic name so no caller
+# needs to change; the function now dispatches to whichever key is set.
+GOOGLE_TRANSLATION_API_KEY = os.environ.get("GOOGLE_TRANSLATION_API_KEY", "").strip()
 DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY", "").strip()
+
+# Google Translation uses ISO 639-1 mostly; a couple of remaps for the app's
+# enabled locales (nb → no is the Google-preferred code for Norwegian).
+GOOGLE_LANG_MAP = {
+    "tr": "tr", "en": "en", "ru": "ru", "de": "de", "fr": "fr", "es": "es",
+    "ko": "ko", "ar": "ar",
+    "bg": "bg", "cs": "cs", "da": "da", "el": "el", "et": "et", "fi": "fi", "hu": "hu",
+    "id": "id", "it": "it", "ja": "ja", "lt": "lt", "lv": "lv", "nb": "no", "nl": "nl",
+    "pl": "pl", "pt": "pt", "ro": "ro", "sk": "sk", "sl": "sl", "sv": "sv", "uk": "uk",
+    "zh": "zh",
+}
+
 # v133.6 — TR ve AR eklendi (önceden eksikti — /api/translate Türkçe/Arapça hedef
 # istendiğinde None dönüyordu). ET (Estonca) TR'den ayrıdır ve karışmaz.
 DEEPL_LANG_MAP = {
@@ -3692,12 +3709,11 @@ async def cron_deepl_retry_i18n(request: Request):
 
 async def _backfill_event_translations() -> dict:
     """Shared helper: scan events + event_folders for empty translation dicts
-    and fill them via DeepL. Non-destructive. Used by:
-      - Admin endpoint: POST /api/events/backfill-translations
-      - Nightly cron:  POST /api/cron/deepl-retry-i18n (v135.13)
+    and fill them via the active translation engine (Google preferred,
+    DeepL fallback). Non-destructive.
     """
-    if not DEEPL_API_KEY:
-        return {"skipped": "deepl_key_missing"}
+    if not (GOOGLE_TRANSLATION_API_KEY or DEEPL_API_KEY):
+        return {"skipped": "no_translation_key"}
     scanned = filled_name = filled_group = filled_subtitle = filled_folder = 0
     async for e in db.events.find({}):
         scanned += 1
@@ -3757,9 +3773,12 @@ async def translate_health(_: dict = Depends(require_admin)):
              quota: {character_count, character_limit}}. Non-fatal on any
      sub-check failure — returns partial data so the widget still renders."""
     from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    active_key = GOOGLE_TRANSLATION_API_KEY or DEEPL_API_KEY
+    engine = "google" if GOOGLE_TRANSLATION_API_KEY else ("deepl" if DEEPL_API_KEY else None)
     out: dict = {
-        "configured": bool(DEEPL_API_KEY),
-        "plan": ("free" if DEEPL_API_KEY.endswith(":fx") else "pro") if DEEPL_API_KEY else None,
+        "configured": bool(active_key),
+        "engine": engine,
+        "plan": "google-cloud" if GOOGLE_TRANSLATION_API_KEY else (("free" if DEEPL_API_KEY.endswith(":fx") else "pro") if DEEPL_API_KEY else None),
         "cache_size": len(_DEEPL_CACHE),
         "cache_max": _DEEPL_CACHE_MAX,
         "events_missing": 0,
@@ -4188,46 +4207,96 @@ _DEEPL_CACHE_MAX = 512
 async def _deepl_translate_one(text: str, target_langs=None):
     """Translate `text` from Turkish to each of the target languages.
 
-    v135.12 — Robust to DeepL 429 rate-limit responses with exponential
-    backoff + `Retry-After` respect. Never swallows errors silently: on a
-    permanent failure it re-raises so callers can decide (retry / skip /
-    don't-overwrite). Returns `{lang: text}` for languages that succeeded.
-    Individual language failures are logged and skipped so a single bad
-    language never blocks the rest.
+    v135.16 — Dispatches to Google Cloud Translation API v2 if
+    `GOOGLE_TRANSLATION_API_KEY` is set, otherwise falls back to DeepL for
+    backward compatibility. Same signature as the historic DeepL-only
+    implementation so no caller changes.
+
+    v135.12 — Robust to rate-limit (429) responses with exponential backoff.
+    v135.14 — In-process LRU cache (module-level `_DEEPL_CACHE`).
     """
     import asyncio as _asyncio
-    if not DEEPL_API_KEY or not text:
+    if not text:
+        return {}
+    if not GOOGLE_TRANSLATION_API_KEY and not DEEPL_API_KEY:
         return {}
     # v135.14 — Cache lookup. Same source + target set → return cached dict.
     _langs_key = tuple(target_langs or ENABLED_LANGS)
     _cache_key = (text, _langs_key)
     if _cache_key in _DEEPL_CACHE:
-        # Move to end for pseudo-LRU behaviour.
         _cached = _DEEPL_CACHE.pop(_cache_key)
         _DEEPL_CACHE[_cache_key] = _cached
-        return dict(_cached)  # return a copy so callers can't mutate cache
-    base = "https://api-free.deepl.com/v2" if DEEPL_API_KEY.endswith(":fx") else "https://api.deepl.com/v2"
-    headers = {"Authorization": f"DeepL-Auth-Key {DEEPL_API_KEY}", "Content-Type": "application/json"}
+        return dict(_cached)
+
     langs = target_langs or ENABLED_LANGS
     out: dict = {}
+
+    # ── Primary path: Google Cloud Translation API v2 ───────────────────────
+    if GOOGLE_TRANSLATION_API_KEY:
+        base = "https://translation.googleapis.com/language/translate/v2"
+        async with httpx.AsyncClient(timeout=30) as client:
+            for lang in langs:
+                gcode = GOOGLE_LANG_MAP.get(lang.lower(), lang.lower())
+                attempts = 0
+                max_attempts = 4
+                while attempts < max_attempts:
+                    attempts += 1
+                    try:
+                        r = await client.post(
+                            base,
+                            params={"key": GOOGLE_TRANSLATION_API_KEY},
+                            json={"q": [text], "source": "tr", "target": gcode, "format": "text"},
+                        )
+                        if r.status_code == 429 or r.status_code == 403:
+                            # 429 = rate limit; 403 = quota exceeded. Backoff.
+                            wait_s = 2 ** attempts
+                            try:
+                                ra = int(r.headers.get("Retry-After") or "0")
+                                if ra > 0: wait_s = min(ra, 30)
+                            except Exception:
+                                pass
+                            logger.warning(f"Google Translate {r.status_code} lang={lang} attempt={attempts} — sleeping {wait_s}s")
+                            await _asyncio.sleep(wait_s)
+                            continue
+                        r.raise_for_status()
+                        tr_list = ((r.json().get("data") or {}).get("translations") or [])
+                        if tr_list:
+                            candidate = (tr_list[0].get("translatedText") or "").strip()
+                            if candidate:
+                                out[lang] = candidate
+                        break
+                    except httpx.HTTPStatusError as e:
+                        logger.warning(f"Google Translate HTTP {e.response.status_code} lang={lang}: {e.response.text[:120]}")
+                        break
+                    except Exception as ex:
+                        if attempts >= max_attempts:
+                            logger.warning(f"Google Translate final failure lang={lang} after {attempts}: {ex}")
+                            break
+                        await _asyncio.sleep(1.5 * attempts)
+        if out:
+            if len(_DEEPL_CACHE) >= _DEEPL_CACHE_MAX:
+                _DEEPL_CACHE.pop(next(iter(_DEEPL_CACHE)), None)
+            _DEEPL_CACHE[_cache_key] = dict(out)
+        return out
+
+    # ── Fallback path: DeepL (v135.12 retry/backoff logic preserved) ────────
+    base = "https://api-free.deepl.com/v2" if DEEPL_API_KEY.endswith(":fx") else "https://api.deepl.com/v2"
+    headers = {"Authorization": f"DeepL-Auth-Key {DEEPL_API_KEY}", "Content-Type": "application/json"}
     async with httpx.AsyncClient(timeout=30) as client:
         for lang in langs:
             deepl_lang = DEEPL_LANG_MAP.get(lang, lang.upper())
             attempts = 0
-            max_attempts = 4  # 4 tries = initial + 3 retries
+            max_attempts = 4
             while attempts < max_attempts:
                 attempts += 1
                 try:
                     r = await client.post(f"{base}/translate", headers=headers,
                                           json={"text": [text], "target_lang": deepl_lang, "source_lang": "TR"})
                     if r.status_code == 429:
-                        # v135.12 — Rate-limited. Honour `Retry-After` header
-                        # (seconds) if present; otherwise exponential backoff.
                         wait_s = 2 ** attempts
                         try:
                             ra = int(r.headers.get("Retry-After") or "0")
-                            if ra > 0:
-                                wait_s = min(ra, 30)
+                            if ra > 0: wait_s = min(ra, 30)
                         except Exception:
                             pass
                         logger.warning(f"DeepL 429 for lang={lang} attempt={attempts} — sleeping {wait_s}s")
@@ -4237,11 +4306,9 @@ async def _deepl_translate_one(text: str, target_langs=None):
                     tr_list = r.json().get("translations", [])
                     if tr_list:
                         candidate = tr_list[0].get("text", "").strip()
-                        if candidate:
-                            out[lang] = candidate
-                    break  # success or no translations → stop retrying this lang
+                        if candidate: out[lang] = candidate
+                    break
                 except httpx.HTTPStatusError as e:
-                    # Non-recoverable: log and skip this lang.
                     logger.warning(f"DeepL HTTP {e.response.status_code} for lang={lang}: {e.response.text[:120]}")
                     break
                 except Exception as ex:
@@ -4249,28 +4316,20 @@ async def _deepl_translate_one(text: str, target_langs=None):
                         logger.warning(f"DeepL final failure for lang={lang} after {attempts} attempts: {ex}")
                         break
                     await _asyncio.sleep(1.5 * attempts)
-    # v135.14 — Store in cache if we got at least one translation. Empty
-    # results not cached so 429/offline retries can succeed later.
     if out:
         if len(_DEEPL_CACHE) >= _DEEPL_CACHE_MAX:
-            # Evict oldest (FIFO — dict preserves insertion order).
             _DEEPL_CACHE.pop(next(iter(_DEEPL_CACHE)), None)
         _DEEPL_CACHE[_cache_key] = dict(out)
     return out
 
 
-# v135.12 — Callers use `_auto_translate_all` for one-shot TR→28-lang batches.
-# Now returns `None` (not `{}`) when the call yields zero translations, so
-# writers can distinguish "translated to nothing" (rate-limited/offline) from
-# "no source text" and avoid clobbering existing DB translations.
 async def _auto_translate_all(text: Optional[str]) -> Optional[dict]:
     s = (text or "").strip()
-    if not s or not DEEPL_API_KEY:
+    if not s or (not GOOGLE_TRANSLATION_API_KEY and not DEEPL_API_KEY):
         return {}
     target = [lg for lg in ENABLED_LANGS if lg != "tr"]
     result = await _deepl_translate_one(s, target_langs=target)
     if not result:
-        # Zero successful langs → return None so callers don't overwrite.
         return None
     return result
 
