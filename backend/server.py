@@ -1116,9 +1116,18 @@ async def create_event(body: EventCreate, _: dict = Depends(require_edit)):
     # the right variant based on i18n.language. Runs inline so the very
     # first render after save already has translations.
     try:
-        payload["name_translations"] = await _auto_translate_all(payload.get("name"))
-        payload["subtitle_translations"] = await _auto_translate_all(payload.get("subtitle"))
-        payload["group_translations"] = await _auto_translate_all(payload.get("group_name"))
+        # v135.12 — Only overwrite if translation produced non-empty result.
+        # If DeepL is rate-limited or offline, `_auto_translate_all` returns
+        # None → we skip the assignment so the backfill sweep can retry later.
+        _n = await _auto_translate_all(payload.get("name"))
+        if _n is not None:
+            payload["name_translations"] = _n
+        _s = await _auto_translate_all(payload.get("subtitle"))
+        if _s is not None:
+            payload["subtitle_translations"] = _s
+        _g = await _auto_translate_all(payload.get("group_name"))
+        if _g is not None:
+            payload["group_translations"] = _g
     except Exception as ex:
         logger.warning(f"auto-translate event failed: {ex}")
     # Pop the recurrence knobs off before we turn the payload into an Event —
@@ -1203,13 +1212,21 @@ async def update_event(event_id: str, body: EventUpdate, _: dict = Depends(requi
     count = max(1, min(52, int(update.pop("recurrence_count", 1) or 1)))
     # v125 — When the TR source of a user-visible field changes, refresh
     # its translations dict so stale variants don't linger in other langs.
+    # v135.12 — DON'T overwrite with empty when DeepL is unavailable; leave
+    # the existing dict so the value is not lost. Backfill sweep re-tries.
     try:
         if "name" in update:
-            update["name_translations"] = await _auto_translate_all(update.get("name"))
+            _n = await _auto_translate_all(update.get("name"))
+            if _n is not None:
+                update["name_translations"] = _n
         if "subtitle" in update:
-            update["subtitle_translations"] = await _auto_translate_all(update.get("subtitle"))
+            _s = await _auto_translate_all(update.get("subtitle"))
+            if _s is not None:
+                update["subtitle_translations"] = _s
         if "group_name" in update:
-            update["group_translations"] = await _auto_translate_all(update.get("group_name"))
+            _g = await _auto_translate_all(update.get("group_name"))
+            if _g is not None:
+                update["group_translations"] = _g
     except Exception as ex:
         logger.warning(f"auto-translate patch failed: {ex}")
     if update:
@@ -1395,10 +1412,16 @@ async def rename_group(old_name: str, new_name: str, _: dict = Depends(require_e
         translations = await _auto_translate_all(new_name)
     except Exception as ex:
         logger.warning(f"auto-translate rename failed: {ex}")
-        translations = {}
+        translations = None
+    # v135.12 — Only overwrite if we got a non-empty result. Empty result
+    # from DeepL means rate-limit or transient failure; keep existing so
+    # backfill can retry.
+    set_doc: dict = {"group_name": new_name}
+    if translations is not None:
+        set_doc["group_translations"] = translations
     res = await db.events.update_many(
         {"group_name": old_name},
-        {"$set": {"group_name": new_name, "group_translations": translations}},
+        {"$set": set_doc},
     )
     return {"modified": res.modified_count, "new_name": new_name}
 
@@ -3663,6 +3686,69 @@ async def cron_deepl_retry_i18n(request: Request):
 
 
 
+@api_router.post("/events/backfill-translations")
+async def events_backfill_translations(_: dict = Depends(require_admin)):
+    """v135.12 — One-shot backfill: scan all events and re-translate any
+    that have empty or missing `name_translations`, `group_translations` or
+    `subtitle_translations`. Skips docs whose relevant source field is blank.
+    Never overwrites existing non-empty translations. Respects DeepL 429
+    rate limits via the retry-with-backoff logic in `_deepl_translate_one`.
+    Returns a per-event breakdown so admins can see what was filled.
+    """
+    if not DEEPL_API_KEY:
+        raise HTTPException(503, "DEEPL_API_KEY not configured")
+    scanned = 0
+    filled_name = 0
+    filled_group = 0
+    filled_subtitle = 0
+    per_event: List[dict] = []
+    async for e in db.events.find({}):
+        scanned += 1
+        eid = e.get("id")
+        updates: dict = {}
+        note: dict = {"id": eid}
+        # Name
+        if e.get("name") and not (e.get("name_translations") or {}):
+            tr = await _auto_translate_all(e["name"])
+            if tr:
+                updates["name_translations"] = tr
+                filled_name += 1
+                note["name"] = f"→ {len(tr)} langs"
+        # Group
+        if e.get("group_name") and not (e.get("group_translations") or {}):
+            tr = await _auto_translate_all(e["group_name"])
+            if tr:
+                updates["group_translations"] = tr
+                filled_group += 1
+                note["group"] = f"→ {len(tr)} langs"
+        # Subtitle
+        if e.get("subtitle") and not (e.get("subtitle_translations") or {}):
+            tr = await _auto_translate_all(e["subtitle"])
+            if tr:
+                updates["subtitle_translations"] = tr
+                filled_subtitle += 1
+                note["subtitle"] = f"→ {len(tr)} langs"
+        if updates:
+            await db.events.update_one({"_id": e["_id"]}, {"$set": updates})
+            per_event.append(note)
+    # Also backfill event_folder names for good measure.
+    filled_folder = 0
+    async for f in db.event_folders.find({}):
+        if f.get("name") and not (f.get("name_translations") or {}):
+            tr = await _auto_translate_all(f["name"])
+            if tr:
+                await db.event_folders.update_one({"_id": f["_id"]}, {"$set": {"name_translations": tr}})
+                filled_folder += 1
+    return {
+        "scanned_events": scanned,
+        "filled_name": filled_name,
+        "filled_group": filled_group,
+        "filled_subtitle": filled_subtitle,
+        "filled_folder": filled_folder,
+        "details": per_event,
+    }
+
+
 @api_router.get("/events/{event_id}/rsvp/list")
 async def event_rsvp_list(event_id: str, _: dict = Depends(require_edit)):
     """Admin-only per-user RSVP list for an event. Powers the tap-through
@@ -3996,39 +4082,78 @@ ENABLED_LANGS = ["en", "ru", "de", "fr", "es", "ko", "bg", "cs", "da", "el", "et
 
 
 async def _deepl_translate_one(text: str, target_langs=None):
+    """Translate `text` from Turkish to each of the target languages.
+
+    v135.12 — Robust to DeepL 429 rate-limit responses with exponential
+    backoff + `Retry-After` respect. Never swallows errors silently: on a
+    permanent failure it re-raises so callers can decide (retry / skip /
+    don't-overwrite). Returns `{lang: text}` for languages that succeeded.
+    Individual language failures are logged and skipped so a single bad
+    language never blocks the rest.
+    """
+    import asyncio as _asyncio
     if not DEEPL_API_KEY or not text:
         return {}
     base = "https://api-free.deepl.com/v2" if DEEPL_API_KEY.endswith(":fx") else "https://api.deepl.com/v2"
     headers = {"Authorization": f"DeepL-Auth-Key {DEEPL_API_KEY}", "Content-Type": "application/json"}
     langs = target_langs or ENABLED_LANGS
     out: dict = {}
-    async with httpx.AsyncClient(timeout=25) as client:
+    async with httpx.AsyncClient(timeout=30) as client:
         for lang in langs:
             deepl_lang = DEEPL_LANG_MAP.get(lang, lang.upper())
-            try:
-                r = await client.post(f"{base}/translate", headers=headers,
-                                      json={"text": [text], "target_lang": deepl_lang, "source_lang": "TR"})
-                r.raise_for_status()
-                tr_list = r.json().get("translations", [])
-                if tr_list:
-                    out[lang] = tr_list[0].get("text", "")
-            except Exception:
-                pass
+            attempts = 0
+            max_attempts = 4  # 4 tries = initial + 3 retries
+            while attempts < max_attempts:
+                attempts += 1
+                try:
+                    r = await client.post(f"{base}/translate", headers=headers,
+                                          json={"text": [text], "target_lang": deepl_lang, "source_lang": "TR"})
+                    if r.status_code == 429:
+                        # v135.12 — Rate-limited. Honour `Retry-After` header
+                        # (seconds) if present; otherwise exponential backoff.
+                        wait_s = 2 ** attempts
+                        try:
+                            ra = int(r.headers.get("Retry-After") or "0")
+                            if ra > 0:
+                                wait_s = min(ra, 30)
+                        except Exception:
+                            pass
+                        logger.warning(f"DeepL 429 for lang={lang} attempt={attempts} — sleeping {wait_s}s")
+                        await _asyncio.sleep(wait_s)
+                        continue
+                    r.raise_for_status()
+                    tr_list = r.json().get("translations", [])
+                    if tr_list:
+                        candidate = tr_list[0].get("text", "").strip()
+                        if candidate:
+                            out[lang] = candidate
+                    break  # success or no translations → stop retrying this lang
+                except httpx.HTTPStatusError as e:
+                    # Non-recoverable: log and skip this lang.
+                    logger.warning(f"DeepL HTTP {e.response.status_code} for lang={lang}: {e.response.text[:120]}")
+                    break
+                except Exception as ex:
+                    if attempts >= max_attempts:
+                        logger.warning(f"DeepL final failure for lang={lang} after {attempts} attempts: {ex}")
+                        break
+                    await _asyncio.sleep(1.5 * attempts)
     return out
 
 
-# v125 — Auto-translate a single TR field into all 28 non-TR enabled
-# languages. Returns `{}` if the field is blank or DeepL is offline.
-# Fire-and-forget: callers shouldn't await this on the request path if
-# they want a fast response; we run it inline for event create/update
-# because the extra ~1-2s is acceptable for admin actions and users
-# expect translations to be live immediately after saving.
-async def _auto_translate_all(text: Optional[str]) -> dict:
+# v135.12 — Callers use `_auto_translate_all` for one-shot TR→28-lang batches.
+# Now returns `None` (not `{}`) when the call yields zero translations, so
+# writers can distinguish "translated to nothing" (rate-limited/offline) from
+# "no source text" and avoid clobbering existing DB translations.
+async def _auto_translate_all(text: Optional[str]) -> Optional[dict]:
     s = (text or "").strip()
     if not s or not DEEPL_API_KEY:
         return {}
     target = [lg for lg in ENABLED_LANGS if lg != "tr"]
-    return await _deepl_translate_one(s, target_langs=target)
+    result = await _deepl_translate_one(s, target_langs=target)
+    if not result:
+        # Zero successful langs → return None so callers don't overwrite.
+        return None
+    return result
 
 
 

@@ -1823,3 +1823,39 @@ Events.jsx zaten `useTranslation()` hook kullanıyor (satır 213) ve group/event
 ### Groupless Etkinlikler (`/` görünmez)
 Line 736: `{e.group_name && String(e.group_name).trim() ? (...)}` — group_name boşsa "/" ayırıcı zaten gösterilmiyor. Bu davranış doğru.
 
+
+## v135.12 — DeepL 429 Retry + Non-Destructive Translations + Backfill Endpoint (Feb 28, 2026)
+
+### Sorun
+Production'da (titanxis.com) English'e geçince bazı KAFES kartları CAGE, bazıları KAFES kalıyordu. Kök neden: DeepL rate-limit'e (429) takıldığında `_deepl_translate_one` sessizce boş dict dönüyordu, event kaydında `translations = {}` yazılıyor ve mevcut çeviriler siliniyordu.
+
+### Düzeltmeler
+
+**1. `_deepl_translate_one` — 429 Retry with Exponential Backoff**
+- Her dil için max 4 deneme (1 + 3 retry)
+- HTTP 429 → `Retry-After` header'ını okur, yoksa 2/4/8/16 sn backoff
+- Diğer HTTP hataları tek denemede loglanır, o dil atlanır (diğerlerini durdurmaz)
+- Timeout 25 → 30 sn
+- Sadece TRIM edilmiş dolu string'ler out'a yazılır
+
+**2. `_auto_translate_all` — Non-Destructive**
+- Sıfır dilde çeviri gelirse `None` döner (eskiden `{}`)
+- Kaynak boş VEYA DeepL yoksa `{}` döner (semantik korunur)
+
+**3. POST /events + PATCH /events + Group Rename — Non-Overwrite**
+- `_auto_translate_all` `None` dönerse mevcut translation dict'i olduğu gibi kalır (yeni PATCH'te bile silinmez)
+- Yeni oluşturmada `translations` yalnızca sonuç varsa payload'a eklenir
+- Grup rename'de tüm event'lerin `group_translations`'ı yalnızca yeni çeviri geldiyse güncellenir
+
+**4. Yeni Endpoint: `POST /api/events/backfill-translations` (admin)**
+- Tüm event'leri tarar
+- Kaynak alan dolu + translations boş → DeepL tetiklenir
+- Mevcut dolu çeviriler ASLA overwrite edilmez
+- Response: `{scanned_events, filled_name, filled_group, filled_subtitle, filled_folder, details[]}`
+- event_folders için de aynı işlem yapılır
+
+### Sonuç
+- Production'da bir kez `POST /api/events/backfill-translations` çağrılınca eksik çeviriler DOLDURULACAK (mevcut olanları SİLMEDEN)
+- Bundan sonra bir event kaydedilirken DeepL rate-limit yakalanırsa translations DOKUNULMAZ → banner önceki çeviriyi göstermeye devam eder
+- Backfill sweep bir sonraki admin aksiyonu / cron'da eksikleri tamamlar
+
