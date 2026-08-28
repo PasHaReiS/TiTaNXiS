@@ -1400,6 +1400,7 @@ async def auto_archive_sweep():
 
 
 
+@api_router.post("/events/rename-group")
 async def rename_group(old_name: str, new_name: str, _: dict = Depends(require_edit)):
     new_name = (new_name or "").strip()
     if not new_name:
@@ -3682,57 +3683,42 @@ async def cron_deepl_retry_i18n(request: Request):
         per_locale[locale] = len(additions)
     if patched:
         open(I18N_FILE_PATH, "w", encoding="utf-8").write(src)
-    return {"patched": patched, "per_locale": per_locale}
+    # v135.13 — Piggyback event/folder translations backfill onto this nightly
+    # cron. Same DeepL key + rate-limit backoff apply. Non-destructive: only
+    # empty translation dicts are filled; existing values are preserved.
+    events_result = await _backfill_event_translations()
+    return {"patched": patched, "per_locale": per_locale, "events_backfill": events_result}
 
 
-
-@api_router.post("/events/backfill-translations")
-async def events_backfill_translations(_: dict = Depends(require_admin)):
-    """v135.12 — One-shot backfill: scan all events and re-translate any
-    that have empty or missing `name_translations`, `group_translations` or
-    `subtitle_translations`. Skips docs whose relevant source field is blank.
-    Never overwrites existing non-empty translations. Respects DeepL 429
-    rate limits via the retry-with-backoff logic in `_deepl_translate_one`.
-    Returns a per-event breakdown so admins can see what was filled.
+async def _backfill_event_translations() -> dict:
+    """Shared helper: scan events + event_folders for empty translation dicts
+    and fill them via DeepL. Non-destructive. Used by:
+      - Admin endpoint: POST /api/events/backfill-translations
+      - Nightly cron:  POST /api/cron/deepl-retry-i18n (v135.13)
     """
     if not DEEPL_API_KEY:
-        raise HTTPException(503, "DEEPL_API_KEY not configured")
-    scanned = 0
-    filled_name = 0
-    filled_group = 0
-    filled_subtitle = 0
-    per_event: List[dict] = []
+        return {"skipped": "deepl_key_missing"}
+    scanned = filled_name = filled_group = filled_subtitle = filled_folder = 0
     async for e in db.events.find({}):
         scanned += 1
-        eid = e.get("id")
         updates: dict = {}
-        note: dict = {"id": eid}
-        # Name
         if e.get("name") and not (e.get("name_translations") or {}):
             tr = await _auto_translate_all(e["name"])
             if tr:
                 updates["name_translations"] = tr
                 filled_name += 1
-                note["name"] = f"→ {len(tr)} langs"
-        # Group
         if e.get("group_name") and not (e.get("group_translations") or {}):
             tr = await _auto_translate_all(e["group_name"])
             if tr:
                 updates["group_translations"] = tr
                 filled_group += 1
-                note["group"] = f"→ {len(tr)} langs"
-        # Subtitle
         if e.get("subtitle") and not (e.get("subtitle_translations") or {}):
             tr = await _auto_translate_all(e["subtitle"])
             if tr:
                 updates["subtitle_translations"] = tr
                 filled_subtitle += 1
-                note["subtitle"] = f"→ {len(tr)} langs"
         if updates:
             await db.events.update_one({"_id": e["_id"]}, {"$set": updates})
-            per_event.append(note)
-    # Also backfill event_folder names for good measure.
-    filled_folder = 0
     async for f in db.event_folders.find({}):
         if f.get("name") and not (f.get("name_translations") or {}):
             tr = await _auto_translate_all(f["name"])
@@ -3745,8 +3731,52 @@ async def events_backfill_translations(_: dict = Depends(require_admin)):
         "filled_group": filled_group,
         "filled_subtitle": filled_subtitle,
         "filled_folder": filled_folder,
-        "details": per_event,
     }
+
+
+@api_router.post("/events/backfill-translations")
+async def events_backfill_translations(_: dict = Depends(require_admin)):
+    """v135.12 — One-shot backfill: scan all events and re-translate any
+    that have empty or missing `name_translations`, `group_translations` or
+    `subtitle_translations`. Skips docs whose relevant source field is blank.
+    Never overwrites existing non-empty translations. Respects DeepL 429
+    rate limits via the retry-with-backoff logic in `_deepl_translate_one`.
+    v135.13 — Delegates to the shared `_backfill_event_translations` helper
+    (nightly cron uses the same helper).
+    """
+    if not DEEPL_API_KEY:
+        raise HTTPException(503, "DEEPL_API_KEY not configured")
+    return await _backfill_event_translations()
+
+
+@api_router.get("/translate/status")
+async def translate_status(_: dict = Depends(require_admin)):
+    """v135.13 — Admin diagnostic: verifies DeepL is reachable and shows
+    which env source is populated. Production troubleshooting for the
+    'preview çeviriyor ama production çevirmiyor' scenario — call this
+    from any env and it reports {configured, key_last4, plan, test_ok,
+    test_translation, sample_error}. If `configured=false` in production,
+    add DEEPL_API_KEY to the deploy environment via Emergent UI."""
+    result = {
+        "configured": bool(DEEPL_API_KEY),
+        "key_last4": DEEPL_API_KEY[-4:] if DEEPL_API_KEY else None,
+        "plan": ("free" if DEEPL_API_KEY.endswith(":fx") else "pro") if DEEPL_API_KEY else None,
+        "test_ok": False,
+        "test_translation": None,
+        "sample_error": None,
+    }
+    if not DEEPL_API_KEY:
+        result["sample_error"] = "DEEPL_API_KEY not set in environment"
+        return result
+    try:
+        out = await _deepl_translate_one("Merhaba", target_langs=["en"])
+        result["test_translation"] = out.get("en")
+        result["test_ok"] = bool(out.get("en"))
+        if not result["test_ok"]:
+            result["sample_error"] = "DeepL returned empty result — check rate limits / key validity"
+    except Exception as ex:
+        result["sample_error"] = f"{type(ex).__name__}: {ex}"[:200]
+    return result
 
 
 @api_router.get("/events/{event_id}/rsvp/list")

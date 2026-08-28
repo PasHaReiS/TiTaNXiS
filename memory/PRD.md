@@ -1859,3 +1859,31 @@ Production'da (titanxis.com) English'e geçince bazı KAFES kartları CAGE, baz�
 - Bundan sonra bir event kaydedilirken DeepL rate-limit yakalanırsa translations DOKUNULMAZ → banner önceki çeviriyi göstermeye devam eder
 - Backfill sweep bir sonraki admin aksiyonu / cron'da eksikleri tamamlar
 
+
+## v135.13 — Group Rename Fix + Cron Piggyback + Production Diagnostic (Feb 28, 2026)
+
+### 1. Group Rename "Method Not Allowed" — DÜZELTİLDİ
+- Kök sorun: `rename_group` fonksiyonunun üstünde `@api_router.post("/events/rename-group")` decorator'ı **eksikti** → route tanımlı değildi → FastAPI 405 Method Not Allowed dönüyordu
+- Düzeltme: server.py line 1403 üstüne `@api_router.post("/events/rename-group")` eklendi
+- Test: `POST /api/events/rename-group?old_name=X&new_name=Y` → HTTP 200 ✅
+
+### 2. Nightly Cron Backfill (Piggyback)
+- Yeni ayrı cron eklemek yerine mevcut `deepl-retry-i18n` (03:45 UTC, `/api/cron/deepl-retry-i18n`) cron'una piggyback yapıldı — cron sayısı zaten 10 (5 aktif limiti var)
+- Ortak helper: `_backfill_event_translations()` — hem admin endpoint (`POST /api/events/backfill-translations`) hem cron kullanıyor
+- Cron endpoint'i her gece 03:45 UTC'de tüm event/folder çevirilerini tarar, sadece BOŞ olanları doldurur, mevcut çevirileri asla overwrite etmez
+
+### 3. Production DeepL Diagnostic Endpoint
+- **Yeni**: `GET /api/translate/status` (admin) — DeepL bağlantı sağlığını canlıda doğrular
+- Response: `{configured, key_last4, plan, test_ok, test_translation, sample_error}`
+- Test çağrısı "Merhaba" → İngilizce'ye çeviriyor; başarısızsa `sample_error`'da hata detayı görülür
+- **Preview'da test edildi**: `{configured: true, plan: free, test_ok: true, test_translation: "Hello"}` ✅
+
+### Production DEEPL_API_KEY Sorunu
+Kullanıcı raporu: "Preview'da çalışıyor, production'da çalışmıyor" → büyük olasılıkla titanxis.com'da `DEEPL_API_KEY` env var'ı set edilmemiş.
+
+**Doğrulama adımı** (Republish sonrası):
+1. Admin olarak titanxis.com'da giriş yap
+2. Tarayıcı console'da: `fetch('/api/translate/status', {headers: {Authorization: 'Bearer ' + localStorage.getItem('token')}}).then(r=>r.json()).then(console.log)`
+3. `configured: false` görünürse → Emergent UI'dan production environment'a `DEEPL_API_KEY` env var'ını ekle (preview'daki ile aynı: `2fccffba-...:fx`)
+4. Republish sonrası `POST /api/events/backfill-translations` çağır → tüm event'ler çevrilsin
+
