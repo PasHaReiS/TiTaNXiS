@@ -787,6 +787,22 @@ async def get_member(member_id: str):
     doc = await db.members.find_one({"id": member_id}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Üye bulunamadı")
+    # v135.29 — Public bio join. If any app-user has linked this member
+    # (users.member_ids), surface their `bio` on the member doc so the
+    # MemberProfileDialog can render it without a second round-trip.
+    try:
+        linked = await db.users.find_one(
+            {"$or": [
+                {"member_ids": member_id},
+                {"member_id": member_id},
+            ]},
+            {"_id": 0, "bio": 1, "username": 1},
+        )
+        if linked and (linked.get("bio") or "").strip():
+            doc["bio"] = linked["bio"]
+            doc["bio_author_username"] = linked.get("username")
+    except Exception:
+        pass
     return doc
 
 
@@ -7671,6 +7687,185 @@ async def telegram_broadcast(body: TelegramBroadcastBody, _: dict = Depends(requ
         "username_dm_hits": username_dm_hits,
         "username_dm_pending": username_dm_pending,
     }
+
+
+# ---------- Telegram /link token management ----------
+
+# v135.29 — Auto-generated event share image.
+# Composes a 1200×630 PNG poster using Pillow with the event name (top),
+# TR-local date/time (middle), group / multiplier (bottom). Admin's manually
+# uploaded banner_url is used as background when set; otherwise we render a
+# dark gradient with a subtle amber accent bar. Endpoint is cheap (no cache)
+# — invoked on-demand by the modal + Telegram sendPhoto path.
+def _load_font(size: int, bold: bool = False):
+    """Try DejaVu (best CJK/Turkish coverage) → FreeSans → PIL default."""
+    from PIL import ImageFont
+    candidates = (
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold
+        else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf" if bold
+        else "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+    )
+    for path in candidates:
+        try:
+            return ImageFont.truetype(path, size)
+        except Exception:
+            continue
+    return ImageFont.load_default()
+
+
+async def _compose_event_share_image(event: dict) -> bytes:
+    """Return PNG bytes for the share poster. Non-blocking-safe (pure PIL)."""
+    from PIL import Image, ImageDraw
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    import io as _io
+    W, H = 1200, 630
+    # Base canvas — dark gradient onyx→ember with amber accent bar.
+    img = Image.new("RGB", (W, H), (10, 8, 6))
+    draw = ImageDraw.Draw(img, "RGBA")
+    for y in range(H):
+        r = int(10 + (231 - 10) * (y / H) * 0.06)
+        g = int(8 + (76 - 8) * (y / H) * 0.04)
+        b = int(6 + (26 - 6) * (y / H) * 0.02)
+        draw.line([(0, y), (W, y)], fill=(r, g, b))
+    # Overlay admin's banner_url when present (paste with 65% opacity).
+    banner_url = (event.get("banner_url") or "").strip()
+    if banner_url:
+        try:
+            import httpx as _hx
+            fetch_url = banner_url
+            # Rewrite `/api/uploads/...` relative URLs to hit the pod locally.
+            if fetch_url.startswith("/"):
+                fetch_url = f"http://127.0.0.1:8001{fetch_url}"
+            async with _hx.AsyncClient(timeout=8.0) as c:
+                r = await c.get(fetch_url)
+                if r.status_code == 200:
+                    bg = Image.open(_io.BytesIO(r.content)).convert("RGB")
+                    # Cover fit
+                    bw, bh = bg.size
+                    scale = max(W / bw, H / bh)
+                    nw, nh = int(bw * scale), int(bh * scale)
+                    bg = bg.resize((nw, nh), Image.LANCZOS)
+                    off = ((nw - W) // 2, (nh - H) // 2)
+                    bg = bg.crop((off[0], off[1], off[0] + W, off[1] + H))
+                    # Darken banner so text stays readable.
+                    dark = Image.new("RGB", (W, H), (10, 8, 6))
+                    img = Image.blend(bg, dark, 0.55)
+                    draw = ImageDraw.Draw(img, "RGBA")
+        except Exception:
+            pass
+    # Amber accent bar on the left edge — brand marker.
+    draw.rectangle([(0, 0), (14, H)], fill=(245, 166, 35, 255))
+    # Top kicker
+    kicker_font = _load_font(28, bold=True)
+    draw.text((60, 60), "TITANXIS · GAMING GUILD",
+              fill=(245, 166, 35, 255), font=kicker_font)
+    # Event name — wrap to fit 1080px width.
+    name = (event.get("name") or "Etkinlik").strip()
+    name_font = _load_font(84, bold=True)
+    lines = []
+    words = name.split(" ")
+    line = ""
+    for w in words:
+        cand = f"{line} {w}".strip()
+        if draw.textlength(cand, font=name_font) > 1080 and line:
+            lines.append(line); line = w
+        else:
+            line = cand
+    if line:
+        lines.append(line)
+    y = 130
+    for ln in lines[:2]:  # cap to 2 lines
+        draw.text((60, y), ln, fill=(245, 240, 232, 255), font=name_font)
+        y += 96
+    # Date/time line (TR)
+    ev_date = (event.get("date") or "").strip()
+    try:
+        _dtu = _dt.fromisoformat(ev_date.replace("Z", "+00:00"))
+        if _dtu.tzinfo is None:
+            _dtu = _dtu.replace(tzinfo=_tz.utc)
+        dt_tr = _dtu.astimezone(_tz(_td(hours=3)))
+        date_line = dt_tr.strftime("%d.%m.%Y · %H:%M (TR)")
+    except Exception:
+        date_line = ev_date[:16]
+    date_font = _load_font(42, bold=False)
+    draw.text((60, max(y + 12, 380)),
+              f"📅  {date_line}", fill=(245, 166, 35, 255), font=date_font)
+    # Group + multiplier
+    grp = (event.get("group_name") or "").strip() or "—"
+    mult = event.get("multiplier") or 1
+    meta_font = _load_font(34, bold=False)
+    meta_line = f"📊  {grp}    ⚡  ×{mult}"
+    draw.text((60, max(y + 12 + 60, 440)),
+              meta_line, fill=(200, 200, 200, 255), font=meta_font)
+    # Footer domain
+    footer_font = _load_font(24, bold=True)
+    domain = os.environ.get("PUBLIC_DOMAIN", "").strip() or "titanxis.com"
+    draw.text((60, H - 60), domain,
+              fill=(245, 240, 232, 220), font=footer_font)
+    buf = _io.BytesIO()
+    img.save(buf, format="PNG", optimize=True)
+    return buf.getvalue()
+
+
+@api_router.get("/events/{event_id}/share-image.png")
+async def event_share_image(event_id: str):
+    from fastapi.responses import Response
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0})
+    if not ev:
+        raise HTTPException(404, "event not found")
+    png = await _compose_event_share_image(ev)
+    return Response(
+        content=png, media_type="image/png",
+        headers={"Cache-Control": "public, max-age=60"},
+    )
+
+
+@api_router.post("/events/{event_id}/share-image/send-telegram")
+async def event_share_image_send_tg(event_id: str, _: dict = Depends(require_admin)):
+    """Compose the share PNG and post it to TELEGRAM_CHANNEL_ID via sendPhoto
+    with a caption that mirrors the on-image text. Returns 400 when the
+    channel/token isn't configured so the UI can surface a clear toast."""
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0})
+    if not ev:
+        raise HTTPException(404, "event not found")
+    channel = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    if not channel or not token:
+        raise HTTPException(400, "TELEGRAM_CHANNEL_ID / TELEGRAM_BOT_TOKEN tanımlı değil")
+    png = await _compose_event_share_image(ev)
+    # Turkey-local caption
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    try:
+        _dtu = _dt.fromisoformat((ev.get("date") or "").replace("Z", "+00:00"))
+        if _dtu.tzinfo is None:
+            _dtu = _dtu.replace(tzinfo=_tz.utc)
+        dt_tr = _dtu.astimezone(_tz(_td(hours=3)))
+        date_line = dt_tr.strftime("%d.%m.%Y · %H:%M (TR)")
+    except Exception:
+        date_line = (ev.get("date") or "")[:16]
+    caption_lines = [
+        f"📅 *{ev.get('name') or 'Etkinlik'}*",
+        f"🗓 Tarih: `{date_line}`",
+        f"📊 Grup: {ev.get('group_name') or '—'}",
+    ]
+    if ev.get("multiplier") and ev.get("multiplier") != 1:
+        caption_lines.append(f"⚡ Çarpan: ×{ev.get('multiplier')}")
+    base = (os.environ.get("PUBLIC_BASE_URL", "") or "https://titanxis.com").rstrip("/")
+    caption_lines.append(f"\n🔗 {base}/etkinlikler#event-{ev.get('id')}")
+    caption = "\n".join(caption_lines)
+    # sendPhoto via multipart
+    import httpx as _hx
+    files = {"photo": (f"event-{event_id}.png", png, "image/png")}
+    data = {"chat_id": channel, "caption": caption, "parse_mode": "Markdown"}
+    async with _hx.AsyncClient(timeout=20.0) as c:
+        r = await c.post(
+            f"https://api.telegram.org/bot{token}/sendPhoto",
+            data=data, files=files,
+        )
+    if r.status_code != 200:
+        raise HTTPException(502, f"Telegram sendPhoto failed: {r.text[:200]}")
+    return {"ok": True, "message_id": r.json().get("result", {}).get("message_id")}
 
 
 # ---------- Telegram /link token management ----------

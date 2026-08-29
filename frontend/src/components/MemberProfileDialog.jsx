@@ -191,6 +191,24 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
               </div>
             )}
 
+            {/* v135.29 — Public bio (member's own words). Rendered only when
+                the linked user set a non-empty bio via /profil → Biyografi. */}
+            {m.bio && m.bio.trim() !== "" && (
+              <div
+                className="mb-3 rounded p-2 text-xs italic text-white leading-snug"
+                style={{
+                  background: "rgba(245,166,35,0.06)",
+                  border: "1px solid rgba(245,166,35,0.25)",
+                }}
+                data-testid="member-profile-bio"
+              >
+                <span className="text-[9px] uppercase tracking-widest gold-text font-bold not-italic mr-1">
+                  {t("member_bio_label", "Biyografi")}
+                </span>
+                "{m.bio}"
+              </div>
+            )}
+
             {/* Divider */}
             <div className="h-px my-3" style={{ background: "linear-gradient(90deg, transparent, rgba(245,166,35,0.4), transparent)" }} />
 

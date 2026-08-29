@@ -38,6 +38,24 @@ export default function Profile() {
   const { data: bdayData, mutate: mutateBday } = useSWR("/auth/me/birthday", fetcher);
   const [bdayInput, setBdayInput] = useState("");
   const [bdayBusy, setBdayBusy] = useState(false);
+  // v135.29 — Optional public bio (max 280 chars).
+  const { data: bioData, mutate: mutateBio } = useSWR("/auth/me/bio", fetcher);
+  const [bioInput, setBioInput] = useState("");
+  const [bioBusy, setBioBusy] = useState(false);
+  React.useEffect(() => {
+    if (bioData && typeof bioData.bio === "string") setBioInput(bioData.bio);
+  }, [bioData]);
+  const saveBio = async () => {
+    setBioBusy(true);
+    try {
+      const res = await api.put("/auth/me/bio", { bio: bioInput || "" });
+      mutateBio(res?.data, false);
+      toast.success(bioInput
+        ? t("profile_bio_saved", "Biyografi kaydedildi")
+        : t("profile_bio_cleared", "Biyografi temizlendi"));
+    } catch (e) { toast.error(apiErr(e)); }
+    finally { setBioBusy(false); }
+  };
   // Sync local input from backend value on first load / roundtrip.
   React.useEffect(() => {
     if (bdayData && typeof bdayData.birthday_mmdd === "string") {
@@ -640,6 +658,44 @@ export default function Profile() {
             checked={!radialMuted}
             onCheckedChange={(v) => toggleRadialMute(!v)}
           />
+        </div>
+
+        {/* v135.29 — Optional public bio (max 280 chars, herkese açık). */}
+        <div className="section-title flex items-center gap-2">
+          ✍️ {t("profile_bio_title", "Biyografi")}
+        </div>
+        <div className="card-dark p-3 mb-4 space-y-2" data-testid="profile-bio-card">
+          <div className="text-[11px] text-muted-foreground leading-snug">
+            {t("profile_bio_hint",
+               "İsteğe bağlı — profil kartında herkese açık gösterilir. Kısa savaş çığlığı ya da tanıtım (max 280 karakter).")}
+          </div>
+          <textarea
+            value={bioInput}
+            onChange={(e) => setBioInput(e.target.value.slice(0, 280))}
+            placeholder={t("profile_bio_placeholder",
+              "Kaleyi sağlam tut, saflar bozulmasın.")}
+            data-testid="profile-bio-textarea"
+            rows={3}
+            maxLength={280}
+            className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
+          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="text-[10px] text-muted-foreground font-mono">
+              {t("profile_bio_count",
+                "{{count}} / 280", { count: bioInput.length })}
+            </div>
+            <button
+              type="button"
+              onClick={saveBio}
+              disabled={bioBusy}
+              className="btn-gold text-xs px-3 py-1.5 ml-auto"
+              data-testid="profile-bio-save"
+            >
+              {bioBusy
+                ? t("saving", "Kaydediliyor…")
+                : t("profile_bio_save_btn", "Kaydet")}
+            </button>
+          </div>
         </div>
 
         {/* v135.28 — Optional birthday (MM-DD only). Sending an empty string

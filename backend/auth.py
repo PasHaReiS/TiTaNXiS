@@ -435,8 +435,6 @@ def make_auth_router(db):
     # push whenever `today == birthday_mmdd`. Setting an empty string clears
     # the value and mutes any future celebration.
     import re as _re_bday
-
-    @router.get("/auth/me/birthday")
     async def get_birthday(user: dict = Depends(require_auth)):
         return {"birthday_mmdd": user.get("birthday_mmdd") or ""}
 
@@ -465,6 +463,30 @@ def make_auth_router(db):
                       "birthday_updated_at": now_iso()}},
         )
         return {"ok": True, "birthday_mmdd": raw}
+
+    # v135.29 — Optional public bio (max 280 chars). Rendered on the member
+    # profile card so guildmates can leave a short intro / battle cry.
+    # Distinct from admin_notes (private) — the bio is user-authored and
+    # visible to every logged-in guildmate.
+    @router.get("/auth/me/bio")
+    async def get_bio(user: dict = Depends(require_auth)):
+        return {"bio": user.get("bio") or ""}
+
+    @router.put("/auth/me/bio")
+    async def put_bio(body: dict, user: dict = Depends(require_auth)):
+        raw = (body or {}).get("bio")
+        if raw is None:
+            raw = ""
+        if not isinstance(raw, str):
+            raise HTTPException(400, "bio must be a string")
+        raw = raw.strip()
+        if len(raw) > 280:
+            raise HTTPException(400, "bio max 280 karakter")
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$set": {"bio": raw or None, "bio_updated_at": now_iso()}},
+        )
+        return {"ok": True, "bio": raw}
 
     # v124 — Avatar upload. Frontend uses the existing `/api/uploads/image`
     # endpoint to store the file and receive `{file_id, url}`; the URL is

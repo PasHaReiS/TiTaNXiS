@@ -1872,8 +1872,11 @@ export default function Events() {
 
 function EventDetailModal({ event, open, onClose, onEdit, events = [], onNavigate }) {
   const { t } = useTranslation();
+  const { isAdmin } = useAuth();
   const [busy, setBusy] = React.useState(false);
   const [lightbox, setLightbox] = React.useState(false);
+  // v135.29 — Auto-generated share image modal (admin only).
+  const [shareOpen, setShareOpen] = React.useState(false);
 
   // Sibling navigation — Esc closes the modal, ← / → walk through the
   // same filteredEvents list currently rendered on the page. We stop when
@@ -2129,7 +2132,25 @@ function EventDetailModal({ event, open, onClose, onEdit, events = [], onNavigat
               <span className="chip text-[10px]" style={{ borderColor: "#818cf8", color: "#C4B5FD" }}>🔕 Hatırlatmasız</span>
             )}
             {!e.archived && <EventCountdown target={e.date} testId={`event-detail-countdown-${e.id}`} />}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setShareOpen(true)}
+                className="chip text-[10px]"
+                style={{ borderColor: "#F5A623", color: "#F5A623",
+                         background: "rgba(245,166,35,0.10)" }}
+                data-testid={`event-share-image-btn-${e.id}`}
+              >
+                🖼️ {t("event_share_image_btn", "Paylaşım Görseli")}
+              </button>
+            )}
           </div>
+          {shareOpen && (
+            <EventShareImageModal
+              event={e}
+              onClose={() => setShareOpen(false)}
+            />
+          )}
 
           {e.reminder_enabled !== false && (
             <div className="pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
@@ -2184,6 +2205,119 @@ function EventDetailModal({ event, open, onClose, onEdit, events = [], onNavigat
     </div>
   );
 }
+
+// v135.29 — Auto-generated event share image modal.
+// Renders `<img src="/api/events/{id}/share-image.png">` inside the detail
+// modal so admins can preview the composed poster + push it to the group
+// chat with a single click, or download as PNG for external sharing.
+function EventShareImageModal({ event, onClose }) {
+  const { t } = useTranslation();
+  const [sending, setSending] = React.useState(false);
+  const [reloadKey, setReloadKey] = React.useState(Date.now());
+  const src = `${process.env.REACT_APP_BACKEND_URL}/api/events/${event.id}/share-image.png?ts=${reloadKey}`;
+  const sendToTelegram = async () => {
+    if (!window.confirm(t("event_share_send_confirm",
+      "Görseli Telegram grubuna göndermek istiyor musun?"))) return;
+    setSending(true);
+    try {
+      await api.post(`/events/${event.id}/share-image/send-telegram`);
+      toast.success(t("event_share_sent_toast",
+        "Görsel Telegram grubuna gönderildi"));
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e?.message || "Gönderilemedi");
+    } finally { setSending(false); }
+  };
+  const downloadPng = async () => {
+    try {
+      const r = await fetch(src);
+      const blob = await r.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `titanxis-${(event.name || "event").replace(/\s+/g, "-").toLowerCase()}.png`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+    } catch (e) {
+      toast.error(t("event_share_download_failed", "İndirilemedi"));
+    }
+  };
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.90)" }}
+      onClick={onClose}
+      data-testid="event-share-image-modal"
+    >
+      <div
+        onClick={(ev) => ev.stopPropagation()}
+        className="card-red-gold p-4 max-w-2xl w-full space-y-3"
+      >
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] uppercase font-bold tracking-widest gold-text">
+            {t("event_share_image_title", "Paylaşım Görseli")}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-muted-foreground hover:text-white"
+            data-testid="event-share-image-close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div
+          className="rounded overflow-hidden"
+          style={{ background: "rgba(0,0,0,0.35)",
+                   border: "1px solid rgba(245,166,35,0.30)" }}
+        >
+          <img
+            src={src}
+            alt={event.name}
+            className="w-full block"
+            style={{ maxHeight: "60vh", objectFit: "contain" }}
+            data-testid="event-share-image-preview"
+          />
+        </div>
+        <div className="text-[11px] text-muted-foreground leading-snug">
+          {t("event_share_image_hint",
+             "Otomatik oluşturuldu — etkinlik adı, TR saati, grup ve çarpan bilgisi görsele yerleştirildi. Admin banner_url ekleyince arka plan olarak kullanılır.")}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={sendToTelegram}
+            disabled={sending}
+            className="btn-gold text-sm px-4 py-2 flex items-center gap-1.5"
+            data-testid="event-share-image-send"
+          >
+            {sending ? "⏳" : "📤"}
+            {sending
+              ? t("event_share_sending", "Gönderiliyor…")
+              : t("event_share_send_btn", "Telegram Grubuna Gönder")}
+          </button>
+          <button
+            type="button"
+            onClick={downloadPng}
+            className="chip text-xs px-3 py-2"
+            data-testid="event-share-image-download"
+          >
+            💾 {t("event_share_download_btn", "PNG İndir")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setReloadKey(Date.now())}
+            className="chip text-xs px-3 py-2 ml-auto"
+            data-testid="event-share-image-refresh"
+            title={t("event_share_refresh_title", "Görseli yenile")}
+          >
+            🔄 {t("event_share_refresh_btn", "Yenile")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 
 function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearSelection, folders = [], onDone }) {
   const { t } = useTranslation();
