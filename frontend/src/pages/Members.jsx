@@ -294,6 +294,68 @@ function OcrRegisterDropdown({ onPickAddMember, onPickPower, onPickCastleRank })
         </div>
       )}
     </div>
+
+// v135.51 — OCR Undo Bar (Members header'da her zaman görünür).
+// GET /ocr/audit/recent kullanıcının kendi işlemlerini + pasha ise tümünü döner.
+function OcrUndoBar() {
+  const { t } = useTranslation();
+  const { data, mutate: mutateAudit } = useSWR("/ocr/audit/recent?limit=20", (u) => api.get(u).then((r) => r.data), { refreshInterval: 30000 });
+  const items = data?.items || [];
+  const isPasha = !!data?.is_pasha;
+  const [busy, setBusy] = React.useState(null);
+  if (!items.length) return null;
+  const undo = async (op) => {
+    if (!window.confirm(t("ocr_undo_confirm",
+      "Bu OCR işlemi geri alınsın mı? ({{n}} üye, {{p}} puan silinecek)",
+      { n: (op.created_member_ids || []).length, p: (op.created_point_ids || []).length }))) return;
+    setBusy(op.id);
+    try {
+      const r = await api.post(`/ocr/audit/${op.id}/undo`);
+      toast.success(t("ocr_undo_done_toast",
+        "Geri alındı: {{m}} üye, {{p}} puan silindi",
+        { m: r.data?.deleted_members || 0, p: r.data?.deleted_points || 0 }));
+      mutateAudit();
+    } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
+    finally { setBusy(null); }
+  };
+  return (
+    <div className="max-w-4xl mx-auto px-4 mt-2 space-y-1" data-testid="ocr-undo-bar">
+      {items.slice(0, 3).map((op) => {
+        const isMine = !isPasha; // pasha görüyorsa isteğe bağlı olarak farklı renk
+        const others = isPasha && op.user_id;
+        return (
+          <div key={op.id}
+               className="flex items-center gap-2 rounded p-1.5 text-[11px]"
+               style={{ background: others ? "rgba(168,85,247,0.10)" : "rgba(148,163,184,0.10)",
+                        border: `1px solid ${others ? "rgba(168,85,247,0.55)" : "rgba(148,163,184,0.55)"}` }}
+               data-testid={`ocr-undo-item-${op.id}`}>
+            <span className="text-white flex-1 min-w-0 truncate">
+              ↶ <b>{op.op_type}</b> · {new Date(op.created_at).toLocaleTimeString("tr-TR")}
+              <span className="ml-1 text-muted-foreground">
+                ({(op.created_member_ids || []).length}m · {(op.created_point_ids || []).length}p)
+              </span>
+              {isPasha && op.user_name && (
+                <span className="ml-2 text-[10px]" style={{ color: "#D8B4FE" }}>· {op.user_name}</span>
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={() => undo(op)}
+              disabled={busy === op.id}
+              data-testid={`ocr-undo-btn-${op.id}`}
+              className="chip text-[10px]"
+              style={{ borderColor: "#ef4444", color: "#FCA5A5" }}
+            >
+              {busy === op.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+              {t("ocr_undo_btn", "Geri Al")}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
   );
 }
 

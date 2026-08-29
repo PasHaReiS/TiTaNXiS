@@ -591,7 +591,28 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
       } else if (mode === "members") {
         filteredData.members = applyEditsAndKeep(result.data.members || [], "members");
       }
-      await onApply(filteredData, extra);
+      const _applyRes = await onApply(filteredData, extra);
+      // v135.51 — Audit kaydı (created/updated ID'ler onApply'ın döndürdüğü
+      // response'ta varsa toplanır). Frontend bu ID'leri yakalayamıyorsa (bazı
+      // OcrDialog kullanımlarında onApply hiçbir şey döndürmüyor) audit yine
+      // yazılır ama undo etkisi olmayacak — kullanıcıya "Geri alınacak veri
+      // bulunamadı" uyarısı çıkar.
+      try {
+        const op_type = mode === "event" ? "ocr_event_points" : (subMode === "castle_rank" ? "ocr_castle_rank" : "ocr_power");
+        const arr = mode === "event" ? filteredData.participants : filteredData.members;
+        const created_member_ids = (_applyRes?.created_member_ids) || (_applyRes?.data?.created_member_ids) || [];
+        const updated_member_ids = (_applyRes?.updated_member_ids) || (_applyRes?.data?.updated_member_ids) || [];
+        const created_point_ids  = (_applyRes?.created_point_ids)  || (_applyRes?.data?.created_point_ids)  || [];
+        await api.post("/ocr/audit", {
+          op_type,
+          created_member_ids, updated_member_ids, created_point_ids,
+          event_id: extra.event_id || null,
+          note: `${arr?.length || 0} satır`,
+        });
+        globalMutate("/ocr/audit/recent?limit=20");
+      } catch (auditErr) {
+        console.warn("audit log failed", auditErr);
+      }
       // Close the modal FIRST so the user sees an immediate return to the
       // events list; SWR revalidation kicked off inside onApply continues
       // in the background and repaints the row when it lands. Previously

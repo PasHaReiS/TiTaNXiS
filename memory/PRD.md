@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v135.51 OCR Audit Log + Undo — Tüm Ekranlar + Pasha Full Access)** — Backend + Frontend:
+  - **Backend `routes/ocr_audit.py`** (yeni): `ocr_audit` koleksiyonu + 3 endpoint. `POST /api/ocr/audit` op kaydı (op_type, created/updated member IDs, created point IDs, event_id, user_id/email), `GET /api/ocr/audit/recent?limit=20` — normal admin kendi ops'larını, `pasha@titanxis.com` TÜM ops'ları görür, `POST /api/ocr/audit/{op_id}/undo` — created_member_ids ile members.delete_one + created_point_ids ile points.delete_one; `undone=True` mühürlenir. Yetki: sadece kendi op'unu (pasha hariç). Server startup'ta index ensure.
+  - **Frontend `OcrDialog.doApply`**: `onApply(filteredData, extra)` sonucundan `created_member_ids/updated_member_ids/created_point_ids` toplayıp `POST /api/ocr/audit`'e ekler. `op_type = ocr_event_points | ocr_power | ocr_castle_rank`. Audit kaydı başarısızsa console.warn ile geçilir.
+  - **Frontend `OcrUndoBar` (Members.jsx)**: SWR ile `/ocr/audit/recent` (30s poll). Son 3 op'u chip olarak listeler — normal admin sadece kendisininkileri, pasha başkalarınınkini mor renkte kullanıcı adıyla görür. Her chip'te `ocr-undo-btn-{id}` "Geri Al" → confirm → POST undo. Toast: "{m} üye, {p} puan silindi".
+  - **MemberAddOcr Undo**: v135.50'de eklenen session-based `undoStack` korunur (audit'ten bağımsız). Yeni audit endpoint MemberAddOcr'a da bağlanabilir (bir sonraki iterasyon).
+  - **Pasha Full Access**: `PASHA_EMAIL="pasha@titanxis.com"` sabit; audit list'te + undo endpoint'inde bu email'e sahip user tüm ops'ları görüp undo edebilir. `is_pasha` flag response'ta döner → UI mor renk highlight.
+  - **i18n**: `ocr_undo_confirm/done_toast/btn`.
+
+
 - **Feb 29, 2026 (v135.50 OCR Geri Al + Alliance Dropdown)** — Frontend-only:
   - **Geri Al (MemberAddOcr)**: Yeni `undoStack` state — `saveRow` her başarılı POST /members'te oluşan `{id, name}`'i yığına ekler. Sayfanın altında sticky `moa-undo-bar` (border-slate) — "↶ Bu oturumda {N} yeni üye eklendi" + `moa-undo-btn` "Geri Al" butonu. Tık: window.confirm → her ID için DELETE /members/{id}, toast özeti; row.existing_id sıfırlanır → satır tekrar "eksik" haline döner.
   - **Yetki**: Her admin kendi session'ında yığdığı ID'leri silebilir; `pasha@titanxis.com` giriş yaparsa aynı UI'yı görür, ama backend `require_admin` her admin'e DELETE hakkı verdiği için hepsi çalışır (kritik uyarı: session'a ait olmayan ID'ler UI'da görünmez, dolayısıyla dolaylı yoldan izole).

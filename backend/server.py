@@ -10005,6 +10005,14 @@ app.include_router(
 app.include_router(make_svs_router(db, require_auth, require_admin), prefix="/api")
 from routes.ocr import make_ocr_router
 app.include_router(make_ocr_router(db, require_edit, require_auth), prefix="/api")
+# v135.51 — OCR Audit Log + Undo
+from routes.ocr_audit import make_ocr_audit_router, ensure_ocr_audit_indexes as _eoai
+app.include_router(make_ocr_audit_router(db, require_admin), prefix="/api")
+try:
+    import asyncio as _oc_ai
+    _oc_ai.get_event_loop().create_task(_eoai(db))
+except Exception:
+    pass
 from routes.alliances import make_alliances_router
 app.include_router(make_alliances_router(db, require_edit), prefix="/api")
 from routes.badges import make_badges_router, ensure_badges_indexes, seed_preset_badges
