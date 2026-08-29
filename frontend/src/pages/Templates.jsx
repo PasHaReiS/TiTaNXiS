@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import useSWR from "swr";
+import React, { useMemo, useState, useEffect, useRef } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
 import { useTranslation } from "react-i18next";
 import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -8,9 +8,50 @@ import { toast } from "sonner";
 import {
   Send, Plus, X, Loader2, Pencil, Trash2, MessageSquareText, Copy,
   CalendarDays, BellRing, Archive, ArchiveRestore, LayoutTemplate,
+  Search as SearchIcon, Clock, FlaskConical,
 } from "lucide-react";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
+
+/**
+ * useSlashFocus — global `/` klavye kısayolu bir input'a focus yapar.
+ * Aktif alan bir input/textarea ise şortkat devre dışıdır.
+ */
+function useSlashFocus(ref) {
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== "/") return;
+      const t = e.target;
+      const tag = (t?.tagName || "").toUpperCase();
+      if (tag === "INPUT" || tag === "TEXTAREA" || t?.isContentEditable) return;
+      const el = ref?.current;
+      if (!el) return;
+      e.preventDefault();
+      el.focus();
+      try { el.select(); } catch { /* noop */ }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ref]);
+}
+
+/** useCtrlEnterSubmit — modal içindeyken Ctrl/Cmd+Enter ile form gönderir. */
+function useCtrlEnterSubmit(formRef, active) {
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        const f = formRef?.current;
+        if (!f) return;
+        e.preventDefault();
+        if (typeof f.requestSubmit === "function") f.requestSubmit();
+        else f.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [formRef, active]);
+}
 
 /**
  * Şablonlar hub — /sablonlar (v135.38).
@@ -91,6 +132,9 @@ function TelegramTemplatesSection() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [showArchive, setShowArchive] = useState(false);
   const [sendingId, setSendingId] = useState(null);
+  const [search, setSearch] = useState("");
+  const searchRef = useRef(null);
+  useSlashFocus(searchRef);
 
   const CATS = useMemo(() => ([
     { key: "savas_cagrisi",        label: t("tg_tpl_cat_war_call", "Savaş Çağrısı"),       emoji: "⚔️", color: "#E74C1A" },
@@ -105,7 +149,13 @@ function TelegramTemplatesSection() {
   if (categoryFilter !== "all") params.set("category", categoryFilter);
   const swrKey = `/telegram-templates${params.toString() ? "?" + params.toString() : ""}`;
   const { data, mutate, isLoading } = useSWR(swrKey, fetcher, { refreshInterval: 60000 });
-  const items = data?.items || [];
+  const rawItems = data?.items || [];
+  const items = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rawItems;
+    return rawItems.filter((i) =>
+      (i.name || "").toLowerCase().includes(q) || (i.body || "").toLowerCase().includes(q));
+  }, [rawItems, search]);
 
   const sendTemplate = async (tpl) => {
     if (!window.confirm(t("tg_tpl_confirm_send", "Bu şablonu Telegram grubuna göndermek istiyor musun?"))) return;
@@ -136,6 +186,9 @@ function TelegramTemplatesSection() {
     <div className="space-y-4" data-testid="tpl-section-telegram">
       <div className="flex items-center gap-2 flex-wrap">
         <ArchiveToggle showArchive={showArchive} setShowArchive={setShowArchive} />
+        <TemplateSearchInput inputRef={searchRef} value={search} onChange={setSearch}
+                             testid="tg-tpl-search"
+                             placeholder={t("tpl_search_ph", "Şablonda ara… ( / kısayolu )")} />
         <button
           type="button"
           data-testid="tg-tpl-new-btn"
@@ -246,9 +299,19 @@ function EventTemplatesSection() {
   const [showArchive, setShowArchive] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [search, setSearch] = useState("");
+  const searchRef = useRef(null);
+  useSlashFocus(searchRef);
   const swrKey = `/event-templates${showArchive ? "?archived=true" : ""}`;
   const { data, mutate, isLoading } = useSWR(swrKey, fetcher, { refreshInterval: 60000 });
-  const items = data?.items || [];
+  const rawItems = data?.items || [];
+  const items = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rawItems;
+    return rawItems.filter((i) =>
+      (i.template_name || "").toLowerCase().includes(q) ||
+      (i.name || "").toLowerCase().includes(q));
+  }, [rawItems, search]);
 
   const archive = async (tpl, on) => {
     try {
@@ -270,6 +333,9 @@ function EventTemplatesSection() {
     <div className="space-y-4" data-testid="tpl-section-event">
       <div className="flex items-center gap-2 flex-wrap">
         <ArchiveToggle showArchive={showArchive} setShowArchive={setShowArchive} />
+        <TemplateSearchInput inputRef={searchRef} value={search} onChange={setSearch}
+                             testid="ev-tpl-search"
+                             placeholder={t("tpl_search_ph", "Şablonda ara… ( / kısayolu )")} />
         <button type="button"
                 data-testid="ev-tpl-new-btn"
                 onClick={() => { setEditing(null); setShowCompose(true); }}
@@ -341,13 +407,24 @@ function EventTemplatesSection() {
 /* ----------------------------- RSVP Section ----------------------------- */
 function RsvpTemplatesSection() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [showArchive, setShowArchive] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
   const [editing, setEditing] = useState(null);
   const [sendTpl, setSendTpl] = useState(null);
+  const [scheduleTpl, setScheduleTpl] = useState(null);
+  const [search, setSearch] = useState("");
+  const searchRef = useRef(null);
+  useSlashFocus(searchRef);
   const swrKey = `/rsvp-templates${showArchive ? "?archived=true" : ""}`;
   const { data, mutate, isLoading } = useSWR(swrKey, fetcher, { refreshInterval: 60000 });
-  const items = data?.items || [];
+  const rawItems = data?.items || [];
+  const items = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rawItems;
+    return rawItems.filter((i) =>
+      (i.name || "").toLowerCase().includes(q) || (i.body || "").toLowerCase().includes(q));
+  }, [rawItems, search]);
 
   const archive = async (tpl, on) => {
     try {
@@ -364,11 +441,26 @@ function RsvpTemplatesSection() {
       mutate();
     } catch (e) { toast.error(apiErr(e)); }
   };
+  const testSend = async (tpl) => {
+    try {
+      const r = await api.post(`/rsvp-templates/${tpl.id}/test-send`, {});
+      const d = r.data || {};
+      const hint = d.has_push_subscription || d.has_telegram_chat
+        ? t("rsvp_tpl_test_ok", "Test gönderildi ({{recipient}}): push {{p}} / telegram {{g}}",
+            { recipient: d.recipient, p: d.push_sent, g: d.telegram_sent })
+        : t("rsvp_tpl_test_no_channels", "Kullanıcının push aboneliği veya Telegram bağlantısı yok — bildirim ulaşmayacak.");
+      if (d.has_push_subscription || d.has_telegram_chat) toast.success(hint);
+      else toast.warning(hint);
+    } catch (e) { toast.error(apiErr(e)); }
+  };
 
   return (
     <div className="space-y-4" data-testid="tpl-section-rsvp">
       <div className="flex items-center gap-2 flex-wrap">
         <ArchiveToggle showArchive={showArchive} setShowArchive={setShowArchive} />
+        <TemplateSearchInput inputRef={searchRef} value={search} onChange={setSearch}
+                             testid="rsvp-tpl-search"
+                             placeholder={t("tpl_search_ph", "Şablonda ara… ( / kısayolu )")} />
         <button type="button"
                 data-testid="rsvp-tpl-new-btn"
                 onClick={() => { setEditing(null); setShowCompose(true); }}
@@ -411,11 +503,23 @@ function RsvpTemplatesSection() {
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {!showArchive && (
-                <button type="button" onClick={() => setSendTpl(tpl)}
-                        className="btn-gold text-xs flex items-center gap-1.5 px-3 py-1.5"
-                        data-testid={`rsvp-tpl-send-${tpl.id}`}>
-                  <Send className="w-3.5 h-3.5" /> {t("rsvp_tpl_send_btn", "Katılmayanlara Gönder")}
-                </button>
+                <>
+                  <button type="button" onClick={() => setSendTpl(tpl)}
+                          className="btn-gold text-xs flex items-center gap-1.5 px-3 py-1.5"
+                          data-testid={`rsvp-tpl-send-${tpl.id}`}>
+                    <Send className="w-3.5 h-3.5" /> {t("rsvp_tpl_send_btn", "Katılmayanlara Gönder")}
+                  </button>
+                  <button type="button" onClick={() => setScheduleTpl(tpl)}
+                          className="chip text-[11px]" style={{ borderColor: "#38BDF8", color: "#7DD3FC" }}
+                          data-testid={`rsvp-tpl-schedule-${tpl.id}`}>
+                    <Clock className="w-3 h-3" /> {t("rsvp_tpl_schedule_btn", "Zamanla")}
+                  </button>
+                  <button type="button" onClick={() => testSend(tpl)}
+                          className="chip text-[11px]" style={{ borderColor: "#A855F7", color: "#D8B4FE" }}
+                          data-testid={`rsvp-tpl-test-send-${tpl.id}`}>
+                    <FlaskConical className="w-3 h-3" /> {t("rsvp_tpl_test_btn", "Test Gönder")}
+                  </button>
+                </>
               )}
               <button type="button" onClick={() => { setEditing(tpl); setShowCompose(true); }}
                       className="chip text-[11px]" data-testid={`rsvp-tpl-edit-${tpl.id}`}>
@@ -458,11 +562,177 @@ function RsvpTemplatesSection() {
           onSent={() => { setSendTpl(null); mutate(); }}
         />
       )}
+      {scheduleTpl && (
+        <RsvpScheduleModal
+          tpl={scheduleTpl}
+          onClose={() => setScheduleTpl(null)}
+          onSaved={() => { setScheduleTpl(null); }}
+        />
+      )}
+      {!showArchive && <RsvpSchedulesList />}
     </div>
   );
 }
 
+/* ------------------- RSVP Schedules List (in RSVP tab) ------------------- */
+function RsvpSchedulesList() {
+  const { t } = useTranslation();
+  const { data, mutate } = useSWR("/rsvp-schedules?include_sent=true", fetcher, { refreshInterval: 60000 });
+  const items = data?.items || [];
+  const remove = async (sid) => {
+    if (!window.confirm(t("rsvp_sch_confirm_delete", "Bu zamanlamayı iptal etmek istiyor musun?"))) return;
+    try {
+      await api.delete(`/rsvp-schedules/${sid}`);
+      toast.success(t("rsvp_sch_deleted_toast", "Zamanlama silindi"));
+      mutate();
+    } catch (e) { toast.error(apiErr(e)); }
+  };
+  if (!items.length) return null;
+  return (
+    <div className="mt-4 space-y-2" data-testid="rsvp-schedules-list">
+      <div className="flex items-center gap-2">
+        <Clock className="w-4 h-4" style={{ color: "#38BDF8" }} />
+        <h3 className="text-sm font-bold uppercase tracking-widest" style={{ color: "#7DD3FC" }}>
+          {t("rsvp_sch_title", "Zamanlanmış Hatırlatmalar")}
+        </h3>
+        <span className="chip text-[10px] ml-auto">{items.length}</span>
+      </div>
+      {items.map((s) => (
+        <div key={s.id} className="rounded p-2 flex items-center gap-2 flex-wrap"
+             style={{ background: s.sent ? "rgba(148,163,184,0.08)" : "rgba(56,189,248,0.08)",
+                      border: `1px solid ${s.sent ? "rgba(148,163,184,0.35)" : "rgba(56,189,248,0.40)"}` }}
+             data-testid={`rsvp-schedule-row-${s.id}`}>
+          <div className="text-xs text-white flex-1 min-w-0">
+            <div className="font-bold truncate">
+              🔔 {s.template_name || "?"} · 📅 {s.event_name || "?"}
+            </div>
+            <div className="text-[10px] mono text-muted-foreground">
+              T-{s.minutes_before}dk · {t("rsvp_sch_send_at", "Gönderim")}: {new Date(s.send_at).toLocaleString("tr-TR")}
+              {s.include_maybe && <> · <span style={{ color: "#F5A623" }}>{t("rsvp_sch_include_maybe", "Belki dahil")}</span></>}
+            </div>
+          </div>
+          {s.sent ? (
+            <span className="chip text-[10px]" style={{ borderColor: "#22C55E", color: "#86EFAC" }}>
+              ✓ {t("rsvp_sch_sent_badge", "Gönderildi")} ({s.target_count || 0})
+            </span>
+          ) : (
+            <span className="chip text-[10px]" style={{ borderColor: "#38BDF8", color: "#7DD3FC" }}>
+              ⏰ {t("rsvp_sch_pending_badge", "Bekliyor")}
+            </span>
+          )}
+          <button type="button" onClick={() => remove(s.id)}
+                  className="chip text-[11px]" style={{ borderColor: "#ef4444", color: "#FCA5A5" }}
+                  data-testid={`rsvp-schedule-delete-${s.id}`}>
+            <Trash2 className="w-3 h-3" /> {t("tpl_delete_btn", "Sil")}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------------------- RSVP Schedule Modal ---------------------- */
+function RsvpScheduleModal({ tpl, onClose, onSaved }) {
+  const { t } = useTranslation();
+  const { data: eventsData, isLoading: eventsLoading } = useSWR("/events?archived=false", fetcher);
+  const events = Array.isArray(eventsData) ? eventsData : (eventsData?.items || []);
+  const upcoming = useMemo(() => {
+    const now = Date.now();
+    return events
+      .filter((e) => e.date && new Date(e.date).getTime() > now)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+  }, [events]);
+
+  const [eventId, setEventId] = useState("");
+  const [minutes, setMinutes] = useState(60);
+  const [includeMaybe, setIncludeMaybe] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const MINUTES_OPTIONS = [
+    { v: 15,   label: t("rsvp_sch_min_15",   "15 dakika önce") },
+    { v: 30,   label: t("rsvp_sch_min_30",   "30 dakika önce") },
+    { v: 60,   label: t("rsvp_sch_min_60",   "1 saat önce") },
+    { v: 120,  label: t("rsvp_sch_min_120",  "2 saat önce") },
+    { v: 180,  label: t("rsvp_sch_min_180",  "3 saat önce") },
+    { v: 360,  label: t("rsvp_sch_min_360",  "6 saat önce") },
+    { v: 720,  label: t("rsvp_sch_min_720",  "12 saat önce") },
+    { v: 1440, label: t("rsvp_sch_min_1440", "1 gün önce") },
+  ];
+
+  const save = async () => {
+    if (!eventId) { toast.error(t("rsvp_tpl_pick_event", "Etkinlik seç")); return; }
+    setSaving(true);
+    try {
+      await api.post("/rsvp-schedules", {
+        template_id: tpl.id, event_id: eventId,
+        minutes_before: Number(minutes), include_maybe: includeMaybe,
+      });
+      toast.success(t("rsvp_sch_saved_toast", "Zamanlama kaydedildi"));
+      // v135.39.1 — Liste anında tazelensin (60s refreshInterval'i beklemesin).
+      globalMutate("/rsvp-schedules?include_sent=true");
+      onSaved();
+    } catch (e) { toast.error(apiErr(e)); } finally { setSaving(false); }
+  };
+
+  return (
+    <ModalShell title={t("rsvp_sch_modal_title", "Hatırlatmayı Zamanla")}
+                onClose={onClose} testid="rsvp-tpl-schedule-modal">
+      <div className="space-y-3">
+        <div className="text-xs text-muted-foreground">
+          {t("rsvp_sch_modal_hint", "Şablon: {{name}} — seçilen etkinlikten belirtilen süre önce otomatik gönderilir.", { name: tpl.name })}
+        </div>
+        <Field label={t("rsvp_tpl_send_event", "Etkinlik")}>
+          <select value={eventId} onChange={(e) => setEventId(e.target.value)}
+                  disabled={eventsLoading}
+                  data-testid="rsvp-schedule-event-picker"
+                  className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white disabled:opacity-60">
+            <option value="">{eventsLoading ? t("tpl_loading", "Yükleniyor…") : t("rsvp_tpl_send_event_ph", "Etkinlik seç…")}</option>
+            {upcoming.map((e) => (
+              <option key={e.id} value={e.id}>{`${e.name} — ${new Date(e.date).toLocaleString("tr-TR")}`}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label={t("rsvp_sch_minutes", "Ne kadar önce?")}>
+          <select value={minutes} onChange={(e) => setMinutes(e.target.value)}
+                  data-testid="rsvp-schedule-minutes"
+                  className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white">
+            {MINUTES_OPTIONS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
+          </select>
+        </Field>
+        <label className="flex items-center gap-2 text-xs text-white">
+          <input type="checkbox" checked={includeMaybe} onChange={(e) => setIncludeMaybe(e.target.checked)}
+                 data-testid="rsvp-schedule-include-maybe" />
+          {t("rsvp_tpl_include_maybe", "'Belki' diyenleri de RSVP vermemiş say")}
+        </label>
+        <button type="button" onClick={save} disabled={saving || !eventId}
+                data-testid="rsvp-schedule-save"
+                className="btn-gold w-full py-2 flex items-center justify-center gap-2 text-sm disabled:opacity-40">
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />}
+          {saving ? t("tpl_sending", "Gönderiliyor…") : t("rsvp_sch_save_btn", "Zamanla")}
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
 /* --------------------------- Shared UI atoms --------------------------- */
+function TemplateSearchInput({ inputRef, value, onChange, placeholder, testid }) {
+  return (
+    <div className="relative flex-1 min-w-[160px] max-w-md">
+      <SearchIcon className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        data-testid={testid}
+        className="w-full pl-7 pr-2 py-1.5 rounded bg-black/40 border border-border text-white text-xs"
+      />
+    </div>
+  );
+}
+
 function ArchiveToggle({ showArchive, setShowArchive }) {
   const { t } = useTranslation();
   return (
@@ -522,6 +792,8 @@ function TelegramComposer({ initial, categories, onClose, onSaved }) {
   const [body, setBody] = useState(initial?.body || "");
   const [category, setCategory] = useState(initial?.category || "diger");
   const [saving, setSaving] = useState(false);
+  const formRef = useRef(null);
+  useCtrlEnterSubmit(formRef, true);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -544,7 +816,7 @@ function TelegramComposer({ initial, categories, onClose, onSaved }) {
   return (
     <ModalShell title={initial ? t("tpl_composer_edit", "Şablonu Düzenle") : t("tpl_composer_new", "Yeni Şablon")}
                 onClose={onClose} testid="tg-tpl-composer-modal">
-      <form onSubmit={submit} className="space-y-3">
+      <form ref={formRef} onSubmit={submit} className="space-y-3">
         <Field label={t("tpl_field_name", "Şablon Adı")}>
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120}
                  placeholder={t("tg_tpl_field_name_ph", "Örn: Cumartesi Kale Savaşı")}
@@ -584,6 +856,8 @@ function EventComposer({ initial, onClose, onSaved }) {
   const [hiddenLb, setHiddenLb] = useState(!!initial?.hidden_from_leaderboard);
   const [showBreakdown, setShowBreakdown] = useState(initial?.show_breakdown !== false);
   const [saving, setSaving] = useState(false);
+  const formRef = useRef(null);
+  useCtrlEnterSubmit(formRef, true);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -617,7 +891,7 @@ function EventComposer({ initial, onClose, onSaved }) {
   return (
     <ModalShell title={initial ? t("tpl_composer_edit", "Şablonu Düzenle") : t("tpl_composer_new", "Yeni Şablon")}
                 onClose={onClose} testid="ev-tpl-composer-modal">
-      <form onSubmit={submit} className="space-y-3">
+      <form ref={formRef} onSubmit={submit} className="space-y-3">
         <Field label={t("tpl_field_name", "Şablon Adı")}>
           <input value={tn} onChange={(e) => setTn(e.target.value)} maxLength={120}
                  data-testid="ev-tpl-composer-tname"
@@ -672,6 +946,8 @@ function RsvpComposer({ initial, onClose, onSaved }) {
   const [chPush, setChPush] = useState(initCh.includes("push"));
   const [chTg,   setChTg]   = useState(initCh.includes("telegram_dm"));
   const [saving, setSaving] = useState(false);
+  const formRef = useRef(null);
+  useCtrlEnterSubmit(formRef, true);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -698,7 +974,7 @@ function RsvpComposer({ initial, onClose, onSaved }) {
   return (
     <ModalShell title={initial ? t("tpl_composer_edit", "Şablonu Düzenle") : t("tpl_composer_new", "Yeni Şablon")}
                 onClose={onClose} testid="rsvp-tpl-composer-modal">
-      <form onSubmit={submit} className="space-y-3">
+      <form ref={formRef} onSubmit={submit} className="space-y-3">
         <Field label={t("tpl_field_name", "Şablon Adı")}>
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120}
                  data-testid="rsvp-tpl-composer-name"

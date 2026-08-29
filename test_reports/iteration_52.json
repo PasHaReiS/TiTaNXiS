@@ -1,0 +1,53 @@
+{
+  "summary": "v135.39 testing (iteration 52). BLOCKER FOUND & UNBLOCKED: /app/frontend/src/pages/Events.jsx had TemplateQuickPickButton pasted in the middle of a JSX <input> attribute list inside BireyselEventForm -> Babel SyntaxError at 3403:32, whole frontend failed to compile (CRA overlay 'Compiled with problems', every page dead). I moved the component to module scope (end of file) so the app compiles, then ran full testing. Backend: 27 new pytest cases (test-send, rsvp-schedules CRUD, scheduler fire loop) + 24 iteration_51/50 regression cases -> 50 passed / 1 failed. Frontend: '/' focus shortcut on all 3 tabs (no hijack while typing), Ctrl+Enter submit on all 3 composer modals, Test Gönder (warning toast, no push/telegram in env), Zamanla schedule create/list/delete, /etkinlikler 'Şablondan' quick-pick -> EventForm prefill all verified working.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/rsvp-templates/{tid}/test-send", "issue": "Request body is mandatory: POSTing with NO body at all returns 422 (Field required). Spec says 'empty body' should default to the admin's own user_id. Fix: `body: RsvpTestSendBody = RsvpTestSendBody()` (or Body(default=...)). Current UI sends {} so it works in practice, but any curl/integration without a body breaks."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Events.jsx / TemplateQuickPickButton", "issue": "BLOCKER (fixed by tester to allow testing): function declaration was inserted inside a JSX <input ...> attribute list in BireyselEventForm (after onChange={(e)=>setShowInLb(...)}) causing 'SyntaxError: Unexpected token (3403:32)' and a total frontend compile failure. I relocated the identical component to module scope at end of file. Main agent MUST review the relocation and ensure no duplicate/leftover copy in future edits.", "selector": "events-tpl-quickpick-btn", "priority": "CRITICAL"},
+      {"component": "Templates.jsx RsvpScheduleModal + RsvpSchedulesList", "issue": "After saving a schedule the 'Zamanlanmış Hatırlatmalar' list does NOT refresh (rsvp-schedules-list stays absent) — the modal's onSaved does not mutate the SWR key '/rsvp-schedules?include_sent=true' owned by RsvpSchedulesList. Row only appears after a manual reload or the 60s refreshInterval. Fix: use useSWRConfig().mutate('/rsvp-schedules?include_sent=true') in RsvpScheduleModal.save (or hoist mutate).", "selector": "rsvp-schedules-list", "priority": "HIGH"},
+      {"component": "EventForm initialTemplate useEffect", "issue": "'Şablon yüklendi: <name>' toast fires TWICE on quick-pick open. useEffect deps are [initialTemplate?.id, templates.length] with no applied-once ref guard, so any /event-templates revalidation re-applies the template (would also silently overwrite user edits). Fix: guard with a useRef(false).", "selector": "event-form-name", "priority": "MEDIUM"},
+      {"component": "EventForm", "issue": "No data-testid=\"event-form-container\" wrapper as referenced in the test brief; only individual field testids (event-form-name/date/multiplier/...) exist. Add the container testid for reliable modal-open assertions.", "selector": "event-form-container", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "RSVP Test Gönder", "issue": "Works: POST test-send with {} returns 200; env has 0 push subs and 0 telegram chat ids so the warning toast 'Kullanıcının push aboneliği veya Telegram bağlantısı yok' is shown as designed. Real push/telegram delivery could NOT be verified in this environment (no subscriptions/chat ids).", "affected_selectors": ["rsvp-tpl-test-send-{id}"]}
+    ],
+    "design_issues": [
+      {"screen": "/etkinlikler EventForm (console)", "issues": ["React DOM nesting error logged: 'In HTML, <span> cannot be a child of <option>' (hydration warning) originating from a select's option content — pre-existing, cosmetic but pollutes console."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter52_schedules.py",
+    "/app/backend/tests/cleanup_iter52.py",
+    "/app/test_reports/pytest/pytest_results_iter52.xml"
+  ],
+  "action_items": [
+    "Review the Events.jsx TemplateQuickPickButton relocation I applied (was a compile-breaking bad insertion) — ensure future edits don't paste components inside JSX.",
+    "Mutate the '/rsvp-schedules?include_sent=true' SWR key after schedule create so the row appears without reload.",
+    "Add an applied-once ref guard to the EventForm initialTemplate useEffect (double toast / re-apply risk).",
+    "Make POST /rsvp-templates/{tid}/test-send accept a completely absent body (default RsvpTestSendBody()).",
+    "Optional: add data-testid=\"event-form-container\" to the EventForm modal wrapper."
+  ],
+  "critical_code_review_comments": [
+    "Events.jsx is ~3900 lines and Templates.jsx ~1100 — both over the 700-line guideline; the compile blocker is a direct symptom of editing such a huge file. Split into components/events/* and components/templates/*.",
+    "check_and_fire_due_schedules compares ISO strings lexicographically ({'send_at': {'$lte': now}}). This is only correct while every send_at is a UTC '+00:00' offset ISO string. A schedule written with a different offset (or 'Z') would compare wrong. Store send_at as a real BSON date instead.",
+    "make_scheduler_loop has no jitter/lock; if multiple backend workers ever run, the same schedule can fire N times (no atomic findOneAndUpdate claim). Use an atomic update_one({'id':..,'sent':{'$ne':True}}) claim before sending.",
+    "_run_send bumps send_count for scheduled fires too, which is correct, but the schedule row keeps no reference to failures beyond last_error; a fired-but-failed schedule stays sent=false forever and will retry every 60s indefinitely (no max attempts / backoff)."
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/Events.jsx",
+    "/app/backend/tests/test_iter52_schedules.py",
+    "/app/backend/tests/cleanup_iter52.py"
+  ],
+  "success_rate": {"backend": "98% (50/51 pytest cases)", "frontend": "85% (all 4 features functional; 1 refresh bug + 1 double-toast)"},
+  "seed_data_creation": "Created and DELETED: rsvp template TEST_i52_rsvp, telegram template TEST_i52_tg, event template TEST_i52_evtpl, one rsvp schedule, plus all TEST_iter52_* pytest templates/schedules. Manual db.rsvp_reminder_schedules fire-test row removed. Verified no TEST_i52 leftovers via /app/backend/tests/cleanup_iter52.py.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "admin / Admin123 (login is via the 'GİRİŞ YAP' button on /login which opens a modal: data-testid login-username / login-password / login-submit)",
+  "context_for_next_testing_agent": "Backend suite: pytest tests/test_iter52_schedules.py tests/test_iter51_rsvp_targeting.py tests/test_iter50_templates.py (51 cases). Only known failure = test_no_body_at_all (422, minor backend gap, intentionally left failing). Scheduler fire test inserts a past-dated row directly in Mongo and waits ~65s — it passed (row flipped sent=true with fired_at/target_count and template send_count +1). Frontend: /login -> click 'GİRİŞ YAP' role=button then fill login-username/password. Templates tabs: tpl-tab-telegram|event|rsvp. Verified working: '/' focus (tg/ev/rsvp-tpl-search), Ctrl+Enter on tg/ev/rsvp composer modals, rsvp-tpl-test-send-{id}, rsvp-tpl-schedule-{id} + rsvp-schedule-event-picker/minutes/save, rsvp-schedule-delete-{id}, events-tpl-quickpick-btn/menu/item -> EventForm prefill (name/multiplier/subtitle/group/reminder). NOT verified: quick-pick 'Kayıtlı şablon yok' empty state (event-templates table has row 'T1'), real push/telegram delivery (env has 0 push subs, 0 telegram_chat_id).",
+  "rca_of_the_issue": "Root cause of the compile blocker: the v135.39 edit inserted the whole TemplateQuickPickButton function body between JSX attributes of the 'bireysel-visible-checkbox' <input> in BireyselEventForm (Events.jsx line ~3398), producing 'SyntaxError: Unexpected token (3403:32)'. CRA served the error overlay for every route, so no page (including /sablonlar) rendered — all 4 features were untestable. Fix applied: deleted the misplaced block, restored the input's attribute list, re-appended the identical component at module scope; eslint clean and app compiles."
+}

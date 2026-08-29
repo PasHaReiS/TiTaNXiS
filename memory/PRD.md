@@ -20,6 +20,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v135.39 Şablon Kısayolları + Zamanlayıcı + Test Gönder + Etkinlik Şablon Quick-Pick)** — Backend + Frontend:
+  - **Backend refactor**: `/app/backend/routes/rsvp_templates.py` sıfırdan yazıldı. Send mantığı `_run_send` + `_fanout_push_and_tg` + `_resolve_targets` şeklinde parçalandı; hem `/send`, hem yeni `/test-send`, hem zamanlanmış görevler aynı yolu paylaşıyor.
+  - **`POST /api/rsvp-templates/{tid}/test-send`**: Tek kullanıcıya deneme (body.user_id boşsa admin'in kendisi). Yanıt: `{recipient, has_push_subscription, has_telegram_chat, push_sent, telegram_sent, channels, ...}`.
+  - **`/api/rsvp-schedules` CRUD** (GET + POST + DELETE): `template_id` + `event_id` + `minutes_before ∈ {15,30,60,120,180,360,720,1440}`. `send_at` server-side hesaplanır (`event.date - minutes_before`). GET join yaparak `template_name/event_name/event_date` ekler.
+  - **`make_scheduler_loop(db)`**: Startup'ta `_asyncio_cron.create_task` ile 60 sn'de bir `check_and_fire_due_schedules(db)` çağırır. Zamanı gelen `sent=False` planları `_run_send` ile ateşler, `sent=True/fired_at/target_count/push_sent/telegram_sent` mühürler. Hata olursa `last_error` alanına yazar (planı yeniden denenmez).
+  - **Şablon silinince cascade**: `DELETE /rsvp-templates/{tid}` şablonun tüm planlarını da temizler.
+  - **Frontend `Templates.jsx`**: `useSlashFocus` hook — `/` tuşu section search input'una odaklanır (INPUT/TEXTAREA aktifse hijack etmez). `useCtrlEnterSubmit` hook — modal içinde Ctrl/Cmd+Enter form submit tetikler. `TemplateSearchInput` shared atom, üç sekmede live substring filtrele. `RsvpScheduleModal` + `RsvpSchedulesList` (data-testid `rsvp-schedules-list`) — planlanan hatırlatmaları listeler, sil butonu. `rsvp-tpl-test-send-{id}` butonu — admin'e Test Gönderim + toast.
+  - **Frontend `Events.jsx`**: Yeni `TemplateQuickPickButton` component (module scope), "Yeni Etkinlik" butonunun yanına eklendi. Dropdown açılınca aktif event-template'leri listeler; tıklayınca `EventForm(initialTemplate=tpl)` açılır, yeni `useEffect` ile `applyTemplate` çağırılıp form pre-fill olur.
+  - **E2E doğrulama** ✅ (curl): test-send admin (recipient=admin), schedule create + list + delete OK, bad minutes_before 400, auth kontrolleri 401. Screenshot: /etkinlikler'de "Şablondan" mor buton görünüyor; `/` shortcut ile focused_testid=`tg-tpl-search` doğrulandı.
+
+
 - **Feb 29, 2026 (v135.38.1 RSVP Targeting Bug-Fix)** — Backend:
   - **CRITICAL fix**: `POST /api/rsvp-templates/{id}/send` alliance targeting yeniden yazıldı. Önceki sürüm `db.users.alliance_name` alanına bakıyordu (mevcut olmayan alan) — bu yüzden GOW gibi bir alliance_scope'lu her etkinlik için target_count=0'a düşüyordu. Yeni sürüm `_resolve_user_alliances` mantığını yansıtıyor: `user.member_ids` + `user.member_id` + reverse `members.user_id` ile üye kayıtları toplanır, `members.alliance_name` ve `members.telegram_chat_id` join ile batch çekilir.
   - Ek düzeltmeler: `alliance_scope` boş veya `'all'` -> filtresiz (server.py `_rsvp_alliance_query` ile hizalı). `send_count`/`last_sent_at` sadece `target_count > 0` iken artırılır (UI'da yanıltıcı "gönderim" badge'i olmasın). `_users_disabled_for_pref('reminder')` opt-out'u uygulanıyor.

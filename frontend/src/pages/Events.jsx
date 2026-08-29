@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { EVENTS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
-import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera, BellOff, Users, User, LayoutGrid, CalendarDays, CheckSquare, Square, EyeOff, Eye, Star, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera, BellOff, Users, User, LayoutGrid, CalendarDays, CheckSquare, Square, EyeOff, Eye, Star, ChevronDown, ChevronRight, LayoutTemplate } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import ImageDropzone from "@/components/ImageDropzone";
@@ -294,6 +294,9 @@ export default function Events() {
   };
   const clearSelection = () => setSelectedIds(new Set());
   const [showForm, setShowForm] = useState(false);
+  // v135.39 — Şablondan hızlı oluşturma: seçilen event-template EventForm'a
+  // initialTemplate olarak geçilir; form açılışta bu şablonu otomatik apply eder.
+  const [prefillTpl, setPrefillTpl] = useState(null);
   // v132 — Bireysel Etkinlik modal state (separate quick-add form).
   const [showBireyselForm, setShowBireyselForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -1171,11 +1174,14 @@ export default function Events() {
             </button>
             <button
               data-testid={EVENTS.addBtn}
-              onClick={() => { setEditing(null); setShowForm(true); }}
+              onClick={() => { setEditing(null); setShowForm(true); setPrefillTpl(null); }}
               className="btn-gold flex items-center gap-1.5 text-xs"
             >
               <Plus className="w-4 h-4" /> {t("new_short")}
             </button>
+            <TemplateQuickPickButton
+              onPicked={(tpl) => { setEditing(null); setPrefillTpl(tpl); setShowForm(true); }}
+            />
           </CanEdit>
         </div>
         {/* View toggle — Liste vs Takvim */}
@@ -1804,7 +1810,8 @@ export default function Events() {
       </div>
 
       {showForm && (
-        <EventForm initial={editing} onClose={() => { setShowForm(false); setEditing(null); }} />
+        <EventForm initial={editing} initialTemplate={prefillTpl}
+                   onClose={() => { setShowForm(false); setEditing(null); setPrefillTpl(null); }} />
       )}
       {showBireyselForm && (
         <BireyselEventForm onClose={() => setShowBireyselForm(false)} />
@@ -2623,7 +2630,7 @@ function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearS
   );
 }
 
-function EventForm({ initial, onClose }) {  const { t } = useTranslation();
+function EventForm({ initial, initialTemplate, onClose }) {  const { t } = useTranslation();
   const [name, setName] = useState(initial?.name || "");
   const [date, setDate] = useState(
     initial?.date
@@ -2728,6 +2735,22 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
     toast.success(`Şablon yüklendi: ${tpl.template_name}`);
   };
 
+  // v135.39 — /etkinlikler > "Şablondan" dropdown ile pre-fill: dışarıdan
+  // seçilen tpl geldiğinde form açılışta otomatik apply eder. Sadece 1 kez —
+  // SWR revalidate sonrası tekrar apply etmesin diye ref-guard.
+  const prefillApplied = React.useRef(false);
+  useEffect(() => {
+    if (prefillApplied.current) return;
+    if (!initial && initialTemplate && templates.length > 0) {
+      const found = templates.find((x) => x.id === initialTemplate.id);
+      if (found) {
+        applyTemplate(found.id);
+        prefillApplied.current = true;
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTemplate?.id, templates.length]);
+
   const submit = async (e) => {
     e.preventDefault();
     if (!name.trim()) { toast.error(t("name_field_required")); return; }
@@ -2820,7 +2843,7 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose} data-testid="event-form-container">
       <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="card-red-gold w-full max-w-md p-5 fade-in relative" style={{ maxHeight: "90vh", overflowY: "auto" }}>
         <button type="button" onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-white">
           <X className="w-5 h-5" />
@@ -3271,12 +3294,12 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
   );
 }
 
-function BireyselEventForm({ onClose }) {
-  const [name, setName] = useState("");
+function BireyselEventForm({ onClose }) {  const [name, setName] = useState("");
   const [date, setDate] = useState(
     new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
   );
   const [description, setDescription] = useState("");
+
   const [showInLb, setShowInLb] = useState(true);
   const [autoReport, setAutoReport] = useState(false);
   const [channels, setChannels] = useState({ telegram: false, push: false, message: false });
@@ -3822,3 +3845,65 @@ function EventFolderManager({ folders, onClose }) {
   );
 }
 
+
+// v135.39 — /etkinlikler sayfasında "Yeni Etkinlik" butonunun yanındaki
+// tek tıklama şablon seçici. Aktif event-template'leri fetch eder; dropdown'da
+// bir şablon seçilince onPicked callback'i çağrılır (EventForm açılır ve
+// initialTemplate ile pre-fill olur).
+function TemplateQuickPickButton({ onPicked }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const { data } = useSWR(open ? "/event-templates" : null, fetcher);
+  const items = data?.items || [];
+  const wrapRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+  return (
+    <div ref={wrapRef} className="relative" data-testid="events-tpl-quickpick">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="btn-gold flex items-center gap-1.5 text-xs"
+        style={{ background: "linear-gradient(135deg,#7C3AED,#4C1D95)", borderColor: "#A78BFA" }}
+        data-testid="events-tpl-quickpick-btn"
+        title={t("events_tpl_quickpick_hint", "Kayıtlı bir şablondan yeni etkinlik oluştur")}
+      >
+        <LayoutTemplate className="w-4 h-4" /> {t("events_tpl_quickpick_label", "Şablondan")}
+        <ChevronDown className="w-3 h-3" />
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 top-full mt-1 w-64 max-h-80 overflow-auto rounded shadow-lg z-40"
+          style={{ background: "#0F0910", border: "1px solid rgba(168,85,247,0.55)" }}
+          data-testid="events-tpl-quickpick-menu"
+        >
+          {!items.length && (
+            <div className="p-3 text-xs text-muted-foreground text-center">
+              {t("events_tpl_quickpick_empty", "Kayıtlı şablon yok. /sablonlar sayfasından ekleyebilirsin.")}
+            </div>
+          )}
+          {items.map((tpl) => (
+            <button
+              key={tpl.id}
+              type="button"
+              onClick={() => { setOpen(false); onPicked(tpl); }}
+              data-testid={`events-tpl-quickpick-item-${tpl.id}`}
+              className="w-full text-left px-3 py-2 text-xs text-white hover:bg-violet-500/20 transition-colors border-b border-white/5 last:border-b-0"
+            >
+              <div className="font-bold truncate">📋 {tpl.template_name}</div>
+              <div className="text-[10px] text-muted-foreground truncate">
+                {tpl.name} · ×{tpl.multiplier || 1}{tpl.group_name ? ` · ${tpl.group_name}` : ""}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

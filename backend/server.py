@@ -10337,8 +10337,10 @@ async def startup():
         logging.getLogger("server").warning(f"telegram_templates index ensure: {_e}")
     # v135.38 — RSVP templates indexes
     try:
-        from routes.rsvp_templates import ensure_rsvp_templates_indexes as _errti
+        from routes.rsvp_templates import ensure_rsvp_templates_indexes as _errti, make_scheduler_loop as _ersl
         await _errti(db)
+        # v135.39 — Zamanlanmış hatırlatmaları 60 sn'de bir kontrol et.
+        _asyncio_cron.create_task(_ersl(db))
     except Exception as _e:
         logging.getLogger("server").warning(f"rsvp_templates index ensure: {_e}")
     # v135.31 — Admin todos indexes
