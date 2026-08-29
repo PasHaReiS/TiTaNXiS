@@ -30,6 +30,7 @@ import Events from "@/pages/Events";
 import Announcements from "@/pages/Announcements";
 import BadgeManagement from "@/pages/BadgeManagement";
 import TelegramTemplates from "@/pages/TelegramTemplates";
+import PublicGuildProfile from "@/pages/PublicGuildProfile";
 import Login from "@/pages/Login";
 import UserManagement from "@/pages/UserManagement";
 import OcrHistory from "@/pages/OcrHistory";
@@ -147,6 +148,8 @@ function AppShell() {
           <Route path="/raporlar" element={<RequireAdmin><MotionPage><Reports /></MotionPage></RequireAdmin>} />
           <Route path="/anketler" element={<RequireAuth><MotionPage><Polls /></MotionPage></RequireAuth>} />
           <Route path="/kayit/:token" element={<MotionPage><Signup /></MotionPage>} />
+          <Route path="/lonca" element={<MotionPage><PublicGuildProfile /></MotionPage>} />
+          <Route path="/guild" element={<MotionPage><PublicGuildProfile /></MotionPage>} />
           <Route path="/svs" element={<RequireAuth><MotionPage><SvSTracker /></MotionPage></RequireAuth>} />
           <Route path="/anasayfa" element={<RequireAuth><MotionPage><MemberHome /></MotionPage></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />

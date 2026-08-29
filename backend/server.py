@@ -6310,6 +6310,8 @@ async def _start_push_scheduler():
     # v135.26 — Pre-event reminder ticker (Telegram channel + web push to
     # RSVP yes/maybe, honouring `notification_prefs.reminder`).
     asyncio.create_task(_event_reminder_loop())
+    # v135.28 — Daily birthday greeting ticker (Telegram + admin push).
+    asyncio.create_task(_birthday_celebration_loop())
 
 
 # v135.26 — Automated pre-event reminder scheduler.
@@ -6455,6 +6457,181 @@ async def _event_reminder_loop():
         except Exception as ex:
             logger.warning(f"[event-reminder] loop error: {ex}")
         await asyncio.sleep(45)
+
+
+# v135.28 — Daily birthday celebration ticker.
+# Users optionally set `birthday_mmdd` in MM-DD form (no year — privacy).
+# Every 30 minutes we look at Turkey-local today, and for every user whose
+# `birthday_mmdd` equals today AND `birthday_celebrated_year != this year`,
+# we post a Telegram channel greeting mentioning them (falling back to
+# username if their linked member name isn't set) and push an admin bell so
+# the guild leadership can @-tag them in voice. `birthday_celebrated_year`
+# is stamped to make the loop idempotent — nobody gets two greetings in a
+# calendar year even if the pod restarts mid-day.
+async def _fire_birthday_greeting(u: dict, year: int) -> dict:
+    stats = {"telegram": False, "admin_push": 0}
+    display_name = (u.get("display_name")
+                    or u.get("username")
+                    or "Komutan").strip() or "Komutan"
+    # 1) Telegram channel greeting.
+    try:
+        from telegram_bot import send_message as _tg_send
+        channel = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+        token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+        if channel and token:
+            msg = (
+                "🎂 *Doğum Günün Kutlu Olsun!*\n\n"
+                f"Bugün *{display_name}*'in doğum günü — hep beraber TiTaNXiS ailesi olarak kutluyoruz! 🎉\n"
+                "Kaleyi sağlam tut, saflar bozulmasın Komutan. 🛡️"
+            )
+            stats["telegram"] = bool(await _tg_send(channel, msg))
+    except Exception as ex:
+        logger.warning(f"[birthday] tg channel failed for {u.get('id')}: {ex}")
+    # 2) Admin push — bell rowu her admin için.
+    try:
+        admin_ids = [
+            a["id"] async for a in db.users.find(
+                {"role": "admin"}, {"_id": 0, "id": 1}
+            )
+        ]
+        if admin_ids:
+            title = "🎂 Doğum günü hatırlatması"
+            body_txt = f"Bugün {display_name} doğdu — sohbette tebrik etmeyi unutma!"
+            rows = [{
+                "id": str(uuid.uuid4()),
+                "user_id": aid,
+                "title": title,
+                "body": body_txt,
+                "url": "/uyeler",
+                "event_id": None,
+                "sched_id": f"birthday-{u.get('id')}-{year}",
+                "created_at": now_iso(),
+                "read": False,
+            } for aid in admin_ids]
+            await db.in_app_notifications.insert_many(rows)
+            for aid in admin_ids:
+                _publish_notif(aid, {
+                    "id": f"birthday-{u.get('id')}-{year}",
+                    "title": title, "body": body_txt, "url": "/uyeler",
+                    "created_at": now_iso(), "read": False,
+                })
+            stats["admin_push"] = len(admin_ids)
+    except Exception as ex:
+        logger.warning(f"[birthday] admin fanout failed for {u.get('id')}: {ex}")
+    return stats
+
+
+async def _birthday_celebration_loop():
+    import asyncio
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    while True:
+        try:
+            # Turkey local calendar — matches how members set their date.
+            now_tr = _dt.now(_tz(_td(hours=3)))
+            today = now_tr.strftime("%m-%d")
+            year = now_tr.year
+            cursor = db.users.find(
+                {
+                    "birthday_mmdd": today,
+                    "$or": [
+                        {"birthday_celebrated_year": {"$exists": False}},
+                        {"birthday_celebrated_year": {"$ne": year}},
+                    ],
+                },
+                {"_id": 0, "id": 1, "username": 1, "display_name": 1, "birthday_mmdd": 1},
+            )
+            async for u in cursor:
+                try:
+                    fanout = await _fire_birthday_greeting(u, year)
+                    await db.users.update_one(
+                        {"id": u["id"]},
+                        {"$set": {
+                            "birthday_celebrated_year": year,
+                            "birthday_celebrated_at": _dt.now(_tz.utc).isoformat(),
+                            "birthday_last_fanout": fanout,
+                        }},
+                    )
+                    logger.info(f"[birthday] fired user={u.get('id')} → {fanout}")
+                except Exception as _iex:
+                    logger.warning(f"[birthday] per-user failure: {_iex}")
+        except Exception as ex:
+            logger.warning(f"[birthday] loop error: {ex}")
+        await asyncio.sleep(1800)  # 30 dakika
+
+
+# v135.28 — Admin manual trigger for the daily birthday greeting. Handy to
+# preview a message ahead of time without waiting for midnight-TR.
+@api_router.post("/admin/birthday/fire-now")
+async def admin_birthday_fire_now(
+    user_id: str, _: dict = Depends(require_admin),
+):
+    u = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not u:
+        raise HTTPException(404, "user not found")
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    year = _dt.now(_tz(_td(hours=3))).year
+    fanout = await _fire_birthday_greeting(u, year)
+    return {"ok": True, "fanout": fanout}
+
+
+# v135.28 — Public guild profile. No-auth endpoint powering /lonca so
+# potential recruits can see the guild's basic stats + latest events before
+# creating an account. Only surfaces admin-approved surface data (no members
+# list, no scores). Newest active invite is returned so the recruit can
+# jump straight to /kayit if the alliance keeps signup public.
+@api_router.get("/guild/public")
+async def guild_public_profile():
+    # Guild name lives in `guild_settings` under `guild_name` (fallback to
+    # env brand or a static default so a fresh install still renders).
+    name_doc = await db.guild_settings.find_one({"key": "guild_name"}, {"_id": 0})
+    guild_name = ((name_doc or {}).get("value")
+                  or os.environ.get("GUILD_NAME", "").strip()
+                  or "TiTaNXiS")
+    logo_doc = await db.guild_settings.find_one({"key": "guild_logo_url"}, {"_id": 0})
+    logo_url = ((logo_doc or {}).get("value")
+                or "/brand/titanxis-logo.jpg")
+    tagline_doc = await db.guild_settings.find_one({"key": "guild_tagline"}, {"_id": 0})
+    tagline = ((tagline_doc or {}).get("value")
+               or "Alevden doğan lonca — 29 dil, tek çatı.")
+    member_count = await db.members.count_documents({})
+    from datetime import datetime as _dt2, timezone as _tz2, timedelta as _td2
+    now = _dt2.now(_tz2.utc)
+    active_events_count = await db.events.count_documents({
+        "archived": {"$ne": True},
+        "date": {"$gte": now.isoformat()},
+    })
+    # Recent (or upcoming) events for showcase. Prefer upcoming; fall back
+    # to freshly archived if the calendar is empty so the page never looks
+    # dead.
+    upcoming = await db.events.find(
+        {"archived": {"$ne": True},
+         "date": {"$gte": now.isoformat()},
+         "hidden_from_leaderboard": {"$ne": True}},
+        {"_id": 0, "id": 1, "name": 1, "date": 1, "group_name": 1, "multiplier": 1},
+    ).sort("date", 1).to_list(5)
+    if not upcoming:
+        upcoming = await db.events.find(
+            {"hidden_from_leaderboard": {"$ne": True}},
+            {"_id": 0, "id": 1, "name": 1, "date": 1, "group_name": 1, "multiplier": 1},
+        ).sort("date", -1).to_list(5)
+    # Newest active invite link — expose only the token so the frontend
+    # can build the /kayit/{token} URL without leaking metadata.
+    inv = await db.invites.find_one(
+        {"disabled": {"$ne": True},
+         "$or": [{"expires_at": None}, {"expires_at": {"$gte": now.isoformat()}}]},
+        {"_id": 0, "token": 1},
+        sort=[("created_at", -1)],
+    )
+    return {
+        "guild_name": guild_name,
+        "logo_url": logo_url,
+        "tagline": tagline,
+        "member_count": member_count,
+        "active_events_count": active_events_count,
+        "recent_events": upcoming,
+        "invite_token": (inv or {}).get("token") or None,
+        "generated_at": _dt2.now(_tz2.utc).isoformat(),
+    }
 
 
 async def _announcement_scheduler_loop():

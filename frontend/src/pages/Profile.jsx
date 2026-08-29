@@ -34,6 +34,30 @@ export default function Profile() {
   const { data: streakData } = useSWR("/auth/me/rsvp-streak", fetcher, { refreshInterval: 60000 });
   // v124 — Notification preferences (per-channel toggles).
   const { data: notifPrefs, mutate: mutateNotifPrefs } = useSWR("/auth/me/notification-prefs", fetcher);
+  // v135.28 — Optional birthday (MM-DD, no year for privacy).
+  const { data: bdayData, mutate: mutateBday } = useSWR("/auth/me/birthday", fetcher);
+  const [bdayInput, setBdayInput] = useState("");
+  const [bdayBusy, setBdayBusy] = useState(false);
+  // Sync local input from backend value on first load / roundtrip.
+  React.useEffect(() => {
+    if (bdayData && typeof bdayData.birthday_mmdd === "string") {
+      setBdayInput(bdayData.birthday_mmdd);
+    } else if (bdayData && bdayData.birthday_mmdd == null) {
+      setBdayInput("");
+    }
+  }, [bdayData]);
+  const saveBirthday = async (val) => {
+    setBdayBusy(true);
+    try {
+      const res = await api.put("/auth/me/birthday",
+        { birthday_mmdd: val || null });
+      mutateBday(res?.data, false);
+      toast.success(val
+        ? t("profile_birthday_saved", "Doğum günü kaydedildi 🎂")
+        : t("profile_birthday_cleared", "Doğum günü kaldırıldı"));
+    } catch (e) { toast.error(apiErr(e)); }
+    finally { setBdayBusy(false); }
+  };
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [prefBusy, setPrefBusy] = useState(false);
   // v130 — Avatar crop flow. Users pick a file → we open CropDialog with a
@@ -616,6 +640,55 @@ export default function Profile() {
             checked={!radialMuted}
             onCheckedChange={(v) => toggleRadialMute(!v)}
           />
+        </div>
+
+        {/* v135.28 — Optional birthday (MM-DD only). Sending an empty string
+            clears the field and mutes the daily celebration loop for this
+            user until they set a new date. */}
+        <div className="section-title flex items-center gap-2">
+          🎂 {t("profile_birthday_title", "Doğum Günü")}
+        </div>
+        <div className="card-dark p-3 mb-4 space-y-2" data-testid="profile-birthday-card">
+          <div className="text-[11px] text-muted-foreground leading-snug">
+            {t("profile_birthday_hint",
+               "İsteğe bağlı — yıl paylaşılmıyor. Bugüne denk gelirse Telegram grubunda kutlarız 🎉")}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder={t("profile_birthday_placeholder", "MM-DD (örn 05-14)")}
+              value={bdayInput}
+              onChange={(e) => setBdayInput(e.target.value)}
+              maxLength={5}
+              pattern="\d{2}-\d{2}"
+              data-testid="profile-birthday-input"
+              className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-white font-mono"
+              style={{ minWidth: 140 }}
+            />
+            <button
+              type="button"
+              onClick={() => saveBirthday(bdayInput.trim())}
+              disabled={bdayBusy}
+              className="btn-gold text-xs px-3 py-2"
+              data-testid="profile-birthday-save"
+            >
+              {bdayBusy
+                ? t("saving", "Kaydediliyor…")
+                : t("profile_birthday_save_btn", "Kaydet")}
+            </button>
+            {bdayInput && (
+              <button
+                type="button"
+                onClick={() => { setBdayInput(""); saveBirthday(""); }}
+                disabled={bdayBusy}
+                className="chip text-[10px]"
+                data-testid="profile-birthday-clear"
+              >
+                {t("profile_birthday_clear_btn", "Temizle")}
+              </button>
+            )}
+          </div>
         </div>
 
 

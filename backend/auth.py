@@ -430,6 +430,42 @@ def make_auth_router(db):
         )
         return {"ok": True, "prefs": prefs}
 
+    # v135.28 — Optional birthday (MM-DD only, no year for privacy).
+    # A daily loop in server.py posts a Telegram channel greeting + admin
+    # push whenever `today == birthday_mmdd`. Setting an empty string clears
+    # the value and mutes any future celebration.
+    import re as _re_bday
+
+    @router.get("/auth/me/birthday")
+    async def get_birthday(user: dict = Depends(require_auth)):
+        return {"birthday_mmdd": user.get("birthday_mmdd") or ""}
+
+    @router.put("/auth/me/birthday")
+    async def put_birthday(body: dict, user: dict = Depends(require_auth)):
+        raw = (body or {}).get("birthday_mmdd")
+        if raw in (None, "", "null"):
+            await db.users.update_one(
+                {"id": user["id"]},
+                {"$set": {"birthday_mmdd": None,
+                          "birthday_celebrated_year": None,
+                          "birthday_updated_at": now_iso()}},
+            )
+            return {"ok": True, "birthday_mmdd": None}
+        if not isinstance(raw, str) or not _re_bday.fullmatch(r"\d{2}-\d{2}", raw):
+            raise HTTPException(400, "birthday_mmdd must be MM-DD (e.g. 05-14)")
+        try:
+            m, d = int(raw[:2]), int(raw[3:])
+            if not (1 <= m <= 12 and 1 <= d <= 31):
+                raise ValueError
+        except Exception:
+            raise HTTPException(400, "invalid MM-DD range")
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$set": {"birthday_mmdd": raw,
+                      "birthday_updated_at": now_iso()}},
+        )
+        return {"ok": True, "birthday_mmdd": raw}
+
     # v124 — Avatar upload. Frontend uses the existing `/api/uploads/image`
     # endpoint to store the file and receive `{file_id, url}`; the URL is
     # then attached to the user doc here so it can render in headers,
