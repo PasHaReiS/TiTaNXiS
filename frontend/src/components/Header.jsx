@@ -277,6 +277,14 @@ export default function Header({ title, children }) {
                       testId="dropdown-admin-todos"
                     />
                   )}
+                  {isAdmin && (
+                    <MenuItem
+                      emoji="🏆"
+                      label={t("nav_issue_cert", "Sertifika Ver")}
+                      onClick={() => goto("/admin/sertifika-ver")}
+                      testId="dropdown-issue-cert"
+                    />
+                  )}
                   <MenuItem
                     emoji="📜"
                     label={t("nav_guild_rules", "Lonca Kuralları")}

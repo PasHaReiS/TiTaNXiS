@@ -33,6 +33,7 @@ import TelegramTemplates from "@/pages/TelegramTemplates";
 import PublicGuildProfile from "@/pages/PublicGuildProfile";
 import AdminTodos from "@/pages/AdminTodos";
 import GuildRules from "@/pages/GuildRules";
+import IssueCertificate from "@/pages/IssueCertificate";
 import Login from "@/pages/Login";
 import UserManagement from "@/pages/UserManagement";
 import OcrHistory from "@/pages/OcrHistory";
@@ -137,6 +138,7 @@ function AppShell() {
           <Route path="/admin/rozetler" element={<RequireAdmin><MotionPage><BadgeManagement /></MotionPage></RequireAdmin>} />
           <Route path="/admin/telegram-sablonlar" element={<RequireAdmin><MotionPage><TelegramTemplates /></MotionPage></RequireAdmin>} />
           <Route path="/admin/gorevler" element={<RequireAdmin><MotionPage><AdminTodos /></MotionPage></RequireAdmin>} />
+          <Route path="/admin/sertifika-ver" element={<RequireAdmin><MotionPage><IssueCertificate /></MotionPage></RequireAdmin>} />
           <Route path="/kurallar" element={<MotionPage><GuildRules /></MotionPage>} />
           <Route path="/admin/uyeler" element={<RequireAdmin><MotionPage><Members /></MotionPage></RequireAdmin>} />
           <Route path="/arsiv" element={<RequireAuth><MotionPage><Events /></MotionPage></RequireAuth>} />

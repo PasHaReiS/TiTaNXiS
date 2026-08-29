@@ -7273,6 +7273,9 @@ async def announcements_list(
     elif f == "normal":
         q["urgent"] = {"$ne": True}
         q["pending_broadcast"] = {"$ne": True}
+    elif f == "archived":
+        # v135.35 — Admin arşiv görünümü. active=False duyuruları listeler.
+        q["active"] = False
     cursor = db.announcements.find(q, {"_id": 0}).sort("created_at", -1).limit(max(1, min(limit, 100)))
     return {"items": [r async for r in cursor]}
 

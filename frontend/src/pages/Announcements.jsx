@@ -389,6 +389,7 @@ export default function Announcements({ embedded = false }) {
               { key: "urgent", label: "🚨 Acil" },
               { key: "scheduled", label: "⏰ Zamanlı" },
               { key: "normal", label: "Normal" },
+              { key: "archived", label: "🗂 Arşiv" },
             ].map((f) => (
               <button
                 key={f.key}
