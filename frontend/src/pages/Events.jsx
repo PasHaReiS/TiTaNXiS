@@ -255,6 +255,14 @@ export default function Events() {
   // they landed.
   const allEventsForHash = useSWR("/events?archived=false", fetcher).data || [];
   const archivedForHash = useSWR("/events?archived=true", fetcher).data || [];
+  // v135.33 — Bulk RSVP counts for the ✅/🤔/❌ chips on every event card.
+  // Admin/editor only (route returns 403 otherwise). Refresh every 30s.
+  const { data: rsvpCountsData } = useSWR(
+    isAdmin ? "/events/rsvp/counts" : null,
+    fetcher,
+    { refreshInterval: 30000 },
+  );
+  const rsvpCounts = rsvpCountsData?.counts || {};
   useEffect(() => {
     const h = location.hash || "";
     if (!h.startsWith("#event-")) return;
@@ -300,7 +308,7 @@ export default function Events() {
   const [detailId, setDetailId] = useState(null);
   // v124 — Event chat drawer state. Stores the event id whose chat is open.
   const [chatEventId, setChatEventId] = useState(null);
-  const { user: me } = useAuth();
+  const { user: me, isAdmin } = useAuth();
   const [renamingGroup, setRenamingGroup] = useState(null); // group name being renamed
   const [renameValue, setRenameValue] = useState("");
   const [ocrOpen, setOcrOpen] = useState(false);
@@ -787,6 +795,45 @@ export default function Events() {
           >
             {isTodayEvent ? t("event_today_badge") : t("event_active_badge")}
           </span>
+        )}
+        {/* v135.33 — RSVP counts chips (admin only). Compact
+            `✅ 8 · 🤔 4 · ❌ 2` bar so commitment gaps pop off the list. */}
+        {isAdmin && rsvpCounts[e.id] && (
+          (rsvpCounts[e.id].yes_count + rsvpCounts[e.id].maybe_count + rsvpCounts[e.id].no_count) > 0
+        ) && (
+          <div
+            className="flex-shrink-0 flex items-center gap-1 text-[10px] font-mono font-bold"
+            data-testid={`event-rsvp-counts-${e.id}`}
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <span
+              className="px-1.5 py-0.5 rounded"
+              style={{ background: "rgba(34,197,94,0.15)", color: "#86efac",
+                       border: "1px solid rgba(34,197,94,0.35)" }}
+              data-testid={`event-rsvp-yes-${e.id}`}
+              title={t("rsvp_yes_title", "Kesin katılacak")}
+            >
+              ✅ {rsvpCounts[e.id].yes_count}
+            </span>
+            <span
+              className="px-1.5 py-0.5 rounded"
+              style={{ background: "rgba(245,166,35,0.15)", color: "#FCD34D",
+                       border: "1px solid rgba(245,166,35,0.35)" }}
+              data-testid={`event-rsvp-maybe-${e.id}`}
+              title={t("rsvp_maybe_title", "Belki katılacak")}
+            >
+              🤔 {rsvpCounts[e.id].maybe_count}
+            </span>
+            <span
+              className="px-1.5 py-0.5 rounded"
+              style={{ background: "rgba(239,68,68,0.12)", color: "#FCA5A5",
+                       border: "1px solid rgba(239,68,68,0.30)" }}
+              data-testid={`event-rsvp-no-${e.id}`}
+              title={t("rsvp_no_title", "Katılmayacak")}
+            >
+              ❌ {rsvpCounts[e.id].no_count}
+            </span>
+          </div>
         )}
         {/* v124 — Takvimime Ekle + Etkinlik Sohbeti. Rendered inline as
             secondary CTAs; stop propagation so the card click (detail

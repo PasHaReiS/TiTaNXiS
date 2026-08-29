@@ -6,7 +6,6 @@ import Header from "@/components/Header";
 import LegalFooter from "@/components/LegalFooter";
 import { toast } from "sonner";
 import { ScrollText, Pencil, X, Loader2, Save } from "lucide-react";
-
 /**
  * Lonca Kuralları — /kurallar (v135.31).
  * Public read + admin edit. Markdown-lite (newline-preserved). Yeni üye
@@ -14,7 +13,8 @@ import { ScrollText, Pencil, X, Loader2, Save } from "lucide-react";
  */
 export default function GuildRules() {
   const { t } = useTranslation();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+  const isAuthed = !!user;
   const [data, setData] = useState(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -87,6 +87,7 @@ export default function GuildRules() {
                   { when: new Date(data.updated_at).toLocaleString("tr-TR") })}
               </div>
             )}
+            {isAuthed && <RulesAcceptCheckbox />}
           </div>
         )}
 
@@ -130,6 +131,54 @@ export default function GuildRules() {
         )}
       </div>
       <LegalFooter />
+    </div>
+  );
+}
+
+function RulesAcceptCheckbox() {
+  const { t } = useTranslation();
+  const [status, setStatus] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+  React.useEffect(() => {
+    api.get("/auth/me/rules-status").then((r) => setStatus(r.data)).catch(() => setStatus({}));
+  }, []);
+  if (!status) return null;
+  const accepted = !!status.rules_accepted_at;
+  const accept = async () => {
+    setBusy(true);
+    try {
+      const r = await api.post("/auth/me/rules-accept");
+      setStatus(r.data);
+      toast.success(t("rules_accepted_toast", "Kuralları kabul ettin — teşekkürler!"));
+    } catch (e) { toast.error(apiErr(e)); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div
+      className="mt-4 p-3 rounded flex items-center gap-2 flex-wrap"
+      style={{
+        background: accepted ? "rgba(34,197,94,0.10)" : "rgba(245,166,35,0.08)",
+        border: `1px solid ${accepted ? "rgba(34,197,94,0.35)" : "rgba(245,166,35,0.35)"}`,
+      }}
+      data-testid="rules-accept-box"
+    >
+      <input
+        type="checkbox"
+        checked={accepted}
+        disabled={accepted || busy}
+        onChange={(e) => e.target.checked && accept()}
+        data-testid="rules-accept-checkbox"
+        className="cursor-pointer"
+      />
+      <span className="text-xs text-white flex-1 min-w-0">
+        {t("rules_accept_label", "Kuralları okudum ve kabul ediyorum")}
+      </span>
+      {accepted && (
+        <span className="text-[10px] text-emerald-300 font-mono" data-testid="rules-accepted-at">
+          {t("rules_accepted_stamp", "Kabul: {{when}}",
+             { when: new Date(status.rules_accepted_at).toLocaleString("tr-TR") })}
+        </span>
+      )}
     </div>
   );
 }

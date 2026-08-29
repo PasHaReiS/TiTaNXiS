@@ -20,6 +20,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 28, 2026 (v135.33 Kural Kabul + RSVP+ Sayaç Chips + Görev Bildirim)** — Backend + Frontend:
+  - **Rules Acceptance**: 3 yeni endpoint `POST /api/auth/me/rules-accept`, `GET /api/auth/me/rules-status`, `GET /api/admin/users/rules-status`. `rules_accepted_at` timestamp user doc'a yazılır. Admin endpoint accepted/pending listeleri + sayaçlarını döner. Frontend GuildRules'ta yeni `RulesAcceptCheckbox` — checkbox tıklanınca kabul stamp'lenir, ekranda `Kabul: {tarih}` emerald chip'i.
+  - **RSVP+ Sayaç Chips**: Yeni bulk endpoint `GET /api/events/rsvp/counts` (admin/editor) — MongoDB aggregate ile tüm event'ler için `{yes_count, maybe_count, no_count}` tek round-trip. Events.jsx admin görünümünde her event card'a inline `✅ 8 · 🤔 4 · ❌ 2` chip bar (green/amber/red badge'ler). data-testid `event-rsvp-{yes|maybe|no}-{id}`.
+  - **Görev Bildirimi**: Yeni scheduler `_admin_todo_due_reminder_loop` her 15 dakikada bir Turkey-local today'e denk gelen (veya gecikmiş) todos'u tarıyor. `assigned_to` → user lookup → web push + Telegram DM (telegram_chat_id set ise) + in_app_notifications bell rowu. `due_notified_at` daily stamp ile aynı gün tekrar tetiklenmez. Gecikmişse title `⚠️ Gecikmiş görev` (aksi halde `⏰ Görev bugün son teslim`).
+  - **E2E doğrulama** ✅: Rules accept curl 200 + status roundtrip `rules_accepted_at`; admin/users/rules-status `accepted=1 pending=9`; bulk rsvp/counts `events with rsvps=0` (DB temiz olduğu için).
+
 - **Feb 28, 2026 (v135.32 Davet Mektubu Dil Seçimi)** — `/app/backend/routes/invites.py` + `/app/frontend/src/components/InviteManagement.jsx`:
   - **Templates**: Yeni `INVITE_LETTER_TEMPLATES` dict — 8 dil (tr/en/de/es/fr/ru/pt/ar) her biri `title`, `cta`, `note_prefix`, `outro` alanlarıyla. `_build_invite_letter(lang, admin, guild, link, note)` composer helper — unsupported code varsa `tr` fallback.
   - **Model**: `InviteCreateBody.letter_lang: Optional[str] = "tr"`. `create_invite` bu alanla mektup üretiyor, `letter_lang` ve `letter_body` invite doc'a yazılıyor.

@@ -6328,6 +6328,8 @@ async def _start_push_scheduler():
     asyncio.create_task(_event_reminder_loop())
     # v135.28 — Daily birthday greeting ticker (Telegram + admin push).
     asyncio.create_task(_birthday_celebration_loop())
+    # v135.33 — Admin todo due-date reminder ticker.
+    asyncio.create_task(_admin_todo_due_reminder_loop())
 
 
 # v135.26 — Automated pre-event reminder scheduler.
@@ -9965,6 +9967,155 @@ async def put_guild_rules(body: dict, user: dict = Depends(require_admin)):
         upsert=True,
     )
     return {"ok": True, "body": raw}
+
+
+# v135.33 — Guild rules acceptance endpoints. Registered on `app` for the
+# same reason as get/put rules (mounted after api_router include).
+@app.post("/api/auth/me/rules-accept")
+async def _rules_accept(user: dict = Depends(require_auth)):
+    now = now_iso()
+    await db.users.update_one({"id": user["id"]},
+                               {"$set": {"rules_accepted_at": now}})
+    return {"ok": True, "rules_accepted_at": now}
+
+
+@app.get("/api/auth/me/rules-status")
+async def _my_rules_status(user: dict = Depends(require_auth)):
+    u = await db.users.find_one({"id": user["id"]}, {"_id": 0, "rules_accepted_at": 1})
+    return {"rules_accepted_at": (u or {}).get("rules_accepted_at")}
+
+
+@app.get("/api/admin/users/rules-status")
+async def _admin_users_rules_status(_: dict = Depends(require_admin)):
+    rows = await db.users.find(
+        {}, {"_id": 0, "id": 1, "username": 1, "display_name": 1,
+             "role": 1, "rules_accepted_at": 1, "created_at": 1},
+    ).sort("username", 1).to_list(2000)
+    accepted = [r for r in rows if r.get("rules_accepted_at")]
+    pending = [r for r in rows if not r.get("rules_accepted_at")]
+    return {
+        "accepted": accepted, "pending": pending,
+        "accepted_count": len(accepted), "pending_count": len(pending),
+    }
+
+
+# v135.33 — Bulk RSVP counts. Single round-trip so the events list can show
+# `✅ 8 · 🤔 4 · ❌ 2` chips on every card without N+1 lookups.
+@app.get("/api/events/rsvp/counts")
+async def _events_rsvp_counts(_: dict = Depends(require_edit)):
+    pipeline = [
+        {"$match": {"status": {"$in": ["yes", "maybe", "no"]}}},
+        {"$group": {"_id": {"event_id": "$event_id", "status": "$status"},
+                    "count": {"$sum": 1}}},
+    ]
+    out: dict = {}
+    async for r in db.event_rsvps.aggregate(pipeline):
+        eid = r["_id"]["event_id"]
+        st = r["_id"]["status"]
+        out.setdefault(eid, {"yes_count": 0, "maybe_count": 0, "no_count": 0})
+        out[eid][f"{st}_count"] = r["count"]
+    return {"counts": out}
+
+
+# v135.33 — Admin todo due-date reminder loop. Every 15 minutes we look for
+# todos due today (or overdue) that have an `assigned_to` username, aren't
+# `done`, and haven't been reminded today yet. For each match we push a
+# web-push notification to the assignee's linked user + optionally DM their
+# telegram_chat_id, then stamp `due_notified_at` so the same todo isn't
+# reminded twice on the same day.
+async def _admin_todo_due_reminder_loop():
+    import asyncio
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    while True:
+        try:
+            now_tr = _dt.now(_tz(_td(hours=3)))
+            today = now_tr.strftime("%Y-%m-%d")
+            cursor = db.admin_todos.find({
+                "done": {"$ne": True},
+                "assigned_to": {"$nin": [None, ""]},
+                "due_date": {"$lte": today, "$nin": [None, ""]},
+                "$or": [
+                    {"due_notified_at": {"$exists": False}},
+                    {"due_notified_at": {"$ne": today}},
+                ],
+            }, {"_id": 0})
+            async for todo in cursor:
+                try:
+                    assignee = (todo.get("assigned_to") or "").strip()
+                    user = await db.users.find_one(
+                        {"username": assignee},
+                        {"_id": 0, "id": 1, "telegram_chat_id": 1},
+                    )
+                    if not user:
+                        # Still stamp so we don't hammer logs — invalid assignee.
+                        await db.admin_todos.update_one(
+                            {"id": todo["id"]},
+                            {"$set": {"due_notified_at": today}},
+                        )
+                        continue
+                    is_overdue = todo["due_date"] < today
+                    title = ("⚠️ Gecikmiş görev" if is_overdue
+                             else "⏰ Görev bugün son teslim")
+                    body_txt = (f"'{todo.get('title')}' — son tarih "
+                                f"{todo.get('due_date')}"
+                                + (" (gecikti!)" if is_overdue else ""))
+                    # Web push
+                    try:
+                        private_pem, _pub = await _get_or_create_vapid()
+                        subs = await db.push_subscriptions.find(
+                            {"user_id": user["id"]}, {"_id": 0},
+                        ).to_list(20)
+                        payload = json.dumps({
+                            "title": title, "body": body_txt,
+                            "url": "/admin/gorevler",
+                            "tag": f"todo-due-{todo['id']}",
+                            "sound": "rally",
+                        }, ensure_ascii=False)
+                        for s in subs:
+                            try:
+                                webpush(
+                                    subscription_info={"endpoint": s["endpoint"], "keys": s["keys"]},
+                                    data=payload,
+                                    vapid_private_key=private_pem,
+                                    vapid_claims={"sub": os.environ.get("VAPID_SUB", "mailto:admin@titanxis.local")},
+                                )
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+                    # Telegram DM (if linked chat)
+                    try:
+                        chat_id = (user.get("telegram_chat_id") or "").strip()
+                        if chat_id:
+                            from telegram_bot import send_message as _tg_send
+                            await _tg_send(chat_id, f"*{title}*\n\n{body_txt}")
+                    except Exception:
+                        pass
+                    # Bell rowu
+                    try:
+                        await db.in_app_notifications.insert_one({
+                            "id": uuid.uuid4().hex,
+                            "user_id": user["id"],
+                            "title": title, "body": body_txt,
+                            "url": "/admin/gorevler",
+                            "sched_id": f"todo-due-{todo['id']}-{today}",
+                            "created_at": now_iso(),
+                            "read": False,
+                        })
+                    except Exception:
+                        pass
+                    await db.admin_todos.update_one(
+                        {"id": todo["id"]},
+                        {"$set": {"due_notified_at": today,
+                                  "due_notified_overdue": is_overdue}},
+                    )
+                    logger.info(f"[todo-due] fired todo={todo['id']} assignee={assignee} overdue={is_overdue}")
+                except Exception as _iex:
+                    logger.warning(f"[todo-due] per-todo failure: {_iex}")
+        except Exception as ex:
+            logger.warning(f"[todo-due] loop error: {ex}")
+        await asyncio.sleep(900)  # 15 min
+
 
 app.mount("/api/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
