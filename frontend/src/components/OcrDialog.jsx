@@ -539,16 +539,6 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
               const cleaned = _stripTagAndJunk(next.name || "");
               if (cleaned) next.name = cleaned;
             }
-            // v135.47 — DB'ye giden isim HER ZAMAN Latin normalize edilir:
-            // CJK / emoji / dekoratif Unicode karakterler silinir, sadece
-            // \x20-\x7E printable ASCII kalır. Böylece "쁠メEvil Mikeyメ쁠"
-            // gibi kirli OCR sonucu, hem yeni kayıt hem de mevcut üye güncellemesinde
-            // "Evil Mikey" olarak yazılır — datalist'ten seçilse bile
-            // (mevcut ismi zaten temiz olduğu için değişiklik olmaz).
-            {
-              const norm = _stripTagAndJunk(String(next.name || ""));
-              if (norm) next.name = norm;
-            }
             if (kind === "event" && patch.points !== undefined) next.points = Number(patch.points) || 0;
             if (kind === "event" && patch.alliance_name !== undefined) {
               const trimmed = String(patch.alliance_name || "").replace(/[\[\]]/g, "").trim();

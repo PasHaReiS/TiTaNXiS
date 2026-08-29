@@ -90,12 +90,15 @@ export default function MemberAddOcr() {
       });
       const items = res.data?.data?.members || res.data?.members || [];
       const enriched = items.map((it) => {
-        const clean = stripTag(it.name || "");
+        // v135.48 — HAM ismi koru (CJK dahil), sadece eşleştirme için
+        // Latin-normalize edilmiş "name_clean" versiyonunu kullan.
+        const raw = String(it.name || "").trim();
+        const clean = stripTag(raw); // Latin-only, sadece eşleştirme+fuzzy için
         const hit = existingByName.get(clean.toLowerCase());
-        // v135.46 — Fuzzy: exact yoksa en yakın 3 kayıtlıyı bul (Latin-normalize edilmiş).
         const fuzzy = hit ? [] : _fuzzyTop(clean, Array.from(existingByName.values()).map((m) => m.name || ""), 3);
         return {
-          name: clean,
+          name: raw,          // DB'ye yazılacak orijinal isim (CJK korunur)
+          name_clean: clean,  // Ekranda "Eşleşti/Eşleşmedi: X" ve fuzzy için
           alliance_name: it.alliance_name || (hit ? hit.alliance_name : "") || "",
           rank: hit ? hit.rank : (RANKS.includes(it.rank) ? it.rank : "R1"),
           existing_id: hit?.id || null,
@@ -124,25 +127,26 @@ export default function MemberAddOcr() {
   const saveRow = async (idx) => {
     const r = rows[idx];
     if (!r || r.existing_id) return;
-    // v135.47 — Kaydedilecek isim HER ZAMAN Latin normalize edilir; kullanıcı
-    // datalist'e "Evil Mikey" seçmiş bile olsa güvenli tarafta kalıyoruz.
-    const cleanName = stripTag(r.name || "").trim();
-    if (!cleanName) { toast.error(t("moa_name_required", "İsim boş")); return; }
+    // v135.48 — HAM ismi DB'ye yaz (CJK dahil). Kullanıcı input'ta değiştirdiyse
+    // o değişiklik korunur; aksi halde orijinal OCR çıktısı yazılır.
+    const rawName = String(r.name || "").trim();
+    if (!rawName) { toast.error(t("moa_name_required", "İsim boş")); return; }
     const alliance = (r.alliance_name || "").trim();
     if (!alliance) { toast.error(t("moa_alliance_required", "İttifak seç")); return; }
     setSavingIds((s) => new Set(s).add(idx));
     try {
       await api.post("/members", {
-        name: cleanName,
+        name: rawName,
         alliance_name: alliance,
         rank: RANKS.includes(r.rank) ? r.rank : "R1",
       });
-      toast.success(t("moa_saved_toast", "{{n}} eklendi", { n: cleanName }));
-      // Refresh members + mark row as existing to hide the form
+      toast.success(t("moa_saved_toast", "{{n}} eklendi", { n: r.name_clean || rawName }));
       const fresh = await api.get("/members");
       const list = Array.isArray(fresh.data) ? fresh.data : (fresh.data?.items || []);
-      const created = list.find((m) => stripTag(m.name).toLowerCase() === cleanName.toLowerCase());
-      updateRow(idx, { name: cleanName, existing_id: created?.id || "new", existing_alliance: alliance });
+      // Eşleştirme temiz isim üzerinden — yeni üyenin DB'deki adı ham olabilir
+      const cleanForLookup = (r.name_clean || stripTag(rawName)).toLowerCase();
+      const created = list.find((m) => stripTag(m.name).toLowerCase() === cleanForLookup);
+      updateRow(idx, { existing_id: created?.id || "new", existing_alliance: alliance });
       mutateMembers();
     } catch (e) { toast.error(apiErr(e)); }
     finally {
@@ -241,12 +245,19 @@ export default function MemberAddOcr() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-bold text-white flex-1 min-w-0 truncate"
                               data-testid={`moa-missing-name-${idx}`}>
-                          ⚠️ {t("moa_unmatched_prefix", "Eşleşmedi")}: {r.name}
+                          ⚠️ {t("moa_unmatched_prefix", "Eşleşmedi")}: {r.name_clean || r.name}
                         </span>
                         <span className="chip text-[10px]" style={{ borderColor: "#F5A623", color: "#F5A623" }}>
                           {t("moa_missing_badge", "YENİ KAYIT")}
                         </span>
                       </div>
+                      {r.name_clean && r.name_clean !== r.name && (
+                        <div className="text-[9px] mono text-muted-foreground truncate"
+                             title={r.name}
+                             data-testid={`moa-raw-name-${idx}`}>
+                          {t("moa_raw_name_label", "DB'ye yazılacak")}: {r.name}
+                        </div>
+                      )}
                       {r.fuzzy && r.fuzzy.length > 0 && (
                         <div className="rounded p-2 space-y-1"
                              style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.35)" }}

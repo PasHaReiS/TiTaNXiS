@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v135.48 REVERT v135.47 — Raw OCR Isim Korunur)** — Frontend-only:
+  - **v135.47 tersine çevrildi**: DB'ye artık ORİJİNAL ham OCR ismi yazılır (CJK/emoji/dekoratifler dahil). Latin normalize sadece eşleştirme ve fuzzy karşılaştırma için kullanılır.
+  - **OcrDialog `applyEditsAndKeep`**: v135.47'de eklenen zorunlu `_stripTagAndJunk(next.name)` normalize bloğu kaldırıldı. Event mode'da OCR'ın verdiği `next.name` cleaned versiyona düşer YALNIZCA kullanıcı patch etmediyse (mevcut davranış). Members mode'da `next.name` hiç değişmez → ham OCR ismi DB'ye yazılır.
+  - **OcrDialog "+ Yeni Üye Ekle" chip**: POST /members'e `String(currName).trim()` (ham) gönderilir; `cleanForMatch` sadece badge display + fuzzy için.
+  - **MemberAddOcr**: `row.name` HAM, yeni alan `row.name_clean` sadece eşleştirme+fuzzy+display için. `saveRow` `rawName` yazar. Missing row'da `Eşleşmedi: {name_clean}` gösterilir; hemen altında `moa-raw-name-{idx}` küçük mono satırı "DB'ye yazılacak: {ham}" bilgisi verir.
+  - Node smoke doğrulaması: match key = "쁠メEvil Mikeyメ쁠".stripTagAndJunk() = "Evil Mikey" (eşleştirmede kullanılır) ama DB'ye yazılan `name` = "쁠メEvil Mikeyメ쁠" (orijinal).
+
+
 - **Feb 29, 2026 (v135.47 OCR Kayıt Isim Normalize — DB'ye Sadece Latin)** — Frontend-only:
   - **OcrDialog `applyEditsAndKeep`**: BOTH modes (event + members) için map sonunda satırın final `next.name` alanı `_stripTagAndJunk` ile Latin-only normalize edilir. Kullanıcı datalist'ten seçmiş, manuel yazmış veya OCR ham şekilde bırakmış olsa dahi backend'e daima temizlenmiş isim gider (`쁠メEvil Mikeyメ쁠` → `Evil Mikey`, `[GOW] Ekko ツ R5` → `Ekko`).
   - **OcrDialog "+ Yeni Üye Ekle" chip'i** (event mode): POST /members'e gönderilen `name` artık `_stripTagAndJunk(cleanForMatch || currName)` sonucudur — CJK karakter DB'ye yazılamaz.
