@@ -154,6 +154,32 @@ export default function MemberAddOcr() {
     }
   };
 
+  const saveAllMissing = async () => {
+    const missingRows = rows
+      .map((r, idx) => ({ r, idx }))
+      .filter((x) => !x.r.existing_id);
+    if (!missingRows.length) {
+      toast.info(t("moa_bulk_nothing", "Eklenecek eşleşmeyen üye yok"));
+      return;
+    }
+    const invalid = missingRows.filter((x) => !(x.r.alliance_name || "").trim());
+    if (invalid.length) {
+      toast.error(t("moa_bulk_alliance_missing",
+        "{{n}} satırda ittifak boş — önce doldur", { n: invalid.length }));
+      return;
+    }
+    let created = 0, failed = 0;
+    for (const { idx } of missingRows) {
+      try {
+        await saveRow(idx);
+        created += 1;
+      } catch { failed += 1; }
+    }
+    toast.success(t("moa_bulk_done_toast",
+      "Toplam {{c}} yeni üye eklendi{{f}}",
+      { c: created, f: failed ? `, ${failed} hata` : "" }));
+  };
+
   const missing = rows.filter((r) => !r.existing_id);
   const registered = rows.filter((r) => r.existing_id);
 
@@ -383,6 +409,35 @@ export default function MemberAddOcr() {
               </div>
             )}
           </>
+        )}
+        {rows.length > 0 && missing.length > 0 && (
+          <div className="sticky bottom-2 z-30 flex items-center gap-2 rounded p-2"
+               style={{ background: "linear-gradient(90deg, rgba(245,166,35,0.14), rgba(180,83,9,0.20))",
+                        border: "1px solid rgba(245,166,35,0.55)",
+                        boxShadow: "0 0 12px rgba(245,166,35,0.25)" }}
+               data-testid="moa-bulk-bar">
+            <div className="text-[11px] text-white flex-1 min-w-0">
+              <div className="font-bold">
+                {t("moa_bulk_summary_title", "Tümünü Ekle")} — {missing.length} {t("moa_bulk_summary_missing", "eşleşmeyen")}
+                {registered.length > 0 && (
+                  <span className="ml-2 text-[10px] text-muted-foreground">
+                    · {registered.length} {t("moa_bulk_summary_matched", "eşleşen zaten mevcut")}
+                  </span>
+                )}
+              </div>
+              <div className="text-[10px] text-muted-foreground truncate">
+                {t("moa_bulk_summary_hint", "Her satırın ittifak+rütbe bilgisini kontrol et; boş ittifaklı satırlar atlanır.")}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={saveAllMissing}
+              data-testid="moa-bulk-save-all"
+              className="btn-gold text-xs flex items-center gap-1.5 px-3 py-2 flex-shrink-0"
+            >
+              <ChevronRight className="w-4 h-4" /> {t("moa_bulk_save_all_btn", "Tümünü Ekle")}
+            </button>
+          </div>
         )}
       </div>
     </div>

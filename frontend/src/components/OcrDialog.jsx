@@ -2026,19 +2026,52 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                 return null;
               })()}
 
-              {result && rows.length > 0 && (
-                <button
-                  type="button"
-                  onClick={doApply}
-                  disabled={applying || (requireSelection && !selection) || (rows.length - excludedRows.size) === 0}
-                  data-testid="ocr-apply"
-                  className="btn-gold w-full py-3 justify-center"
-                  style={(requireSelection && !selection) || (rows.length - excludedRows.size) === 0 ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-                >
-                  {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                  {applying ? "Kaydediliyor…" : `Onayla & Kaydet (${rows.length - excludedRows.size})`}
-                </button>
-              )}
+              {result && rows.length > 0 && (() => {
+                // v135.49 — "Tümünü Ekle" summary: eşleşen (mevcut) + eşleşmeyen (yeni)
+                // + hariç tutulan sayılarını admin görsün. Matched count için
+                // existingNamesLc üzerinden hızlı hesap.
+                const activeRows = rows.filter((_, i) => !excludedRows.has(i));
+                const matchedCount = activeRows.reduce((acc, r, _i) => {
+                  const nm = _stripTagAndJunk(_stripTag(String(r.name || ""))).toLowerCase();
+                  return acc + (existingNamesLc.has(nm) ? 1 : 0);
+                }, 0);
+                const newCount = activeRows.length - matchedCount;
+                const excluded = excludedRows.size;
+                return (
+                  <>
+                    <div
+                      className="rounded p-2 text-[11px] mb-2 flex items-center gap-3 flex-wrap"
+                      style={{ background: "rgba(245,166,35,0.08)", border: "1px solid rgba(245,166,35,0.4)" }}
+                      data-testid="ocr-bulk-summary"
+                    >
+                      <span style={{ color: "#86EFAC", fontWeight: 700 }}>
+                        ✅ {t("ocr_bulk_matched", "Eşleşen")}: {matchedCount}
+                      </span>
+                      <span style={{ color: "#F5A623", fontWeight: 700 }}>
+                        ➕ {t("ocr_bulk_new", "Yeni")}: {newCount}
+                      </span>
+                      {excluded > 0 && (
+                        <span style={{ color: "#94A3B8" }}>
+                          ⊘ {t("ocr_bulk_excluded", "Hariç")}: {excluded}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={doApply}
+                      disabled={applying || (requireSelection && !selection) || activeRows.length === 0}
+                      data-testid="ocr-apply"
+                      className="btn-gold w-full py-3 justify-center"
+                      style={(requireSelection && !selection) || activeRows.length === 0 ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                    >
+                      {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      {applying
+                        ? t("ocr_bulk_saving", "Kaydediliyor…")
+                        : t("ocr_bulk_save_all_btn", "Tümünü Ekle ({{n}})", { n: activeRows.length })}
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           )}
         </motion.div>

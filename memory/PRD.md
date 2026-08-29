@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v135.49 "Tümünü Ekle" — Tüm OCR ekranları)** — Frontend-only:
+  - **OcrDialog** (Bireysel Güç + Kale/Rank + Etkinlik Puanı): En alttaki "Onayla & Kaydet" butonu **"Tümünü Ekle (N)"** olarak yeniden adlandırıldı ve hemen üstüne yeni `ocr-bulk-summary` chip bloğu eklendi — ✅ Eşleşen: N (güncellenecek), ➕ Yeni: N (oluşturulacak), ⊘ Hariç: N (excluded). Matched sayımı `_stripTagAndJunk(_stripTag(...))` üzerinden existingNamesLc lookup ile.
+  - **MemberAddOcr** (`/uye-ekle-ocr`): Sayfanın en altına sticky bottom bar `moa-bulk-bar` eklendi — solda özet ({{n}} eşleşmeyen · N eşleşen zaten mevcut), sağda `moa-bulk-save-all` "Tümünü Ekle" butonu. `saveAllMissing()` fonksiyonu tüm eksik satırlar için sırayla `saveRow(idx)` çağırır; başarı/hata sayılarını toast özeti gösterir. Boş ittifaklı satırlar varsa önce uyarı verilir.
+  - **i18n**: `ocr_bulk_matched/new/excluded/save_all_btn/saving`, `moa_bulk_*` (bar başlığı, hint, done_toast, alliance_missing) — TR fallback + 29 dile hazır.
+  - **Backend değişiklik yok** — mevcut `/api/ocr/apply-members`, `/api/ocr/apply-event-points`, `/api/members` POST'ları yeniden kullanılır.
+
+
 - **Feb 29, 2026 (v135.48 REVERT v135.47 — Raw OCR Isim Korunur)** — Frontend-only:
   - **v135.47 tersine çevrildi**: DB'ye artık ORİJİNAL ham OCR ismi yazılır (CJK/emoji/dekoratifler dahil). Latin normalize sadece eşleştirme ve fuzzy karşılaştırma için kullanılır.
   - **OcrDialog `applyEditsAndKeep`**: v135.47'de eklenen zorunlu `_stripTagAndJunk(next.name)` normalize bloğu kaldırıldı. Event mode'da OCR'ın verdiği `next.name` cleaned versiyona düşer YALNIZCA kullanıcı patch etmediyse (mevcut davranış). Members mode'da `next.name` hiç değişmez → ham OCR ismi DB'ye yazılır.
