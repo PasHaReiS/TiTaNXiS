@@ -1,0 +1,46 @@
+{
+  "summary": "Retest of the iteration_50 RSVP targeting bug fix. Backend: re-ran the full 19-case regression suite (/app/backend/tests/test_iter50_templates.py) — 19/19 PASS, including the previously failing bug-repro test_alliance_scoped_event_targets_members. Added a new 5-case suite (/app/backend/tests/test_iter51_rsvp_targeting.py) covering all four claimed fixes — 5/5 PASS: GOW-scoped event 'L2' now returns target_count=9 (unscoped=10), alliance_scope='all' behaves as no filter (10), an event scoped to a non-existent alliance returns 0 targets AND leaves send_count=0 / last_sent_at=null, and notification_prefs.reminder=False on admin drops target_count 10 -> 9 (opt-out honoured, prefs restored afterwards). Frontend: UI smoke on /sablonlar -> RSVP Hatırlatma — create template, open 'Katılmayanlara Gönder', picker populated with 8 events, picked GOW event L2, send succeeded and the row badge updated to '1 gönderim' (proof target_count>0 through the UI), then deleted the template. Zero console errors — the previous '<span> cannot be a child of <option>' hydration warning is gone. Hint banner computed style verified: color rgb(186,230,253) on rgba(56,189,248,0.10), padding 12px, font-size 12px — contrast fix confirmed. All test data cleaned up (rsvp_templates=0, no TEST_ events, event_templates=[T1] preserved).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/rsvp-templates/{id}/send", "issue": "Push branch (pywebpush + lazy `_get_or_create_vapid`) and the telegram_dm branch remain UNTESTED code paths — db.push_subscriptions is empty and no member has telegram_chat_id in this environment, so push_sent/telegram_sent are always 0."},
+      {"endpoint": "POST /api/rsvp-templates/{id}/send", "issue": "Candidate query is now `db.users.find({})` with no active/disabled filter at all (the old `is_active: {$ne: False}` guard was dropped). Harmless today (users docs have no is_active field) but any future soft-disable flag will be silently ignored."},
+      {"endpoint": "POST /api/rsvp-templates", "issue": "Still returns HTTP 200 instead of 201 on creation (pre-existing, cosmetic)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "RSVP Hatırlatma -> Katılmayanlara Gönder (event picker)", "issue": "MINOR: the event <select> is rendered empty (only the 'Etkinlik seç…' placeholder) for the first ~1-2s while the SWR /events?archived=false request is in flight, with no loading/skeleton state. A fast admin sees an apparently empty event list. Submit is correctly disabled meanwhile, so no data risk.", "affected_selectors": ["rsvp-tpl-send-event-picker"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter50_templates.py",
+    "/app/backend/tests/test_iter51_rsvp_targeting.py",
+    "/app/test_reports/pytest/iter51_regression.xml",
+    "/app/test_reports/pytest/iter51_new.xml"
+  ],
+  "action_items": [
+    "Optional: add a loading state to the RSVP send modal event picker (SWR isLoading) so it doesn't briefly look empty.",
+    "Optional: seed one push_subscription and one member.telegram_chat_id in a scratch DB to cover the untested push/telegram fanout branches.",
+    "Optional cleanup in rsvp_templates.py send_tpl: the member_ids loop (lines ~158-166) adds u['member_id'] inside the member_ids loop AND again after it — redundant/confusing though functionally correct."
+  ],
+  "critical_code_review_comments": [
+    "send_tpl now loads the ENTIRE users collection plus up to 50k member docs on every send (`.to_list(10000)` / `.to_list(50000)`), instead of a targeted query. Fine at 10 users / 255 members, but it is an O(all-users) scan per click — consider querying members by alliance first and reverse-mapping to users when a scope is set.",
+    "The opt-out block swallows every exception (`except Exception: pass`) around `from server import _users_disabled_for_pref`; if that import ever breaks, opt-outs are silently ignored with no log line. Log a warning at minimum.",
+    "Push fanout logic is still duplicated between server.py and routes/rsvp_templates.py (payload build, VAPID claims, 404/410 subscription cleanup) — extract a shared send_push_to_users() helper.",
+    "Templates.jsx is 824 lines with 3 sections + 4 modals; still worth splitting into pages/templates/*."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter51_rsvp_targeting.py",
+    "/app/frontend/src/pages/Templates.jsx (added data-testid=\"rsvp-tpl-hint\" to the RSVP info banner for contrast assertion — no behavioural change)"
+  ],
+  "success_rate": {"backend": "100% (24/24: 19 regression + 5 new)", "frontend": "100% of smoked flows passed"},
+  "seed_data_creation": "Transient only: TEST_iter51_* rsvp templates, TEST_iter51_all_event / TEST_iter51_noalliance events, TEST_UI51 UI template — all deleted. Admin notification_prefs toggled to reminder=False and restored to all-True (verified in DB).",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "admin / Admin123. Login: /login -> data-testid=guest-login-btn (if shown) -> login-username / login-password / login-submit.",
+  "context_for_next_testing_agent": "Iteration 50's CRITICAL RSVP targeting bug is FIXED and verified (GOW event -> 9 targets, unscoped -> 10, 'all' -> 10, bogus scope -> 0 with no send_count bump, reminder opt-out honoured). Regression suites: /app/backend/tests/test_iter50_templates.py (19 cases) + /app/backend/tests/test_iter51_rsvp_targeting.py (5 cases) — both self-cleaning; run the iter51 file with `-n 0` because pytest.ini forces xdist loadscope and the module-scoped fixtures need serial execution. Notification prefs endpoint: GET/PUT /api/auth/me/notification-prefs (PUT REPLACES the whole prefs dict — always send the full object back). Env facts unchanged: 10 users, 255 members, 8 non-archived events (L2/SvS Std/Kafes 1 etc. scoped 'GOW', Kafes 2 + L1 unscoped), 0 event_rsvps, 0 push_subscriptions, 0 members with telegram_chat_id. Real UI testids in Templates.jsx: tpl-tab-{telegram,event,rsvp}, tpl-tab-{active,archive}, rsvp-tpl-{new-btn,hint,composer-name,composer-body,composer-ch-push,composer-ch-tg,composer-submit,send-<id>,edit-<id>,archive-<id>,restore-<id>,delete-<id>}, rsvp-tpl-send-{modal,event-picker,include-maybe,submit}. NOTE: there is NO rsvp-tpl-name-input/body-input testid (use composer-name/composer-body), and the send modal's event picker needs ~1-2s SWR wait before options appear.",
+  "rca_of_the_issue": "Previous root cause (users.alliance_name / users.telegram_chat_id do not exist; alliance + chat id live on db.members) is resolved: send_tpl now builds a user->member_ids map from users.member_ids / users.member_id plus a reverse members.user_id index, batch-fetches those member docs for alliance_name + telegram_chat_id, treats alliance_scope ''/'all' as no filter, subtracts _users_disabled_for_pref('reminder'), and only bumps send_count/last_sent_at when target_ids is non-empty. Verified end-to-end via API (target_count 9 on GOW event 'L2') and via UI ('1 gönderim' badge after sending)."
+}

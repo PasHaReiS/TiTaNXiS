@@ -1,11 +1,10 @@
-"""Event templates — save an event's shape (name, group, multiplier,
-subtitle, banner, reminder_enabled) so admins can quickly re-create similar
-events. The template does NOT store `date` — only structural fields.
+"""Event templates (v135.38).
 
-Endpoints:
-- GET  /api/event-templates            — list all templates (auth)
-- POST /api/event-templates            — admin creates a template
-- DELETE /api/event-templates/{id}     — admin deletes
+Etkinlik yaratma formundan "Şablon olarak kaydet" akışı ile tetiklenir; ayrıca
+Şablonlar hub'ında elle CRUD yapılabilir. Şablon `date` alanı saklamaz; sadece
+yapı (name, group_name, multiplier, subtitle, banner_url, reminder_enabled,
+hidden_from_leaderboard, show_breakdown, attendance_enabled). v135.38'de
+`archived` alanı + tam PATCH + arşiv filter eklendi.
 """
 from datetime import datetime, timezone
 from typing import Optional
@@ -28,14 +27,37 @@ class EventTemplateCreate(BaseModel):
     reminder_enabled: Optional[bool] = True
     hidden_from_leaderboard: Optional[bool] = False
     show_breakdown: Optional[bool] = True
+    attendance_enabled: Optional[bool] = True
+
+
+class EventTemplateUpdate(BaseModel):
+    template_name: Optional[str] = None
+    name: Optional[str] = None
+    group_name: Optional[str] = None
+    multiplier: Optional[float] = None
+    subtitle: Optional[str] = None
+    banner_url: Optional[str] = None
+    reminder_enabled: Optional[bool] = None
+    hidden_from_leaderboard: Optional[bool] = None
+    show_breakdown: Optional[bool] = None
+    attendance_enabled: Optional[bool] = None
+    archived: Optional[bool] = None
+
+
+def _serialize(doc: dict) -> dict:
+    return {k: v for k, v in doc.items() if k != "_id"}
 
 
 def make_event_templates_router(db, require_auth, require_admin):
     router = APIRouter()
 
     @router.get("/event-templates")
-    async def list_templates(_: dict = Depends(require_auth)):
-        rows = await db.event_templates.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    async def list_templates(
+        archived: Optional[bool] = False,
+        _: dict = Depends(require_auth),
+    ):
+        q = {"archived": True} if archived else {"archived": {"$ne": True}}
+        rows = await db.event_templates.find(q, {"_id": 0}).sort("created_at", -1).to_list(200)
         return {"items": rows}
 
     @router.post("/event-templates")
@@ -55,12 +77,44 @@ def make_event_templates_router(db, require_auth, require_admin):
             "reminder_enabled": bool(body.reminder_enabled),
             "hidden_from_leaderboard": bool(body.hidden_from_leaderboard),
             "show_breakdown": bool(body.show_breakdown),
+            "attendance_enabled": True if body.attendance_enabled is None else bool(body.attendance_enabled),
+            "archived": False,
             "created_at": _now_iso(),
+            "updated_at": _now_iso(),
             "created_by": user.get("username") or "",
         }
         await db.event_templates.insert_one(doc)
-        doc.pop("_id", None)
-        return doc
+        return _serialize(doc)
+
+    @router.patch("/event-templates/{tid}")
+    async def update_template(tid: str, body: EventTemplateUpdate, _: dict = Depends(require_admin)):
+        existing = await db.event_templates.find_one({"id": tid}, {"_id": 0})
+        if not existing:
+            raise HTTPException(404, "Şablon bulunamadı")
+        upd: dict = {}
+        data = body.model_dump(exclude_unset=True)
+        for key in (
+            "template_name", "name", "group_name", "subtitle", "banner_url",
+        ):
+            if key in data:
+                v = (data[key] or "").strip() if data[key] is not None else None
+                if key in ("template_name", "name") and not v:
+                    raise HTTPException(400, f"{key} cannot be empty")
+                upd[key] = v or None
+        if "multiplier" in data and data["multiplier"] is not None:
+            upd["multiplier"] = float(data["multiplier"])
+        for key in (
+            "reminder_enabled", "hidden_from_leaderboard", "show_breakdown",
+            "attendance_enabled", "archived",
+        ):
+            if key in data and data[key] is not None:
+                upd[key] = bool(data[key])
+        if not upd:
+            return _serialize(existing)
+        upd["updated_at"] = _now_iso()
+        await db.event_templates.update_one({"id": tid}, {"$set": upd})
+        doc = await db.event_templates.find_one({"id": tid}, {"_id": 0})
+        return _serialize(doc)
 
     @router.delete("/event-templates/{tid}")
     async def delete_template(tid: str, _: dict = Depends(require_admin)):
@@ -74,3 +128,7 @@ def make_event_templates_router(db, require_auth, require_admin):
 
 async def ensure_event_templates_indexes(db):
     await db.event_templates.create_index("id", unique=True)
+    try:
+        await db.event_templates.create_index([("archived", 1), ("created_at", -1)])
+    except Exception:
+        pass

@@ -263,10 +263,10 @@ export default function Header({ title, children }) {
                   )}
                   {isAdmin && (
                     <MenuItem
-                      emoji="📨"
-                      label={t("nav_tg_templates", "Telegram Şablonları")}
-                      onClick={() => goto("/admin/telegram-sablonlar")}
-                      testId="dropdown-tg-templates"
+                      emoji="📚"
+                      label={t("nav_templates", "Şablonlar")}
+                      onClick={() => goto("/sablonlar")}
+                      testId="dropdown-templates"
                     />
                   )}
                   {isAdmin && (

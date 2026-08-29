@@ -30,6 +30,7 @@ import Events from "@/pages/Events";
 import Announcements from "@/pages/Announcements";
 import BadgeManagement from "@/pages/BadgeManagement";
 import TelegramTemplates from "@/pages/TelegramTemplates";
+import Templates from "@/pages/Templates";
 import PublicGuildProfile from "@/pages/PublicGuildProfile";
 import AdminTodos from "@/pages/AdminTodos";
 import GuildRules from "@/pages/GuildRules";
@@ -137,7 +138,8 @@ function AppShell() {
           <Route path="/admin/duyurular" element={<RequireAdmin><MotionPage><Announcements /></MotionPage></RequireAdmin>} />
           <Route path="/rozetler" element={<RequireAdmin><MotionPage><BadgeManagement /></MotionPage></RequireAdmin>} />
           <Route path="/admin/rozetler" element={<RequireAdmin><MotionPage><BadgeManagement /></MotionPage></RequireAdmin>} />
-          <Route path="/admin/telegram-sablonlar" element={<RequireAdmin><MotionPage><TelegramTemplates /></MotionPage></RequireAdmin>} />
+          <Route path="/admin/telegram-sablonlar" element={<RequireAdmin><MotionPage><Templates /></MotionPage></RequireAdmin>} />
+          <Route path="/sablonlar" element={<RequireAdmin><MotionPage><Templates /></MotionPage></RequireAdmin>} />
           <Route path="/admin/gorevler" element={<RequireAdmin><MotionPage><AdminTodos /></MotionPage></RequireAdmin>} />
           <Route path="/admin/sertifika-ver" element={<RequireAdmin><MotionPage><IssueCertificate /></MotionPage></RequireAdmin>} />
           <Route path="/kurallar" element={<MotionPage><GuildRules /></MotionPage>} />

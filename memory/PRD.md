@@ -20,6 +20,23 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v135.38.1 RSVP Targeting Bug-Fix)** — Backend:
+  - **CRITICAL fix**: `POST /api/rsvp-templates/{id}/send` alliance targeting yeniden yazıldı. Önceki sürüm `db.users.alliance_name` alanına bakıyordu (mevcut olmayan alan) — bu yüzden GOW gibi bir alliance_scope'lu her etkinlik için target_count=0'a düşüyordu. Yeni sürüm `_resolve_user_alliances` mantığını yansıtıyor: `user.member_ids` + `user.member_id` + reverse `members.user_id` ile üye kayıtları toplanır, `members.alliance_name` ve `members.telegram_chat_id` join ile batch çekilir.
+  - Ek düzeltmeler: `alliance_scope` boş veya `'all'` -> filtresiz (server.py `_rsvp_alliance_query` ile hizalı). `send_count`/`last_sent_at` sadece `target_count > 0` iken artırılır (UI'da yanıltıcı "gönderim" badge'i olmasın). `_users_disabled_for_pref('reminder')` opt-out'u uygulanıyor.
+  - **UI**: RSVP hint banner kontrast artışı (`text-sky-200` + kalın border) + `<option>` label plain string olarak render (React hydration uyarısı düzeltildi).
+  - **E2E doğrulama** ✅ (curl): GOW event üzerinde `target_count=9` (önce 0'dı), `send_count` doğru artıyor.
+
+
+- **Feb 29, 2026 (v135.38 Şablonlar Hub — Telegram + Etkinlik + RSVP Hatırlatma)** — Backend + Frontend:
+  - **RSVP Hatırlatma Şablonları (yeni)** (`/app/backend/routes/rsvp_templates.py`): Yeni koleksiyon `rsvp_templates` + `GET /api/rsvp-templates?archived=` + `POST` + `PATCH` (name/body/channels/archived) + `DELETE`. Ayrıca `POST /api/rsvp-templates/{tid}/send { event_id, include_maybe }` — etkinlik alliance_scope'undaki `is_active != false` kullanıcılardan RSVP vermeyenlere Web Push + Telegram DM fanout. Lazy import `_get_or_create_vapid` + `pywebpush` + `telegram_bot.send_message`. Server startup'ta index ensure (`archived`+`updated_at`).
+  - **Event Templates full PATCH + Archive** (`/app/backend/routes/event_templates.py` yeniden yazıldı): Tam PATCH (template_name/name/group_name/multiplier/subtitle/banner_url/reminder_enabled/attendance_enabled/hidden_from_leaderboard/show_breakdown/archived). GET default archived olmayanları döner; `?archived=true` sadece arşiv. Boş template_name/name -> 400.
+  - **Telegram Templates Archive** (`/app/backend/routes/telegram_templates.py`): `TemplateUpdate` şemasına `archived` alanı, `GET` default `{archived:{$ne:True}}`, `?archived=true` filter. Var olan PATCH akışı archived toggle destekler.
+  - **Şablonlar Hub UI** (`/app/frontend/src/pages/Templates.jsx` yeni): Tek sayfa 3 sekme (Telegram / Etkinlik / RSVP Hatırlatma), her sekmede Aktif/Arşiv toggle + Yeni Şablon butonu. Ortak `ArchiveToggle`, `SectionList`, `ModalShell`, `Field`, `SubmitBtn` atomları. Composerlar: `TelegramComposer` (name+category+body), `EventComposer` (template_name+name+group+multiplier+subtitle+banner+4 toggle), `RsvpComposer` (name+body+push/tg channels). `RsvpSendModal` — event picker + include_maybe + `POST /rsvp-templates/{id}/send` çağrısı, toast ile hedef/push/telegram sayıları.
+  - **Menü Yeniden Adlandırma** (`Header.jsx`): "Telegram Şablonları" (📨) yerine "Şablonlar" (📚) menü öğesi `/sablonlar`'a gider. `App.js`'te `/sablonlar` route yeni `Templates` bileşenine, eski `/admin/telegram-sablonlar` route da aynı bileşene alias (geri uyumluluk).
+  - **Tüm metinler `useTranslation()`** — TR fallback ile 29 dilin tümüne genişletilebilir (`tpl_tab_*`, `tpl_view_active/archive`, `rsvp_tpl_*`, `ev_tpl_*`).
+  - **E2E doğrulama** ✅ (curl): POST rsvp create OK, GET active/archive filter OK, PATCH archive+rename OK, DELETE OK, 401 unauth OK, event-templates active_only OK, tg-templates default filter OK. Frontend screenshotları: 3 sekme + Aktif/Arşiv toggle + T1 event template mevcut düzende (Etkinlik adı+Hatırlatma+Katılım+aksiyonlar) + RSVP tab hint banner + empty state.
+
+
 - **Feb 29, 2026 (v135.37 Alliance Edit Unified + Cert Admin + Member Card Polish)** — Backend + Frontend:
   - **Cert Admin List + Patch** (`/app/backend/routes/certificates.py`): Yeni `GET /api/certificates?search=&limit=` (admin) — tüm sertifikaları listeler, title/member/event üzerinde case-insensitive arama. Yeni `PATCH /api/certificates/{cid}` — `title` ve/veya `theme` güncellenir; geçersiz tema `amber`'a düşer, boş body 400, bogus id 404.
   - **Verilen Sertifikalar Yönetim UI** (`/app/frontend/src/pages/IssueCertificate.jsx`): Yeni `IssuedCertificatesList` component — arama input + row list + Kalem/Çöp aksiyonları + edit modal (title + theme). Otomatik verilen sertifikalar "OTOMATİK" chip'i ile işaretli.

@@ -1,0 +1,54 @@
+{
+  "summary": "v135.38 unified template hub (/sablonlar) tested end-to-end. Backend: 19 pytest cases across /api/rsvp-templates (CRUD + archive + send), /api/event-templates (full PATCH + archive filter) and /api/telegram-templates (archived default + PATCH archived) — 18 pass, 1 fails and exposes a CRITICAL targeting bug in the RSVP send endpoint. Frontend: full Playwright coverage of all 3 tabs (Telegram / Etkinlik / RSVP Hatırlatma) — create, edit(PATCH), archive→Arşiv tab→Geri Getir restore, delete, RSVP send modal with event picker + 'Belki dahil', plus regression on the old /admin/telegram-sablonlar route and the header 'Şablonlar' menu item. All UI flows passed. All test data cleaned up; pre-existing 'T1' event template preserved.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/rsvp-templates/{id}/send",
+        "issue": "Targeting query is wrong: it filters `db.users` by `alliance_name` and reads `users.telegram_chat_id`, but the users collection has NEITHER field (verified: users keys = id, username, email, role, can_edit, member_ids, must_change_password, created_at). Alliance + telegram_chat_id live on `db.members`, resolved via user.member_ids / user.member_id / members.user_id (see server.py `_resolve_user_alliances`). Result: for ANY event with alliance_scope set (every real event defaults to 'GOW') target_count is ALWAYS 0 — the feature silently sends nothing. Proof: event 'L2' (scope='GOW', 0 RSVP rows, 9 users linked to GOW members) -> target_count=0; unscoped event 'Kafes 2' -> target_count=10. Telegram DM will also never fire because telegram_chat_id is only on members.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": [
+      {"endpoint": "POST /api/rsvp-templates/{id}/send", "issue": "alliance_scope == 'all' is treated as a literal alliance name (only empty string means everyone), unlike server.py `_rsvp_alliance_query` which treats 'all'/empty as no filter -> 0 targets for 'all'-scoped events."},
+      {"endpoint": "POST /api/rsvp-templates/{id}/send", "issue": "Does not honour per-channel push opt-out (`_users_disabled_for_pref('reminder')`) that every other push fanout in server.py applies; opted-out users will still receive these pushes."},
+      {"endpoint": "POST /api/rsvp-templates/{id}/send", "issue": "send_count is incremented / last_sent_at stamped even when target_count==0 and nothing was delivered — inflates the '1 gönderim' badge shown in the UI."},
+      {"endpoint": "POST /api/rsvp-templates/{id}/send", "issue": "Push branch (pywebpush + lazy `from server import _get_or_create_vapid`) could NOT be exercised: db.push_subscriptions is empty in this environment, so the loop is skipped. Untested code path."},
+      {"endpoint": "POST /api/rsvp-templates", "issue": "Returns HTTP 200, not 201, for creation (spec said '201-ish'); also user filter `is_active: {$ne: False}` relies on a field absent from users docs (harmless today, silently no-op)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "RSVP Hatırlatma -> Katılmayanlara Gönder",
+        "issue": "UI wiring is correct (event picker populated with 8 events, submit disabled until an event is picked, toast rendered: '0 üyeye gönderildi (Push 0 / Telegram 0)', send_count badge updated to '1 gönderim'), but because of the backend targeting bug the toast always reports 0 members for alliance-scoped events, so admins get a false 'success'.",
+        "affected_selectors": ["rsvp-tpl-send-submit", "rsvp-tpl-send-event-picker", "rsvp-tpl-send-include-maybe"]
+      }
+    ],
+    "design_issues": [
+      {"screen": "/sablonlar — RSVP Hatırlatma tab", "issues": ["Info hint banner (text-[11px] text-muted-foreground on rgba(56,189,248,0.08) background) is very low contrast and visually cramped against its 1px border — barely legible at 1920px; bump to text-sky-200/text-xs with more padding."]},
+      {"screen": "/sablonlar — console", "issues": ["React hydration warning on the RSVP send modal: '<span> cannot be a child of <option>' — the event <option> renders {e.name} through the preview instrumentation wrapper. Cosmetic/dev-only, but noisy; consider passing a plain string label."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter50_templates.py", "/app/test_reports/pytest/iter50.xml"],
+  "action_items": [
+    "CRITICAL: rewrite the target resolution in /app/backend/routes/rsvp_templates.py to resolve alliance + telegram_chat_id via the users->members join (reuse server.py `_resolve_user_alliances` / members.telegram_chat_id) instead of users.alliance_name / users.telegram_chat_id; treat alliance_scope 'all'/empty as everyone.",
+    "Honour `_users_disabled_for_pref('reminder')` opt-out in the RSVP push fanout.",
+    "Only bump send_count/last_sent_at when target_count > 0 (or surface a warning toast when 0 targets).",
+    "Improve contrast/padding of the RSVP hint banner on /sablonlar."
+  ],
+  "critical_code_review_comments": [
+    "rsvp_templates.py duplicates the push fanout logic already in server.py (payload build, VAPID claims, 404/410 sub cleanup) — extract a shared `send_push_to_users()` helper to avoid drift.",
+    "Templates.jsx is 823 lines with 3 sections + 4 modals in one file; split into pages/templates/{TelegramSection,EventSection,RsvpSection,composers}.jsx.",
+    "rsvp send uses `.to_list(5000)` on users/rsvps without pagination — fine now (10 users) but will silently truncate on a large guild.",
+    "Archive rows still expose 'Düzenle'/'Kopyala' in the Arşiv tab; consider limiting archived rows to Geri Getir + Sil to avoid editing soft-deleted data."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter50_templates.py"],
+  "success_rate": {"backend": "95% (18/19 pytest; 1 failure = real product bug)", "frontend": "100% of UI flows exercised passed"},
+  "seed_data_creation": "Created and then deleted: TEST_UI_TG / TEST_UI_TG_EDIT (telegram tpl), TEST_UI_EV / TEST_UI_EV_EDIT (event tpl), TEST_UI_RSVP / TEST_UI_RSVP2 (+ pytest TEST_* rows). Verified DB afterwards: rsvp_templates=0, telegram_message_templates=0, event_templates=[T1] (pre-existing, untouched).",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "admin / Admin123 (from /app/memory/test_credentials.md). Login flow: go to /login, click data-testid=guest-login-btn, then login-username/login-password/login-submit.",
+  "context_for_next_testing_agent": "Regression suite: /app/backend/tests/test_iter50_templates.py (19 tests, self-cleaning). The only failing test is TestRsvpTemplateSend::test_alliance_scoped_event_targets_members — it is the repro for the alliance targeting bug; it should pass once the users->members join is fixed (expect ~9 targets for a GOW event while event_rsvps is empty). Environment facts: 10 users, 255 members, 0 event_rsvps, 0 push_subscriptions, 0 members with telegram_chat_id — so push/telegram delivery counts will always be 0 here; seed a push_subscription or a member telegram_chat_id if delivery must be verified. UI testids all present and working (tpl-tab-telegram/event/rsvp, tpl-tab-active/archive, tg|ev|rsvp-tpl-{new-btn,row-<id>,edit,archive,restore,delete,send}, *-composer-modal/-submit). Header menu: open data-testid=header-profile then dropdown-templates; old 'Telegram Şablonları' item confirmed removed; /admin/telegram-sablonlar still renders the hub.",
+  "rca_of_the_issue": "Root cause: /app/backend/routes/rsvp_templates.py builds its candidate query as {'is_active': {'$ne': False}, 'alliance_name': event.alliance_scope} against db.users. In this app the users collection stores only auth/link data (member_ids) — alliance_name and telegram_chat_id live on db.members, and the canonical resolution path is server.py `_resolve_user_alliances()` (user.member_ids + user.member_id + reverse members.user_id -> members.alliance_name, case-sensitive: GOW != GoW != GOw). Reproduction: POST /api/rsvp-templates then POST /api/rsvp-templates/{id}/send {event_id: <GOW-scoped event>, include_maybe:false} -> 200 with target_count 0, while the same call on an event without alliance_scope returns target_count 10. Mitigation: resolve the user->member->alliance map (batched) and pull telegram_chat_id from the linked member docs; treat scope ''/'all' as all users."
+}

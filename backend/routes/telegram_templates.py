@@ -35,6 +35,8 @@ class TemplateUpdate(BaseModel):
     name: Optional[str] = None
     body: Optional[str] = None
     category: Optional[str] = None
+    # v135.38 — arşiv desteği (soft-delete). True → arşive, False → geri getir.
+    archived: Optional[bool] = None
 
 
 def make_telegram_templates_router(db, require_admin):
@@ -56,9 +58,12 @@ def make_telegram_templates_router(db, require_admin):
     @router.get("/telegram-templates")
     async def list_templates(
         category: Optional[str] = None,
+        archived: Optional[bool] = False,
         _: dict = Depends(require_admin),
     ):
-        q = {}
+        # v135.38 — Default: yalnızca aktif (archived != True). ?archived=true
+        # ile arşivdekiler döner.
+        q: dict = {"archived": True} if archived else {"archived": {"$ne": True}}
         if category and category in ALLOWED_CATEGORIES:
             q["category"] = category
         cursor = db.telegram_message_templates.find(q, {"_id": 0}).sort("updated_at", -1)
@@ -102,6 +107,8 @@ def make_telegram_templates_router(db, require_admin):
             upd["body"] = b
         if body.category is not None:
             upd["category"] = _sanitize_category(body.category)
+        if body.archived is not None:
+            upd["archived"] = bool(body.archived)
         if not upd:
             return {"ok": True, "item": _serialize(existing)}
         upd["updated_at"] = _now_iso()

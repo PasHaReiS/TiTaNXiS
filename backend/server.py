@@ -10024,6 +10024,9 @@ from routes.admin_notes import make_admin_notes_router
 app.include_router(make_admin_notes_router(db, require_admin), prefix="/api")
 from routes.telegram_templates import make_telegram_templates_router, ensure_telegram_templates_indexes
 app.include_router(make_telegram_templates_router(db, require_admin), prefix="/api")
+# v135.38 — RSVP hatırlatma şablonları hub'ı.
+from routes.rsvp_templates import make_rsvp_templates_router, ensure_rsvp_templates_indexes
+app.include_router(make_rsvp_templates_router(db, require_admin), prefix="/api")
 from routes.admin_todos import make_admin_todos_router, ensure_admin_todos_indexes
 app.include_router(make_admin_todos_router(db, require_admin), prefix="/api")
 from routes.certificates import (
@@ -10332,6 +10335,12 @@ async def startup():
         await ensure_telegram_templates_indexes(db)
     except Exception as _e:
         logging.getLogger("server").warning(f"telegram_templates index ensure: {_e}")
+    # v135.38 — RSVP templates indexes
+    try:
+        from routes.rsvp_templates import ensure_rsvp_templates_indexes as _errti
+        await _errti(db)
+    except Exception as _e:
+        logging.getLogger("server").warning(f"rsvp_templates index ensure: {_e}")
     # v135.31 — Admin todos indexes
     try:
         await ensure_admin_todos_indexes(db)
