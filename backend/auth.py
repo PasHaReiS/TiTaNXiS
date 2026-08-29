@@ -415,11 +415,13 @@ def make_auth_router(db):
             "announcement": prefs.get("announcement", True),
             "streak": prefs.get("streak", True),
             "sadiklar": prefs.get("sadiklar", True),
+            # v135.26 — Pre-event auto reminder channel (15/30/60/120 dk).
+            "reminder": prefs.get("reminder", True),
         }
 
     @router.put("/auth/me/notification-prefs")
     async def put_notif_prefs(body: dict, user: dict = Depends(require_auth)):
-        allowed = {"rsvp", "announcement", "streak", "sadiklar"}
+        allowed = {"rsvp", "announcement", "streak", "sadiklar", "reminder"}
         prefs = {k: bool(v) for k, v in (body or {}).items() if k in allowed}
         await db.users.update_one(
             {"id": user["id"]},

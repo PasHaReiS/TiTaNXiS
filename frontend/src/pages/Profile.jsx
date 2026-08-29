@@ -580,6 +580,7 @@ export default function Profile() {
             <div className="space-y-2">
               {[
                 { key: "rsvp",         label: "🔔 RSVP hatırlatmaları",   hint: "Etkinlik yaklaşırken cevap ver hatırlatması" },
+                { key: "reminder",     label: "⏰ Etkinlik hatırlatmaları", hint: "Etkinlik başlamadan 15dk/30dk/1sa/2sa önce otomatik bildirim" },
                 { key: "announcement", label: "📢 Genel duyurular",         hint: "Lonca duyuruları ve önemli haberler" },
                 { key: "streak",       label: "🔥 Streak kutlamaları",     hint: "Üst üste RSVP serin arttıkça bilgi" },
                 { key: "sadiklar",     label: "🏅 Sadıklar başarısı",       hint: "Etkinlik eşiğini geçtiğinde tebrik" },

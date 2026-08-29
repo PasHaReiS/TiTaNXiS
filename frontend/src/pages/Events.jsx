@@ -2427,6 +2427,12 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
   const [reminderEnabled, setReminderEnabled] = useState(
     initial ? initial.reminder_enabled !== false : true,
   );
+  // v135.26 — Pre-event auto reminder lead in minutes. Empty string = kapalı,
+  // otherwise one of "15" / "30" / "60" / "120". Persisted as number|null on
+  // the Event doc via `reminder_minutes`.
+  const [reminderMinutes, setReminderMinutes] = useState(
+    initial && initial.reminder_minutes ? String(initial.reminder_minutes) : "",
+  );
   const [hiddenFromLb, setHiddenFromLb] = useState(
     initial ? !!initial.hidden_from_leaderboard : false,
   );
@@ -2511,6 +2517,9 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
         group_name: grouped ? (groupName || "").trim() || null : "",
         banner_url: banner[0]?.url || null,
         reminder_enabled: reminderEnabled,
+        reminder_minutes: reminderEnabled && reminderMinutes
+          ? parseInt(reminderMinutes, 10)
+          : null,
         hidden_from_leaderboard: hiddenFromLb,
         attendance_enabled: attendanceEnabled,
         auto_archive: autoArchive,
@@ -2794,6 +2803,25 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
               />
               <span className="block text-xs font-bold text-white leading-tight">🔔 Hatırlatma kurulabilir</span>
             </label>
+            {reminderEnabled && (
+              <div className="mt-2" data-testid="event-form-reminder-minutes-row">
+                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">
+                  Otomatik Hatırlatma
+                </div>
+                <select
+                  data-testid="event-form-reminder-minutes"
+                  value={reminderMinutes}
+                  onChange={(e) => setReminderMinutes(e.target.value)}
+                  className="w-full bg-background border border-border rounded-md px-2 py-1 text-xs text-white"
+                >
+                  <option value="">Kapalı</option>
+                  <option value="15">15 dakika önce</option>
+                  <option value="30">30 dakika önce</option>
+                  <option value="60">1 saat önce</option>
+                  <option value="120">2 saat önce</option>
+                </select>
+              </div>
+            )}
           </div>
           <div className="rounded p-3" style={{ background: "rgba(245,166,35,0.06)", border: "1px solid rgba(245,166,35,0.30)" }} data-testid="event-form-visibility-toggle">
             <label className="flex items-start gap-2 cursor-pointer">
