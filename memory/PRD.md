@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v135.46 Fuzzy Matching + Latin Normalize — Tüm OCR)** — Frontend-only:
+  - **Latin normalize**: `OcrDialog._stripTagAndJunk` + `MemberAddOcr.stripTag` artık `[^\x20-\x7E]` regex ile CJK (쁠, メ, ツ, 兰), emoji ve dekoratif Unicode karakterlerini boşluğa çevirip trim ediyor. Doğrulama: `쁠メEvil Mikeyメ쁠 → Evil Mikey`, `[GOW] Ekko ツ → Ekko`, `兰ThoR → ThoR`.
+  - **Fuzzy matching**: `_fuzzyTopMatches` (OcrDialog) + yeni `_fuzzyTop` (MemberAddOcr) — Levenshtein bazlı, `rel < 0.55` (önceki 0.45'ten daha esnek) + substring boost (needle içeriyor/içeriliyor ise dist-2). Renk kodlaması: dist ≤ 1 yeşil, ≤ 2 açık yeşil, ≤ 3 amber, else turuncu.
+  - **Etkinlik OCR (event mode)**: Eşleşmeyen satırlarda `ocr-row-fuzzy-{i}` bloğu — "Bu kişiyle eşleşsin mi?" prompt + her aday için `→ Aday Adı  ✓ Evet` butonu (`ocr-row-fuzzy-yes-{i}-{fi}`). Tıklayınca `setRowEdits` ile satır adı güncellenir, isMatched otomatik true olur.
+  - **Üye Ekle OCR (MemberAddOcr)**: Eksik satırda `moa-fuzzy-{idx}` bloğu — aynı prompt + `✓ Evet` (`moa-fuzzy-yes-{idx}-{fi}`) — tıklayınca satır existing_id/name/alliance/rank ile doldurulup registered'a taşınır. Fuzzy yoksa mevcut `Yeni Üye Ekle / Manuel Eşleştir` akışları çalışır.
+  - **Bireysel Güç + Kale/Rank OCR (mode==="members" subMode)**: Zaten mevcut `suggestions` (fuzzyTopMatches) chip'leri yeni Latin normalize ile "쁠メ..." gibi kirli isimleri de bulur → v135.44 badge'i "✅ Eşleşti"/"⚠️ Eşleşmedi" formatında satır başına yansır.
+  - **Backend değişiklik yok** — apply-members ve apply-event-points aynı row shape'i (name normalize edilmiş) alıp doğru üyeye yazar/otomatik yaratır.
+
+
 - **Feb 29, 2026 (v135.45 Etkinlik OCR Eşleşme Sistemi + Yeni Üye / Manuel Eşleştir)** — Frontend-only:
   - **OcrDialog.jsx event mode**: Her satırın name cell'inin üstüne yeni `ocr-row-match-{i}` badge — ✅ Eşleşti: X (yeşil) veya ⚠️ Eşleşmedi: X (amber). Eşleşme algılamada `_stripTag + _stripTagAndJunk` uygulanıp `existingNamesLc` Set'inde arama yapılır.
   - **Eşleşmeyen satırlar** için iki chip aksiyon çıkar:

@@ -31,8 +31,14 @@ function _lev(a, b) {
 }
 function _fuzzyTopMatches(needle, hayNames, limit = 3) {
   const stripTag = (n) => {
-    const mm = /^\s*\[[^\]]+\]\s*(.+)$/.exec(String(n || ""));
-    return (mm ? mm[1] : String(n || "")).trim();
+    const raw = String(n || "");
+    const mm = /^\s*\[[^\]]+\]\s*(.+)$/.exec(raw);
+    let base = (mm ? mm[1] : raw).trim();
+    // v135.46 — Latin-only normalize: CJK/emoji/decoratives (쁠, メ, ツ, 兰…)
+    // silinsin ki "쁠メEvil Mikeyメ쁠" → "Evil Mikey" gibi durumlarda fuzzy
+    // eşleşme çalışabilsin.
+    base = base.replace(/[^\x20-\x7E]/g, " ").replace(/\s+/g, " ").trim();
+    return base;
   };
   const nk = stripTag(needle).toLowerCase();
   if (!nk) return [];
@@ -40,8 +46,10 @@ function _fuzzyTopMatches(needle, hayNames, limit = 3) {
     const hk = stripTag(n).toLowerCase();
     const dist = _lev(nk, hk);
     const rel = dist / Math.max(1, Math.max(nk.length, hk.length));
-    return { name: n, dist, rel };
-  }).filter((x) => x.rel < 0.45).sort((a, b) => a.dist - b.dist);
+    // Substring boost: needle içeriyor veya içeriliyor ise skorunu iyileştir.
+    const contained = hk.length >= 3 && nk.length >= 3 && (hk.includes(nk) || nk.includes(hk));
+    return { name: n, dist: contained ? Math.max(0, dist - 2) : dist, rel };
+  }).filter((x) => x.rel < 0.55).sort((a, b) => a.dist - b.dist);
   return scored.slice(0, limit);
 }
 
@@ -65,6 +73,10 @@ function _stripTagAndJunk(n) {
   s = s.replace(_ALLIANCE_TAG_RE, "");
   s = s.replace(_RANK_RE, "");
   s = s.replace(/^[\s\d.\-|:_/\\]+/, "");
+  // v135.46 — Non-Latin karakterleri (CJK, emoji, dekoratifler) sil ki
+  // "쁠メEvil Mikeyメ쁠" → "Evil Mikey" olsun. \x20-\x7E dışını boşluğa çevir,
+  // arka arkaya boşlukları teke indir.
+  s = s.replace(/[^\x20-\x7E]/g, " ").replace(/\s+/g, " ");
   return s.trim();
 }
 
@@ -1433,6 +1445,12 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               // mevcut üyeye yönlendir).
                               const cleanForMatch = _stripTagAndJunk(_stripTag(currName ?? "")) || _stripTag(currName ?? "");
                               const isMatched = existingNamesLc.has((cleanForMatch || "").toLowerCase());
+                              // v135.46 — Fuzzy önerileri: exact match yoksa
+                              // Latin-normalize edilmiş isim üzerinden en yakın
+                              // 3 mevcut üyeyi bul; admin "Evet" ile eşleştirir.
+                              const fuzzyMatches = !isMatched
+                                ? _fuzzyTopMatches(cleanForMatch || currName, (existingMembers || []).map((m) => m.name || ""), 3)
+                                : [];
                               let allianceGuess = rowEdits[i]?.alliance_name;
                               if (allianceGuess === undefined || allianceGuess === null || allianceGuess === "") {
                                 allianceGuess = r.alliance_name ?? r.alliance ?? r.tag ?? "";
@@ -1532,6 +1550,50 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                           <option key={m.id} value={m.name || ""} />
                                         ))}
                                       </datalist>
+                                      {fuzzyMatches.length > 0 && (
+                                        <div
+                                          data-testid={`ocr-row-fuzzy-${i}`}
+                                          style={{ marginTop: '3px', display: 'flex', flexDirection: 'column', gap: '2px' }}
+                                        >
+                                          <div style={{ fontSize: '9px', color: '#93C5FD', fontWeight: 700 }}>
+                                            {t("ocr_fuzzy_prompt", "Bu kişiyle eşleşsin mi?")}
+                                          </div>
+                                          {fuzzyMatches.map((fm, fi) => {
+                                            const conf = fm.dist <= 1 ? "#4ade80"
+                                                        : fm.dist <= 2 ? "#86EFAC"
+                                                        : fm.dist <= 3 ? "#FCD34D"
+                                                        : "#FDBA74";
+                                            return (
+                                              <div key={fm.name + fi} style={{ display: 'flex', gap: '3px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                <span style={{ fontSize: '10px', color: '#E2E8F0', fontWeight: 600 }}>
+                                                  → {fm.name}
+                                                </span>
+                                                <button
+                                                  type="button"
+                                                  data-testid={`ocr-row-fuzzy-yes-${i}-${fi}`}
+                                                  onClick={() => {
+                                                    setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: fm.name } }));
+                                                    toast.success(t("ocr_fuzzy_matched_toast", "Eşleştirildi: {{n}}", { n: fm.name }));
+                                                  }}
+                                                  style={{
+                                                    background: `${conf}22`,
+                                                    border: `1px solid ${conf}`,
+                                                    color: conf,
+                                                    fontSize: '9px',
+                                                    fontWeight: 700,
+                                                    padding: '1px 6px',
+                                                    borderRadius: '3px',
+                                                    cursor: 'pointer',
+                                                  }}
+                                                  title={`Levenshtein=${fm.dist}`}
+                                                >
+                                                  ✓ {t("ocr_fuzzy_yes", "Evet")}
+                                                </button>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
                                       <div style={{ display: 'flex', gap: '3px', marginTop: '3px', flexWrap: 'wrap' }}>
                                         <button
                                           type="button"

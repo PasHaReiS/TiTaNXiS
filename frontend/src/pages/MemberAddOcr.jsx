@@ -16,9 +16,43 @@ const RANKS = ["R1", "R2", "R3", "R4", "R5"];
 //   3) Olmayanlar için ittifak+rütbe düzenlenip 'Kaydet' ile POST /members
 // Başka özellik yok — güç/kale/OCR history kasten devre dışı.
 const stripTag = (n) => {
-  const m = /^\s*\[[^\]]+\]\s*(.+)$/.exec(String(n || ""));
-  return (m ? m[1] : String(n || "")).trim();
+  const raw = String(n || "");
+  const m = /^\s*\[[^\]]+\]\s*(.+)$/.exec(raw);
+  let base = (m ? m[1] : raw).trim();
+  // v135.46 — Non-Latin (CJK/emoji/decor) karakterleri temizle.
+  base = base.replace(/[^\x20-\x7E]/g, " ").replace(/\s+/g, " ").trim();
+  return base;
 };
+// Levenshtein-based fuzzy top-N: MemberAddOcr için minimal sürüm.
+function _lev(a, b) {
+  a = String(a || "").toLowerCase();
+  b = String(b || "").toLowerCase();
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const prev = Array(b.length + 1).fill(0).map((_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const curr = [i];
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
+  }
+  return prev[b.length];
+}
+function _fuzzyTop(needle, hay, limit = 3) {
+  const nk = stripTag(needle).toLowerCase();
+  if (!nk) return [];
+  const scored = hay.map((n) => {
+    const hk = stripTag(n).toLowerCase();
+    const dist = _lev(nk, hk);
+    const rel = dist / Math.max(1, Math.max(nk.length, hk.length));
+    const contained = hk.length >= 3 && nk.length >= 3 && (hk.includes(nk) || nk.includes(hk));
+    return { name: n, dist: contained ? Math.max(0, dist - 2) : dist, rel };
+  }).filter((x) => x.rel < 0.55).sort((a, b) => a.dist - b.dist);
+  return scored.slice(0, limit);
+}
 
 export default function MemberAddOcr() {
   const { t } = useTranslation();
@@ -58,6 +92,8 @@ export default function MemberAddOcr() {
       const enriched = items.map((it) => {
         const clean = stripTag(it.name || "");
         const hit = existingByName.get(clean.toLowerCase());
+        // v135.46 — Fuzzy: exact yoksa en yakın 3 kayıtlıyı bul (Latin-normalize edilmiş).
+        const fuzzy = hit ? [] : _fuzzyTop(clean, Array.from(existingByName.values()).map((m) => m.name || ""), 3);
         return {
           name: clean,
           alliance_name: it.alliance_name || (hit ? hit.alliance_name : "") || "",
@@ -65,6 +101,7 @@ export default function MemberAddOcr() {
           existing_id: hit?.id || null,
           existing_name: hit?.name || null,
           existing_alliance: hit?.alliance_name || null,
+          fuzzy,
         };
       }).filter((r) => r.name);
       setRows(enriched);
@@ -207,6 +244,52 @@ export default function MemberAddOcr() {
                           {t("moa_missing_badge", "YENİ KAYIT")}
                         </span>
                       </div>
+                      {r.fuzzy && r.fuzzy.length > 0 && (
+                        <div className="rounded p-2 space-y-1"
+                             style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.35)" }}
+                             data-testid={`moa-fuzzy-${idx}`}>
+                          <div className="text-[10px] font-bold" style={{ color: "#93C5FD" }}>
+                            {t("moa_fuzzy_prompt", "Bu kişiyle eşleşsin mi?")}
+                          </div>
+                          {r.fuzzy.map((fm, fi) => {
+                            const conf = fm.dist <= 1 ? "#4ade80"
+                                        : fm.dist <= 2 ? "#86EFAC"
+                                        : fm.dist <= 3 ? "#FCD34D"
+                                        : "#FDBA74";
+                            return (
+                              <div key={fm.name + fi} className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[11px] text-white flex-1 min-w-0 truncate">→ {fm.name}</span>
+                                <button
+                                  type="button"
+                                  data-testid={`moa-fuzzy-yes-${idx}-${fi}`}
+                                  onClick={() => {
+                                    const hit = existingByName.get(fm.name.toLowerCase())
+                                             || Array.from(existingByName.values()).find((m) => (m.name || "").toLowerCase() === fm.name.toLowerCase());
+                                    if (hit) {
+                                      updateRow(idx, {
+                                        existing_id: hit.id,
+                                        existing_name: hit.name,
+                                        existing_alliance: hit.alliance_name,
+                                        alliance_name: hit.alliance_name || r.alliance_name,
+                                        rank: hit.rank || r.rank,
+                                        name: fm.name,
+                                      });
+                                      toast.success(t("moa_fuzzy_matched_toast", "Eşleştirildi: {{n}}", { n: fm.name }));
+                                    }
+                                  }}
+                                  className="chip text-[10px]"
+                                  style={{ borderColor: conf, color: conf, background: `${conf}18` }}
+                                >
+                                  ✓ {t("moa_fuzzy_yes", "Evet")}
+                                </button>
+                              </div>
+                            );
+                          })}
+                          <div className="text-[9px] text-muted-foreground pt-0.5">
+                            {t("moa_fuzzy_no_hint", "Hayır — aşağıdaki Kaydet ile yeni üye ekle veya farklı ismi elle yaz")}
+                          </div>
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 gap-2">
                         <label className="block">
                           <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">
