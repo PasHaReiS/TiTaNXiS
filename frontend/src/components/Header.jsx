@@ -261,6 +261,14 @@ export default function Header({ title, children }) {
                       testId="dropdown-badges"
                     />
                   )}
+                  {isAdmin && (
+                    <MenuItem
+                      emoji="📨"
+                      label={t("nav_tg_templates", "Telegram Şablonları")}
+                      onClick={() => goto("/admin/telegram-sablonlar")}
+                      testId="dropdown-tg-templates"
+                    />
+                  )}
                   <MenuItem
                     emoji="⚔️"
                     label={t("dropdown_svs", "SvS Takip")}

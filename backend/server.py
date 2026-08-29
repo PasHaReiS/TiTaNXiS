@@ -9430,6 +9430,8 @@ app.include_router(
 )
 from routes.admin_notes import make_admin_notes_router
 app.include_router(make_admin_notes_router(db, require_admin), prefix="/api")
+from routes.telegram_templates import make_telegram_templates_router, ensure_telegram_templates_indexes
+app.include_router(make_telegram_templates_router(db, require_admin), prefix="/api")
 
 app.mount("/api/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
@@ -9467,6 +9469,11 @@ async def startup():
         await ensure_svs_indexes(db)
     except Exception as _e:
         logging.getLogger("server").warning(f"svs index ensure: {_e}")
+    # v135.27 — Telegram templates indexes
+    try:
+        await ensure_telegram_templates_indexes(db)
+    except Exception as _e:
+        logging.getLogger("server").warning(f"telegram_templates index ensure: {_e}")
 
     # One-shot legacy `/app/uploads/*` → Emergent Object Store migration.
     # Idempotent (per-file), so it re-runs safely on every startup and

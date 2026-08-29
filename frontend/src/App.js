@@ -29,6 +29,7 @@ import MemberHome from "@/pages/MemberHome";
 import Events from "@/pages/Events";
 import Announcements from "@/pages/Announcements";
 import BadgeManagement from "@/pages/BadgeManagement";
+import TelegramTemplates from "@/pages/TelegramTemplates";
 import Login from "@/pages/Login";
 import UserManagement from "@/pages/UserManagement";
 import OcrHistory from "@/pages/OcrHistory";
@@ -131,6 +132,7 @@ function AppShell() {
           <Route path="/admin/duyurular" element={<RequireAdmin><MotionPage><Announcements /></MotionPage></RequireAdmin>} />
           <Route path="/rozetler" element={<RequireAdmin><MotionPage><BadgeManagement /></MotionPage></RequireAdmin>} />
           <Route path="/admin/rozetler" element={<RequireAdmin><MotionPage><BadgeManagement /></MotionPage></RequireAdmin>} />
+          <Route path="/admin/telegram-sablonlar" element={<RequireAdmin><MotionPage><TelegramTemplates /></MotionPage></RequireAdmin>} />
           <Route path="/admin/uyeler" element={<RequireAdmin><MotionPage><Members /></MotionPage></RequireAdmin>} />
           <Route path="/arsiv" element={<RequireAuth><MotionPage><Events /></MotionPage></RequireAuth>} />
           <Route path="/katilim" element={<RequireAdmin><MotionPage><Reports /></MotionPage></RequireAdmin>} />
