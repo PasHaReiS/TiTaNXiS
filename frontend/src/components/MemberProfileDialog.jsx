@@ -191,8 +191,10 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
               </div>
             )}
 
-            {/* v135.29 — Public bio (member's own words). Rendered only when
-                the linked user set a non-empty bio via /profil → Biyografi. */}
+            {/* v135.29 — Public bio (member's own words). v135.30 — Auto-
+                highlight rank tokens (F1..F15, T1..T15) and the linked
+                alliance name with an amber underline so the bio feels
+                integrated with the guild vocabulary. */}
             {m.bio && m.bio.trim() !== "" && (
               <div
                 className="mb-3 rounded p-2 text-xs italic text-white leading-snug"
@@ -205,7 +207,34 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
                 <span className="text-[9px] uppercase tracking-widest gold-text font-bold not-italic mr-1">
                   {t("member_bio_label", "Biyografi")}
                 </span>
-                "{m.bio}"
+                &quot;
+                {(() => {
+                  const tokens = new Set();
+                  if (m.alliance_name) tokens.add(String(m.alliance_name));
+                  const pat = new RegExp(
+                    `(\\b(?:F|T)\\d{1,2}\\b${tokens.size ? "|" + [...tokens].map((x) => x.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")).join("|") : ""})`,
+                    "g",
+                  );
+                  const parts = m.bio.split(pat);
+                  return parts.map((p, i) => (
+                    pat.test(p) ? (
+                      <span
+                        key={i}
+                        style={{
+                          color: "#F5A623",
+                          borderBottom: "1px solid rgba(245,166,35,0.55)",
+                          padding: "0 1px",
+                          fontWeight: 700,
+                          fontStyle: "normal",
+                        }}
+                        data-testid={`member-bio-highlight-${i}`}
+                      >
+                        {p}
+                      </span>
+                    ) : <React.Fragment key={i}>{p}</React.Fragment>
+                  ));
+                })()}
+                &quot;
               </div>
             )}
 

@@ -7714,19 +7714,128 @@ def _load_font(size: int, bold: bool = False):
     return ImageFont.load_default()
 
 
-async def _compose_event_share_image(event: dict) -> bytes:
+def _load_emoji_font():
+    """Noto Color Emoji is a CBDT bitmap font — Pillow requires a specific
+    fixed size (109) at load time; we then draw with `embedded_color=True`.
+    Returns None if the font isn't available so callers can gracefully skip
+    the emoji glyph."""
+    from PIL import ImageFont
+    try:
+        return ImageFont.truetype(
+            "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf", 109,
+        )
+    except Exception:
+        return None
+
+
+import re as _re_emoji
+# Broad emoji unicode ranges — enough to cover 📅 ⚡ 📊 🔥 🎉 etc used in posters.
+_EMOJI_RE = _re_emoji.compile(
+    r"[\U0001F300-\U0001FAFF\U00002600-\U000027BF\U0001F000-\U0001F0FF]"
+)
+
+
+def _draw_text_with_emoji(draw, xy, text, main_font, emoji_font,
+                           fill, target_h):
+    """Draw text left-to-right, swapping to color emoji font for glyphs the
+    main font would render as tofu. Emoji glyphs are drawn onto a temp
+    RGBA image at Noto's native 109px, then resized to match text height
+    for a visually consistent baseline. Falls back to plain draw when the
+    emoji font is missing."""
+    from PIL import Image
+    x, y = xy
+    if not emoji_font:
+        draw.text(xy, text, fill=fill, font=main_font)
+        return
+    # Segment into runs of emoji vs regular text.
+    pos = 0
+    segments = []
+    for m in _EMOJI_RE.finditer(text):
+        if m.start() > pos:
+            segments.append(("text", text[pos:m.start()]))
+        segments.append(("emoji", m.group(0)))
+        pos = m.end()
+    if pos < len(text):
+        segments.append(("text", text[pos:]))
+    for kind, chunk in segments:
+        if kind == "text":
+            draw.text((x, y), chunk, fill=fill, font=main_font)
+            x += int(draw.textlength(chunk, font=main_font))
+        else:
+            # Render each emoji onto its own transparent tile, then resize.
+            tile = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+            from PIL import ImageDraw as _ID
+            td = _ID.Draw(tile)
+            try:
+                td.text((0, 20), chunk, font=emoji_font, embedded_color=True)
+            except Exception:
+                # Older Pillow — fall back to plain draw (tofu is still OK).
+                td.text((0, 20), chunk, font=emoji_font)
+            resized = tile.resize((target_h, target_h), Image.LANCZOS)
+            draw._image.paste(resized, (x, y), resized)
+            x += target_h + 6  # small kerning
+
+
+# v135.30 — Six poster themes. Each theme drives (gradient_from, gradient_to,
+# accent_bar_rgb, kicker_rgb, title_rgb, meta_rgb) so a single composer can
+# render Fire / Onyx / Amber / Buz / Zümrüt / Boşluk variants without any
+# duplicated draw code.
+SHARE_THEMES = {
+    "fire": {  # Existing default — ember red/orange
+        "grad_a": (36, 12, 6), "grad_b": (68, 20, 8),
+        "accent": (231, 76, 26), "kicker": (245, 166, 35),
+        "title": (245, 240, 232), "meta": (240, 200, 160),
+        "label_tr": "Ateş",
+    },
+    "onyx": {  # Deep black / silver
+        "grad_a": (8, 8, 12), "grad_b": (22, 22, 30),
+        "accent": (180, 180, 190), "kicker": (200, 200, 210),
+        "title": (255, 255, 255), "meta": (170, 170, 180),
+        "label_tr": "Oniks",
+    },
+    "amber": {  # Warm amber gold
+        "grad_a": (28, 18, 4), "grad_b": (62, 44, 10),
+        "accent": (245, 166, 35), "kicker": (255, 200, 80),
+        "title": (255, 240, 200), "meta": (230, 190, 120),
+        "label_tr": "Kehribar",
+    },
+    "buz": {  # Ice blue
+        "grad_a": (4, 12, 30), "grad_b": (12, 40, 90),
+        "accent": (96, 176, 255), "kicker": (150, 210, 255),
+        "title": (230, 245, 255), "meta": (180, 220, 255),
+        "label_tr": "Buz",
+    },
+    "zumrut": {  # Emerald green
+        "grad_a": (4, 20, 14), "grad_b": (10, 60, 40),
+        "accent": (52, 211, 153), "kicker": (110, 231, 183),
+        "title": (230, 255, 244), "meta": (170, 220, 200),
+        "label_tr": "Zümrüt",
+    },
+    "bosluk": {  # Mystic purple / void
+        "grad_a": (16, 6, 30), "grad_b": (44, 20, 80),
+        "accent": (168, 85, 247), "kicker": (196, 130, 255),
+        "title": (240, 232, 255), "meta": (200, 180, 230),
+        "label_tr": "Boşluk",
+    },
+}
+
+
+async def _compose_event_share_image(event: dict, theme: str = "fire") -> bytes:
     """Return PNG bytes for the share poster. Non-blocking-safe (pure PIL)."""
     from PIL import Image, ImageDraw
     from datetime import datetime as _dt, timezone as _tz, timedelta as _td
     import io as _io
     W, H = 1200, 630
-    # Base canvas — dark gradient onyx→ember with amber accent bar.
-    img = Image.new("RGB", (W, H), (10, 8, 6))
+    palette = SHARE_THEMES.get(theme) or SHARE_THEMES["fire"]
+    ga = palette["grad_a"]; gb = palette["grad_b"]
+    # Base canvas — themed vertical gradient.
+    img = Image.new("RGB", (W, H), ga)
     draw = ImageDraw.Draw(img, "RGBA")
     for y in range(H):
-        r = int(10 + (231 - 10) * (y / H) * 0.06)
-        g = int(8 + (76 - 8) * (y / H) * 0.04)
-        b = int(6 + (26 - 6) * (y / H) * 0.02)
+        t = y / max(1, H - 1)
+        r = int(ga[0] + (gb[0] - ga[0]) * t)
+        g = int(ga[1] + (gb[1] - ga[1]) * t)
+        b = int(ga[2] + (gb[2] - ga[2]) * t)
         draw.line([(0, y), (W, y)], fill=(r, g, b))
     # Overlay admin's banner_url when present (paste with 65% opacity).
     banner_url = (event.get("banner_url") or "").strip()
@@ -7734,32 +7843,31 @@ async def _compose_event_share_image(event: dict) -> bytes:
         try:
             import httpx as _hx
             fetch_url = banner_url
-            # Rewrite `/api/uploads/...` relative URLs to hit the pod locally.
             if fetch_url.startswith("/"):
                 fetch_url = f"http://127.0.0.1:8001{fetch_url}"
             async with _hx.AsyncClient(timeout=8.0) as c:
                 r = await c.get(fetch_url)
                 if r.status_code == 200:
                     bg = Image.open(_io.BytesIO(r.content)).convert("RGB")
-                    # Cover fit
                     bw, bh = bg.size
                     scale = max(W / bw, H / bh)
                     nw, nh = int(bw * scale), int(bh * scale)
                     bg = bg.resize((nw, nh), Image.LANCZOS)
                     off = ((nw - W) // 2, (nh - H) // 2)
                     bg = bg.crop((off[0], off[1], off[0] + W, off[1] + H))
-                    # Darken banner so text stays readable.
-                    dark = Image.new("RGB", (W, H), (10, 8, 6))
+                    dark = Image.new("RGB", (W, H), ga)
                     img = Image.blend(bg, dark, 0.55)
                     draw = ImageDraw.Draw(img, "RGBA")
         except Exception:
             pass
-    # Amber accent bar on the left edge — brand marker.
-    draw.rectangle([(0, 0), (14, H)], fill=(245, 166, 35, 255))
+    # Themed accent bar on the left edge.
+    ar, ag, ab = palette["accent"]
+    draw.rectangle([(0, 0), (14, H)], fill=(ar, ag, ab, 255))
     # Top kicker
     kicker_font = _load_font(28, bold=True)
+    kf = palette["kicker"]
     draw.text((60, 60), "TITANXIS · GAMING GUILD",
-              fill=(245, 166, 35, 255), font=kicker_font)
+              fill=(kf[0], kf[1], kf[2], 255), font=kicker_font)
     # Event name — wrap to fit 1080px width.
     name = (event.get("name") or "Etkinlik").strip()
     name_font = _load_font(84, bold=True)
@@ -7774,11 +7882,12 @@ async def _compose_event_share_image(event: dict) -> bytes:
             line = cand
     if line:
         lines.append(line)
+    tf = palette["title"]
     y = 130
-    for ln in lines[:2]:  # cap to 2 lines
-        draw.text((60, y), ln, fill=(245, 240, 232, 255), font=name_font)
+    for ln in lines[:2]:
+        draw.text((60, y), ln, fill=(tf[0], tf[1], tf[2], 255), font=name_font)
         y += 96
-    # Date/time line (TR)
+    # Date/time line (TR) + group/multiplier — with color emoji fallback.
     ev_date = (event.get("date") or "").strip()
     try:
         _dtu = _dt.fromisoformat(ev_date.replace("Z", "+00:00"))
@@ -7788,33 +7897,43 @@ async def _compose_event_share_image(event: dict) -> bytes:
         date_line = dt_tr.strftime("%d.%m.%Y · %H:%M (TR)")
     except Exception:
         date_line = ev_date[:16]
+    emoji_font = _load_emoji_font()
     date_font = _load_font(42, bold=False)
-    draw.text((60, max(y + 12, 380)),
-              f"📅  {date_line}", fill=(245, 166, 35, 255), font=date_font)
-    # Group + multiplier
+    _draw_text_with_emoji(
+        draw, (60, max(y + 12, 380)),
+        f"📅  {date_line}",
+        date_font, emoji_font,
+        fill=(kf[0], kf[1], kf[2], 255), target_h=42,
+    )
     grp = (event.get("group_name") or "").strip() or "—"
     mult = event.get("multiplier") or 1
     meta_font = _load_font(34, bold=False)
-    meta_line = f"📊  {grp}    ⚡  ×{mult}"
-    draw.text((60, max(y + 12 + 60, 440)),
-              meta_line, fill=(200, 200, 200, 255), font=meta_font)
+    mf = palette["meta"]
+    _draw_text_with_emoji(
+        draw, (60, max(y + 12 + 60, 440)),
+        f"📊  {grp}    ⚡  ×{mult}",
+        meta_font, emoji_font,
+        fill=(mf[0], mf[1], mf[2], 255), target_h=34,
+    )
     # Footer domain
     footer_font = _load_font(24, bold=True)
     domain = os.environ.get("PUBLIC_DOMAIN", "").strip() or "titanxis.com"
     draw.text((60, H - 60), domain,
-              fill=(245, 240, 232, 220), font=footer_font)
+              fill=(tf[0], tf[1], tf[2], 220), font=footer_font)
     buf = _io.BytesIO()
     img.save(buf, format="PNG", optimize=True)
     return buf.getvalue()
 
 
 @api_router.get("/events/{event_id}/share-image.png")
-async def event_share_image(event_id: str):
+async def event_share_image(event_id: str, theme: str = "fire"):
     from fastapi.responses import Response
     ev = await db.events.find_one({"id": event_id}, {"_id": 0})
     if not ev:
         raise HTTPException(404, "event not found")
-    png = await _compose_event_share_image(ev)
+    if theme not in SHARE_THEMES:
+        theme = "fire"
+    png = await _compose_event_share_image(ev, theme=theme)
     return Response(
         content=png, media_type="image/png",
         headers={"Cache-Control": "public, max-age=60"},
@@ -7822,10 +7941,12 @@ async def event_share_image(event_id: str):
 
 
 @api_router.post("/events/{event_id}/share-image/send-telegram")
-async def event_share_image_send_tg(event_id: str, _: dict = Depends(require_admin)):
-    """Compose the share PNG and post it to TELEGRAM_CHANNEL_ID via sendPhoto
-    with a caption that mirrors the on-image text. Returns 400 when the
-    channel/token isn't configured so the UI can surface a clear toast."""
+async def event_share_image_send_tg(
+    event_id: str, theme: str = "fire",
+    _: dict = Depends(require_admin),
+):
+    """Compose the themed share PNG and post it to TELEGRAM_CHANNEL_ID via
+    sendPhoto with a Markdown caption. Returns 400 if channel/token missing."""
     ev = await db.events.find_one({"id": event_id}, {"_id": 0})
     if not ev:
         raise HTTPException(404, "event not found")
@@ -7833,14 +7954,15 @@ async def event_share_image_send_tg(event_id: str, _: dict = Depends(require_adm
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     if not channel or not token:
         raise HTTPException(400, "TELEGRAM_CHANNEL_ID / TELEGRAM_BOT_TOKEN tanımlı değil")
-    png = await _compose_event_share_image(ev)
-    # Turkey-local caption
-    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    if theme not in SHARE_THEMES:
+        theme = "fire"
+    png = await _compose_event_share_image(ev, theme=theme)
+    from datetime import datetime as _dt2, timezone as _tz2, timedelta as _td2
     try:
-        _dtu = _dt.fromisoformat((ev.get("date") or "").replace("Z", "+00:00"))
+        _dtu = _dt2.fromisoformat((ev.get("date") or "").replace("Z", "+00:00"))
         if _dtu.tzinfo is None:
-            _dtu = _dtu.replace(tzinfo=_tz.utc)
-        dt_tr = _dtu.astimezone(_tz(_td(hours=3)))
+            _dtu = _dtu.replace(tzinfo=_tz2.utc)
+        dt_tr = _dtu.astimezone(_tz2(_td2(hours=3)))
         date_line = dt_tr.strftime("%d.%m.%Y · %H:%M (TR)")
     except Exception:
         date_line = (ev.get("date") or "")[:16]
@@ -7854,9 +7976,8 @@ async def event_share_image_send_tg(event_id: str, _: dict = Depends(require_adm
     base = (os.environ.get("PUBLIC_BASE_URL", "") or "https://titanxis.com").rstrip("/")
     caption_lines.append(f"\n🔗 {base}/etkinlikler#event-{ev.get('id')}")
     caption = "\n".join(caption_lines)
-    # sendPhoto via multipart
     import httpx as _hx
-    files = {"photo": (f"event-{event_id}.png", png, "image/png")}
+    files = {"photo": (f"event-{event_id}-{theme}.png", png, "image/png")}
     data = {"chat_id": channel, "caption": caption, "parse_mode": "Markdown"}
     async with _hx.AsyncClient(timeout=20.0) as c:
         r = await c.post(
@@ -7865,7 +7986,8 @@ async def event_share_image_send_tg(event_id: str, _: dict = Depends(require_adm
         )
     if r.status_code != 200:
         raise HTTPException(502, f"Telegram sendPhoto failed: {r.text[:200]}")
-    return {"ok": True, "message_id": r.json().get("result", {}).get("message_id")}
+    return {"ok": True, "message_id": r.json().get("result", {}).get("message_id"),
+            "theme": theme}
 
 
 # ---------- Telegram /link token management ----------

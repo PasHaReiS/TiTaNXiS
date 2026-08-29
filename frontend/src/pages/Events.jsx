@@ -2214,13 +2214,23 @@ function EventShareImageModal({ event, onClose }) {
   const { t } = useTranslation();
   const [sending, setSending] = React.useState(false);
   const [reloadKey, setReloadKey] = React.useState(Date.now());
-  const src = `${process.env.REACT_APP_BACKEND_URL}/api/events/${event.id}/share-image.png?ts=${reloadKey}`;
+  // v135.30 — Six poster themes; picker sends `?theme=` to the backend.
+  const THEMES = [
+    { key: "fire",   label: t("event_share_theme_fire",   "Ateş"),    swatch: "linear-gradient(135deg,#7a1e10,#f5a623)" },
+    { key: "onyx",   label: t("event_share_theme_onyx",   "Oniks"),   swatch: "linear-gradient(135deg,#0a0a10,#b4b4be)" },
+    { key: "amber",  label: t("event_share_theme_amber",  "Kehribar"), swatch: "linear-gradient(135deg,#3e2c0a,#ffc850)" },
+    { key: "buz",    label: t("event_share_theme_buz",    "Buz"),     swatch: "linear-gradient(135deg,#04122e,#60b0ff)" },
+    { key: "zumrut", label: t("event_share_theme_zumrut", "Zümrüt"),  swatch: "linear-gradient(135deg,#0a3c28,#34d399)" },
+    { key: "bosluk", label: t("event_share_theme_bosluk", "Boşluk"),  swatch: "linear-gradient(135deg,#100630,#a855f7)" },
+  ];
+  const [theme, setTheme] = React.useState("fire");
+  const src = `${process.env.REACT_APP_BACKEND_URL}/api/events/${event.id}/share-image.png?theme=${theme}&ts=${reloadKey}`;
   const sendToTelegram = async () => {
     if (!window.confirm(t("event_share_send_confirm",
       "Görseli Telegram grubuna göndermek istiyor musun?"))) return;
     setSending(true);
     try {
-      await api.post(`/events/${event.id}/share-image/send-telegram`);
+      await api.post(`/events/${event.id}/share-image/send-telegram?theme=${theme}`);
       toast.success(t("event_share_sent_toast",
         "Görsel Telegram grubuna gönderildi"));
     } catch (e) {
@@ -2233,7 +2243,7 @@ function EventShareImageModal({ event, onClose }) {
       const blob = await r.blob();
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `titanxis-${(event.name || "event").replace(/\s+/g, "-").toLowerCase()}.png`;
+      link.download = `titanxis-${theme}-${(event.name || "event").replace(/\s+/g, "-").toLowerCase()}.png`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 2000);
     } catch (e) {
@@ -2264,6 +2274,31 @@ function EventShareImageModal({ event, onClose }) {
             <X className="w-4 h-4" />
           </button>
         </div>
+        {/* Theme picker — six swatches with click-to-preview. */}
+        <div className="grid grid-cols-6 gap-2" data-testid="event-share-theme-picker">
+          {THEMES.map((th) => (
+            <button
+              key={th.key}
+              type="button"
+              onClick={() => { setTheme(th.key); setReloadKey(Date.now()); }}
+              className="rounded overflow-hidden text-center"
+              data-testid={`event-share-theme-${th.key}`}
+              style={{
+                border: theme === th.key ? "2px solid #F5A623" : "1px solid rgba(255,255,255,0.15)",
+                background: "rgba(0,0,0,0.35)",
+                boxShadow: theme === th.key ? "0 0 8px rgba(245,166,35,0.5)" : "none",
+                padding: 2,
+              }}
+              aria-pressed={theme === th.key}
+              title={th.label}
+            >
+              <div style={{ height: 42, background: th.swatch, borderRadius: 3 }} />
+              <div className="text-[9px] font-bold mt-1 mb-1" style={{ color: theme === th.key ? "#F5A623" : "#EAD8B0" }}>
+                {th.label}
+              </div>
+            </button>
+          ))}
+        </div>
         <div
           className="rounded overflow-hidden"
           style={{ background: "rgba(0,0,0,0.35)",
@@ -2273,7 +2308,7 @@ function EventShareImageModal({ event, onClose }) {
             src={src}
             alt={event.name}
             className="w-full block"
-            style={{ maxHeight: "60vh", objectFit: "contain" }}
+            style={{ maxHeight: "50vh", objectFit: "contain" }}
             data-testid="event-share-image-preview"
           />
         </div>

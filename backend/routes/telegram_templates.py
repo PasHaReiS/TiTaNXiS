@@ -129,11 +129,38 @@ def make_telegram_templates_router(db, require_admin):
         token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
         if not channel or not token:
             raise HTTPException(400, "TELEGRAM_CHANNEL_ID veya TELEGRAM_BOT_TOKEN tanımlı değil")
+        # v135.30 — Placeholder substitution. Resolve the newest upcoming
+        # (or freshest archived) event so {event_name} / {tarih} / {grup} /
+        # {carpan} auto-fill on send. Missing values fall back to "—" so
+        # the template renders even when there's no active event.
+        body_text = doc.get("body") or ""
+        if any(k in body_text for k in ("{event_name}", "{tarih}", "{grup}", "{carpan}")):
+            from datetime import datetime as _dtp, timezone as _tzp, timedelta as _tdp
+            now_iso_ = _dtp.now(_tzp.utc).isoformat()
+            ev = await db.events.find_one(
+                {"archived": {"$ne": True}, "date": {"$gte": now_iso_}},
+                {"_id": 0, "name": 1, "date": 1, "group_name": 1, "multiplier": 1},
+                sort=[("date", 1)],
+            ) or await db.events.find_one(
+                {}, {"_id": 0, "name": 1, "date": 1, "group_name": 1, "multiplier": 1},
+                sort=[("date", -1)],
+            ) or {}
+            try:
+                _du = _dtp.fromisoformat((ev.get("date") or "").replace("Z", "+00:00"))
+                if _du.tzinfo is None:
+                    _du = _du.replace(tzinfo=_tzp.utc)
+                _tr = _du.astimezone(_tzp(_tdp(hours=3)))
+                tarih_str = _tr.strftime("%d.%m.%Y %H:%M (TR)")
+            except Exception:
+                tarih_str = "—"
+            body_text = (body_text
+                .replace("{event_name}", ev.get("name") or "—")
+                .replace("{tarih}", tarih_str)
+                .replace("{grup}", ev.get("group_name") or "—")
+                .replace("{carpan}", f"×{ev.get('multiplier') or 1}"))
         try:
-            # Late-import to avoid circular imports on server bootstrap; the
-            # helper handles Markdown escaping + parse_mode fallback.
             from telegram_bot import send_message as _tg_send
-            ok = await _tg_send(channel, doc["body"])
+            ok = await _tg_send(channel, body_text)
         except Exception as ex:
             logger.warning(f"[tg-template] send failed for {tid}: {ex}")
             raise HTTPException(502, f"Telegram send failed: {str(ex)[:200]}")
@@ -146,7 +173,7 @@ def make_telegram_templates_router(db, require_admin):
         )
         logger.info(
             f"[tg-template] sent tid={tid} by={(user or {}).get('username')} "
-            f"cat={doc.get('category')} chars={len(doc.get('body') or '')}"
+            f"cat={doc.get('category')} chars={len(body_text)}"
         )
         return {"ok": True, "sent_at": now}
 
