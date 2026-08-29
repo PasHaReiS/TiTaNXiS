@@ -12,7 +12,8 @@ import OcrDialog from "@/components/OcrDialog";
 import AdminNoteModal from "@/components/AdminNoteModal";
 import CanEdit from "@/components/CanEdit";
 import CountUp from "@/components/CountUp";
-import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap, CheckSquare, Square, Globe, Castle, Download, Flame, Send, StickyNote } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap, CheckSquare, Square, Globe, Castle, Download, Flame, Send, StickyNote, ScanSearch } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { COUNTRIES, COUNTRY_BY_ISO2 } from "@/lib/countries";
@@ -211,9 +212,95 @@ const NOTE_COLORS = [
   "#F5A623", // gold
 ];
 
+// v135.42 — Members header'ında CSV butonunun yanında görünen 3-seçenekli
+// OCR menüsü. Eski ayrı "Güç OCR" ve "Kale/Rank OCR" chip'leri buraya taşındı;
+// ayrıca yeni "Üye Ekle" seçeneği /uye-ekle-ocr'a yönlendirir.
+function OcrRegisterDropdown({ onPickAddMember, onPickPower, onPickCastleRank }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = React.useState(false);
+  const wrapRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+  const OPTIONS = [
+    {
+      key: "add",
+      testid: "members-ocr-add-member",
+      icon: <ScanSearch className="w-3.5 h-3.5" />,
+      label: t("members_ocr_option_add_member", "Üye Ekle"),
+      hint: t("members_ocr_option_add_member_hint", "Kayıtlı olmayan üyeleri OCR ile bul, ittifak+rütbe düzenle, kaydet"),
+      onClick: onPickAddMember,
+      color: "#38BDF8",
+    },
+    {
+      key: "power",
+      testid: "members-ocr-option-power",
+      icon: <Camera className="w-3.5 h-3.5" />,
+      label: t("members_ocr_option_power", "Bireysel Güç"),
+      hint: t("members_ocr_option_power_hint", "Ekran görüntüsünden bireysel güç kaydet"),
+      onClick: onPickPower,
+      color: "#FDBA74",
+    },
+    {
+      key: "castle",
+      testid: "members-ocr-option-castle-rank",
+      icon: <Camera className="w-3.5 h-3.5" />,
+      label: t("members_ocr_option_castle_rank", "Kale/Rank"),
+      hint: t("members_ocr_option_castle_rank_hint", "Ekran görüntüsünden kale seviyesi + rütbe kaydet"),
+      onClick: onPickCastleRank,
+      color: "#F9A8D4",
+    },
+  ];
+  return (
+    <div ref={wrapRef} className="relative" data-testid="members-ocr-register-wrap">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        data-testid="members-ocr-register-btn"
+        className="chip text-xs flex items-center gap-1.5"
+        style={{ borderColor: "rgba(168,85,247,0.55)", color: "#D8B4FE" }}
+        title={t("members_ocr_register_tooltip", "OCR ile üye/güç/rank kaydı seçin")}
+      >
+        <ScanSearch className="w-3.5 h-3.5" /> {t("members_ocr_register_label", "OCR Kayıt")}
+        <ChevronDown className="w-3 h-3" />
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 top-full mt-1 w-64 rounded shadow-lg z-40"
+          style={{ background: "#0F0910", border: "1px solid rgba(168,85,247,0.55)" }}
+          data-testid="members-ocr-register-menu"
+        >
+          {OPTIONS.map((o) => (
+            <button
+              key={o.key}
+              type="button"
+              onClick={() => { setOpen(false); o.onClick(); }}
+              data-testid={o.testid}
+              className="w-full text-left px-3 py-2 hover:bg-violet-500/20 transition-colors border-b border-white/5 last:border-b-0 flex items-start gap-2"
+              style={{ color: o.color }}
+            >
+              <span className="mt-0.5 flex-shrink-0">{o.icon}</span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-xs font-bold">{o.label}</span>
+                <span className="block text-[10px] text-muted-foreground mt-0.5 leading-snug">{o.hint}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Members() {
   const { t } = useTranslation();
   const { user, refreshMe } = useAuth();
+  const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -511,28 +598,16 @@ export default function Members() {
                 }}
                 className="chip text-xs flex items-center gap-1.5"
                 style={{ borderColor: "rgba(34,197,94,0.5)", color: "#86EFAC" }}
-                title="Tüm üye + puan verisini CSV olarak indir"
+                title={t("members_guild_csv_tooltip", "Tüm üye + puan verisini CSV olarak indir")}
               >
-                <Download className="w-3.5 h-3.5" /> Guild CSV
+                <Download className="w-3.5 h-3.5" /> {t("members_guild_csv_label", "Guild CSV")}
               </button>
-              <button
-                data-testid="members-ocr-power-btn"
-                onClick={() => { setOcrSubMode("power"); setOcrOpen(true); }}
-                className="chip text-xs flex items-center gap-1.5"
-                style={{ borderColor: "rgba(249,115,22,0.5)", color: "#FDBA74" }}
-                title="Bireysel Güç OCR — ekran görüntüsünden güç kaydet"
-              >
-                <Camera className="w-3.5 h-3.5" /> Güç OCR
-              </button>
-              <button
-                data-testid="members-ocr-castle-btn"
-                onClick={() => { setOcrSubMode("castle_rank"); setOcrOpen(true); }}
-                className="chip text-xs flex items-center gap-1.5"
-                style={{ borderColor: "rgba(244,114,182,0.5)", color: "#F9A8D4" }}
-                title="Kale & Rank OCR — ekran görüntüsünden kale seviyesi + rütbe kaydet"
-              >
-                <Camera className="w-3.5 h-3.5" /> Kale/Rank OCR
-              </button>
+              {/* v135.42 — Birleştirilmiş OCR Kayıt menüsü: 3 alt seçenek. */}
+              <OcrRegisterDropdown
+                onPickAddMember={() => navigate("/uye-ekle-ocr")}
+                onPickPower={() => { setOcrSubMode("power"); setOcrOpen(true); }}
+                onPickCastleRank={() => { setOcrSubMode("castle_rank"); setOcrOpen(true); }}
+              />
               <button
                 data-testid={MEMBERS.addBtn}
                 onClick={() => { setEditing(null); setShowForm(true); }}

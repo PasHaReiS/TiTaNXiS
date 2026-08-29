@@ -299,6 +299,22 @@ export default function Events() {
   const [prefillTpl, setPrefillTpl] = useState(null);
   // v135.40 — Şablondan Seri Oluşturma
   const [seriesTpl, setSeriesTpl] = useState(null);
+  // v135.43 — 'Yeni' butonu artık 2 seçenekli dropdown (Bireysel / İttifak)
+  const [newEventOpen, setNewEventOpen] = useState(false);
+  const newEventMenuRef = React.useRef(null);
+  useEffect(() => {
+    if (!newEventOpen) return;
+    const onDoc = (e) => {
+      if (newEventMenuRef.current && !newEventMenuRef.current.contains(e.target)) {
+        // If click was on the toggle button itself, let its handler flip state.
+        const t = e.target;
+        if (t.closest && t.closest(`[data-testid="${EVENTS.addBtn}"]`)) return;
+        setNewEventOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [newEventOpen]);
   // v132 — Bireysel Etkinlik modal state (separate quick-add form).
   const [showBireyselForm, setShowBireyselForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -1166,25 +1182,54 @@ export default function Events() {
               <Camera className="w-3.5 h-3.5" /> OCR
             </button>
             <button
-              data-testid="events-bireysel-add-btn"
-              onClick={() => { setShowBireyselForm(true); }}
-              className="btn-gold flex items-center gap-1.5 text-xs"
-              title="Bireysel Etkinlik Oluştur"
-              style={{ background: "linear-gradient(135deg,#8B5CF6,#5B21B6)", borderColor: "#A78BFA" }}
-            >
-              <User className="w-4 h-4" /> Bireysel
-            </button>
-            <button
               data-testid={EVENTS.addBtn}
-              onClick={() => { setEditing(null); setShowForm(true); setPrefillTpl(null); }}
-              className="btn-gold flex items-center gap-1.5 text-xs"
+              onClick={() => { setNewEventOpen((v) => !v); }}
+              className="btn-gold flex items-center gap-1.5 text-xs relative"
+              aria-haspopup="menu"
+              aria-expanded={newEventOpen}
             >
               <Plus className="w-4 h-4" /> {t("new_short")}
+              <ChevronDown className="w-3 h-3" />
             </button>
-            <TemplateQuickPickButton
-              onPicked={(tpl) => { setEditing(null); setPrefillTpl(tpl); setShowForm(true); }}
-              onPickedSeries={(tpl) => { setSeriesTpl(tpl); }}
-            />
+            {newEventOpen && (
+              <div
+                ref={newEventMenuRef}
+                data-testid="events-new-menu"
+                className="absolute right-4 mt-16 w-64 rounded shadow-lg z-40"
+                style={{ background: "#0F0910", border: "1px solid rgba(245,166,35,0.55)" }}
+              >
+                <button
+                  type="button"
+                  data-testid="events-new-menu-bireysel"
+                  onClick={() => { setNewEventOpen(false); setShowBireyselForm(true); }}
+                  className="w-full text-left px-3 py-2.5 hover:bg-violet-500/20 transition-colors border-b border-white/5 flex items-start gap-2"
+                  style={{ color: "#C4B5FD" }}
+                >
+                  <User className="w-3.5 h-3.5 mt-0.5" />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-xs font-bold">{t("events_new_bireysel_label", "Bireysel Etkinlik")}</span>
+                    <span className="block text-[10px] text-muted-foreground mt-0.5 leading-snug">
+                      {t("events_new_bireysel_hint", "Tek kişilik etkinlik — sıralamayı etkilemez")}
+                    </span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  data-testid="events-new-menu-alliance"
+                  onClick={() => { setNewEventOpen(false); setEditing(null); setShowForm(true); setPrefillTpl(null); }}
+                  className="w-full text-left px-3 py-2.5 hover:bg-amber-500/20 transition-colors flex items-start gap-2"
+                  style={{ color: "#F5A623" }}
+                >
+                  <Users className="w-3.5 h-3.5 mt-0.5" />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-xs font-bold">{t("events_new_alliance_label", "İttifak Etkinliği")}</span>
+                    <span className="block text-[10px] text-muted-foreground mt-0.5 leading-snug">
+                      {t("events_new_alliance_hint", "SvS, KvK, kale savaşı — tüm ittifak katılır")}
+                    </span>
+                  </span>
+                </button>
+              </div>
+            )}
           </CanEdit>
         </div>
         {/* View toggle — Liste vs Takvim */}

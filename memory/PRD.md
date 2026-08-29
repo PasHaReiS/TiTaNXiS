@@ -20,6 +20,21 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v135.43 Events "Yeni" Split + "Şablondan" Kaldırıldı + Members OCR Array Fix)** — Frontend-only:
+  - **Events.jsx**: Eski üç ayrı buton (`events-bireysel-add-btn`, `events-add-btn`, `events-tpl-quickpick-btn`) tek 'Yeni' dropdown'a birleştirildi. `Yeni` butonuna tıklayınca `events-new-menu` açılır → 2 seçenek: `events-new-menu-bireysel` (Bireysel Etkinlik — mevcut `BireyselEventForm`) ve `events-new-menu-alliance` (İttifak Etkinliği — mevcut `EventForm`). `TemplateQuickPickButton` render'ı tamamen kaldırıldı (component tanımı ve `TemplateSeriesModal` kodu ileride başka menüden çağırılmak üzere dosyada dursun diye korundu).
+  - **Dışa tıklama kapatma**: `newEventOpen` state + `newEventMenuRef` ile menü dışı tıklamada kapanır; toggle butonuna tıklandığında flip.
+  - **Members.jsx**: v135.42'de `OcrRegisterDropdown` function yanlışlıkla `NOTE_COLORS` array literalinin içine yerleştirilmişti — array kapatılıp function array'in DIŞINDA module scope'a taşındı. Runtime `OcrRegisterDropdown is not defined` hatası çözüldü.
+  - 4 yeni i18n key TR fallback ile: `events_new_bireysel_label/hint`, `events_new_alliance_label/hint`.
+  - **Doğrulama** ✅: `/etkinlikler` – old_bireysel(0)=0, old_tpl(0)=0, new dropdown 2 seçenek görünüyor. `/uyeler` – OCR Kayıt dropdown 3 seçenek gösteriyor, old_power(0)=0, old_castle(0)=0.
+
+
+- **Feb 29, 2026 (v135.42 OCR Kayıt Birleştirilmiş Menü)** — Frontend-only:
+  - `Members.jsx` header'ında Guild CSV butonunun yanına yeni **OCR Kayıt** dropdown (`members-ocr-register-btn`, mor). 3 alt seçenek: (1) `members-ocr-add-member` → `/uye-ekle-ocr` navigate, (2) `members-ocr-option-power` → mevcut `OcrDialog` power modu, (3) `members-ocr-option-castle-rank` → mevcut castle_rank modu.
+  - Eski `members-ocr-power-btn` ve `members-ocr-castle-btn` chip'leri kaldırıldı; artık 3'ü de bu tek menü altında toplandı.
+  - Yeni component: `OcrRegisterDropdown` (Members.jsx içinde, module scope). `useNavigate` (react-router-dom) + `ScanSearch` (lucide-react) importları eklendi.
+  - 8 yeni i18n key TR fallback ile (`members_ocr_register_*`, `members_ocr_option_*`, `members_guild_csv_*`).
+
+
 - **Feb 29, 2026 (v135.41 Üye Ekle — OCR)** — Frontend-only:
   - **Yeni sayfa** `/app/frontend/src/pages/MemberAddOcr.jsx` (~230 satır): Kesin kapsam — (1) görsel yükleme alanı `moa-upload-dropzone`, (2) `POST /api/ocr/parse?mode=members` ile OCR (sadece alliance_name+name+rank kullanılır; power/castle_level yok sayılır), (3) DB üyeleriyle case-insensitive isim kıyaslaması → mevcutlar "KAYITLI" yeşil rozet, olmayanlar amber vurgulu form, (4) her eksik satır için ittifak (`datalist` autocomplete) + rütbe (R1-R5) düzenlenip `POST /api/members` ile kaydet — sonra otomatik "kayıtlı" state'ine geçer, (5) başka özellik YOK.
   - **Route**: `/uye-ekle-ocr` (RequireAdmin), Header menüsünde 📸 "Üye Ekle — OCR" (`data-testid=dropdown-member-add-ocr`).
