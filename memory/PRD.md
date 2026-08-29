@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 28, 2026 (v135.25 QR Renk Teması — Amber Branded)** — `/app/frontend/src/components/InviteManagement.jsx`:
+  - **Toggle**: Header'a `data-testid="invite-qr-theme-toggle"` chip eklendi ("Klasik QR ↔ Amber QR"). Seçim `localStorage.ol_invite_qr_theme` altında persist edilir (per browser); default `light`.
+  - **Branded palette**: `bgColor="#0A0004"` (onyx) + `fgColor="#F5A623"` (amber). Amber tema seçildiğinde chip'in kendisi de onyx arkaplan + amber kenarlıkla premium görünür. Modal'da amber tema seçilince arkaplan inset amber glow (`boxShadow: inset 0 0 24px rgba(245,166,35,0.20)`) alıyor.
+  - **PNG İndirme**: Canvas fill artık `qrBg`'yi kullanıyor — indirilen PNG onscreen tema ile birebir aynı; branded modda dosya adı `titanxis-davet-qr-amber.png`, klasik modda `titanxis-davet-qr.png`.
+  - **QR level "H" korundu**: Renk ters çevrilirken de logo overlay altında %30 error correction sayesinde phone kameraları rahatça okuyabiliyor.
+  - **Görsel doğrulama** ✅: Playwright ile toggle click test edildi, hem liste hem modal ekranında amber-on-black + ortada logo net görünüyor (bkz `/tmp/qr_amber_list.png`, `/tmp/qr_amber_modal.png`).
+
 - **Feb 28, 2026 (v135.24 Streak Celebration Push + QR Watermark)**:
   - **Streak Celebration** (`/app/backend/server.py`): Yeni helper `_compute_user_yes_streak(user_id)` ve `_fire_streak_celebration(user_id, username)`. `POST /api/events/{id}/rsvp` `status=yes` yolunda tetiklenir; kullanıcının ardışık "yes" serisi `STREAK_MILESTONES = (5, 10, 15, 20, 25, 50, 100)` sayılarından birine bindiğinde 🔥 push + in-app bell rowu üretir. Her milestone bir kez kutlanır — `rsvp_streak_state` collection'ında `last_celebrated` alanı tutuluyor (yes ↔ no flip spam'i engelleniyor).
   - **Streak Pref Enforcement**: `_users_disabled_for_pref("streak")` seti kontrol ediliyor — profil `Bildirim Türleri` → `🔥 Streak kutlamaları` kapalı olan kullanıcıya push GİTMİYOR, ama milestone state yine kaydediliyor (`silenced_at`) ki tekrar açtığında spam patlamasın.
