@@ -20,6 +20,21 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v135.41 Üye Ekle — OCR)** — Frontend-only:
+  - **Yeni sayfa** `/app/frontend/src/pages/MemberAddOcr.jsx` (~230 satır): Kesin kapsam — (1) görsel yükleme alanı `moa-upload-dropzone`, (2) `POST /api/ocr/parse?mode=members` ile OCR (sadece alliance_name+name+rank kullanılır; power/castle_level yok sayılır), (3) DB üyeleriyle case-insensitive isim kıyaslaması → mevcutlar "KAYITLI" yeşil rozet, olmayanlar amber vurgulu form, (4) her eksik satır için ittifak (`datalist` autocomplete) + rütbe (R1-R5) düzenlenip `POST /api/members` ile kaydet — sonra otomatik "kayıtlı" state'ine geçer, (5) başka özellik YOK.
+  - **Route**: `/uye-ekle-ocr` (RequireAdmin), Header menüsünde 📸 "Üye Ekle — OCR" (`data-testid=dropdown-member-add-ocr`).
+  - **i18n**: 25+ yeni key (`moa_*` prefix) TR fallback ile 29 dile hazır.
+  - **Backend değişikliği yok** — mevcut `/api/ocr/parse` + `POST /api/members` yeniden kullanılır.
+
+
+- **Feb 29, 2026 (v135.40 Retry Policy + Şablondan Seri)** — Backend + Frontend:
+  - **Retry Policy** (`/app/backend/routes/rsvp_templates.py`): `check_and_fire_due_schedules()` yeniden yazıldı. `BACKOFF_MINUTES=[1,5,15]` + `MAX_ATTEMPTS=3`. Başarısız denemede `attempts++`, `next_retry_at = now + backoff[attempts-1]`, `last_error` yazılır. 3. deneme başarısız olursa `sent=True` + `abandoned=True` + ERROR log — sonsuz retry riski ortadan kalktı. Başarıda `next_retry_at` unset edilir. Query'de `$or: [{next_retry_at:{$exists:false}}, {next_retry_at:null}, {next_retry_at:{$lte:now}}]` — bekleyen retry'lar zamanı gelene kadar es geçilir. E2E doğrulama: `cycle 1 attempts=1 → cycle 2 attempts=2 → cycle 3 attempts=3 sent=True abandoned=True` (logs: `retry 1/3 in 1min`, `retry 2/3 in 5min`, `ABANDONED after 3 attempts`).
+  - **RSVP Schedules List UI** (`Templates.jsx`): Retry chip (`rsvp-schedule-retry-{id}` "Deneme N/3" + sonraki deneme saati) + abandoned chip (`rsvp-schedule-abandoned-{id}` "Vazgeçildi (3 deneme) · <error>"). Renk: retry sarı, abandoned kırmızı; sent yeşil; bekleyen mavi (mevcut).
+  - **Şablondan Seri Oluştur** (`Events.jsx`): `TemplateQuickPickButton` her satırı 2'ye böldü — sol tıkla tek etkinlik (mevcut), sağdaki "🔁 Seri" chip'i yeni `TemplateSeriesModal`'ı açar. Modal içerik: başlangıç tarihi/saati + 6 preset button (Haftalık×4/8, Aylık×3/6, Günlük×7, Özel) + interval select + count input (1-24) + canlı tarih preview + Submit. Preset click → interval+count auto-set; interval/count manuel değiştirilirse preset "Özel"e döner. Submit: `POST /events` (recurrence_interval, recurrence_count) → backend seriyi tek çağrıyla yaratır (mevcut recurrence altyapısı). Tüm SWR key'leri mutate edilir; toast: `{{spawned}} etkinlik oluşturuldu (şablon: {{tn}})`.
+  - **Tüm metinler `useTranslation`** — 29 dile hazır fallback: `tpl_series_*`, `rsvp_sch_retry_status`, `rsvp_sch_abandoned*`, `events_tpl_series_*`.
+  - **Screenshot doğrulama**: Modal başlığı `🔁 ŞABLONDAN SERİ OLUŞTUR`, T1 template context, 08/30 20:00 başlangıç, Haftalık×4 preset seçili, preview 4 tarihi listeliyor.
+
+
 - **Feb 29, 2026 (v135.39 Şablon Kısayolları + Zamanlayıcı + Test Gönder + Etkinlik Şablon Quick-Pick)** — Backend + Frontend:
   - **Backend refactor**: `/app/backend/routes/rsvp_templates.py` sıfırdan yazıldı. Send mantığı `_run_send` + `_fanout_push_and_tg` + `_resolve_targets` şeklinde parçalandı; hem `/send`, hem yeni `/test-send`, hem zamanlanmış görevler aynı yolu paylaşıyor.
   - **`POST /api/rsvp-templates/{tid}/test-send`**: Tek kullanıcıya deneme (body.user_id boşsa admin'in kendisi). Yanıt: `{recipient, has_push_subscription, has_telegram_chat, push_sent, telegram_sent, channels, ...}`.

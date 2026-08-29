@@ -271,6 +271,14 @@ export default function Header({ title, children }) {
                   )}
                   {isAdmin && (
                     <MenuItem
+                      emoji="📸"
+                      label={t("nav_member_add_ocr", "Üye Ekle — OCR")}
+                      onClick={() => goto("/uye-ekle-ocr")}
+                      testId="dropdown-member-add-ocr"
+                    />
+                  )}
+                  {isAdmin && (
+                    <MenuItem
                       emoji="📋"
                       label={t("nav_admin_todos", "Görevler")}
                       onClick={() => goto("/admin/gorevler")}

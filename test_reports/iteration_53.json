@@ -1,0 +1,58 @@
+{
+  "summary": "v135.40 testing (iteration 53). BACKEND retry policy: fully verified with 6 new pytest cases calling check_and_fire_due_schedules() directly against live Mongo (motor) — cycle1 attempts=1 + next_retry_at ~+1min + last_error, cycle2 attempts=2 + ~+5min, cycle3 attempts=3 + sent=true + abandoned=true + next_retry_at unset; future next_retry_at rows are SKIPPED; next_retry_at=null + past send_at is picked up; future send_at not fired; success path -> attempts=1, next_retry_at unset, fired_at/target_count set; GET /rsvp-schedules exposes attempts/next_retry_at/last_error/abandoned with no _id. Regression (iter50+51+52): 50 passed / 1 failed (the iter52 60s-loop fire test, flaky — passed on isolated rerun). FRONTEND: /sablonlar RSVP retry chip ('⟳ Deneme 2/3 · sonraki deneme: 18:15:13') and abandoned chip ('✗ Vazgeçildi (3 deneme) · 404: template not found') render correctly. /etkinlikler 'Şablondan' dropdown renders row + single-pick + Seri areas; tpl-series-modal opens with all 6 presets, start-date, interval, count, live preview (weekly4 -> 4 dates 7d apart; count edit + interval change flip preset to Özel; monthly x3 -> +1 month steps). BLOCKING DEFECT: submitting the series creates only ONE event — POST /api/events silently drops recurrence_interval/recurrence_count because EventCreate does not declare them, so the series feature does not work end-to-end.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/events", "issue": "EventCreate (server.py:238-277) has NO recurrence_interval / recurrence_count fields, so body.model_dump() never contains them -> create_event() sees interval='none', count=1. Result: recurrence_created=1, series_id=null, only 1 event inserted. Verified by direct curl-equivalent (weekly x4 -> 1 event) AND via UI (daily x7 -> toast '1 etkinlik oluşturuldu'). This breaks the new 'Şablondan Seri' feature AND the pre-existing EventForm 'Tekrarla' on create (Events.jsx:2793). Fix: add `recurrence_interval: Optional[str] = None` + `recurrence_count: Optional[int] = None` to EventCreate (EventUpdate already has them, which is why PATCH recurrence works).", "priority": "CRITICAL"},
+      {"endpoint": "POST /api/events (recurrence interval map)", "issue": "server.py:1205 step map only supports {'2days':2,'weekly':7,'2weekly':14} + monthly. The new TemplateSeriesModal sends 'daily' (Günlük × 7 gün preset) which is NOT in the map -> even after fixing EventCreate, daily series will silently create 1 event. Add 'daily':1 to the map (and/or align the FE interval options with the backend set 2days/weekly/2weekly/monthly).", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "check_and_fire_due_schedules()", "issue": "No atomic claim before send (still no findOneAndUpdate); with >1 worker the same schedule could be fired twice. Pre-existing note from iteration 52, unchanged."},
+      {"endpoint": "rsvp_reminder_schedules index", "issue": "New query filters on next_retry_at but ensure_rsvp_templates_indexes only indexes (sent, send_at). Low impact at current volume; consider adding next_retry_at to the compound index."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Events.jsx TemplateQuickPickButton", "issue": "While the SWR '/event-templates' request is in flight, `data?.items || []` is empty so the dropdown flashes the misleading empty state 'Kayıtlı şablon yok. /sablonlar sayfasından ekleyebilirsin.' (reproduced: 0 rows at +500ms, 1 row at +3s). Add a loading state for `data === undefined`.", "selector": "events-tpl-quickpick-menu", "priority": "MEDIUM"},
+      {"component": "Events.jsx TemplateSeriesModal.submit", "issue": "`const spawned = res?.data?.recurrence_created || n;` — the `|| n` fallback would report the requested count as created even when the backend created fewer/none. Should surface the server value and warn when spawned !== n.", "selector": "tpl-series-submit", "priority": "MEDIUM"},
+      {"component": "Events.jsx TemplateSeriesModal", "issue": "Interval select offers daily/weekly/monthly only; backend also supports 2days/2weekly and does NOT support daily — the option set is out of sync with the API contract.", "selector": "tpl-series-interval", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [
+      {"flow": "Şablondan Seri -> POST /events", "issue": "End-to-end broken: weekly×4 and daily×7 both produced exactly ONE event. Modal closes, toast shows, /events + /stats SWR keys are revalidated correctly, so the only failure point is the backend dropping recurrence_* (see backend critical #1/#2).", "affected_selectors": ["tpl-series-submit", "tpl-series-preview"]}
+    ],
+    "design_issues": [
+      {"screen": "/etkinlikler tpl-series-modal", "issues": ["No visual issues found — presets grid, selected-preset highlight (aria-pressed + pink border), preview list contrast and submit button all look correct at 1920x1080."]},
+      {"screen": "/sablonlar RSVP tab", "issues": ["Retry chip (#FCD34D) and abandoned chip (#FCA5A5) both readable on the dark/red row backgrounds; abandoned row correctly tinted red with 'Vazgeçildi' badge."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter53_retry.py",
+    "/app/backend/tests/iter53_fe_seed.py",
+    "/app/backend/tests/iter53_event_snapshot.py",
+    "/app/test_reports/pytest/pytest_results_iter53.xml"
+  ],
+  "action_items": [
+    "CRITICAL: add recurrence_interval + recurrence_count to EventCreate in /app/backend/server.py (~line 270) — without it 'Şablondan Seri' creates 1 event instead of N.",
+    "Add 'daily': 1 to the recurrence step_days map at server.py:1205 (or drop the daily7 preset / switch it to 2days) so the Günlük × 7 gün preset actually spawns 7 events.",
+    "Remove the `|| n` fallback in TemplateSeriesModal toast and warn when recurrence_created !== requested count.",
+    "Add a loading state to the template quick-pick dropdown so 'Kayıtlı şablon yok' is not flashed while /event-templates is loading.",
+    "Optional: relax the iteration_52 TestSchedulerFire wait from 100s to ~150s (or call check_and_fire_due_schedules directly like test_iter53_retry.py) — the 60s loop timer resets on every backend hot reload, which makes it flaky."
+  ],
+  "critical_code_review_comments": [
+    "The FE↔BE contract for recurrence is unvalidated on both sides: EventCreate silently ignores unknown keys (Pydantic default) and create_event silently no-ops for unknown intervals. Add `model_config = ConfigDict(extra='forbid')` on EventCreate (or explicit Literal validation on recurrence_interval) so this class of bug 422s instead of silently creating one event.",
+    "check_and_fire_due_schedules still compares ISO strings lexicographically for send_at AND now next_retry_at; both are written with datetime.now(timezone.utc).isoformat() so it works today, but any row with a 'Z' suffix or non-UTC offset (e.g. hand-inserted, or an older migration) will sort wrong and either never fire or fire early. Store BSON dates.",
+    "Abandonment reuses `sent=True` as the 'stop polling' flag, so /rsvp-schedules?include_sent=false hides abandoned failures and the list ordering treats them as sent. Consider a dedicated `state` field (pending|sent|abandoned) — the UI already needs abandoned as a separate visual state.",
+    "Events.jsx is now 4143 lines (TemplateSeriesModal + TemplateQuickPickButton appended at module scope). Split into src/components/events/* before the next feature."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter53_retry.py",
+    "/app/backend/tests/iter53_fe_seed.py",
+    "/app/backend/tests/iter53_event_snapshot.py"
+  ],
+  "success_rate": {"backend": "86% new retry suite (6/7 — the 7th is the recurrence bug test, intentionally failing) + 98% regression (50/51)", "frontend": "80% (chips + modal/presets/preview/custom-flip all pass; series submit produces 1 event instead of N due to the backend bug)"},
+  "seed_data_creation": "Created and fully removed: 2 rsvp_reminder_schedules rows (marker TEST_iter53_fe — one attempts=2 pending, one abandoned), rsvp template TEST_iter53_fe_tpl, all TEST_iter53 pytest schedules/templates, plus the 2 real events spawned by the UI series submits (2027-03-01, 2027-04-01). Verified post-test DB: 13 events (baseline), 0 rsvp schedules, 0 TEST_ rsvp templates, 1 event_template ('T1', untouched).",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "admin / Admin123 — /login then click role=button 'GİRİŞ YAP', fill login-username / login-password, click login-submit",
+  "context_for_next_testing_agent": "Retry-policy suite: `cd /app/backend && python -m pytest tests/test_iter53_retry.py -q` (no pytest-asyncio in this env — the file uses a run_async() helper with a fresh motor client + marker-based cleanup; do NOT add @pytest.mark.asyncio). test_post_events_recurrence_spawns_series is the failing bug test — it should PASS once recurrence_interval/count are added to EventCreate. FE helpers: `python tests/iter53_fe_seed.py seed|clean` seeds/removes the retry+abandoned schedule rows for the /sablonlar chip test; `python tests/iter53_event_snapshot.py before|after` snapshots and then deletes any events created by the series submit. Note: writing any file under /app/backend hot-reloads the backend and RESETS the 60s scheduler loop timer — that is why iter52's TestSchedulerFire (100s wait) is flaky; run it in isolation. Verified selectors: events-tpl-quickpick-btn/menu/row-{id}/item-{id}/series-{id}, tpl-series-modal/start-date/preset-{weekly4,weekly8,monthly3,monthly6,daily7,custom}/interval/count/preview/submit, rsvp-schedule-retry-{id}, rsvp-schedule-abandoned-{id}, tpl-tab-rsvp.",
+  "rca_of_the_issue": "Şablondan Seri creates one event because the recurrence knobs never reach create_event(): FastAPI validates the body against EventCreate, which does not declare recurrence_interval/recurrence_count, and Pydantic v2's default extra='ignore' drops them. server.py:1175-1176 therefore reads interval='none', count=1, series_id stays None and a single document is inserted; the endpoint still returns 200 with recurrence_created=1, so the UI shows a success toast ('1 etkinlik oluşturuldu') and looks healthy. Repro: POST /api/events {name,date,recurrence_interval:'weekly',recurrence_count:4} -> recurrence_created=1, GET /api/events shows 1 matching row. Secondary defect: even with the model fixed, interval 'daily' is absent from the step map at server.py:1205, so the daily7 preset would still create 1 event."
+}

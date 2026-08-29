@@ -305,15 +305,36 @@ async def _run_test_send(db, tid: str, user_id: str) -> dict:
     }
 
 
+# v135.40 — Exponential backoff retry policy for schedule fires.
+# Bir plan başarısız olduğunda sonsuz retry olmasın diye:
+#   * Deneme 1 başarısız → 1 dk sonra tekrar
+#   * Deneme 2 başarısız → 5 dk sonra tekrar
+#   * Deneme 3 başarısız → 15 dk sonra tekrar
+#   * Deneme 4 (MAX_ATTEMPTS=3 sonrası) → vazgeç, `abandoned=True` + log.
+BACKOFF_MINUTES = [1, 5, 15]
+MAX_ATTEMPTS = 3
+
+
 async def check_and_fire_due_schedules(db) -> int:
     """Called by the background loop every 60 s. Returns count fired."""
     now = _now_iso()
+    # Zamanı gelmiş, sent olmayan ve (henüz next_retry_at yok VEYA
+    # geçmiş) tüm planlar aday.
     due = await db.rsvp_reminder_schedules.find(
-        {"sent": {"$ne": True}, "send_at": {"$lte": now}},
+        {
+            "sent": {"$ne": True},
+            "send_at": {"$lte": now},
+            "$or": [
+                {"next_retry_at": {"$exists": False}},
+                {"next_retry_at": None},
+                {"next_retry_at": {"$lte": now}},
+            ],
+        },
         {"_id": 0},
     ).to_list(200)
     fired = 0
     for sch in due:
+        attempts_prev = int(sch.get("attempts") or 0)
         try:
             res = await _run_send(db, sch["template_id"], sch["event_id"], bool(sch.get("include_maybe")))
             await db.rsvp_reminder_schedules.update_one(
@@ -324,16 +345,41 @@ async def check_and_fire_due_schedules(db) -> int:
                     "target_count": res.get("target_count", 0),
                     "push_sent": res.get("push_sent", 0),
                     "telegram_sent": res.get("telegram_sent", 0),
-                }},
+                    "attempts": attempts_prev + 1,
+                }, "$unset": {"next_retry_at": ""}},
             )
             fired += 1
-            logger.info(f"[rsvp-schedule] fired {sch['id']} -> target={res.get('target_count')}")
+            logger.info(f"[rsvp-schedule] fired {sch['id']} -> target={res.get('target_count')} (attempt {attempts_prev + 1})")
         except Exception as ex:
-            logger.warning(f"[rsvp-schedule] fire failed for {sch.get('id')}: {ex}")
-            await db.rsvp_reminder_schedules.update_one(
-                {"id": sch["id"]},
-                {"$set": {"last_error": str(ex)[:200], "last_error_at": _now_iso()}},
-            )
+            attempts = attempts_prev + 1
+            err = str(ex)[:200]
+            if attempts >= MAX_ATTEMPTS:
+                # Vazgeç — `sent=True` işaretle ki bir daha çekilmesin.
+                await db.rsvp_reminder_schedules.update_one(
+                    {"id": sch["id"]},
+                    {"$set": {
+                        "sent": True,
+                        "abandoned": True,
+                        "attempts": attempts,
+                        "last_error": err,
+                        "last_error_at": _now_iso(),
+                    }, "$unset": {"next_retry_at": ""}},
+                )
+                logger.error(f"[rsvp-schedule] ABANDONED {sch['id']} after {attempts} attempts: {err}")
+            else:
+                idx = min(attempts - 1, len(BACKOFF_MINUTES) - 1)
+                backoff_min = BACKOFF_MINUTES[idx]
+                next_retry = (datetime.now(timezone.utc) + timedelta(minutes=backoff_min)).isoformat()
+                await db.rsvp_reminder_schedules.update_one(
+                    {"id": sch["id"]},
+                    {"$set": {
+                        "attempts": attempts,
+                        "next_retry_at": next_retry,
+                        "last_error": err,
+                        "last_error_at": _now_iso(),
+                    }},
+                )
+                logger.warning(f"[rsvp-schedule] retry {attempts}/{MAX_ATTEMPTS} for {sch['id']} in {backoff_min}min: {err}")
     return fired
 
 

@@ -599,8 +599,12 @@ function RsvpSchedulesList() {
       </div>
       {items.map((s) => (
         <div key={s.id} className="rounded p-2 flex items-center gap-2 flex-wrap"
-             style={{ background: s.sent ? "rgba(148,163,184,0.08)" : "rgba(56,189,248,0.08)",
-                      border: `1px solid ${s.sent ? "rgba(148,163,184,0.35)" : "rgba(56,189,248,0.40)"}` }}
+             style={{ background: s.abandoned
+                        ? "rgba(239,68,68,0.10)"
+                        : s.sent
+                          ? "rgba(148,163,184,0.08)"
+                          : "rgba(56,189,248,0.08)",
+                      border: `1px solid ${s.abandoned ? "rgba(239,68,68,0.55)" : s.sent ? "rgba(148,163,184,0.35)" : "rgba(56,189,248,0.40)"}` }}
              data-testid={`rsvp-schedule-row-${s.id}`}>
           <div className="text-xs text-white flex-1 min-w-0">
             <div className="font-bold truncate">
@@ -610,8 +614,24 @@ function RsvpSchedulesList() {
               T-{s.minutes_before}dk · {t("rsvp_sch_send_at", "Gönderim")}: {new Date(s.send_at).toLocaleString("tr-TR")}
               {s.include_maybe && <> · <span style={{ color: "#F5A623" }}>{t("rsvp_sch_include_maybe", "Belki dahil")}</span></>}
             </div>
+            {(s.attempts && s.attempts > 0 && !s.abandoned) ? (
+              <div className="text-[10px] mono" style={{ color: "#FCD34D" }} data-testid={`rsvp-schedule-retry-${s.id}`}>
+                ⟳ {t("rsvp_sch_retry_status", "Deneme {{a}}/3", { a: s.attempts })}
+                {s.next_retry_at && <> · {t("rsvp_sch_next_retry", "sonraki deneme")}: {new Date(s.next_retry_at).toLocaleTimeString("tr-TR")}</>}
+              </div>
+            ) : null}
+            {s.abandoned && (
+              <div className="text-[10px] mono" style={{ color: "#FCA5A5" }} data-testid={`rsvp-schedule-abandoned-${s.id}`}>
+                ✗ {t("rsvp_sch_abandoned", "Vazgeçildi ({{a}} deneme)", { a: s.attempts })}
+                {s.last_error && <> · {s.last_error.slice(0, 60)}</>}
+              </div>
+            )}
           </div>
-          {s.sent ? (
+          {s.abandoned ? (
+            <span className="chip text-[10px]" style={{ borderColor: "#EF4444", color: "#FCA5A5" }}>
+              ✗ {t("rsvp_sch_abandoned_badge", "Vazgeçildi")}
+            </span>
+          ) : s.sent ? (
             <span className="chip text-[10px]" style={{ borderColor: "#22C55E", color: "#86EFAC" }}>
               ✓ {t("rsvp_sch_sent_badge", "Gönderildi")} ({s.target_count || 0})
             </span>

@@ -297,6 +297,8 @@ export default function Events() {
   // v135.39 — Şablondan hızlı oluşturma: seçilen event-template EventForm'a
   // initialTemplate olarak geçilir; form açılışta bu şablonu otomatik apply eder.
   const [prefillTpl, setPrefillTpl] = useState(null);
+  // v135.40 — Şablondan Seri Oluşturma
+  const [seriesTpl, setSeriesTpl] = useState(null);
   // v132 — Bireysel Etkinlik modal state (separate quick-add form).
   const [showBireyselForm, setShowBireyselForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -1181,6 +1183,7 @@ export default function Events() {
             </button>
             <TemplateQuickPickButton
               onPicked={(tpl) => { setEditing(null); setPrefillTpl(tpl); setShowForm(true); }}
+              onPickedSeries={(tpl) => { setSeriesTpl(tpl); }}
             />
           </CanEdit>
         </div>
@@ -1812,6 +1815,13 @@ export default function Events() {
       {showForm && (
         <EventForm initial={editing} initialTemplate={prefillTpl}
                    onClose={() => { setShowForm(false); setEditing(null); setPrefillTpl(null); }} />
+      )}
+      {seriesTpl && (
+        <TemplateSeriesModal
+          template={seriesTpl}
+          onClose={() => setSeriesTpl(null)}
+          onCreated={() => setSeriesTpl(null)}
+        />
       )}
       {showBireyselForm && (
         <BireyselEventForm onClose={() => setShowBireyselForm(false)} />
@@ -3850,7 +3860,9 @@ function EventFolderManager({ folders, onClose }) {
 // tek tıklama şablon seçici. Aktif event-template'leri fetch eder; dropdown'da
 // bir şablon seçilince onPicked callback'i çağrılır (EventForm açılır ve
 // initialTemplate ile pre-fill olur).
-function TemplateQuickPickButton({ onPicked }) {
+// v135.40 — Her satırda ayrıca "Seri" mini butonu — tek tıkla haftalık/aylık
+// tekrarlı etkinlik serisi oluşturmak için modal açar.
+function TemplateQuickPickButton({ onPicked, onPickedSeries }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const { data } = useSWR(open ? "/event-templates" : null, fetcher);
@@ -3879,7 +3891,7 @@ function TemplateQuickPickButton({ onPicked }) {
       </button>
       {open && (
         <div
-          className="absolute right-0 top-full mt-1 w-64 max-h-80 overflow-auto rounded shadow-lg z-40"
+          className="absolute right-0 top-full mt-1 w-72 max-h-96 overflow-auto rounded shadow-lg z-40"
           style={{ background: "#0F0910", border: "1px solid rgba(168,85,247,0.55)" }}
           data-testid="events-tpl-quickpick-menu"
         >
@@ -3889,21 +3901,242 @@ function TemplateQuickPickButton({ onPicked }) {
             </div>
           )}
           {items.map((tpl) => (
-            <button
+            <div
               key={tpl.id}
-              type="button"
-              onClick={() => { setOpen(false); onPicked(tpl); }}
-              data-testid={`events-tpl-quickpick-item-${tpl.id}`}
-              className="w-full text-left px-3 py-2 text-xs text-white hover:bg-violet-500/20 transition-colors border-b border-white/5 last:border-b-0"
+              className="flex items-stretch border-b border-white/5 last:border-b-0"
+              data-testid={`events-tpl-quickpick-row-${tpl.id}`}
             >
-              <div className="font-bold truncate">📋 {tpl.template_name}</div>
-              <div className="text-[10px] text-muted-foreground truncate">
-                {tpl.name} · ×{tpl.multiplier || 1}{tpl.group_name ? ` · ${tpl.group_name}` : ""}
-              </div>
-            </button>
+              <button
+                type="button"
+                onClick={() => { setOpen(false); onPicked(tpl); }}
+                data-testid={`events-tpl-quickpick-item-${tpl.id}`}
+                className="flex-1 text-left px-3 py-2 text-xs text-white hover:bg-violet-500/20 transition-colors"
+              >
+                <div className="font-bold truncate">📋 {tpl.template_name}</div>
+                <div className="text-[10px] text-muted-foreground truncate">
+                  {tpl.name} · ×{tpl.multiplier || 1}{tpl.group_name ? ` · ${tpl.group_name}` : ""}
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setOpen(false); onPickedSeries(tpl); }}
+                data-testid={`events-tpl-quickpick-series-${tpl.id}`}
+                title={t("events_tpl_series_hint", "Bu şablondan tekrarlı seri oluştur")}
+                className="px-2 flex items-center gap-1 text-[10px] font-bold hover:bg-fuchsia-500/25 transition-colors border-l border-white/5"
+                style={{ color: "#F0ABFC" }}
+              >
+                🔁 {t("events_tpl_series_label", "Seri")}
+              </button>
+            </div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// v135.40 — Şablondan Tekrarlı Etkinlik: Preset ile veya özel interval+count
+// ile POST /events (recurrence_interval + recurrence_count) tek çağrıyla seriyi
+// yaratır. Backend zaten seri yaratmayı destekliyor (bkz. server.py POST /events).
+function TemplateSeriesModal({ template, onClose, onCreated }) {
+  const { t } = useTranslation();
+  // Varsayılan başlangıç: yarın 20:00 (yerel).
+  const defaultStart = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(20, 0, 0, 0);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  }, []);
+  const PRESETS = useMemo(() => ([
+    { key: "weekly4",  interval: "weekly",  count: 4, label: t("tpl_series_preset_w4", "Haftalık × 4 hafta") },
+    { key: "weekly8",  interval: "weekly",  count: 8, label: t("tpl_series_preset_w8", "Haftalık × 8 hafta") },
+    { key: "monthly3", interval: "monthly", count: 3, label: t("tpl_series_preset_m3", "Aylık × 3 ay") },
+    { key: "monthly6", interval: "monthly", count: 6, label: t("tpl_series_preset_m6", "Aylık × 6 ay") },
+    { key: "daily7",   interval: "daily",   count: 7, label: t("tpl_series_preset_d7", "Günlük × 7 gün") },
+    { key: "custom",   interval: null,      count: null, label: t("tpl_series_preset_custom", "Özel") },
+  ]), [t]);
+  const [preset, setPreset] = useState("weekly4");
+  const [interval, setInterval] = useState("weekly");
+  const [count, setCount] = useState(4);
+  const [date, setDate] = useState(defaultStart);
+  const [saving, setSaving] = useState(false);
+
+  const applyPreset = (key) => {
+    setPreset(key);
+    const p = PRESETS.find((x) => x.key === key);
+    if (p && p.interval && p.count) {
+      setInterval(p.interval);
+      setCount(p.count);
+    }
+  };
+
+  // Tarihleri önden hesapla — kullanıcı ne oluşturacağını görsün.
+  const previewDates = useMemo(() => {
+    if (!date) return [];
+    const start = new Date(date);
+    if (isNaN(start.getTime())) return [];
+    const out = [];
+    for (let i = 0; i < Math.min(count || 0, 24); i++) {
+      const d = new Date(start.getTime());
+      if (interval === "daily")   d.setDate(d.getDate() + i);
+      if (interval === "weekly")  d.setDate(d.getDate() + i * 7);
+      if (interval === "monthly") d.setMonth(d.getMonth() + i);
+      out.push(d);
+    }
+    return out;
+  }, [date, interval, count]);
+
+  const submit = async () => {
+    if (!date) { toast.error(t("tpl_series_date_required", "Başlangıç tarihi gerekli")); return; }
+    const n = Math.max(1, Math.min(24, Number(count) || 0));
+    if (n < 1) { toast.error(t("tpl_series_count_range", "Adet 1-24 arası olmalı")); return; }
+    if (!["daily", "weekly", "monthly"].includes(interval)) {
+      toast.error(t("tpl_series_interval_required", "Tekrar aralığı seçilmeli"));
+      return;
+    }
+    setSaving(true);
+    try {
+      const body = {
+        name: template.name,
+        date: new Date(date).toISOString(),
+        multiplier: Number(template.multiplier) || 1,
+        subtitle: template.subtitle || null,
+        group_name: template.group_name || null,
+        banner_url: template.banner_url || null,
+        reminder_enabled: template.reminder_enabled !== false,
+        attendance_enabled: template.attendance_enabled !== false,
+        hidden_from_leaderboard: !!template.hidden_from_leaderboard,
+        alliance_scope: "GOW",
+        auto_archive: false,
+        recurrence_interval: interval,
+        recurrence_count: n,
+        template_source_name: template.template_name || template.name,
+      };
+      const res = await api.post("/events", body);
+      const spawned = res?.data?.recurrence_created || n;
+      toast.success(t("tpl_series_created_toast",
+        "{{spawned}} etkinlik oluşturuldu (şablon: {{tn}})",
+        { spawned, tn: template.template_name }));
+      // Yeni etkinlikler görünsün
+      mutate((k) => typeof k === "string" && (k.startsWith("/events") || k.startsWith("/event-groups")));
+      mutate("/stats");
+      onCreated();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4"
+         onClick={onClose}
+         data-testid="tpl-series-modal">
+      <div onClick={(e) => e.stopPropagation()}
+           className="card-red-gold w-full max-w-md p-5 fade-in relative"
+           style={{ maxHeight: "90vh", overflowY: "auto" }}>
+        <button type="button" onClick={onClose}
+                className="absolute top-3 right-3 text-muted-foreground hover:text-white">
+          <X className="w-5 h-5" />
+        </button>
+        <h3 className="text-lg font-bold uppercase mb-1" style={{ color: "#F0ABFC" }}>
+          🔁 {t("tpl_series_title", "Şablondan Seri Oluştur")}
+        </h3>
+        <p className="text-[11px] text-muted-foreground mb-4">
+          {t("tpl_series_hint", "Şablon: {{tn}} — {{en}}", { tn: template.template_name, en: template.name })}
+        </p>
+
+        <label className="block text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1">
+          {t("tpl_series_start_date", "Başlangıç tarihi ve saati")}
+        </label>
+        <input
+          type="datetime-local"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          data-testid="tpl-series-start-date"
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mb-3"
+        />
+
+        <label className="block text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1">
+          {t("tpl_series_preset_label", "Ön Ayar")}
+        </label>
+        <div className="grid grid-cols-2 gap-1.5 mb-3">
+          {PRESETS.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              onClick={() => applyPreset(p.key)}
+              className="chip justify-center text-[10px] py-1.5"
+              data-testid={`tpl-series-preset-${p.key}`}
+              aria-pressed={preset === p.key}
+              style={preset === p.key ? {
+                background: "rgba(240,171,252,0.20)",
+                borderColor: "#F0ABFC",
+                color: "#F0ABFC",
+              } : { opacity: 0.65 }}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <label className="block">
+            <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">
+              {t("tpl_series_interval", "Tekrar")}
+            </div>
+            <select
+              value={interval}
+              onChange={(e) => { setInterval(e.target.value); setPreset("custom"); }}
+              data-testid="tpl-series-interval"
+              className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
+            >
+              <option value="daily">{t("tpl_series_daily", "Günlük")}</option>
+              <option value="weekly">{t("tpl_series_weekly", "Haftalık")}</option>
+              <option value="monthly">{t("tpl_series_monthly", "Aylık")}</option>
+            </select>
+          </label>
+          <label className="block">
+            <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">
+              {t("tpl_series_count", "Adet (1-24)")}
+            </div>
+            <input
+              type="number"
+              min={1}
+              max={24}
+              value={count}
+              onChange={(e) => { setCount(e.target.value); setPreset("custom"); }}
+              data-testid="tpl-series-count"
+              className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono"
+            />
+          </label>
+        </div>
+
+        {previewDates.length > 0 && (
+          <div className="rounded p-2 mb-4" style={{ background: "rgba(240,171,252,0.06)", border: "1px solid rgba(240,171,252,0.35)" }}
+               data-testid="tpl-series-preview">
+            <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1">
+              {t("tpl_series_preview_label", "Oluşturulacak Etkinlikler ({{n}})", { n: previewDates.length })}
+            </div>
+            <div className="max-h-32 overflow-auto space-y-0.5 text-[10px] mono text-white">
+              {previewDates.map((d, i) => (
+                <div key={i} className="truncate">
+                  {i + 1}. {d.toLocaleString("tr-TR")}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={submit}
+          disabled={saving}
+          data-testid="tpl-series-submit"
+          className="btn-gold w-full py-2 flex items-center justify-center gap-2 text-sm"
+          style={{ background: "linear-gradient(135deg,#A21CAF,#701A75)", borderColor: "#F0ABFC" }}
+        >
+          {saving ? t("saving", "Kaydediliyor…") : t("tpl_series_submit_btn", "Seriyi Oluştur")}
+        </button>
+      </div>
     </div>
   );
 }
