@@ -6,7 +6,6 @@ import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import { toast } from "sonner";
 import { Upload, Loader2, Check, ChevronRight, X, Camera, ScanSearch } from "lucide-react";
-
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 const RANKS = ["R1", "R2", "R3", "R4", "R5"];
@@ -61,6 +60,12 @@ export default function MemberAddOcr() {
   const [uploading, setUploading] = useState(false);
   const [rows, setRows] = useState([]); // {name, alliance_name, rank, existing_id, existing_alliance, save?}
   const [savingIds, setSavingIds] = useState(() => new Set());
+  // v135.50 — Undo: bu oturumda oluşturulan üyelerin ID'lerini tut.
+  // pasha@titanxis.com tam yetki (kendi oluşturmadıklarını da silebilir —
+  // ama bu MVP'de sadece kendi oluşturduklarını görebiliyor; server tarafında
+  // require_admin zaten yetkiliyi doğruluyor).
+  const [undoStack, setUndoStack] = useState([]); // [{id, name}]
+  const [undoing, setUndoing] = useState(false);
 
   const { data: membersData, mutate: mutateMembers } = useSWR("/members", fetcher);
   const { data: alliancesData } = useSWR("/alliances", fetcher);
@@ -146,7 +151,9 @@ export default function MemberAddOcr() {
       // Eşleştirme temiz isim üzerinden — yeni üyenin DB'deki adı ham olabilir
       const cleanForLookup = (r.name_clean || stripTag(rawName)).toLowerCase();
       const created = list.find((m) => stripTag(m.name).toLowerCase() === cleanForLookup);
-      updateRow(idx, { existing_id: created?.id || "new", existing_alliance: alliance });
+      const createdId = created?.id || null;
+      if (createdId) setUndoStack((s) => [...s, { id: createdId, name: created.name || rawName }]);
+      updateRow(idx, { existing_id: createdId || "new", existing_alliance: alliance });
       mutateMembers();
     } catch (e) { toast.error(apiErr(e)); }
     finally {
@@ -182,6 +189,32 @@ export default function MemberAddOcr() {
 
   const missing = rows.filter((r) => !r.existing_id);
   const registered = rows.filter((r) => r.existing_id);
+
+  const undoAll = async () => {
+    if (!undoStack.length) return;
+    if (!window.confirm(t("moa_undo_confirm",
+      "{{n}} yeni eklenen üye silinsin mi? Bu işlem geri alınamaz.",
+      { n: undoStack.length }))) return;
+    setUndoing(true);
+    let deleted = 0, failed = 0;
+    for (const item of undoStack) {
+      try {
+        await api.delete(`/members/${item.id}`);
+        deleted += 1;
+      } catch { failed += 1; }
+    }
+    toast.success(t("moa_undo_done_toast",
+      "{{n}} kayıt geri alındı{{f}}",
+      { n: deleted, f: failed ? `, ${failed} hata` : "" }));
+    setUndoStack([]);
+    setUndoing(false);
+    mutateMembers();
+    // Row'ları güncelle: silinenler tekrar "eksik" olur
+    setRows((prev) => prev.map((r) => {
+      const wasUndone = undoStack.find((u) => u.id === r.existing_id);
+      return wasUndone ? { ...r, existing_id: null, existing_name: null, existing_alliance: null } : r;
+    }));
+  };
 
   if (!isAdmin) {
     return (
@@ -436,6 +469,27 @@ export default function MemberAddOcr() {
               className="btn-gold text-xs flex items-center gap-1.5 px-3 py-2 flex-shrink-0"
             >
               <ChevronRight className="w-4 h-4" /> {t("moa_bulk_save_all_btn", "Tümünü Ekle")}
+            </button>
+          </div>
+        )}
+
+        {undoStack.length > 0 && (
+          <div className="sticky bottom-2 z-30 flex items-center gap-2 rounded p-2"
+               style={{ background: "rgba(148,163,184,0.14)", border: "1px solid rgba(148,163,184,0.55)" }}
+               data-testid="moa-undo-bar">
+            <span className="text-[11px] text-white flex-1 min-w-0 truncate">
+              ↶ {t("moa_undo_summary", "Bu oturumda {{n}} yeni üye eklendi", { n: undoStack.length })}
+            </span>
+            <button
+              type="button"
+              onClick={undoAll}
+              disabled={undoing}
+              data-testid="moa-undo-btn"
+              className="chip text-xs flex items-center gap-1.5"
+              style={{ borderColor: "#ef4444", color: "#FCA5A5" }}
+            >
+              {undoing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+              {undoing ? t("moa_undoing", "Geri alınıyor…") : t("moa_undo_btn", "Geri Al")}
             </button>
           </div>
         )}

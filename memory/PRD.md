@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v135.50 OCR Geri Al + Alliance Dropdown)** — Frontend-only:
+  - **Geri Al (MemberAddOcr)**: Yeni `undoStack` state — `saveRow` her başarılı POST /members'te oluşan `{id, name}`'i yığına ekler. Sayfanın altında sticky `moa-undo-bar` (border-slate) — "↶ Bu oturumda {N} yeni üye eklendi" + `moa-undo-btn` "Geri Al" butonu. Tık: window.confirm → her ID için DELETE /members/{id}, toast özeti; row.existing_id sıfırlanır → satır tekrar "eksik" haline döner.
+  - **Yetki**: Her admin kendi session'ında yığdığı ID'leri silebilir; `pasha@titanxis.com` giriş yaparsa aynı UI'yı görür, ama backend `require_admin` her admin'e DELETE hakkı verdiği için hepsi çalışır (kritik uyarı: session'a ait olmayan ID'ler UI'da görünmez, dolayısıyla dolaylı yoldan izole).
+  - **Alliance Dropdown**: MemberAddOcr'daki `<input list="moa-alliances-{idx}">` + `<datalist>` mevcut — kullanıcı listeden seçebilir veya manuel yazabilir. Yeni isim yazılırsa backend `POST /members` alliance_name'i doğrudan kabul eder (yeni ittifak yaratma otomatik).
+  - **i18n**: `moa_undo_*` (confirm, done_toast, summary, btn, undoing).
+  - **OcrDialog**: Var olan alliance input'u zaten datalist-benzeri autocomplete davranıyor; Undo desteği bu iterasyonda member-level (MemberAddOcr) ile sınırlı. Bulk OCR apply'ları için Undo, backend'de audit log gerektiriyor — bir sonraki iterasyonda ele alınacak.
+
+
 - **Feb 29, 2026 (v135.49 "Tümünü Ekle" — Tüm OCR ekranları)** — Frontend-only:
   - **OcrDialog** (Bireysel Güç + Kale/Rank + Etkinlik Puanı): En alttaki "Onayla & Kaydet" butonu **"Tümünü Ekle (N)"** olarak yeniden adlandırıldı ve hemen üstüne yeni `ocr-bulk-summary` chip bloğu eklendi — ✅ Eşleşen: N (güncellenecek), ➕ Yeni: N (oluşturulacak), ⊘ Hariç: N (excluded). Matched sayımı `_stripTagAndJunk(_stripTag(...))` üzerinden existingNamesLc lookup ile.
   - **MemberAddOcr** (`/uye-ekle-ocr`): Sayfanın en altına sticky bottom bar `moa-bulk-bar` eklendi — solda özet ({{n}} eşleşmeyen · N eşleşen zaten mevcut), sağda `moa-bulk-save-all` "Tümünü Ekle" butonu. `saveAllMissing()` fonksiyonu tüm eksik satırlar için sırayla `saveRow(idx)` çağırır; başarı/hata sayılarını toast özeti gösterir. Boş ittifaklı satırlar varsa önce uyarı verilir.
