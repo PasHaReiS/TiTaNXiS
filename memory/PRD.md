@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 28, 2026 (v135.24 Streak Celebration Push + QR Watermark)**:
+  - **Streak Celebration** (`/app/backend/server.py`): Yeni helper `_compute_user_yes_streak(user_id)` ve `_fire_streak_celebration(user_id, username)`. `POST /api/events/{id}/rsvp` `status=yes` yolunda tetiklenir; kullanıcının ardışık "yes" serisi `STREAK_MILESTONES = (5, 10, 15, 20, 25, 50, 100)` sayılarından birine bindiğinde 🔥 push + in-app bell rowu üretir. Her milestone bir kez kutlanır — `rsvp_streak_state` collection'ında `last_celebrated` alanı tutuluyor (yes ↔ no flip spam'i engelleniyor).
+  - **Streak Pref Enforcement**: `_users_disabled_for_pref("streak")` seti kontrol ediliyor — profil `Bildirim Türleri` → `🔥 Streak kutlamaları` kapalı olan kullanıcıya push GİTMİYOR, ama milestone state yine kaydediliyor (`silenced_at`) ki tekrar açtığında spam patlamasın.
+  - **E2E doğrulama**: 5 attendance-enabled event + 4 pre-seeded yes RSVP + 5. RSVP gerçek HTTP endpoint'ten atıldı → bell rowu doğrulandı: `title="🔥 Streak Serisi!"`, `body="Üst üste 5 etkinliğe Evet dedin — admin, seri bozulmasın!"`, `sched_id="streak-<uid>-5"`. `rsvp_streak_state.last_celebrated=5`.
+  - **QR Watermark** (`/app/frontend/src/components/InviteManagement.jsx` L200 + L340): Hem inline 68px QR hem 256px modal QR artık `imageSettings={src:"/icons/pwa-192.png", excavate:true}` ile TiTaNXiS PWA logosunu ortada barındırıyor. Level `M`→`H`'ye yükseltildi (~%30 error correction) ki logo overlay altında da scan güvenilirliği kalsın.
+  - **Görsel doğrulama**: Playwright ile `/kullanicilar → Davet Linkleri` sekmesi + ilk row QR modal açıldı; screenshot'ta logonun kare içinde net göründüğü doğrulandı (bkz `/tmp/qr_modal.png`).
+
 - **Feb 28, 2026 (v135.23 Bildirim Tercih Enforcement + QR Davet Doğrulama)** — `/app/backend/server.py`:
   - **Yeni helper**: `_users_disabled_for_pref(pref_key)` — `notification_prefs.<pref_key>: False` olan user_id'leri toplayan Motor cursor sorgusu. Anahtar yoksa default True → mevcut kullanıcılar tüm kanalları almaya devam eder.
   - **`_broadcast_push`**: Yeni opsiyonel `notif_pref` parametresi. Global `notification_enabled=False` opt-out setine per-channel opt-out'ları da ekliyor (union) — böylece "Bildirim Türleri" panelindeki bir toggle gerçekten push subscription'ları filtreliyor.

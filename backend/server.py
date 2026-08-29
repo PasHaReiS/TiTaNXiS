@@ -7656,9 +7656,134 @@ async def event_rsvp(event_id: str, body: EventRsvpBody, user: dict = Depends(re
             }},
             upsert=True,
         )
+        # v135.24 — Streak milestone celebration. When a "yes" RSVP pushes
+        # the user's consecutive-yes streak across a milestone (5, 10, 15,
+        # 20, 25, 50, 100), fire a push + in-app bell with the "streak"
+        # channel so the Profile → Bildirim Türleri toggle can silence it.
+        if body.status == "yes":
+            try:
+                await _fire_streak_celebration(user_id, user.get("username") or "")
+            except Exception as _stex:
+                logger.warning(f"[streak-celebrate] failed: {_stex}")
         return {"event_id": event_id, "status": body.status}
     await db.event_rsvps.delete_one({"event_id": event_id, "user_id": user_id})
     return {"event_id": event_id, "status": None}
+
+
+STREAK_MILESTONES = (5, 10, 15, 20, 25, 50, 100)
+
+
+async def _compute_user_yes_streak(user_id: str) -> int:
+    """Consecutive 'yes' RSVPs anchored at the newest attendance-enabled
+    event. Mirrors the logic in `/api/auth/me/rsvp-streak` — a 'no' or
+    'maybe' resets the count. Non-attendance events are skipped so joke
+    quick-polls don't inflate the number."""
+    rsvps = await db.event_rsvps.find(
+        {"user_id": user_id}, {"_id": 0, "event_id": 1, "status": 1},
+    ).to_list(2000)
+    if not rsvps:
+        return 0
+    ev_ids = list({r["event_id"] for r in rsvps if r.get("event_id")})
+    events = await db.events.find(
+        {"id": {"$in": ev_ids}, "attendance_enabled": {"$ne": False}},
+        {"_id": 0, "id": 1, "date": 1},
+    ).to_list(2000)
+    by_ev = {e["id"]: e for e in events}
+    rows = []
+    for r in rsvps:
+        ev = by_ev.get(r.get("event_id"))
+        if not ev or not ev.get("date"):
+            continue
+        rows.append({"status": r.get("status"), "date": ev["date"]})
+    rows.sort(key=lambda x: x["date"], reverse=True)
+    streak = 0
+    for r in rows:
+        if r["status"] == "yes":
+            streak += 1
+        else:
+            break
+    return streak
+
+
+async def _fire_streak_celebration(user_id: str, username: str) -> None:
+    """Called after every 'yes' RSVP. If the fresh streak lands on a
+    milestone (5, 10, …) AND we haven't already congratulated the user
+    at that exact number, fan out a push + bell row. The `rsvp_streak_state`
+    collection tracks the last-celebrated milestone per user so users don't
+    get spammed when they flip yes ↔ no on the same event."""
+    streak = await _compute_user_yes_streak(user_id)
+    if streak < STREAK_MILESTONES[0] or streak not in STREAK_MILESTONES:
+        return
+    state = await db.rsvp_streak_state.find_one({"user_id": user_id}, {"_id": 0}) or {}
+    if int(state.get("last_celebrated") or 0) >= streak:
+        return
+    title = "🔥 Streak Serisi!"
+    body = f"Üst üste {streak} etkinliğe Evet dedin — {username or 'Komutan'}, seri bozulmasın!"
+    url = "/profil"
+    tag = f"streak-{user_id}-{streak}"
+    # Push: filter subscriptions down to just this user so the celebration
+    # is a personal DM, not a channel-wide broadcast.
+    try:
+        private_pem, _pub = await _get_or_create_vapid()
+        # Respect per-channel opt-out.
+        disabled = await _users_disabled_for_pref("streak")
+        if user_id in disabled:
+            await db.rsvp_streak_state.update_one(
+                {"user_id": user_id},
+                {"$set": {"last_celebrated": streak, "silenced_at": now_iso()}},
+                upsert=True,
+            )
+            return
+        subs = await db.push_subscriptions.find(
+            {"user_id": user_id}, {"_id": 0},
+        ).to_list(50)
+        payload = json.dumps({"title": title, "body": body, "url": url,
+                              "tag": tag, "sound": "rally"}, ensure_ascii=False)
+        for s in subs:
+            try:
+                webpush(
+                    subscription_info={"endpoint": s["endpoint"], "keys": s["keys"]},
+                    data=payload,
+                    vapid_private_key=private_pem,
+                    vapid_claims={"sub": os.environ.get("VAPID_SUB", "mailto:admin@titanxis.local")},
+                )
+            except WebPushException as ex:
+                code = getattr(ex.response, "status_code", None) if hasattr(ex, "response") else None
+                if code in (404, 410):
+                    await db.push_subscriptions.delete_one({"endpoint": s["endpoint"]})
+            except Exception:
+                pass
+    except Exception as _pex:
+        logger.warning(f"[streak-celebrate] push failed for {user_id}: {_pex}")
+    # In-app bell row (also honours the "streak" pref via _broadcast_in_app
+    # semantics — we insert directly here since we only target one user).
+    try:
+        await db.in_app_notifications.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "title": title,
+            "body": body,
+            "url": url,
+            "event_id": None,
+            "sched_id": tag,
+            "created_at": now_iso(),
+            "read": False,
+        })
+        _publish_notif(user_id, {
+            "id": tag, "title": title, "body": body, "url": url,
+            "event_id": None, "sched_id": tag,
+            "created_at": now_iso(), "read": False,
+        })
+    except Exception as _bex:
+        logger.warning(f"[streak-celebrate] bell insert failed: {_bex}")
+    # Persist the milestone so we don't refire on the next yes RSVP.
+    await db.rsvp_streak_state.update_one(
+        {"user_id": user_id},
+        {"$set": {"last_celebrated": streak, "celebrated_at": now_iso(),
+                  "username": username}},
+        upsert=True,
+    )
+    logger.info(f"[streak-celebrate] user={user_id} streak={streak} fired")
 
 
 @api_router.get("/events/{event_id}/rsvp/me")

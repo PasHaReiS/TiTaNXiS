@@ -197,7 +197,19 @@ function InviteRow({ inv, onChanged }) {
           title="Büyüt / paylaş"
           data-testid={`invite-qr-${inv.id}`}
         >
-          <QRCodeSVG value={url} size={68} bgColor="#FFFFFF" fgColor="#0A0004" level="M" />
+          <QRCodeSVG
+            value={url}
+            size={68}
+            bgColor="#FFFFFF"
+            fgColor="#0A0004"
+            level="H"
+            imageSettings={{
+              src: "/icons/pwa-192.png",
+              height: 14,
+              width: 14,
+              excavate: true,
+            }}
+          />
         </button>
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -324,7 +336,13 @@ function QrExpandModal({ url, note, onClose }) {
             size={256}
             bgColor="#FFFFFF"
             fgColor="#0A0004"
-            level="M"
+            level="H"
+            imageSettings={{
+              src: "/icons/pwa-192.png",
+              height: 48,
+              width: 48,
+              excavate: true,
+            }}
           />
         </div>
         <div className="text-[10px] text-muted-foreground text-center break-all font-mono">
