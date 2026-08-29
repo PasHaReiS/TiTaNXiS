@@ -124,22 +124,25 @@ export default function MemberAddOcr() {
   const saveRow = async (idx) => {
     const r = rows[idx];
     if (!r || r.existing_id) return;
-    if (!r.name.trim()) { toast.error(t("moa_name_required", "İsim boş")); return; }
+    // v135.47 — Kaydedilecek isim HER ZAMAN Latin normalize edilir; kullanıcı
+    // datalist'e "Evil Mikey" seçmiş bile olsa güvenli tarafta kalıyoruz.
+    const cleanName = stripTag(r.name || "").trim();
+    if (!cleanName) { toast.error(t("moa_name_required", "İsim boş")); return; }
     const alliance = (r.alliance_name || "").trim();
     if (!alliance) { toast.error(t("moa_alliance_required", "İttifak seç")); return; }
     setSavingIds((s) => new Set(s).add(idx));
     try {
       await api.post("/members", {
-        name: r.name.trim(),
+        name: cleanName,
         alliance_name: alliance,
         rank: RANKS.includes(r.rank) ? r.rank : "R1",
       });
-      toast.success(t("moa_saved_toast", "{{n}} eklendi", { n: r.name }));
+      toast.success(t("moa_saved_toast", "{{n}} eklendi", { n: cleanName }));
       // Refresh members + mark row as existing to hide the form
       const fresh = await api.get("/members");
       const list = Array.isArray(fresh.data) ? fresh.data : (fresh.data?.items || []);
-      const created = list.find((m) => stripTag(m.name).toLowerCase() === stripTag(r.name).toLowerCase());
-      updateRow(idx, { existing_id: created?.id || "new", existing_alliance: alliance });
+      const created = list.find((m) => stripTag(m.name).toLowerCase() === cleanName.toLowerCase());
+      updateRow(idx, { name: cleanName, existing_id: created?.id || "new", existing_alliance: alliance });
       mutateMembers();
     } catch (e) { toast.error(apiErr(e)); }
     finally {

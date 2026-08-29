@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v135.47 OCR Kayıt Isim Normalize — DB'ye Sadece Latin)** — Frontend-only:
+  - **OcrDialog `applyEditsAndKeep`**: BOTH modes (event + members) için map sonunda satırın final `next.name` alanı `_stripTagAndJunk` ile Latin-only normalize edilir. Kullanıcı datalist'ten seçmiş, manuel yazmış veya OCR ham şekilde bırakmış olsa dahi backend'e daima temizlenmiş isim gider (`쁠メEvil Mikeyメ쁠` → `Evil Mikey`, `[GOW] Ekko ツ R5` → `Ekko`).
+  - **OcrDialog "+ Yeni Üye Ekle" chip'i** (event mode): POST /members'e gönderilen `name` artık `_stripTagAndJunk(cleanForMatch || currName)` sonucudur — CJK karakter DB'ye yazılamaz.
+  - **MemberAddOcr `saveRow`**: `cleanName = stripTag(r.name)` uygulanır ve `updateRow(idx, { name: cleanName, ... })` ile UI'daki row.name da temizlenir; sonraki eşleşme sorgusu da temiz isim üzerinden yapılır.
+  - **Eşleşme önerileri**: fuzzy suggestion display'ler zaten DB'den gelen (temiz) `member.name` gösteriyor. Kirli OCR ismi ise başlık badge'inde `cleanForMatch` üzerinden gösterilir → hem "Eşleşti/Eşleşmedi: X" hem de "→ Aday" satırları Latin-only.
+  - **Doğrulama** ✅ (Node): `쁠メEvil Mikeyメ쁠 → "Evil Mikey"`, `[GOW] Ekko ツ R5 → "Ekko"`, `22 [GOW] 쁠メEvil Mikeyメ쁠 R3 → "Evil Mikey"`.
+
+
 - **Feb 29, 2026 (v135.46 Fuzzy Matching + Latin Normalize — Tüm OCR)** — Frontend-only:
   - **Latin normalize**: `OcrDialog._stripTagAndJunk` + `MemberAddOcr.stripTag` artık `[^\x20-\x7E]` regex ile CJK (쁠, メ, ツ, 兰), emoji ve dekoratif Unicode karakterlerini boşluğa çevirip trim ediyor. Doğrulama: `쁠メEvil Mikeyメ쁠 → Evil Mikey`, `[GOW] Ekko ツ → Ekko`, `兰ThoR → ThoR`.
   - **Fuzzy matching**: `_fuzzyTopMatches` (OcrDialog) + yeni `_fuzzyTop` (MemberAddOcr) — Levenshtein bazlı, `rel < 0.55` (önceki 0.45'ten daha esnek) + substring boost (needle içeriyor/içeriliyor ise dist-2). Renk kodlaması: dist ≤ 1 yeşil, ≤ 2 açık yeşil, ≤ 3 amber, else turuncu.
