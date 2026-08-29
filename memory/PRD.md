@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v135.45 Etkinlik OCR Eşleşme Sistemi + Yeni Üye / Manuel Eşleştir)** — Frontend-only:
+  - **OcrDialog.jsx event mode**: Her satırın name cell'inin üstüne yeni `ocr-row-match-{i}` badge — ✅ Eşleşti: X (yeşil) veya ⚠️ Eşleşmedi: X (amber). Eşleşme algılamada `_stripTag + _stripTagAndJunk` uygulanıp `existingNamesLc` Set'inde arama yapılır.
+  - **Eşleşmeyen satırlar** için iki chip aksiyon çıkar:
+    - **`ocr-row-create-member-{i}` (+ Yeni Üye Ekle)** — `POST /api/members` ile `name` + `alliance_name` (row alliance guess) + `rank="R1"` gönderir; başarı toast'ından sonra `globalMutate("/members")` ile SWR cache tazelenir → satır otomatik "Eşleşti" durumuna geçer, sonraki apply-event-points'te puan bu yeni üyeye kaydedilir.
+    - **`ocr-row-manual-match-{i}` (↔ Manuel Eşleştir)** — name input'a `list={ocr-ev-members-list-{i}}` datalist bağlanır (tüm mevcut üyeler). Buton input'a focus + select yapar; admin datalist'ten seçince satır adı değişir ve otomatik "Eşleşti" durumuna geçer. Puan seçilen üyeye kaydedilir.
+  - **i18n**: `ocr_match_create_btn/hint`, `ocr_match_manual_btn/hint`, `ocr_match_created_toast`, `ocr_match_name_required`, `ocr_match_matched/unmatched(_hint)` (paylaşımlı).
+  - **Backend değişikliği yok** — apply-event-points zaten adı normalize edip mevcut üyeye puan kaydeder; yeni üye eklendiğinde `existingMembers` set'i tazelenip apply doğal olarak eşleşir.
+
+
 - **Feb 29, 2026 (v135.44 OCR Eşleşme Sistemi — Üç Sürüm)** — Frontend + backend polish:
   - **Ortak mantık**: 3 OCR akışında (Üye Ekle, Bireysel Güç, Kale/Rank) her satır için AÇIK eşleşme durumu gösterilir:
     - ✅ `Eşleşti: [Üye Adı]` — mevcut kayıt bulundu → apply'da alanları (güç/rank/kale) günceller

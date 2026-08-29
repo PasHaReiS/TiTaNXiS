@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Camera, Loader2, Check, AlertTriangle, Upload, Scissors, Trash2, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
 import { api, apiErr } from "@/lib/api";
@@ -1426,6 +1426,13 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             {mode === "event" && (() => {
                               const currName = rowEdits[i]?.name ?? r.name ?? "";
                               const currPoints = Number(rowEdits[i]?.points ?? r.points ?? 0) || 0;
+                              // v135.45 — Etkinlik OCR eşleşme durumu her satırda.
+                              // ✅ Eşleşti → apply otomatik puanı bu üyeye yazar.
+                              // ⚠️ Eşleşmedi → 2 seçenek: "Yeni Üye Ekle" (POST /members
+                              // + eşleşme sağlanır) veya "Manuel Eşleştir" (datalist ile
+                              // mevcut üyeye yönlendir).
+                              const cleanForMatch = _stripTagAndJunk(_stripTag(currName ?? "")) || _stripTag(currName ?? "");
+                              const isMatched = existingNamesLc.has((cleanForMatch || "").toLowerCase());
                               let allianceGuess = rowEdits[i]?.alliance_name;
                               if (allianceGuess === undefined || allianceGuess === null || allianceGuess === "") {
                                 allianceGuess = r.alliance_name ?? r.alliance ?? r.tag ?? "";
@@ -1490,8 +1497,25 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                   </datalist>
                                 </td>
                                 <td style={{...cellStyle, paddingLeft: '12px', minWidth: '136px', width: '136px'}}>
+                                  <div
+                                    data-testid={`ocr-row-match-${i}`}
+                                    style={{
+                                      fontSize: '9px',
+                                      fontWeight: 700,
+                                      marginBottom: '2px',
+                                      color: isMatched ? '#4ade80' : '#F5A623',
+                                    }}
+                                    title={isMatched
+                                      ? t("ocr_match_matched_hint", "Kayıtlı üye — puan doğrudan kaydedilecek")
+                                      : t("ocr_match_unmatched_hint", "Sistemde yok — Yeni Üye Ekle veya Manuel Eşleştir")}
+                                  >
+                                    {isMatched
+                                      ? `✅ ${t("ocr_match_matched", "Eşleşti")}: ${cleanForMatch || currName}`
+                                      : `⚠️ ${t("ocr_match_unmatched", "Eşleşmedi")}: ${cleanForMatch || currName}`}
+                                  </div>
                                   <input
                                     type="text"
+                                    list={!isMatched ? `ocr-ev-members-list-${i}` : undefined}
                                     value={rowEdits[i]?.name !== undefined ? currName : displayName}
                                     onChange={(e) => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: e.target.value } }))}
                                     onFocus={onBoxFocus}
@@ -1501,6 +1525,71 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     style={{ ...boxInputStyle, whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip' }}
                                     title={currName || "Üye adı"}
                                   />
+                                  {!isMatched && !isExcluded && (
+                                    <>
+                                      <datalist id={`ocr-ev-members-list-${i}`}>
+                                        {(existingMembers || []).map((m) => (
+                                          <option key={m.id} value={m.name || ""} />
+                                        ))}
+                                      </datalist>
+                                      <div style={{ display: 'flex', gap: '3px', marginTop: '3px', flexWrap: 'wrap' }}>
+                                        <button
+                                          type="button"
+                                          data-testid={`ocr-row-create-member-${i}`}
+                                          onClick={async () => {
+                                            const nameNew = (cleanForMatch || currName || "").trim();
+                                            if (!nameNew) { toast.error(t("ocr_match_name_required", "İsim boş")); return; }
+                                            try {
+                                              await api.post("/members", {
+                                                name: nameNew,
+                                                alliance_name: (allianceGuess || "").trim() || null,
+                                                rank: "R1",
+                                              });
+                                              toast.success(t("ocr_match_created_toast", "{{n}} yeni üye olarak eklendi", { n: nameNew }));
+                                              // Refresh /members so isMatched flips true
+                                              globalMutate("/members");
+                                              // Force re-render (setRowEdits without changing content)
+                                              setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: nameNew } }));
+                                            } catch (e) { toast.error(apiErr(e)); }
+                                          }}
+                                          style={{
+                                            background: 'rgba(34,197,94,0.18)',
+                                            border: '1px solid rgba(34,197,94,0.55)',
+                                            color: '#86EFAC',
+                                            fontSize: '9px',
+                                            fontWeight: 700,
+                                            padding: '2px 6px',
+                                            borderRadius: '3px',
+                                            cursor: 'pointer',
+                                          }}
+                                          title={t("ocr_match_create_hint", "Bu ismi yeni üye olarak sisteme ekle")}
+                                        >
+                                          + {t("ocr_match_create_btn", "Yeni Üye Ekle")}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          data-testid={`ocr-row-manual-match-${i}`}
+                                          onClick={(e) => {
+                                            const input = e.currentTarget.parentElement?.parentElement?.querySelector('input[type="text"]');
+                                            if (input) { input.focus(); try { input.select(); } catch {} }
+                                          }}
+                                          style={{
+                                            background: 'rgba(59,130,246,0.18)',
+                                            border: '1px solid rgba(59,130,246,0.55)',
+                                            color: '#93C5FD',
+                                            fontSize: '9px',
+                                            fontWeight: 700,
+                                            padding: '2px 6px',
+                                            borderRadius: '3px',
+                                            cursor: 'pointer',
+                                          }}
+                                          title={t("ocr_match_manual_hint", "Kayıtlı üye listesinden seç")}
+                                        >
+                                          ↔ {t("ocr_match_manual_btn", "Manuel Eşleştir")}
+                                        </button>
+                                      </div>
+                                    </>
+                                  )}
                                 </td>
                                 <td style={{ ...cellStyle, minWidth: '136px', width: '136px', textAlign: 'right' }}>
                                   <input
