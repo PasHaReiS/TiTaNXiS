@@ -1,0 +1,62 @@
+{
+  "summary": "v135.37 e2e test. BACKEND: new pytest file /app/backend/tests/test_v13537_cert_admin.py — 16/16 PASS (GET /api/certificates admin list: {items,count}, no _id, sorted issued_at desc, 401 unauth, case-insensitive search on title/member_name/event_name, empty result on no match; PATCH /api/certificates/{cid}: title+theme 200 + persisted, invalid theme -> 'amber', empty body 400, blank-title-only 400, bogus id 404, unauth 401; DELETE regression: admin 200 + gone from list, bogus 404, unauth 401; pre-existing 4 'Tebrikler' certs verified intact). Regression /app/backend/tests/test_v13536_certs.py — 13/13 PASS (auto-cert on archive both paths, idempotency, verify token, PNG, announcement bulk restore/delete, admin guard). FRONTEND (mobile 390x844, admin login): /admin/sertifika-ver 'Verilen Sertifikalar' list renders 5 rows, search filters to 1, edit modal opens, title+theme change PATCHes and list refreshes ('UI_EDITED_v13537 Baslik' + 'zumrut' shown), delete button + confirm removes row with 'Sertifika silindi' toast. /uyeler: 8 alliance headers, NO '── ' prefix, category badges 'ANA'(46px)/'AKADEMİ'(67px) render fully (no truncation), unified edit button present on ALL 8 alliances INCLUDING 'Gruplandırılmamış'; unified modal has 24 swatches + native color + hex + preview + Save + Reset, name input correctly hidden for 'Gruplandırılmamış' and prefilled ('GOW', #ff0000) for named alliances; color save produced 'Kaydedildi' toast and header background updated to rgb(37,99,235). Member card: m.title 'TİRAN' (temporarily set on member Ekko) renders in amber #F5A623 ABOVE the R5 badge (title top 443 < rank top 458), 4 icons form an exact 2x2 grid (x:135/161, y:440/466), 'Bireysel Güç: 1.522.450.620' fully readable (scrollWidth==clientWidth, wraps). All test data cleaned up.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Members.jsx alliance header",
+        "issue": "Alliance name still truncates with ellipsis on 390px viewport: 'Gruplandırılmamış' shows ellipsis because the inner span uses maxWidth:'40vw' + textOverflow:ellipsis (measured scrollWidth > clientWidth). Feature #2 asked truncation to be fixed — raise maxWidth (e.g. min(60vw, ...)) or let the name wrap.",
+        "selector": "[data-testid=\"alliance-header-name-inner-Gruplandırılmamış\"]",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "/uyeler console (React DOM nesting)",
+        "issues": [
+          "React error: '<button> cannot be a descendant of <button>. This will cause a hydration error.' The alliance header is a <button> containing nested interactive controls (AllianceScopeToggle renders a real <button>; the new edit control was worked around as <span role=button>). Restructure the header as a div with a separate collapse <button> so nested-button/hydration errors and a11y issues go away.",
+          "React warning: 'Removing/updating a style property during rerender when a conflicting property is set can lead to styling bugs' fires on /uyeler (likely the swatch/preview inline transform+boxShadow styles in AllianceEditModal)."
+        ]
+      },
+      {
+        "screen": "/admin/sertifika-ver console",
+        "issues": [
+          "React error: '<span> cannot be a child of <option>. This will cause a hydration error.' — one of the <select> option labels on the Sertifika Ver page renders an element (i18n/Trans or emoji wrapper) inside <option>. Use plain strings for option children (cert-event-picker / cert-theme-picker / issued-cert-edit-theme)."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_v13537_cert_admin.py",
+    "/app/backend/tests/test_v13536_certs.py",
+    "/app/backend/tests/seed_v13537.py",
+    "/app/test_reports/pytest/v13537_results.xml"
+  ],
+  "action_items": [
+    "Fix alliance header name truncation for long names (e.g. 'Gruplandırılmamış') — maxWidth 40vw is too small on mobile.",
+    "Resolve nested <button> inside the alliance header button (hydration error) — make the header a div + explicit collapse button.",
+    "Remove element children from <select><option> on the Sertifika Ver page (hydration error)."
+  ],
+  "critical_code_review_comments": [
+    "Members.jsx is 2513 lines — split AllianceEditModal / AllianceColorPicker / member card into separate files (>700 line rule).",
+    "AllianceEditModal.save(): if rename succeeds but the following PUT /alliance-colors fails, the user sees only the error toast while the rename already committed — no rollback and no state indication; consider saving the color first or surfacing partial success.",
+    "AllianceEditModal.resetColor() always deletes the color of state.old even if the user has typed a new name in the same session — after a rename+reset combination the stale key can remain in alliance-colors.",
+    "PATCH /certificates: silently coercing an unknown theme to 'amber' hides client bugs; returning 400 for an invalid theme would be more correct (current behaviour matches the spec, so this is informational).",
+    "Member title span uses overflow:visible with maxWidth:60 — a long unvan will visually spill outside the 28px rank column; clamp with ellipsis or allow the column to grow."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_v13537_cert_admin.py",
+    "/app/backend/tests/seed_v13537.py"
+  ],
+  "success_rate": {"backend": "100% (29/29)", "frontend": "100% of requested flows (2 cosmetic/console issues)"},
+  "seed_data_creation": "Created + DELETED: event 'TEST_UI_v13537_Event' and cert 'TEST_UI_v13537_Sertifika' (used for UI edit/delete), plus pytest-created TEST_CertAdmin event/cert. Temporarily set member Ekko title='TİRAN' then cleared it; temporarily changed 'Gruplandırılmamış' alliance color then restored to #6B7280. Verified only the 4 pre-existing 'Tebrikler' certificates remain.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "admin / Admin123 (from /app/memory/test_credentials.md). Login flow on preview: landing = ranking page -> click 'Giriş Yap' -> guest home -> [data-testid=guest-login-btn] -> login-username/password/submit. Accept cookie banner first (it overlaps footer CTAs).",
+  "context_for_next_testing_agent": "All 4 v135.37 feature sets verified working (backend GET/PATCH/DELETE certificates, cert admin UI list+edit+delete, alliance header polish + unified edit modal incl. Gruplandırılmamış, member card 2x2 icon grid + title above R5). No member in DB has a non-empty 'title' by default — set one via PATCH /api/members/{id} {\"title\":\"TİRAN\"} to test the badge, then clear it. Outstanding: alliance name ellipsis on mobile, nested-button hydration error on /uyeler, <span> in <option> hydration error on /admin/sertifika-ver.",
+  "rca_of_the_issue": "No functional defects. The header truncation persists because Members.jsx line ~890 keeps maxWidth:'40vw' + textOverflow:ellipsis on the inner name span; at 390px that is 156px, shorter than 'Gruplandırılmamış'. The hydration errors come from interactive elements nested inside the alliance header <button> and from a non-text child inside a <select><option>."
+}

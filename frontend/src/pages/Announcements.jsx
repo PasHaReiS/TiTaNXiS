@@ -29,7 +29,12 @@ export default function Announcements({ embedded = false }) {
   const [revertPreview, setRevertPreview] = useState(null);
   // Search + filter for the announcement history list.
   const [searchQ, setSearchQ] = useState("");
-  const [filterKind, setFilterKind] = useState("all"); // all | urgent | scheduled | normal
+  const [filterKind, setFilterKind] = useState("all"); // all | urgent | scheduled | normal | archived
+  // v135.36 — Bulk selection state for the "archived" filter view. Only
+  // rendered when filterKind === "archived" so it can't leak into normal
+  // moderation flows.
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const listUrl = `/announcements?limit=50${searchQ.trim() ? `&search=${encodeURIComponent(searchQ.trim())}` : ""}${filterKind !== "all" ? `&filter=${filterKind}` : ""}`;
   const { data, mutate, isLoading } = useSWR(listUrl, fetcher, { refreshInterval: 60000 });
   const [title, setTitle] = useState("");
@@ -144,6 +149,39 @@ export default function Announcements({ embedded = false }) {
       toast.success("Önceki sürüme dönüldü");
       setRevertPreview(null);
     } catch (e) { toast.error(apiErr(e)); }
+  };
+
+  // v135.36 — Bulk archive actions.
+  const toggleSelected = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+  const bulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    if (!window.confirm(`${ids.length} arşiv duyurusunu KALICI olarak silmek istiyor musun? Geri alınamaz.`)) return;
+    setBulkBusy(true);
+    try {
+      const r = await api.post("/announcements/bulk-delete", { ids });
+      toast.success(`${r.data?.deleted ?? 0} duyuru silindi`);
+      clearSelection();
+      mutate();
+    } catch (e) { toast.error(apiErr(e)); } finally { setBulkBusy(false); }
+  };
+  const bulkRestore = async () => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    setBulkBusy(true);
+    try {
+      const r = await api.post("/announcements/bulk-restore", { ids });
+      toast.success(`${r.data?.restored ?? 0} duyuru geri yüklendi`);
+      clearSelection();
+      mutate();
+    } catch (e) { toast.error(apiErr(e)); } finally { setBulkBusy(false); }
   };
 
   // Word-level diff — splits both strings on whitespace-preserving tokens
@@ -394,7 +432,7 @@ export default function Announcements({ embedded = false }) {
               <button
                 key={f.key}
                 type="button"
-                onClick={() => setFilterKind(f.key)}
+                onClick={() => { setFilterKind(f.key); clearSelection(); }}
                 className="chip text-[10px]"
                 style={{
                   background: filterKind === f.key
@@ -414,12 +452,72 @@ export default function Announcements({ embedded = false }) {
             {searchQ || filterKind !== "all" ? "Filtreye uyan duyuru yok." : "Henüz duyuru yok."}
           </div>
         )}
+        {/* v135.36 — Bulk toolbar (arşiv filtresi seçiliyken) */}
+        {isAdmin && filterKind === "archived" && items.length > 0 && (
+          <div
+            className="flex items-center gap-2 p-2 rounded flex-wrap"
+            style={{ background: "rgba(245,166,35,0.08)", border: "1px solid rgba(245,166,35,0.4)" }}
+            data-testid="announcements-bulk-toolbar"
+          >
+            <label className="flex items-center gap-1.5 text-[11px] font-bold gold-text cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedIds.size > 0 && selectedIds.size === items.length}
+                onChange={(e) => {
+                  if (e.target.checked) setSelectedIds(new Set(items.map((x) => x.id)));
+                  else clearSelection();
+                }}
+                data-testid="announcements-bulk-select-all"
+              />
+              <span>Tümünü Seç ({selectedIds.size}/{items.length})</span>
+            </label>
+            <button
+              type="button"
+              disabled={!selectedIds.size || bulkBusy}
+              onClick={bulkRestore}
+              className="chip text-[11px] disabled:opacity-40"
+              style={{ color: "#86EFAC", borderColor: "rgba(34,197,94,0.55)" }}
+              data-testid="announcements-bulk-restore"
+            >
+              ↺ Geri Yükle
+            </button>
+            <button
+              type="button"
+              disabled={!selectedIds.size || bulkBusy}
+              onClick={bulkDelete}
+              className="chip text-[11px] disabled:opacity-40"
+              style={{ color: "#FCA5A5", borderColor: "rgba(239,68,68,0.55)" }}
+              data-testid="announcements-bulk-delete"
+            >
+              🗑 Kalıcı Sil
+            </button>
+            {selectedIds.size > 0 && (
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="text-[10px] text-muted-foreground hover:text-white underline ml-auto"
+                data-testid="announcements-bulk-clear"
+              >
+                seçimi temizle
+              </button>
+            )}
+          </div>
+        )}
         {items.map((a) => (
           <div key={a.id}
                className="card-red-gold p-2"
-               style={{ opacity: a.active ? 1 : 0.5, borderColor: a.urgent ? "#EF4444" : undefined }}
+               style={{ opacity: a.active ? 1 : 0.5, borderColor: a.urgent ? "#EF4444" : (selectedIds.has(a.id) ? "#F5A623" : undefined) }}
                data-testid={`announcement-item-${a.id}`}>
             <div className="flex items-start justify-between gap-2">
+              {isAdmin && filterKind === "archived" && (
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(a.id)}
+                  onChange={() => toggleSelected(a.id)}
+                  className="mt-1 cursor-pointer flex-shrink-0"
+                  data-testid={`announcement-select-${a.id}`}
+                />
+              )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   {a.urgent

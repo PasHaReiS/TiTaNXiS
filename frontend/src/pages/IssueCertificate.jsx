@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { useTranslation } from "react-i18next";
 import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import { toast } from "sonner";
-import { Award, Loader2, Send, ChevronRight } from "lucide-react";
+import { Award, Loader2, Send, ChevronRight, Trash2, Pencil, Search, X, Save } from "lucide-react";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -195,7 +195,173 @@ export default function IssueCertificate() {
                 "{{count}} kişiye sertifika ver", { count: selected.size })}
           <ChevronRight className="w-4 h-4" />
         </button>
+
+        {/* v135.37 — Verilen Sertifikalar Yönetim Listesi */}
+        <IssuedCertificatesList themes={THEMES} />
       </div>
+    </div>
+  );
+}
+
+function IssuedCertificatesList({ themes }) {
+  const { t } = useTranslation();
+  const [q, setQ] = useState("");
+  const [editing, setEditing] = useState(null); // {id, title, theme}
+  const listUrl = `/certificates?limit=200${q.trim() ? `&search=${encodeURIComponent(q.trim())}` : ""}`;
+  const { data, mutate, isLoading } = useSWR(listUrl, fetcher, { refreshInterval: 30000 });
+  const items = data?.items || [];
+
+  const remove = async (id) => {
+    if (!window.confirm(t("cert_delete_confirm", "Bu sertifikayı kalıcı olarak silmek istiyor musun?"))) return;
+    try {
+      await api.delete(`/certificates/${id}`);
+      toast.success(t("cert_deleted", "Sertifika silindi"));
+      mutate();
+      globalMutate("/auth/me/certificates");
+    } catch (e) { toast.error(apiErr(e)); }
+  };
+  const saveEdit = async () => {
+    if (!editing?.id) return;
+    try {
+      await api.patch(`/certificates/${editing.id}`, {
+        title: editing.title,
+        theme: editing.theme,
+      });
+      toast.success(t("cert_updated", "Sertifika güncellendi"));
+      setEditing(null);
+      mutate();
+      globalMutate("/auth/me/certificates");
+    } catch (e) { toast.error(apiErr(e)); }
+  };
+
+  return (
+    <div className="card-red-gold p-4 space-y-3" data-testid="issued-certs-list">
+      <div className="flex items-center gap-2">
+        <Award className="w-4 h-4 gold-text" />
+        <h2 className="text-sm font-bold uppercase gold-text tracking-widest">
+          {t("issued_certs_title", "Verilen Sertifikalar")}
+        </h2>
+        <span className="chip text-[10px] ml-auto">{items.length}</span>
+      </div>
+      <div className="relative">
+        <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <input
+          type="text"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={t("issued_certs_search_ph", "Üye / etkinlik / başlık ara…")}
+          className="w-full pl-7 pr-2 py-1.5 rounded bg-black/40 border border-border text-white text-xs"
+          data-testid="issued-certs-search"
+        />
+      </div>
+      {isLoading && (
+        <div className="text-center text-xs text-muted-foreground py-4">
+          <Loader2 className="w-4 h-4 animate-spin inline mr-1" /> {t("loading", "Yükleniyor")}…
+        </div>
+      )}
+      {!isLoading && items.length === 0 && (
+        <div className="text-center text-xs text-muted-foreground py-4" data-testid="issued-certs-empty">
+          {t("issued_certs_empty", "Henüz sertifika verilmedi.")}
+        </div>
+      )}
+      <div className="space-y-1.5 max-h-96 overflow-auto">
+        {items.map((c) => (
+          <div key={c.id}
+               className="rounded p-2 text-xs"
+               style={{ background: "rgba(245,166,35,0.06)", border: "1px solid rgba(245,166,35,0.25)" }}
+               data-testid={`issued-cert-row-${c.id}`}>
+            <div className="flex items-start gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="text-white font-bold truncate" data-testid={`issued-cert-title-${c.id}`}>
+                  🏆 {c.title}
+                </div>
+                <div className="text-[11px] text-muted-foreground truncate">
+                  {c.member_name || "—"} · {c.event_name || "—"}
+                </div>
+                <div className="text-[10px] mono text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                  <span>{new Date(c.issued_at).toLocaleString("tr-TR")}</span>
+                  <span className="chip text-[9px]" style={{ padding: "1px 5px" }}>{c.theme}</span>
+                  {c.issued_by === "auto" && (
+                    <span className="chip text-[9px]" style={{ padding: "1px 5px", color: "#93C5FD", borderColor: "rgba(59,130,246,0.55)" }}>
+                      OTOMATİK
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-col gap-1 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setEditing({ id: c.id, title: c.title, theme: c.theme || "amber" })}
+                  className="p-1 rounded hover:bg-blue-500/20 text-blue-400"
+                  title={t("edit", "Düzenle")}
+                  data-testid={`issued-cert-edit-${c.id}`}
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => remove(c.id)}
+                  className="p-1 rounded hover:bg-red-500/20 text-red-400"
+                  title={t("delete", "Sil")}
+                  data-testid={`issued-cert-delete-${c.id}`}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {editing && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+             onClick={() => setEditing(null)}
+             data-testid="issued-cert-edit-modal">
+          <div onClick={(e) => e.stopPropagation()}
+               className="card-red-gold w-full max-w-sm p-4 relative">
+            <button type="button" onClick={() => setEditing(null)}
+                    className="absolute top-2 right-2 text-muted-foreground hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
+            <h3 className="text-sm font-bold uppercase gold-text tracking-widest mb-3">
+              {t("edit_certificate", "Sertifikayı Düzenle")}
+            </h3>
+            <label className="block mb-3">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">
+                {t("cert_title_label", "Sertifika Başlığı")}
+              </div>
+              <input
+                value={editing.title}
+                onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+                maxLength={160}
+                data-testid="issued-cert-edit-title"
+                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
+              />
+            </label>
+            <label className="block mb-4">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">
+                {t("cert_theme_label", "Tema")}
+              </div>
+              <select
+                value={editing.theme}
+                onChange={(e) => setEditing({ ...editing, theme: e.target.value })}
+                data-testid="issued-cert-edit-theme"
+                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
+              >
+                {themes.map((th) => <option key={th.key} value={th.key}>{th.label}</option>)}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={saveEdit}
+              className="btn-gold w-full py-2 flex items-center justify-center gap-2 text-xs"
+              data-testid="issued-cert-edit-save"
+            >
+              <Save className="w-3 h-3" /> {t("save", "Kaydet")}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

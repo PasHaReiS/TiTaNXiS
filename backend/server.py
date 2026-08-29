@@ -227,6 +227,12 @@ class Event(BaseModel):
     # idempotent — re-scheduling the same event never double-pings.
     reminder_minutes: Optional[int] = None
     reminder_sent_at: Optional[str] = None
+    # v135.36 — Auto-issue a certificate to every attendee the moment the
+    # event archives. Toggle set at create/update time; loop reads it during
+    # archive fanout.
+    auto_certificate: Optional[bool] = False
+    auto_certificate_title: Optional[str] = None
+    auto_certificate_theme: Optional[str] = "amber"
 
 
 class EventCreate(BaseModel):
@@ -264,6 +270,11 @@ class EventCreate(BaseModel):
     template_source_name: Optional[str] = None
     # v135.26 — Pre-event auto reminder lead (None|15|30|60|120 minutes).
     reminder_minutes: Optional[int] = None
+    # v135.36 — Otomatik sertifika: arşive taşındığında katılımcılara toplu
+    # sertifika üretir. `auto_certificate_title` boşsa etkinlik adı kullanılır.
+    auto_certificate: Optional[bool] = False
+    auto_certificate_title: Optional[str] = None
+    auto_certificate_theme: Optional[str] = "amber"
 
 
 class EventUpdate(BaseModel):
@@ -303,6 +314,10 @@ class EventUpdate(BaseModel):
     # v135.26 — Pre-event auto reminder lead (None|15|30|60|120 minutes).
     # PATCH also accepts explicit `None` to disable a previously-set reminder.
     reminder_minutes: Optional[int] = None
+    # v135.36 — Otomatik sertifika toggles (editable via PATCH).
+    auto_certificate: Optional[bool] = None
+    auto_certificate_title: Optional[str] = None
+    auto_certificate_theme: Optional[str] = None
 
 
 class Point(BaseModel):
@@ -1265,9 +1280,23 @@ async def update_event(event_id: str, body: EventUpdate, _: dict = Depends(requi
     except Exception as ex:
         logger.warning(f"auto-translate patch failed: {ex}")
     if update:
+        # v135.36 — Track if this PATCH flips archived False→True on an
+        # auto_certificate event so we can bulk-issue certs after the write.
+        pre_doc = None
+        if update.get("archived") is True:
+            pre_doc = await db.events.find_one(
+                {"id": event_id}, {"_id": 0, "archived": 1, "auto_certificate": 1},
+            )
         res = await db.events.update_one({"id": event_id}, {"$set": update})
         if res.matched_count == 0:
             raise HTTPException(404, "Etkinlik bulunamadı")
+        if pre_doc and not pre_doc.get("archived") and pre_doc.get("auto_certificate"):
+            try:
+                fn = globals().get("_auto_issue_certs_for_event")
+                if fn:
+                    await fn(event_id)
+            except Exception as ex:
+                logger.warning(f"auto-cert on PATCH archive failed for {event_id}: {ex}")
     doc = await db.events.find_one({"id": event_id}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Etkinlik bulunamadı")
@@ -1392,16 +1421,45 @@ async def events_bulk_archive(body: BulkArchiveBody, _: dict = Depends(require_e
     ids = [i for i in (body.ids or []) if i]
     if not ids:
         return {"modified": 0}
+    # v135.36 — Collect auto-cert eligible events BEFORE flip.
+    to_cert = []
+    if bool(body.archived):
+        rows = await db.events.find(
+            {"id": {"$in": ids}, "archived": {"$ne": True}, "auto_certificate": True},
+            {"_id": 0, "id": 1},
+        ).to_list(2000)
+        to_cert = [r["id"] for r in rows]
     res = await db.events.update_many(
         {"id": {"$in": ids}},
         {"$set": {"archived": bool(body.archived)}},
     )
+    for eid in to_cert:
+        try:
+            fn = globals().get("_auto_issue_certs_for_event")
+            if fn:
+                await fn(eid)
+        except Exception as ex:
+            logger.warning(f"auto-cert on bulk-archive failed for {eid}: {ex}")
     return {"modified": res.modified_count, "archived": bool(body.archived)}
 
 
 @api_router.post("/events/archive-group")
 async def archive_group(group_name: str, _: dict = Depends(require_edit)):
+    # v135.36 — First collect target events so we can auto-issue certs after
+    # the archive flip (only on events that had `auto_certificate=True`).
+    targets = await db.events.find(
+        {"group_name": group_name, "archived": False},
+        {"_id": 0, "id": 1, "auto_certificate": 1},
+    ).to_list(2000)
     res = await db.events.update_many({"group_name": group_name, "archived": False}, {"$set": {"archived": True}})
+    for ev in targets:
+        if ev.get("auto_certificate"):
+            try:
+                fn = globals().get("_auto_issue_certs_for_event")
+                if fn:
+                    await fn(ev["id"])
+            except Exception as ex:
+                logger.warning(f"auto-cert on archive-group failed for {ev.get('id')}: {ex}")
     return {"modified": res.modified_count}
 
 
@@ -1422,7 +1480,7 @@ async def auto_archive_sweep():
     now = _dt2.now(_tz2.utc).isoformat()
     # Match past-dated, non-archived events flagged for auto-archive.
     q = {"auto_archive": True, "archived": {"$ne": True}, "date": {"$lt": now}}
-    docs = await db.events.find(q, {"_id": 0, "id": 1, "auto_archive_folder_id": 1}).to_list(2000)
+    docs = await db.events.find(q, {"_id": 0, "id": 1, "auto_archive_folder_id": 1, "auto_certificate": 1}).to_list(2000)
     moved = 0
     for d in docs:
         upd = {"archived": True, "archived_at": now}
@@ -1431,6 +1489,14 @@ async def auto_archive_sweep():
             upd["folder_id"] = fid
         await db.events.update_one({"id": d["id"]}, {"$set": upd})
         moved += 1
+        # v135.36 — Auto-issue certificates on sweep-archive.
+        if d.get("auto_certificate"):
+            try:
+                fn = globals().get("_auto_issue_certs_for_event")
+                if fn:
+                    await fn(d["id"])
+            except Exception as ex:
+                logger.warning(f"auto-cert on auto-archive-sweep failed for {d.get('id')}: {ex}")
     return {"moved": moved, "checked": len(docs)}
 
 
@@ -7397,6 +7463,33 @@ async def announcements_delete(aid: str, user: dict = Depends(require_admin)):
     return {"ok": True}
 
 
+# v135.36 — Bulk actions for archived announcements (active=False).
+class AnnouncementBulkBody(BaseModel):
+    ids: List[str]
+
+
+@api_router.post("/announcements/bulk-delete")
+async def announcements_bulk_delete(body: AnnouncementBulkBody, _: dict = Depends(require_admin)):
+    ids = [i for i in (body.ids or []) if i]
+    if not ids:
+        return {"deleted": 0}
+    r = await db.announcements.delete_many({"id": {"$in": ids}})
+    return {"deleted": r.deleted_count}
+
+
+@api_router.post("/announcements/bulk-restore")
+async def announcements_bulk_restore(body: AnnouncementBulkBody, _: dict = Depends(require_admin)):
+    """Un-archive many at once: flips active=True on every provided id."""
+    ids = [i for i in (body.ids or []) if i]
+    if not ids:
+        return {"restored": 0}
+    r = await db.announcements.update_many(
+        {"id": {"$in": ids}},
+        {"$set": {"active": True, "restored_at": now_iso()}},
+    )
+    return {"restored": r.modified_count}
+
+
 class AnnouncementPatch(BaseModel):
     title: Optional[str] = None
     body: Optional[str] = None
@@ -9942,6 +10035,75 @@ app.include_router(make_certificates_router(
     _compose_event_share_image, SHARE_THEMES,
 ), prefix="/api")
 app.include_router(make_performance_router(db, require_auth), prefix="/api")
+
+
+# v135.36 — Auto-issue certificates to attendees when an event archives.
+# Called from PATCH/{id}, /events/bulk-archive, /events/archive-group and
+# /events/auto-archive-sweep. Safe to call repeatedly — inserts one cert
+# per (event_id, member_id) using an idempotency check.
+async def _auto_issue_certs_for_event(event_id: str) -> int:
+    ev = await db.events.find_one({"id": event_id}, {"_id": 0})
+    if not ev or not ev.get("auto_certificate"):
+        return 0
+    # Pull attendees from event_attendance rows; each row = one member.
+    att_rows = await db.event_attendance.find(
+        {"event_id": event_id}, {"_id": 0, "member_id": 1},
+    ).to_list(5000)
+    member_ids = list({r.get("member_id") for r in att_rows if r.get("member_id")})
+    if not member_ids:
+        return 0
+    title = (ev.get("auto_certificate_title") or "").strip() or (ev.get("name") or "Sertifika")
+    theme = ev.get("auto_certificate_theme") or "amber"
+    if theme not in (SHARE_THEMES or {}):
+        theme = "amber"
+    created = 0
+    for mid in member_ids:
+        existing = await db.certificates.find_one(
+            {"event_id": event_id, "member_id": mid}, {"_id": 0, "id": 1},
+        )
+        if existing:
+            continue
+        m = await db.members.find_one({"id": mid}, {"_id": 0, "name": 1})
+        if not m:
+            continue
+        doc = {
+            "id": str(uuid.uuid4()),
+            "verify_token": uuid.uuid4().hex[:12],
+            "member_id": mid,
+            "member_name": m.get("name"),
+            "event_id": event_id,
+            "event_name": ev.get("name"),
+            "event_date": ev.get("date"),
+            "title": title,
+            "theme": theme,
+            "issued_at": datetime.now(timezone.utc).isoformat(),
+            "issued_by": "auto",
+        }
+        await db.certificates.insert_one(doc)
+        created += 1
+    return created
+
+
+# v135.36 — Public certificate verification endpoint (no-auth). Recipients
+# share the /sertifika/{token} link so third parties can prove authenticity.
+@app.get("/api/certificates/verify/{token}")
+async def _cert_verify(token: str):
+    cert = await db.certificates.find_one(
+        {"verify_token": token}, {"_id": 0},
+    )
+    if not cert:
+        raise HTTPException(404, "certificate not found")
+    return {
+        "valid": True,
+        "title": cert.get("title"),
+        "member_name": cert.get("member_name"),
+        "event_name": cert.get("event_name"),
+        "event_date": cert.get("event_date"),
+        "issued_at": cert.get("issued_at"),
+        "issued_by": cert.get("issued_by"),
+        "theme": cert.get("theme"),
+        "id": cert.get("id"),
+    }
 
 
 # v135.31 — Guild rules page (public read + admin edit). Stored as a single

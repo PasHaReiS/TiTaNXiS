@@ -34,6 +34,7 @@ import PublicGuildProfile from "@/pages/PublicGuildProfile";
 import AdminTodos from "@/pages/AdminTodos";
 import GuildRules from "@/pages/GuildRules";
 import IssueCertificate from "@/pages/IssueCertificate";
+import VerifyCertificate from "@/pages/VerifyCertificate";
 import Login from "@/pages/Login";
 import UserManagement from "@/pages/UserManagement";
 import OcrHistory from "@/pages/OcrHistory";
@@ -187,6 +188,7 @@ export default function App() {
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/aydinlatma-metni" element={<AydinlatmaMetni />} />
+            <Route path="/sertifika/:token" element={<VerifyCertificate />} />
             <Route path="*" element={<AppShell />} />
           </Routes>
           <PushSoundListener />

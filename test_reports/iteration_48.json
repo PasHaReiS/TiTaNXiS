@@ -1,0 +1,48 @@
+{
+  "summary": "v135.36 e2e test of 4 features: auto-certificate on event archive, public certificate verification (/sertifika/:token + API), archived-announcement bulk delete/restore, and certificate PNG with QR. Backend: 13/13 pytest cases pass (new file /app/backend/tests/test_v13536_certs.py) incl. auto-issue via both bulk-archive and PATCH archive paths, idempotency on re-archive, 12-hex verify_token, issued_by='auto', public verify 200/404, PNG content-type/magic-bytes/404, announcement bulk-restore=2 / bulk-delete=2 and 401 for unauthenticated. Frontend: public verify page renders GEÇERSİZ (invalid) and DOĞRULANDI (valid, with title/member/event) without login; Events 'Otomatik Sertifika Ver' checkbox reveals title input; Announcements archive filter shows bulk toolbar with working select-all + enable/disable logic, and UI bulk-restore returned toast '2 duyuru geri yüklendi' with list refresh. All test data (2 events, 3 certs, 4 announcements, 1 seed cert/event) cleaned up and verified 0 remaining in DB.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/certificates/{cid}/image.png", "issue": "QR URL is built from env PUBLIC_DOMAIN which is NOT set in backend/.env, so it falls back to hardcoded 'titanxis.com'. On the preview host the QR points to a domain that may not serve this app — set PUBLIC_DOMAIN (or derive from REACT_APP_BACKEND_URL) before deploy."},
+      {"endpoint": "GET /api/certificates/verify/{token}", "issue": "Error detail returned to the public page is English ('certificate not found') and is rendered verbatim on the Turkish verify page. Should be Turkish e.g. 'Sertifika bulunamadı'."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Announcements.jsx (row action column)", "issue": "FEATURE GAP: there is no per-row 'Arşivle' action (nothing sets active=false from the UI). Row actions are only revert / copy-to-form / hard-delete. So the new 'Arşiv' filter + bulk Geri Yükle/Kalıcı Sil toolbar can never be populated by an admin through the UI — archived rows only exist if created via API. Add an archive toggle button per row (or in the edit form).", "selector": "[data-testid^=\"announcement-delete-\"] column", "priority": "HIGH"},
+      {"component": "VerifyCertificate.jsx", "issue": "Invalid state shows raw backend English detail text under 'GEÇERSİZ'; localize it.", "selector": "[data-testid=\"verify-invalid\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Duyurular / Yeni Duyuru", "issues": ["'Zamanla (opsiyonel)' uses the browser-native datetime-local picker (renders as 'mm/dd/yyyy, --:-- --', US format on a Turkish page) instead of the shadcn calendar component — pre-existing, not part of this change set"]},
+      {"screen": "Yeni Etkinlik modal", "issues": ["Auto-cert block and title input sit at the very bottom of a tall modal; on 1080p the title input is partially below the fold after checking the box (had to scroll). Consider scrolling the revealed input into view."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_v13536_certs.py",
+    "/app/backend/tests/seed_verify_cert.py",
+    "/app/test_reports/pytest/v13536.xml"
+  ],
+  "action_items": [
+    "Add a per-row archive (active=false) control in Announcements.jsx so the new bulk archive toolbar is reachable by admins",
+    "Set PUBLIC_DOMAIN in backend/.env (or derive the verify URL from the request host) so the cert QR resolves to the live app domain",
+    "Localize verify endpoint 404 detail to Turkish"
+  ],
+  "critical_code_review_comments": [
+    "server.py is 10,520 lines — split into routers (events, announcements, certificates hooks) per the <700 line guideline; the new features were appended to `app` after include_router which is fragile and already required a comment explaining route freezing.",
+    "_auto_issue_certs_for_event is invoked via globals().get('_auto_issue_certs_for_event') from 4 call sites with try/except swallowing exceptions — silent cert-issue failures. Prefer a direct reference and at minimum log at error level with the event id.",
+    "Idempotency relies on a find_one({event_id, member_id}) check with no unique index on (event_id, member_id) in db.certificates — concurrent archive calls can duplicate certs. Add a unique compound index.",
+    "Old certificates lack verify_token so /sertifika links and X-share are unavailable for them; consider a one-off backfill migration."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_v13536_certs.py (new)",
+    "/app/backend/tests/seed_verify_cert.py (new helper)"
+  ],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100% of testable flows (1 feature gap: no UI path to archive an announcement)"},
+  "seed_data_creation": "Temporarily created 2 TEST_AutoCert events + attendance for member 'Ekko', 3 auto/manual certs, 1 TEST_VerifySeed event+cert, and 4 TEST_ announcements. ALL deleted; DB verified clean (0 TEST_ events/announcements/certs, total certs back to 4 pre-existing).",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "admin / Admin123 (from /app/memory/test_credentials.md) — worked; login must be done via /login route ([data-testid=guest-login-btn] then login-username/password/submit)",
+  "context_for_next_testing_agent": "Run `python -m pytest tests/test_v13536_certs.py -n 0` from /app/backend (must use -n 0: the suite is a single ordered class sharing module-level STATE; xdist loadscope is fine but -v -q with xdist collected 0 items once). Use /app/backend/tests/seed_verify_cert.py create|cleanup to get a live verify token for frontend verify-page tests. Announcements filter chips live inside the collapsed 'Gönderim Geçmişi' section — expand it first. Events 'new event' button label is 'YENİ', not 'Yeni Etkinlik'. Profile X-share button (data-testid=profile-cert-share-x-{id}) was NOT exercised in the UI because the admin account has no linked member with a verify_token cert; code path reviewed and correctly gated on c.verify_token.",
+  "rca_of_the_issue": "No functional defects found in the 4 implemented features. The only substantive gap is product-level: Announcements has no UI affordance to set active=false, so the bulk archive toolbar (feature 3) is unreachable without direct API calls."
+}

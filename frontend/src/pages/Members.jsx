@@ -243,6 +243,8 @@ export default function Members() {
   const [sortMode, setSortMode] = useState("default");
   const [colorPickerAlliance, setColorPickerAlliance] = useState(null);
   const [renamingAlliance, setRenamingAlliance] = useState(null); // { old, next }
+  // v135.37 — Birleştirilmiş İttifak Düzenleme: {old, next, color, canRename}
+  const [editingAlliance, setEditingAlliance] = useState(null);
   const [showDisplayPanel, setShowDisplayPanel] = useState(false);
   const [showCastleStats, setShowCastleStats] = useState(false);
   const [displayPrefs, setDisplayPrefs] = useState(readDisplay());
@@ -880,7 +882,17 @@ export default function Members() {
                     className="w-4 h-4 flex-shrink-0 transition-transform"
                     style={{ transform: collapsedAlliances.has(grp.name) ? "rotate(-90deg)" : "rotate(0deg)" }}
                   />
-                  ── {grp.name}
+                  <span
+                    style={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "40vw",
+                    }}
+                    data-testid={`alliance-header-name-inner-${grp.name}`}
+                  >
+                    {grp.name}
+                  </span>
                   {(() => {
                     const cat = allianceCategoryMap[grp.name];
                     if (cat !== "main" && cat !== "academy") return null;
@@ -888,12 +900,13 @@ export default function Members() {
                     return (
                       <span
                         data-testid={`alliance-cat-badge-${grp.name}`}
-                        className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold"
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold flex-shrink-0"
                         style={{
                           background: isMain ? "rgba(245,166,35,0.22)" : "rgba(56,189,248,0.22)",
                           color: isMain ? "#F5A623" : "#38BDF8",
                           border: `1px solid ${isMain ? "#F5A623" : "#38BDF8"}`,
-                          letterSpacing: "0.14em",
+                          letterSpacing: "0.10em",
+                          whiteSpace: "nowrap",
                         }}
                         title={isMain ? t("alliance_main") : t("alliance_academy")}
                       >
@@ -903,48 +916,41 @@ export default function Members() {
                     );
                   })()}
                 </span>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
                   <CanEdit>
-                    {(
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => { e.stopPropagation(); setColorPickerAlliance(grp.name); }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setColorPickerAlliance(grp.name);
-                          }
-                        }}
-                        data-testid={`alliance-color-btn-${grp.name}`}
-                        aria-label={t("choose_color")}
-                        title={t("choose_color")}
-                        className="w-6 h-6 rounded-full flex items-center justify-center bg-black/30 hover:bg-black/50 transition-colors cursor-pointer"
-                      >
-                        <Palette className="w-3.5 h-3.5 text-white" />
-                      </span>
-                    )}
-                    {grp.name && grp.name !== "Gruplandırılmamış" && (
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => { e.stopPropagation(); setRenamingAlliance({ old: grp.name, next: grp.name }); }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setRenamingAlliance({ old: grp.name, next: grp.name });
-                          }
-                        }}
-                        data-testid={`alliance-rename-btn-${grp.name}`}
-                        aria-label={t("alliance_rename_tooltip")}
-                        title={t("alliance_rename_tooltip")}
-                        className="w-6 h-6 rounded-full flex items-center justify-center bg-black/30 hover:bg-black/50 transition-colors cursor-pointer"
-                      >
-                        <Pencil className="w-3.5 h-3.5 text-white" />
-                      </span>
-                    )}
+                    {/* v135.37 — Birleştirilmiş Düzenle butonu: renk + isim tek modal.
+                        Tüm ittifaklarda (Gruplandırılmamış dahil) görünür. */}
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingAlliance({
+                          old: grp.name,
+                          next: grp.name === "Gruplandırılmamış" ? "" : grp.name,
+                          color: allianceColors[grp.name] || "",
+                          canRename: grp.name !== "Gruplandırılmamış",
+                        });
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setEditingAlliance({
+                            old: grp.name,
+                            next: grp.name === "Gruplandırılmamış" ? "" : grp.name,
+                            color: allianceColors[grp.name] || "",
+                            canRename: grp.name !== "Gruplandırılmamış",
+                          });
+                        }
+                      }}
+                      data-testid={`alliance-edit-btn-${grp.name}`}
+                      aria-label={t("edit")}
+                      title={t("edit")}
+                      className="w-6 h-6 rounded-full flex items-center justify-center bg-black/30 hover:bg-black/50 transition-colors cursor-pointer"
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-white" />
+                    </span>
                   </CanEdit>
                   <AllianceScopeToggle name={grp.name} />
                   <span className="text-xs font-bold mono opacity-95">({grp.members.length} {t("members_word")})</span>
@@ -1013,25 +1019,46 @@ export default function Members() {
                                   visible: { opacity: 1, y: 0, transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] } },
                                 }}
                               >
-                                <button
-                                  onClick={() => selectionMode ? toggleSelected(m.id) : setProfileId(m.id)}
-                                  className={`rank-badge rank-${m.rank} flex-shrink-0 ${selectionMode && selectedIds.has(m.id) ? "ring-2 ring-violet-400" : ""}`}
-                                  style={{
-                                    width: 28,
-                                    height: 28,
-                                    fontSize: 10,
-                                    borderRadius: 5,
-                                    fontWeight: 800,
-                                    outline: selectionMode && selectedIds.has(m.id) ? "2px solid #A78BFA" : "none",
-                                    outlineOffset: 1,
-                                  }}
-                                  title={selectionMode ? t("bulk_toggle_row") : `${t("rank")} ${m.rank}`}
-                                  data-testid={selectionMode ? `bulk-toggle-${m.id}` : undefined}
-                                >
-                                  {selectionMode
-                                    ? (selectedIds.has(m.id) ? <Check className="w-3 h-3 mx-auto" /> : m.rank)
-                                    : m.rank}
-                                </button>
+                                {/* v135.37 — Rank kutusu + üstünde unvan (m.title, örn: "Tiran").
+                                    Unvan boşsa sadece rank badge görünür. */}
+                                <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                                  {m.title && String(m.title).trim() && (
+                                    <span
+                                      data-testid={`member-title-${m.id}`}
+                                      className="text-[9px] font-bold uppercase tracking-widest"
+                                      style={{
+                                        color: "#F5A623",
+                                        textShadow: "0 0 4px rgba(245,166,35,0.5)",
+                                        letterSpacing: "0.06em",
+                                        maxWidth: 60,
+                                        whiteSpace: "nowrap",
+                                        overflow: "visible",
+                                      }}
+                                      title={String(m.title)}
+                                    >
+                                      {String(m.title)}
+                                    </span>
+                                  )}
+                                  <button
+                                    onClick={() => selectionMode ? toggleSelected(m.id) : setProfileId(m.id)}
+                                    className={`rank-badge rank-${m.rank} ${selectionMode && selectedIds.has(m.id) ? "ring-2 ring-violet-400" : ""}`}
+                                    style={{
+                                      width: 28,
+                                      height: 28,
+                                      fontSize: 10,
+                                      borderRadius: 5,
+                                      fontWeight: 800,
+                                      outline: selectionMode && selectedIds.has(m.id) ? "2px solid #A78BFA" : "none",
+                                      outlineOffset: 1,
+                                    }}
+                                    title={selectionMode ? t("bulk_toggle_row") : `${t("rank")} ${m.rank}`}
+                                    data-testid={selectionMode ? `bulk-toggle-${m.id}` : undefined}
+                                  >
+                                    {selectionMode
+                                      ? (selectedIds.has(m.id) ? <Check className="w-3 h-3 mx-auto" /> : m.rank)
+                                      : m.rank}
+                                  </button>
+                                </div>
                                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => selectionMode ? toggleSelected(m.id) : setProfileId(m.id)}>
                                   <div className="flex items-start gap-1.5 min-w-0 flex-wrap">
                                     <CanEdit
@@ -1120,8 +1147,13 @@ export default function Members() {
                                   </div>
                                   {m.bireysel_guc ? (
                                     <div
-                                      className="text-[10px] mono truncate leading-tight flex items-center gap-1 mt-0.5"
-                                      style={{ color: "#FF6B00", textShadow: "0 0 4px rgba(255,107,0,0.35)" }}
+                                      className="text-[10px] mono leading-tight flex items-center gap-1 mt-0.5 flex-wrap"
+                                      style={{
+                                        color: "#FF6B00",
+                                        textShadow: "0 0 4px rgba(255,107,0,0.35)",
+                                        whiteSpace: "normal",
+                                        wordBreak: "break-word",
+                                      }}
                                       data-testid={`member-bireysel-guc-${m.id}`}
                                     >
                                       <span aria-hidden="true">⚡</span>
@@ -1146,7 +1178,9 @@ export default function Members() {
                                   )}
                                 </div>
                                 <CanEdit>
-                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                  {/* v135.37 — 2x2 grid: [AdminNote][Telegram] üstte, [Pencil][Trash] altta.
+                                      Mobilde tıklama alanı daha rahat, dikey kompaktlık korunur. */}
+                                  <div className="grid grid-cols-2 gap-1 flex-shrink-0">
                                     {/* v135.6 — Admin-only gizli not butonu.
                                         Amber ikon+glow "not var" durumunda,
                                         slate ikon boş durumda. AdminNoteModal
@@ -1239,6 +1273,13 @@ export default function Members() {
           allianceName={colorPickerAlliance}
           current={allianceColors[colorPickerAlliance]}
           onClose={() => setColorPickerAlliance(null)}
+        />
+      )}
+      {editingAlliance && (
+        <AllianceEditModal
+          state={editingAlliance}
+          onChange={setEditingAlliance}
+          onClose={() => setEditingAlliance(null)}
         />
       )}
 
@@ -1494,8 +1535,168 @@ function FilterSortPanel({
   );
 }
 
-function AllianceColorPicker({ allianceName, current, onClose }) {
+// v135.37 — Birleştirilmiş İttifak Düzenle Modal: renk + isim tek ekranda.
+// `Gruplandırılmamış` ittifakında ad girmek gizlenir (canRename=false).
+function AllianceEditModal({ state, onChange, onClose }) {
   const { t } = useTranslation();
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const nextName = (state.next || "").trim();
+      // 1) İsim değiştiyse önce ittifakı yeniden adlandır.
+      if (state.canRename && nextName && nextName !== state.old) {
+        const res = await api.post("/alliances/rename", {
+          old_name: state.old,
+          new_name: nextName,
+        });
+        toast.success(`${res.data.modified} üye '${nextName}' ittifakına güncellendi`);
+      }
+      // 2) Renk seçildiyse renk kaydet (yeni isim üzerinden ya da eski isim).
+      const activeName = (state.canRename && nextName) ? nextName : state.old;
+      if (state.color && (state.color !== "")) {
+        await api.put("/alliance-colors", { name: activeName, color: state.color });
+      }
+      await Promise.all([
+        mutate("/alliance-colors"),
+        mutate("/alliances"),
+        mutate("/alliances/stats"),
+        mutate((k) => typeof k === "string" && k.startsWith("/members")),
+      ]);
+      toast.success(t("saved", { defaultValue: "Kaydedildi" }));
+      onClose();
+    } catch (e) {
+      const msg = e?.response?.status === 409
+        ? (e.response.data?.detail || "Bu ittifak zaten var.")
+        : apiErr(e);
+      toast.error(msg);
+    } finally { setSaving(false); }
+  };
+
+  const resetColor = async () => {
+    setSaving(true);
+    try {
+      await api.delete(`/alliance-colors/${encodeURIComponent(state.old)}`);
+      mutate("/alliance-colors");
+      onChange({ ...state, color: "" });
+      toast.success(t("color_saved"));
+    } catch (e) { toast.error(apiErr(e)); } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4"
+         onClick={onClose}
+         data-testid="alliance-edit-modal">
+      <div onClick={(e) => e.stopPropagation()}
+           className="card-red-gold w-full max-w-md p-5 fade-in relative">
+        <button type="button" onClick={onClose}
+                className="absolute top-3 right-3 text-muted-foreground hover:text-white">
+          <X className="w-5 h-5" />
+        </button>
+        <h3 className="text-lg font-bold uppercase gold-text mb-1">
+          {t("edit_alliance", { defaultValue: "İttifakı Düzenle" })}
+        </h3>
+        <p className="text-xs text-muted-foreground mb-4">
+          <span className="red-text font-semibold">{state.old}</span>
+        </p>
+
+        {state.canRename && (
+          <label className="block mb-4">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">
+              {t("alliance_name", { defaultValue: "İttifak Adı" })}
+            </div>
+            <input
+              autoFocus
+              value={state.next || ""}
+              onChange={(e) => onChange({ ...state, next: e.target.value })}
+              data-testid="alliance-edit-name-input"
+              className="w-full px-3 py-2 rounded bg-black/40 border border-amber-500/30 text-white text-sm"
+              placeholder={t("alliance_rename_placeholder")}
+            />
+          </label>
+        )}
+
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-2">
+          {t("choose_color")}
+        </div>
+        <div className="grid grid-cols-8 gap-2 mb-3">
+          {COLOR_PALETTE.map((c) => (
+            <button
+              key={c}
+              type="button"
+              data-testid={`alliance-edit-swatch-${c.replace("#", "")}`}
+              onClick={() => onChange({ ...state, color: c })}
+              className="w-9 h-9 rounded-full transition-all"
+              style={{
+                background: c,
+                border: (state.color || "").toLowerCase() === c.toLowerCase() ? "2px solid #F5A623" : "2px solid rgba(255,255,255,0.15)",
+                transform: (state.color || "").toLowerCase() === c.toLowerCase() ? "scale(1.15)" : "scale(1)",
+                boxShadow: (state.color || "").toLowerCase() === c.toLowerCase() ? "0 0 12px rgba(245,166,35,0.5)" : "none",
+              }}
+              aria-label={c}
+            />
+          ))}
+        </div>
+        <div className="flex items-center gap-2 mb-4">
+          <input
+            type="color"
+            data-testid="alliance-edit-color-native"
+            value={state.color || "#DC2626"}
+            onChange={(e) => onChange({ ...state, color: e.target.value })}
+            className="w-10 h-10 rounded cursor-pointer border border-border"
+            style={{ background: "transparent" }}
+          />
+          <input
+            type="text"
+            data-testid="alliance-edit-color-hex"
+            value={state.color || ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "" || /^#[0-9A-Fa-f]{0,6}$/.test(v)) onChange({ ...state, color: v });
+            }}
+            placeholder="#DC2626"
+            maxLength={7}
+            className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-white mono focus:outline-none focus:border-primary"
+          />
+        </div>
+
+        {/* Preview */}
+        <div className="rounded-lg p-3 mb-4"
+             style={{ ...allianceBadgeStyle(state.old, { [state.old]: state.color || undefined }), border: "1px solid" }}>
+          <span className="font-bold tracking-wider text-white">
+            {state.canRename && (state.next || "").trim() ? state.next : state.old}
+          </span>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={resetColor}
+            disabled={saving}
+            data-testid="alliance-edit-reset-color"
+            className="chip flex-1 justify-center"
+            title={t("reset_color")}
+          >
+            <RotateCcw className="w-3 h-3" /> {t("reset_color")}
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            data-testid="alliance-edit-save"
+            className="btn-gold flex-1 justify-center py-2 text-xs"
+          >
+            {saving ? t("saving") : t("save")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function AllianceColorPicker({ allianceName, current, onClose }) {  const { t } = useTranslation();
   const [selected, setSelected] = useState(current || COLOR_PALETTE[0]);
   const [saving, setSaving] = useState(false);
 

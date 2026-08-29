@@ -2660,6 +2660,12 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
   const [autoArchiveFolderId, setAutoArchiveFolderId] = useState(
     (initial && initial.auto_archive_folder_id) || "",
   );
+  // v135.36 — Otomatik sertifika: arşive taşındığında tüm katılımcılara
+  // sertifika üretilsin mi? Başlık boşsa etkinlik adı kullanılır.
+  const [autoCertificate, setAutoCertificate] = useState(!!(initial && initial.auto_certificate));
+  const [autoCertificateTitle, setAutoCertificateTitle] = useState(
+    (initial && initial.auto_certificate_title) || "",
+  );
   // v132 — Minimum Puan Eşiği accordion. Stores optional per-alliance
   // (`alliance_thresholds`) and per-member (`member_thresholds`) point
   // floors that admins can quick-fill via [50M] / [150M] chips or key in
@@ -2740,6 +2746,9 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
         attendance_enabled: attendanceEnabled,
         auto_archive: autoArchive,
         auto_archive_folder_id: autoArchive ? (autoArchiveFolderId || null) : null,
+        auto_certificate: autoCertificate,
+        auto_certificate_title: autoCertificate ? (autoCertificateTitle.trim() || null) : null,
+        auto_certificate_theme: autoCertificate ? "amber" : null,
         alliance_scope: "GOW",
         // v132 — Minimum Puan Eşiği — sadece dolu olanları gönder.
         alliance_thresholds: (allianceThresholds || [])
@@ -3098,6 +3107,35 @@ function EventForm({ initial, onClose }) {  const { t } = useTranslation();
             </select>
           </div>
         )}
+
+        {/* v135.36 — Otomatik Sertifika: arşive taşıma anında katılımcılara sertifika üretir. */}
+        <div className="mt-2 rounded p-3" style={{ background: "rgba(245,166,35,0.06)", border: "1px solid rgba(245,166,35,0.35)" }} data-testid="event-form-auto-cert-toggle">
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoCertificate}
+              onChange={(e) => setAutoCertificate(e.target.checked)}
+              data-testid="event-form-auto-cert-checkbox"
+              className="cursor-pointer mt-0.5"
+            />
+            <span className="block leading-tight">
+              <span className="block text-xs font-bold text-white">🏆 Otomatik Sertifika Ver</span>
+              <span className="block text-[10px] text-muted-foreground mt-0.5">
+                Etkinlik arşive taşındığında katılımcılara toplu sertifika üretir.
+              </span>
+            </span>
+          </label>
+          {autoCertificate && (
+            <input
+              type="text"
+              placeholder={"Sertifika başlığı (boş → etkinlik adı)"}
+              value={autoCertificateTitle}
+              onChange={(e) => setAutoCertificateTitle(e.target.value)}
+              data-testid="event-form-auto-cert-title"
+              className="mt-2 w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
+            />
+          )}
+        </div>
 
         {/* v132 — Minimum Puan Eşiği accordion. Group + per-member thresholds
             persisted on Event doc. Quick-fill chips: 50M / 150M / Manuel. */}

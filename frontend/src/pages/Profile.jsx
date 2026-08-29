@@ -1010,6 +1010,21 @@ function ProfilePerformanceAndCerts({ user }) {
                 >
                   💾 {t("profile_cert_download", "İndir")}
                 </a>
+                {c.verify_token && (
+                  <a
+                    href={`https://twitter.com/intent/tweet?${new URLSearchParams({
+                      text: `🏆 ${c.title} — TiTaNXiS Loncası`,
+                      url: `${window.location.origin}/sertifika/${c.verify_token}`,
+                    }).toString()}`}
+                    target="_blank" rel="noreferrer"
+                    className="chip text-[10px]"
+                    style={{ color: "#93C5FD", borderColor: "rgba(59,130,246,0.55)" }}
+                    data-testid={`profile-cert-share-x-${c.id}`}
+                    title={t("profile_cert_share_x_hint", "X'te paylaş")}
+                  >
+                    𝕏 {t("profile_cert_share_x", "Paylaş")}
+                  </a>
+                )}
               </div>
             ))}
           </div>

@@ -55,6 +55,8 @@ def make_certificates_router(db, require_admin, require_auth,
                 continue
             doc = {
                 "id": str(uuid.uuid4()),
+                # v135.36 — Short random verify token exposed on public page.
+                "verify_token": uuid.uuid4().hex[:12],
                 "member_id": mid,
                 "member_name": m.get("name"),
                 "event_id": body.event_id,
@@ -75,6 +77,48 @@ def make_certificates_router(db, require_admin, require_auth,
             {"member_id": member_id}, {"_id": 0}
         ).sort("issued_at", -1).to_list(200)
         return {"items": rows, "count": len(rows)}
+
+    # v135.37 — Admin sertifika yönetim listesi (tüm sertifikalar, en yeni önce).
+    @router.get("/certificates")
+    async def list_all_certs(
+        _: dict = Depends(require_admin),
+        limit: int = 200,
+        search: Optional[str] = None,
+    ):
+        q: dict = {}
+        if search:
+            s = search.strip()
+            if s:
+                q["$or"] = [
+                    {"title": {"$regex": s, "$options": "i"}},
+                    {"member_name": {"$regex": s, "$options": "i"}},
+                    {"event_name": {"$regex": s, "$options": "i"}},
+                ]
+        rows = await db.certificates.find(q, {"_id": 0}).sort(
+            "issued_at", -1,
+        ).limit(max(1, min(limit, 500))).to_list(500)
+        return {"items": rows, "count": len(rows)}
+
+    class CertPatch(BaseModel):
+        title: Optional[str] = None
+        theme: Optional[str] = None
+
+    @router.patch("/certificates/{cid}")
+    async def patch_cert(cid: str, body: CertPatch, _: dict = Depends(require_admin)):
+        update = {}
+        if body.title is not None and body.title.strip():
+            update["title"] = body.title.strip()[:160]
+        if body.theme is not None:
+            th = body.theme if body.theme in (SHARE_THEMES or {}) else "amber"
+            update["theme"] = th
+        if not update:
+            raise HTTPException(400, "Güncellenecek alan yok")
+        update["updated_at"] = _now_iso()
+        r = await db.certificates.update_one({"id": cid}, {"$set": update})
+        if r.matched_count == 0:
+            raise HTTPException(404, "certificate not found")
+        doc = await db.certificates.find_one({"id": cid}, {"_id": 0})
+        return {"ok": True, "item": doc}
 
     @router.get("/auth/me/certificates")
     async def list_my_certs(user: dict = Depends(require_auth)):
@@ -99,12 +143,7 @@ def make_certificates_router(db, require_admin, require_auth,
         cert = await db.certificates.find_one({"id": cid}, {"_id": 0})
         if not cert:
             raise HTTPException(404, "certificate not found")
-        # Reuse the event share composer with a synthetic "event" — the
-        # composer already renders title / date / group / footer with our
-        # 6-theme palette + Noto Color Emoji. `group_name` is repurposed as
-        # the member name so the poster reads e.g.:
-        #   "🏆 SvS Şampiyonu - Ağustos 2026" (title)
-        #   date · group=PashaSenol · × 1
+        # Compose base poster via share-image composer.
         synthetic_event = {
             "id": cert.get("event_id"),
             "name": cert.get("title") or "Sertifika",
@@ -114,6 +153,36 @@ def make_certificates_router(db, require_admin, require_auth,
             "banner_url": None,
         }
         png = await compose_share_image_fn(synthetic_event, theme=cert.get("theme") or "amber")
+        # v135.36 — Overlay a QR code linking to the public verify page in the
+        # bottom-right corner. Uses `segno` when installed (lightweight, pure
+        # python), otherwise the PNG ships without the QR (verify link still
+        # in the caption on Telegram).
+        vtok = cert.get("verify_token")
+        if vtok:
+            try:
+                import os as _os2, io as _io2
+                from PIL import Image as _Img
+                domain = _os2.environ.get("PUBLIC_DOMAIN", "").strip() or "titanxis.com"
+                url = f"https://{domain}/sertifika/{vtok}"
+                try:
+                    import segno as _sg
+                    qr = _sg.make(url, error="h")
+                    qbuf = _io2.BytesIO()
+                    qr.save(qbuf, kind="png", scale=6, dark="#0A0004", light="#F5F0E8", border=2)
+                    qbuf.seek(0)
+                    qr_img = _Img.open(qbuf).convert("RGBA")
+                except Exception:
+                    import qrcode as _qc  # fallback if qrcode is present
+                    qr_img = _qc.make(url).convert("RGBA")
+                base = _Img.open(_io2.BytesIO(png)).convert("RGBA")
+                qsz = 140
+                qr_img = qr_img.resize((qsz, qsz), _Img.LANCZOS)
+                base.paste(qr_img, (base.width - qsz - 40, base.height - qsz - 40), qr_img)
+                out = _io2.BytesIO()
+                base.convert("RGB").save(out, format="PNG", optimize=True)
+                png = out.getvalue()
+            except Exception:
+                pass
         return Response(
             content=png, media_type="image/png",
             headers={"Cache-Control": "public, max-age=300"},
