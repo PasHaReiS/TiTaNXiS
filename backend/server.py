@@ -9930,6 +9930,15 @@ from routes.telegram_templates import make_telegram_templates_router, ensure_tel
 app.include_router(make_telegram_templates_router(db, require_admin), prefix="/api")
 from routes.admin_todos import make_admin_todos_router, ensure_admin_todos_indexes
 app.include_router(make_admin_todos_router(db, require_admin), prefix="/api")
+from routes.certificates import (
+    make_certificates_router, make_performance_router,
+    ensure_certificates_indexes,
+)
+app.include_router(make_certificates_router(
+    db, require_admin, require_auth,
+    _compose_event_share_image, SHARE_THEMES,
+), prefix="/api")
+app.include_router(make_performance_router(db, require_auth), prefix="/api")
 
 
 # v135.31 — Guild rules page (public read + admin edit). Stored as a single
@@ -10163,6 +10172,11 @@ async def startup():
         await ensure_admin_todos_indexes(db)
     except Exception as _e:
         logging.getLogger("server").warning(f"admin_todos index ensure: {_e}")
+    # v135.34 — Certificates indexes
+    try:
+        await ensure_certificates_indexes(db)
+    except Exception as _e:
+        logging.getLogger("server").warning(f"certificates index ensure: {_e}")
 
     # One-shot legacy `/app/uploads/*` → Emergent Object Store migration.
     # Idempotent (per-file), so it re-runs safely on every startup and

@@ -255,14 +255,6 @@ export default function Events() {
   // they landed.
   const allEventsForHash = useSWR("/events?archived=false", fetcher).data || [];
   const archivedForHash = useSWR("/events?archived=true", fetcher).data || [];
-  // v135.33 — Bulk RSVP counts for the ✅/🤔/❌ chips on every event card.
-  // Admin/editor only (route returns 403 otherwise). Refresh every 30s.
-  const { data: rsvpCountsData } = useSWR(
-    isAdmin ? "/events/rsvp/counts" : null,
-    fetcher,
-    { refreshInterval: 30000 },
-  );
-  const rsvpCounts = rsvpCountsData?.counts || {};
   useEffect(() => {
     const h = location.hash || "";
     if (!h.startsWith("#event-")) return;
@@ -309,6 +301,14 @@ export default function Events() {
   // v124 — Event chat drawer state. Stores the event id whose chat is open.
   const [chatEventId, setChatEventId] = useState(null);
   const { user: me, isAdmin } = useAuth();
+  // v135.33 — Bulk RSVP counts for the ✅/🤔/❌ chips on every event card.
+  // Admin/editor only (route returns 403 otherwise). Refresh every 30s.
+  const { data: rsvpCountsData } = useSWR(
+    isAdmin ? "/events/rsvp/counts" : null,
+    fetcher,
+    { refreshInterval: 30000 },
+  );
+  const rsvpCounts = rsvpCountsData?.counts || {};
   const [renamingGroup, setRenamingGroup] = useState(null); // group name being renamed
   const [renameValue, setRenameValue] = useState("");
   const [ocrOpen, setOcrOpen] = useState(false);

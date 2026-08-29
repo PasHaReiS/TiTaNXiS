@@ -698,6 +698,9 @@ export default function Profile() {
           </div>
         </div>
 
+        {/* v135.34 — Performance card (30-day metrics) + Certificates */}
+        <ProfilePerformanceAndCerts user={user} />
+
         {/* v135.28 — Optional birthday (MM-DD only). Sending an empty string
             clears the field and mutes the daily celebration loop for this
             user until they set a new date. */}
@@ -915,3 +918,104 @@ export default function Profile() {
     </div>
   );
 }
+
+// v135.34 — Performance card + Certificates showcase. Rendered inside the
+// Profile page below the bio card.
+function ProfilePerformanceAndCerts({ user }) {
+  const { t } = useTranslation();
+  const primaryMemberId = (user?.member_ids && user.member_ids[0]) || user?.member_id || null;
+  const { data: perf } = useSWR(
+    primaryMemberId ? `/members/${primaryMemberId}/performance` : null,
+    fetcher,
+  );
+  const { data: certsData } = useSWR("/auth/me/certificates", fetcher);
+  const certs = certsData?.items || [];
+  const backend = process.env.REACT_APP_BACKEND_URL;
+  return (
+    <>
+      {perf && (
+        <>
+          <div className="section-title flex items-center gap-2">
+            📊 {t("profile_perf_title", "Performans (Son 30 Gün)")}
+          </div>
+          <div className="card-dark p-3 mb-4" data-testid="profile-perf-card">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <div className="text-[10px] uppercase text-muted-foreground tracking-widest">
+                  {t("profile_perf_rsvp_rate", "RSVP Oranı")}
+                </div>
+                <div className="text-2xl font-bold gold-text font-mono">%{perf.rsvp_rate_pct}</div>
+                <div className="text-[10px] text-muted-foreground">
+                  {t("profile_perf_rsvp_breakdown",
+                    "✅ {{y}} · 🤔 {{m}} · ❌ {{n}} / {{total}}",
+                    { y: perf.rsvp_yes_count, m: perf.rsvp_maybe_count,
+                      n: perf.rsvp_no_count, total: perf.recent_events_count })}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase text-muted-foreground tracking-widest">
+                  {t("profile_perf_avg_score", "Ortalama Puan")}
+                </div>
+                <div className="text-2xl font-bold text-emerald-400 font-mono">{perf.avg_score_30d}</div>
+                <div className="text-[10px] text-muted-foreground">
+                  {t("profile_perf_attendance", "{{count}} yoklama",
+                    { count: perf.attendance_count_30d })}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase text-muted-foreground tracking-widest">
+                  {t("profile_perf_streak", "🔥 Streak")}
+                </div>
+                <div className="text-2xl font-bold text-orange-400 font-mono">{perf.current_streak}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase text-muted-foreground tracking-widest">
+                  {t("profile_perf_best_month", "En İyi Ay")}
+                </div>
+                <div className="text-2xl font-bold text-purple-300 font-mono">{perf.best_month || "—"}</div>
+                {perf.best_month_score > 0 && (
+                  <div className="text-[10px] text-muted-foreground font-mono">{perf.best_month_score} p</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+      {certs.length > 0 && (
+        <>
+          <div className="section-title flex items-center gap-2">
+            🏆 {t("profile_certs_title", "Sertifikalar")}
+          </div>
+          <div className="card-dark p-3 mb-4 space-y-2" data-testid="profile-certs-card">
+            {certs.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center gap-2 rounded p-2"
+                style={{ background: "rgba(245,166,35,0.06)",
+                         border: "1px solid rgba(245,166,35,0.25)" }}
+                data-testid={`profile-cert-${c.id}`}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-white font-bold truncate">{c.title}</div>
+                  <div className="text-[10px] text-muted-foreground font-mono">
+                    {c.event_name} · {new Date(c.issued_at).toLocaleDateString("tr-TR")}
+                  </div>
+                </div>
+                <a
+                  href={`${backend}/api/certificates/${c.id}/image.png`}
+                  download={`titanxis-cert-${c.id}.png`}
+                  className="chip text-[10px]"
+                  data-testid={`profile-cert-download-${c.id}`}
+                  target="_blank" rel="noreferrer"
+                >
+                  💾 {t("profile_cert_download", "İndir")}
+                </a>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+

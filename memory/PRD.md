@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 28, 2026 (v135.34 Üye Performans + Sertifikalar + isAdmin TDZ fix)** — Backend + Frontend:
+  - **TDZ Fix** (`/app/frontend/src/pages/Events.jsx`): `const { isAdmin } = useAuth()` `rsvpCounts` useSWR'ından ÖNCEye taşındı — v135.33'te enjekte edildiği yer TDZ hatası veriyordu.
+  - **Performance Card** (`/app/backend/routes/certificates.py` yeni + `Profile.jsx`): `GET /api/members/{id}/performance` — son 30 gün: `rsvp_rate_pct` (yes + 0.5*maybe / total), `rsvp_yes/maybe/no_count`, `avg_score_30d`, `attendance_count_30d`, `current_streak` (`_compute_user_yes_streak` reuse), `best_month` + `best_month_score` (tüm zamanlar). Profile'da yeni `ProfilePerformanceAndCerts` component 2×2 grid — RSVP% / ort puan / streak / en iyi ay.
+  - **Certificates**: Yeni koleksiyon + 4 endpoint: `POST /api/certificates/issue` (admin, bulk member_ids + event_id + title + theme), `GET /api/auth/me/certificates`, `GET /api/certificates/member/{mid}`, `DELETE /{id}`. PNG rendering `GET /api/certificates/{id}/image.png` — v135.30 SHARE_THEMES paletini reuse ediyor (synthetic event → title alanı sertifika başlığı, group_name → member name). Profile'da yeni `🏆 Sertifikalar` kartı — her satır İndir butonu (backend PNG direct download).
+  - **Announcement Pin/Archive**: Zaten mevcuttu — `AnnouncementBody.pinned`, `pinned_until` field'ları, `active` flag'i arşiv görevi görüyor. Ek geliştirme gerekmedi.
+  - **E2E doğrulama** ✅: cert issue (SvS Şampiyonu - Ağustos 2026, theme=amber) → 1 cert oluştu → PNG 200 OK image/png (1200×630) → performance endpoint 200 tüm alanlarla → cleanup delete 200.
+
 - **Feb 28, 2026 (v135.33 Kural Kabul + RSVP+ Sayaç Chips + Görev Bildirim)** — Backend + Frontend:
   - **Rules Acceptance**: 3 yeni endpoint `POST /api/auth/me/rules-accept`, `GET /api/auth/me/rules-status`, `GET /api/admin/users/rules-status`. `rules_accepted_at` timestamp user doc'a yazılır. Admin endpoint accepted/pending listeleri + sayaçlarını döner. Frontend GuildRules'ta yeni `RulesAcceptCheckbox` — checkbox tıklanınca kabul stamp'lenir, ekranda `Kabul: {tarih}` emerald chip'i.
   - **RSVP+ Sayaç Chips**: Yeni bulk endpoint `GET /api/events/rsvp/counts` (admin/editor) — MongoDB aggregate ile tüm event'ler için `{yes_count, maybe_count, no_count}` tek round-trip. Events.jsx admin görünümünde her event card'a inline `✅ 8 · 🤔 4 · ❌ 2` chip bar (green/amber/red badge'ler). data-testid `event-rsvp-{yes|maybe|no}-{id}`.
