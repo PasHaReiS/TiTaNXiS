@@ -63,15 +63,16 @@ export default function MemberAddOcr() {
           alliance_name: it.alliance_name || (hit ? hit.alliance_name : "") || "",
           rank: hit ? hit.rank : (RANKS.includes(it.rank) ? it.rank : "R1"),
           existing_id: hit?.id || null,
+          existing_name: hit?.name || null,
           existing_alliance: hit?.alliance_name || null,
         };
       }).filter((r) => r.name);
       setRows(enriched);
       toast.success(t("moa_scan_ok",
-        "OCR tamam: {{total}} satır ({{registered}} kayıtlı, {{missing}} eksik)",
+        "OCR tamam: {{total}} satır ({{matched}} eşleşti, {{missing}} eşleşmedi)",
         {
           total: enriched.length,
-          registered: enriched.filter((r) => r.existing_id).length,
+          matched: enriched.filter((r) => r.existing_id).length,
           missing: enriched.filter((r) => !r.existing_id).length,
         }));
     } catch (e) {
@@ -171,19 +172,19 @@ export default function MemberAddOcr() {
               </span>
               <span className="chip text-[11px]" style={{ borderColor: "#22C55E", color: "#86EFAC" }}
                     data-testid="moa-summary-registered">
-                <Check className="w-3 h-3" /> {t("moa_summary_registered", "Kayıtlı")}: {registered.length}
+                <Check className="w-3 h-3" /> ✅ {t("moa_summary_matched", "Eşleşti")}: {registered.length}
               </span>
               <span className="chip text-[11px]" style={{ borderColor: "#F5A623", color: "#F5A623" }}
                     data-testid="moa-summary-missing">
-                {t("moa_summary_missing", "Eksik")}: {missing.length}
+                ⚠️ {t("moa_summary_unmatched", "Eşleşmedi")}: {missing.length}
               </span>
             </div>
 
-            {/* Eksik üyeler önce (vurgulanır) */}
+            {/* Eşleşmeyen üyeler önce (vurgulanır) */}
             {missing.length > 0 && (
               <div className="space-y-2" data-testid="moa-missing-section">
                 <div className="text-[11px] uppercase font-bold tracking-widest" style={{ color: "#F5A623" }}>
-                  {t("moa_missing_title", "Sistemde Olmayan Üyeler")}
+                  ⚠️ {t("moa_missing_title", "Eşleşmeyen Üyeler — Otomatik Yeni Kayıt Oluşturulabilir")}
                 </div>
                 {rows.map((r, idx) => {
                   if (r.existing_id) return null;
@@ -200,10 +201,10 @@ export default function MemberAddOcr() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-bold text-white flex-1 min-w-0 truncate"
                               data-testid={`moa-missing-name-${idx}`}>
-                          🆕 {r.name}
+                          ⚠️ {t("moa_unmatched_prefix", "Eşleşmedi")}: {r.name}
                         </span>
                         <span className="chip text-[10px]" style={{ borderColor: "#F5A623", color: "#F5A623" }}>
-                          {t("moa_missing_badge", "EKSİK")}
+                          {t("moa_missing_badge", "YENİ KAYIT")}
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
@@ -253,11 +254,11 @@ export default function MemberAddOcr() {
               </div>
             )}
 
-            {/* Kayıtlı üyeler (info only) */}
+            {/* Eşleşen üyeler (info only) */}
             {registered.length > 0 && (
               <div className="space-y-1.5" data-testid="moa-registered-section">
                 <div className="text-[11px] uppercase font-bold tracking-widest text-muted-foreground">
-                  {t("moa_registered_title", "Kayıtlı Üyeler")}
+                  ✅ {t("moa_registered_title", "Eşleşen Üyeler")}
                 </div>
                 {rows.map((r, idx) => {
                   if (!r.existing_id) return null;
@@ -267,7 +268,7 @@ export default function MemberAddOcr() {
                          style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.35)" }}
                          data-testid={`moa-registered-row-${idx}`}>
                       <span className="text-xs text-white flex-1 min-w-0 truncate">
-                        ✓ {r.name}
+                        ✅ {t("moa_matched_prefix", "Eşleşti")}: {r.existing_name || r.name}
                         {r.existing_alliance && (
                           <span className="ml-2 text-[10px] mono text-muted-foreground">
                             [{r.existing_alliance}]

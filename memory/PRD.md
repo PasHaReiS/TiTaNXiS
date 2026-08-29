@@ -20,6 +20,16 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v135.44 OCR Eşleşme Sistemi — Üç Sürüm)** — Frontend + backend polish:
+  - **Ortak mantık**: 3 OCR akışında (Üye Ekle, Bireysel Güç, Kale/Rank) her satır için AÇIK eşleşme durumu gösterilir:
+    - ✅ `Eşleşti: [Üye Adı]` — mevcut kayıt bulundu → apply'da alanları (güç/rank/kale) günceller
+    - ⚠️ `Eşleşmedi: [Üye Adı]` — sistemde yok → apply'da otomatik yeni üye kaydı oluşturur (OCR'daki ittifak + rütbe ile). Backend `/api/ocr/apply-members` bu davranışı zaten yapıyor (mevcut hata: match_key varsa update, yoksa `db.members.insert_one({...})`).
+  - **MemberAddOcr.jsx** (`/uye-ekle-ocr`): Etiketler artık "Eşleşti"/"Eşleşmedi" formatı. Eksik satır header'ı "⚠️ Eşleşmeyen Üyeler — Otomatik Yeni Kayıt Oluşturulabilir". Kayıtlı bölüm header'ı "✅ Eşleşen Üyeler". Her satır: `⚠️ Eşleşmedi: {name}` / `✅ Eşleşti: {existing_name}`. Özet chip'leri: "✅ Eşleşti: N" ve "⚠️ Eşleşmedi: N".
+  - **OcrDialog.jsx** (Bireysel Güç + Kale/Rank OCR): `mode==="members"` (subMode=power|castle_rank) name cell'inin üstüne yeni `matchBadge` (data-testid `ocr-row-match-{i}`) — `existingNamesLc` lookup ile kırmızı/yeşil renkli chip. Hover tooltip: matched → "alanları güncellenecek", unmatched → "otomatik yeni kayıt oluşacak".
+  - **i18n**: `ocr_match_matched/unmatched(_hint)`, `moa_summary_matched/unmatched`, `moa_matched_prefix`, `moa_unmatched_prefix`, `moa_missing_title` (yeni metin), `moa_missing_badge` (YENİ KAYIT).
+  - **Backend değişikliği yok** — `/api/ocr/apply-members` mevcut auto-create yolu (line 337-352 of `routes/ocr.py`) satırdaki `alliance_name` + `rank` + `power` + `castle_level` ile yeni doc yaratıyor; matched path (line 313-336) alanları güncelliyor. Kullanıcının 4 maddelik gereksinimi backend'de zaten karşılanmış durumda.
+
+
 - **Feb 29, 2026 (v135.43 Events "Yeni" Split + "Şablondan" Kaldırıldı + Members OCR Array Fix)** — Frontend-only:
   - **Events.jsx**: Eski üç ayrı buton (`events-bireysel-add-btn`, `events-add-btn`, `events-tpl-quickpick-btn`) tek 'Yeni' dropdown'a birleştirildi. `Yeni` butonuna tıklayınca `events-new-menu` açılır → 2 seçenek: `events-new-menu-bireysel` (Bireysel Etkinlik — mevcut `BireyselEventForm`) ve `events-new-menu-alliance` (İttifak Etkinliği — mevcut `EventForm`). `TemplateQuickPickButton` render'ı tamamen kaldırıldı (component tanımı ve `TemplateSeriesModal` kodu ileride başka menüden çağırılmak üzere dosyada dursun diye korundu).
   - **Dışa tıklama kapatma**: `newEventOpen` state + `newEventMenuRef` ile menü dışı tıklamada kapanır; toggle butonuna tıklandığında flip.

@@ -1214,6 +1214,22 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               const currName = rowEdits[i]?.name ?? r.name ?? "";
                               const cleanName = _stripTag(currName);
                               const isExisting = existingNamesLc.has(cleanName.toLowerCase());
+                              // v135.44 — Her satır için açık eşleşme durumu:
+                              // ✅ Eşleşti (kayıtlı üye bulundu) veya ⚠️ Eşleşmedi
+                              // (yeni üye olarak oluşturulacak — apply-members backend
+                              // otomatik kaydını yapar).
+                              const matchBadge = (
+                                <div
+                                  data-testid={`ocr-row-match-${i}`}
+                                  className="text-[9px] font-bold mb-0.5"
+                                  style={{ color: isExisting ? "#4ade80" : "#F5A623" }}
+                                  title={isExisting ? t("ocr_match_matched_hint", "Kayıtlı üye — alanları güncellenecek") : t("ocr_match_unmatched_hint", "Sistemde yok — otomatik yeni kayıt oluşacak")}
+                                >
+                                  {isExisting
+                                    ? `✅ ${t("ocr_match_matched", "Eşleşti")}: ${cleanName}`
+                                    : `⚠️ ${t("ocr_match_unmatched", "Eşleşmedi")}: ${cleanName}`}
+                                </div>
+                              );
                               const suggestions = !isExisting
                                 ? _fuzzyTopMatches(currName, (existingMembers || []).map((m) => m.name || ""), 3)
                                 : [];
@@ -1306,6 +1322,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                 )}
                                 </td>
                                 <td style={{...cellStyle, width: subMode === "power" ? '136px' : '90px', minWidth: subMode === "power" ? '136px' : undefined, paddingLeft:'10px'}}>
+                                  {matchBadge}
                                   <input
                                     type="text"
                                     value={currName}
