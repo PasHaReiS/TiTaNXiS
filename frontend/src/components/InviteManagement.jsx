@@ -94,20 +94,29 @@ export default function InviteManagement() {
 }
 
 function InviteComposer({ onCreated }) {
+  const { t } = useTranslation();
   const [maxUses, setMaxUses] = useState(1);
   const [unlimited, setUnlimited] = useState(false);
   const [expiresAt, setExpiresAt] = useState("");
   const [role, setRole] = useState("user");
   const [canEdit, setCanEdit] = useState(false);
   const [note, setNote] = useState("");
+  const [letterLang, setLetterLang] = useState("tr");
   const [saving, setSaving] = useState(false);
+  // v135.32 — Load language list from backend so any addition/removal on
+  // the server side is reflected without a frontend re-deploy.
+  const { data: langsData } = useSWR("/invites/letter/languages", (u) =>
+    api.get(u).then((r) => r.data));
+  const langs = langsData?.items || [
+    { code: "tr", label: "Türkçe" }, { code: "en", label: "English" },
+  ];
   const submit = async (e) => {
     e.preventDefault();
     let expIso = null;
     if (expiresAt) {
       const d = new Date(expiresAt);
-      if (isNaN(d.getTime())) { toast.error("Geçersiz süre"); return; }
-      if (d.getTime() <= Date.now()) { toast.error("Süre gelecekte olmalı"); return; }
+      if (isNaN(d.getTime())) { toast.error(t("invite_composer_invalid_date", "Geçersiz süre")); return; }
+      if (d.getTime() <= Date.now()) { toast.error(t("invite_composer_future_date", "Süre gelecekte olmalı")); return; }
       expIso = d.toISOString();
     }
     setSaving(true);
@@ -117,8 +126,9 @@ function InviteComposer({ onCreated }) {
         expires_at: expIso || undefined,
         role, default_can_edit: canEdit,
         note: note.trim() || undefined,
+        letter_lang: letterLang,
       });
-      toast.success("Davet linki oluşturuldu");
+      toast.success(t("invite_composer_created_toast", "Davet linki oluşturuldu"));
       onCreated?.();
     } catch (e) { toast.error(apiErr(e)); }
     finally { setSaving(false); }
@@ -165,23 +175,42 @@ function InviteComposer({ onCreated }) {
       </div>
       <div className="grid grid-cols-2 gap-2 items-center">
         <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Rol</label>
+          <label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
+            {t("invite_composer_role_label", "Rol")}
+          </label>
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
             className="w-full px-2 py-1 rounded bg-black/40 border border-border text-white text-xs"
             data-testid="invite-composer-role"
           >
-            <option value="user">Üye</option>
-            <option value="editor">Editör</option>
-            <option value="admin">Yönetici</option>
+            <option value="user">{t("invite_composer_role_user", "Üye")}</option>
+            <option value="editor">{t("invite_composer_role_editor", "Editör")}</option>
+            <option value="admin">{t("invite_composer_role_admin", "Yönetici")}</option>
           </select>
         </div>
         <label className="text-[10px] text-white flex items-center gap-1.5 mt-4">
           <input type="checkbox" checked={canEdit} onChange={(e) => setCanEdit(e.target.checked)}
                  data-testid="invite-composer-can-edit" />
-          Düzenleme yetkisi ver
+          {t("invite_composer_can_edit", "Düzenleme yetkisi ver")}
         </label>
+      </div>
+      {/* v135.32 — Letter language picker. Populated from
+          `/invites/letter/languages` so backend is the single source. */}
+      <div className="space-y-1">
+        <label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
+          {t("invite_composer_letter_lang_label", "Davet Mektubu Dili")}
+        </label>
+        <select
+          value={letterLang}
+          onChange={(e) => setLetterLang(e.target.value)}
+          className="w-full px-2 py-1 rounded bg-black/40 border border-border text-white text-xs"
+          data-testid="invite-composer-letter-lang"
+        >
+          {langs.map((l) => (
+            <option key={l.code} value={l.code}>{l.label}</option>
+          ))}
+        </select>
       </div>
       <button
         type="submit" disabled={saving}
@@ -189,7 +218,9 @@ function InviteComposer({ onCreated }) {
         data-testid="invite-composer-submit"
       >
         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-        {saving ? "Oluşturuluyor…" : "Davet Linki Oluştur"}
+        {saving
+          ? t("invite_composer_saving", "Oluşturuluyor…")
+          : t("invite_composer_submit_btn", "Davet Linki Oluştur")}
       </button>
     </form>
   );
@@ -339,8 +370,16 @@ function InviteLetterSection({ inv }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  const [regen, setRegen] = useState(false);
+  const [lang, setLang] = useState(inv.letter_lang || "tr");
+  const [body, setBody] = useState(inv.letter_body || "");
+  const { data: langsData } = useSWR("/invites/letter/languages", (u) =>
+    api.get(u).then((r) => r.data));
+  const langs = langsData?.items || [
+    { code: "tr", label: "Türkçe" }, { code: "en", label: "English" },
+  ];
   const copyLetter = () => {
-    navigator.clipboard.writeText(inv.letter_body || "").then(
+    navigator.clipboard.writeText(body || "").then(
       () => toast.success(t("invite_letter_copied", "Davet mektubu kopyalandı")),
       () => toast.error(t("invite_letter_copy_failed", "Kopyalanamadı")),
     );
@@ -355,6 +394,16 @@ function InviteLetterSection({ inv }) {
     } catch (e) { toast.error(apiErr(e)); }
     finally { setSending(false); }
   };
+  const regenerate = async (newLang) => {
+    setRegen(true);
+    try {
+      const r = await api.post(`/invites/${inv.id}/letter/regenerate?lang=${newLang}`);
+      setLang(r.data.letter_lang);
+      setBody(r.data.letter_body);
+      toast.success(t("invite_letter_lang_switched", "Mektup dili değiştirildi"));
+    } catch (e) { toast.error(apiErr(e)); }
+    finally { setRegen(false); }
+  };
   return (
     <div className="mt-1" data-testid={`invite-letter-${inv.id}`}>
       <button
@@ -365,6 +414,7 @@ function InviteLetterSection({ inv }) {
         ✉️ {open
           ? t("invite_letter_hide", "Mektubu Gizle")
           : t("invite_letter_show", "Davet Mektubu")}
+        <span className="ml-1 text-[9px] opacity-75">[{lang.toUpperCase()}]</span>
       </button>
       {open && (
         <div
@@ -376,8 +426,20 @@ function InviteLetterSection({ inv }) {
           }}
           data-testid={`invite-letter-body-${inv.id}`}
         >
-          {inv.letter_body}
+          {body}
           <div className="flex items-center gap-2 flex-wrap mt-2">
+            <select
+              value={lang}
+              onChange={(e) => regenerate(e.target.value)}
+              disabled={regen}
+              className="chip text-[10px] px-2 py-1"
+              data-testid={`invite-letter-lang-${inv.id}`}
+              title={t("invite_letter_lang_title", "Mektup dilini değiştir")}
+            >
+              {langs.map((l) => (
+                <option key={l.code} value={l.code}>{l.label}</option>
+              ))}
+            </select>
             <button
               onClick={copyLetter}
               className="chip text-[10px]"

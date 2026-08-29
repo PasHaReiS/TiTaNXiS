@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 28, 2026 (v135.32 Davet Mektubu Dil Seçimi)** — `/app/backend/routes/invites.py` + `/app/frontend/src/components/InviteManagement.jsx`:
+  - **Templates**: Yeni `INVITE_LETTER_TEMPLATES` dict — 8 dil (tr/en/de/es/fr/ru/pt/ar) her biri `title`, `cta`, `note_prefix`, `outro` alanlarıyla. `_build_invite_letter(lang, admin, guild, link, note)` composer helper — unsupported code varsa `tr` fallback.
+  - **Model**: `InviteCreateBody.letter_lang: Optional[str] = "tr"`. `create_invite` bu alanla mektup üretiyor, `letter_lang` ve `letter_body` invite doc'a yazılıyor.
+  - **Endpoint'ler**: `GET /invites/letter/languages` (admin) — supported dil listesini `[{code, label}]` olarak döner. `POST /invites/{id}/letter/regenerate?lang=X` — mevcut invite'ın mektubunu yeni dilde yeniden üretiyor (`letter_regenerated_at` stamp'li).
+  - **Serializer**: `_invite_public` şimdi `letter_lang` da döner.
+  - **UI Composer**: Yeni `<select data-testid="invite-composer-letter-lang">` (backend'den fetch edilen langs listesiyle) — kullanıcı Türkçe/İngilizce/Almanca/İspanyolca/Fransızca/Rusça/Portekizce/Arapça seçebilir. Toggle chip `[TR]/[EN]/…` gösterimi.
+  - **UI Letter Section**: Row'daki mektup preview'ının altında yeni `<select data-testid="invite-letter-lang-{id}">` dropdown — anında dili değiştirir (regenerate endpoint çağırıp body'yi swap eder). Kopyala + Telegram gönder yeni dilde çalışır.
+  - **Note**: Davet linki URL'i language-neutral (`/kayit/{token}`). Recruit siteye landed olunca `i18n.detectedLanguage` browser locale'i devreye giriyor, ayrıca sağ üst dil değiştirici mevcut.
+
 - **Feb 28, 2026 (v135.31 Admin Görevler + Lonca Kuralları + Davet Mektubu + RSVP+ Doğrulama)** — Backend + Frontend:
   - **Admin To-Do** (`/app/backend/routes/admin_todos.py` yeni + `server.py` mount): Yeni koleksiyon `admin_todos`. CRUD: `GET /api/admin-todos?status=open|done|all`, `POST`, `PATCH /{id}` (done toggle + edit), `DELETE /{id}`. Sort by (done asc, due_date asc, created_at desc). Sayaç fields (`open_count`, `done_count`). Frontend `AdminTodos.jsx` — 3-filter chip (Bekleyen/Tamamlanan/Tümü), her row checkbox toggle + edit + delete + due_date + assigned_to + note. Composer modal başlık/due/atanan/not. Route `/admin/gorevler` + Header menu 📋. Tüm metinler `useTranslation()` fallback ile.
   - **Lonca Kuralları** (`/app/backend/server.py` + `/app/frontend/src/pages/GuildRules.jsx` yeni): `GET /api/guild/rules` (public — no auth) + `PUT /api/guild/rules` (admin). Body max 20000 char, `guild_settings.guild_rules` altında persist. Sayfa `/kurallar` (public), admin görürse `Düzenle` chip'i + editor modu. Georgia serif whitespace-pre-wrap. Header menu 📜 (herkes).

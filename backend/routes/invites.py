@@ -39,6 +39,95 @@ class InviteCreateBody(BaseModel):
     role: Optional[str] = "user"         # 'user' | 'editor' | 'admin' (admins rarely mint admin invites)
     default_can_edit: Optional[bool] = False
     note: Optional[str] = None           # free-form label ("SvS Ekim ekibi")
+    # v135.32 — Language of the auto-generated invite letter. Falls back to
+    # 'tr' when omitted or unsupported. The letter body itself is localised;
+    # the invite link URL is language-neutral (React app auto-detects locale
+    # via `i18n.detectedLanguage` when the recruit lands).
+    letter_lang: Optional[str] = "tr"
+
+
+# v135.32 — Localised invite letter templates. New members typically land on
+# the Turkish version, but SvS coalitions frequently coordinate across EN /
+# DE / ES / FR / RU / PT / AR guilds, so we ship first-class copy for those.
+# Any unsupported code silently falls back to 'tr'.
+INVITE_LETTER_TEMPLATES: dict = {
+    "tr": {
+        "label": "Türkçe",
+        "title": "🎉 *{admin} seni {guild}'e davet ediyor!*",
+        "cta": "Aramıza katılmak için aşağıdaki linke tıklayabilirsin:",
+        "note_prefix": "_Not: {note}_",
+        "outro": "{guild} bir gaming loncası — etkinlikler, ittifaklar ve dostluk seni bekliyor. Kaleyi sağlam tut, saflar bozulmasın Komutan. 🛡️",
+    },
+    "en": {
+        "label": "English",
+        "title": "🎉 *{admin} is inviting you to {guild}!*",
+        "cta": "Tap the link below to join our guild:",
+        "note_prefix": "_Note: {note}_",
+        "outro": "{guild} is a gaming guild — events, alliances and camaraderie await. Hold the keep, keep the ranks tight Commander. 🛡️",
+    },
+    "de": {
+        "label": "Deutsch",
+        "title": "🎉 *{admin} lädt dich zu {guild} ein!*",
+        "cta": "Tritt uns bei — klick den Link:",
+        "note_prefix": "_Notiz: {note}_",
+        "outro": "{guild} ist eine Gaming-Gilde — Events, Allianzen und Kameradschaft warten auf dich. Halte die Festung, Kommandant. 🛡️",
+    },
+    "es": {
+        "label": "Español",
+        "title": "🎉 *¡{admin} te invita a {guild}!*",
+        "cta": "Únete al gremio con este enlace:",
+        "note_prefix": "_Nota: {note}_",
+        "outro": "{guild} es un gremio de juego — eventos, alianzas y camaradería te esperan. Mantén el fuerte, Comandante. 🛡️",
+    },
+    "fr": {
+        "label": "Français",
+        "title": "🎉 *{admin} t'invite à rejoindre {guild} !*",
+        "cta": "Rejoins la guilde via ce lien :",
+        "note_prefix": "_Note : {note}_",
+        "outro": "{guild} est une guilde de jeu — événements, alliances et camaraderie t'attendent. Tiens le fort, Commandant. 🛡️",
+    },
+    "ru": {
+        "label": "Русский",
+        "title": "🎉 *{admin} приглашает тебя в {guild}!*",
+        "cta": "Присоединяйся к гильдии по ссылке:",
+        "note_prefix": "_Заметка: {note}_",
+        "outro": "{guild} — это игровая гильдия. События, союзы и братство ждут тебя. Держи крепость, Командир. 🛡️",
+    },
+    "pt": {
+        "label": "Português",
+        "title": "🎉 *{admin} está te convidando para {guild}!*",
+        "cta": "Entra na guilda pelo link:",
+        "note_prefix": "_Nota: {note}_",
+        "outro": "{guild} é uma guilda de jogos — eventos, alianças e camaradagem te esperam. Segura o forte, Comandante. 🛡️",
+    },
+    "ar": {
+        "label": "العربية",
+        "title": "🎉 *{admin} يدعوك للانضمام إلى {guild}!*",
+        "cta": "انضم إلى النقابة عبر الرابط:",
+        "note_prefix": "_ملاحظة: {note}_",
+        "outro": "{guild} نقابة ألعاب — الفعاليات والتحالفات والصداقة بانتظارك. احرس القلعة أيها القائد. 🛡️",
+    },
+}
+
+
+def _build_invite_letter(lang: str, admin_name: str, guild_name: str,
+                          link: str, note: Optional[str]) -> str:
+    """Compose the multi-line invite letter for the requested language.
+    Falls back to Turkish if the code isn't in the template map."""
+    t = INVITE_LETTER_TEMPLATES.get((lang or "tr").lower()) \
+        or INVITE_LETTER_TEMPLATES["tr"]
+    parts = [
+        t["title"].format(admin=admin_name, guild=guild_name),
+        "",
+        t["cta"],
+        f"🔗 {link}",
+    ]
+    if (note or "").strip():
+        parts.append("")
+        parts.append(t["note_prefix"].format(note=note.strip()))
+    parts.append("")
+    parts.append(t["outro"].format(guild=guild_name))
+    return "\n".join(parts)
 
 
 class InviteConsumeBody(BaseModel):
@@ -86,7 +175,9 @@ def _invite_public(inv: dict, include_token: bool = True) -> dict:
         "disabled": bool(inv.get("disabled")),
         "status": _invite_status(inv),
         # v135.31 — Auto-generated invite letter (admin can copy / push to TG).
+        # v135.32 — Language code the letter was rendered in.
         "letter_body": inv.get("letter_body") or None,
+        "letter_lang": inv.get("letter_lang") or "tr",
     }
 
 
@@ -241,10 +332,9 @@ def make_invites_router(db, require_admin, hash_password_fn, create_token_fn,
             "created_by_username": admin.get("username") or "",
             "disabled": False,
         }
-        # v135.31 — Auto-generated invite letter. Uses the admin's display
-        # name / username, the guild name (from settings, env, or default),
-        # the invite note (optional) and the signup link. Persisted so the
-        # frontend can copy or push it to Telegram DMs with one click.
+        # v135.31 — Auto-generated invite letter. v135.32 — localised via
+        # `letter_lang`; falls back to 'tr'. The link URL is language-neutral;
+        # only the surrounding prose changes per language.
         try:
             import os as _os
             gs = await db.guild_settings.find_one({"key": "guild_name"}, {"_id": 0})
@@ -253,20 +343,62 @@ def make_invites_router(db, require_admin, hash_password_fn, create_token_fn,
                           or "TiTaNXiS")
             base = (_os.environ.get("PUBLIC_BASE_URL", "") or "https://titanxis.com").rstrip("/")
             link = f"{base}/kayit/{doc['token']}"
-            admin_name = admin.get("display_name") or admin.get("username") or "Bir yönetici"
-            note_line = f"\n_Not: {doc['note']}_\n" if doc.get("note") else ""
-            letter = (
-                f"🎉 *{admin_name} seni {guild_name}'e davet ediyor!*\n\n"
-                f"Aramıza katılmak için aşağıdaki linke tıklayabilirsin:\n"
-                f"🔗 {link}\n"
-                f"{note_line}"
-                f"\n{guild_name} bir gaming loncası — etkinlikler, ittifaklar ve dostluk seni bekliyor. Kaleyi sağlam tut, saflar bozulmasın Komutan. 🛡️"
+            admin_name = admin.get("display_name") or admin.get("username") or "Admin"
+            lang = (body.letter_lang or "tr").lower()
+            if lang not in INVITE_LETTER_TEMPLATES:
+                lang = "tr"
+            doc["letter_lang"] = lang
+            doc["letter_body"] = _build_invite_letter(
+                lang, admin_name, guild_name, link, doc.get("note"),
             )
-            doc["letter_body"] = letter
         except Exception:
+            doc["letter_lang"] = "tr"
             doc["letter_body"] = None
         await db.invites.insert_one(doc)
         return _invite_public(doc)
+
+    @router.get("/letter/languages")
+    async def list_letter_languages(_: dict = Depends(require_admin)):
+        # Exposed so the composer can render the language dropdown from a
+        # single source of truth. Returns `[{code, label}]`.
+        return {
+            "items": [
+                {"code": code, "label": tpl["label"]}
+                for code, tpl in INVITE_LETTER_TEMPLATES.items()
+            ]
+        }
+
+    @router.post("/{invite_id}/letter/regenerate")
+    async def regenerate_invite_letter(
+        invite_id: str, lang: Optional[str] = None,
+        admin: dict = Depends(require_admin),
+    ):
+        """Rebuild the letter body — handy when admin wants to switch the
+        target language after the invite is already live, without deleting
+        and re-issuing the token."""
+        import os as _os
+        inv = await db.invites.find_one({"id": invite_id}, {"_id": 0})
+        if not inv:
+            raise HTTPException(404, "Davet bulunamadı")
+        new_lang = (lang or inv.get("letter_lang") or "tr").lower()
+        if new_lang not in INVITE_LETTER_TEMPLATES:
+            new_lang = "tr"
+        gs = await db.guild_settings.find_one({"key": "guild_name"}, {"_id": 0})
+        guild_name = ((gs or {}).get("value")
+                      or _os.environ.get("GUILD_NAME", "").strip()
+                      or "TiTaNXiS")
+        base = (_os.environ.get("PUBLIC_BASE_URL", "") or "https://titanxis.com").rstrip("/")
+        link = f"{base}/kayit/{inv['token']}"
+        admin_name = admin.get("display_name") or admin.get("username") or "Admin"
+        letter = _build_invite_letter(
+            new_lang, admin_name, guild_name, link, inv.get("note"),
+        )
+        await db.invites.update_one(
+            {"id": invite_id},
+            {"$set": {"letter_lang": new_lang, "letter_body": letter,
+                      "letter_regenerated_at": _now_iso()}},
+        )
+        return {"ok": True, "letter_lang": new_lang, "letter_body": letter}
 
     @router.get("")
     async def list_invites(_: dict = Depends(require_admin)):
