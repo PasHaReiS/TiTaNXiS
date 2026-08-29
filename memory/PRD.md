@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 28, 2026 (v135.23 Bildirim Tercih Enforcement + QR Davet Doğrulama)** — `/app/backend/server.py`:
+  - **Yeni helper**: `_users_disabled_for_pref(pref_key)` — `notification_prefs.<pref_key>: False` olan user_id'leri toplayan Motor cursor sorgusu. Anahtar yoksa default True → mevcut kullanıcılar tüm kanalları almaya devam eder.
+  - **`_broadcast_push`**: Yeni opsiyonel `notif_pref` parametresi. Global `notification_enabled=False` opt-out setine per-channel opt-out'ları da ekliyor (union) — böylece "Bildirim Türleri" panelindeki bir toggle gerçekten push subscription'ları filtreliyor.
+  - **`_broadcast_in_app`**: Aynı `notif_pref` parametresi — `target_user_ids` setinden opt-out olanları çıkarıyor (bell rowu yaratılmıyor).
+  - **RSVP Reminder**: `_rsvp_reminder_task` (line 4103) yes/maybe user_ids'i `"rsvp"` pref'ine göre filtreliyor.
+  - **Duyuru Anlık + Zamanlanmış**: `announcements_create` (instant broadcast) ve `_announcement_scheduler_loop` (60s cron) her ikisi de `notif_pref="announcement"` ile çağırıyor.
+  - **E2E doğrulama**: admin `announcement=false` → curl ile duyuru gönderildi → `GET /api/notifications` → matching row sayısı 0 (beklendiği gibi). Prefs geri açıldığında normal delivery devam ediyor.
+  - **QR Davet Önizleme** (bulundu, halihazırda mevcut): `/app/frontend/src/components/InviteManagement.jsx` L200 satır içi 68px `QRCodeSVG` + `QrExpandModal` (256px + PNG indirme). `qrcode.react ^4.2.0` paketi kurulu. Yeni özellik değil ama akıcı: her invite row'un solunda tık ile büyüyen QR. 3 aktif davet listelendi curl'de.
+
 - **Feb 28, 2026 (v135.22 Telegram Bildirimde Saat)** — `send_event_notification` (`/app/backend/telegram_bot.py` L1622):
   - **Değişiklik**: Mesajdaki `🗓 Tarih` satırı artık tarih + saat gösteriyor (Türkiye saati, UTC+3). Örn `2026-03-15 21:00 (TR)`. ISO parse başarısız olursa (yalnızca `YYYY-MM-DD` verildiğinde) sadece tarih basılır (regresyon-güvenli fallback).
   - **Refaktör**: `dt` parse blok bloğu, mesaj satırlarının üstüne çekildi ki `date_line` da aynı `dt`'yi kullansın; Google Calendar URL üretimi (`dates=YYYYMMDDTHHMMSSZ/…`) davranışı UTC'de aynı kaldı, `end = dt + 1h` mantığı korundu.

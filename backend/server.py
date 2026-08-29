@@ -4127,6 +4127,11 @@ async def _rsvp_reminder_task():
         # linked alliance no longer matches the event's scope.
         rsvps = await _filter_rsvps_by_current_alliance(rsvps, scope)
         user_ids = list({r["user_id"] for r in rsvps if r.get("user_id")})
+        # v135.23 — Respect per-channel opt-out for "rsvp" reminders.
+        if user_ids:
+            _rsvp_disabled = await _users_disabled_for_pref("rsvp")
+            if _rsvp_disabled:
+                user_ids = [u for u in user_ids if u not in _rsvp_disabled]
         if user_ids:
             subs = await db.push_subscriptions.find({"user_id": {"$in": user_ids}}, {"_id": 0}).to_list(500)
             payload = json.dumps({
@@ -5007,7 +5012,29 @@ async def push_unsubscribe(body: PushSubscribeBody, _: dict = Depends(require_au
     return {"ok": True}
 
 
-async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "titanxis", group_name: Optional[str] = None, alliance_name: Optional[str] = None, country_iso2: Optional[str] = None, event_id: Optional[str] = None, sound: Optional[str] = None):
+# v135.23 — Notification preferences enforcement helper.
+# The user Profile → "Bildirim Türleri" panel writes per-channel opt-outs
+# (`rsvp`, `announcement`, `streak`, `sadiklar`) into `users.notification_prefs`.
+# This helper returns the set of user_ids whose pref for `pref_key` is False
+# so the push / in-app fan-out can drop them WITHOUT touching the master
+# `notification_enabled` flag (that's the nuclear "silence everything" switch).
+# Missing keys default to True → existing users keep receiving all channels.
+async def _users_disabled_for_pref(pref_key: str) -> set:
+    """Return set(user_id) whose `notification_prefs.<pref_key> == False`."""
+    if not pref_key:
+        return set()
+    disabled: set = set()
+    cursor = db.users.find(
+        {f"notification_prefs.{pref_key}": False},
+        {"_id": 0, "id": 1},
+    )
+    async for u in cursor:
+        if u.get("id"):
+            disabled.add(u["id"])
+    return disabled
+
+
+async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "titanxis", group_name: Optional[str] = None, alliance_name: Optional[str] = None, country_iso2: Optional[str] = None, event_id: Optional[str] = None, sound: Optional[str] = None, notif_pref: Optional[str] = None):
     """Broadcast a push. When group_name is provided, only send to users whose prefs include this group
     (users without any saved prefs receive everything by default). When alliance_name is provided,
     only send to subscribers whose linked member document has the matching alliance.
@@ -5021,6 +5048,9 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
             {"notification_enabled": False}, {"_id": 0, "id": 1}
         )
     }
+    # v135.23 — Per-channel opt-out (Profile → Bildirim Türleri panel).
+    if notif_pref:
+        opted_out_users |= await _users_disabled_for_pref(notif_pref)
     allowed_users: Optional[set] = None
     if group_name:
         prefs = await db.push_prefs.find({}, {"_id": 0}).to_list(2000)
@@ -5897,7 +5927,7 @@ def _publish_notif(user_id: str, payload: dict) -> None:
                 pass
 
 
-async def _broadcast_in_app(doc: dict) -> dict:
+async def _broadcast_in_app(doc: dict, notif_pref: Optional[str] = None) -> dict:
     """Fan-out to the in-app notification centre. Inserts one document per
     linked user into `in_app_notifications` — the header bell icon polls
     this collection and renders unread rows with a red badge. Independent
@@ -5934,6 +5964,12 @@ async def _broadcast_in_app(doc: dict) -> dict:
             {"notification_enabled": {"$ne": False}}, {"_id": 0, "id": 1}
         ):
             target_user_ids.add(u["id"])
+    # v135.23 — Per-channel pref (Profile → Bildirim Türleri): drop users
+    # who explicitly opted out of this channel BEFORE we insert bell rows.
+    if notif_pref:
+        disabled_for_channel = await _users_disabled_for_pref(notif_pref)
+        if disabled_for_channel:
+            target_user_ids -= disabled_for_channel
     if not target_user_ids:
         return stats
     now = now_iso()
@@ -6287,10 +6323,11 @@ async def _announcement_scheduler_loop():
                 push_task = _broadcast_push(
                     doc["title"], doc["body"], doc.get("url") or "/duyurular",
                     tag=f"announcement-{doc['id']}", sound="rally",
+                    notif_pref="announcement",
                 )
                 channel_task = _send_tg_channel(push_doc)
                 dm_task = _send_tg_dms(push_doc)
-                app_task = _broadcast_in_app(push_doc)
+                app_task = _broadcast_in_app(push_doc, notif_pref="announcement")
                 results = await asyncio.gather(
                     push_task, channel_task, dm_task, app_task,
                     return_exceptions=True,
@@ -6969,10 +7006,11 @@ async def announcements_create(body: AnnouncementBody, user: dict = Depends(requ
             doc["title"], doc["body"], doc["url"],
             tag=f"announcement-{doc['id']}",
             sound="rally",
+            notif_pref="announcement",
         )
         channel_task = _send_tg_channel(push_doc)
         dm_task = _send_tg_dms(push_doc)
-        app_task = _broadcast_in_app(push_doc)
+        app_task = _broadcast_in_app(push_doc, notif_pref="announcement")
         results = await _asyncio_ann.gather(
             push_task, channel_task, dm_task, app_task,
             return_exceptions=True,
