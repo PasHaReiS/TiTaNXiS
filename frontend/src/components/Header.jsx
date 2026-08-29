@@ -269,6 +269,20 @@ export default function Header({ title, children }) {
                       testId="dropdown-tg-templates"
                     />
                   )}
+                  {isAdmin && (
+                    <MenuItem
+                      emoji="📋"
+                      label={t("nav_admin_todos", "Görevler")}
+                      onClick={() => goto("/admin/gorevler")}
+                      testId="dropdown-admin-todos"
+                    />
+                  )}
+                  <MenuItem
+                    emoji="📜"
+                    label={t("nav_guild_rules", "Lonca Kuralları")}
+                    onClick={() => goto("/kurallar")}
+                    testId="dropdown-guild-rules"
+                  />
                   <MenuItem
                     emoji="⚔️"
                     label={t("dropdown_svs", "SvS Takip")}

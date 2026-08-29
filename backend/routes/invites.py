@@ -85,6 +85,8 @@ def _invite_public(inv: dict, include_token: bool = True) -> dict:
         "created_by_username": inv.get("created_by_username"),
         "disabled": bool(inv.get("disabled")),
         "status": _invite_status(inv),
+        # v135.31 — Auto-generated invite letter (admin can copy / push to TG).
+        "letter_body": inv.get("letter_body") or None,
     }
 
 
@@ -186,6 +188,23 @@ def make_invites_router(db, require_admin, hash_password_fn, create_token_fn,
             "invite_signup": True,
         })
         jwt_token = create_token_fn(user_id, uname, doc["role"], sid=sid)
+        # v135.31 — Welcome bell + push notification pointing to /kurallar
+        # so every newly-signed-up member sees the guild rules on first
+        # login. Best-effort — signup path must never fail because of this.
+        try:
+            await db.in_app_notifications.insert_one({
+                "id": uuid.uuid4().hex,
+                "user_id": user_id,
+                "title": "🎉 Aramıza hoş geldin!",
+                "body": "Loncanın kurallarını okumayı unutma — /kurallar sayfasında.",
+                "url": "/kurallar",
+                "event_id": None,
+                "sched_id": f"welcome-{user_id}",
+                "created_at": now_iso_fn(),
+                "read": False,
+            })
+        except Exception:
+            pass
         return {"token": jwt_token, "user": public_user_fn(doc)}
 
     # -------------- Admin --------------
@@ -222,6 +241,30 @@ def make_invites_router(db, require_admin, hash_password_fn, create_token_fn,
             "created_by_username": admin.get("username") or "",
             "disabled": False,
         }
+        # v135.31 — Auto-generated invite letter. Uses the admin's display
+        # name / username, the guild name (from settings, env, or default),
+        # the invite note (optional) and the signup link. Persisted so the
+        # frontend can copy or push it to Telegram DMs with one click.
+        try:
+            import os as _os
+            gs = await db.guild_settings.find_one({"key": "guild_name"}, {"_id": 0})
+            guild_name = ((gs or {}).get("value")
+                          or _os.environ.get("GUILD_NAME", "").strip()
+                          or "TiTaNXiS")
+            base = (_os.environ.get("PUBLIC_BASE_URL", "") or "https://titanxis.com").rstrip("/")
+            link = f"{base}/kayit/{doc['token']}"
+            admin_name = admin.get("display_name") or admin.get("username") or "Bir yönetici"
+            note_line = f"\n_Not: {doc['note']}_\n" if doc.get("note") else ""
+            letter = (
+                f"🎉 *{admin_name} seni {guild_name}'e davet ediyor!*\n\n"
+                f"Aramıza katılmak için aşağıdaki linke tıklayabilirsin:\n"
+                f"🔗 {link}\n"
+                f"{note_line}"
+                f"\n{guild_name} bir gaming loncası — etkinlikler, ittifaklar ve dostluk seni bekliyor. Kaleyi sağlam tut, saflar bozulmasın Komutan. 🛡️"
+            )
+            doc["letter_body"] = letter
+        except Exception:
+            doc["letter_body"] = None
         await db.invites.insert_one(doc)
         return _invite_public(doc)
 
@@ -240,6 +283,33 @@ def make_invites_router(db, require_admin, hash_password_fn, create_token_fn,
     @router.delete("/{invite_id}")
     async def delete_invite(invite_id: str, _: dict = Depends(require_admin)):
         await db.invites.delete_one({"id": invite_id})
+        return {"ok": True}
+
+    # v135.31 — Push the auto-generated invite letter to Telegram. Uses the
+    # bot channel target (`TELEGRAM_CHANNEL_ID`) with Markdown formatting.
+    @router.post("/{invite_id}/send-letter-telegram")
+    async def send_invite_letter_tg(invite_id: str, _: dict = Depends(require_admin)):
+        import os as _os
+        inv = await db.invites.find_one({"id": invite_id}, {"_id": 0})
+        if not inv:
+            raise HTTPException(404, "Davet bulunamadı")
+        if not inv.get("letter_body"):
+            raise HTTPException(400, "Bu davet için mektup üretilmemiş")
+        channel = _os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+        token = _os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+        if not channel or not token:
+            raise HTTPException(400, "TELEGRAM_CHANNEL_ID / TELEGRAM_BOT_TOKEN tanımlı değil")
+        try:
+            from telegram_bot import send_message as _tg_send
+            ok = await _tg_send(channel, inv["letter_body"])
+        except Exception as ex:
+            raise HTTPException(502, f"Telegram send failed: {str(ex)[:200]}")
+        if not ok:
+            raise HTTPException(502, "Telegram send returned False")
+        await db.invites.update_one(
+            {"id": invite_id},
+            {"$set": {"letter_last_sent_at": _now_iso()}},
+        )
         return {"ok": True}
 
     return router

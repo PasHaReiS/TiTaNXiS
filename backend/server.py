@@ -9926,6 +9926,45 @@ from routes.admin_notes import make_admin_notes_router
 app.include_router(make_admin_notes_router(db, require_admin), prefix="/api")
 from routes.telegram_templates import make_telegram_templates_router, ensure_telegram_templates_indexes
 app.include_router(make_telegram_templates_router(db, require_admin), prefix="/api")
+from routes.admin_todos import make_admin_todos_router, ensure_admin_todos_indexes
+app.include_router(make_admin_todos_router(db, require_admin), prefix="/api")
+
+
+# v135.31 — Guild rules page (public read + admin edit). Stored as a single
+# free-form Markdown-lite blob in `guild_settings.guild_rules`. New members
+# get a welcome bell + toast pointing here on signup (see invites.py).
+# NOTE: registered on `app` directly (not `api_router`) because these lines
+# execute AFTER `app.include_router(api_router)` — the router's routes are
+# already frozen by then.
+@app.get("/api/guild/rules")
+async def get_guild_rules():
+    doc = await db.guild_settings.find_one({"key": "guild_rules"}, {"_id": 0})
+    return {
+        "body": ((doc or {}).get("value") or "").strip(),
+        "updated_at": (doc or {}).get("updated_at"),
+        "updated_by": (doc or {}).get("updated_by"),
+    }
+
+
+@app.put("/api/guild/rules")
+async def put_guild_rules(body: dict, user: dict = Depends(require_admin)):
+    raw = (body or {}).get("body") or ""
+    if not isinstance(raw, str):
+        raise HTTPException(400, "body must be a string")
+    raw = raw.strip()
+    if len(raw) > 20000:
+        raise HTTPException(400, "rules max 20000 karakter")
+    await db.guild_settings.update_one(
+        {"key": "guild_rules"},
+        {"$set": {
+            "key": "guild_rules",
+            "value": raw,
+            "updated_at": now_iso(),
+            "updated_by": (user or {}).get("username") or "admin",
+        }},
+        upsert=True,
+    )
+    return {"ok": True, "body": raw}
 
 app.mount("/api/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
@@ -9968,6 +10007,11 @@ async def startup():
         await ensure_telegram_templates_indexes(db)
     except Exception as _e:
         logging.getLogger("server").warning(f"telegram_templates index ensure: {_e}")
+    # v135.31 — Admin todos indexes
+    try:
+        await ensure_admin_todos_indexes(db)
+    except Exception as _e:
+        logging.getLogger("server").warning(f"admin_todos index ensure: {_e}")
 
     # One-shot legacy `/app/uploads/*` → Emergent Object Store migration.
     # Idempotent (per-file), so it re-runs safely on every startup and

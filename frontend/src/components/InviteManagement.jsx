@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import useSWR from "swr";
+import { useTranslation } from "react-i18next";
 import { api, apiErr } from "@/lib/api";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
@@ -319,11 +320,83 @@ function InviteRow({ inv, qrTheme = "light", onChanged }) {
           <div className="text-[9px] text-muted-foreground">
             {inv.created_by_username || "sistem"} · {new Date(inv.created_at).toLocaleString("tr-TR")}
           </div>
+          {/* v135.31 — Auto-generated invite letter. Collapsed by default;
+              opens to reveal a copy-friendly Markdown block + Telegram push. */}
+          {inv.letter_body && (
+            <InviteLetterSection inv={inv} />
+          )}
         </div>
       </div>
       {qrOpen && (
         <QrExpandModal url={url} note={inv.note} branded={branded}
                        onClose={() => setQrOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+function InviteLetterSection({ inv }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const copyLetter = () => {
+    navigator.clipboard.writeText(inv.letter_body || "").then(
+      () => toast.success(t("invite_letter_copied", "Davet mektubu kopyalandı")),
+      () => toast.error(t("invite_letter_copy_failed", "Kopyalanamadı")),
+    );
+  };
+  const sendTg = async () => {
+    if (!window.confirm(t("invite_letter_confirm_send",
+      "Davet mektubunu Telegram grubuna göndermek istiyor musun?"))) return;
+    setSending(true);
+    try {
+      await api.post(`/invites/${inv.id}/send-letter-telegram`);
+      toast.success(t("invite_letter_sent", "Davet mektubu Telegram grubuna gönderildi"));
+    } catch (e) { toast.error(apiErr(e)); }
+    finally { setSending(false); }
+  };
+  return (
+    <div className="mt-1" data-testid={`invite-letter-${inv.id}`}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="chip text-[10px]"
+        data-testid={`invite-letter-toggle-${inv.id}`}
+      >
+        ✉️ {open
+          ? t("invite_letter_hide", "Mektubu Gizle")
+          : t("invite_letter_show", "Davet Mektubu")}
+      </button>
+      {open && (
+        <div
+          className="mt-1 rounded p-2 text-[11px] text-white whitespace-pre-wrap leading-relaxed"
+          style={{
+            background: "rgba(245,166,35,0.06)",
+            border: "1px solid rgba(245,166,35,0.25)",
+            fontFamily: "Georgia, serif",
+          }}
+          data-testid={`invite-letter-body-${inv.id}`}
+        >
+          {inv.letter_body}
+          <div className="flex items-center gap-2 flex-wrap mt-2">
+            <button
+              onClick={copyLetter}
+              className="chip text-[10px]"
+              data-testid={`invite-letter-copy-${inv.id}`}
+            >
+              <Copy className="w-3 h-3" /> {t("invite_letter_copy_btn", "Mektubu Kopyala")}
+            </button>
+            <button
+              onClick={sendTg}
+              disabled={sending}
+              className="btn-gold text-[10px] flex items-center gap-1.5 px-2 py-1"
+              data-testid={`invite-letter-send-${inv.id}`}
+            >
+              {sending
+                ? t("sending", "Gönderiliyor…")
+                : t("invite_letter_send_btn", "Telegram'a Gönder")}
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
