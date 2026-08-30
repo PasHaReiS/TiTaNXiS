@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v137.9 — /yardim CRITICAL Fix)** — Backend:
+  - **Root cause**: `/yardim` metnindeki `_` içeren komut isimleri (`/etkinlik_ekle`, `/puan_ekle`, `/rozet_ver`, `/toplu_duyuru`, `/etkinlik_iptal`, `/esik_uyari`, `/geri_bildirim`, `/sifremi_sifirla`, `/reset_password`) Markdown italic markörü olarak yorumlandı → Telegram BadRequest ("can't find end of entity starting at byte offset 818") → mesaj hiç iletilmiyordu. `/help` de aynı hatayı üretiyordu ama production'daki eski build'de bu commands yoktu.
+  - **Fix #1**: Yeni `_safe_reply(update, text, parse_mode)` helper — `BadRequest`'te sessizce `parse_mode=None` ile retry eder. `reply_ml`'nin 3 çıkış noktası bu helper'ı kullanıyor. Bu sayede gelecekte de Markdown edge-case'leri metni düşürmez.
+  - **Fix #2**: `/yardim` text'inde `_` içeren komut isimleri backtick içine alındı (kod bloğu Markdown parse'ı bypass eder, temiz görünür de).
+  - **Test doğrulandı**: `POST /api/telegram/webhook` `/yardim` simülasyonu artık `{"ok":true}` döndürüyor + backend log'unda BadRequest yok.
+
+
 - **Feb 29, 2026 (v137.8 — /help vs /yardim Locale Override)** — Backend:
   - `yardim_command` artık çağıran komut adına göre yanıt dili zorlar:
     - `/help` → `_nlp_override_lang="en"` → İngilizce yanıt

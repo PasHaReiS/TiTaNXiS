@@ -265,24 +265,40 @@ async def reply_ml(update: Update, tr_text: str, parse_mode: str = "Markdown"):
 
     # 4) TR ya da bilinmeyen → orijinal Türkçe metni gönder
     if not src_lang or src_lang == "tr":
-        await update.message.reply_text(tr_text, parse_mode=parse_mode)
+        await _safe_reply(update, tr_text, parse_mode)
         return
 
     # _DEEPL_TARGET'ta yoksa fallback TR
     target = _DEEPL_TARGET.get(src_lang)
     if not target:
         log.info(f"reply_ml: unknown src_lang={src_lang!r} → falling back to TR")
-        await update.message.reply_text(tr_text, parse_mode=parse_mode)
+        await _safe_reply(update, tr_text, parse_mode)
         return
 
     # Aynı dile çeviri anlamsız
     if target == "TR":
-        await update.message.reply_text(tr_text, parse_mode=parse_mode)
+        await _safe_reply(update, tr_text, parse_mode)
         return
 
     res = await _deepl_translate(tr_text, target, source_lang="TR")
     out = (res or {}).get("text") or tr_text
-    await update.message.reply_text(out, parse_mode=parse_mode)
+    await _safe_reply(update, out, parse_mode)
+
+
+async def _safe_reply(update: Update, text: str, parse_mode: Optional[str]):
+    """v137.9 — Markdown parse hatalarında sessizce plain-text'e düşer.
+    `/yardim` gibi çıktılarda `/etkinlik_ekle` şeklinde `_` içeren komut
+    isimleri italic açılması sanılıp Telegram BadRequest yollar. Retry-once
+    mantığı: parse_mode kaldır → metin yine ulaşır."""
+    from telegram.error import BadRequest as _BR
+    try:
+        await update.message.reply_text(text, parse_mode=parse_mode)
+    except _BR as e:
+        log.warning(f"reply parse failed ({e}) — retrying plain text")
+        try:
+            await update.message.reply_text(text, parse_mode=None)
+        except Exception as e2:
+            log.warning(f"plain retry also failed: {e2}")
 
 
 def _webhook_url() -> str:
@@ -1703,23 +1719,23 @@ async def yardim_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
     text = (
         "📖 *TiTaNXiS Bot Komutları*\n\n"
         "*GENEL:*\n"
-        "/siralama, /siralama top10, /puan, /puan @kul\n"
-        "/karsilastir @a @b, /profil, /profil @kul\n"
-        "/etkinlik, /etkinlikler, /yakinda, /takvim, /arsiv\n"
-        "/katil <id>, /katilmiyorum <id>, /hatirlatici <id>\n"
-        "/rozet, /istatistik, /streak, /online, /lonca\n"
-        "/bildirimler ac/kapat, /mola <gun>, /davet\n"
-        "/dil tr|en|de, /sifremi_sifirla, /geri_bildirim <msg>\n"
-        "/link <kod>, /unlink, /hakkinda, /yardim\n\n"
+        "`/siralama`, `/siralama top10`, `/puan`, `/puan @kul`\n"
+        "`/karsilastir @a @b`, `/profil`, `/profil @kul`\n"
+        "`/etkinlik`, `/etkinlikler`, `/yakinda`, `/takvim`, `/arsiv`\n"
+        "`/katil <id>`, `/katilmiyorum <id>`, `/hatirlatici <id>`\n"
+        "`/rozet`, `/istatistik`, `/streak`, `/online`, `/lonca`\n"
+        "`/bildirimler ac/kapat`, `/mola <gun>`, `/davet`\n"
+        "`/dil tr|en|de`, `/sifremi_sifirla`, `/geri_bildirim <msg>`\n"
+        "`/link <kod>`, `/unlink`, `/hakkinda`, `/yardim`\n\n"
         "*ADMIN:*\n"
-        "/duyuru, /toplu_duyuru, /uyar @kul <sebep>\n"
-        "/rapor, /uyeler, /ekle @kul, /cikar @kul\n"
-        "/puan_ekle @kul <n>, /rozet_ver @kul <ad>\n"
-        "/etkinlik_ekle, /etkinlik_iptal <id>, /esik_uyari\n\n"
-        "*🇬🇧 English aliases:* /points, /profile, /badges, /events, /stats,\n"
-        "/calendar, /archive, /guild, /compare, /upcoming, /join, /leave,\n"
-        "/remind, /language, /notifications, /pause, /invite, /feedback,\n"
-        "/about, /reset_password, /ranking, /power, /event\n\n"
+        "`/duyuru`, `/toplu_duyuru`, `/uyar @kul <sebep>`\n"
+        "`/rapor`, `/uyeler`, `/ekle @kul`, `/cikar @kul`\n"
+        "`/puan_ekle @kul <n>`, `/rozet_ver @kul <ad>`\n"
+        "`/etkinlik_ekle`, `/etkinlik_iptal <id>`, `/esik_uyari`\n\n"
+        "*🇬🇧 English aliases:* `/points`, `/profile`, `/badges`, `/events`, `/stats`,\n"
+        "`/calendar`, `/archive`, `/guild`, `/compare`, `/upcoming`, `/join`, `/leave`,\n"
+        "`/remind`, `/language`, `/notifications`, `/pause`, `/invite`, `/feedback`,\n"
+        "`/about`, `/reset_password`, `/ranking`, `/power`, `/event`\n\n"
         f"🌐 [{WEB_BASE}]({WEB_BASE}) — Tam yönetim paneli"
     )
     if forced_lang:
