@@ -790,13 +790,15 @@ export default function Events() {
               fontFamily: "Rajdhani, sans-serif",
               fontSize: 15,
               letterSpacing: "0.02em",
-              // v51 — never split a short word letter-by-letter on mobile.
-              // `nowrap` keeps names on a single line; the card wrapper has
-              // `flex-wrap:wrap` so the RSVP chip drops below the name row
-              // when there isn't enough horizontal room, giving the name
-              // its full deserved width without truncation.
-              whiteSpace: "nowrap",
+              // v136.6 — Etkinlik adları artık asla kesilmez: uzun isimler
+              // birden fazla satıra sarılır. `wordBreak: break-word` +
+              // `overflowWrap: anywhere` kombinasyonu hem TR hem CJK
+              // karakterlerle çalışır. Parent flex-wrap:wrap sayesinde
+              // RSVP chip aşağı düşer, isim tüm genişliği kullanabilir.
+              whiteSpace: "normal",
               overflow: "visible",
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
               lineHeight: 1.25,
             }}
           >
@@ -1814,8 +1816,8 @@ export default function Events() {
                                   <span style={{ fontSize: 12 }}>{isOpen ? "▼" : "▶"}</span>
                                   <span style={{ fontSize: 14 }}>{sg.isCollective ? "🤝" : "📄"}</span>
                                   <span
-                                    className="text-sm font-bold truncate flex-1"
-                                    style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.06em" }}
+                                    className="text-sm font-bold flex-1"
+                                    style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif", letterSpacing: "0.06em", whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere", lineHeight: 1.25 }}
                                     title={sg.label}
                                   >
                                     {sg.label}
@@ -2256,7 +2258,7 @@ function EventDetailModal({ event, open, onClose, onEdit, events = [], onNavigat
           <div>
             <div
               className="font-black uppercase tracking-widest"
-              style={{ fontFamily: "Cinzel, serif", color: "#F5F0E8", fontSize: 18, letterSpacing: "0.06em", lineHeight: 1.2 }}
+              style={{ fontFamily: "Cinzel, serif", color: "#F5F0E8", fontSize: 18, letterSpacing: "0.06em", lineHeight: 1.2, whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere" }}
               data-testid="event-detail-name"
             >
               {e.name}

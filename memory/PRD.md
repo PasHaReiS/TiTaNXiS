@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v136.6 — Etkinlik Adı Truncate Fix)** — Frontend-only:
+  - **Ana etkinlik kartı** (line 786+): `whiteSpace: "nowrap"` → `"normal"` + `wordBreak: "break-word"` + `overflowWrap: "anywhere"`. Uzun isimler ("Prestige Warden / Prestige Warden", "SvS WaR & 151 / SvS Standard") artık `group / name` formatında iki-üç satıra sarılır, `...` görünmüyor.
+  - **Alt-grup başlığı** (accordion header, line ~1817): `truncate flex-1` sınıfı kaldırıldı, `whiteSpace: normal + wordBreak + overflowWrap` eklendi.
+  - **Etkinlik detay modalı** (line ~2262): Başlık `text-3xl` benzeri `<div>` uzun isimlerde artık düzgün sarılır. Cinzel font korundu.
+  - Not: Arşiv klasör grid'indeki folder ismi (`c.name`, line ~1621) kasten `truncate` kaldı — bunlar kısa folder adları (Kupa 4, Sezon 1) ve grid dengesi için tek satır olmalı.
+
+
 - **Feb 29, 2026 (v136.5 — Telegram Bot Error Message Overhaul)** — Backend:
   - **`_require_link`**: Genel "hesabını bağla" mesajı 3 adımlı actionable talimatlarla değiştirildi + kullanıcının chat ID'si mesaja eklendi (admin elle eşleyebilsin).
   - **`_require_admin`**: Kullanıcı adı + mevcut rol gösteriliyor artık ("Hesabın: X, rol: member").
