@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { EVENTS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
-import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera, BellOff, Users, User, LayoutGrid, CalendarDays, CheckSquare, Square, EyeOff, Eye, Star, ChevronDown, ChevronRight, LayoutTemplate } from "lucide-react";
+import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera, BellOff, Users, User, LayoutGrid, CalendarDays, CheckSquare, Square, EyeOff, Eye, Star, ChevronDown, ChevronRight, LayoutTemplate, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import ImageDropzone from "@/components/ImageDropzone";
@@ -373,6 +373,28 @@ export default function Events() {
   const unremindedCount = allActive.filter((e) => e.reminder_enabled === false).length;
   const archivedCount = useSWR("/events?archived=true", fetcher).data?.length || 0;
 
+  // v136.3 — Arşiv sekmesi için gelişmiş filtre paneli. Sadece
+  // `tab==="archive"` iken uygulanır; klasör grid'inin ÜSTÜNDE render edilir
+  // ve `filteredEvents` useMemo'da uygulanır. participantQuery non-empty
+  // olduğunda `/points?search=X` çekilir ve o etkinlik ID'leri set'e alınır.
+  const [archFilter, setArchFilter] = useState({
+    dateFrom: "",
+    dateTo: "",
+    typeQuery: "",
+    participantQuery: "",
+  });
+  const debouncedParticipant = React.useDeferredValue(archFilter.participantQuery.trim());
+  const { data: archParticipantPoints = [] } = useSWR(
+    archived && debouncedParticipant.length >= 2
+      ? `/points?search=${encodeURIComponent(debouncedParticipant)}&limit=2000`
+      : null,
+    fetcher,
+  );
+  const participantEventIdSet = useMemo(() => {
+    if (!debouncedParticipant) return null;
+    return new Set(archParticipantPoints.map((p) => p.event_id).filter(Boolean));
+  }, [archParticipantPoints, debouncedParticipant]);
+
   const filteredEvents = useMemo(() => {
     let list = events;
     if (!archived) {
@@ -382,11 +404,30 @@ export default function Events() {
       // Archive: apply folder filter + sort direction
       if (folderId === "none") list = list.filter((e) => !e.folder_id);
       else if (folderId) list = list.filter((e) => e.folder_id === folderId);
+      // v136.3 — Gelişmiş arşiv filtreleri
+      if (archFilter.dateFrom) {
+        const fromMs = new Date(archFilter.dateFrom).getTime();
+        if (!isNaN(fromMs)) list = list.filter((e) => new Date(e.date).getTime() >= fromMs);
+      }
+      if (archFilter.dateTo) {
+        const toMs = new Date(archFilter.dateTo).getTime() + 24 * 3600 * 1000 - 1;
+        if (!isNaN(toMs)) list = list.filter((e) => new Date(e.date).getTime() <= toMs);
+      }
+      if (archFilter.typeQuery.trim()) {
+        const q = archFilter.typeQuery.trim().toLowerCase();
+        list = list.filter((e) =>
+          (e.name || "").toLowerCase().includes(q) ||
+          (e.group_name || "").toLowerCase().includes(q) ||
+          (e.subtitle || "").toLowerCase().includes(q));
+      }
+      if (participantEventIdSet) {
+        list = list.filter((e) => participantEventIdSet.has(e.id));
+      }
       const dir = archiveSort === "oldest" ? 1 : -1;
       list = [...list].sort((a, b) => dir * (new Date(b.date) - new Date(a.date)));
     }
     return list;
-  }, [events, tab, archived, folderId, archiveSort]);
+  }, [events, tab, archived, folderId, archiveSort, archFilter, participantEventIdSet]);
 
   // Split events into (a) grouped-by-name and (b) ungrouped so the page can
   // render two clean side-by-side columns instead of mixing them together.
@@ -1454,6 +1495,13 @@ export default function Events() {
             const openNewFolder = () => setShowFolderMgr(true);
             return (
               <div data-testid="events-archive-redesign">
+                {/* v136.3 — Gelişmiş Arşiv Filtreleri */}
+                <ArchiveFilterPanel
+                  filter={archFilter}
+                  setFilter={setArchFilter}
+                  filteredCount={filteredEvents.length}
+                  totalCount={events.length}
+                />
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   {cards.map((c) => {
                     const isSel = folderId === c.id || (folderId === "none" && c.id === "__none__");
@@ -2041,8 +2089,28 @@ function EventDetailModal({ event, open, onClose, onEdit, events = [], onNavigat
 
   const doDelete = async () => {
     if (e.series_id) {
+      // v136.3 — Serinin bu son etkinliği mi? Aynı `series_id`'ye sahip
+      // mevcut event listesinde başka etkinlik yoksa 3 seçenekli prompt
+      // yerine tek soru sor: "Tüm seriyi sil?" — kazayla yarım seri kalmasın.
+      const siblings = events.filter((x) => x.series_id === e.series_id && x.id !== e.id);
+      if (siblings.length === 0) {
+        if (!window.confirm(
+          t("confirm_delete_last_series",
+            "Bu, serinin son etkinliği. Tüm seriyi (kayıtları dahil) silmek istiyor musun?",
+          ))) return;
+        setBusy(true);
+        try {
+          await api.delete(`/events/series/${e.series_id}`);
+          mutate((k) => typeof k === "string" && k.startsWith("/events"));
+          mutate("/stats");
+          toast.success(t("series_deleted", "Seri silindi"));
+          onClose();
+        } catch (err) { toast.error(err?.response?.data?.detail || err.message); }
+        finally { setBusy(false); }
+        return;
+      }
       const scope = window.prompt(
-        `Bu etkinlik bir seriye ait (${e.series_id.slice(0, 6)}). Ne silmek istersin?\n\n` +
+        `Bu etkinlik bir seriye ait (${e.series_id.slice(0, 6)}, ${siblings.length + 1} etkinlik). Ne silmek istersin?\n\n` +
         `1 = Sadece bu etkinlik\n2 = Bu ve gelecek olan hepsi\n3 = Tüm seri (geçmiş dahil)\n\nİptal için boş bırak:`,
         "1",
       );
@@ -2716,6 +2784,108 @@ function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearS
     </div>
   );
 }
+
+// v136.3 — Gelişmiş Arşiv Arama Paneli: tarih aralığı + tip/isim araması +
+// katılımcı adı ile filtreleme. Tümü client-side; participantQuery ≥ 2 char
+// olunca `/points?search=X` çekilir (parent'ta) ve o event_id'ler set olarak
+// ana filtreye uygulanır.
+function ArchiveFilterPanel({ filter, setFilter, filteredCount, totalCount }) {
+  const { t } = useTranslation();
+  const patch = (delta) => setFilter((prev) => ({ ...prev, ...delta }));
+  const anyActive =
+    !!filter.dateFrom || !!filter.dateTo ||
+    !!filter.typeQuery.trim() || !!filter.participantQuery.trim();
+  return (
+    <div
+      data-testid="archive-filter-panel"
+      className="mb-3 rounded-lg p-2 space-y-2"
+      style={{
+        background: "linear-gradient(180deg, rgba(139,92,246,0.10) 0%, rgba(15,10,20,0.65) 100%)",
+        border: "1px solid rgba(139,92,246,0.35)",
+      }}
+    >
+      <div className="flex items-center justify-between">
+        <span
+          className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5"
+          style={{ color: "#C4B5FD" }}
+        >
+          <SlidersHorizontal className="w-3 h-3" />
+          {t("archive_filter_title", "Gelişmiş Arşiv Filtresi")}
+        </span>
+        <span className="text-[10px] font-mono" style={{ color: anyActive ? "#F5A623" : "#94A3B8" }}>
+          {filteredCount} / {totalCount}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <label className="flex flex-col gap-0.5">
+          <span className="text-[9px] uppercase tracking-wider" style={{ color: "#94A3B8" }}>
+            {t("archive_filter_from", "Tarih (başlangıç)")}
+          </span>
+          <input
+            type="date"
+            data-testid="archive-filter-date-from"
+            value={filter.dateFrom}
+            onChange={(e) => patch({ dateFrom: e.target.value })}
+            className="bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none focus:border-violet-400"
+          />
+        </label>
+        <label className="flex flex-col gap-0.5">
+          <span className="text-[9px] uppercase tracking-wider" style={{ color: "#94A3B8" }}>
+            {t("archive_filter_to", "Tarih (bitiş)")}
+          </span>
+          <input
+            type="date"
+            data-testid="archive-filter-date-to"
+            value={filter.dateTo}
+            onChange={(e) => patch({ dateTo: e.target.value })}
+            className="bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none focus:border-violet-400"
+          />
+        </label>
+        <label className="flex flex-col gap-0.5">
+          <span className="text-[9px] uppercase tracking-wider" style={{ color: "#94A3B8" }}>
+            {t("archive_filter_type", "Tür / Etkinlik Adı")}
+          </span>
+          <input
+            type="text"
+            data-testid="archive-filter-type"
+            placeholder={t("archive_filter_type_placeholder", "SvS, Kristal, Kupa…")}
+            value={filter.typeQuery}
+            onChange={(e) => patch({ typeQuery: e.target.value })}
+            className="bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none focus:border-violet-400"
+          />
+        </label>
+        <label className="flex flex-col gap-0.5">
+          <span className="text-[9px] uppercase tracking-wider" style={{ color: "#94A3B8" }}>
+            {t("archive_filter_participant", "Katılımcı (üye adı)")}
+          </span>
+          <input
+            type="text"
+            data-testid="archive-filter-participant"
+            placeholder={t("archive_filter_participant_placeholder", "İsmin en az 2 karakteri…")}
+            value={filter.participantQuery}
+            onChange={(e) => patch({ participantQuery: e.target.value })}
+            className="bg-black/40 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none focus:border-violet-400"
+          />
+        </label>
+      </div>
+      {anyActive && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            data-testid="archive-filter-reset"
+            onClick={() => setFilter({ dateFrom: "", dateTo: "", typeQuery: "", participantQuery: "" })}
+            className="chip text-[10px] flex items-center gap-1"
+            style={{ borderColor: "rgba(148,163,184,0.55)", color: "#E5E7EB" }}
+          >
+            <X className="w-3 h-3" /> {t("archive_filter_reset", "Filtreleri Temizle")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 
 function EventForm({ initial, initialTemplate, onClose }) {  const { t } = useTranslation();
   const [name, setName] = useState(initial?.name || "");

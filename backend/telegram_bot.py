@@ -1065,24 +1065,70 @@ async def online_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
 async def streak_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
     u = await _require_link(update)
     if not u: return
-    m = await _member_from_user(u)
-    if not m:
-        await reply_ml(update, "🔗 Eşleşmiş üye yok.")
+    if _db is None:
+        await reply_ml(update, "🚫 Veritabanına erişilemedi.")
         return
-    # RSVP streak dokümanları varsa
-    doc = await _db.rsvp_streaks.find_one({"member_id": m["id"]}, {"_id": 0}) if _db is not None else None
-    if not doc:
+    # v136.4 — Streak'i dinamik hesapla: `rsvp_streaks` koleksiyonu doesn't exist
+    # in this deployment; kaynak veri `event_rsvps` (user_id başına). Mantık
+    # backend `_compute_user_yes_streak` ile aynı: attendance-enabled etkinlik
+    # üzerinden geriye doğru "yes" sayacı; ilk 'no'/'maybe'de kırılır.
+    rsvps = await _db.event_rsvps.find(
+        {"user_id": u["id"]}, {"_id": 0, "event_id": 1, "status": 1},
+    ).to_list(5000)
+    display_name = (u.get("username") or "Komutan")
+    m = await _member_from_user(u)
+    if m and m.get("name"):
+        display_name = m["name"]
+    if not rsvps:
         await reply_ml(update,
-            f"🔥 *{m.get('name','?')} — Streak*\n\n"
-            f"Henüz streak verisi yok. Bir etkinliğe RSVP evet ver, seri başlasın!\n\n"
+            f"🔥 *{display_name} — RSVP Streak*\n\n"
+            f"Henüz RSVP kaydın yok. Bir etkinliğe *Evet* de, seri başlasın!\n\n"
             f"📊 Sadıklar sıralaması: [{WEB_BASE}/siralama]({WEB_BASE}/siralama)")
         return
-    cur = int(doc.get("current_streak") or 0)
-    best = int(doc.get("best_streak") or 0)
+    ev_ids = list({r["event_id"] for r in rsvps if r.get("event_id")})
+    events = await _db.events.find(
+        {"id": {"$in": ev_ids}, "attendance_enabled": {"$ne": False}},
+        {"_id": 0, "id": 1, "date": 1},
+    ).to_list(5000)
+    by_ev = {e["id"]: e for e in events}
+    rows = []
+    for r in rsvps:
+        ev = by_ev.get(r.get("event_id"))
+        if not ev or not ev.get("date"):
+            continue
+        rows.append({"status": r.get("status"), "date": ev["date"]})
+    rows.sort(key=lambda x: x["date"], reverse=True)
+    # Şu anki seri (en yeniden geriye)
+    current = 0
+    for r in rows:
+        if r["status"] == "yes":
+            current += 1
+        else:
+            break
+    # Rekor seri (tüm zamanların en uzun "yes" ardışığı)
+    best = 0
+    run = 0
+    # Kronolojik sıraya çevir
+    for r in reversed(rows):
+        if r["status"] == "yes":
+            run += 1
+            best = max(best, run)
+        else:
+            run = 0
+    # Milestone motivasyon mesajı
+    MILESTONES = [5, 10, 15, 20, 25, 50, 100]
+    next_milestone = next((x for x in MILESTONES if x > current), None)
+    footer = ""
+    if next_milestone and current > 0:
+        gap = next_milestone - current
+        footer = f"\n🎯 Bir sonraki hedef: `{next_milestone}` — {gap} etkinlik kaldı!"
+    elif current == 0:
+        footer = "\n💤 Seri kırıldı. Bir sonraki etkinliğe *Evet* de, sıfırdan başla!"
     await reply_ml(update,
-        f"🔥 *{m.get('name','?')} — RSVP Streak*\n\n"
-        f"Şu anki seri: `{cur}` etkinlik\n"
-        f"Rekor: `{best}` etkinlik\n\n"
+        f"🔥 *{display_name} — RSVP Streak*\n\n"
+        f"Şu anki seri: `{current}` etkinlik\n"
+        f"Rekor: `{best}` etkinlik\n"
+        f"Toplam etkinlik geçmişi: `{len(rows)}`{footer}\n\n"
         f"🏆 Sadıklar: [{WEB_BASE}/siralama]({WEB_BASE}/siralama)"
     )
 

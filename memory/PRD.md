@@ -20,6 +20,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v136.3 — Arşiv Filtre Paneli + Seri Silme UX + /streak Fix)** — Backend + Frontend:
+  - **Gelişmiş Arşiv Arama** (`Events.jsx`): Arşiv sekmesinde klasör grid'inin ÜSTÜNE yeni `ArchiveFilterPanel` bileşeni eklendi — 4 alan: tarih başlangıç, tarih bitiş, tip/etkinlik adı, katılımcı (üye adı). Client-side filtreler `filteredEvents` useMemo'da uygulanır; participantQuery ≥ 2 karakter olunca `/points?search=X&limit=2000` SWR ile çekilir, o event_id'ler set olarak filtreye eklenir. Sağ üstte `filtered/total` mono count, en altta `archive-filter-reset` butonu (filtreler aktifken görünür).
+  - **Seri Silme UX** (`EventDetailModal.doDelete`): Etkinlik `series_id` içeriyorsa, mevcut events listesinde aynı series_id'ye sahip başka etkinlik sayılır. Kalan 0 ise 3-seçenekli prompt yerine tek soru: "Bu, serinin son etkinliği. Tüm seriyi (kayıtları dahil) silmek istiyor musun?" (i18n key `confirm_delete_last_series`). Onay verilirse `DELETE /events/series/{id}` çağrılır → seri tamamen silinir, yarım kayıt kalmaz. Kalan >0 ise mevcut 3-seçenekli prompt korunur ama "N etkinlik" bilgisi eklenir.
+  - **Telegram /streak Fix** (`telegram_bot.py`): `rsvp_streaks` koleksiyonu bu deployment'ta hiç var olmadığı için `streak_command` her zaman "Henüz streak verisi yok" fallback'i döndürüyordu. Fix: komut artık `event_rsvps` koleksiyonundan dinamik hesaplama yapıyor — mevcut `_compute_user_yes_streak` mantığını mirror'lıyor (attendance-enabled etkinlik + en yeniden geriye "yes" sayacı; 'no'/'maybe' seriyi kırar). Ek olarak `best_streak` tüm zamanların en uzun ardışık "yes" serisi olarak hesaplanır. Milestone hint (`5, 10, 15, 20, 25, 50, 100`) — sonraki hedefe kaç etkinlik kaldığını gösterir. Python unit test ile doğrulandı (current=1, best=7 senaryosunda).
+
+
 - **Feb 29, 2026 (v136.2 — Recurrence Bug Fix)** — Backend:
   - **Root cause**: `EventCreate` Pydantic modeli `recurrence_interval` + `recurrence_count` alanlarını tanımlamıyordu (sadece `EventUpdate`'de vardı). Sonuç: `body.model_dump()` bu alanları çıkarıyordu → `payload.pop(...)` her zaman `None` döndürüyordu → `interval="none"` → hiç seri oluşmuyordu, sadece tek etkinlik yaratılıyordu.
   - **İkinci bug**: `TemplateSeriesModal` "daily" interval'ini gönderiyor ama backend `step_days` haritası sadece `{"2days": 2, "weekly": 7, "2weekly": 14}` içeriyordu → daily eşleşmiyordu.
