@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v137.6 — Webhook Production URL Fix)** — Backend:
+  - **`TELEGRAM_WEBHOOK_URL`**: `https://oyun-loncasi.emergent.host/...` → `https://titanxis.com/api/telegram/webhook` olarak güncellendi (`/app/backend/.env`).
+  - **Doğrulama**: `getWebhookInfo` sonrası `url: "https://titanxis.com/api/telegram/webhook"` (IP: 172.66.2.113, Cloudflare). Production endpoint HTTP 200 dönüyor.
+  - **NLP grup trigger kodu (v137.5)** production-ready: `nlp_message_handler` satır 1858-1886 — grup mesajlarında `@BotUsername` VEYA `titanxis` (case-insensitive) yoksa sessiz çıkar. Her iki tetikleyici de intent detection öncesi mesajdan silinir. Whitelist / blocklist YOK.
+  - **User action**: Kullanıcının production'a **Republish** yapması gerekiyor — bu sayede production backend'de aynı .env aktif olacak ve gelen webhook update'lerini işleyecek.
+
+
 - **Feb 29, 2026 (v137.5 — Grup NLP Tetikleme Kuralı)** — Backend:
   - **Yeni davranış**: Grup/supergroup mesajlarında NLP yalnızca şu koşullardan biri sağlandığında tetiklenir:
     1. Mesajda `@TiTaNXiS_BoT` tag'i var
