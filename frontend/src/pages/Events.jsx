@@ -1209,7 +1209,7 @@ export default function Events() {
                   <span className="flex-1 min-w-0">
                     <span className="block text-xs font-bold">{t("events_new_bireysel_label", "Bireysel Etkinlik")}</span>
                     <span className="block text-[10px] text-muted-foreground mt-0.5 leading-snug">
-                      {t("events_new_bireysel_hint", "Tek kişilik etkinlik — sıralamayı etkilemez")}
+                      {t("events_new_bireysel_hint", "Bireysel Etkinlik")}
                     </span>
                   </span>
                 </button>
@@ -1224,7 +1224,7 @@ export default function Events() {
                   <span className="flex-1 min-w-0">
                     <span className="block text-xs font-bold">{t("events_new_alliance_label", "İttifak Etkinliği")}</span>
                     <span className="block text-[10px] text-muted-foreground mt-0.5 leading-snug">
-                      {t("events_new_alliance_hint", "SvS, KvK, kale savaşı — tüm ittifak katılır")}
+                      {t("events_new_alliance_hint", "SvS, Kristal, kale savaşı")}
                     </span>
                   </span>
                 </button>
@@ -2490,14 +2490,19 @@ function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearS
     } finally { setBusy(false); }
   };
 
-  const bulkToggleArchive = async (archived) => {
+  const bulkToggleArchive = async (archived, folderId = undefined) => {
     const ids = [...selectedIds];
     if (ids.length === 0) { toast.error("Önce etkinlik seç"); return; }
     setBusy(true);
     try {
-      const res = await api.post("/events/bulk-archive", { ids, archived });
+      const payload = { ids, archived };
+      if (archived && folderId !== undefined) payload.folder_id = folderId;
+      const res = await api.post("/events/bulk-archive", payload);
       mutate((k) => typeof k === "string" && k.startsWith("/events"));
-      toast.success(`${res.data.modified} etkinlik ${archived ? "arşive alındı" : "arşivden çıkarıldı"}`);
+      const folderLabel = archived && folderId
+        ? (folderId === "__none__" ? " (klasörsüz)" : ` → ${folders.find((f) => f.id === folderId)?.name || "klasör"}`)
+        : "";
+      toast.success(`${res.data.modified} etkinlik ${archived ? "arşive alındı" : "arşivden çıkarıldı"}${folderLabel}`);
       clearSelection();
       onDone();
     } catch (e) {
@@ -2584,10 +2589,37 @@ function EventsBulkToolbar({ filteredEvents, selectedIds, setSelectedIds, clearS
         data-testid="events-bulk-archive"
         className="chip text-[10px] flex items-center gap-1"
         style={{ borderColor: "rgba(148,163,184,0.55)", color: "#E5E7EB", background: "rgba(148,163,184,0.10)" }}
-        title="Seçili etkinlikleri arşive al"
+        title="Seçili etkinlikleri arşive al (klasörsüz)"
       >
         <Archive className="w-3 h-3" /> {t("archive_action", "Arşive Al")}
       </button>
+      {folders.length > 0 && (
+        <select
+          data-testid="events-bulk-archive-to-folder"
+          disabled={busy || selectedIds.size === 0}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (!v) return;
+            bulkToggleArchive(true, v);
+            e.target.value = "";
+          }}
+          className="chip text-[10px]"
+          style={{
+            borderColor: "rgba(245,166,35,0.55)",
+            color: "#FCD34D",
+            background: "rgba(245,166,35,0.10)",
+            cursor: "pointer",
+          }}
+          title="Seçili etkinlikleri klasöre taşı ve arşive al"
+          defaultValue=""
+        >
+          <option value="" disabled>{t("bulk_archive_to_folder", "📦 Klasöre Arşivle…")}</option>
+          <option value="__none__">{t("bulk_archive_no_folder", "Klasörsüz Arşivle")}</option>
+          {folders.map((f) => (
+            <option key={f.id} value={f.id}>{f.name}</option>
+          ))}
+        </select>
+      )}
       <button
         type="button"
         onClick={() => bulkToggleArchive(false)}

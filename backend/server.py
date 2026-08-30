@@ -1363,6 +1363,7 @@ class GroupHiddenBody(BaseModel):
 class BulkArchiveBody(BaseModel):
     ids: List[str]
     archived: bool
+    folder_id: Optional[str] = None  # Manuel arşiv: aynı anda klasöre taşı (None = değiştirme; "__none__" = klasörsüz yap)
 
 
 @api_router.post("/events/bulk-visibility")
@@ -1429,9 +1430,14 @@ async def events_bulk_archive(body: BulkArchiveBody, _: dict = Depends(require_e
             {"_id": 0, "id": 1},
         ).to_list(2000)
         to_cert = [r["id"] for r in rows]
+    set_doc: dict = {"archived": bool(body.archived)}
+    # v136 — Manuel arşiv klasör seçimi. Sadece arşive alırken uygulanır.
+    # "__none__" → klasörden çıkar, herhangi bir string → o klasöre taşı, None → dokunma.
+    if bool(body.archived) and body.folder_id is not None:
+        set_doc["folder_id"] = None if body.folder_id == "__none__" else body.folder_id
     res = await db.events.update_many(
         {"id": {"$in": ids}},
-        {"$set": {"archived": bool(body.archived)}},
+        {"$set": set_doc},
     )
     for eid in to_cert:
         try:

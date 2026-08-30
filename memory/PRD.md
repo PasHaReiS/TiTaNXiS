@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v136 — Manuel Arşiv + Etkinlik Türü Copy Fix)** — Backend + Frontend:
+  - **Members.jsx Syntax Fix**: `MembersOcrRegisterDropdown` bileşeninde eksik olan `);` + `}` kapanış işaretleri eklendi (satır 296 sonrası). Yanlış konumdaki orphan `);}` satırları temizlendi. Frontend build tekrar geçiyor.
+  - **Auto-Archive Devre Dışı**: `/app/.emergent/crons.yml` içindeki `auto-archive-sweep` job `enabled: false` yapıldı. Süresi geçmiş etkinlikler artık kendiliğinden arşive taşınmıyor — admin manuel karar veriyor.
+  - **Manuel Arşiv + Klasör Seçimi**: `POST /api/events/bulk-archive` payload'ı `folder_id: Optional[str]` alanı kabul ediyor (`"__none__"` = klasörsüz yap; herhangi bir string = o klasöre taşı; None = mevcut klasör korunsun). `EventsBulkToolbar` içine yeni **📦 Klasöre Arşivle…** dropdown'u eklendi — arşive alma ile klasör atamasını tek adımda yapıyor. Mevcut "Arşive Al" butonu (klasörsüz varsayılan) korundu.
+  - **Etkinlik Türü Copy Fix**: Yeni etkinlik menüsündeki İttifak Etkinliği açıklaması `SvS, KvK, kale savaşı — tüm ittifak katılır` → `SvS, Kristal, kale savaşı` olarak güncellendi (KvK→Kristal, "tüm ittifak katılır" ibaresi kaldırıldı). Bireysel Etkinlik açıklaması `Tek kişilik etkinlik — sıralamayı etkilemez` → `Bireysel Etkinlik` olarak güncellendi ("Tek kişilik" ve "sıralamayı etkilemez" ibareleri kaldırıldı). i18n key `events_new_alliance_hint` + `events_new_bireysel_hint` fallback metinleri değişti; DeepL çevirileri bir sonraki `deepl-retry-i18n` cron'unda otomatik yenilenir.
+
+
 - **Feb 29, 2026 (v135.51 OCR Audit Log + Undo — Tüm Ekranlar + Pasha Full Access)** — Backend + Frontend:
   - **Backend `routes/ocr_audit.py`** (yeni): `ocr_audit` koleksiyonu + 3 endpoint. `POST /api/ocr/audit` op kaydı (op_type, created/updated member IDs, created point IDs, event_id, user_id/email), `GET /api/ocr/audit/recent?limit=20` — normal admin kendi ops'larını, `pasha@titanxis.com` TÜM ops'ları görür, `POST /api/ocr/audit/{op_id}/undo` — created_member_ids ile members.delete_one + created_point_ids ile points.delete_one; `undone=True` mühürlenir. Yetki: sadece kendi op'unu (pasha hariç). Server startup'ta index ensure.
   - **Frontend `OcrDialog.doApply`**: `onApply(filteredData, extra)` sonucundan `created_member_ids/updated_member_ids/created_point_ids` toplayıp `POST /api/ocr/audit`'e ekler. `op_type = ocr_event_points | ocr_power | ocr_castle_rank`. Audit kaydı başarısızsa console.warn ile geçilir.

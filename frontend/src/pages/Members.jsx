@@ -12,7 +12,7 @@ import OcrDialog from "@/components/OcrDialog";
 import AdminNoteModal from "@/components/AdminNoteModal";
 import CanEdit from "@/components/CanEdit";
 import CountUp from "@/components/CountUp";
-import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap, CheckSquare, Square, Globe, Castle, Download, Flame, Send, StickyNote, ScanSearch } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, SlidersHorizontal, Palette, Check, RotateCcw, ChevronDown, ChevronsDown, ChevronsUp, MapPin, ClipboardList, Link2, Camera, Shield, GraduationCap, CheckSquare, Square, Globe, Castle, Download, Flame, Send, StickyNote, ScanSearch, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -294,6 +294,8 @@ function OcrRegisterDropdown({ onPickAddMember, onPickPower, onPickCastleRank })
         </div>
       )}
     </div>
+  );
+}
 
 // v135.51 — OCR Undo Bar (Members header'da her zaman görünür).
 // GET /ocr/audit/recent kullanıcının kendi işlemlerini + pasha ise tümünü döner.
@@ -353,9 +355,6 @@ function OcrUndoBar() {
         );
       })}
     </div>
-  );
-}
-
   );
 }
 
