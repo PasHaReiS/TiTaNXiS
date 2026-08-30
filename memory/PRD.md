@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v136.2 — Recurrence Bug Fix)** — Backend:
+  - **Root cause**: `EventCreate` Pydantic modeli `recurrence_interval` + `recurrence_count` alanlarını tanımlamıyordu (sadece `EventUpdate`'de vardı). Sonuç: `body.model_dump()` bu alanları çıkarıyordu → `payload.pop(...)` her zaman `None` döndürüyordu → `interval="none"` → hiç seri oluşmuyordu, sadece tek etkinlik yaratılıyordu.
+  - **İkinci bug**: `TemplateSeriesModal` "daily" interval'ini gönderiyor ama backend `step_days` haritası sadece `{"2days": 2, "weekly": 7, "2weekly": 14}` içeriyordu → daily eşleşmiyordu.
+  - **Fix**: `EventCreate`'e `recurrence_interval: Optional[str]` + `recurrence_count: Optional[int]` eklendi. POST + PATCH `/api/events` içindeki `step_days` haritasına `"daily": 1` eklendi.
+  - **Curl doğrulaması**: daily/weekly/monthly/2days/2weekly × 4 = 4 event her seferinde. Şablondan seri oluşturma artık `recurrence_count` kadar tek çağrıda tüm etkinlikleri yaratıyor.
+
+
 - **Feb 29, 2026 (v136.1 — Ziyaretçi Menü Filtresi)** — Frontend-only:
   - **RadialMenu**: `!user && !isGuest` şartıyla artık ziyaretçiye de görünüyor. Item'lara `guestPublic` flag'i eklendi: Sıralama, Komutanlar, Puan Hesaplama serbest; Etkinlikler, Üyeler, Raporlar guest için `guestLocked=true`. Kilitli item'lar %50 opacity + `grayscale(1) brightness(0.8)` + sağ üst köşede 🔒 rozeti. Klik → toast "Bu sayfayı görüntülemek için giriş yapmalısınız" + LockedPage'e yönlendirme.
   - **Header dropdown**: Yeni `header-guest-menu-btn` ("🎭 ZİYARETÇİ") ziyaretçi için `header-login-btn` yerine görünüyor. Dropdown 2 bölüm: Public (Sıralama, Duyurular, Lonca Kuralları, Lonca, Puan Hesaplama, VIP Destek) + "🔒 Kilitli (Giriş Gerekli)" divider altında gri (Etkinlikler, Üyeler, Profilim, SvS Takip) — hepsi tıklanabilir, LockedPage'e düşer. En altta "🔑 Giriş Yap" (`guest-menu-login`).

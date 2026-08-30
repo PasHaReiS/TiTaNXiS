@@ -275,6 +275,11 @@ class EventCreate(BaseModel):
     auto_certificate: Optional[bool] = False
     auto_certificate_title: Optional[str] = None
     auto_certificate_theme: Optional[str] = "amber"
+    # v136 — Recurrence knobs on create. Backend spawns N-1 additional
+    # events after the base one when `interval != "none"` and count > 1.
+    # Values: "daily" | "2days" | "weekly" | "2weekly" | "monthly".
+    recurrence_interval: Optional[str] = None
+    recurrence_count: Optional[int] = None
 
 
 class EventUpdate(BaseModel):
@@ -1202,7 +1207,7 @@ async def create_event(body: EventCreate, _: dict = Depends(require_edit)):
             base_dt = _dt.fromisoformat(str(payload.get("date")).replace("Z", "+00:00"))
         except Exception:
             base_dt = None
-        step_days = {"2days": 2, "weekly": 7, "2weekly": 14}.get(interval)
+        step_days = {"daily": 1, "2days": 2, "weekly": 7, "2weekly": 14}.get(interval)
         step_months = 1 if interval == "monthly" else 0
         if base_dt is not None and (step_days or step_months):
             for i in range(1, count):
@@ -1310,7 +1315,7 @@ async def update_event(event_id: str, body: EventUpdate, _: dict = Depends(requi
             base_dt = _dt.fromisoformat(str(doc.get("date")).replace("Z", "+00:00"))
         except Exception:
             base_dt = None
-        step_days = {"2days": 2, "weekly": 7, "2weekly": 14}.get(interval)
+        step_days = {"daily": 1, "2days": 2, "weekly": 7, "2weekly": 14}.get(interval)
         step_months = 1 if interval == "monthly" else 0
         if base_dt is not None and (step_days or step_months):
             dup_payload_base = {k: doc.get(k) for k in (
