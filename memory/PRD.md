@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v137 — Telegram NLP + Auto-Lang Reply)** — Backend:
+  - **NLP Handler** (`telegram_bot.py`): Slash olmadan yazılan doğal-dil mesajları `MessageHandler(filters.TEXT & ~filters.COMMAND, nlp_message_handler, group=1)` ile yakalanır. Akış: (1) mesaj dilini algıla (Google Cloud Translation → DeepL fallback), (2) `_nlp_override_lang` ContextVar'ına pinle, (3) mesajı TR'ye çevir, (4) 23 intent × ~150 anahtar-kelime setiyle intent tespit et, (5) `globals()`'tan ilgili command handler'ı bul + çağır. Eşleşmeyen mesajlar için kullanıcının dilinde yardım-yönlendirici mesaj.
+  - **`reply_ml` genişletildi**: Yeni öncelik-0 katmanı `_nlp_override_lang` ContextVar (NLP handler set eder). Slash-komutlarda ContextVar boş → mevcut `preferred_language` yolu devam eder. Böylece: NLP mesajı → mesajın dilinde yanıt; slash-komut → profil dilinde yanıt.
+  - **Google Cloud Translation entegrasyonu**: Yeni `_google_translate()` fonksiyonu (`translate.googleapis.com/language/translate/v2` REST). `GOOGLE_TRANSLATION_API_KEY` doluysa DeepL yerine tercih edilir (kısa metinlerde detection daha güvenilir).
+  - **Yeni yardımcılar**: `_detect_source()` artık Google → DeepL fallback zinciriyle çalışıyor. Yeni `_translate_to_tr()` intent matching öncesi kaynak dili TR'ye çevirmek için.
+  - **Intent map**: streak, puan, siralama, profil, rozet, istatistik, takvim, yakinda, arsiv, lonca, online, guc, etkinlik, etkinlikler, mola, bildirimler, dil, hakkinda, sifremi_sifirla, geri_bildirim, davet, start, yardim (23 intent).
+  - **Not**: `GOOGLE_TRANSLATION_API_KEY` şu anda backend .env'de yok (user rejim değişikliğinden önce ekleneceğini söyledi). Env boşken sistem DeepL fallback ile sorunsuz çalışır. Prod'da GOOGLE key eklenirse detection kalitesi otomatik yükselir.
+
+
 - **Feb 29, 2026 (v136.6 — Etkinlik Adı Truncate Fix)** — Frontend-only:
   - **Ana etkinlik kartı** (line 786+): `whiteSpace: "nowrap"` → `"normal"` + `wordBreak: "break-word"` + `overflowWrap: "anywhere"`. Uzun isimler ("Prestige Warden / Prestige Warden", "SvS WaR & 151 / SvS Standard") artık `group / name` formatında iki-üç satıra sarılır, `...` görünmüyor.
   - **Alt-grup başlığı** (accordion header, line ~1817): `truncate flex-1` sınıfı kaldırıldı, `whiteSpace: normal + wordBreak + overflowWrap` eklendi.

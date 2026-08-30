@@ -19,13 +19,14 @@ from __future__ import annotations
 import os
 import asyncio
 import logging
+import contextvars
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
 
 from telegram import Update, BotCommand
-from telegram.ext import Application, CommandHandler, ContextTypes, PollAnswerHandler
+from telegram.ext import Application, CommandHandler, ContextTypes, PollAnswerHandler, MessageHandler, filters
 
 log = logging.getLogger("telegram")
 
@@ -34,6 +35,44 @@ TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}" if BOT_TOKEN else ""
 
 DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY", "").strip()
 DEEPL_BASE = "https://api-free.deepl.com/v2" if DEEPL_API_KEY.endswith(":fx") else "https://api.deepl.com/v2"
+GOOGLE_TRANSLATION_API_KEY = os.environ.get("GOOGLE_TRANSLATION_API_KEY", "").strip()
+
+# v137 — NLP override: When the message-handler detects a natural-language
+# question (no `/`), we pin the reply language to what the USER wrote so
+# a Russian question gets a Russian answer regardless of profile settings.
+# Slash-commands leave this unset → the existing preferred_language path wins.
+_nlp_override_lang: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "_nlp_override_lang", default=None,
+)
+
+
+async def _google_translate(text: str, target: str, source: Optional[str] = None) -> Optional[dict]:
+    """v137 — Google Cloud Translation v2 REST call. Kullanılabilir olduğunda
+    (env değişkeni doluysa) DeepL yerine çağrılır çünkü Google detection'ı
+    kısa metinlerde daha güvenilir. Dönen dict: {"text": ..., "detected_source_language": ...}."""
+    if not GOOGLE_TRANSLATION_API_KEY or not text:
+        return None
+    params = {"key": GOOGLE_TRANSLATION_API_KEY, "q": text, "target": target, "format": "text"}
+    if source:
+        params["source"] = source
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(
+                "https://translation.googleapis.com/language/translate/v2",
+                data=params,
+            )
+            r.raise_for_status()
+            data = (r.json().get("data") or {}).get("translations") or []
+            if not data:
+                return None
+            first = data[0]
+            return {
+                "text": first.get("translatedText"),
+                "detected_source_language": first.get("detectedSourceLanguage"),
+            }
+    except Exception as e:
+        log.warning(f"Google translate failed: {e}")
+        return None
 
 
 async def _deepl_translate(text: str, target_lang: str,
@@ -92,21 +131,46 @@ _DEEPL_TARGET = {
 
 
 async def _detect_source(text: str) -> Optional[str]:
-    """Detect the source language of a piece of text via DeepL's round-trip
-    (translate to EN and read `detected_source_language`). Returns a 2-letter
-    lowercase code or None on failure."""
-    if not text or not DEEPL_API_KEY:
+    """Detect the source language of a piece of text. Google Cloud Translation
+    kullanılabiliyorsa onu tercih eder (kısa metinlerde daha güvenilir),
+    yoksa DeepL round-trip'e düşer. Returns a 2-letter lowercase code."""
+    if not text:
+        return None
+    # 1) Google — daha kısa metinlerde bile güvenilir
+    if GOOGLE_TRANSLATION_API_KEY:
+        res = await _google_translate(text, "en")
+        if res and res.get("detected_source_language"):
+            lang = (res.get("detected_source_language") or "").lower()
+            if "-" in lang: lang = lang.split("-")[0]
+            return lang
+    # 2) DeepL fallback
+    if not DEEPL_API_KEY:
         return None
     res = await _deepl_translate(text, "EN-US")
     if not res:
         return None
     lang = (res.get("detected_source_language") or "").lower()
-    # DeepL returns codes like "EN", "TR", "PT-BR" — normalise.
     if not lang:
         return None
     if "-" in lang:
         lang = lang.split("-")[0]
     return lang
+
+
+async def _translate_to_tr(text: str) -> Optional[str]:
+    """v137 — Kullanıcı mesajını TR'ye çevirir (intent matching için).
+    Google → DeepL → None sırasıyla dener."""
+    if not text:
+        return None
+    if GOOGLE_TRANSLATION_API_KEY:
+        res = await _google_translate(text, "tr")
+        if res and res.get("text"):
+            return res["text"]
+    if DEEPL_API_KEY:
+        res = await _deepl_translate(text, "TR")
+        if res and res.get("text"):
+            return res["text"]
+    return None
 
 
 async def reply_ml(update: Update, tr_text: str, parse_mode: str = "Markdown"):
@@ -132,6 +196,15 @@ async def reply_ml(update: Update, tr_text: str, parse_mode: str = "Markdown"):
         return code
 
     src_lang = None
+
+    # 0) v137 — NLP override: bu turn için doğal-dil handler dilini pinledi.
+    # En yüksek öncelik: kullanıcının yazdığı dilde yanıt garantisi.
+    try:
+        override = _nlp_override_lang.get()
+        if override:
+            src_lang = _normalise(override)
+    except LookupError:
+        pass
 
     # 1) Persisted preference — kesin doğru
     try:
@@ -274,6 +347,9 @@ def init_bot(db) -> Optional[Application]:
     # flow on the web app). /unlink is kept so users can revoke from either side.
     _app.add_handler(CommandHandler("unlink", unlink_command))
     _app.add_handler(PollAnswerHandler(_poll_answer_handler))
+    # v137 — NLP handler: slash-siz mesajları yakalar. Group=1 → command
+    # handler'lardan sonra tetiklenir; komutlarla yarışmaz.
+    _app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, nlp_message_handler), group=1)
     log.info("Telegram bot handlers registered (@TiTaNXiS_BoT).")
     return _app
 
@@ -1560,6 +1636,127 @@ async def yardim_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
         f"🌐 [{WEB_BASE}]({WEB_BASE}) — Tam yönetim paneli"
     )
     await reply_ml(update, text)
+
+
+# --------------------------- v137 — NLP Message Handler -------------------
+# Slash olmadan yazılan doğal-dil mesajlarını yakalar. Google/DeepL ile:
+#   1) dil algıla → yanıt için pinle (context var)
+#   2) mesajı TR'ye çevir
+#   3) anahtar kelime ile intent tespit et → doğru handler'a route et
+_NLP_INTENTS: list[tuple[list[str], str]] = [
+    (["yardım", "yardim", "komut", "help"], "yardim"),
+    (["streak", "seri", "ardışık", "ardisik", "seri̇", "üst üste", "arka arkaya"], "streak"),
+    (["sıralama", "siralama", "rank", "leaderboard", "kim önde", "kim onde", "top 5", "top 10"], "siralama"),
+    (["puanım", "puanim", "kaç puan", "kac puan", "toplam puan", "ne kadar puan", "skorum", "skor"], "puan"),
+    (["profil", "hakkımda", "hakkinda", "kimim", "bilgilerim"], "profil"),
+    (["rozet", "başarı", "basari", "ödül", "odul", "medal", "achievement"], "rozet"),
+    (["istatistik", "stat", "katılım oranı", "katilim orani"], "istatistik"),
+    (["takvim", "aylık", "aylik", "calendar", "programım", "programim"], "takvim"),
+    (["yakında", "yakinda", "gelecek etkinlik", "bir sonraki etkinlik", "sıradaki etkinlik", "siradaki etkinlik"], "yakinda"),
+    (["arşiv", "arsiv", "geçmiş", "gecmis", "eski etkinlik"], "arsiv"),
+    (["lonca", "guild", "clan", "kaç üye", "kac uye"], "lonca"),
+    (["online", "çevrimiçi", "cevrimici", "aktif", "kim online", "kim aktif"], "online"),
+    (["güç", "guc", "power", "güçüm", "gücüm", "gucum", "gücün", "gucun"], "guc"),
+    (["etkinlik", "event"], "etkinlik"),
+    (["etkinlikler", "haftalık", "haftalik", "bu hafta"], "etkinlikler"),
+    (["mola", "tatil"], "mola"),
+    (["bildirim", "notification"], "bildirimler"),
+    (["dil değiştir", "dil degistir", "dilimi değiştir", "change language"], "dil"),
+    (["hakkında", "bu bot ne", "kim yaptı", "kim yapti", "about"], "hakkinda"),
+    (["şifre", "sifre", "parola", "reset", "password"], "sifremi_sifirla"),
+    (["geri bildirim", "öneri", "oneri", "feedback"], "geri_bildirim"),
+    (["davet", "invite", "arkadaş çağır", "arkadas cagir"], "davet"),
+    (["merhaba", "selam", "hi ", "hello", "hey", "sa "], "start"),
+]
+
+_NLP_COMMAND_TO_HANDLER = {
+    "yardim": "yardim_command",
+    "streak": "streak_command",
+    "siralama": "siralama_command",
+    "puan": "puan_command",
+    "profil": "profil_command",
+    "rozet": "rozet_command",
+    "istatistik": "istatistik_command",
+    "takvim": "takvim_command",
+    "yakinda": "yakinda_command",
+    "arsiv": "arsiv_command",
+    "lonca": "lonca_command",
+    "online": "online_command",
+    "guc": "guc_command",
+    "etkinlik": "etkinlik_command",
+    "etkinlikler": "etkinlikler_command",
+    "mola": "mola_command",
+    "bildirimler": "bildirimler_command",
+    "dil": "dil_command",
+    "hakkinda": "hakkinda_command",
+    "sifremi_sifirla": "sifremi_sifirla_command",
+    "geri_bildirim": "geri_bildirim_command",
+    "davet": "davet_command",
+    "start": "start_command",
+}
+
+
+def _match_intent_tr(text_tr: str) -> Optional[str]:
+    """Case-insensitive TR text → intent key. Boş / eşleşmezse None."""
+    if not text_tr:
+        return None
+    q = " " + text_tr.strip().lower() + " "
+    for keywords, intent in _NLP_INTENTS:
+        for kw in keywords:
+            if kw in q:
+                return intent
+    return None
+
+
+async def nlp_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """v137 — Slash-siz doğal-dil mesajları için ana giriş noktası."""
+    if not update.message or not update.message.text:
+        return
+    raw = update.message.text.strip()
+    if raw.startswith("/"):
+        return
+    detected = None
+    try:
+        detected = await _detect_source(raw[:400])
+    except Exception as e:
+        log.warning(f"nlp detect fail: {e}")
+    tr_text = raw
+    if detected and detected != "tr":
+        translated = await _translate_to_tr(raw[:500])
+        if translated:
+            tr_text = translated
+    intent = _match_intent_tr(tr_text)
+    # v137.1 — Fallback: eğer TR çevirisi intent üretmediyse ORİJİNAL metinde
+    # de anahtar kelime aramak. Bu, "streak", "puan", "profil" gibi loanword
+    # veya transliterasyonların (мой стрик, mi streak) yakalanmasını sağlar.
+    if not intent and raw:
+        intent = _match_intent_tr(raw)
+    log.info(f"NLP: chat={update.effective_chat.id} lang={detected} intent={intent} raw={raw[:60]!r} tr={tr_text[:60]!r}")
+    token = _nlp_override_lang.set(detected) if detected else None
+    try:
+        if not intent:
+            await reply_ml(update,
+                "🤖 *Ne demek istediğini tam anlayamadım.*\n\n"
+                "Şunları deneyebilirsin:\n"
+                "• *streak'im ne?* → seri bilgin\n"
+                "• *puanım kaç?* → toplam puanın\n"
+                "• *bir sonraki etkinlik ne zaman?* → yaklaşan etkinlikler\n"
+                "• *sıralama* → lider tablosu\n\n"
+                "Tüm komutlar için `/yardim` yaz."
+            )
+            return
+        handler_name = _NLP_COMMAND_TO_HANDLER.get(intent)
+        handler_fn = globals().get(handler_name) if handler_name else None
+        if not callable(handler_fn):
+            await reply_ml(update, "⚠️ Bu komut için handler bulunamadı — `/yardim` yaz.")
+            return
+        await handler_fn(update, context)
+    finally:
+        if token is not None:
+            _nlp_override_lang.reset(token)
+
+
+
 
 
 # ------------------------------ Notifications --------------------------------
