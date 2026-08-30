@@ -1691,6 +1691,15 @@ async def toplu_duyuru_command(update: Update, context: ContextTypes.DEFAULT_TYP
 
 # --------------------------- /yardim v133 (rebuild) -----------------------
 async def yardim_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    # v137.8 — Komut adına göre yanıt dili. /help → EN, /yardim & /komutlar → TR.
+    # Default (bilinmez komut / NLP fallback) → TR. Diğer komutlar mevcut
+    # `reply_ml` çeviri katmanı ile (profil dili / Telegram client lang) çalışır.
+    cmd_text = (update.message.text or "").strip().lower() if update.message else ""
+    forced_lang = None
+    if cmd_text.startswith("/help"):
+        forced_lang = "en"
+    elif cmd_text.startswith("/yardim") or cmd_text.startswith("/komutlar"):
+        forced_lang = "tr"
     text = (
         "📖 *TiTaNXiS Bot Komutları*\n\n"
         "*GENEL:*\n"
@@ -1713,7 +1722,14 @@ async def yardim_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
         "/about, /reset_password, /ranking, /power, /event\n\n"
         f"🌐 [{WEB_BASE}]({WEB_BASE}) — Tam yönetim paneli"
     )
-    await reply_ml(update, text)
+    if forced_lang:
+        token = _nlp_override_lang.set(forced_lang)
+        try:
+            await reply_ml(update, text)
+        finally:
+            _nlp_override_lang.reset(token)
+    else:
+        await reply_ml(update, text)
 
 
 # --------------------------- v137 — NLP Message Handler -------------------

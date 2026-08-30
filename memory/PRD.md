@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v137.8 — /help vs /yardim Locale Override)** — Backend:
+  - `yardim_command` artık çağıran komut adına göre yanıt dili zorlar:
+    - `/help` → `_nlp_override_lang="en"` → İngilizce yanıt
+    - `/yardim` veya `/komutlar` → `_nlp_override_lang="tr"` → Türkçe yanıt (varsayılan)
+    - Diğer durumlarda mevcut `reply_ml` çeviri katmanı devam eder (profil dili / Telegram client lang).
+  - ContextVar `_nlp_override_lang` mevcut altyapı; try/finally ile reset ediliyor → başka handler'ları etkilemez.
+  - Metin Türkçe kalıyor; hedef dil sadece reply_ml çıktısında DeepL/Google çevirisi ile üretiliyor.
+
+
 - **Feb 29, 2026 (v137.7 — /help Menu + LLM Cache + Group Rate Limit)** — Backend:
   - **/help & /yardim menüde**: `setMyCommands` listesine `/help` eklendi ("All commands (English)"). Handler zaten var, sadece autocomplete menüsünde görünmüyordu. `/yardim` ve `/help` her ikisi de aynı `yardim_command` handler'ına bağlı.
   - **LLM Cache (TTL 60s)**: `_llm_classify` içine SHA1-based in-memory cache eklendi. Cache anahtarı `sha1(text[:600])`, TTL 60 saniye, max 500 giriş (taşınca en eski 100 silinir). Cache hit log'lanır: `LLM cache HIT key=abc123 age=1.2s`. **Test doğrulandı**: 1. çağrı ~2s (API), 2. çağrı <1ms (cache).
