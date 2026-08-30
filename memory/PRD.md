@@ -20,6 +20,16 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v137.5 — Grup NLP Tetikleme Kuralı)** — Backend:
+  - **Yeni davranış**: Grup/supergroup mesajlarında NLP yalnızca şu koşullardan biri sağlandığında tetiklenir:
+    1. Mesajda `@TiTaNXiS_BoT` tag'i var
+    2. Mesajda `titanxis` kelimesi geçiyor (case-insensitive)
+  - **Aksi halde**: Bot grupta hiç işlem yapmaz, sessiz kalır → sohbet bozulmaz, LLM maliyeti = 0.
+  - **Private DM etkilenmedi**: Özel sohbette her mesajda NLP çalışmaya devam eder.
+  - **Prefix temizleme**: Hem `@BotUsername` hem `titanxis` kelimesi intent detection öncesi mesajdan case-insensitive silinir — brand/tag sözcüğü keyword eşleşmesini bozmaz.
+  - **Örnek**: Grupta "puanım ne?" → sessiz. "TiTaNXiS puanım ne?" veya "@TiTaNXiS_BoT puanım ne?" → çalışır, puan komutu tetiklenir.
+
+
 - **Feb 29, 2026 (v137.4 — Bot Grup NLP Fix)** — Backend:
   - **Root cause**: Gruplarda `update.effective_chat.id` grubun negatif kimliği; kullanıcının private DM'de linklenmiş `users.telegram_chat_id` ile ASLA eşleşmezdi → `_user_from_chat` None döndürüyor, NLP handler "hesabın bağlı değil" spamı gönderiyor ya da hiç yanıtlayamıyordu.
   - **`_user_from_chat`**: Yeni `user_id` opt parametresi. Grup mesajlarında `effective_user.id` (gönderen Telegram user_id) ile de sorgulanıyor. Private chat'te `chat_id == user_id` olduğu için tek yol her iki durumu kapsıyor. chat_map fallback iki kimliği de deniyor.

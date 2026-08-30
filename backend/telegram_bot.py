@@ -1851,18 +1851,37 @@ async def nlp_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     if raw.startswith("/"):
         return
     is_group = bool(update.effective_chat and update.effective_chat.type in ("group", "supergroup"))
-    # Grup: bot mention prefix'ini temizle
+    # v137.5 — Grup tetikleme kuralı: NLP yalnızca (a) @BotUsername tag'i
+    # veya (b) "titanxis" kelimesi (case-insensitive) mesajda geçtiğinde
+    # çalışır. Aksi halde grupta hiç işlem yapma → arka plan sohbetini
+    # bozma, LLM maliyetini de sıfırla.
     if is_group:
+        bot_username = None
         try:
             me = await context.bot.get_me()
-            if me and me.username:
-                pattern = f"@{me.username}".lower()
-                low = raw.lower()
-                if pattern in low:
-                    idx = low.find(pattern)
-                    raw = (raw[:idx] + raw[idx + len(pattern):]).strip()
+            bot_username = (me.username or "").lower() if me else None
         except Exception:
             pass
+        low = raw.lower()
+        has_tag = bool(bot_username) and (f"@{bot_username}" in low)
+        has_brand = "titanxis" in low
+        if not (has_tag or has_brand):
+            return  # sessizce çık — tetikleyici yok
+        # Bot mention prefix'ini temizle (case-insensitive)
+        if has_tag and bot_username:
+            pattern = f"@{bot_username}"
+            idx = low.find(pattern)
+            raw = (raw[:idx] + raw[idx + len(pattern):]).strip()
+            low = raw.lower()
+        # "titanxis" kelimesini de intent detection öncesi kaldır — brand
+        # sözcüğü keyword eşleşmesini bozmasın.
+        if has_brand:
+            # Case-insensitive replace (basit substring)
+            i = low.find("titanxis")
+            while i >= 0:
+                raw = (raw[:i] + raw[i + len("titanxis"):]).strip()
+                low = raw.lower()
+                i = low.find("titanxis")
         if not raw:
             return
     detected = None
