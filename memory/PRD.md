@@ -20,6 +20,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v137.7 — /help Menu + LLM Cache + Group Rate Limit)** — Backend:
+  - **/help & /yardim menüde**: `setMyCommands` listesine `/help` eklendi ("All commands (English)"). Handler zaten var, sadece autocomplete menüsünde görünmüyordu. `/yardim` ve `/help` her ikisi de aynı `yardim_command` handler'ına bağlı.
+  - **LLM Cache (TTL 60s)**: `_llm_classify` içine SHA1-based in-memory cache eklendi. Cache anahtarı `sha1(text[:600])`, TTL 60 saniye, max 500 giriş (taşınca en eski 100 silinir). Cache hit log'lanır: `LLM cache HIT key=abc123 age=1.2s`. **Test doğrulandı**: 1. çağrı ~2s (API), 2. çağrı <1ms (cache).
+  - **Grup Rate Limit**: 30 saniyelik pencerede aynı grup için max 3 NLP isteği. 4. istekte "⏳ Lütfen bekleyin — 30 saniye içinde tekrar dene" mesajı BİR KEZ gösterilir; sonrakiler pencere bitene kadar sessizce yok sayılır. Private DM etkilenmedi. Log: `NLP throttled group=X hits=3`.
+
+
 - **Feb 29, 2026 (v137.6 — Webhook Production URL Fix)** — Backend:
   - **`TELEGRAM_WEBHOOK_URL`**: `https://oyun-loncasi.emergent.host/...` → `https://titanxis.com/api/telegram/webhook` olarak güncellendi (`/app/backend/.env`).
   - **Doğrulama**: `getWebhookInfo` sonrası `url: "https://titanxis.com/api/telegram/webhook"` (IP: 172.66.2.113, Cloudflare). Production endpoint HTTP 200 dönüyor.

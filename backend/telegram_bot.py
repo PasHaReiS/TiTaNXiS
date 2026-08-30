@@ -42,6 +42,21 @@ EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "").strip()
 # preview'ları) yalnızca bu chat_id'ye teslim edilir. Overridable via env.
 TELEGRAM_TEST_CHAT_ID = os.environ.get("TELEGRAM_TEST_CHAT_ID", "").strip() or "5228424846"
 
+# v137.7 — LLM sonuç cache'i (TTL: 60s). Aynı mesaj metni tekrar gelirse
+# API çağrısı yapmadan hafızadan dönülür. Anahtar: sha1(raw[:600]).
+# Değer: (llm_result_dict, unix_ts).
+_llm_cache: dict[str, tuple[dict, float]] = {}
+_LLM_CACHE_TTL = 60.0
+_LLM_CACHE_MAX = 500  # Bellek koruması: en fazla 500 giriş.
+
+# v137.7 — Grup rate limit: 30 saniyelik pencerede aynı grup için en fazla
+# 3 NLP isteği. 4. istekten itibaren tek "Lütfen bekleyin" mesajı gösterilir
+# ve sonrakiler pencere bitene kadar sessizce yok sayılır.
+_group_nlp_hits: dict[str, list[float]] = {}
+_GROUP_NLP_WINDOW = 30.0
+_GROUP_NLP_LIMIT = 3
+_group_throttle_notified: dict[str, float] = {}  # chat_id → notified_at
+
 # v137 — NLP override: When the message-handler detects a natural-language
 # question (no `/`), we pin the reply language to what the USER wrote so
 # a Russian question gets a Russian answer regardless of profile settings.
@@ -427,7 +442,8 @@ async def setup_webhook() -> bool:
                 {"command": "link",            "description": "Hesap bağlama"},
                 {"command": "unlink",          "description": "Hesap bağlantısını kaldır"},
                 {"command": "hakkinda",        "description": "Uygulama bilgisi"},
-                {"command": "yardim",          "description": "Tüm komutlar"},
+                {"command": "yardim",          "description": "Tüm komutlar (help)"},
+                {"command": "help",            "description": "All commands (English)"},
                 # Admin komutları (herkese görünür ama backend kontrolü var)
                 {"command": "duyuru",          "description": "[Admin] Duyuru gönder"},
                 {"command": "toplu_duyuru",    "description": "[Admin] Toplu mesaj"},
@@ -1799,9 +1815,26 @@ _LLM_INTENT_SYSTEM = (
 
 
 async def _llm_classify(text: str) -> Optional[dict]:
-    """Return {intent, member, confidence} dict or None. Fail-soft."""
+    """Return {intent, member, confidence} dict or None. Fail-soft.
+
+    v137.7 — Cache: aynı `text` 60 saniye içinde tekrar gelirse LLM çağrısı
+    yapmadan cache'ten döndürülür. Cache anahtarı sha1(text[:600]). Bellek
+    limitli (max 500 giriş, taşınca en eski silinir)."""
     if not EMERGENT_LLM_KEY or not text:
         return None
+    import hashlib as _hashlib
+    import time as _time
+    key = _hashlib.sha1(text[:600].encode("utf-8", errors="ignore")).hexdigest()
+    now = _time.time()
+    # Cache hit?
+    cached = _llm_cache.get(key)
+    if cached:
+        result, ts = cached
+        if now - ts < _LLM_CACHE_TTL:
+            log.info(f"LLM cache HIT key={key[:8]} age={now-ts:.1f}s")
+            return result
+        # Süresi dolmuş → sil.
+        _llm_cache.pop(key, None)
     try:
         # Lazy import so bot works even if emergentintegrations unavailable.
         from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -1811,10 +1844,8 @@ async def _llm_classify(text: str) -> Optional[dict]:
             session_id=f"nlp-{_uuid.uuid4().hex[:12]}",
             system_message=_LLM_INTENT_SYSTEM,
         ).with_model("anthropic", "claude-sonnet-4-6")
-        # Single-shot classification → send_message is fine (no user-facing stream).
         raw = await chat.send_message(UserMessage(text=text[:600]))
         raw_s = str(raw or "").strip()
-        # Strip potential ```json fences
         if raw_s.startswith("```"):
             raw_s = raw_s.strip("`").lstrip("json").strip()
         import json as _json
@@ -1827,9 +1858,18 @@ async def _llm_classify(text: str) -> Optional[dict]:
         if intent and intent not in _NLP_COMMAND_TO_HANDLER and intent != "karsilastir":
             log.warning(f"LLM returned unknown intent {intent!r} — falling back to keyword")
             return None
-        return {"intent": intent if conf >= 0.4 else None,
-                "member": (str(member).strip() if member else None) or None,
-                "confidence": conf}
+        result = {
+            "intent": intent if conf >= 0.4 else None,
+            "member": (str(member).strip() if member else None) or None,
+            "confidence": conf,
+        }
+        # Cache'e yaz. Boyut aşıldıysa en eski 100 girişi at.
+        if len(_llm_cache) >= _LLM_CACHE_MAX:
+            oldest = sorted(_llm_cache.items(), key=lambda kv: kv[1][1])[:100]
+            for k, _ in oldest:
+                _llm_cache.pop(k, None)
+        _llm_cache[key] = (result, now)
+        return result
     except Exception as e:
         log.warning(f"LLM classify failed: {e}")
         return None
@@ -1884,6 +1924,25 @@ async def nlp_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 i = low.find("titanxis")
         if not raw:
             return
+        # v137.7 — Grup rate limit: 30s pencerede max 3 istek. Aşılırsa
+        # ilk 4. istekte "Lütfen bekleyin" uyarısı gönderilir; sonrakiler
+        # pencere bitene kadar sessizce yok sayılır (spam engelleme).
+        import time as _time
+        chat_key = str(update.effective_chat.id)
+        now_ts = _time.time()
+        hits = _group_nlp_hits.get(chat_key, [])
+        hits = [t for t in hits if now_ts - t < _GROUP_NLP_WINDOW]
+        if len(hits) >= _GROUP_NLP_LIMIT:
+            last_notified = _group_throttle_notified.get(chat_key, 0)
+            if now_ts - last_notified > _GROUP_NLP_WINDOW:
+                _group_throttle_notified[chat_key] = now_ts
+                await reply_ml(update,
+                    f"⏳ *Lütfen bekleyin* — bu grupta {_GROUP_NLP_LIMIT} isteklik "
+                    f"limite ulaşıldı. {_GROUP_NLP_WINDOW:.0f} saniye içinde tekrar dene.")
+            log.info(f"NLP throttled group={chat_key} hits={len(hits)}")
+            return
+        hits.append(now_ts)
+        _group_nlp_hits[chat_key] = hits
     detected = None
     try:
         detected = await _detect_source(raw[:400])
