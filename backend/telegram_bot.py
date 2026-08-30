@@ -254,7 +254,9 @@ def init_bot(db) -> Optional[Application]:
     _app.add_handler(CommandHandler("sifremi_sifirla", sifremi_sifirla_command))
     _app.add_handler(CommandHandler("geri_bildirim", geri_bildirim_command))
     _app.add_handler(CommandHandler("link", link_command))
+    _app.add_handler(CommandHandler("baglanti", link_command))
     _app.add_handler(CommandHandler("hakkinda", hakkinda_command))
+    _app.add_handler(CommandHandler("komutlar", yardim_command))
     # Admin
     _app.add_handler(CommandHandler("duyuru", duyuru_command))
     _app.add_handler(CommandHandler("toplu_duyuru", toplu_duyuru_command))
@@ -678,14 +680,17 @@ async def _all_delivery_chat_ids() -> list:
 
 
 async def _require_link(update: Update) -> Optional[dict]:
-    """Bağlı user yoksa mesaj gönderip None döndürür."""
+    """Bağlı user yoksa açıklayıcı mesaj gönderip None döndürür."""
     chat_id = str(update.effective_chat.id)
     u = await _user_from_chat(chat_id)
     if not u:
         await reply_ml(update,
-            "🔗 Bu komut için hesabını bağlaman gerekiyor.\n"
-            f"Profilinden Telegram bağlama kodu al ve `/link KOD` yaz — ya da "
-            f"[Profil sayfası]({WEB_BASE}/profil)'na git.")
+            "🔗 *Telegram hesabınız sisteme bağlı değil*\n\n"
+            f"Bu komutu kullanabilmen için önce hesabını bağlaman gerekiyor.\n\n"
+            f"1️⃣ Web paneline giriş yap: [{WEB_BASE}/profil]({WEB_BASE}/profil)\n"
+            f"2️⃣ Profil → *Telegram Bağla* butonuna tıkla ve 6 haneli kodu al\n"
+            f"3️⃣ Burada `/link KOD` yaz (ya da `/baglanti KOD`)\n\n"
+            f"💡 Chat ID'niz: `{chat_id}` — admin bu ID'yi elle de eşleyebilir.")
         return None
     return u
 
@@ -695,9 +700,33 @@ async def _require_admin(update: Update) -> Optional[dict]:
     if not u:
         return None
     if u.get("role") != "admin":
-        await reply_ml(update, "🚫 Bu komut sadece yöneticiler içindir.")
+        await reply_ml(update,
+            "🚫 *Bu komut sadece yöneticiler içindir*\n\n"
+            f"Hesabın: `{u.get('username','?')}` (rol: `{u.get('role','member')}`)\n"
+            f"Yetki için lonca yöneticisine ulaş.")
         return None
     return u
+
+
+async def _require_member(update: Update) -> Optional[tuple]:
+    """v136.5 — İki-aşamalı doğrulama: (a) chat bağlı mı? (b) user'a member
+    eşlenmiş mi? Her iki durum için ayrı, açıklayıcı mesaj döndürür.
+    Başarıda `(user, member)` tuple'ı; başarısızlıkta `None` döner."""
+    u = await _require_link(update)
+    if not u:
+        return None
+    m = await _member_from_user(u)
+    if not m:
+        await reply_ml(update,
+            "👤 *Telegram hesabınız bağlı ama lonca üyesiyle eşleşmemiş*\n\n"
+            f"Kullanıcı: `{u.get('username','?')}` (rol: `{u.get('role','member')}`)\n\n"
+            f"Bir yönetici sizin *Telegram hesabınızı* bir *lonca üyesi kaydına* eşleyene "
+            f"kadar bu komut çalışmıyor. Yönetici:\n"
+            f"1️⃣ [Web paneli → Üyeler]({WEB_BASE}/uyeler)\n"
+            f"2️⃣ Sizin üye kartınızda *Telegram Eşle* butonuna tıklamalı\n\n"
+            f"💡 Puan/güç/rütbe gibi bilgileri görmek için üye eşleşmesi zorunlu.")
+        return None
+    return (u, m)
 
 
 async def _member_from_user(u: dict) -> Optional[dict]:
@@ -780,12 +809,9 @@ async def puan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await reply_ml(update, f"❌ '{args[0]}' bulunamadı.")
             return
     else:
-        u = await _require_link(update)
-        if not u: return
-        m = await _member_from_user(u)
-        if not m:
-            await reply_ml(update, "🔗 Hesabına bağlı üye bulunamadı — Profil sayfasından üye eşle.")
-            return
+        r = await _require_member(update)
+        if not r: return
+        u, m = r
     score = await _member_score(m["id"])
     await reply_ml(update,
         f"⚔️ *{m.get('name','?')}*\n\n"
@@ -800,12 +826,20 @@ async def puan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def karsilastir_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = getattr(context, "args", None) or []
     if len(args) < 2:
-        await reply_ml(update, "Kullanım: `/karsilastir @kullanici1 @kullanici2`")
+        await reply_ml(update,
+            "Kullanım: `/karsilastir @kullanici1 @kullanici2`\n\n"
+            "İki üyenin puan/güç karşılaştırmasını yapar. Üye adı veya @username kabul eder.")
         return
     m1 = await _member_by_query(args[0])
     m2 = await _member_by_query(args[1])
-    if not m1 or not m2:
-        await reply_ml(update, "❌ Üyelerden en az biri bulunamadı.")
+    if not m1 and not m2:
+        await reply_ml(update, f"❌ '{args[0]}' ve '{args[1]}' bulunamadı. Üye adını veya @kullanıcı adını kontrol edin.")
+        return
+    if not m1:
+        await reply_ml(update, f"❌ '{args[0]}' bulunamadı.")
+        return
+    if not m2:
+        await reply_ml(update, f"❌ '{args[1]}' bulunamadı.")
         return
     s1, s2 = await _member_score(m1["id"]), await _member_score(m2["id"])
     g1, g2 = int(m1.get("bireysel_guc") or 0), int(m2.get("bireysel_guc") or 0)
@@ -871,11 +905,14 @@ async def _rsvp(update: Update, context, status: str, label: str):
     ev_id_prefix = args[0].strip()
     ev = await _db.events.find_one({"id": {"$regex": f"^{ev_id_prefix}"}}, {"_id": 0})
     if not ev:
-        await reply_ml(update, f"❌ '{ev_id_prefix}' ile başlayan etkinlik bulunamadı.")
+        await reply_ml(update, f"❌ '{ev_id_prefix}' ile başlayan etkinlik bulunamadı.\n\nAktif etkinlik listesi için: `/etkinlikler`")
         return
     m = await _member_from_user(u)
     if not m:
-        await reply_ml(update, "🔗 Eşleşmiş üye yok — Profil'den üye bağla.")
+        await reply_ml(update,
+            "👤 *RSVP için lonca üyesi eşleşmesi gerekli*\n\n"
+            f"Telegram hesabınız bağlı (`{u.get('username','?')}`) ama bir lonca üyesiyle henüz eşleşmemiş.\n"
+            f"Bir yönetici [Üyeler sayfasından]({WEB_BASE}/uyeler) sizin adınıza *Telegram Eşle* yapmalı.")
         return
     await _db.event_rsvps.update_one(
         {"event_id": ev["id"], "member_id": m["id"]},
@@ -903,12 +940,9 @@ async def profil_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await reply_ml(update, f"❌ '{args[0]}' bulunamadı.")
             return
     else:
-        u = await _require_link(update)
-        if not u: return
-        m = await _member_from_user(u)
-        if not m:
-            await reply_ml(update, "🔗 Eşleşmiş üye yok.")
-            return
+        r = await _require_member(update)
+        if not r: return
+        u, m = r
     score = await _member_score(m["id"])
     rsvp_yes = await _db.event_rsvps.count_documents({"member_id": m["id"], "status": "yes"}) if _db is not None else 0
     await reply_ml(update,
@@ -924,12 +958,9 @@ async def profil_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ------------------------------ /rozet, /istatistik ------------------------
 async def rozet_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
-    u = await _require_link(update)
-    if not u: return
-    m = await _member_from_user(u)
-    if not m:
-        await reply_ml(update, "🔗 Eşleşmiş üye yok.")
-        return
+    r = await _require_member(update)
+    if not r: return
+    u, m = r
     score = await _member_score(m["id"])
     badges = []
     if score >= 1_000_000:      badges.append("🥇 İlk Milyon")
@@ -943,12 +974,9 @@ async def rozet_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
 
 
 async def istatistik_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
-    u = await _require_link(update)
-    if not u: return
-    m = await _member_from_user(u)
-    if not m:
-        await reply_ml(update, "🔗 Eşleşmiş üye yok.")
-        return
+    r = await _require_member(update)
+    if not r: return
+    u, m = r
     score = await _member_score(m["id"])
     pt_count = await _db.points.count_documents({"member_id": m["id"]})
     rsvp_yes = await _db.event_rsvps.count_documents({"member_id": m["id"], "status": "yes"})
@@ -1156,13 +1184,16 @@ async def davet_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
 async def hatirlatici_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = getattr(context, "args", None) or []
     if not args:
-        await reply_ml(update, "Kullanım: `/hatirlatici <etkinlik_id>`")
+        await reply_ml(update,
+            "Kullanım: `/hatirlatici <etkinlik_id>`\n\n"
+            "Etkinlik ID'lerini `/etkinlikler` veya `/yakinda` komutlarıyla görebilirsin. "
+            "ID'nin ilk 6-8 karakteri yeterli.")
         return
     u = await _require_link(update)
     if not u: return
     ev = await _db.events.find_one({"id": {"$regex": f"^{args[0]}"}}, {"_id": 0})
     if not ev:
-        await reply_ml(update, f"❌ '{args[0]}' bulunamadı.")
+        await reply_ml(update, f"❌ '{args[0]}' ile başlayan etkinlik bulunamadı.\n\nAktif etkinlikler için: `/etkinlikler`")
         return
     await _db.personal_reminders.update_one(
         {"user_id": u["id"], "event_id": ev["id"]},
@@ -1206,7 +1237,10 @@ async def sifremi_sifirla_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
 
 async def geri_bildirim_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await reply_ml(update, "Kullanım: `/geri_bildirim <mesajın>`")
+        await reply_ml(update,
+            "Kullanım: `/geri_bildirim <mesajın>`\n\n"
+            "Örnek: `/geri_bildirim Bot menüsüne dark mode ekleyebilir misiniz?`\n"
+            "💡 Hesabın bağlı olmasa bile bu komut çalışır — anonim de gönderebilirsin.")
         return
     u = await _user_from_chat(str(update.effective_chat.id))
     msg = " ".join(context.args)[:2000]

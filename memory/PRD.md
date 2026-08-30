@@ -20,6 +20,18 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v136.5 — Telegram Bot Error Message Overhaul)** — Backend:
+  - **`_require_link`**: Genel "hesabını bağla" mesajı 3 adımlı actionable talimatlarla değiştirildi + kullanıcının chat ID'si mesaja eklendi (admin elle eşleyebilsin).
+  - **`_require_admin`**: Kullanıcı adı + mevcut rol gösteriliyor artık ("Hesabın: X, rol: member").
+  - **Yeni helper `_require_member`**: (a) chat bağlı mı, (b) user'a member eşlenmiş mi — iki farklı hatayı ayırt eder. Eşleşme yoksa net mesaj: "Telegram hesabınız bağlı ama lonca üyesiyle eşleşmemiş" + web panelinden nasıl eşleneceği anlatılır.
+  - **Yenilenen handler'lar**: `/puan`, `/profil`, `/rozet`, `/istatistik`, `/streak` (self-mode) artık `_require_member` kullanıyor — belirsiz "🔗 Eşleşmiş üye yok" mesajı yok.
+  - **RSVP komutları (`/katil`, `/katilmiyorum`)**: Eşleşme eksikse artık kullanıcı adı gösterir + Üyeler sayfasına link verir.
+  - **Yeni aliaslar**: `/baglanti` → `/link`, `/komutlar` → `/yardim`.
+  - **Boş argüman UX'i**: `/karsilastir`, `/hatirlatici`, `/geri_bildirim` boş çağrıldığında artık örnek kullanım + hint gösteriyor.
+  - **Not found handling**: `/karsilastir` her iki üye bulunamadıysa ayrı ayrı hata döner; `/hatirlatici` etkinlik yoksa "`/etkinlikler` ile listele" ipucu verir.
+  - Toplam kayıtlı komut: **52 CommandHandler** (önceden 50).
+
+
 - **Feb 29, 2026 (v136.3 — Arşiv Filtre Paneli + Seri Silme UX + /streak Fix)** — Backend + Frontend:
   - **Gelişmiş Arşiv Arama** (`Events.jsx`): Arşiv sekmesinde klasör grid'inin ÜSTÜNE yeni `ArchiveFilterPanel` bileşeni eklendi — 4 alan: tarih başlangıç, tarih bitiş, tip/etkinlik adı, katılımcı (üye adı). Client-side filtreler `filteredEvents` useMemo'da uygulanır; participantQuery ≥ 2 karakter olunca `/points?search=X&limit=2000` SWR ile çekilir, o event_id'ler set olarak filtreye eklenir. Sağ üstte `filtered/total` mono count, en altta `archive-filter-reset` butonu (filtreler aktifken görünür).
   - **Seri Silme UX** (`EventDetailModal.doDelete`): Etkinlik `series_id` içeriyorsa, mevcut events listesinde aynı series_id'ye sahip başka etkinlik sayılır. Kalan 0 ise 3-seçenekli prompt yerine tek soru: "Bu, serinin son etkinliği. Tüm seriyi (kayıtları dahil) silmek istiyor musun?" (i18n key `confirm_delete_last_series`). Onay verilirse `DELETE /events/series/{id}` çağrılır → seri tamamen silinir, yarım kayıt kalmaz. Kalan >0 ise mevcut 3-seçenekli prompt korunur ama "N etkinlik" bilgisi eklenir.
