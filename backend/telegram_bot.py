@@ -37,6 +37,10 @@ DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY", "").strip()
 DEEPL_BASE = "https://api-free.deepl.com/v2" if DEEPL_API_KEY.endswith(":fx") else "https://api.deepl.com/v2"
 GOOGLE_TRANSLATION_API_KEY = os.environ.get("GOOGLE_TRANSLATION_API_KEY", "").strip()
 
+# v137.2 — Tüm "test" mesajları (debug, sistem bildirimleri, admin
+# preview'ları) yalnızca bu chat_id'ye teslim edilir. Overridable via env.
+TELEGRAM_TEST_CHAT_ID = os.environ.get("TELEGRAM_TEST_CHAT_ID", "").strip() or "5228424846"
+
 # v137 — NLP override: When the message-handler detects a natural-language
 # question (no `/`), we pin the reply language to what the USER wrote so
 # a Russian question gets a Russian answer regardless of profile settings.
@@ -1762,12 +1766,24 @@ async def nlp_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 # ------------------------------ Notifications --------------------------------
 
 async def send_message(chat_id: str, text: str, parse_mode: Optional[str] = "Markdown",
-                       reply_markup: Optional[dict] = None) -> bool:
+                       reply_markup: Optional[dict] = None,
+                       is_test: bool = False) -> bool:
     """Fire-and-forget broadcaster. When Markdown parsing fails (unbalanced
     `_` `*` `[` in dynamic content), we retry ONCE without parse_mode so the
     plain text still delivers. Non-ok responses log Telegram's `description`
-    + `error_code` for debuggability."""
-    if not BOT_TOKEN or not chat_id:
+    + `error_code` for debuggability.
+
+    v137.2 — `is_test=True` geçildiğinde `chat_id` YOK SAYILIR ve mesaj
+    yalnızca `TELEGRAM_TEST_CHAT_ID`'e gönderilir. Böylece hangi çağıran
+    olursa olsun (üye DM, kanal, grup) yanlış hedefe test mesajı gitmez.
+    Metnin başına `🧪 [TEST]` prefix'i otomatik eklenir (henüz yoksa)."""
+    if not BOT_TOKEN:
+        return False
+    if is_test:
+        chat_id = TELEGRAM_TEST_CHAT_ID
+        if text and not text.lstrip().startswith("🧪"):
+            text = f"🧪 [TEST]\n{text}"
+    if not chat_id:
         return False
     async def _post(pmode: Optional[str]) -> dict:
         payload: dict = {"chat_id": chat_id, "text": text}

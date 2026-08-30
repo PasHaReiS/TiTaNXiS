@@ -20,6 +20,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v137.2 — Test Mesajı Guard)** — Backend:
+  - **`TELEGRAM_TEST_CHAT_ID`** yeni env değişkeni (`/app/backend/.env`) — varsayılan `5228424846`. Overridable.
+  - **`send_message(is_test=True)`**: `telegram_bot.send_message` yeni parametre kabul ediyor. `True` iken çağıranın `chat_id`'si YOK SAYILIR, mesaj yalnızca `TELEGRAM_TEST_CHAT_ID`'ye gönderilir + metnin başına `🧪 [TEST]` prefix eklenir. Böylece hangi çağıran olursa olsun (kanal, grup, üye DM) yanlış hedefe test mesajı gitmez.
+  - **Güncellenen test endpoint'leri** (`server.py`):
+    - `POST /api/push/test` → channel + DM fan-out artık `is_test=True` ile TEST chat'e yönlenir. fan_out=true bile olsa gerçek üyelere hiç mesaj gitmez, sadece test grubuna 1 mesaj.
+    - `POST /api/reports/trend/digest/test-send` → admin DM'i yerine TEST chat.
+    - `POST /api/reports/trend/digest/recipients/{cid}/test` → belirtilen alıcı yerine TEST chat'e ping, response'a `test_routed: true` eklendi.
+    - Bu 3 endpoint kırık `_send_tg_message` import'undan da temizlendi → artık `send_message` kullanıyor.
+  - **Not**: `GOOGLE_TRANSLATION_API_KEY` bir önceki turda .env'e eklenmişti, dokunulmadı. Test guard geriye dönük uyumlu — mevcut broadcast/duyuru akışları `is_test` parametresini geçmiyor, dolayısıyla etkilenmiyor.
+
+
 - **Feb 29, 2026 (v137 — Telegram NLP + Auto-Lang Reply)** — Backend:
   - **NLP Handler** (`telegram_bot.py`): Slash olmadan yazılan doğal-dil mesajları `MessageHandler(filters.TEXT & ~filters.COMMAND, nlp_message_handler, group=1)` ile yakalanır. Akış: (1) mesaj dilini algıla (Google Cloud Translation → DeepL fallback), (2) `_nlp_override_lang` ContextVar'ına pinle, (3) mesajı TR'ye çevir, (4) 23 intent × ~150 anahtar-kelime setiyle intent tespit et, (5) `globals()`'tan ilgili command handler'ı bul + çağır. Eşleşmeyen mesajlar için kullanıcının dilinde yardım-yönlendirici mesaj.
   - **`reply_ml` genişletildi**: Yeni öncelik-0 katmanı `_nlp_override_lang` ContextVar (NLP handler set eder). Slash-komutlarda ContextVar boş → mevcut `preferred_language` yolu devam eder. Böylece: NLP mesajı → mesajın dilinde yanıt; slash-komut → profil dilinde yanıt.

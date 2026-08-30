@@ -5735,9 +5735,12 @@ async def push_test(body: PushTestBody, user: dict = Depends(require_admin)):
     # 2) Telegram channel
     if body.send_channel and os.environ.get("TELEGRAM_CHANNEL_ID", "").strip():
         try:
+            # v137.2 — Test mesajı: `is_test=True` ile yalnızca TEST_CHAT_ID'ye
+            # yönlenir; asıl kanala/gruba test mesajı gitmez.
             result["telegram_channel_sent"] = await _tg_send(
                 os.environ["TELEGRAM_CHANNEL_ID"].strip(),
-                f"🧪 *{title}*\n\n{msg}"
+                f"🧪 *{title}*\n\n{msg}",
+                is_test=True,
             )
         except Exception as e:
             result["telegram_channel_error"] = str(e)
@@ -5748,34 +5751,13 @@ async def push_test(body: PushTestBody, user: dict = Depends(require_admin)):
     result["telegram_dm_langs"] = {}
     result["dm_details"] = []
     if body.send_dm:
-        targets: List[Dict[str, str]] = []
-        seen: set = set()
-        if body.fan_out:
-            async for u in db.users.find(
-                {"telegram_chat_id": {"$exists": True, "$ne": None},
-                 "notification_enabled": {"$ne": False}},
-                {"_id": 0, "username": 1, "telegram_chat_id": 1}
-            ):
-                cid = str(u.get("telegram_chat_id") or "")
-                if cid and cid not in seen:
-                    seen.add(cid)
-                    targets.append({"username": u.get("username") or "?", "chat_id": cid, "source": "widget"})
-            async for m in db.telegram_chat_map.find({}, {"_id": 0, "username": 1, "chat_id": 1}):
-                cid = str(m.get("chat_id") or "")
-                if cid and cid not in seen:
-                    seen.add(cid)
-                    targets.append({"username": f"@{m.get('username') or '?'}", "chat_id": cid, "source": "chat_map"})
-        else:
-            udoc = await db.users.find_one({"id": user["id"]}, {"_id": 0, "username": 1, "telegram_chat_id": 1, "telegram_username": 1})
-            cid = (udoc or {}).get("telegram_chat_id")
-            if cid:
-                targets.append({"username": udoc.get("username") or "?", "chat_id": str(cid), "source": "widget"})
-            else:
-                uh = (udoc or {}).get("telegram_username")
-                if uh:
-                    e = await db.telegram_chat_map.find_one({"username_lc": uh.lower().lstrip("@")}, {"_id": 0, "chat_id": 1})
-                    if e and e.get("chat_id"):
-                        targets.append({"username": udoc.get("username") or "?", "chat_id": str(e["chat_id"]), "source": "chat_map"})
+        # v137.2 — Test mesajları: fan_out isteklerini yok say ve yalnızca
+        # TEST_CHAT_ID'ye tek DM gönder. Böylece hiçbir üye kazayla test
+        # push almaz.
+        from telegram_bot import TELEGRAM_TEST_CHAT_ID as _TEST_CID
+        targets: List[Dict[str, str]] = [
+            {"username": "TEST_GROUP", "chat_id": str(_TEST_CID), "source": "test_override"}
+        ]
         # DM fan-out with per-recipient DeepL translation. Same shared helper
         # (`_dm_translate_and_send`) as scheduled/attendance/country broadcast
         # so a test push behaves identically to a real one.
@@ -9658,12 +9640,15 @@ async def digest_recipients_remove(chat_id: str, _: dict = Depends(require_admin
 @api_router.post("/reports/trend/digest/recipients/{chat_id:path}/test")
 async def digest_recipients_test(chat_id: str, _: dict = Depends(require_admin)):
     """Fire a tiny ping to a specific recipient so admins can verify the bot
-    has access before the real Sunday digest lands."""
+    has access before the real Sunday digest lands.
+    v137.2 — Verilen chat_id yok sayılır; test mesajı yalnızca
+    `TELEGRAM_TEST_CHAT_ID`'ye yönlenir."""
     try:
-        from telegram_bot import _send_tg_message
-        ok = await _send_tg_message(str(chat_id),
-            "🧪 TiTaNXiS Digest Bağlantı Testi — bu alıcı haftalık özeti alacak.")
-        return {"ok": bool(ok), "chat_id": chat_id}
+        from telegram_bot import send_message as _tg_send
+        ok = await _tg_send(str(chat_id),
+            f"🧪 TiTaNXiS Digest Bağlantı Testi — hedef `{chat_id}` haftalık özeti alacak.",
+            is_test=True)
+        return {"ok": bool(ok), "chat_id": chat_id, "test_routed": True}
     except Exception as ex:
         raise HTTPException(500, f"Telegram test hatası: {ex}")
 
@@ -9688,8 +9673,10 @@ async def reports_trend_digest_test_send(days: int = 7, user: dict = Depends(req
     chat_id = (udoc or {}).get("telegram_chat_id")
     if chat_id:
         try:
-            from telegram_bot import _send_tg_message
-            ok = await _send_tg_message(str(chat_id), body)
+            # v137.2 — Test dispatch: her koşulda TEST_CHAT_ID'ye yönlenir,
+            # admin'in kendi DM'i kirletilmez.
+            from telegram_bot import send_message as _tg_send
+            ok = await _tg_send(str(chat_id), body, is_test=True)
             tg_sent = 1 if ok else 0
             if not ok:
                 tg_err_reason = "bot delivery failed"
