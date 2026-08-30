@@ -11,7 +11,7 @@ const HERO_BANNER_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wing
 const BRAND_LOGO_URL = "/brand/titanxis-logo.jpg";
 
 export default function Login() {
-  const { user, login } = useAuth();
+  const { user, login, loginAsGuest, isGuest } = useAuth();
   const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -20,6 +20,12 @@ export default function Login() {
   const nav = useNavigate();
 
   if (user) return <Navigate to="/" replace />;
+
+  const enterAsGuest = () => {
+    loginAsGuest();
+    toast.success(t("guest_login_hint", "Sadece Sıralama ekranını görüntüle"));
+    nav("/", { replace: true });
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -189,6 +195,40 @@ export default function Login() {
         >
           🔑 GİRİŞ YAP
         </button>
+
+        {/* v136 — Ziyaretçi Girişi. Sadece Sıralama'ya erişim verir; diğer
+            korumalı sayfalar kilit ekranı gösterir. */}
+        <button
+          data-testid="guest-enter-btn"
+          onClick={enterAsGuest}
+          style={{
+            width: "100%",
+            padding: "12px 20px",
+            borderRadius: 10,
+            border: "1.5px solid rgba(148,163,184,0.55)",
+            background: "rgba(15,10,16,0.72)",
+            color: "#E5E7EB",
+            fontFamily: "Cinzel, serif",
+            fontWeight: 700,
+            fontSize: 12,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.45)",
+            cursor: "pointer",
+            marginTop: -4,
+          }}
+        >
+          {t("guest_login_btn", "🎭 Ziyaretçi Olarak Gir")}
+        </button>
+        {isGuest && (
+          <div
+            data-testid="guest-mode-indicator"
+            className="text-[10px] text-center"
+            style={{ color: "#94A3B8", marginTop: -6 }}
+          >
+            {t("guest_login_hint", "Sadece Sıralama ekranını görüntüle")}
+          </div>
+        )}
       </div>
 
       {/* Giriş formu modalı */}

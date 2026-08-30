@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v136 — Ziyaretçi Girişi)** — Frontend-only:
+  - **AuthContext**: Yeni `isGuest` state (sessionStorage `ol_guest=1`) + `loginAsGuest()` action. Token yaratmaz; sekme kapanınca temizlenir. `logout()` hem token'ı hem guest flag'i düşürür.
+  - **Login.jsx**: "🎭 ZİYARETÇİ OLARAK GİR" butonu (`guest-enter-btn`) amber "GİRİŞ YAP"ın altında. Klik → `loginAsGuest()` + toast + `nav("/")`.
+  - **App.js RequireAuth / RequireAdmin / RequireAdminOrEditor**: `!user && isGuest` durumunda artık `/login`'e redirect etmiyor, `<LockedPage />` render ediyor. Public route'lar (`/`, `/komutanlar`, `/duyurular`, `/kurallar`, `/lonca`, `/vip-destek`, `/puan-hesaplama`) ziyaretçi için erişilebilir kalıyor.
+  - **`LockedPage.jsx`** (yeni sayfa): Amber kilit iconu + `locked_page_title` + `locked_page_message` + `locked_page_login_btn` — tüm metinler `useTranslation()` ile. `data-testid`'ler: `locked-page`, `locked-page-icon`, `locked-page-title`, `locked-page-message`, `locked-page-login-btn`.
+  - **i18n**: 3 yeni key (`guest_login_btn`, `guest_login_hint`, `locked_page_title/message/login_btn`) TR + EN eklendi; kalan 27 dil `deepl-retry-i18n` cron'unda otomatik doldurulur.
+  - **QA**: Playwright ile doğrulandı — `/uyeler` ve `/etkinlikler` guest için LockedPage; `/` (Sıralama) guest için tam çalışır.
+
+
 - **Feb 29, 2026 (v136 — Manuel Arşiv + Etkinlik Türü Copy Fix)** — Backend + Frontend:
   - **Members.jsx Syntax Fix**: `MembersOcrRegisterDropdown` bileşeninde eksik olan `);` + `}` kapanış işaretleri eklendi (satır 296 sonrası). Yanlış konumdaki orphan `);}` satırları temizlendi. Frontend build tekrar geçiyor.
   - **Auto-Archive Devre Dışı**: `/app/.emergent/crons.yml` içindeki `auto-archive-sweep` job `enabled: false` yapıldı. Süresi geçmiş etkinlikler artık kendiliğinden arşive taşınmıyor — admin manuel karar veriyor.

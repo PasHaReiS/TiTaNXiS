@@ -24,6 +24,7 @@ import VipSupport from "@/pages/VipSupport";
 import Dashboard from "@/pages/Dashboard";
 import EventNotifications from "@/pages/EventNotifications";
 import AccessDenied from "@/pages/AccessDenied";
+import LockedPage from "@/pages/LockedPage";
 import Members from "@/pages/Members";
 import MemberHome from "@/pages/MemberHome";
 import Events from "@/pages/Events";
@@ -80,24 +81,28 @@ function LoadingScreen() {
 }
 
 function RequireAuth({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, isGuest } = useAuth();
   const location = useLocation();
   if (loading) return <LoadingScreen />;
+  // v136 — Ziyaretçi ise kilit ekranı göster, login'e yönlendirme yapma.
+  if (!user && isGuest) return <LockedPage />;
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
   return children;
 }
 
 function RequireAdmin({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, isGuest } = useAuth();
   if (loading) return <LoadingScreen />;
+  if (!user && isGuest) return <LockedPage />;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== "admin") return <Navigate to="/" replace />;
   return children;
 }
 
 function RequireAdminOrEditor({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, isGuest } = useAuth();
   if (loading) return <LoadingScreen />;
+  if (!user && isGuest) return <LockedPage />;
   if (!user) return <Navigate to="/login" replace />;
   const canView = user.role === "admin" || user.can_edit === true;
   if (!canView) return <AccessDenied />;

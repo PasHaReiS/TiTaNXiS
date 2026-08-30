@@ -5,12 +5,18 @@ import { identifyUser, trackEvent } from "@/firebase";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 const TOKEN_KEY = "ol_token";
+const GUEST_KEY = "ol_guest"; // v136 — sessionStorage flag for guest mode
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null); // null = guest / not-loaded, object = logged in
   const [loading, setLoading] = useState(true);
+  // v136 — Ziyaretçi modu (yalnızca Sıralama'yı görebilir). Session storage'da
+  // taşınır, sekme kapanınca temizlenir.
+  const [isGuest, setIsGuest] = useState(() => {
+    try { return sessionStorage.getItem(GUEST_KEY) === "1"; } catch { return false; }
+  });
 
   const setAxiosToken = useCallback((token) => {
     if (token) axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
@@ -54,9 +60,20 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
+    try { sessionStorage.removeItem(GUEST_KEY); } catch {}
     setAxiosToken(null);
     setUser(null);
+    setIsGuest(false);
   }, [setAxiosToken]);
+
+  // v136 — Ziyaretçi girişi. Token yaratmaz, sadece isGuest bayrağını açar.
+  // Kullanıcı yalnızca Sıralama ekranını görebilir; diğer korumalı sayfalar
+  // LockedPage döndürür.
+  const loginAsGuest = useCallback(() => {
+    try { sessionStorage.setItem(GUEST_KEY, "1"); } catch {}
+    setIsGuest(true);
+    trackEvent("guest_enter", {});
+  }, []);
 
   const refreshMe = useCallback(async () => {
     try {
@@ -70,7 +87,7 @@ export function AuthProvider({ children }) {
   const canEdit = !!user && (isAdmin || !!user.can_edit);
 
   return (
-    <AuthContext.Provider value={{ user, loading, isAdmin, canEdit, login, logout, refreshMe, setUser, adoptSession }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, canEdit, login, logout, refreshMe, setUser, adoptSession, isGuest, loginAsGuest }}>
       {children}
     </AuthContext.Provider>
   );

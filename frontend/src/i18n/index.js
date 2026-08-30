@@ -123,6 +123,11 @@ const tr = {
   login_contact_admin_2: "yönetici",
   login_contact_admin_3: "ile iletişime geçin",
   guest_continue: "← Ziyaretçi olarak devam et",
+  guest_login_btn: "🎭 Ziyaretçi Olarak Gir",
+  guest_login_hint: "Sadece Sıralama ekranını görüntüle",
+  locked_page_title: "Bu Sayfa Kilitli",
+  locked_page_message: "Bu sayfayı görüntülemek için giriş yapmalısınız",
+  locked_page_login_btn: "Giriş Yap",
   first_login_change_pwd: "İlk girişte şifrenizi değiştirmeniz önerilir",
 
   // Fields
@@ -1401,6 +1406,11 @@ const en = {
   login_contact_admin_2: "administrator",
   login_contact_admin_3: "",
   guest_continue: "← Continue as guest",
+  guest_login_btn: "🎭 Enter as Guest",
+  guest_login_hint: "View only the Leaderboard",
+  locked_page_title: "This Page Is Locked",
+  locked_page_message: "You must sign in to view this page",
+  locked_page_login_btn: "Sign In",
   first_login_change_pwd: "You should change your password on first login",
   rank: "Rank",
   alliance: "Alliance",
