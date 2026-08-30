@@ -20,6 +20,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v137.4 — Bot Grup NLP Fix)** — Backend:
+  - **Root cause**: Gruplarda `update.effective_chat.id` grubun negatif kimliği; kullanıcının private DM'de linklenmiş `users.telegram_chat_id` ile ASLA eşleşmezdi → `_user_from_chat` None döndürüyor, NLP handler "hesabın bağlı değil" spamı gönderiyor ya da hiç yanıtlayamıyordu.
+  - **`_user_from_chat`**: Yeni `user_id` opt parametresi. Grup mesajlarında `effective_user.id` (gönderen Telegram user_id) ile de sorgulanıyor. Private chat'te `chat_id == user_id` olduğu için tek yol her iki durumu kapsıyor. chat_map fallback iki kimliği de deniyor.
+  - **`_require_link`**: `effective_user.id`'yi `_user_from_chat`'e forward ediyor. Grupta bağsız kullanıcıya kısa mesaj + private DM link'i; private'de tam 3-adımlı talimat.
+  - **`nlp_message_handler`** (v137.4):
+    - Grup mesajlarında `@BotUsername` prefix'i case-insensitive olarak temizlenir. Yalnızca mention gönderilirse sessizce dönülür.
+    - Intent bulunamayan grup mesajları **sessizce yok sayılır** (spam engelleme). Private'da mevcut yardım mesajı korundu.
+    - Log satırına `type=group/supergroup/private` eklendi, debug kolaylığı için.
+  - **Not**: BotFather'da privacy mode disable olması gerekli — kullanıcı bunu zaten yaptığını doğruladı.
+
+
 - **Feb 29, 2026 (v137.3 — LLM NLP + English Aliases)** — Backend:
   - **LLM tabanlı intent + entity extraction** (`telegram_bot.py`): Yeni `_llm_classify(text)` fonksiyonu Emergent LLM Key + Claude Sonnet 4.6 kullanır. STRICT JSON schema: `{intent, member, confidence}`. Keyword eşleşmesi olsa bile entity çıkarmak için her mesajda çağrılır; conflict durumunda LLM kazanır. Fail-soft: LLM hatası → keyword fallback.
   - **Entity injection**: `nlp_message_handler` LLM'den `member` çıkarırsa ve intent üçüncü-şahıs komut (`puan`, `profil`, `guc`, `rozet`, `istatistik`, `streak`, `karsilastir`) ise `context.args = [member]` set edilir. Böylece "Ali'nin puanı ne?" → `puan_command`'ın 3rd-person branch'i çalışır ve Ali'nin puanı döner.

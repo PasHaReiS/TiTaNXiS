@@ -725,28 +725,44 @@ TITANXIS_GROUP_CHAT_ID = os.environ.get(
     os.environ.get("TELEGRAM_CHANNEL_ID", "-1003597221954"),
 ).strip()
 
-async def _user_from_chat(chat_id: str) -> Optional[dict]:
+async def _user_from_chat(chat_id: str, user_id: Optional[str] = None) -> Optional[dict]:
     """Bu Telegram sohbetiyle bağlı TiTaNXiS user'ını döndürür.
 
     v133.1 — Fallback: `users.telegram_chat_id` yoksa `chat_map` collection'ına
     bak (kullanıcı /start ile bağlanmış ama admin henüz Profile'dan eşleme
     yapmamış olabilir). chat_map schema: {chat_id, telegram_username, user_id?}.
+
+    v137.4 — GROUP DESTEĞİ: Grup/supergroup mesajlarında `chat_id` grubun
+    negatif kimliğidir → private DM'de linklenmiş `users.telegram_chat_id` ile
+    ASLA eşleşmez. Bu yüzden `user_id` (gönderen Telegram user_id) verilirse
+    ONA göre de sorgu yaparız. Private chat'te chat_id == user_id olduğundan
+    hem grup hem private aynı yolu kullanabilir.
     """
     if _db is None:
         return None
+    # 1) Doğrudan chat_id (private DM için native)
     u = await _db.users.find_one({"telegram_chat_id": str(chat_id)}, {"_id": 0})
     if u:
         return u
-    # Fallback via chat_map (bir /start webhook fallback tarafından yazıldı)
-    cm = await _db.chat_map.find_one({"chat_id": str(chat_id)}, {"_id": 0})
-    if not cm:
-        return None
-    uid = cm.get("user_id")
-    if uid:
-        return await _db.users.find_one({"id": uid}, {"_id": 0})
-    tg_username = (cm.get("telegram_username") or "").lstrip("@")
-    if tg_username:
-        return await _db.users.find_one({"telegram_username": tg_username}, {"_id": 0})
+    # 2) v137.4 — Group fallback: chat_id ≠ user_id → user_id ile dene.
+    #    Private chat'te chat_id == user_id, ama tekrar sorgu maliyeti düşük.
+    if user_id and str(user_id) != str(chat_id):
+        u = await _db.users.find_one({"telegram_chat_id": str(user_id)}, {"_id": 0})
+        if u:
+            return u
+    # 3) chat_map fallback (bir /start webhook fallback tarafından yazıldı)
+    for candidate in ([str(chat_id), str(user_id)] if user_id else [str(chat_id)]):
+        cm = await _db.chat_map.find_one({"chat_id": candidate}, {"_id": 0})
+        if not cm:
+            continue
+        uid = cm.get("user_id")
+        if uid:
+            u = await _db.users.find_one({"id": uid}, {"_id": 0})
+            if u: return u
+        tg_username = (cm.get("telegram_username") or "").lstrip("@")
+        if tg_username:
+            u = await _db.users.find_one({"telegram_username": tg_username}, {"_id": 0})
+            if u: return u
     return None
 
 
@@ -782,17 +798,33 @@ async def _all_delivery_chat_ids() -> list:
 
 
 async def _require_link(update: Update) -> Optional[dict]:
-    """Bağlı user yoksa açıklayıcı mesaj gönderip None döndürür."""
+    """Bağlı user yoksa açıklayıcı mesaj gönderip None döndürür.
+
+    v137.4 — Grup/supergroup mesajlarında da doğru user'ı çözer:
+    `effective_user.id`'yi (gönderen Telegram user_id) fallback lookup key
+    olarak `_user_from_chat`'e verir. Böylece kullanıcı private'de linkli
+    olsa bile grupta komutu çalıştırabilir.
+    """
     chat_id = str(update.effective_chat.id)
-    u = await _user_from_chat(chat_id)
+    user_id = str(update.effective_user.id) if update.effective_user else None
+    u = await _user_from_chat(chat_id, user_id=user_id)
     if not u:
-        await reply_ml(update,
-            "🔗 *Telegram hesabınız sisteme bağlı değil*\n\n"
-            f"Bu komutu kullanabilmen için önce hesabını bağlaman gerekiyor.\n\n"
-            f"1️⃣ Web paneline giriş yap: [{WEB_BASE}/profil]({WEB_BASE}/profil)\n"
-            f"2️⃣ Profil → *Telegram Bağla* butonuna tıkla ve 6 haneli kodu al\n"
-            f"3️⃣ Burada `/link KOD` yaz (ya da `/baglanti KOD`)\n\n"
-            f"💡 Chat ID'niz: `{chat_id}` — admin bu ID'yi elle de eşleyebilir.")
+        # v137.4 — Grupta bağsız kullanıcıya "bağla" mesajı basmak spam yapar.
+        # Kullanıcıya private DM link'i sun; grup metnini kısa tut.
+        is_group = update.effective_chat and update.effective_chat.type in ("group", "supergroup")
+        if is_group:
+            await reply_ml(update,
+                f"🔗 @{(update.effective_user.username or '?') if update.effective_user else '?'} — "
+                f"hesabın bağlı değil. Botla özelden konuş: [t.me/TiTaNXiS_BoT](https://t.me/TiTaNXiS_BoT) "
+                f"veya web'den `/link` kodu al: [{WEB_BASE}/profil]({WEB_BASE}/profil)")
+        else:
+            await reply_ml(update,
+                "🔗 *Telegram hesabınız sisteme bağlı değil*\n\n"
+                f"Bu komutu kullanabilmen için önce hesabını bağlaman gerekiyor.\n\n"
+                f"1️⃣ Web paneline giriş yap: [{WEB_BASE}/profil]({WEB_BASE}/profil)\n"
+                f"2️⃣ Profil → *Telegram Bağla* butonuna tıkla ve 6 haneli kodu al\n"
+                f"3️⃣ Burada `/link KOD` yaz (ya da `/baglanti KOD`)\n\n"
+                f"💡 Chat ID'niz: `{chat_id}` — admin bu ID'yi elle de eşleyebilir.")
         return None
     return u
 
@@ -1804,12 +1836,35 @@ async def _llm_classify(text: str) -> Optional[dict]:
 
 
 async def nlp_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """v137 — Slash-siz doğal-dil mesajları için ana giriş noktası."""
+    """v137 — Slash-siz doğal-dil mesajları için ana giriş noktası.
+
+    v137.4 — GRUP DESTEĞİ:
+      • Gruplarda "@BotUsername" prefix'i case-insensitive olarak temizlenir.
+      • Intent bulunamazsa GRUPTA sessizce dönülür (spam engelleme).
+      • `nlp_message_handler` çağıran command'lar `_require_link` üzerinden
+        `effective_user.id`'yi de fallback lookup key olarak kullanır → grupta
+        da bağlı kullanıcıları çözebilir.
+    """
     if not update.message or not update.message.text:
         return
     raw = update.message.text.strip()
     if raw.startswith("/"):
         return
+    is_group = bool(update.effective_chat and update.effective_chat.type in ("group", "supergroup"))
+    # Grup: bot mention prefix'ini temizle
+    if is_group:
+        try:
+            me = await context.bot.get_me()
+            if me and me.username:
+                pattern = f"@{me.username}".lower()
+                low = raw.lower()
+                if pattern in low:
+                    idx = low.find(pattern)
+                    raw = (raw[:idx] + raw[idx + len(pattern):]).strip()
+        except Exception:
+            pass
+        if not raw:
+            return
     detected = None
     try:
         detected = await _detect_source(raw[:400])
@@ -1821,27 +1876,22 @@ async def nlp_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         if translated:
             tr_text = translated
     intent = _match_intent_tr(tr_text)
-    # v137.1 — Fallback: eğer TR çevirisi intent üretmediyse ORİJİNAL metinde
-    # de anahtar kelime aramak. Bu, "streak", "puan", "profil" gibi loanword
-    # veya transliterasyonların (мой стрик, mi streak) yakalanmasını sağlar.
     if not intent and raw:
         intent = _match_intent_tr(raw)
-    # v137.3 — LLM tabanlı intent + entity extraction. Keyword eşleşse bile
-    # entity (üye adı) çıkarmak için LLM çağrısı yaparız. Böylece "Ali'nin
-    # puanı" gibi mesajlarda hem intent (puan) hem entity (Ali) tespit edilir.
     llm_res = await _llm_classify(raw)
     member_entity: Optional[str] = None
     if llm_res:
-        # LLM daha güvenilir — keyword eşleşmesi ile çelişirse LLM'e güven.
         if llm_res.get("intent"):
             if intent and intent != llm_res["intent"]:
                 log.info(f"NLP intent conflict keyword={intent} vs llm={llm_res['intent']} → LLM wins")
             intent = llm_res["intent"]
         member_entity = llm_res.get("member")
-    log.info(f"NLP: chat={update.effective_chat.id} lang={detected} intent={intent} member={member_entity!r} raw={raw[:60]!r} tr={tr_text[:60]!r}")
+    log.info(f"NLP: chat={update.effective_chat.id} type={update.effective_chat.type if update.effective_chat else '?'} lang={detected} intent={intent} member={member_entity!r} raw={raw[:60]!r} tr={tr_text[:60]!r}")
     token = _nlp_override_lang.set(detected) if detected else None
     try:
         if not intent:
+            if is_group:
+                return  # v137.4 — grupta sessiz dön
             await reply_ml(update,
                 "🤖 *Ne demek istediğini tam anlayamadım.*\n\n"
                 "Şunları deneyebilirsin:\n"
@@ -1855,8 +1905,20 @@ async def nlp_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         handler_name = _NLP_COMMAND_TO_HANDLER.get(intent)
         handler_fn = globals().get(handler_name) if handler_name else None
         if not callable(handler_fn):
-            await reply_ml(update, "⚠️ Bu komut için handler bulunamadı — `/yardim` yaz.")
+            if not is_group:
+                await reply_ml(update, "⚠️ Bu komut için handler bulunamadı — `/yardim` yaz.")
             return
+        # v137.3 — Entity injection
+        if member_entity and intent in ("puan", "profil", "guc", "rozet", "istatistik", "streak", "karsilastir"):
+            try:
+                context.args = [member_entity]
+            except Exception:
+                pass
+        if intent == "karsilastir":
+            handler_fn = globals().get("karsilastir_command")
+            if callable(handler_fn):
+                await handler_fn(update, context)
+                return
         await handler_fn(update, context)
     finally:
         if token is not None:
