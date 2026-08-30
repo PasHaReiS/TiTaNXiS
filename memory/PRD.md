@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v137.3 — LLM NLP + English Aliases)** — Backend:
+  - **LLM tabanlı intent + entity extraction** (`telegram_bot.py`): Yeni `_llm_classify(text)` fonksiyonu Emergent LLM Key + Claude Sonnet 4.6 kullanır. STRICT JSON schema: `{intent, member, confidence}`. Keyword eşleşmesi olsa bile entity çıkarmak için her mesajda çağrılır; conflict durumunda LLM kazanır. Fail-soft: LLM hatası → keyword fallback.
+  - **Entity injection**: `nlp_message_handler` LLM'den `member` çıkarırsa ve intent üçüncü-şahıs komut (`puan`, `profil`, `guc`, `rozet`, `istatistik`, `streak`, `karsilastir`) ise `context.args = [member]` set edilir. Böylece "Ali'nin puanı ne?" → `puan_command`'ın 3rd-person branch'i çalışır ve Ali'nin puanı döner.
+  - **Python testi doğrulandı** (6/6): "Ali'nin puanı ne?" → intent=puan, member=Ali, conf=0.95; "what is Bob's streak?" → intent=streak, member=Bob, conf=0.95; "hava nasıl bugün" → intent=null (rejected).
+  - **20 İngilizce alias eklendi**: `/points`, `/profile`, `/badges`, `/events`, `/stats`, `/calendar`, `/archive`, `/guild`, `/compare`, `/upcoming`, `/join`, `/leave`, `/remind`, `/language`, `/notifications`, `/pause`, `/invite`, `/feedback`, `/about`, `/reset_password`. Mevcut `/ranking`, `/power`, `/event`, `/help`, `/top5`, `/streak` (native EN) + `/baglanti`, `/komutlar` (TR alt yol) korundu. Toplam CommandHandler: **72** (52 → 72).
+  - **`/yardim` güncellendi**: Yeni "🇬🇧 English aliases" bölümü tüm İngilizce komutları listeler.
+
+
 - **Feb 29, 2026 (v137.2 — Test Mesajı Guard)** — Backend:
   - **`TELEGRAM_TEST_CHAT_ID`** yeni env değişkeni (`/app/backend/.env`) — varsayılan `5228424846`. Overridable.
   - **`send_message(is_test=True)`**: `telegram_bot.send_message` yeni parametre kabul ediyor. `True` iken çağıranın `chat_id`'si YOK SAYILIR, mesaj yalnızca `TELEGRAM_TEST_CHAT_ID`'ye gönderilir + metnin başına `🧪 [TEST]` prefix eklenir. Böylece hangi çağıran olursa olsun (kanal, grup, üye DM) yanlış hedefe test mesajı gitmez.

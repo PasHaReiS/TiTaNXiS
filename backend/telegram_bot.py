@@ -36,6 +36,7 @@ TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}" if BOT_TOKEN else ""
 DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY", "").strip()
 DEEPL_BASE = "https://api-free.deepl.com/v2" if DEEPL_API_KEY.endswith(":fx") else "https://api.deepl.com/v2"
 GOOGLE_TRANSLATION_API_KEY = os.environ.get("GOOGLE_TRANSLATION_API_KEY", "").strip()
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "").strip()
 
 # v137.2 — Tüm "test" mesajları (debug, sistem bildirimleri, admin
 # preview'ları) yalnızca bu chat_id'ye teslim edilir. Overridable via env.
@@ -334,6 +335,27 @@ def init_bot(db) -> Optional[Application]:
     _app.add_handler(CommandHandler("baglanti", link_command))
     _app.add_handler(CommandHandler("hakkinda", hakkinda_command))
     _app.add_handler(CommandHandler("komutlar", yardim_command))
+    # v137.3 — İngilizce alias komutları. Türkçe handler'lar aynen çalışır.
+    _app.add_handler(CommandHandler("points", puan_command))
+    _app.add_handler(CommandHandler("profile", profil_command))
+    _app.add_handler(CommandHandler("badges", rozet_command))
+    _app.add_handler(CommandHandler("events", etkinlikler_command))
+    _app.add_handler(CommandHandler("stats", istatistik_command))
+    _app.add_handler(CommandHandler("calendar", takvim_command))
+    _app.add_handler(CommandHandler("archive", arsiv_command))
+    _app.add_handler(CommandHandler("guild", lonca_command))
+    _app.add_handler(CommandHandler("compare", karsilastir_command))
+    _app.add_handler(CommandHandler("upcoming", yakinda_command))
+    _app.add_handler(CommandHandler("join", katil_command))
+    _app.add_handler(CommandHandler("leave", katilmiyorum_command))
+    _app.add_handler(CommandHandler("remind", hatirlatici_command))
+    _app.add_handler(CommandHandler("language", dil_command))
+    _app.add_handler(CommandHandler("notifications", bildirimler_command))
+    _app.add_handler(CommandHandler("pause", mola_command))
+    _app.add_handler(CommandHandler("invite", davet_command))
+    _app.add_handler(CommandHandler("feedback", geri_bildirim_command))
+    _app.add_handler(CommandHandler("about", hakkinda_command))
+    _app.add_handler(CommandHandler("reset_password", sifremi_sifirla_command))
     # Admin
     _app.add_handler(CommandHandler("duyuru", duyuru_command))
     _app.add_handler(CommandHandler("toplu_duyuru", toplu_duyuru_command))
@@ -1637,6 +1659,10 @@ async def yardim_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
         "/rapor, /uyeler, /ekle @kul, /cikar @kul\n"
         "/puan_ekle @kul <n>, /rozet_ver @kul <ad>\n"
         "/etkinlik_ekle, /etkinlik_iptal <id>, /esik_uyari\n\n"
+        "*🇬🇧 English aliases:* /points, /profile, /badges, /events, /stats,\n"
+        "/calendar, /archive, /guild, /compare, /upcoming, /join, /leave,\n"
+        "/remind, /language, /notifications, /pause, /invite, /feedback,\n"
+        "/about, /reset_password, /ranking, /power, /event\n\n"
         f"🌐 [{WEB_BASE}]({WEB_BASE}) — Tam yönetim paneli"
     )
     await reply_ml(update, text)
@@ -1712,6 +1738,71 @@ def _match_intent_tr(text_tr: str) -> Optional[str]:
     return None
 
 
+# v137.3 — LLM tabanlı intent + entity extraction. Anahtar kelime fallback'ten
+# önce çağrılır. Emergent LLM Key ile Claude Sonnet 4.6 kullanır (kısa JSON
+# çıktısı için hızlı ve ucuz). Başarısız / boş yanıtta None döner → keyword
+# matcher devreye girer.
+_LLM_INTENT_SYSTEM = (
+    "You are an intent classifier for a Turkish gaming-guild Telegram bot.\n"
+    "Given a user message (may be in ANY language), decide which command it maps to.\n"
+    "Return STRICT JSON only — no prose, no markdown fences.\n\n"
+    "Schema: {\"intent\": \"<key>\" | null, \"member\": \"<name>\" | null, \"confidence\": 0..1}\n\n"
+    "Valid intent keys (only these):\n"
+    "  streak, siralama, puan, profil, rozet, istatistik, takvim, yakinda, arsiv,\n"
+    "  lonca, online, guc, etkinlik, etkinlikler, mola, bildirimler, dil, hakkinda,\n"
+    "  sifremi_sifirla, geri_bildirim, davet, start, yardim, karsilastir\n\n"
+    "Entity rules:\n"
+    "  - If the user asks about ANOTHER PERSON's data (\"Ali'nin puanı\", \"what is Bob's streak\"),\n"
+    "    put that name in `member`. Handles genitive forms (Ali'nin → Ali, Bob's → Bob).\n"
+    "  - If the message is about THE USER themselves (\"puanım\", \"my streak\"), `member` is null.\n"
+    "  - Never fabricate a name — only extract if literally present.\n\n"
+    "Confidence: 0.9+ for obvious matches, 0.5 for weak matches, <0.4 → return intent=null.\n"
+    "Examples:\n"
+    "  'Ali'nin puanı ne?' → {\"intent\":\"puan\",\"member\":\"Ali\",\"confidence\":0.95}\n"
+    "  'streak'im nedir?' → {\"intent\":\"streak\",\"member\":null,\"confidence\":0.98}\n"
+    "  'what is Bob's rank?' → {\"intent\":\"puan\",\"member\":\"Bob\",\"confidence\":0.9}\n"
+    "  'merhaba' → {\"intent\":\"start\",\"member\":null,\"confidence\":0.8}\n"
+    "  'hava nasıl' → {\"intent\":null,\"member\":null,\"confidence\":0.1}\n"
+)
+
+
+async def _llm_classify(text: str) -> Optional[dict]:
+    """Return {intent, member, confidence} dict or None. Fail-soft."""
+    if not EMERGENT_LLM_KEY or not text:
+        return None
+    try:
+        # Lazy import so bot works even if emergentintegrations unavailable.
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        import uuid as _uuid
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"nlp-{_uuid.uuid4().hex[:12]}",
+            system_message=_LLM_INTENT_SYSTEM,
+        ).with_model("anthropic", "claude-sonnet-4-6")
+        # Single-shot classification → send_message is fine (no user-facing stream).
+        raw = await chat.send_message(UserMessage(text=text[:600]))
+        raw_s = str(raw or "").strip()
+        # Strip potential ```json fences
+        if raw_s.startswith("```"):
+            raw_s = raw_s.strip("`").lstrip("json").strip()
+        import json as _json
+        obj = _json.loads(raw_s)
+        if not isinstance(obj, dict):
+            return None
+        intent = obj.get("intent")
+        member = obj.get("member")
+        conf = float(obj.get("confidence") or 0)
+        if intent and intent not in _NLP_COMMAND_TO_HANDLER and intent != "karsilastir":
+            log.warning(f"LLM returned unknown intent {intent!r} — falling back to keyword")
+            return None
+        return {"intent": intent if conf >= 0.4 else None,
+                "member": (str(member).strip() if member else None) or None,
+                "confidence": conf}
+    except Exception as e:
+        log.warning(f"LLM classify failed: {e}")
+        return None
+
+
 async def nlp_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """v137 — Slash-siz doğal-dil mesajları için ana giriş noktası."""
     if not update.message or not update.message.text:
@@ -1735,7 +1826,19 @@ async def nlp_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     # veya transliterasyonların (мой стрик, mi streak) yakalanmasını sağlar.
     if not intent and raw:
         intent = _match_intent_tr(raw)
-    log.info(f"NLP: chat={update.effective_chat.id} lang={detected} intent={intent} raw={raw[:60]!r} tr={tr_text[:60]!r}")
+    # v137.3 — LLM tabanlı intent + entity extraction. Keyword eşleşse bile
+    # entity (üye adı) çıkarmak için LLM çağrısı yaparız. Böylece "Ali'nin
+    # puanı" gibi mesajlarda hem intent (puan) hem entity (Ali) tespit edilir.
+    llm_res = await _llm_classify(raw)
+    member_entity: Optional[str] = None
+    if llm_res:
+        # LLM daha güvenilir — keyword eşleşmesi ile çelişirse LLM'e güven.
+        if llm_res.get("intent"):
+            if intent and intent != llm_res["intent"]:
+                log.info(f"NLP intent conflict keyword={intent} vs llm={llm_res['intent']} → LLM wins")
+            intent = llm_res["intent"]
+        member_entity = llm_res.get("member")
+    log.info(f"NLP: chat={update.effective_chat.id} lang={detected} intent={intent} member={member_entity!r} raw={raw[:60]!r} tr={tr_text[:60]!r}")
     token = _nlp_override_lang.set(detected) if detected else None
     try:
         if not intent:
