@@ -26,9 +26,9 @@ const ICONS = {
 };
 
 const ITEMS = [
-  { key: "siralama",    labelKey: "nav_leaderboard", path: "/" },
-  { key: "loj",         labelKey: "nav_commanders",  path: "/komutanlar" },
-  { key: "hesapla",     labelKey: "nav_point_calc",  path: "/puan-hesaplama" },
+  { key: "siralama",    labelKey: "nav_leaderboard", path: "/", guestPublic: true },
+  { key: "loj",         labelKey: "nav_commanders",  path: "/komutanlar", guestPublic: true },
+  { key: "hesapla",     labelKey: "nav_point_calc",  path: "/puan-hesaplama", guestPublic: true },
   { key: "etkinlikler", labelKey: "nav_events",      path: "/etkinlikler" },
   { key: "raporlar",    labelKey: "nav_reports",     path: "/raporlar", adminOnly: true },
   { key: "uyeler",      labelKey: "nav_members",     path: "/uyeler" },
@@ -45,7 +45,7 @@ const BRAND_LOGO_URL = "/brand/titanxis-logo.jpg";
 
 export default function RadialMenu() {
   const { t } = useTranslation();
-  const { user, isAdmin, canEdit } = useAuth() || {};
+  const { user, isAdmin, canEdit, isGuest } = useAuth() || {};
   const nav = useNavigate();
   const loc = useLocation();
   const isPrivileged = isAdmin || canEdit;
@@ -101,7 +101,7 @@ export default function RadialMenu() {
     prevOpenRef.current = open;
   }, [open]);
 
-  if (!user) return null;
+  if (!user && !isGuest) return null;
   if (loc.pathname === "/login") return null;
 
   const N = ITEMS.length;
@@ -115,6 +115,14 @@ export default function RadialMenu() {
   const handleItemClick = (item) => {
     if (item.adminOnly && !isPrivileged) {
       toast.error(t("home_forbidden"));
+      return;
+    }
+    // v136 — Ziyaretçi: sadece guestPublic olan sayfalara doğrudan gidebilir.
+    // Kilitli olanlar tıklandığında toast gösterilir ve LockedPage'e düşer.
+    if (isGuest && !user && !item.guestPublic) {
+      toast.error(t("locked_page_message", "Bu sayfayı görüntülemek için giriş yapmalısınız"));
+      nav(item.path); // yine de yönlendir — RequireAuth wrapper LockedPage'i gösterecek
+      setOpen(false);
       return;
     }
     nav(item.path);
@@ -230,14 +238,16 @@ export default function RadialMenu() {
           const rad = (angle * Math.PI) / 180;
           const x = RADIUS * Math.cos(rad);
           const y = RADIUS * Math.sin(rad);
-          const locked = item.adminOnly && !isPrivileged;
+          // v136 — Ziyaretçi için `guestPublic` olmayan tüm item'lar da kilitli sayılır.
+          const guestLocked = isGuest && !user && !item.guestPublic;
+          const locked = (item.adminOnly && !isPrivileged) || guestLocked;
           // v106 — Every label sits ABOVE its icon so side icons (LEADERBOARD,
           // MEMBERS) don't push labels into the space below the fan.
           return (
             <button
               key={item.key}
               type="button"
-              data-testid={`radial-menu-${item.key}`}
+              data-testid={`radial-menu-${item.key}${locked ? "-locked" : ""}`}
               onClick={() => handleItemClick(item)}
               aria-label={t(item.labelKey)}
               style={{
@@ -251,7 +261,7 @@ export default function RadialMenu() {
                 transform: open
                   ? `translate(${x}px, ${y}px) scale(1)`
                   : "translate(0px, 0px) scale(0.15)",
-                opacity: open ? (locked ? 0.55 : 1) : 0,
+                opacity: open ? (locked ? 0.5 : 1) : 0,
                 pointerEvents: open ? "auto" : "none",
                 transition: `transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) ${i * 40}ms, opacity 0.25s ease ${i * 40}ms`,
                 background: "transparent",
@@ -268,11 +278,40 @@ export default function RadialMenu() {
                   height: ICON,
                   objectFit: "contain",
                   imageRendering: "crisp-edges",
-                  filter: locked ? "grayscale(1)" : "none",
+                  filter: locked ? "grayscale(1) brightness(0.8)" : "none",
                   transition: "transform 0.22s ease, filter 0.22s ease",
                   display: "block",
                 }}
               />
+              {/* v136 — Küçük kilit rozeti sadece guest-locked (veya adminOnly)
+                   item'ların sağ üst köşesinde. */}
+              {locked && (
+                <span
+                  data-testid={`radial-menu-${item.key}-lock-badge`}
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    right: -2,
+                    top: -2,
+                    width: 20,
+                    height: 20,
+                    borderRadius: "50%",
+                    background: "rgba(15,10,16,0.9)",
+                    border: "1.5px solid rgba(245,166,35,0.75)",
+                    boxShadow: "0 0 8px rgba(245,166,35,0.45)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 11,
+                    lineHeight: 1,
+                    color: "#F5A623",
+                    fontWeight: 900,
+                    pointerEvents: "none",
+                  }}
+                >
+                  🔒
+                </span>
+              )}
               <div
                 style={{
                   position: "absolute",

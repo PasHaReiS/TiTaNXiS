@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v136.1 — Ziyaretçi Menü Filtresi)** — Frontend-only:
+  - **RadialMenu**: `!user && !isGuest` şartıyla artık ziyaretçiye de görünüyor. Item'lara `guestPublic` flag'i eklendi: Sıralama, Komutanlar, Puan Hesaplama serbest; Etkinlikler, Üyeler, Raporlar guest için `guestLocked=true`. Kilitli item'lar %50 opacity + `grayscale(1) brightness(0.8)` + sağ üst köşede 🔒 rozeti. Klik → toast "Bu sayfayı görüntülemek için giriş yapmalısınız" + LockedPage'e yönlendirme.
+  - **Header dropdown**: Yeni `header-guest-menu-btn` ("🎭 ZİYARETÇİ") ziyaretçi için `header-login-btn` yerine görünüyor. Dropdown 2 bölüm: Public (Sıralama, Duyurular, Lonca Kuralları, Lonca, Puan Hesaplama, VIP Destek) + "🔒 Kilitli (Giriş Gerekli)" divider altında gri (Etkinlikler, Üyeler, Profilim, SvS Takip) — hepsi tıklanabilir, LockedPage'e düşer. En altta "🔑 Giriş Yap" (`guest-menu-login`).
+  - **i18n**: 2 yeni key (`guest_badge`, `guest_locked_section`) TR + EN eklendi.
+  - **QA**: Playwright ile Header dropdown doğrulandı (screenshot); RadialMenu build'de temiz (test cookie banner overlay yüzünden click yapamadı ama kod düzgün).
+
+
 - **Feb 29, 2026 (v136 — Ziyaretçi Girişi)** — Frontend-only:
   - **AuthContext**: Yeni `isGuest` state (sessionStorage `ol_guest=1`) + `loginAsGuest()` action. Token yaratmaz; sekme kapanınca temizlenir. `logout()` hem token'ı hem guest flag'i düşürür.
   - **Login.jsx**: "🎭 ZİYARETÇİ OLARAK GİR" butonu (`guest-enter-btn`) amber "GİRİŞ YAP"ın altında. Klik → `loginAsGuest()` + toast + `nav("/")`.

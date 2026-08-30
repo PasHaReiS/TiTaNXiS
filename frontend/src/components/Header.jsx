@@ -42,11 +42,12 @@ function MenuItem({ icon: Icon, emoji, label, onClick, testId }) {
 
 export default function Header({ title, children }) {
   const { theme, toggle } = useTheme();
-  const { user, isAdmin, canEdit, logout } = useAuth();
+  const { user, isAdmin, canEdit, isGuest, logout } = useAuth();
   const { t } = useTranslation();
   const nav = useNavigate();
   const loc = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [guestMenuOpen, setGuestMenuOpen] = useState(false);
   const [logoVideoOpen, setLogoVideoOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -338,13 +339,140 @@ export default function Header({ title, children }) {
           </div>
         ) : (
           loc.pathname !== "/login" && (
-            <button
-              data-testid="header-login-btn"
-              onClick={() => nav("/login")}
-              className="flex items-center gap-1 px-2 h-8 rounded-full red-gold-gradient text-white text-[10px] font-bold uppercase tracking-wider flex-shrink-0"
-            >
-              <LogIn className="w-3 h-3" /> {t("login")}
-            </button>
+            isGuest ? (
+              // v136 — Ziyaretçi menüsü: public linkler + "Giriş Yap" alt aksiyonu.
+              <div className="relative">
+                <button
+                  data-testid="header-guest-menu-btn"
+                  onClick={() => setGuestMenuOpen((v) => !v)}
+                  className="flex items-center gap-1 px-2 h-8 rounded-full border border-amber-500/55 text-amber-200 text-[10px] font-bold uppercase tracking-wider flex-shrink-0"
+                  style={{ background: "rgba(245,166,35,0.10)" }}
+                  aria-expanded={guestMenuOpen}
+                  title={t("guest_login_hint", "Sadece Sıralama ekranını görüntüle")}
+                >
+                  🎭 {t("guest_badge", "Ziyaretçi")}
+                </button>
+                {guestMenuOpen && ReactDOM.createPortal(
+                  <>
+                    <div
+                      data-testid="header-guest-overlay"
+                      onClick={() => setGuestMenuOpen(false)}
+                      style={{ position: "fixed", inset: 0, zIndex: 999998, background: "transparent" }}
+                    />
+                    <div
+                      data-testid="header-guest-dropdown"
+                      style={{
+                        position: "fixed",
+                        top: "60px",
+                        right: "8px",
+                        zIndex: 999999,
+                        minWidth: 220,
+                        background: "#1E1410",
+                        border: "1px solid rgba(245,166,35,0.55)",
+                        boxShadow: "0 8px 32px rgba(0,0,0,0.95)",
+                        borderRadius: 8,
+                        overflow: "visible",
+                      }}
+                    >
+                      {/* Public items */}
+                      <MenuItem
+                        emoji="🏆"
+                        label={t("nav_leaderboard", "Sıralama")}
+                        onClick={() => { nav("/"); setGuestMenuOpen(false); }}
+                        testId="guest-menu-leaderboard"
+                      />
+                      <MenuItem
+                        emoji="📣"
+                        label={t("nav_announcements", "Duyurular")}
+                        onClick={() => { nav("/duyurular"); setGuestMenuOpen(false); }}
+                        testId="guest-menu-announcements"
+                      />
+                      <MenuItem
+                        emoji="📜"
+                        label={t("nav_guild_rules", "Lonca Kuralları")}
+                        onClick={() => { nav("/kurallar"); setGuestMenuOpen(false); }}
+                        testId="guest-menu-rules"
+                      />
+                      <MenuItem
+                        emoji="🏰"
+                        label={t("nav_guild_profile", "Lonca")}
+                        onClick={() => { nav("/lonca"); setGuestMenuOpen(false); }}
+                        testId="guest-menu-guild"
+                      />
+                      <MenuItem
+                        emoji="🧮"
+                        label={t("nav_point_calc", "Puan Hesaplama")}
+                        onClick={() => { nav("/puan-hesaplama"); setGuestMenuOpen(false); }}
+                        testId="guest-menu-point-calc"
+                      />
+                      <MenuItem
+                        emoji="🎟️"
+                        label={t("nav_vip_support", "VIP Destek")}
+                        onClick={() => { nav("/vip-destek"); setGuestMenuOpen(false); }}
+                        testId="guest-menu-vip-support"
+                      />
+                      {/* v136 — Kilitli sayfa örneklerini gri renkle göster */}
+                      <div style={{ height: 1, background: "rgba(148,163,184,0.25)", margin: "4px 0" }} />
+                      <div
+                        style={{
+                          padding: "4px 12px 2px",
+                          fontSize: 8,
+                          fontWeight: 800,
+                          letterSpacing: "0.14em",
+                          textTransform: "uppercase",
+                          color: "#94A3B8",
+                          fontFamily: "Cinzel, serif",
+                        }}
+                      >
+                        {t("guest_locked_section", "🔒 Kilitli (Giriş Gerekli)")}
+                      </div>
+                      {[
+                        { emoji: "📅", label: t("nav_events", "Etkinlikler"), path: "/etkinlikler", tid: "guest-menu-events-locked" },
+                        { emoji: "👥", label: t("nav_members", "Üyeler"), path: "/uyeler", tid: "guest-menu-members-locked" },
+                        { emoji: "🙂", label: t("my_profile", "Profilim"), path: "/profil", tid: "guest-menu-profile-locked" },
+                        { emoji: "⚔️", label: t("dropdown_svs", "SvS Takip"), path: "/svs", tid: "guest-menu-svs-locked" },
+                      ].map((it) => (
+                        <button
+                          key={it.tid}
+                          type="button"
+                          data-testid={it.tid}
+                          onClick={() => { nav(it.path); setGuestMenuOpen(false); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors"
+                          style={{
+                            color: "#6B7280",
+                            fontFamily: "Cinzel, Rajdhani, serif",
+                            letterSpacing: "0.06em",
+                            filter: "grayscale(1)",
+                            opacity: 0.75,
+                          }}
+                          title={t("locked_page_message", "Bu sayfayı görüntülemek için giriş yapmalısınız")}
+                        >
+                          <span aria-hidden style={{ width: 14, height: 14, fontSize: 13, lineHeight: 1 }}>{it.emoji}</span>
+                          <span className="truncate flex-1">{it.label}</span>
+                          <span style={{ fontSize: 10 }}>🔒</span>
+                        </button>
+                      ))}
+                      <div style={{ height: 1, background: "rgba(231,76,26,0.3)", margin: "4px 0" }} />
+                      <MenuItem
+                        emoji="🔑"
+                        label={t("locked_page_login_btn", "Giriş Yap")}
+                        onClick={() => { setGuestMenuOpen(false); nav("/login"); }}
+                        testId="guest-menu-login"
+                      />
+                    </div>
+                  </>,
+                  document.body
+                )}
+              </div>
+            ) : (
+              <button
+                data-testid="header-login-btn"
+                onClick={() => nav("/login")}
+                className="flex items-center gap-1 px-2 h-8 rounded-full red-gold-gradient text-white text-[10px] font-bold uppercase tracking-wider flex-shrink-0"
+              >
+                <LogIn className="w-3 h-3" /> {t("login")}
+              </button>
+            )
           )
         )}
       </div>
