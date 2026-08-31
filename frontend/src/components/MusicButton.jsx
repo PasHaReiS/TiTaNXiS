@@ -1,85 +1,63 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Volume2, VolumeX } from "lucide-react";
+import React from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
+import { Mic } from "lucide-react";
 import useDraggableFab from "@/hooks/useDraggableFab";
+import { useAuth } from "@/context/AuthContext";
 
-const MUSIC_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/e58e30f1ad7d4f2dba1cef9a53d427a7_joelfazhari-against-all-gods-epic-viking-tribal-adventure-music-464889.mp3";
-
+/**
+ * v138.9 — Yüzen "Sesli Kanallar" butonu. Eskiden fon müziği aç/kapat idi;
+ * artık `/sesli-kanallar` sayfasına yönlendiriyor. Sürüklenebilir (mobil +
+ * masaüstü, `fab_pos_music` localStorage). Yalnızca giriş yapmış kullanıcı
+ * (ziyaretçi giremediği için).
+ */
 export default function MusicButton() {
   const { t } = useTranslation();
-  const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef(null);
-  // v138.4 — Draggable across mobile + desktop; position persisted in localStorage.
+  const nav = useNavigate();
+  const { user } = useAuth() || {};
   const { pos, hasDragged, dragProps } = useDraggableFab({
     storageKey: "music",
     defaultPos: { top: 70, right: 16 },
-    size: 36,
+    size: 40,
   });
 
-  useEffect(() => {
-    const a = new Audio(MUSIC_URL);
-    a.loop = true;
-    a.volume = 0.4;
-    a.preload = "auto";
-    audioRef.current = a;
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = "";
-        audioRef.current = null;
-      }
-    };
-  }, []);
+  if (!user) return null;
 
-  const toggle = () => {
+  const handleClick = () => {
     if (hasDragged) return;
-    const a = audioRef.current;
-    if (!a) return;
-    if (isPlaying) {
-      a.pause();
-      setIsPlaying(false);
-    } else {
-      const p = a.play();
-      if (p && typeof p.catch === "function") {
-        p.then(() => setIsPlaying(true)).catch(() => {
-          toast.error(t("music_blocked"));
-          setIsPlaying(false);
-        });
-      } else {
-        setIsPlaying(true);
-      }
-    }
+    nav("/sesli-kanallar");
   };
 
   return (
     <button
-      onClick={toggle}
+      onClick={handleClick}
       {...dragProps}
-      data-testid="floating-music-btn"
-      aria-pressed={isPlaying}
-      title={isPlaying ? t("music_stop") : t("music_play")}
+      data-testid="floating-voice-btn"
+      title={t("voice_rooms_title", "Sesli Kanallar")}
+      aria-label={t("voice_rooms_title", "Sesli Kanallar")}
       style={{
         position: "fixed",
         left: pos.left,
         top: pos.top,
-        width: 36,
-        height: 36,
+        width: 40,
+        height: 40,
         borderRadius: "50%",
         background: "linear-gradient(135deg, #C0392B 0%, #E74C1A 100%)",
-        border: "none",
+        border: "1.5px solid rgba(245,166,35,0.6)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        boxShadow: "0 3px 10px rgba(231,76,26,0.5)",
+        boxShadow:
+          "0 4px 14px rgba(231,76,26,0.55), 0 0 18px rgba(245,166,35,0.30)",
         zIndex: 9000,
         cursor: "grab",
         touchAction: "none",
-        animation: isPlaying ? "musicPulse 2s infinite" : "none",
-        transition: "all 0.3s ease",
+        transition: "transform 0.18s ease, box-shadow 0.22s ease",
       }}
+      onMouseOver={(e) => (e.currentTarget.style.transform = "scale(1.08)")}
+      onMouseOut={(e) => (e.currentTarget.style.transform = "")}
     >
-      {isPlaying ? <Volume2 size={16} color="#fff" /> : <VolumeX size={16} color="#fff" />}
+      <Mic size={18} color="#fff" strokeWidth={2.5} />
     </button>
   );
 }
