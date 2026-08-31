@@ -20,6 +20,19 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.9 — Duplicate Reminder Fix)** — Backend:
+  - **Root cause**: 3 paralel yol aynı etkinlik için firing yapabiliyordu:
+    1. `_rsvp_reminder_task` (eski 30dk fixed) → web push
+    2. `_event_reminder_loop` (yeni per-lead) → TG channel + web push
+    3. `_push_scheduled_loop` (admin dialog) → TG channel + TG DM + web push + in-app
+    Ayrıca `POST /push/scheduled` duplicate guard yoktu → çift-submit'te iki push_scheduled doc kalıyordu.
+  - **Fix 1**: `_rsvp_reminder_task` NO-OP'a çevrildi (deprecated; endpoint 2xx için yaşıyor, iç mantık return).
+  - **Fix 2**: `_event_reminder_loop`'a atomic claim eklendi (`updateOne({id, reminder_sent_at:null}, {$set:{reminder_sent_at:now}})`); `modified_count==0` ise concurrent loop zaten fire etmiş → skip. Yarış koşulu kapatıldı.
+  - **Fix 3**: `POST /push/scheduled` duplicate guard: aynı `event_id` + ±60sn scheduled_at penceresinde bekleyen doc varsa yenisi yaratılmaz, mevcut olan döner (idempotent).
+  - **Fix 4**: Startup dedupe cleanup: `push_scheduled` docs'unda `event_id + scheduled_at` grouping ile duplicate grouplarında ilk hariç hepsi silinir. Logs: `[startup] cleaned N duplicate push_scheduled job(s)`.
+  - **Doğrulama**: curl ile aynı event_id + aynı scheduled_at ile 2× POST → 2. çağrı 1. çağrının doc'unu döndürdü (aynı id) ✅. Count endpoint'te tek entry.
+
+
 - **Feb 31, 2026 (v140.8 — Voice Room Password Reveal/Copy + Universal Delete)** — Multi:
   - **Backend** (`server.py`):
     - `voice_rooms` doc'una `password_plain` alanı eklendi (yalnızca admin `GET /voice/rooms/{id}/password` üzerinden okunur; `voice_rooms_list` projection'ında hard-blocked).

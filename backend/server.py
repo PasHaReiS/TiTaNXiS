@@ -4207,59 +4207,14 @@ async def event_rsvp_summary(event_id: str, _: dict = Depends(require_edit)):
 
 
 async def _rsvp_reminder_task():
-    """Scans for events starting within 30 minutes that haven't yet had their
-    reminder push dispatched, then broadcasts a browser push to every user
-    who RSVP'd `yes` or `maybe`. Marks `reminder_push_sent=True` on the event
-    doc so subsequent ticks don't re-notify."""
-    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
-    now = _dt.now(_tz.utc)
-    horizon = now + _td(minutes=30)
-    q = {
-        "archived": False,
-        "reminder_push_sent": {"$ne": True},
-        "date": {"$gte": now.isoformat(), "$lte": horizon.isoformat()},
-    }
-    events = await db.events.find(q, {"_id": 0, "id": 1, "name": 1, "date": 1, "alliance_scope": 1}).to_list(50)
-    if not events:
-        return
-    private_pem, _pub = await _get_or_create_vapid()
-    for ev in events:
-        scope = ev.get("alliance_scope")
-        rsvps = await db.event_rsvps.find(
-            {"event_id": ev["id"], "status": {"$in": ["yes", "maybe"]}, **_rsvp_alliance_query(scope)},
-            {"_id": 0, "user_id": 1},
-        ).to_list(1000)
-        # v55: live-alliance recheck — do NOT push to users whose current
-        # linked alliance no longer matches the event's scope.
-        rsvps = await _filter_rsvps_by_current_alliance(rsvps, scope)
-        user_ids = list({r["user_id"] for r in rsvps if r.get("user_id")})
-        # v135.23 — Respect per-channel opt-out for "rsvp" reminders.
-        if user_ids:
-            _rsvp_disabled = await _users_disabled_for_pref("rsvp")
-            if _rsvp_disabled:
-                user_ids = [u for u in user_ids if u not in _rsvp_disabled]
-        if user_ids:
-            subs = await db.push_subscriptions.find({"user_id": {"$in": user_ids}}, {"_id": 0}).to_list(500)
-            payload = json.dumps({
-                "title": "⏰ Etkinlik yakında başlıyor",
-                "body": f"{ev['name']} 30 dakika sonra başlıyor!",
-                "url": f"/etkinlikler#event-{ev['id']}",
-                "tag": f"rsvp-reminder-{ev['id']}",
-            }, ensure_ascii=False)
-            for s in subs:
-                try:
-                    webpush(
-                        subscription_info={"endpoint": s["endpoint"], "keys": s["keys"]},
-                        data=payload,
-                        vapid_private_key=private_pem,
-                        vapid_claims={"sub": os.environ.get("VAPID_SUB", "mailto:admin@titanxis.local")},
-                    )
-                except WebPushException as ex:
-                    code = getattr(ex.response, "status_code", None)
-                    if code in (404, 410):
-                        await db.push_subscriptions.delete_one({"endpoint": s["endpoint"]})
-        await db.events.update_one({"id": ev["id"]}, {"$set": {"reminder_push_sent": True, "reminder_push_sent_at": now.isoformat()}})
-        logger.info(f"[rsvp-reminder] pushed for event={ev['id']} users={len(user_ids)}")
+    """v140.9 — DEPRECATED. `_event_reminder_loop` yeni pathway. Bu task
+    artık NO-OP; sadece geri uyumluluk için endpoint hala 2xx dönsün diye
+    bırakıldı. Etkinlik hatırlatmaları per-lead olarak
+    (`reminder_minutes` ∈ {15,30,60,120}) `_event_reminder_loop` üzerinden
+    tek noktadan gidiyor. Bu task çalışırsa çift Telegram + çift push olur.
+    """
+    logger.info("[rsvp-reminder] NO-OP (deprecated; use _event_reminder_loop)")
+    return
 
 
 @api_router.post("/cron/rsvp-reminder-tick")
@@ -5415,6 +5370,24 @@ async def push_scheduled_create(body: PushScheduledBody, _: dict = Depends(requi
     sound = (body.sound or "rally").lower()
     if sound not in valid_sounds:
         sound = "rally"
+    # v140.9 — Duplicate guard. Aynı `event_id` için ±60 sn içinde aynı zamana
+    # planlanmış (henüz gönderilmemiş) push varsa yenisi yaratılmasın.
+    # Bu, `EventReminderDialog`'un çift submit edilmesi veya cron retry gibi
+    # senaryolarda çift Telegram + push oluşmasını engeller.
+    if body.event_id:
+        low = (when - _td(seconds=60)).isoformat()
+        high = (when + _td(seconds=60)).isoformat()
+        dup = await db.push_scheduled.find_one(
+            {
+                "event_id": body.event_id,
+                "sent": False,
+                "scheduled_at": {"$gte": low, "$lte": high},
+            },
+            {"_id": 0},
+        )
+        if dup:
+            logger.info(f"[push-scheduled] duplicate blocked event={body.event_id} at={body.scheduled_at} existing={dup.get('id')}")
+            return dup
     doc = {
         "id": str(uuid.uuid4()),
         "title": body.title.strip(),
@@ -6379,6 +6352,32 @@ async def _push_scheduler_loop():
 @app.on_event("startup")
 async def _start_push_scheduler():
     import asyncio
+    # v140.9 — Startup: eski bekleyen `push_scheduled` docs'unda duplicate
+    # varsa (aynı `event_id` + aynı `scheduled_at`) sadece en eskisini bırak,
+    # diğerlerini sil. Bu, önceki (guardsız) sürümde yaratılmış çift job'ları
+    # temizler ve bir daha 2× Telegram/DM/push atılmamasını garanti eder.
+    try:
+        pipeline = [
+            {"$match": {"sent": False, "event_id": {"$ne": None}}},
+            {"$group": {
+                "_id": {"event_id": "$event_id", "scheduled_at": "$scheduled_at"},
+                "ids": {"$push": "$id"},
+                "count": {"$sum": 1},
+            }},
+            {"$match": {"count": {"$gt": 1}}},
+        ]
+        removed_total = 0
+        async for grp in db.push_scheduled.aggregate(pipeline):
+            ids = grp.get("ids", [])
+            keep = ids[0]  # first insertion order
+            drop = [x for x in ids if x != keep]
+            if drop:
+                r = await db.push_scheduled.delete_many({"id": {"$in": drop}})
+                removed_total += r.deleted_count or 0
+        if removed_total:
+            logger.warning(f"[startup] cleaned {removed_total} duplicate push_scheduled job(s)")
+    except Exception as ex:
+        logger.warning(f"[startup] push_scheduled dedupe failed: {ex}")
     asyncio.create_task(_push_scheduler_loop())
     asyncio.create_task(_announcement_scheduler_loop())
     asyncio.create_task(_trend_alert_loop())
@@ -6520,13 +6519,30 @@ async def _event_reminder_loop():
                     trigger_at = ev_dt - _td(minutes=lead)
                     if now < trigger_at:
                         continue
+                    # v140.9 — Yarış koşullu duplicate guard. `_event_reminder_loop`
+                    # herhangi bir sebeple 2× çalışırsa (backend restart sırasında
+                    # önceki task henüz cancel olmadan yeni task başlarsa vs.), her
+                    # ikisi de aynı event doc'unu okuyup iki kez fire etmesin diye
+                    # ATOMIC update kullanıyoruz: sadece `reminder_sent_at` boşsa
+                    # ve şu anda dolduran biz olduğumuzda fire ediyoruz.
+                    claim = await db.events.update_one(
+                        {
+                            "id": ev.get("id"),
+                            "$or": [
+                                {"reminder_sent_at": {"$exists": False}},
+                                {"reminder_sent_at": None},
+                                {"reminder_sent_at": ""},
+                            ],
+                        },
+                        {"$set": {"reminder_sent_at": now.isoformat()}},
+                    )
+                    if claim.modified_count == 0:
+                        # Başka bir loop / daha önceki tick zaten fire etti.
+                        continue
                     fanout = await _fire_event_reminder(ev)
                     await db.events.update_one(
                         {"id": ev.get("id")},
-                        {"$set": {
-                            "reminder_sent_at": now.isoformat(),
-                            "reminder_fanout": fanout,
-                        }},
+                        {"$set": {"reminder_fanout": fanout}},
                     )
                     logger.info(f"[event-reminder] fired event={ev.get('id')} lead={lead}m → {fanout}")
                 except Exception as _iex:
