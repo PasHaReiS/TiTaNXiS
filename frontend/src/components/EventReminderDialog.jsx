@@ -14,6 +14,15 @@ import { playPushSound } from "@/lib/pushSound";
  */
 export default function EventReminderDialog({ event, onClose }) {
   const { t } = useTranslation();
+  // v140.2 — Human-friendly duration label so 60 min renders as "1 saat"
+  // (not "60 dk") and 1440 as "24 saat". Keeps the reminder body natural.
+  const fmtDur = (m) => {
+    if (m < 60) return t("dur_min", { count: m, defaultValue: "{{count}} dk" });
+    if (m % 60 === 0) return t("dur_hour", { count: m / 60, defaultValue: "{{count}} saat" });
+    const h = Math.floor(m / 60);
+    const r = m % 60;
+    return `${h} ${t("dur_hour_short", "saat")} ${r} ${t("dur_min_short", "dk")}`;
+  };
   // Preset "how many minutes before start" — keeps the flow one-tap for common cases.
   const PRESETS = [5, 15, 30, 60, 120, 1440]; // in minutes
   // Multi-select: user may pick several leads (e.g. 60dk + 30dk + 15dk) and one
@@ -21,9 +30,16 @@ export default function EventReminderDialog({ event, onClose }) {
   const [leadMinSet, setLeadMinSet] = useState(() => new Set([30]));
   const [title, setTitle] = useState(`🔔 ${event.name}`);
   const startDate = useMemo(() => new Date(event.date), [event.date]);
-  // Body uses the LARGEST selected lead so the copy reads sensibly ("starts in 60 min").
+  // Body uses the LARGEST selected lead so the copy reads sensibly ("starts in 1 hour").
   const largestLead = useMemo(() => Math.max(...Array.from(leadMinSet)), [leadMinSet]);
-  const [body, setBody] = useState(t("event_reminder_body_default", { name: event.name, min: 30 }));
+  const [body, setBody] = useState(
+    t("event_reminder_body_default", { name: event.name, dur: fmtDur(30) })
+  );
+  // v140.2 — Track whether the admin manually edited the body. If not, we
+  // regenerate the body per-lead at submit time so a 15dk push says "15 dk",
+  // a 60dk push says "1 saat", etc. (previously the largest lead leaked into
+  // every push, causing "30 dk" to appear on a 15 dk reminder).
+  const [bodyEdited, setBodyEdited] = useState(false);
   // Multi-channel fan-out toggles (default: both ON so admins don't miss delivery).
   const [sendChannel, setSendChannel] = useState(true);
   const [sendDm, setSendDm] = useState(true);
@@ -72,9 +88,15 @@ export default function EventReminderDialog({ event, onClose }) {
     try {
       for (const ft of fireTimes) {
         if (ft.isPast) { skipped += 1; continue; } // silently skip past leads
+        // v140.2 — Per-lead body: if admin never touched the textarea, each
+        // push carries its own accurate duration ("15 dk", "1 saat", …). If
+        // they typed a custom message, respect it verbatim.
+        const perLeadBody = bodyEdited
+          ? body.trim()
+          : t("event_reminder_body_default", { name: event.name, dur: fmtDur(ft.min) });
         await api.post("/push/scheduled", {
           title: title.trim() || `🔔 ${event.name}`,
-          body: body.trim() || t("event_reminder_body_default", { name: event.name, min: ft.min }),
+          body: perLeadBody || t("event_reminder_body_default", { name: event.name, dur: fmtDur(ft.min) }),
           url: "/etkinlikler",
           scheduled_at: ft.at.toISOString(),
           repeat: null,
@@ -124,12 +146,16 @@ export default function EventReminderDialog({ event, onClose }) {
                 type="button"
                 onClick={() => {
                   toggleLead(m);
-                  // Keep body copy in sync with the largest selected lead.
-                  const nextSet = new Set(leadMinSet);
-                  on ? nextSet.delete(m) : nextSet.add(m);
-                  if (nextSet.size === 0) nextSet.add(30);
-                  const largest = Math.max(...Array.from(nextSet));
-                  setBody(t("event_reminder_body_default", { name: event.name, min: largest }));
+                  // v140.2 — Only auto-sync the body preview if admin hasn't
+                  // manually edited it. Once they type in the textarea, we
+                  // stop overwriting their words on every preset toggle.
+                  if (!bodyEdited) {
+                    const nextSet = new Set(leadMinSet);
+                    on ? nextSet.delete(m) : nextSet.add(m);
+                    if (nextSet.size === 0) nextSet.add(30);
+                    const largest = Math.max(...Array.from(nextSet));
+                    setBody(t("event_reminder_body_default", { name: event.name, dur: fmtDur(largest) }));
+                  }
                 }}
                 data-testid={`event-reminder-lead-${m}`}
                 className={`chip text-[11px] ${on ? "active" : ""}`}
@@ -156,11 +182,16 @@ export default function EventReminderDialog({ event, onClose }) {
         </label>
         <textarea
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={(e) => { setBody(e.target.value); setBodyEdited(true); }}
           rows={3}
           data-testid="event-reminder-body"
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
         />
+        {!bodyEdited && fireTimes.length > 1 && (
+          <p className="text-[10px] text-muted-foreground mt-1" data-testid="event-reminder-body-hint">
+            💡 {t("event_reminder_body_auto_hint", "Her hatırlatma kendi süresini yazar (15dk push'u '15 dk', 1 saat push'u '1 saat'). Elle düzenlersen bu davranış kapanır.")}
+          </p>
+        )}
 
         <div
           className="mt-3 p-2 rounded text-[11px]"

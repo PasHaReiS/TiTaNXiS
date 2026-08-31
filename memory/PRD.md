@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.2 — Event Reminder Duration Fix)** — Frontend:
+  - **Bug**: `EventReminderDialog` her hatırlatma push'una en büyük lead'i (`largestLead`) body'ye gömüyordu → 15dk seçilse bile mesaj "30 dk sonra başlıyor" olarak Telegram'a düşüyordu.
+  - **Fix**: `bodyEdited` flag'i eklendi. Kullanıcı textarea'ya elle dokunmadıysa her `ft.min` (lead) için body dinamik olarak `t("event_reminder_body_default", { name, dur: fmtDur(ft.min) })` üretilir.
+  - `fmtDur()` helper: <60→"N dk", 60/120/1440→"1/2/24 saat", mixed→"H saat R dk".
+  - i18n template refactored: `{{min}} dk` → `{{dur}}`. TR + EN güncellendi, 4 yeni format key (`dur_min`, `dur_hour`, `dur_hour_short`, `dur_min_short`).
+  - Preset auto-sync koşullu: `bodyEdited=false` iken preview text preset değişimiyle güncellenir; admin elle yazdıysa override respect edilir.
+  - Multi-select durumda "💡 Her hatırlatma kendi süresini yazar…" ipucu gösterilir.
+
+
 - **Feb 31, 2026 (v140.1 — Public Landing `/tanitim`)** — Frontend:
   - Yeni public sayfa `/tanitim` — `AppShell` dışında (Privacy/Terms gibi), auth zorunlu değil. Ziyaretçiler de görüntüleyebilir.
   - Component: `/app/frontend/src/pages/Tanitim.jsx`. Koyu tema (`#0a0a0a`), radial altın glow, TiTaNXiS marka rozetli.
