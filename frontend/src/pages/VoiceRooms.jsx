@@ -1,8 +1,8 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Mic, MicOff, LogOut, Users, Plus, Lock, Globe, Trash2 } from "lucide-react";
+import { Mic, MicOff, LogOut, Users, Plus, Lock, Globe, Trash2, Eye, EyeOff, Copy, Check } from "lucide-react";
 import {
   LiveKitRoom,
   RoomAudioRenderer,
@@ -181,6 +181,45 @@ export default function VoiceRooms() {
 
 function RoomCard({ room, onJoin, isAdmin, onDeleted }) {
   const { t } = useTranslation();
+  // v140.8 — Admin şifre göster/gizle + tek dokunuşla kopyala.
+  const [pwd, setPwd] = useState(null); // fetch cache
+  const [revealed, setRevealed] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const fetchPwd = useCallback(async () => {
+    if (pwd !== null) return pwd;
+    setLoading(true);
+    try {
+      const r = await api.get(`/voice/rooms/${room.id}/password`);
+      const p = r.data?.password || "";
+      setPwd(p);
+      return p;
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [pwd, room.id]);
+
+  const toggleReveal = async () => {
+    if (revealed) { setRevealed(false); return; }
+    const p = await fetchPwd();
+    if (p !== null) setRevealed(true);
+  };
+
+  const copyPwd = async () => {
+    const p = await fetchPwd();
+    if (!p) return;
+    try {
+      await navigator.clipboard.writeText(p);
+      setCopied(true);
+      toast.success(t("voice_room_pwd_copied", "Şifre kopyalandı"));
+      setTimeout(() => setCopied(false), 1800);
+    } catch { toast.error(t("voice_room_pwd_copy_failed", "Kopyalanamadı")); }
+  };
+
   const doDelete = async () => {
     if (!window.confirm(t("voice_room_delete_confirm", "Bu odayı silmek istediğine emin misin?"))) return;
     try {
@@ -203,8 +242,9 @@ function RoomCard({ room, onJoin, isAdmin, onDeleted }) {
           <Lock size={14} color="#F5A623" />
           <span className="font-bold text-sm truncate" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }}>{room.name}</span>
         </div>
-        {isAdmin && room.created_by !== "system" && (
-          <button data-testid={`voice-room-delete-${room.id}`} onClick={doDelete} className="opacity-60 hover:opacity-100">
+        {/* v140.8 — Sistem odaları dahil TÜM odalar admin tarafından silinebilir. */}
+        {isAdmin && (
+          <button data-testid={`voice-room-delete-${room.id}`} onClick={doDelete} className="opacity-60 hover:opacity-100" title={t("voice_room_delete", "Odayı sil")}>
             <Trash2 size={14} color="#EF4444" />
           </button>
         )}
@@ -213,6 +253,48 @@ function RoomCard({ room, onJoin, isAdmin, onDeleted }) {
         {t("voice_room_password_badge", "🔒 Şifreli")}
         {isAdmin && <span className="ml-2" style={{ color: "#F5A623" }}>{t("voice_room_admin_bypass", "· 👑 Admin (şifresiz)")}</span>}
       </div>
+
+      {/* v140.8 — Admin şifre paylaşım paneli */}
+      {isAdmin && (
+        <div
+          data-testid={`voice-room-pwd-panel-${room.id}`}
+          className="flex items-center gap-2 rounded-lg px-2 py-1.5"
+          style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(245,166,35,0.25)" }}
+        >
+          <span
+            data-testid={`voice-room-pwd-value-${room.id}`}
+            className="flex-1 text-xs truncate select-all"
+            style={{
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
+              color: revealed ? "#F5A623" : "#94A3B8",
+              letterSpacing: revealed ? "0.05em" : "0.35em",
+            }}
+          >
+            {loading && pwd === null ? "…" : (revealed ? (pwd || "—") : "••••••••")}
+          </span>
+          <button
+            data-testid={`voice-room-pwd-toggle-${room.id}`}
+            onClick={toggleReveal}
+            title={revealed ? t("voice_room_pwd_hide", "Gizle") : t("voice_room_pwd_reveal", "Göster")}
+            aria-label={revealed ? t("voice_room_pwd_hide", "Gizle") : t("voice_room_pwd_reveal", "Göster")}
+            className="opacity-75 hover:opacity-100 transition-opacity"
+            style={{ background: "transparent", border: "none", cursor: "pointer" }}
+          >
+            {revealed ? <EyeOff size={14} color="#F5A623" /> : <Eye size={14} color="#94A3B8" />}
+          </button>
+          <button
+            data-testid={`voice-room-pwd-copy-${room.id}`}
+            onClick={copyPwd}
+            title={t("voice_room_pwd_copy", "Şifreyi kopyala")}
+            aria-label={t("voice_room_pwd_copy", "Şifreyi kopyala")}
+            className="opacity-75 hover:opacity-100 transition-opacity"
+            style={{ background: "transparent", border: "none", cursor: "pointer" }}
+          >
+            {copied ? <Check size={14} color="#22C55E" /> : <Copy size={14} color="#94A3B8" />}
+          </button>
+        </div>
+      )}
+
       <button
         data-testid={`voice-room-join-${room.id}`}
         onClick={onJoin}

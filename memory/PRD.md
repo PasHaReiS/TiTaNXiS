@@ -20,6 +20,18 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.8 — Voice Room Password Reveal/Copy + Universal Delete)** — Multi:
+  - **Backend** (`server.py`):
+    - `voice_rooms` doc'una `password_plain` alanı eklendi (yalnızca admin `GET /voice/rooms/{id}/password` üzerinden okunur; `voice_rooms_list` projection'ında hard-blocked).
+    - `_voice_rooms_seed`: Yeni seed'ler `password_plain: "titanxis"` ile yazılır; eski seed docs backfill edilir.
+    - Yeni endpoint: `GET /api/voice/rooms/{room_id}/password` (`require_admin`). Guest'e "Giriş gerekli" 401 döner ✅ (curl doğrulandı).
+    - `DELETE /voice/rooms/{id}` endpoint zaten mevcuttu; sistem odalarını da siler.
+  - **Frontend** (`VoiceRooms.jsx`):
+    - `RoomCard`: Admin için `password_plain` panelini (monospace "••••••••" + göz ikonu + kopyala chip) eklendi. Şifre yalnızca "göster" veya "kopyala" tıklandığında lazily fetch edilir (per-card cache).
+    - Delete butonundan `room.created_by !== "system"` kontrolü kaldırıldı — admin artık sistem odalarını (Genel, SvS Savaşı, Strateji Odası) da silebilir.
+    - i18n TR + EN: 6 yeni key (`voice_room_pwd_reveal`, `voice_room_pwd_hide`, `voice_room_pwd_copy`, `voice_room_pwd_copied`, `voice_room_pwd_copy_failed`, `voice_room_delete`).
+
+
 - **Feb 31, 2026 (v140.7 — Voice Room Invite System Removed)** — Multi:
   - **Backend** (`server.py`):
     - `VoiceRoomCreate.invited_user_ids` alanı kaldırıldı.

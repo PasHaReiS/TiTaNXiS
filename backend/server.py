@@ -10021,16 +10021,22 @@ async def voice_room_create(body: VoiceRoomCreate, u: dict = Depends(require_adm
         raise HTTPException(400, "Oda adı boş olamaz")
     if not (body.password or "").strip():
         raise HTTPException(400, "Oda şifresi zorunludur")
+    pw = body.password.strip()
     doc = {
         "id": str(uuid.uuid4()),
         "name": body.name.strip()[:80],
         "created_by": u["id"],
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "password_hash": _hash_password(body.password.strip()),
+        "password_hash": _hash_password(pw),
+        # v140.8 — Admin, kanal şifresini üyelere DM/chat üzerinden paylaşmak
+        # istiyor. Plaintext admin-only endpoint (`GET /voice/rooms/{id}/password`)
+        # üzerinden döndürülüyor; asla `voice_rooms_list` yanıtında çıkmıyor.
+        "password_plain": pw,
     }
     await db.voice_rooms.insert_one(doc)
     doc.pop("_id", None)
     doc.pop("password_hash", None)
+    doc.pop("password_plain", None)
     return doc
 
 
@@ -10040,9 +10046,19 @@ async def voice_rooms_list(u: Optional[dict] = Depends(_optional_auth)):
     Davet listesi kaldırıldı — sadece şifre ile erişim."""
     rows = await db.voice_rooms.find(
         {},
-        {"_id": 0, "password_hash": 0, "invited_user_ids": 0},
+        {"_id": 0, "password_hash": 0, "password_plain": 0, "invited_user_ids": 0},
     ).sort("created_at", 1).to_list(200)
     return rows
+
+
+@api_router.get("/voice/rooms/{room_id}/password")
+async def voice_room_password_reveal(room_id: str, _: dict = Depends(require_admin)):
+    """v140.8 — Sadece admin. Odanın plaintext şifresini döner (paylaşabilsin diye).
+    Eski docs `password_plain` içermiyorsa "•••••" yollar (admin şifreyi resetleyebilir)."""
+    room = await db.voice_rooms.find_one({"id": room_id}, {"password_plain": 1, "_id": 0})
+    if not room:
+        raise HTTPException(404, "Oda bulunamadı")
+    return {"password": room.get("password_plain") or ""}
 
 
 @api_router.delete("/voice/rooms/{room_id}")
@@ -10139,17 +10155,25 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
 
 async def _voice_rooms_seed():
     """v139 — 3 default oda default şifre `titanxis` ile."""
-    default_pw_hash = _hash_password("titanxis")
+    default_pw = "titanxis"
+    default_pw_hash = _hash_password(default_pw)
     for name in ("Genel", "SvS Savaşı", "Strateji Odası"):
-        exists = await db.voice_rooms.find_one({"name": name})
-        if not exists:
+        existing = await db.voice_rooms.find_one({"name": name})
+        if not existing:
             await db.voice_rooms.insert_one({
                 "id": str(uuid.uuid4()),
                 "name": name,
                 "created_by": "system",
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "password_hash": default_pw_hash,
+                "password_plain": default_pw,
             })
+        elif not existing.get("password_plain"):
+            # v140.8 — Eski seed'lerde plaintext yok; admin göz ikonundan görebilsin diye backfill.
+            await db.voice_rooms.update_one(
+                {"_id": existing["_id"]},
+                {"$set": {"password_plain": default_pw}},
+            )
 
 
 @app.on_event("startup")
