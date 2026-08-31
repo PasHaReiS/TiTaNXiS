@@ -20,6 +20,16 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.4/5 — 3 UX Improvements)** — Multi:
+  - **Mic Help Link** (`VoiceRooms.jsx`): İzin reddedildiğinde toast'a "Nasıl açarım?" action butonu eklendi. UA algılama ile OS/browser-özel rehber URL'sine yönlendirir (iOS Apple Guide, Android Chrome help, Firefox Mozilla docs, Edge Microsoft support, Safari macOS guide). Toast süresi 12sn.
+  - **Aktif Katılımcı Rozeti** (`MusicButton.jsx` + backend):
+    - Backend: `GET /api/voice/active-count` — LiveKit `ListRoomsRequest` ile `num_participants` toplamı. 8sn cache. Auth-siz (public).
+    - Frontend: MusicButton her 20sn'de polling, Page Visibility API ile arka planda durur. `activeCount > 0` iken kırmızı pulsing badge (`🔴 N`) — 1.4s pulse animation, `-4px/-4px` konum, `2px` koyu border, `data-testid=voice-active-badge`.
+  - **Sosyal Preview** (`public/index.html`):
+    - OG tags refactor: `og:title` = "⚔️ TiTaNXiS — Lonca Yönetim Uygulaması", `og:image` = tanitim promo hero PNG (1200×630), `og:image:secure_url` + `og:image:type=image/png` + `og:image:alt` eklendi.
+    - Twitter card: `summary_large_image`, aynı promo hero. WhatsApp/Discord/Twitter share'de zengin kart görünecek.
+
+
 - **Feb 31, 2026 (v140.3 — Voice Room Mic Permission Preflight)** — Frontend:
   - **Bug**: `LiveKitRoom` internal `getUserMedia` çağrısı bazı tarayıcılarda (iOS Safari, bazı Firefox sürümleri, iframe-embed'ler) prompt açmadan doğrudan "Permission denied" fırlatıyordu. Kullanıcı hiç izin isteği görmüyordu.
   - **Fix**: `VoiceRooms.jsx` → `join()` fonksiyonuna preflight `navigator.mediaDevices.getUserMedia({audio: true})` çağrısı eklendi. Prompt tetiklenir; track anında `.stop()` edilir (LiveKit odaya kendisi bağlanınca yeni track açar).

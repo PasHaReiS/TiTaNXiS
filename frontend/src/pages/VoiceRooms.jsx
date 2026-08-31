@@ -43,12 +43,37 @@ export default function VoiceRooms() {
     } catch (permErr) {
       const name = permErr?.name || "";
       if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+        // v140.4 — OS/tarayıcı algılayıp doğru rehber sayfasına yönlendir.
+        const ua = navigator.userAgent || "";
+        const isIOS = /iP(hone|od|ad)/.test(ua);
+        const isAndroid = /Android/.test(ua);
+        const isFirefox = /Firefox/i.test(ua);
+        const isEdge = /Edg\//i.test(ua);
+        const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(ua) && !isIOS === false ? true : /Safari/.test(ua) && !/Chrome|CriOS|FxiOS|Edg/.test(ua);
+        let helpUrl = "https://support.google.com/chrome/answer/2693767"; // default Chrome desktop
+        if (isIOS) {
+          helpUrl = "https://support.apple.com/guide/iphone/control-access-to-hardware-features-iph168c4bbd5/ios";
+        } else if (isAndroid) {
+          helpUrl = "https://support.google.com/chrome/answer/2693767?hl=tr&co=GENIE.Platform%3DAndroid";
+        } else if (isFirefox) {
+          helpUrl = "https://support.mozilla.org/tr/kb/tarayicinizda-web-sitesi-kamera-mikrofon-izinleri";
+        } else if (isEdge) {
+          helpUrl = "https://support.microsoft.com/tr-tr/microsoft-edge/microsoft-edge-de-kameran%C4%B1z%C4%B1-veya-mikrofonunuzu-etkinle%C5%9Ftirme-b9c88377-40cf-42d9-b6c7-8c69dee7e60d";
+        } else if (isSafari) {
+          helpUrl = "https://support.apple.com/guide/safari/websites-ibrwe2159f50/mac";
+        }
         toast.error(
           t(
             "voice_mic_permission_denied",
             "🎙️ Mikrofon izni reddedildi. Sesli kanala katılmak için tarayıcı adres çubuğundaki kilit simgesinden mikrofon iznini 'İzin Ver' yapman gerekiyor."
           ),
-          { duration: 8000 }
+          {
+            duration: 12000,
+            action: {
+              label: t("voice_mic_help_action", "Nasıl açarım?"),
+              onClick: () => window.open(helpUrl, "_blank", "noopener,noreferrer"),
+            },
+          }
         );
       } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
         toast.error(

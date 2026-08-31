@@ -10052,6 +10052,51 @@ async def voice_room_delete(room_id: str, _: dict = Depends(require_admin)):
     return {"deleted": res.deleted_count}
 
 
+# v140.5 — Aktif katılımcı sayısı için modül-seviyesi cache. LiveKit REST API
+# ağ çağrısı, her istekte yapmak istemeyiz; FAB her 20 sn'de bir polling yaptığı
+# için 8 sn'lik pencere yeterince taze.
+_VOICE_ACTIVE_CACHE = {"ts": 0.0, "total": 0, "per_room": {}}
+
+
+@api_router.get("/voice/active-count")
+async def voice_active_count():
+    """v140.5 — Sesli kanallarda aktif katılımcı sayısı.
+
+    LiveKit `RoomService.list_rooms` çağrısıyla her odanın `num_participants`
+    değeri toplanır. Frontend'deki FAB canlı "🔴 N" rozeti için polling yapar.
+    8 sn'lik yumuşak cache; LiveKit servisi ulaşılamazsa 0 döner (rozet gizlenir)."""
+    import time
+    now_ts = time.time()
+    if now_ts - _VOICE_ACTIVE_CACHE["ts"] < 8:
+        return {"total": _VOICE_ACTIVE_CACHE["total"], "per_room": _VOICE_ACTIVE_CACHE["per_room"]}
+    total = 0
+    per_room: dict = {}
+    try:
+        if _LK_OK:
+            lk_key = os.environ.get("LIVEKIT_API_KEY", "").strip()
+            lk_secret = os.environ.get("LIVEKIT_API_SECRET", "").strip()
+            lk_url = os.environ.get("LIVEKIT_URL", "").strip()
+            if lk_key and lk_secret and lk_url:
+                # LiveKit REST endpoint = wss URL'nin http karşılığı
+                http_url = lk_url.replace("wss://", "https://").replace("ws://", "http://")
+                from livekit.api import LiveKitAPI, ListRoomsRequest
+                lkapi = LiveKitAPI(http_url, lk_key, lk_secret)
+                try:
+                    resp = await lkapi.room.list_rooms(ListRoomsRequest())
+                    for r in getattr(resp, "rooms", []) or []:
+                        n = int(getattr(r, "num_participants", 0) or 0)
+                        per_room[r.name] = n
+                        total += n
+                finally:
+                    await lkapi.aclose()
+    except Exception as e:
+        logging.getLogger("voice").debug(f"/voice/active-count LiveKit fetch failed: {e}")
+    _VOICE_ACTIVE_CACHE["ts"] = now_ts
+    _VOICE_ACTIVE_CACHE["total"] = total
+    _VOICE_ACTIVE_CACHE["per_room"] = per_room
+    return {"total": total, "per_room": per_room}
+
+
 class VoiceTokenBody(BaseModel):
     room_id: str
     password: Optional[str] = None
