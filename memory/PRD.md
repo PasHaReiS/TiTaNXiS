@@ -20,6 +20,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v138 — HeroTables Cumulative Panel Kaldırıldı)** — Frontend:
+  - `HeroTables.jsx` içindeki "1★→N★ KÜMÜLATİF MİKTAR" (Cumulative 1→N cost panel) tablosu tamamen kaldırıldı (satır 195-241, 47 satır silindi).
+  - Parent wrapper `gap: 6px` zaten set; EXCLUSIVE WEAPONS tablosu artık HERO STAR'ın hemen altında (6px gap ile) render ediliyor.
+  - `cumulativeThrough()` helper fonksiyonu ve i18n key `ht_cumulative_title` codebase'de dokunulmadan bırakıldı (başka yerde kullanılabilir, dead-code cleanup ileride yapılabilir).
+
+
 - **Feb 29, 2026 (v137.9 — /yardim CRITICAL Fix)** — Backend:
   - **Root cause**: `/yardim` metnindeki `_` içeren komut isimleri (`/etkinlik_ekle`, `/puan_ekle`, `/rozet_ver`, `/toplu_duyuru`, `/etkinlik_iptal`, `/esik_uyari`, `/geri_bildirim`, `/sifremi_sifirla`, `/reset_password`) Markdown italic markörü olarak yorumlandı → Telegram BadRequest ("can't find end of entity starting at byte offset 818") → mesaj hiç iletilmiyordu. `/help` de aynı hatayı üretiyordu ama production'daki eski build'de bu commands yoktu.
   - **Fix #1**: Yeni `_safe_reply(update, text, parse_mode)` helper — `BadRequest`'te sessizce `parse_mode=None` ile retry eder. `reply_ml`'nin 3 çıkış noktası bu helper'ı kullanıyor. Bu sayede gelecekte de Markdown edge-case'leri metni düşürmez.
