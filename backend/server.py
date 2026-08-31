@@ -10000,7 +10000,9 @@ async def _poll_broadcast(question: str, poll_id: str, options: Optional[list] =
 #   POST /api/voice/token         (auth)  — LiveKit access token üret
 #
 # Data model (`voice_rooms` koleksiyonu):
-#   id, name, created_by, created_at, is_private, invited_user_ids[]
+#   id, name, created_by, created_at, password_hash
+# v140.7 — Davet sistemi kaldırıldı. Herkes (üye veya ziyaretçi) şifreyi
+# doğru girerse katılabilir. Admin bypass korunuyor.
 try:
     from livekit import api as _lk_api  # noqa: F401
     _LK_OK = True
@@ -10011,7 +10013,6 @@ except Exception:
 class VoiceRoomCreate(BaseModel):
     name: str
     password: str  # v139 — zorunlu; şifresiz oda yok
-    invited_user_ids: List[str] = []
 
 
 @api_router.post("/voice/rooms")
@@ -10026,7 +10027,6 @@ async def voice_room_create(body: VoiceRoomCreate, u: dict = Depends(require_adm
         "created_by": u["id"],
         "created_at": datetime.now(timezone.utc).isoformat(),
         "password_hash": _hash_password(body.password.strip()),
-        "invited_user_ids": list(body.invited_user_ids or []),
     }
     await db.voice_rooms.insert_one(doc)
     doc.pop("_id", None)
@@ -10036,13 +10036,12 @@ async def voice_room_create(body: VoiceRoomCreate, u: dict = Depends(require_adm
 
 @api_router.get("/voice/rooms")
 async def voice_rooms_list(u: Optional[dict] = Depends(_optional_auth)):
-    """v139 — Odaları herkese göster (ziyaretçi dahil); password_hash asla dönmez.
-    Client-side davetli mi bilgisi de gönderiyoruz (invited: bool)."""
-    rows = await db.voice_rooms.find({}, {"_id": 0, "password_hash": 0}).sort("created_at", 1).to_list(200)
-    uid = (u or {}).get("id")
-    for r in rows:
-        r["invited"] = bool(uid) and (uid in (r.get("invited_user_ids") or []))
-        r.pop("invited_user_ids", None)  # gizli tut
+    """v140.7 — Odaları herkese göster (ziyaretçi dahil); password_hash asla dönmez.
+    Davet listesi kaldırıldı — sadece şifre ile erişim."""
+    rows = await db.voice_rooms.find(
+        {},
+        {"_id": 0, "password_hash": 0, "invited_user_ids": 0},
+    ).sort("created_at", 1).to_list(200)
     return rows
 
 
@@ -10105,8 +10104,7 @@ class VoiceTokenBody(BaseModel):
 
 @api_router.post("/voice/token")
 async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optional_auth)):
-    """v139 — Davetli üye şifresiz girer; diğer herkes (login veya ziyaretçi)
-    şifreyi doğru bilmek zorunda."""
+    """v140.7 — Davet sistemi kaldırıldı. Sadece şifre ile erişim (admin bypass korunuyor)."""
     if not _LK_OK:
         raise HTTPException(500, "LiveKit SDK yüklü değil")
     lk_key = os.environ.get("LIVEKIT_API_KEY", "").strip()
@@ -10117,13 +10115,12 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
     room = await db.voice_rooms.find_one({"id": body.room_id})
     if not room:
         raise HTTPException(404, "Oda bulunamadı")
-    is_invited = bool(u) and u.get("id") in (room.get("invited_user_ids") or [])
     is_admin = bool(u) and u.get("role") == "admin"
-    if not (is_invited or is_admin):
+    if not is_admin:
         # Şifre kontrolü zorunlu
         from auth import verify_password as _verify_password
         if not body.password or not _verify_password(body.password, room.get("password_hash", "")):
-            raise HTTPException(403, "Şifre yanlış veya davetli değilsin")
+            raise HTTPException(403, "Şifre yanlış")
     if u:
         identity_base = u.get("username") or u["id"]
         identity = f"{identity_base}-{u['id'][:6]}"
@@ -10152,7 +10149,6 @@ async def _voice_rooms_seed():
                 "created_by": "system",
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "password_hash": default_pw_hash,
-                "invited_user_ids": [],
             })
 
 

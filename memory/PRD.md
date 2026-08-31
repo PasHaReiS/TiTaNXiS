@@ -20,6 +20,20 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.7 — Voice Room Invite System Removed)** — Multi:
+  - **Backend** (`server.py`):
+    - `VoiceRoomCreate.invited_user_ids` alanı kaldırıldı.
+    - `POST /voice/rooms` artık sadece `name` + `password` alır; `invited_user_ids` doc'a yazılmaz.
+    - `GET /voice/rooms` yanıtından `invited_user_ids` + türetilmiş `invited` flag'i tamamen kaldırıldı; MongoDB projection `{"_id":0, "password_hash":0, "invited_user_ids":0}` (eski docs için geriye dönük güvenli).
+    - `POST /voice/token`: `is_invited` mantığı silindi. Sadece admin bypass + şifre check kaldı. Hata mesajı "Şifre yanlış".
+    - `_voice_rooms_seed()` seed'i `invited_user_ids: []` alanı olmadan yazar.
+  - **Frontend** (`VoiceRooms.jsx`):
+    - `join()`: `room.invited` kontrolü kaldırıldı; `skipPrompt = isAdmin`.
+    - `RoomCard`: "✅ Davetlisin" yeşil rozet kaldırıldı; sadece "🔒 Şifreli" + admin bypass rozeti.
+    - `CreateRoomButton`: davetli User ID textarea, `useSWR("/members")` fetch'i, `invitedIds` state kaldırıldı. Yerine `voice_room_password_hint` mesajı: "Bu şifreyi katılmasını istediğin üyelerle paylaş."
+  - **Verify**: curl `POST /voice/token` yanlış şifre → 403 "Şifre yanlış"; doğru şifre (ziyaretçi) → token döner ✅. `GET /voice/rooms` → 4 oda, `invited` key yok ✅.
+
+
 - **Feb 31, 2026 (v140.4/5 — 3 UX Improvements)** — Multi:
   - **Mic Help Link** (`VoiceRooms.jsx`): İzin reddedildiğinde toast'a "Nasıl açarım?" action butonu eklendi. UA algılama ile OS/browser-özel rehber URL'sine yönlendirir (iOS Apple Guide, Android Chrome help, Firefox Mozilla docs, Edge Microsoft support, Safari macOS guide). Toast süresi 12sn.
   - **Aktif Katılımcı Rozeti** (`MusicButton.jsx` + backend):

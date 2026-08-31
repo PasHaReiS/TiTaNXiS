@@ -9,11 +9,13 @@ import { api } from "@/lib/api";
 /**
  * v140.5 — Yüzen "Sesli Kanallar" butonu. `/sesli-kanallar`'a götürür.
  * Sürüklenebilir (mobil + masaüstü, `fab_pos_music` localStorage).
- * Yalnızca giriş yapmış kullanıcı görür.
  *
- * v140.5 eklendi: Canlı "🔴 N" aktif katılımcı rozeti. `/api/voice/active-count`
- * her 20 sn'de polling yapılır; sayı > 0 iken pulsing red badge gösterilir.
- * Sekme arka plandayken polling durdurulur (Page Visibility API).
+ * v140.6 — Ziyaretçilere de görünür. Şifreyi bilen ziyaretçi odaya katılabilir
+ * (backend `_optional_auth` + şifre check zaten destekliyordu). Sadece FAB
+ * gizlenmesi kaldırıldı.
+ *
+ * Canlı "🔴 N" aktif katılımcı rozeti (`/api/voice/active-count` her 20 sn'de
+ * polling). Sekme arka plandayken polling durdurulur (Page Visibility API).
  */
 export default function MusicButton() {
   const { t } = useTranslation();
@@ -28,7 +30,8 @@ export default function MusicButton() {
   const timerRef = useRef(null);
 
   useEffect(() => {
-    if (!user) return undefined;
+    // v140.6 — Polling artık ziyaretçiler için de çalışır. Endpoint zaten
+    // public (`/api/voice/active-count`).
     let cancelled = false;
     const fetchCount = async () => {
       try {
@@ -57,9 +60,9 @@ export default function MusicButton() {
       stop();
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [user]);
+  }, []);
 
-  if (!user) return null;
+  // v140.6 — Ziyaretçilere de göster (eski `if (!user) return null;` kaldırıldı).
 
   const handleClick = () => {
     if (hasDragged) return;

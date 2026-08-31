@@ -102,8 +102,8 @@ export default function VoiceRooms() {
 
     let password = null;
     let guestName = null;
-    // v139.1 — Admin veya davetli üye: direkt token iste, prompt yok.
-    const skipPrompt = isAdmin || (user && room.invited);
+    // v140.7 — Davet sistemi kaldırıldı. Admin şifresiz girer, herkes şifreyle girer.
+    const skipPrompt = isAdmin;
     if (!skipPrompt) {
       if (!user) {
         guestName = window.prompt(t("voice_guest_name_prompt", "Ziyaretçi adın (görünecek isim):"), "Ziyaretçi");
@@ -209,8 +209,8 @@ function RoomCard({ room, onJoin, isAdmin, onDeleted }) {
           </button>
         )}
       </div>
-      <div className="text-[10px] uppercase tracking-wider" style={{ color: room.invited ? "#22C55E" : "#94A3B8" }}>
-        {room.invited ? t("voice_room_invited_badge", "✅ Davetlisin") : t("voice_room_password_badge", "🔒 Şifreli")}
+      <div className="text-[10px] uppercase tracking-wider" style={{ color: "#94A3B8" }}>
+        {t("voice_room_password_badge", "🔒 Şifreli")}
         {isAdmin && <span className="ml-2" style={{ color: "#F5A623" }}>{t("voice_room_admin_bypass", "· 👑 Admin (şifresiz)")}</span>}
       </div>
       <button
@@ -236,8 +236,7 @@ function CreateRoomButton({ onCreated }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [invitedIds, setInvitedIds] = useState("");
-  const { data: members = [] } = useSWR(open ? "/members" : null, fetcher);
+  // v140.7 — Davetli üye seçimi kaldırıldı. Sadece ad + şifre.
   const submit = async () => {
     if (!password.trim()) {
       toast.error(t("voice_password_required", "Şifre zorunludur"));
@@ -247,10 +246,9 @@ function CreateRoomButton({ onCreated }) {
       await api.post("/voice/rooms", {
         name: name.trim(),
         password: password.trim(),
-        invited_user_ids: invitedIds.split(",").map((s) => s.trim()).filter(Boolean),
       });
       toast.success(t("voice_room_created", "Oda oluşturuldu"));
-      setOpen(false); setName(""); setPassword(""); setInvitedIds("");
+      setOpen(false); setName(""); setPassword("");
       onCreated();
     } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
   };
@@ -288,23 +286,11 @@ function CreateRoomButton({ onCreated }) {
               placeholder={t("voice_room_password_ph", "Oda şifresi (zorunlu)")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-black/40 border border-amber-500/40 rounded px-3 py-2 text-sm text-white mb-3"
+              className="w-full bg-black/40 border border-amber-500/40 rounded px-3 py-2 text-sm text-white mb-4"
             />
-            <div className="mb-3">
-              <label className="text-[10px] uppercase tracking-wider" style={{ color: "#94A3B8" }}>
-                {t("voice_room_invited", "Davetli User ID'leri (virgülle ayır — şifre gerekmez)")}
-              </label>
-              <textarea
-                data-testid="voice-room-invited-input"
-                value={invitedIds}
-                onChange={(e) => setInvitedIds(e.target.value)}
-                placeholder="uid-1, uid-2"
-                className="w-full mt-1 bg-black/40 border border-white/10 rounded px-3 py-2 text-xs text-white h-20"
-              />
-              <div className="text-[9px] mt-1 opacity-60" style={{ color: "#94A3B8" }}>
-                {t("voice_room_invited_hint", "Toplam üye:")} {members.length}
-              </div>
-            </div>
+            <p className="text-[10px] mb-4 leading-relaxed" style={{ color: "#94A3B8" }}>
+              {t("voice_room_password_hint", "Bu şifreyi katılmasını istediğin üyelerle paylaş. Adminler şifresiz girer.")}
+            </p>
             <div className="flex gap-2">
               <button
                 data-testid="voice-room-create-submit"
