@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v139 — Voice Rooms Password + Invite Access)** — Backend + Frontend:
+  - **Backend model change**: `VoiceRoomCreate` — `is_private` alanı kaldırıldı, `password: str` zorunlu oldu. Şifreler bcrypt ile hashlenir (`auth.hash_password`). Public oda konsepti kaldırıldı.
+  - **`voice_rooms_list`**: Artık `_optional_auth` — ziyaretçi de listeyi görebilir. `password_hash` asla dönmez. Her odaya `invited: bool` bayrağı eklenir (client-side davetli mi kontrolü için); `invited_user_ids` dönmez (gizlilik).
+  - **`voice_token`**: `_optional_auth` — hem üye hem ziyaretçi çağırabilir. Logic: admin veya davetli üye → şifresiz geçer; diğer herkes (login veya ziyaretçi) → `password` bcrypt verify. Ziyaretçi için `guest_name` alınır ve LiveKit identity `guest-<uuid8>`, display `{name} (ziyaretçi)`.
+  - **Seed güncellendi**: 3 default oda ("Genel", "SvS Savaşı", "Strateji Odası") default şifre `titanxis` ile.
+  - **Frontend**: Route `/sesli-kanallar` artık RequireAuth altında değil — ziyaretçi görebilir. `RoomCard` her zaman kilit ikonu; davetli üyelerde "✅ Davetlisin" yeşil badge. `join()` flow: ziyaretçi → görünen ad prompt + şifre prompt; login üye + davetli değilse → sadece şifre prompt; davetli üye → direkt token. 403 fallback ile tekrar şifre isteme desteği. `CreateRoomButton`: public/private toggle kaldırıldı, zorunlu şifre inputu + davetli listesi paralel gösterilir.
+  - 8 yeni i18n key (TR+EN).
+
+
 - **Feb 29, 2026 (v138.9 — MusicButton → VoiceRooms Nav)** — Frontend:
   - `MusicButton.jsx` tam olarak yeniden yazıldı. Eski davranış (fon müziği çal/durdur) kaldırıldı.
   - Yeni davranış: Tıklama → `nav("/sesli-kanallar")`. Sürüklenebilirlik korundu (`useDraggableFab`, `fab_pos_music`).

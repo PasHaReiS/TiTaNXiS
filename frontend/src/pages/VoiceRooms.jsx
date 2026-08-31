@@ -31,13 +31,36 @@ export default function VoiceRooms() {
   const [active, setActive] = useState(null); // { token, url, room }
 
   const join = useCallback(async (room) => {
+    let password = null;
+    let guestName = null;
+    // Ziyaretçi ise önce görünen ad iste
+    if (!user) {
+      guestName = window.prompt(t("voice_guest_name_prompt", "Ziyaretçi adın (görünecek isim):"), "Ziyaretçi");
+      if (guestName === null) return;
+    }
+    // Davetli değilse (veya ziyaretçiyse) şifre iste
+    if (!user || !room.invited) {
+      password = window.prompt(t("voice_room_password_prompt", "Oda şifresini gir:"));
+      if (password === null) return;
+    }
     try {
-      const res = await api.post("/voice/token", { room_id: room.id });
+      const res = await api.post("/voice/token", { room_id: room.id, password, guest_name: guestName });
       setActive({ ...res.data, roomDoc: room });
     } catch (e) {
-      toast.error(e?.response?.data?.detail || e.message);
+      const detail = e?.response?.data?.detail;
+      if (e?.response?.status === 403 && !password) {
+        // Davetli sanılıp şifresiz denenmişti, tekrar iste
+        const retry = window.prompt(t("voice_room_password_prompt", "Oda şifresini gir:"));
+        if (retry === null) return;
+        try {
+          const res2 = await api.post("/voice/token", { room_id: room.id, password: retry, guest_name: guestName });
+          setActive({ ...res2.data, roomDoc: room });
+        } catch (e2) { toast.error(e2?.response?.data?.detail || e2.message); }
+        return;
+      }
+      toast.error(detail || e.message);
     }
-  }, []);
+  }, [user, t]);
 
   const leave = () => setActive(null);
 
@@ -109,7 +132,7 @@ function RoomCard({ room, onJoin, isAdmin, onDeleted }) {
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          {room.is_private ? <Lock size={14} color="#F5A623" /> : <Globe size={14} color="#94A3B8" />}
+          <Lock size={14} color="#F5A623" />
           <span className="font-bold text-sm truncate" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }}>{room.name}</span>
         </div>
         {isAdmin && room.created_by !== "system" && (
@@ -118,8 +141,8 @@ function RoomCard({ room, onJoin, isAdmin, onDeleted }) {
           </button>
         )}
       </div>
-      <div className="text-[10px] uppercase tracking-wider" style={{ color: "#94A3B8" }}>
-        {room.is_private ? t("voice_room_private", "🔒 Davetli") : t("voice_room_public", "🌐 Herkese Açık")}
+      <div className="text-[10px] uppercase tracking-wider" style={{ color: room.invited ? "#22C55E" : "#94A3B8" }}>
+        {room.invited ? t("voice_room_invited_badge", "✅ Davetlisin") : t("voice_room_password_badge", "🔒 Şifreli")}
       </div>
       <button
         data-testid={`voice-room-join-${room.id}`}
@@ -143,18 +166,22 @@ function CreateRoomButton({ onCreated }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [password, setPassword] = useState("");
   const [invitedIds, setInvitedIds] = useState("");
   const { data: members = [] } = useSWR(open ? "/members" : null, fetcher);
   const submit = async () => {
+    if (!password.trim()) {
+      toast.error(t("voice_password_required", "Şifre zorunludur"));
+      return;
+    }
     try {
       await api.post("/voice/rooms", {
         name: name.trim(),
-        is_private: isPrivate,
-        invited_user_ids: isPrivate ? invitedIds.split(",").map((s) => s.trim()).filter(Boolean) : [],
+        password: password.trim(),
+        invited_user_ids: invitedIds.split(",").map((s) => s.trim()).filter(Boolean),
       });
       toast.success(t("voice_room_created", "Oda oluşturuldu"));
-      setOpen(false); setName(""); setInvitedIds(""); setIsPrivate(false);
+      setOpen(false); setName(""); setPassword(""); setInvitedIds("");
       onCreated();
     } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
   };
@@ -186,32 +213,29 @@ function CreateRoomButton({ onCreated }) {
               onChange={(e) => setName(e.target.value)}
               className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white mb-3"
             />
-            <label className="flex items-center gap-2 text-sm mb-3" style={{ color: "#E5E7EB" }}>
-              <input
-                data-testid="voice-room-private-toggle"
-                type="checkbox"
-                checked={isPrivate}
-                onChange={(e) => setIsPrivate(e.target.checked)}
+            <input
+              data-testid="voice-room-password-input"
+              type="text"
+              placeholder={t("voice_room_password_ph", "Oda şifresi (zorunlu)")}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-black/40 border border-amber-500/40 rounded px-3 py-2 text-sm text-white mb-3"
+            />
+            <div className="mb-3">
+              <label className="text-[10px] uppercase tracking-wider" style={{ color: "#94A3B8" }}>
+                {t("voice_room_invited", "Davetli User ID'leri (virgülle ayır — şifre gerekmez)")}
+              </label>
+              <textarea
+                data-testid="voice-room-invited-input"
+                value={invitedIds}
+                onChange={(e) => setInvitedIds(e.target.value)}
+                placeholder="uid-1, uid-2"
+                className="w-full mt-1 bg-black/40 border border-white/10 rounded px-3 py-2 text-xs text-white h-20"
               />
-              {t("voice_room_private_label", "Sadece davetli üyeler girebilsin")}
-            </label>
-            {isPrivate && (
-              <div className="mb-3">
-                <label className="text-[10px] uppercase tracking-wider" style={{ color: "#94A3B8" }}>
-                  {t("voice_room_invited", "Davetli User ID'leri (virgülle ayır)")}
-                </label>
-                <textarea
-                  data-testid="voice-room-invited-input"
-                  value={invitedIds}
-                  onChange={(e) => setInvitedIds(e.target.value)}
-                  placeholder="uid-1, uid-2"
-                  className="w-full mt-1 bg-black/40 border border-white/10 rounded px-3 py-2 text-xs text-white h-20"
-                />
-                <div className="text-[9px] mt-1 opacity-60" style={{ color: "#94A3B8" }}>
-                  {t("voice_room_invited_hint", "Toplam üye:")} {members.length}
-                </div>
+              <div className="text-[9px] mt-1 opacity-60" style={{ color: "#94A3B8" }}>
+                {t("voice_room_invited_hint", "Toplam üye:")} {members.length}
               </div>
-            )}
+            </div>
             <div className="flex gap-2">
               <button
                 data-testid="voice-room-create-submit"

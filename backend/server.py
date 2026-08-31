@@ -10010,7 +10010,7 @@ except Exception:
 
 class VoiceRoomCreate(BaseModel):
     name: str
-    is_private: bool = False
+    password: str  # v139 — zorunlu; şifresiz oda yok
     invited_user_ids: List[str] = []
 
 
@@ -10018,29 +10018,32 @@ class VoiceRoomCreate(BaseModel):
 async def voice_room_create(body: VoiceRoomCreate, u: dict = Depends(require_admin)):
     if not (body.name or "").strip():
         raise HTTPException(400, "Oda adı boş olamaz")
+    if not (body.password or "").strip():
+        raise HTTPException(400, "Oda şifresi zorunludur")
     doc = {
         "id": str(uuid.uuid4()),
         "name": body.name.strip()[:80],
         "created_by": u["id"],
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "is_private": bool(body.is_private),
-        "invited_user_ids": list(body.invited_user_ids or []) if body.is_private else [],
+        "password_hash": _hash_password(body.password.strip()),
+        "invited_user_ids": list(body.invited_user_ids or []),
     }
     await db.voice_rooms.insert_one(doc)
     doc.pop("_id", None)
+    doc.pop("password_hash", None)
     return doc
 
 
 @api_router.get("/voice/rooms")
-async def voice_rooms_list(u: dict = Depends(require_auth)):
-    rows = await db.voice_rooms.find({}, {"_id": 0}).sort("created_at", 1).to_list(200)
-    # Filtre: private oda ise yalnızca davetli veya admin görebilir
-    is_admin = u.get("role") == "admin"
-    out = []
+async def voice_rooms_list(u: Optional[dict] = Depends(_optional_auth)):
+    """v139 — Odaları herkese göster (ziyaretçi dahil); password_hash asla dönmez.
+    Client-side davetli mi bilgisi de gönderiyoruz (invited: bool)."""
+    rows = await db.voice_rooms.find({}, {"_id": 0, "password_hash": 0}).sort("created_at", 1).to_list(200)
+    uid = (u or {}).get("id")
     for r in rows:
-        if not r.get("is_private") or is_admin or u["id"] in (r.get("invited_user_ids") or []):
-            out.append(r)
-    return out
+        r["invited"] = bool(uid) and (uid in (r.get("invited_user_ids") or []))
+        r.pop("invited_user_ids", None)  # gizli tut
+    return rows
 
 
 @api_router.delete("/voice/rooms/{room_id}")
@@ -10051,10 +10054,14 @@ async def voice_room_delete(room_id: str, _: dict = Depends(require_admin)):
 
 class VoiceTokenBody(BaseModel):
     room_id: str
+    password: Optional[str] = None
+    guest_name: Optional[str] = None  # ziyaretçi için görünen ad
 
 
 @api_router.post("/voice/token")
-async def voice_token(body: VoiceTokenBody, u: dict = Depends(require_auth)):
+async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optional_auth)):
+    """v139 — Davetli üye şifresiz girer; diğer herkes (login veya ziyaretçi)
+    şifreyi doğru bilmek zorunda."""
     if not _LK_OK:
         raise HTTPException(500, "LiveKit SDK yüklü değil")
     lk_key = os.environ.get("LIVEKIT_API_KEY", "").strip()
@@ -10062,15 +10069,24 @@ async def voice_token(body: VoiceTokenBody, u: dict = Depends(require_auth)):
     lk_url = os.environ.get("LIVEKIT_URL", "").strip()
     if not (lk_key and lk_secret and lk_url):
         raise HTTPException(500, "LiveKit credentials .env'de eksik")
-    room = await db.voice_rooms.find_one({"id": body.room_id}, {"_id": 0})
+    room = await db.voice_rooms.find_one({"id": body.room_id})
     if not room:
         raise HTTPException(404, "Oda bulunamadı")
-    # Davetli kontrolü
-    if room.get("is_private") and u.get("role") != "admin" \
-            and u["id"] not in (room.get("invited_user_ids") or []):
-        raise HTTPException(403, "Bu odaya davetli değilsin")
-    identity = f"{u.get('username') or u['id']}-{u['id'][:6]}"
-    display = u.get("username") or u.get("email") or "Komutan"
+    is_invited = bool(u) and u.get("id") in (room.get("invited_user_ids") or [])
+    is_admin = bool(u) and u.get("role") == "admin"
+    if not (is_invited or is_admin):
+        # Şifre kontrolü zorunlu
+        from auth import verify_password as _verify_password
+        if not body.password or not _verify_password(body.password, room.get("password_hash", "")):
+            raise HTTPException(403, "Şifre yanlış veya davetli değilsin")
+    if u:
+        identity_base = u.get("username") or u["id"]
+        identity = f"{identity_base}-{u['id'][:6]}"
+        display = u.get("username") or u.get("email") or "Komutan"
+    else:
+        gn = (body.guest_name or "Ziyaretçi").strip()[:32] or "Ziyaretçi"
+        identity = f"guest-{uuid.uuid4().hex[:8]}"
+        display = f"{gn} (ziyaretçi)"
     from livekit.api import AccessToken, VideoGrants
     at = AccessToken(lk_key, lk_secret) \
         .with_identity(identity) \
@@ -10080,7 +10096,8 @@ async def voice_token(body: VoiceTokenBody, u: dict = Depends(require_auth)):
 
 
 async def _voice_rooms_seed():
-    """v138.8 — Startup seed: 3 default oda yoksa oluştur."""
+    """v139 — 3 default oda default şifre `titanxis` ile."""
+    default_pw_hash = _hash_password("titanxis")
     for name in ("Genel", "SvS Savaşı", "Strateji Odası"):
         exists = await db.voice_rooms.find_one({"name": name})
         if not exists:
@@ -10089,7 +10106,7 @@ async def _voice_rooms_seed():
                 "name": name,
                 "created_by": "system",
                 "created_at": datetime.now(timezone.utc).isoformat(),
-                "is_private": False,
+                "password_hash": default_pw_hash,
                 "invited_user_ids": [],
             })
 
