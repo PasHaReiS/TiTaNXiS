@@ -20,6 +20,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v138.6 — LIVEKIT_URL)** — Backend:
+  - `/app/backend/.env`'e `LIVEKIT_URL=wss://voice.titanxis.com` eklendi.
+  - `LIVEKIT_API_KEY` ve `LIVEKIT_API_SECRET` hâlâ eksik → LiveKit token üretimi çalışmayacak; kullanıcı bu iki değeri sağladığında feature tamamlanabilir.
+  - Backend restart edildi; `/api/health` OK dönüyor.
+
+
 - **Feb 29, 2026 (v138.4/5 — Chat FAB + Sürüklenebilir Butonlar)** — Frontend:
   - **`useDraggableFab` hook** (`hooks/useDraggableFab.js`): Mouse + touch (mobil + masaüstü) drag desteği. Konum `localStorage`'da `fab_pos_{key}` anahtarıyla saklanır. 5px hareket eşiği ile "click vs drag" ayırt edilir → kısa tıklama `onClick`'i tetikler. Ekran boyutu değişince buton görünür alanda tutulur (clamp).
   - **`ChatFab.jsx`**: Yeni yüzen sohbet butonu. Amber/altın TiTaNXiS teması (`linear-gradient(#F5A623 → #D4730A → #E74C1A)`), `MessageCircle` ikonu. Yalnızca `user` varsa render edilir (ziyaretçi/anonim gizli). Tıklama → `/sohbet` route'una yönlendirme. Sürüklenebilir; varsayılan konum `top:120, right:16`.
