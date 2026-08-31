@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v138.7 — LiveKit Credentials)** — Backend:
+  - `/app/backend/.env`'e üç LiveKit env değişkeni eklendi/güncellendi:
+    - `LIVEKIT_URL=wss://voice.titanxis.com`
+    - `LIVEKIT_API_KEY=APIqyWsYw6L3XF7`
+    - `LIVEKIT_API_SECRET=JV4eMy...` (gizli)
+  - Backend restart edildi, `/api/health` OK dönüyor.
+  - Voice Rooms feature'ı henüz implement edilmedi — credentials artık hazır, sonraki iterasyonda backend token endpoint + frontend Voice Rooms sayfası yapılabilir.
+
+
 - **Feb 29, 2026 (v138.6 — LIVEKIT_URL)** — Backend:
   - `/app/backend/.env`'e `LIVEKIT_URL=wss://voice.titanxis.com` eklendi.
   - `LIVEKIT_API_KEY` ve `LIVEKIT_API_SECRET` hâlâ eksik → LiveKit token üretimi çalışmayacak; kullanıcı bu iki değeri sağladığında feature tamamlanabilir.
