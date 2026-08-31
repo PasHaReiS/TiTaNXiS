@@ -26,6 +26,7 @@ import EventNotifications from "@/pages/EventNotifications";
 import AccessDenied from "@/pages/AccessDenied";
 import LockedPage from "@/pages/LockedPage";
 import GuildChat from "@/pages/GuildChat";
+import VoiceRooms from "@/pages/VoiceRooms";
 import Members from "@/pages/Members";
 import MemberHome from "@/pages/MemberHome";
 import Events from "@/pages/Events";
@@ -152,6 +153,7 @@ function AppShell() {
           <Route path="/admin/sertifika-ver" element={<RequireAdmin><MotionPage><IssueCertificate /></MotionPage></RequireAdmin>} />
           <Route path="/kurallar" element={<MotionPage><GuildRules /></MotionPage>} />
           <Route path="/sohbet" element={<RequireAuth><MotionPage><GuildChat /></MotionPage></RequireAuth>} />
+          <Route path="/sesli-kanallar" element={<RequireAuth><MotionPage><VoiceRooms /></MotionPage></RequireAuth>} />
           <Route path="/admin/uyeler" element={<RequireAdmin><MotionPage><Members /></MotionPage></RequireAdmin>} />
           <Route path="/arsiv" element={<RequireAuth><MotionPage><Events /></MotionPage></RequireAuth>} />
           <Route path="/katilim" element={<RequireAdmin><MotionPage><Reports /></MotionPage></RequireAdmin>} />

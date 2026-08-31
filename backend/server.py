@@ -9989,6 +9989,119 @@ async def _poll_broadcast(question: str, poll_id: str, options: Optional[list] =
         logger.warning(f"poll broadcast: {ex}")
 
 
+
+# =========================================================================
+# v138.8 — LiveKit Sesli Kanallar
+# =========================================================================
+# Endpoints:
+#   POST /api/voice/rooms         (admin) — oda oluştur
+#   GET  /api/voice/rooms         (auth)  — erişim yetkisi olan odaları listele
+#   DELETE /api/voice/rooms/{id}  (admin) — oda sil
+#   POST /api/voice/token         (auth)  — LiveKit access token üret
+#
+# Data model (`voice_rooms` koleksiyonu):
+#   id, name, created_by, created_at, is_private, invited_user_ids[]
+try:
+    from livekit import api as _lk_api  # noqa: F401
+    _LK_OK = True
+except Exception:
+    _LK_OK = False
+
+
+class VoiceRoomCreate(BaseModel):
+    name: str
+    is_private: bool = False
+    invited_user_ids: List[str] = []
+
+
+@api_router.post("/voice/rooms")
+async def voice_room_create(body: VoiceRoomCreate, u: dict = Depends(require_admin)):
+    if not (body.name or "").strip():
+        raise HTTPException(400, "Oda adı boş olamaz")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "name": body.name.strip()[:80],
+        "created_by": u["id"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "is_private": bool(body.is_private),
+        "invited_user_ids": list(body.invited_user_ids or []) if body.is_private else [],
+    }
+    await db.voice_rooms.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.get("/voice/rooms")
+async def voice_rooms_list(u: dict = Depends(require_auth)):
+    rows = await db.voice_rooms.find({}, {"_id": 0}).sort("created_at", 1).to_list(200)
+    # Filtre: private oda ise yalnızca davetli veya admin görebilir
+    is_admin = u.get("role") == "admin"
+    out = []
+    for r in rows:
+        if not r.get("is_private") or is_admin or u["id"] in (r.get("invited_user_ids") or []):
+            out.append(r)
+    return out
+
+
+@api_router.delete("/voice/rooms/{room_id}")
+async def voice_room_delete(room_id: str, _: dict = Depends(require_admin)):
+    res = await db.voice_rooms.delete_one({"id": room_id})
+    return {"deleted": res.deleted_count}
+
+
+class VoiceTokenBody(BaseModel):
+    room_id: str
+
+
+@api_router.post("/voice/token")
+async def voice_token(body: VoiceTokenBody, u: dict = Depends(require_auth)):
+    if not _LK_OK:
+        raise HTTPException(500, "LiveKit SDK yüklü değil")
+    lk_key = os.environ.get("LIVEKIT_API_KEY", "").strip()
+    lk_secret = os.environ.get("LIVEKIT_API_SECRET", "").strip()
+    lk_url = os.environ.get("LIVEKIT_URL", "").strip()
+    if not (lk_key and lk_secret and lk_url):
+        raise HTTPException(500, "LiveKit credentials .env'de eksik")
+    room = await db.voice_rooms.find_one({"id": body.room_id}, {"_id": 0})
+    if not room:
+        raise HTTPException(404, "Oda bulunamadı")
+    # Davetli kontrolü
+    if room.get("is_private") and u.get("role") != "admin" \
+            and u["id"] not in (room.get("invited_user_ids") or []):
+        raise HTTPException(403, "Bu odaya davetli değilsin")
+    identity = f"{u.get('username') or u['id']}-{u['id'][:6]}"
+    display = u.get("username") or u.get("email") or "Komutan"
+    from livekit.api import AccessToken, VideoGrants
+    at = AccessToken(lk_key, lk_secret) \
+        .with_identity(identity) \
+        .with_name(display) \
+        .with_grants(VideoGrants(room_join=True, room=room["name"], can_publish=True, can_subscribe=True))
+    return {"token": at.to_jwt(), "url": lk_url, "room": room["name"], "identity": identity}
+
+
+async def _voice_rooms_seed():
+    """v138.8 — Startup seed: 3 default oda yoksa oluştur."""
+    for name in ("Genel", "SvS Savaşı", "Strateji Odası"):
+        exists = await db.voice_rooms.find_one({"name": name})
+        if not exists:
+            await db.voice_rooms.insert_one({
+                "id": str(uuid.uuid4()),
+                "name": name,
+                "created_by": "system",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "is_private": False,
+                "invited_user_ids": [],
+            })
+
+
+@app.on_event("startup")
+async def _voice_seed_hook():
+    try:
+        await _voice_rooms_seed()
+    except Exception as e:
+        logger.warning(f"voice_rooms_seed failed: {e}")
+
+
 app.include_router(api_router)
 app.include_router(make_auth_router(db))
 from routes.polls import make_polls_router

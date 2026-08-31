@@ -20,6 +20,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v138.8 — LiveKit Voice Rooms)** — Backend + Frontend:
+  - **Backend** (`server.py` +100 satır): `POST /api/voice/rooms` (admin), `GET /api/voice/rooms` (auth, private oda filtresi), `DELETE /api/voice/rooms/{id}` (admin), `POST /api/voice/token` (auth + davetli kontrolü). Startup seed 3 oda: "Genel", "SvS Savaşı", "Strateji Odası". LiveKit SDK: `livekit-api==1.2.1`. Token: `AccessToken + VideoGrants(room_join, can_publish/subscribe)`.
+  - **Frontend**: `VoiceRooms.jsx` sayfası + route `/sesli-kanallar` (RequireAuth wrapper). `@livekit/components-react` ile `LiveKitRoom + RoomAudioRenderer + StartAudio`. Konuşan katılımcı yeşil halka + glow (`isSpeaking`), sustur/aç butonu (Mic/MicOff), ayrıl butonu. Admin için "Yeni Oda" modal'ı (public/private, davetli user_id listesi). 20 yeni i18n key (TR+EN).
+  - **Erişim**: Ziyaretçi giremez (route RequireAuth), private oda için davetli kontrolü backend token endpoint'inde.
+
+
 - **Feb 29, 2026 (v138.7 — LiveKit Credentials)** — Backend:
   - `/app/backend/.env`'e üç LiveKit env değişkeni eklendi/güncellendi:
     - `LIVEKIT_URL=wss://voice.titanxis.com`
