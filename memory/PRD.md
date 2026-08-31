@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v138.4/5 — Chat FAB + Sürüklenebilir Butonlar)** — Frontend:
+  - **`useDraggableFab` hook** (`hooks/useDraggableFab.js`): Mouse + touch (mobil + masaüstü) drag desteği. Konum `localStorage`'da `fab_pos_{key}` anahtarıyla saklanır. 5px hareket eşiği ile "click vs drag" ayırt edilir → kısa tıklama `onClick`'i tetikler. Ekran boyutu değişince buton görünür alanda tutulur (clamp).
+  - **`ChatFab.jsx`**: Yeni yüzen sohbet butonu. Amber/altın TiTaNXiS teması (`linear-gradient(#F5A623 → #D4730A → #E74C1A)`), `MessageCircle` ikonu. Yalnızca `user` varsa render edilir (ziyaretçi/anonim gizli). Tıklama → `/sohbet` route'una yönlendirme. Sürüklenebilir; varsayılan konum `top:120, right:16`.
+  - **`MusicButton`**: `useDraggableFab` ile refactor edildi. Konum artık `fab_pos_music` anahtarıyla localStorage'da. Drag sonrası click yutulur (hasDragged guard).
+  - **`GuildChat.jsx`** (yeni sayfa `/sohbet`): Placeholder — "Yakında" mesajı + amber styling. `RequireAuth` wrapper altında (guest kilitli sayfa görür).
+  - **i18n**: TR + EN keys (`chat_fab_title`, `guild_chat_title`, `guild_chat_subtitle`, `guild_chat_coming_soon`).
+
+
 - **Feb 29, 2026 (v138.2/3 — Etkinlik İlk 10 + Hero Star Hover)** — Frontend:
   - **HERO STAR Hover** (`HeroTables.jsx`): Yıldız butonlarına `onMouseEnter/Leave` eklendi — inactive butonlarda parlama (amber glow), hafif büyüme (`translateY(-1px) scale(1.06)`), amber border + text renk geçişi. Aktif buton state korunur, çift-parlama yok. Cubic-bezier easing `(0.34, 1.56, 0.64, 1)` yumuşak spring efekti.
   - **Etkinlik İlk 10 Paneli** (`Events.jsx`): Yeni `EventTop10Panel` component. `/api/leaderboard?event_id=X` endpoint'inden çekiyor (backend zaten destekliyor: `event_id`, `group_name`, `alliance`, `member_scope` param'ları). Top 10 üye 🥇🥈🥉 madalya + `total_points` mono format + ittifak chip'i ile gösteriliyor. Etkinlik detay modalında EventCountdown/Paylaşım butonlarının altına inject edildi. Tüm metinler `useTranslation()` — `event_top10_title`, `event_top10_hint` (TR+EN eklendi).

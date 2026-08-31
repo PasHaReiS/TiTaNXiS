@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import MusicButton from "@/components/MusicButton";
+import ChatFab from "@/components/ChatFab";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 import RadialMenu from "@/components/RadialMenu";
 import CookieBanner from "@/components/CookieBanner";
@@ -62,6 +63,7 @@ export default function Layout({ children }) {
             root so the 3 legal links stay visible on every route without
             competing with scrollable page content. */}
         <MusicButton />
+        <ChatFab />
         <PwaInstallPrompt />
       </div>
       <RadialMenu />
