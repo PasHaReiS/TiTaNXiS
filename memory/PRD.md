@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.3 — Voice Room Mic Permission Preflight)** — Frontend:
+  - **Bug**: `LiveKitRoom` internal `getUserMedia` çağrısı bazı tarayıcılarda (iOS Safari, bazı Firefox sürümleri, iframe-embed'ler) prompt açmadan doğrudan "Permission denied" fırlatıyordu. Kullanıcı hiç izin isteği görmüyordu.
+  - **Fix**: `VoiceRooms.jsx` → `join()` fonksiyonuna preflight `navigator.mediaDevices.getUserMedia({audio: true})` çağrısı eklendi. Prompt tetiklenir; track anında `.stop()` edilir (LiveKit odaya kendisi bağlanınca yeni track açar).
+  - Hata handling: `NotAllowedError` / `PermissionDeniedError` / `NotFoundError` / `NotReadableError` (mic başka app'de) → her biri için ayrı açıklayıcı toast (8 sn). Reddedilirse token bile çekilmez.
+  - i18n: 4 yeni key TR + EN (`voice_mic_permission_denied`, `voice_mic_not_found`, `voice_mic_busy`, `voice_mic_error`).
+
+
 - **Feb 31, 2026 (v140.2 — Event Reminder Duration Fix)** — Frontend:
   - **Bug**: `EventReminderDialog` her hatırlatma push'una en büyük lead'i (`largestLead`) body'ye gömüyordu → 15dk seçilse bile mesaj "30 dk sonra başlıyor" olarak Telegram'a düşüyordu.
   - **Fix**: `bodyEdited` flag'i eklendi. Kullanıcı textarea'ya elle dokunmadıysa her `ft.min` (lead) için body dinamik olarak `t("event_reminder_body_default", { name, dur: fmtDur(ft.min) })` üretilir.

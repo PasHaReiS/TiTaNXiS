@@ -31,6 +31,50 @@ export default function VoiceRooms() {
   const [active, setActive] = useState(null); // { token, url, room }
 
   const join = useCallback(async (room) => {
+    // v140.3 — Tarayıcı mikrofon iznini ODAYA GİRMEDEN önce iste. Bazı
+    // tarayıcılarda (özellikle iOS Safari + Firefox) LiveKit'in kendi
+    // getUserMedia çağrısı prompt açmadan hemen "Permission denied" fırlatıyor.
+    // Prompt'u burada tetiklediğimizde kullanıcı UI'da net bir tercih yapar;
+    // reddederse token bile istemeyip açıklayıcı toast döneriz.
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Track'i hemen serbest bırak; LiveKit odayla birlikte kendi track'ini açar.
+      stream.getTracks().forEach((tr) => tr.stop());
+    } catch (permErr) {
+      const name = permErr?.name || "";
+      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+        toast.error(
+          t(
+            "voice_mic_permission_denied",
+            "🎙️ Mikrofon izni reddedildi. Sesli kanala katılmak için tarayıcı adres çubuğundaki kilit simgesinden mikrofon iznini 'İzin Ver' yapman gerekiyor."
+          ),
+          { duration: 8000 }
+        );
+      } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+        toast.error(
+          t(
+            "voice_mic_not_found",
+            "🎧 Sistemde mikrofon bulunamadı. Bir mikrofon bağla ve tekrar dene."
+          ),
+          { duration: 8000 }
+        );
+      } else if (name === "NotReadableError" || name === "TrackStartError") {
+        toast.error(
+          t(
+            "voice_mic_busy",
+            "🎙️ Mikrofon başka bir uygulama tarafından kullanılıyor. Diğer uygulamayı kapat ve tekrar dene."
+          ),
+          { duration: 8000 }
+        );
+      } else {
+        toast.error(
+          t("voice_mic_error", "Mikrofon açılamadı: {{msg}}", { msg: permErr?.message || name || "bilinmeyen hata" }),
+          { duration: 8000 }
+        );
+      }
+      return;
+    }
+
     let password = null;
     let guestName = null;
     // v139.1 — Admin veya davetli üye: direkt token iste, prompt yok.
