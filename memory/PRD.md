@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140 — Telegram `/tanitim` Admin Broadcast)** — Backend:
+  - `telegram_bot.py`: `tanitim_command` handler eklendi. `_require_admin` gate; grup chat_id = `TITANXIS_GROUP_CHAT_ID`. `sendPhoto` çağrısıyla sabit tanıtım görseli + caption gönderilir.
+  - Caption: `⚔️ TiTaNXiS Lonca Yönetim Uygulaması\nLoncanu yönet, etkinliklerini takip et, sıralamanda yerini al!\n🌐 titanxis.com`
+  - `CommandHandler("tanitim", tanitim_command)` register, BotFather listesine `{"command":"tanitim","description":"[Admin] Lonca tanıtım görselini gruba gönder"}` eklendi. `setMyCommands` 41 girişe çıktı.
+  - Doğrulama: `getMyCommands` API → `tanitim` girişi görüldü, backend restart temiz.
+
+
 - **Feb 29, 2026 (v139.1 — Voice Rooms Admin Bypass Frontend)** — Frontend:
   - **Backend zaten hazırdı**: `voice_token` endpoint'inde `is_admin = u.role == "admin"` kontrolü mevcut → admin şifresiz/davetsiz geçiyor.
   - **Frontend fix**: `join()` içinde `skipPrompt = isAdmin || (user && room.invited)` → admin veya davetli üye için hiç prompt açılmıyor, direkt token istenir.

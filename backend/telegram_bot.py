@@ -390,6 +390,7 @@ def init_bot(db) -> Optional[Application]:
     # Admin
     _app.add_handler(CommandHandler("duyuru", duyuru_command))
     _app.add_handler(CommandHandler("toplu_duyuru", toplu_duyuru_command))
+    _app.add_handler(CommandHandler("tanitim", tanitim_command))
     _app.add_handler(CommandHandler("uyar", uyar_command))
     _app.add_handler(CommandHandler("rapor", rapor_command))
     _app.add_handler(CommandHandler("uyeler", uyeler_command))
@@ -473,6 +474,7 @@ async def setup_webhook() -> bool:
                 {"command": "etkinlik_ekle",   "description": "[Admin] Hızlı etkinlik"},
                 {"command": "etkinlik_iptal",  "description": "[Admin] Etkinlik iptal"},
                 {"command": "esik_uyari",      "description": "[Admin] Eşik uyarıları"},
+                {"command": "tanitim",         "description": "[Admin] Lonca tanıtım görselini gruba gönder"},
             ]
             r2 = await client.post(f"{TELEGRAM_API}/setMyCommands",
                                    json={"commands": cmds})
@@ -1553,6 +1555,61 @@ async def duyuru_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await reply_ml(update, reply_text)
     except Exception as e:
         log.warning(f"/duyuru final reply failed: {e}")
+
+
+TANITIM_IMAGE_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/389b9cb896e2412ca2fcd45b85b403cd_titanxis_tanitim.png"
+TANITIM_CAPTION = (
+    "⚔️ TiTaNXiS Lonca Yönetim Uygulaması\n"
+    "Loncanu yönet, etkinliklerini takip et, sıralamanda yerini al!\n"
+    "🌐 titanxis.com"
+)
+
+
+async def tanitim_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """v138 — /tanitim (admin-only)
+
+    Admin komutu; `TITANXIS_GROUP_CHAT_ID` grubuna sabit tanıtım görselini +
+    caption'ı `sendPhoto` ile atar. Doğrulama `_require_admin` ile yapılır
+    (kullanıcının hesabı bağlı ve rolü `admin` olmalı)."""
+    u = await _require_admin(update)
+    if not u:
+        return
+
+    log.info(f"/tanitim admin={u.get('username','?')} → group={TITANXIS_GROUP_CHAT_ID}")
+
+    reply_text = "❌ Bilinmeyen hata"
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.post(
+                f"{TELEGRAM_API}/sendPhoto",
+                json={
+                    "chat_id": TITANXIS_GROUP_CHAT_ID,
+                    "photo": TANITIM_IMAGE_URL,
+                    "caption": TANITIM_CAPTION,
+                },
+            )
+            data = r.json() if r.content else {}
+            if data.get("ok"):
+                log.info(f"/tanitim delivered to group chat_id={TITANXIS_GROUP_CHAT_ID}")
+                reply_text = "✅ Tanıtım görseli gruba gönderildi."
+            else:
+                desc = data.get("description") or "unknown"
+                code = data.get("error_code")
+                log.warning(f"/tanitim FAILED chat_id={TITANXIS_GROUP_CHAT_ID} code={code} desc={desc}")
+                reply_text = (
+                    f"❌ Tanıtım gönderilemedi.\n"
+                    f"Chat ID: `{TITANXIS_GROUP_CHAT_ID}`\n"
+                    f"Hata ({code}): {desc}\n\n"
+                    f"Bot'un grupta admin olduğundan emin ol."
+                )
+    except Exception as e:
+        log.warning(f"/tanitim exception: {e}")
+        reply_text = f"❌ Hata: {e}"
+
+    try:
+        await reply_ml(update, reply_text)
+    except Exception as e:
+        log.warning(f"/tanitim final reply failed: {e}")
 
 
 async def uyar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
