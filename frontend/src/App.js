@@ -52,6 +52,7 @@ import SvSTracker from "@/pages/SvSTracker";
 import Privacy from "@/pages/Privacy";
 import Terms from "@/pages/Terms";
 import AydinlatmaMetni from "@/pages/AydinlatmaMetni";
+import Tanitim from "@/pages/Tanitim";
 import PushSoundListener from "@/components/PushSoundListener";
 import LegalFooter from "@/components/LegalFooter";
 import MotionPage from "@/components/MotionPage";
@@ -201,6 +202,7 @@ export default function App() {
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/aydinlatma-metni" element={<AydinlatmaMetni />} />
+            <Route path="/tanitim" element={<Tanitim />} />
             <Route path="/sertifika/:token" element={<VerifyCertificate />} />
             <Route path="*" element={<AppShell />} />
           </Routes>

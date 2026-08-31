@@ -20,6 +20,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.1 — Public Landing `/tanitim`)** — Frontend:
+  - Yeni public sayfa `/tanitim` — `AppShell` dışında (Privacy/Terms gibi), auth zorunlu değil. Ziyaretçiler de görüntüleyebilir.
+  - Component: `/app/frontend/src/pages/Tanitim.jsx`. Koyu tema (`#0a0a0a`), radial altın glow, TiTaNXiS marka rozetli.
+  - Hero: QR-siz orijinal `titanxis_tanitim.png` görseli (fetchpriority=high, altın 1px border + glow).
+  - Intro metni: `⚔️ TiTaNXiS Lonca Yönetim Uygulaması — Loncanu yönet, etkinliklerini takip et, sıralamanda yerini al!`
+  - Amber gradient (135°, #ffd36b→#f5b21c→#b8760a) büyük "UYGULAMAYA GİR" butonu → `https://titanxis.com`. Hover'da translateY(-2px) + boosted shadow.
+  - URL parametresi desteği: `?davet=KOD` (alias `?invite=KOD`) → sayfada altın chip (`data-testid=tanitim-invite-chip`) + kopyala butonu. CTA `https://titanxis.com/?davet=KOD` olarak forward eder.
+  - i18n: 7 yeni key (`tanitim_hero_alt`, `tanitim_intro`, `tanitim_cta`, `tanitim_invite_label`, `tanitim_invite_copied`, `tanitim_invite_copy_failed`, `tanitim_footer`) TR + EN. Diğer 27 dil `useTranslation` fallback ile Turkish default kullanır.
+  - Route eklendi (App.js outer Routes): `<Route path="/tanitim" element={<Tanitim />} />`.
+
+
 - **Feb 31, 2026 (v140 — Telegram `/tanitim` Admin Broadcast)** — Backend:
   - `telegram_bot.py`: `tanitim_command` handler eklendi. `_require_admin` gate; grup chat_id = `TITANXIS_GROUP_CHAT_ID`. `sendPhoto` çağrısıyla sabit tanıtım görseli + caption gönderilir.
   - Caption: `⚔️ TiTaNXiS Lonca Yönetim Uygulaması\nLoncanu yönet, etkinliklerini takip et, sıralamanda yerini al!\n🌐 titanxis.com`

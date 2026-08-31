@@ -8,6 +8,14 @@ import { initReactI18next } from "react-i18next";
 // ---------------------------------------------------------------------------
 
 const tr = {
+  // v140 — Public landing page /tanitim
+  tanitim_hero_alt: "TiTaNXiS Lonca Yönetim Uygulaması",
+  tanitim_intro: "⚔️ TiTaNXiS Lonca Yönetim Uygulaması — Loncanu yönet, etkinliklerini takip et, sıralamanda yerini al!",
+  tanitim_cta: "UYGULAMAYA GİR",
+  tanitim_invite_label: "Davet Kodun",
+  tanitim_invite_copied: "Davet kodu kopyalandı",
+  tanitim_invite_copy_failed: "Kopyalanamadı",
+  tanitim_footer: "🌐 titanxis.com",
   alliance_scope_update_failed: "Kapsam güncellenemedi",
   alliance_main: "Ana İttifak",
   alliance_academy: "Akademi",
@@ -1360,10 +1368,15 @@ const en = {
   event_tab_unreminded: "Reminders off",
   alliance_rename_placeholder: "Name of the new alliance",
   alliance_rename_tooltip: "Change the name of the alliance",
+  // v140 — Public landing page /tanitim
+  tanitim_hero_alt: "TiTaNXiS Guild Management App",
+  tanitim_intro: "⚔️ TiTaNXiS Guild Management App — Manage your guild, track events, claim your spot on the leaderboard!",
+  tanitim_cta: "ENTER THE APP",
+  tanitim_invite_label: "Your invite code",
+  tanitim_invite_copied: "Invite code copied",
+  tanitim_invite_copy_failed: "Copy failed",
+  tanitim_footer: "🌐 titanxis.com",
   radial_menu_sound_title: "Menu Sound",
-  health_dim_participation: "Participation",
-  health_dim_consistency: "Consistency",
-  alliance_scope_update_failed: "The scope could not be updated",
   alliance_main: "Main Alliance",
   alliance_academy: "Academy",
   home_today_live: "LIVE",
