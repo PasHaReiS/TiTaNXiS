@@ -1329,6 +1329,16 @@ async def streak_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
 
 # ------------------------------ /davet, /hatirlatici, /dil ------------------
 async def davet_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    """v138 — Kişiselleştirilmiş davet mektubu + link üretir.
+
+    - Kullanıcının bağlı olması gerekir (`_require_link`).
+    - `invites` koleksiyonuna 8-hane token yazılır.
+    - Guild adı `guild_settings.guild_name` → env `GUILD_NAME` → "TiTaNXiS" fallback.
+    - Mektup + link tek mesaj olarak Markdown formatında; link ve token
+      backtick içinde → kopyala/yapıştır kolay olsun.
+    - Dil: `reply_ml` mevcut priority (NLP override / preferred_language /
+      Telegram client / DeepL detection) → TR + EN + 27 dilde otomatik çevirir.
+    """
     u = await _require_link(update)
     if not u: return
     import secrets
@@ -1338,13 +1348,44 @@ async def davet_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
         "created_at": datetime.now(timezone.utc).isoformat(),
         "used": False,
     }
+    guild_name = "TiTaNXiS"
     if _db is not None:
-        await _db.invites.insert_one(invite)
+        try:
+            await _db.invites.insert_one(invite)
+        except Exception as e:
+            log.warning(f"davet insert_one failed: {e}")
+        try:
+            name_doc = await _db.guild_settings.find_one({"key": "guild_name"}, {"_id": 0})
+            if name_doc and name_doc.get("value"):
+                guild_name = str(name_doc["value"]).strip()
+            elif os.environ.get("GUILD_NAME"):
+                guild_name = os.environ["GUILD_NAME"].strip()
+        except Exception:
+            pass
+    inviter_display = (u.get("username") or u.get("email") or "Bir komutan").strip()
     link = f"{WEB_BASE}/kayit?davet={token}"
-    await reply_ml(update,
-        f"🎫 *Kişisel Davet Linki*\n\n"
+    letter = (
+        f"🎫 *Kişisel Davet Mektubu*\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"*{inviter_display} seni {guild_name} Loncası'na davet ediyor!*\n\n"
+        f"⚔️ Selam savaşçı,\n\n"
+        f"Sana özel bir davet gönderiyorum. {guild_name} loncası — "
+        f"organize etkinlikler, güçlü ittifaklar ve gerçek dostluklar "
+        f"üzerine kurulu bir topluluktur. Aramıza katılırsan:\n\n"
+        f"• 🏰 *SvS, Kristal, Kale Savaşı* gibi büyük etkinliklerde takım oyuncusu ol\n"
+        f"• 📊 *Puan, güç ve rütbe takibi* — kendini geliştirmenin karşılığını al\n"
+        f"• 🎖 *Rozetler ve sertifikalar* kazan\n"
+        f"• 🌐 *29 dilde* çalışan lonca yönetim paneline erişim\n"
+        f"• 🤖 *Telegram botu* — her komuta anında yanıt\n\n"
+        f"🔗 *Katılım linki:*\n"
         f"`{link}`\n\n"
-        f"Bu linki paylaş → yeni üyeler kayıt olduğunda seninle eşlenir.")
+        f"*Davet kodu:* `{token}`\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"💡 Bu linke tıklayan yeni üyeler otomatik olarak seninle eşlenir "
+        f"— davet bonusu senin puanına yansır.\n\n"
+        f"🌐 [{WEB_BASE}]({WEB_BASE})"
+    )
+    await reply_ml(update, letter)
 
 
 async def hatirlatici_command(update: Update, context: ContextTypes.DEFAULT_TYPE):

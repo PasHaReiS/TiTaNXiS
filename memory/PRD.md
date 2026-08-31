@@ -20,6 +20,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v138.1 — /davet Kişiselleştirilmiş Mektup)** — Backend:
+  - `davet_command` yeniden yazıldı. Basit link mesajı → **kişiselleştirilmiş davet mektubu** oldu:
+    - Başlık: "*{username} seni {guild_name} Loncası'na davet ediyor!*"
+    - Guild adı `guild_settings.guild_name` → env `GUILD_NAME` → "TiTaNXiS" fallback ile çözülür.
+    - 5-madde lonca özet listesi (SvS/Kristal, puan takibi, rozetler, 29 dil, Telegram bot).
+    - Kopyalanabilir katılım linki + davet kodu (her ikisi de backtick içinde).
+    - En altta davet bonusu bilgilendirmesi + web paneli linki.
+  - `/invite` alias'ı zaten satır 386'da kayıtlı, aynı handler'a bağlı — İngilizce kullanıcı yazınca `reply_ml` DeepL/preferred_language ile otomatik EN'ye çevirir.
+  - Test: webhook simülasyonu `/davet` ve `/invite` her ikisi de `{"ok":true}` döndürüyor.
+
+
 - **Feb 29, 2026 (v138 — HeroTables Cumulative Panel Kaldırıldı)** — Frontend:
   - `HeroTables.jsx` içindeki "1★→N★ KÜMÜLATİF MİKTAR" (Cumulative 1→N cost panel) tablosu tamamen kaldırıldı (satır 195-241, 47 satır silindi).
   - Parent wrapper `gap: 6px` zaten set; EXCLUSIVE WEAPONS tablosu artık HERO STAR'ın hemen altında (6px gap ile) render ediliyor.
