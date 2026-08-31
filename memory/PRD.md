@@ -20,6 +20,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v139.1 — Voice Rooms Admin Bypass Frontend)** — Frontend:
+  - **Backend zaten hazırdı**: `voice_token` endpoint'inde `is_admin = u.role == "admin"` kontrolü mevcut → admin şifresiz/davetsiz geçiyor.
+  - **Frontend fix**: `join()` içinde `skipPrompt = isAdmin || (user && room.invited)` → admin veya davetli üye için hiç prompt açılmıyor, direkt token istenir.
+  - Oda kartında admin'e "👑 Admin (şifresiz)" hint gösterildi (amber). TR + EN i18n key eklendi (`voice_room_admin_bypass`).
+
+
 - **Feb 29, 2026 (v139 — Voice Rooms Password + Invite Access)** — Backend + Frontend:
   - **Backend model change**: `VoiceRoomCreate` — `is_private` alanı kaldırıldı, `password: str` zorunlu oldu. Şifreler bcrypt ile hashlenir (`auth.hash_password`). Public oda konsepti kaldırıldı.
   - **`voice_rooms_list`**: Artık `_optional_auth` — ziyaretçi de listeyi görebilir. `password_hash` asla dönmez. Her odaya `invited: bool` bayrağı eklenir (client-side davetli mi kontrolü için); `invited_user_ids` dönmez (gizlilik).

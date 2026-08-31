@@ -33,13 +33,13 @@ export default function VoiceRooms() {
   const join = useCallback(async (room) => {
     let password = null;
     let guestName = null;
-    // Ziyaretçi ise önce görünen ad iste
-    if (!user) {
-      guestName = window.prompt(t("voice_guest_name_prompt", "Ziyaretçi adın (görünecek isim):"), "Ziyaretçi");
-      if (guestName === null) return;
-    }
-    // Davetli değilse (veya ziyaretçiyse) şifre iste
-    if (!user || !room.invited) {
+    // v139.1 — Admin veya davetli üye: direkt token iste, prompt yok.
+    const skipPrompt = isAdmin || (user && room.invited);
+    if (!skipPrompt) {
+      if (!user) {
+        guestName = window.prompt(t("voice_guest_name_prompt", "Ziyaretçi adın (görünecek isim):"), "Ziyaretçi");
+        if (guestName === null) return;
+      }
       password = window.prompt(t("voice_room_password_prompt", "Oda şifresini gir:"));
       if (password === null) return;
     }
@@ -49,7 +49,6 @@ export default function VoiceRooms() {
     } catch (e) {
       const detail = e?.response?.data?.detail;
       if (e?.response?.status === 403 && !password) {
-        // Davetli sanılıp şifresiz denenmişti, tekrar iste
         const retry = window.prompt(t("voice_room_password_prompt", "Oda şifresini gir:"));
         if (retry === null) return;
         try {
@@ -60,7 +59,7 @@ export default function VoiceRooms() {
       }
       toast.error(detail || e.message);
     }
-  }, [user, t]);
+  }, [user, isAdmin, t]);
 
   const leave = () => setActive(null);
 
@@ -143,6 +142,7 @@ function RoomCard({ room, onJoin, isAdmin, onDeleted }) {
       </div>
       <div className="text-[10px] uppercase tracking-wider" style={{ color: room.invited ? "#22C55E" : "#94A3B8" }}>
         {room.invited ? t("voice_room_invited_badge", "✅ Davetlisin") : t("voice_room_password_badge", "🔒 Şifreli")}
+        {isAdmin && <span className="ml-2" style={{ color: "#F5A623" }}>{t("voice_room_admin_bypass", "· 👑 Admin (şifresiz)")}</span>}
       </div>
       <button
         data-testid={`voice-room-join-${room.id}`}
