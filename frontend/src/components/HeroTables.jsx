@@ -105,6 +105,24 @@ export default function HeroTables() {
                 data-testid={`hero-star-btn-${n}`}
                 aria-pressed={active}
                 onClick={() => setSelectedStar(n)}
+                onMouseEnter={(e) => {
+                  if (!active) {
+                    e.currentTarget.style.transform = "translateY(-1px) scale(1.06)";
+                    e.currentTarget.style.background = "linear-gradient(135deg,#3a2010,#5a3018)";
+                    e.currentTarget.style.borderColor = "#F5A623";
+                    e.currentTarget.style.boxShadow = "0 0 12px rgba(245,166,35,0.55), inset 0 0 8px rgba(245,166,35,0.15)";
+                    e.currentTarget.style.color = "#FCD34D";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) {
+                    e.currentTarget.style.transform = "";
+                    e.currentTarget.style.background = "#1A1210";
+                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+                    e.currentTarget.style.boxShadow = "none";
+                    e.currentTarget.style.color = "#F5F0E8";
+                  }
+                }}
                 style={{
                   width: "100%",
                   height: 24,
@@ -117,13 +135,15 @@ export default function HeroTables() {
                   lineHeight: 1.1,
                   fontWeight: 700,
                   cursor: "pointer",
-                  transition: "all 0.15s ease",
+                  // v138.2 — Yumuşak hover geçişleri: parlama + hafif büyüme +
+                  // amber vurgu. Aktif buton `.active` state'iyle sabit kalır.
+                  transition: "transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.22s ease, box-shadow 0.22s ease, color 0.22s ease, border-color 0.22s ease",
                   background: active
                     ? "linear-gradient(135deg,#D4730A,#E74C1A)"
                     : "#1A1210",
                   color: active ? "#0B0704" : "#F5F0E8",
                   border: `1px solid ${active ? "#F5A623" : "rgba(255,255,255,0.12)"}`,
-                  boxShadow: active ? "0 0 6px rgba(231,76,26,0.5)" : "none",
+                  boxShadow: active ? "0 0 8px rgba(231,76,26,0.6), 0 0 16px rgba(245,166,35,0.25)" : "none",
                   whiteSpace: "nowrap",
                   textOverflow: "ellipsis",
                   overflow: "hidden",

@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 29, 2026 (v138.2/3 — Etkinlik İlk 10 + Hero Star Hover)** — Frontend:
+  - **HERO STAR Hover** (`HeroTables.jsx`): Yıldız butonlarına `onMouseEnter/Leave` eklendi — inactive butonlarda parlama (amber glow), hafif büyüme (`translateY(-1px) scale(1.06)`), amber border + text renk geçişi. Aktif buton state korunur, çift-parlama yok. Cubic-bezier easing `(0.34, 1.56, 0.64, 1)` yumuşak spring efekti.
+  - **Etkinlik İlk 10 Paneli** (`Events.jsx`): Yeni `EventTop10Panel` component. `/api/leaderboard?event_id=X` endpoint'inden çekiyor (backend zaten destekliyor: `event_id`, `group_name`, `alliance`, `member_scope` param'ları). Top 10 üye 🥇🥈🥉 madalya + `total_points` mono format + ittifak chip'i ile gösteriliyor. Etkinlik detay modalında EventCountdown/Paylaşım butonlarının altına inject edildi. Tüm metinler `useTranslation()` — `event_top10_title`, `event_top10_hint` (TR+EN eklendi).
+  - **Sunucu İlk 10**: Ayrı bir component olarak yazılmadı çünkü `/siralama` sayfası zaten aynı endpoint'i tam liste ile kullanıyor; ittifak filtre parametresi mevcut (`alliance` + `member_scope=clan`).
+  - **Dead-code**: DeepL hâlâ aktif kullanılıyor (translate + detect), legacy OCR/state referansı grep'te bulunamadı. Temizlik yapılacak somut hedef yok — no-op olarak geçildi.
+
+
 - **Feb 29, 2026 (v138.1 — /davet Kişiselleştirilmiş Mektup)** — Backend:
   - `davet_command` yeniden yazıldı. Basit link mesajı → **kişiselleştirilmiş davet mektubu** oldu:
     - Başlık: "*{username} seni {guild_name} Loncası'na davet ediyor!*"

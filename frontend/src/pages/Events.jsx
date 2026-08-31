@@ -2029,6 +2029,83 @@ export default function Events() {
   );
 }
 
+
+// v138.3 — Etkinlik detayı için "İlk 10" paneli. Backend
+// `/leaderboard?event_id=X` bu etkinliğe atanmış puanlara göre sıralanmış
+// üye listesini döndürür; ilk 10'unu render ederiz. Fallback: veri
+// gelmezse panel gizlenir (sessiz). Tüm metinler useTranslation() ile.
+function EventTop10Panel({ eventId }) {
+  const { t } = useTranslation();
+  const { data = [], error } = useSWR(
+    eventId ? `/leaderboard?event_id=${encodeURIComponent(eventId)}` : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  if (error || !Array.isArray(data) || data.length === 0) return null;
+  const top10 = data.slice(0, 10);
+  return (
+    <div
+      data-testid={`event-top10-${eventId}`}
+      className="rounded-lg p-3 mt-3"
+      style={{
+        background: "linear-gradient(180deg, rgba(245,166,35,0.10), rgba(15,10,20,0.65))",
+        border: "1px solid rgba(245,166,35,0.35)",
+      }}
+    >
+      <div
+        className="text-[11px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5"
+        style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}
+      >
+        🏆 {t("event_top10_title", "Etkinlik İlk 10")}
+      </div>
+      <div className="flex flex-col gap-1">
+        {top10.map((row, i) => {
+          const rank = i + 1;
+          const isPodium = rank <= 3;
+          const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
+          return (
+            <div
+              key={row.id || i}
+              data-testid={`event-top10-row-${eventId}-${rank}`}
+              className="flex items-center justify-between px-2 py-1 rounded"
+              style={{
+                background: isPodium ? "rgba(245,166,35,0.14)" : "rgba(11,7,4,0.35)",
+                border: `1px solid ${isPodium ? "rgba(245,166,35,0.4)" : "rgba(255,255,255,0.06)"}`,
+              }}
+            >
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <span className="text-[11px] font-bold" style={{ color: isPodium ? "#F5A623" : "#94A3B8", minWidth: 24 }}>{medal}</span>
+                <span
+                  className="text-xs font-semibold truncate"
+                  style={{ color: "#F5F0E8" }}
+                  title={row.name}
+                >
+                  {row.name}
+                </span>
+                {row.alliance_name && (
+                  <span className="text-[9px] chip" style={{ borderColor: "rgba(148,163,184,0.5)", color: "#C7BFB4", padding: "1px 5px" }}>
+                    {row.alliance_name}
+                  </span>
+                )}
+              </div>
+              <span
+                className="text-xs font-bold mono"
+                style={{ color: isPodium ? "#F5A623" : "#E0E7FF", fontVariantNumeric: "tabular-nums" }}
+              >
+                {Number(row.total_points || 0).toLocaleString("tr-TR")}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="text-[9px] mt-2 opacity-60" style={{ color: "#94A3B8" }}>
+        {t("event_top10_hint", "Bu etkinliğe puan almış tüm üyelerin sıralaması")}
+      </div>
+    </div>
+  );
+}
+
+
 function EventDetailModal({ event, open, onClose, onEdit, events = [], onNavigate }) {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
@@ -2324,6 +2401,9 @@ function EventDetailModal({ event, open, onClose, onEdit, events = [], onNavigat
               </button>
             )}
           </div>
+
+          {/* v138.3 — Etkinlik İlk 10 paneli */}
+          <EventTop10Panel eventId={e.id} />
           {shareOpen && (
             <EventShareImageModal
               event={e}
