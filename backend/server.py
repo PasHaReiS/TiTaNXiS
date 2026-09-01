@@ -7003,14 +7003,16 @@ init_bot(db)
 @api_router.post("/telegram/webhook")
 async def telegram_webhook(request: Request):
     """Receives updates from Telegram. Always returns 200 to avoid retry
-    storms — errors are logged server-side."""
+    storms — errors are logged server-side.
+
+    v140.26 — `process_update` fire-and-forget: bazı ağır update'ler (LLM
+    NLP, DB batch) 60sn'yi geçebiliyor → Telegram Read timeout expired
+    → pending_updates şişiyor. Şimdi handler <200ms'de dönüyor, iş
+    background task'ta yürüyor."""
+    import asyncio as _aio
     try:
         body = await request.json()
-        # Capture chat_id ↔ Telegram @username mapping for username-based DM
-        # fallback. Runs on ANY inbound message (not just /start) so members who
-        # already opened a bot chat once are recognised as soon as they text
-        # anything. Handled at the FastAPI layer (not the PTB command handler)
-        # because it's simpler and doesn't depend on PTB's async lifecycle.
+        # Capture chat_id ↔ Telegram @username mapping (fast, keep inline)
         try:
             msg = (body or {}).get("message") or {}
             frm = msg.get("from") or {}
@@ -7031,22 +7033,16 @@ async def telegram_webhook(request: Request):
                 )
         except Exception as _e:
             logging.getLogger("telegram").debug(f"chat_map upsert skipped: {_e}")
-        # Handle inline attendance button taps ("✅ Katılıyorum" / "❌ Katılamam").
-        # We resolve the tapping user's Telegram chat_id → linked member(s) via
-        # users.telegram_chat_id or (fallback) telegram_chat_map → member
-        # whose telegram_username matches. Then insert/delete an
-        # event_attendance row. Response is a compact toast via
-        # answerCallbackQuery so the user gets instant feedback without cluttering
-        # the chat.
+        # Callback queries (inline attendance) — handled fast; bail before PTB.
         try:
             cbq = (body or {}).get("callback_query")
             if cbq:
-                await _handle_attendance_callback(cbq)
-                # Skip PTB processing for callback queries since we handled it here.
+                _aio.create_task(_handle_attendance_callback(cbq))
                 return {"ok": True}
         except Exception as _cbe:
-            logging.getLogger("telegram").warning(f"callback handler failed: {_cbe}")
-        await process_update(body)
+            logging.getLogger("telegram").warning(f"callback dispatch failed: {_cbe}")
+        # Fire-and-forget PTB processing. Errors logged inside process_update.
+        _aio.create_task(process_update(body))
     except Exception as e:
         logging.getLogger("telegram").warning(f"webhook processing failed: {e}")
     return {"ok": True}

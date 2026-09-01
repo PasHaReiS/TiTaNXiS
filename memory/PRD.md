@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.26 — Telegram Bot Webhook Fix)** — Backend:
+  - **Root cause**: `/api/telegram/webhook` handler `await process_update(body)` senkron çalışıyordu. Bazı ağır update'ler (LLM NLP, DB batch) 60sn+ sürüyor → Telegram "Read timeout expired" → 68 pending update backlog → yeni mesajlar işlenmiyor.
+  - **Fix**: `server.py` webhook handler `asyncio.create_task(process_update(body))` ile fire-and-forget. Handler <200ms'de dönüyor. Callback query dispatch de aynı şekilde.
+  - **Ops**: `deleteWebhook?drop_pending_updates=true` ile 68 pending temizlendi + `setWebhook` yeniden yapıldı `allowed_updates=[..., my_chat_member, chat_member]` ile (v140.23 grup auto-register için gerekli).
+  - **Doğrulama**: `getMe.ok=true` (`@TiTaNXiS_BoT`, id 8982244615), `getWebhookInfo.url=https://titanxis.com/api/telegram/webhook`, `pending_update_count=0`, `allowed_updates` doğru set, backend restart temiz `/api/health=ok` ✅.
+
+
 - **Feb 31, 2026 (v140.25 — Telegram Group Notification Manager)** — Multi:
   - **Backend** (`server.py`):
     - `_broadcast_group_ids(notif_type=None)` — grup'un `notification_settings[notif_type]` false ise listeden çıkarır (opt-out, default True).
