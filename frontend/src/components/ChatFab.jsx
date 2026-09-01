@@ -14,6 +14,10 @@ import useDraggableFab from "@/hooks/useDraggableFab";
  *   • Amber/altın TiTaNXiS temasıyla uyumlu.
  */
 export default function ChatFab() {
+  // v140.38 — Sohbet özelliği tüm kullanıcılardan geçici olarak gizlendi.
+  // Geri açmak için bu satırı kaldırmak yeterli.
+  return null;
+  // eslint-disable-next-line no-unreachable
   const { user } = useAuth() || {};
   const { t } = useTranslation();
   const nav = useNavigate();

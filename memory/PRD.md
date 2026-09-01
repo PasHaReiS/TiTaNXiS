@@ -2925,3 +2925,7 @@ Deployment_agent PASS. Frontend derleme başarılı (benign eslint warning), bac
 
 ### Deployment
 Deployment_agent PASS. Backend restart clean, frontend compile OK.
+
+## v140.38 — Sohbet FAB gizlendi (Sep 1, 2026)
+- `/app/frontend/src/components/ChatFab.jsx` başında `return null` — component tamamen render dışı. Layout.jsx dokunulmadı, geri açmak için tek satır silmek yeterli.
+- Deployment_agent PASS.
