@@ -2939,3 +2939,9 @@ Deployment_agent PASS. Backend restart clean, frontend compile OK.
 - **Sorun**: "UnexpectedConnectionState: PC manager is closed" — LiveKit Room `connect()` tamamlanmadan (veya disconnect sonrası) `setMicrophoneEnabled` / data channel publish çağrıları RTCEngine kapalıyken tetikleniyordu.
 - **Fix**: `useConnectionState` + `ConnectionState.Connected` guard eklendi. Etkilenen call-site'lar: micMode useEffect, toggleMic, pttPress, pttRelease, broadcastMode useEffect (kendi mode duyurusu ve ParticipantConnected rebroadcast). Bağlantı hazır olmadıkça hiçbir track/data op çalışmaz.
 - Deployment_agent PASS.
+
+## v140.41 — SEO düzeltmeleri (Sep 1, 2026)
+- `/app/frontend/public/sitemap.xml` oluşturuldu: 3 URL (/, /tanitim, /lonca) — CRA/prod nginx `.xml` uzantısını `application/xml` olarak servis eder.
+- `/app/frontend/public/robots.txt` oluşturuldu (Allow: / + Sitemap direktifi).
+- `/app/frontend/public/index.html` güncellendi: yeni `<title>`, description ve keywords meta etiketleri kullanıcının istediği metinlerle.
+- Deployment_agent PASS.
