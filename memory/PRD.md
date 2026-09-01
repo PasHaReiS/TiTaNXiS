@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.32 — Voice Room Local Mute)** — Frontend:
+  - `VoiceRooms.jsx` `ActiveRoomUI`: her katılımcı tile'ının sağ üst köşesine 🔊/🔇 local-mute toggle butonu (`data-testid=voice-local-mute-{identity}`). Kendi tile'ında gösterilmez (`identity === localParticipant.identity` check).
+  - `localMutes` state (identity → bool). Tıkta `RemoteParticipant.setVolume(0/1)` — server-side kimseyi etkilemez, sadece bu client. Fallback: eski livekit-client API'si için `audioTrackPublications` üzerinden `track.setVolume` iterate.
+  - Görsel: mute'da tile avatar opacity 0.55, alt satırda "🔇 Yerel Susturuldu" rozeti (`voice-local-muted-badge-{identity}`). Buton `aria-pressed` + `aria-label` accessibility.
+  - i18n: 3 yeni key TR + EN (`voice_local_mute_title`, `voice_local_unmute_title`, `voice_local_muted_badge`).
+
+
 - **Feb 31, 2026 (v140.31 — Bireysel Group List: Auto-Filter Archived + Manual Delete)** — Frontend:
   - **Task 1 (Auto-arşiv filter)**: Backend `GET /event-groups?active_only=true` zaten `active > 0` (yani non-archived event içeren) gruplarla filtreliyordu — no-op, kod inceleme ile doğrulandı.
   - **Task 2 (Manuel silme)**: `BireyselEventForm` mevcut grup dropdown'u özel liste-picker'a dönüştürüldü. Her grup satırında ad + aktif event sayısı + 🗑️ silme butonu. Tıklandığında `window.confirm` → `DELETE /api/events/group/{name}` (mevcut cascade endpoint; events + points siler).
@@ -2760,3 +2767,32 @@ Rate-limit, retry, backoff, cache, non-destructive semantik — hepsi merkezi ma
 
 ⚠️ **Production Deploy**: Preview'da hazır — "Publish" ile canlıya alın. Production'da GOOGLE key aktif olduğu için manager batch path'ini kullanır, event ve announcement yaratımı ~3× hızlanır.
 
+
+## v140.33 — PTT Beep + Mic Mode Badge (Sep 1, 2026)
+
+### Frontend-only feature pack (VoiceRooms.jsx)
+
+**1. PTT Ses Efekti (Push-to-Talk Beep)**
+- Web Audio API ile in-app tone generation (dosya/asset yok).
+- `pttPress()` → 880Hz sine, 55ms, gain 0.09 (yumuşak "beep on")
+- `pttRelease()` → 440Hz sine, 55ms, gain 0.09 ("beep off")
+- `AudioContext` lazy-init `useRef` üzerinden; suspended state'te resume'lanıyor.
+- Spacebar auto-repeat çift beep tetiklemesin diye `setPttHeld((prev)=>{if(prev)return prev; beep(); return true;})` short-circuit uygulandı.
+
+**2. Mic Mode Badge (Katılımcı Kartında PTT/Live Rozeti)**
+- `useDataChannel("mic-mode", ...)` — kendi micMode'unu topic-tagged data packet ile odaya broadcast eder.
+- Kendi mode değişince `useEffect([micMode])` üzerinden yayınlanır (continuous ↔ ptt).
+- `RoomEvent.ParticipantConnected` dinlenir → yeni gelen kullanıcıya 300ms sonra rebroadcast (yeni peer'in data channel'ı hazır olsun).
+- `RoomEvent.ParticipantDisconnected` → o identity'nin `remoteModes` state'inden silinir.
+- Her participant kartında rozet: `{isSelf ? micMode : remoteModes[identity]}`
+  - PTT: turuncu border/label `🎤 PTT`
+  - Continuous: yeşil border/label `🔊 Live`
+- i18n keys eklendi: `voice_mic_mode_badge_ptt`, `voice_mic_mode_badge_live` (TR + EN).
+- data-testid: `voice-mic-mode-badge-{identity}`.
+
+### Değişen Dosyalar
+- `/app/frontend/src/pages/VoiceRooms.jsx` (imports: `useRef` + `useDataChannel` + `useRoomContext` + `RoomEvent`)
+- `/app/frontend/src/i18n/index.js` (TR & EN badge keys)
+
+### Deployment
+Deployment_agent PASS — production build blocker yok. User Republish tetikleyecek.

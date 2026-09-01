@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -9,9 +9,11 @@ import {
   useParticipants,
   useLocalParticipant,
   useTracks,
+  useDataChannel,
+  useRoomContext,
   StartAudio,
 } from "@livekit/components-react";
-import { Track } from "livekit-client";
+import { Track, RoomEvent } from "livekit-client";
 import "@livekit/components-styles";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -429,16 +431,25 @@ function ActiveRoomUI({ roomName, onLeave }) {
   };
 
   // PTT press/release handlers — pointer (mouse + touch), plus Spacebar hold.
+  // v140.33 — beep on/off geri bildirimi eklendi.
   const pttPress = useCallback(() => {
     if (micMode !== "ptt" || !localParticipant) return;
-    setPttHeld(true);
+    setPttHeld((prev) => {
+      if (prev) return prev; // zaten basılı — çift beep yok
+      try { playBeep(880, 55, 0.09); } catch {}
+      return true;
+    });
     localParticipant.setMicrophoneEnabled(true).catch(() => {});
-  }, [micMode, localParticipant]);
+  }, [micMode, localParticipant, playBeep]);
   const pttRelease = useCallback(() => {
     if (micMode !== "ptt" || !localParticipant) return;
-    setPttHeld(false);
+    setPttHeld((prev) => {
+      if (!prev) return prev; // zaten kapalı
+      try { playBeep(440, 55, 0.09); } catch {}
+      return false;
+    });
     localParticipant.setMicrophoneEnabled(false).catch(() => {});
-  }, [micMode, localParticipant]);
+  }, [micMode, localParticipant, playBeep]);
 
   useEffect(() => {
     if (micMode !== "ptt") return undefined;
@@ -458,6 +469,123 @@ function ActiveRoomUI({ roomName, onLeave }) {
       window.removeEventListener("keyup", onKU);
     };
   }, [micMode, pttPress, pttRelease]);
+
+  // v140.32 — Local mute: kullanıcı bir başkasının sesini sadece kendi için
+  // kısabilir (LiveKit `RemoteParticipant.setVolume(0)` — server-side kimseyi
+  // etkilemez). State: identity → boolean.
+  const [localMutes, setLocalMutes] = useState({});
+
+  // v140.33 — Uzak katılımcıların aktif mikrofon modunu (PTT vs Continuous)
+  // LiveKit veri kanalı üzerinden takip et. Kendimiz `micMode` state'ini
+  // kullanıyoruz; diğerleri identity → mode map'inde.
+  const [remoteModes, setRemoteModes] = useState({});
+  const room = useRoomContext();
+
+  // v140.33 — PTT ses efekti: hafif "beep on/off" tonu (Web Audio API).
+  const audioCtxRef = useRef(null);
+  const ensureAudioCtx = useCallback(() => {
+    if (!audioCtxRef.current) {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtxRef.current = new AC();
+      } catch {}
+    }
+    return audioCtxRef.current;
+  }, []);
+  const playBeep = useCallback((freq = 880, durationMs = 55, volume = 0.09) => {
+    try {
+      const ctx = ensureAudioCtx();
+      if (!ctx) return;
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.value = 0;
+      const now = ctx.currentTime;
+      gain.gain.linearRampToValueAtTime(volume, now + 0.005);
+      gain.gain.linearRampToValueAtTime(0, now + durationMs / 1000);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + durationMs / 1000 + 0.02);
+    } catch {}
+  }, [ensureAudioCtx]);
+
+  // v140.33 — Data channel: mic-mode broadcast.
+  const { send: sendMicMode } = useDataChannel("mic-mode", (msg) => {
+    try {
+      const raw = new TextDecoder().decode(msg.payload);
+      const parsed = JSON.parse(raw);
+      const from = msg.from?.identity;
+      if (parsed && parsed.mode && from) {
+        setRemoteModes((prev) => (prev[from] === parsed.mode ? prev : { ...prev, [from]: parsed.mode }));
+      }
+    } catch {}
+  });
+
+  const broadcastMode = useCallback((mode) => {
+    try {
+      if (!sendMicMode) return;
+      const payload = new TextEncoder().encode(JSON.stringify({ mode }));
+      sendMicMode(payload, { reliable: true });
+    } catch {}
+  }, [sendMicMode]);
+
+  // Kendi modun değişince odaya duyur.
+  useEffect(() => {
+    broadcastMode(micMode);
+  }, [micMode, broadcastMode]);
+
+  // Yeni bir katılımcı bağlandığında kendi modunu tekrar duyur (yeni gelen
+  // rozeti hemen görebilsin).
+  useEffect(() => {
+    if (!room) return undefined;
+    const onJoin = () => {
+      // küçük gecikme: peer'in data channel'ı hazır olsun
+      setTimeout(() => broadcastMode(micMode), 300);
+    };
+    room.on(RoomEvent.ParticipantConnected, onJoin);
+    return () => { room.off(RoomEvent.ParticipantConnected, onJoin); };
+  }, [room, micMode, broadcastMode]);
+
+  // Ayrılan katılımcının modunu temizle.
+  useEffect(() => {
+    if (!room) return undefined;
+    const onLeave = (p) => {
+      setRemoteModes((prev) => {
+        if (!p?.identity || !(p.identity in prev)) return prev;
+        const next = { ...prev };
+        delete next[p.identity];
+        return next;
+      });
+    };
+    room.on(RoomEvent.ParticipantDisconnected, onLeave);
+    return () => { room.off(RoomEvent.ParticipantDisconnected, onLeave); };
+  }, [room]);
+
+  const toggleLocalMute = useCallback((p) => {
+    // Kendini local-mute etme; kendi susturman için normal mute butonu var.
+    if (!p || (localParticipant && p.identity === localParticipant.identity)) return;
+    setLocalMutes((prev) => {
+      const nowMuted = !prev[p.identity];
+      const next = { ...prev, [p.identity]: nowMuted };
+      try {
+        if (typeof p.setVolume === "function") {
+          p.setVolume(nowMuted ? 0 : 1);
+        } else {
+          // fallback: iterate audio track publications and set volume on each
+          const pubs = p.audioTrackPublications || p.audioTracks || new Map();
+          const iter = pubs.forEach ? pubs : Object.values(pubs);
+          (iter.forEach ? iter : [...iter]).forEach((pub) => {
+            const tr = pub?.track;
+            if (tr && typeof tr.setVolume === "function") tr.setVolume(nowMuted ? 0 : 1);
+          });
+        }
+      } catch {}
+      return next;
+    });
+  }, [localParticipant]);
 
   return (
     <div className="max-w-3xl mx-auto p-6" data-testid="voice-active-room">
@@ -515,11 +643,13 @@ function ActiveRoomUI({ roomName, onLeave }) {
           const p = tr.participant;
           const speaking = p.isSpeaking;
           const muted = !p.isMicrophoneEnabled;
+          const isSelf = localParticipant && p.identity === localParticipant.identity;
+          const locallyMuted = !!localMutes[p.identity];
           return (
             <div
               key={p.identity + idx}
               data-testid={`voice-participant-${p.identity}`}
-              className="rounded-xl p-4 flex flex-col items-center gap-2"
+              className="rounded-xl p-4 flex flex-col items-center gap-2 relative"
               style={{
                 background: "rgba(15,10,20,0.65)",
                 border: `2px solid ${speaking ? "#22C55E" : "rgba(255,255,255,0.08)"}`,
@@ -527,11 +657,35 @@ function ActiveRoomUI({ roomName, onLeave }) {
                 transition: "all 0.22s ease",
               }}
             >
+              {!isSelf && (
+                <button
+                  data-testid={`voice-local-mute-${p.identity}`}
+                  onClick={() => toggleLocalMute(p)}
+                  title={locallyMuted
+                    ? t("voice_local_unmute_title", "Bu kişinin sesini benim için aç")
+                    : t("voice_local_mute_title", "Bu kişinin sesini sadece benim için sustur")}
+                  aria-label={locallyMuted
+                    ? t("voice_local_unmute_title", "Bu kişinin sesini benim için aç")
+                    : t("voice_local_mute_title", "Bu kişinin sesini sadece benim için sustur")}
+                  aria-pressed={locallyMuted}
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+                  style={{
+                    background: locallyMuted ? "rgba(239,68,68,0.20)" : "rgba(255,255,255,0.06)",
+                    border: `1px solid ${locallyMuted ? "#EF4444" : "rgba(255,255,255,0.15)"}`,
+                    color: locallyMuted ? "#EF4444" : "#94A3B8",
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  {locallyMuted ? "🔇" : "🔊"}
+                </button>
+              )}
               <div
                 className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black"
                 style={{
                   background: "linear-gradient(135deg, #F5A623, #E74C1A)",
                   color: "#0B0704",
+                  opacity: locallyMuted ? 0.55 : 1,
                 }}
               >
                 {(p.name || p.identity).charAt(0).toUpperCase()}
@@ -539,7 +693,43 @@ function ActiveRoomUI({ roomName, onLeave }) {
               <span className="text-xs truncate max-w-full" style={{ color: "#F5F0E8" }}>
                 {p.name || p.identity}
               </span>
-              {muted && <MicOff size={12} color="#EF4444" />}
+              {/* v140.33 — Mic mode rozeti (PTT vs Continuous) */}
+              {(() => {
+                const mode = isSelf ? micMode : remoteModes[p.identity];
+                if (!mode) return null;
+                const isPtt = mode === "ptt";
+                return (
+                  <span
+                    data-testid={`voice-mic-mode-badge-${p.identity}`}
+                    className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded"
+                    style={{
+                      border: `1px solid ${isPtt ? "#F5A623" : "#22C55E"}`,
+                      color: isPtt ? "#F5A623" : "#22C55E",
+                      background: isPtt ? "rgba(245,166,35,0.10)" : "rgba(34,197,94,0.10)",
+                      letterSpacing: "0.08em",
+                    }}
+                    title={isPtt
+                      ? t("voice_mic_mode_ptt", "Push to Talk")
+                      : t("voice_mic_mode_continuous", "Sürekli Açık")}
+                  >
+                    {isPtt
+                      ? `🎤 ${t("voice_mic_mode_badge_ptt", "PTT")}`
+                      : `🔊 ${t("voice_mic_mode_badge_live", "Live")}`}
+                  </span>
+                );
+              })()}
+              <div className="flex items-center gap-1">
+                {muted && <MicOff size={12} color="#EF4444" />}
+                {locallyMuted && (
+                  <span
+                    data-testid={`voice-local-muted-badge-${p.identity}`}
+                    className="text-[9px] uppercase tracking-widest"
+                    style={{ color: "#EF4444" }}
+                  >
+                    {t("voice_local_muted_badge", "Yerel Susturuldu")}
+                  </span>
+                )}
+              </div>
             </div>
           );
         })}
