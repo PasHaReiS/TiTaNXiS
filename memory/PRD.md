@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.28 — Event Top10 Group/Series Ranking)** — Multi:
+  - **Task #1 (Bireysel Etkinlik grup alanı)**: `BireyselEventModal` formunda grup seçim alanı zaten yoktu — `group_name: ""` hardcoded. Kullanıcının şikâyeti muhtemelen İttifak Etkinlik formuyla karışıklık; kod inceleme sonucu no-op olarak dokümanlandı.
+  - **Task #2 (İlk 10 mantığı)**:
+    - **Backend** (`server.py`): `GET /api/leaderboard` yeni `event_name` param. Öncelik: `event_id` → `group_name` (grubun tüm etkinlikleri) → `event_name` (aynı ada sahip recurring series). `hidden_from_leaderboard` filtresi tüm dallarda korunuyor.
+    - **Frontend** (`Events.jsx`): `EventTop10Panel` artık `event` objesi alır (eskiden sadece `eventId`). `event.group_name` varsa `?group_name=X` sorgusu, yoksa `?event_name=X` fallback. Grup adı başlıkta chip olarak gösterilir. Alt satır ipucu duruma göre değişir ("Bu grubun tüm etkinliklerinden" veya "Aynı ada sahip tüm etkinliklerden").
+  - **Doğrulama**: Syntax OK, backend restart temiz, `/api/leaderboard?event_name=X` + `?group_name=X` sorguları 200 döndü ✅.
+
+
 - **Feb 31, 2026 (v140.27 — Frontend Build Fix: machina Engine Constraint)** — Frontend:
   - **Root cause**: `livekit-client@2.15.0` transitive `machina@^7.0.0` getiriyor; machina@7.x `node>=22.22` engine constraint istiyor. Cloud build image v0.3.77 node 20.18.1 → deploy build step 8 fail.
   - **Fix** (`package.json` resolutions): `"machina": "4.0.2"` eklendi (2018 öncesi, engine constraint yok, temel FSM API livekit'in ihtiyaçlarını karşılıyor). `livekit-client@^2.15.0` korundu — react-components 2.9.14 export'larıyla uyum.

@@ -1928,6 +1928,7 @@ async def get_stats():
 @api_router.get("/leaderboard")
 async def leaderboard(
     event_id: Optional[str] = None,
+    event_name: Optional[str] = None,
     group_name: Optional[str] = None,
     scope: Optional[str] = None,
     member_scope: Optional[str] = None,
@@ -1940,17 +1941,29 @@ async def leaderboard(
       - member_scope="clan"    → only members in the given `alliance` name
                                   (falls back to "GOW" if `alliance` is empty)
     Existing `scope` parameter is unchanged — controls event visibility (active/archived/hidden).
+
+    v140.28 — Yeni `event_name` parametresi: aynı ada sahip TÜM etkinlikleri
+    (recurring series) toplar. `group_name` verilirse grubun tüm etkinliklerine
+    ait puanlar toplanır. Öncelik: event_id → group_name → event_name.
     """
     match_stage = {}
     if event_id:
         match_stage["event_id"] = event_id
+    elif group_name:
+        # Tüm grup üyelerine ait etkinliklerin id'lerini bul
+        ev_query = {"group_name": group_name, "hidden_from_leaderboard": {"$ne": True}}
+        evs = await db.events.find(ev_query, {"_id": 0, "id": 1}).to_list(500)
+        match_stage["event_id"] = {"$in": [e["id"] for e in evs]}
+    elif event_name:
+        # Aynı ada sahip (recurring series) tüm etkinlikleri topla
+        ev_query = {"name": event_name, "hidden_from_leaderboard": {"$ne": True}}
+        evs = await db.events.find(ev_query, {"_id": 0, "id": 1}).to_list(500)
+        match_stage["event_id"] = {"$in": [e["id"] for e in evs]}
     else:
         if scope == "hidden":
             event_query = {"hidden_from_leaderboard": True}
         else:
             event_query = {"hidden_from_leaderboard": {"$ne": True}}
-        if group_name:
-            event_query["group_name"] = group_name
         if scope in ("active", "archived"):
             event_query["archived"] = (scope == "archived")
         events = await db.events.find(event_query, {"_id": 0, "id": 1}).to_list(2000)

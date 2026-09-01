@@ -2034,15 +2034,32 @@ export default function Events() {
 // `/leaderboard?event_id=X` bu etkinliğe atanmış puanlara göre sıralanmış
 // üye listesini döndürür; ilk 10'unu render ederiz. Fallback: veri
 // gelmezse panel gizlenir (sessiz). Tüm metinler useTranslation() ile.
-function EventTop10Panel({ eventId }) {
+//
+// v140.28 — Yeni mantık:
+//  - Etkinliğin `group_name`'i varsa: o grubun TÜM etkinliklerinin puanları
+//    toplanır (`/leaderboard?group_name=X`).
+//  - Yoksa: aynı ada sahip (recurring series) tüm etkinliklerin puanları
+//    toplanır (`/leaderboard?event_name=X`).
+function EventTop10Panel({ event }) {
   const { t } = useTranslation();
+  const eventId = event?.id;
+  const groupName = (event?.group_name || "").trim();
+  const eventName = (event?.name || "").trim();
+  const qs = groupName
+    ? `group_name=${encodeURIComponent(groupName)}`
+    : eventName
+      ? `event_name=${encodeURIComponent(eventName)}`
+      : (eventId ? `event_id=${encodeURIComponent(eventId)}` : "");
   const { data = [], error } = useSWR(
-    eventId ? `/leaderboard?event_id=${encodeURIComponent(eventId)}` : null,
+    qs ? `/leaderboard?${qs}` : null,
     fetcher,
     { revalidateOnFocus: false }
   );
   if (error || !Array.isArray(data) || data.length === 0) return null;
   const top10 = data.slice(0, 10);
+  const scopeHint = groupName
+    ? t("event_top10_hint_group", "Bu grubun tüm etkinliklerinden toplanan puanlar")
+    : t("event_top10_hint_series", "Aynı ada sahip tüm etkinliklerden toplanan puanlar");
   return (
     <div
       data-testid={`event-top10-${eventId}`}
@@ -2057,6 +2074,11 @@ function EventTop10Panel({ eventId }) {
         style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}
       >
         🏆 {t("event_top10_title", "Etkinlik İlk 10")}
+        {groupName && (
+          <span className="text-[9px] font-normal opacity-70 ml-1" style={{ color: "#C7BFB4" }}>
+            · {groupName}
+          </span>
+        )}
       </div>
       <div className="flex flex-col gap-1">
         {top10.map((row, i) => {
@@ -2099,7 +2121,7 @@ function EventTop10Panel({ eventId }) {
         })}
       </div>
       <div className="text-[9px] mt-2 opacity-60" style={{ color: "#94A3B8" }}>
-        {t("event_top10_hint", "Bu etkinliğe puan almış tüm üyelerin sıralaması")}
+        {scopeHint}
       </div>
     </div>
   );
@@ -2403,7 +2425,7 @@ function EventDetailModal({ event, open, onClose, onEdit, events = [], onNavigat
           </div>
 
           {/* v138.3 — Etkinlik İlk 10 paneli */}
-          <EventTop10Panel eventId={e.id} />
+          <EventTop10Panel event={e} />
           {shareOpen && (
             <EventShareImageModal
               event={e}
