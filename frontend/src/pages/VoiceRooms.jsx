@@ -150,7 +150,13 @@ export default function VoiceRooms() {
         onDisconnected={leave}
         style={{ minHeight: "calc(100vh - 120px)" }}
       >
-        <ActiveRoomUI roomName={active.roomDoc.name} onLeave={leave} />
+        <ActiveRoomUI
+          roomId={active.roomDoc.id}
+          roomName={active.roomDoc.name}
+          isAdmin={isAdmin}
+          onLeave={leave}
+          onInvitedChange={() => refetch()}
+        />
         <RoomAudioRenderer />
         <StartAudio label={t("voice_start_audio", "🔊 Sesi Başlat")} />
       </LiveKitRoom>
@@ -498,11 +504,64 @@ function CreateRoomButton({ onCreated }) {
   );
 }
 
-function ActiveRoomUI({ roomName, onLeave }) {
+function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
   const { t } = useTranslation();
   const participants = useParticipants();
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const tracks = useTracks([{ source: Track.Source.Microphone, withPlaceholder: true }]);
+
+  // v140.36 — Admin controls: kick + in-room invite management.
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const { data: adminRoomDetail, mutate: refetchRoomDetail } = useSWR(
+    isAdmin && roomId && inviteOpen ? `/voice/rooms/${roomId}` : null,
+    fetcher,
+  );
+  const invitedIds = adminRoomDetail?.invited_user_ids || [];
+  const { data: usersData } = useSWR(
+    isAdmin && inviteOpen ? "/users" : null,
+    fetcher,
+  );
+  const usersList = Array.isArray(usersData) ? usersData : (usersData?.items || []);
+  const [inviteSearch, setInviteSearch] = useState("");
+  const filteredUsers = React.useMemo(() => {
+    const q = inviteSearch.trim().toLowerCase();
+    if (!q) return usersList;
+    return usersList.filter((u) =>
+      (u.username || "").toLowerCase().includes(q) ||
+      (u.email || "").toLowerCase().includes(q)
+    );
+  }, [usersList, inviteSearch]);
+
+  const toggleInvitedUser = async (uid) => {
+    const next = invitedIds.includes(uid)
+      ? invitedIds.filter((x) => x !== uid)
+      : [...invitedIds, uid];
+    try {
+      await api.patch(`/voice/rooms/${roomId}/invited`, { invited_user_ids: next });
+      // Optimistic update + refetch
+      refetchRoomDetail({ ...adminRoomDetail, invited_user_ids: next }, false);
+      refetchRoomDetail();
+      if (onInvitedChange) onInvitedChange();
+      toast.success(
+        invitedIds.includes(uid)
+          ? t("voice_invite_removed", "Davet iptal edildi")
+          : t("voice_invite_added", "Üye davet edildi")
+      );
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    }
+  };
+
+  const kickParticipant = async (p) => {
+    if (!p?.identity) return;
+    if (!window.confirm(t("voice_kick_confirm", "\"{{name}}\" adlı katılımcıyı odadan atmak istediğine emin misin?", { name: p.name || p.identity }))) return;
+    try {
+      await api.post(`/voice/rooms/${roomId}/kick`, { identity: p.identity });
+      toast.success(t("voice_kick_success", "Katılımcı odadan atıldı"));
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    }
+  };
 
   // v140.24 — Mic mode: "continuous" (default) or "ptt" (push-to-talk).
   // localStorage kalıcılığı per-user (aynı tarayıcı üzerinde).
@@ -688,14 +747,111 @@ function ActiveRoomUI({ roomName, onLeave }) {
 
   return (
     <div className="max-w-3xl mx-auto p-6" data-testid="voice-active-room">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between gap-2 flex-wrap">
         <h2 className="text-xl font-black" style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}>
           🎙️ {roomName}
         </h2>
-        <span className="chip text-xs flex items-center gap-1" style={{ borderColor: "#22C55E", color: "#22C55E" }}>
-          <Users size={12} /> {participants.length}
-        </span>
+        <div className="flex items-center gap-2">
+          {/* v140.36 — Admin: davet paneli toggle */}
+          {isAdmin && (
+            <button
+              data-testid="voice-invite-panel-toggle"
+              onClick={() => setInviteOpen((v) => !v)}
+              className="chip text-xs flex items-center gap-1"
+              style={{
+                borderColor: inviteOpen ? "#22C55E" : "rgba(34,197,94,0.5)",
+                color: "#22C55E",
+                background: inviteOpen ? "rgba(34,197,94,0.15)" : "transparent",
+              }}
+              title={t("voice_invite_manage_title", "Davetlileri yönet")}
+            >
+              🎫 {t("voice_invite_manage_btn", "Davetleri Yönet")}
+              {invitedIds.length > 0 && (
+                <span
+                  className="ml-1 px-1.5 rounded-full text-[9px] font-bold"
+                  style={{ background: "rgba(34,197,94,0.30)", color: "#86EFAC" }}
+                >
+                  {invitedIds.length}
+                </span>
+              )}
+            </button>
+          )}
+          <span className="chip text-xs flex items-center gap-1" style={{ borderColor: "#22C55E", color: "#22C55E" }}>
+            <Users size={12} /> {participants.length}
+          </span>
+        </div>
       </div>
+
+      {/* v140.36 — Admin: in-room invite management panel */}
+      {isAdmin && inviteOpen && (
+        <div
+          data-testid="voice-invite-panel"
+          className="mb-6 rounded-lg p-4"
+          style={{
+            background: "rgba(10,6,4,0.72)",
+            border: "1px solid rgba(34,197,94,0.35)",
+          }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold uppercase tracking-widest" style={{ color: "#22C55E" }}>
+              🎫 {t("voice_invite_panel_title", "Davet Yönetimi")}
+            </h3>
+            <span className="text-[10px]" style={{ color: "#94A3B8" }}>
+              {t("voice_invite_selected_count", "{{n}} davetli", { n: invitedIds.length })}
+            </span>
+          </div>
+          <p className="text-[10px] mb-2 leading-relaxed" style={{ color: "#94A3B8" }}>
+            {t("voice_invite_panel_hint", "Değişiklikler anında uygulanır. Davetli üyeler şifresiz katılabilir.")}
+          </p>
+          <input
+            data-testid="voice-invite-search"
+            placeholder={t("voice_room_invite_search_ph", "Üye ara…")}
+            value={inviteSearch}
+            onChange={(e) => setInviteSearch(e.target.value)}
+            className="w-full bg-black/40 border border-white/10 rounded px-3 py-1.5 text-xs text-white mb-2"
+          />
+          <div
+            className="max-h-48 overflow-y-auto rounded"
+            style={{ background: "rgba(0,0,0,0.25)" }}
+          >
+            {filteredUsers.length === 0 ? (
+              <div className="text-[10px] text-center py-3" style={{ color: "#94A3B8" }}>
+                {t("voice_room_invite_no_users", "Üye bulunamadı")}
+              </div>
+            ) : (
+              filteredUsers.map((u) => {
+                const checked = invitedIds.includes(u.id);
+                return (
+                  <label
+                    key={u.id}
+                    data-testid={`voice-invite-row-${u.id}`}
+                    className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-white/5"
+                    style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                  >
+                    <input
+                      type="checkbox"
+                      data-testid={`voice-invite-check-${u.id}`}
+                      checked={checked}
+                      onChange={() => toggleInvitedUser(u.id)}
+                      className="accent-emerald-500"
+                      style={{ width: 12, height: 12 }}
+                    />
+                    <span className="text-xs flex-1" style={{ color: "#F5F0E8" }}>{u.username}</span>
+                    {u.role === "admin" && (
+                      <span className="text-[9px] px-1 rounded" style={{ background: "rgba(245,166,35,0.20)", color: "#F5A623" }}>ADMIN</span>
+                    )}
+                    {checked && (
+                      <span className="text-[9px] px-1 rounded" style={{ background: "rgba(34,197,94,0.20)", color: "#86EFAC" }}>
+                        {t("voice_invite_checked_badge", "DAVETLİ")}
+                      </span>
+                    )}
+                  </label>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
 
       {/* v140.24 — Mikrofon modu seçici */}
       <div
@@ -757,27 +913,49 @@ function ActiveRoomUI({ roomName, onLeave }) {
               }}
             >
               {!isSelf && (
-                <button
-                  data-testid={`voice-local-mute-${p.identity}`}
-                  onClick={() => toggleLocalMute(p)}
-                  title={locallyMuted
-                    ? t("voice_local_unmute_title", "Bu kişinin sesini benim için aç")
-                    : t("voice_local_mute_title", "Bu kişinin sesini sadece benim için sustur")}
-                  aria-label={locallyMuted
-                    ? t("voice_local_unmute_title", "Bu kişinin sesini benim için aç")
-                    : t("voice_local_mute_title", "Bu kişinin sesini sadece benim için sustur")}
-                  aria-pressed={locallyMuted}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-colors"
-                  style={{
-                    background: locallyMuted ? "rgba(239,68,68,0.20)" : "rgba(255,255,255,0.06)",
-                    border: `1px solid ${locallyMuted ? "#EF4444" : "rgba(255,255,255,0.15)"}`,
-                    color: locallyMuted ? "#EF4444" : "#94A3B8",
-                    fontSize: 12,
-                    cursor: "pointer",
-                  }}
-                >
-                  {locallyMuted ? "🔇" : "🔊"}
-                </button>
+                <div className="absolute top-2 right-2 flex items-center gap-1">
+                  {/* v140.36 — Admin kick */}
+                  {isAdmin && (
+                    <button
+                      data-testid={`voice-kick-${p.identity}`}
+                      onClick={() => kickParticipant(p)}
+                      title={t("voice_kick_title", "Bu kişiyi odadan at")}
+                      aria-label={t("voice_kick_title", "Bu kişiyi odadan at")}
+                      className="w-7 h-7 rounded-full flex items-center justify-center transition-colors font-bold"
+                      style={{
+                        background: "rgba(239,68,68,0.20)",
+                        border: "1px solid #EF4444",
+                        color: "#F87171",
+                        fontSize: 10,
+                        cursor: "pointer",
+                        letterSpacing: "0.05em",
+                      }}
+                    >
+                      {t("voice_kick_short", "AT")}
+                    </button>
+                  )}
+                  <button
+                    data-testid={`voice-local-mute-${p.identity}`}
+                    onClick={() => toggleLocalMute(p)}
+                    title={locallyMuted
+                      ? t("voice_local_unmute_title", "Bu kişinin sesini benim için aç")
+                      : t("voice_local_mute_title", "Bu kişinin sesini sadece benim için sustur")}
+                    aria-label={locallyMuted
+                      ? t("voice_local_unmute_title", "Bu kişinin sesini benim için aç")
+                      : t("voice_local_mute_title", "Bu kişinin sesini sadece benim için sustur")}
+                    aria-pressed={locallyMuted}
+                    className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+                    style={{
+                      background: locallyMuted ? "rgba(239,68,68,0.20)" : "rgba(255,255,255,0.06)",
+                      border: `1px solid ${locallyMuted ? "#EF4444" : "rgba(255,255,255,0.15)"}`,
+                      color: locallyMuted ? "#EF4444" : "#94A3B8",
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {locallyMuted ? "🔇" : "🔊"}
+                  </button>
+                </div>
               )}
               <div
                 className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black"

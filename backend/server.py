@@ -10184,6 +10184,60 @@ async def voice_room_update_invited(room_id: str, body: VoiceRoomInviteUpdate,
     return {"ok": True, "invited_user_ids": invited}
 
 
+@api_router.get("/voice/rooms/{room_id}")
+async def voice_room_detail(room_id: str, _: dict = Depends(require_admin)):
+    """v140.36 — Admin oda detayı (davetli listesi dahil). Sadece admin."""
+    room = await db.voice_rooms.find_one(
+        {"id": room_id},
+        {"_id": 0, "password_hash": 0},
+    )
+    if not room:
+        raise HTTPException(404, "Oda bulunamadı")
+    room["invited_user_ids"] = list(room.get("invited_user_ids") or [])
+    return room
+
+
+class VoiceKickBody(BaseModel):
+    identity: str
+
+
+@api_router.post("/voice/rooms/{room_id}/kick")
+async def voice_room_kick(room_id: str, body: VoiceKickBody,
+                          admin: dict = Depends(require_admin)):
+    """v140.36 — Admin bir katılımcıyı odadan çıkarır (LiveKit removeParticipant)."""
+    identity = (body.identity or "").strip()
+    if not identity:
+        raise HTTPException(400, "identity gerekli")
+    room = await db.voice_rooms.find_one({"id": room_id})
+    if not room:
+        raise HTTPException(404, "Oda bulunamadı")
+    if not _LK_OK:
+        raise HTTPException(500, "LiveKit SDK yüklü değil")
+    lk_key = os.environ.get("LIVEKIT_API_KEY", "").strip()
+    lk_secret = os.environ.get("LIVEKIT_API_SECRET", "").strip()
+    lk_url = os.environ.get("LIVEKIT_URL", "").strip()
+    if not (lk_key and lk_secret and lk_url):
+        raise HTTPException(500, "LiveKit credentials .env'de eksik")
+    http_url = lk_url.replace("wss://", "https://").replace("ws://", "http://")
+    try:
+        from livekit.api import LiveKitAPI, RoomParticipantIdentity
+    except Exception as e:
+        raise HTTPException(500, f"LiveKit import failed: {e}")
+    lkapi = LiveKitAPI(http_url, lk_key, lk_secret)
+    try:
+        await lkapi.room.remove_participant(
+            RoomParticipantIdentity(room=room["name"], identity=identity),
+        )
+    except Exception as e:
+        try: await lkapi.aclose()
+        except Exception: pass
+        raise HTTPException(502, f"remove_participant başarısız: {str(e)[:200]}")
+    finally:
+        try: await lkapi.aclose()
+        except Exception: pass
+    return {"ok": True, "kicked": identity, "room": room["name"]}
+
+
 @api_router.get("/voice/rooms")
 async def voice_rooms_list(u: Optional[dict] = Depends(_optional_auth)):
     """v140.35 — Davet sistemi geri geldi (opsiyonel bypass). Odalar herkese

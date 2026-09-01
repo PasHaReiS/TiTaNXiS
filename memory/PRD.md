@@ -2871,3 +2871,30 @@ Deployment_agent PASS — production build blocker yok. Frontend derleme başar�
 
 ### Deployment
 Deployment_agent PASS. Frontend derleme başarılı, backend restart temiz. Republish için hazır.
+
+## v140.36 — Voice Room Admin Kontrolleri: Kick + In-Room Davet Yönetimi (Sep 1, 2026)
+
+### Backend
+- **GET /api/voice/rooms/{room_id}** (admin) — Full oda detayı; `invited_user_ids` dahil. Frontend'in in-room davet paneli için kaynak.
+- **POST /api/voice/rooms/{room_id}/kick** (admin) — Body: `{identity: str}`. LiveKit `RoomServiceClient.remove_participant(RoomParticipantIdentity(room, identity))` çağırır. Boş identity → 400, LiveKit hatası → 502, admin dışı → 401/403.
+- LiveKit SDK zaten `voice/active-count` uçunda kullanılıyor; aynı `LiveKitAPI` client wrapper.
+
+### Frontend (`VoiceRooms.jsx`)
+- `ActiveRoomUI` artık `roomId`, `isAdmin`, `onInvitedChange` prop'larını alıyor. Parent, `active.roomDoc.id` ve `useAuth().isAdmin` ile geçiriyor.
+- **Kick UI**: Her katılımcı kartında (self hariç, admin ise) "AT" butonu — kırmızı, confirm dialog, POST /kick → LiveKit `ParticipantDisconnected` event otomatik tile'ı düşürür.
+- **In-Room Davet Yönetimi Paneli**: Başlık yanında "🎫 Davetleri Yönet" toggle (davetli sayısı rozetli). Açıldığında:
+  - SWR `/voice/rooms/{id}` ile davetli listesi
+  - SWR `/users` ile üye listesi
+  - Arama kutusu + checkbox listesi
+  - Toggle → `PATCH /voice/rooms/{id}/invited` → optimistic UI + refetch + parent'ı bilgilendir (parent room listesini yeniler)
+- **i18n**: TR + EN key'leri (`voice_kick_*`, `voice_invite_manage_*`, `voice_invite_panel_*`, `voice_invite_checked_badge` vb.).
+
+### E2E Test (curl smoke)
+- Admin login + oda oluştur ✓
+- GET /voice/rooms/{id} → oda detayı invited_user_ids ile döndü ✓
+- POST /kick empty identity → HTTP 400 ✓
+- POST /kick no-auth → HTTP 401/403 ✓
+- Cleanup DELETE ✓
+
+### Deployment
+Deployment_agent PASS. Frontend derleme başarılı (benign eslint warning), backend restart temiz.
