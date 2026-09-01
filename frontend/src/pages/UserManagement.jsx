@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
 import SessionManagement from "@/components/SessionManagement";
 import InviteManagement from "@/components/InviteManagement";
+import InviteCodesManagement from "@/components/InviteCodesManagement";
 import TranslateHealthWidget from "@/components/TranslateHealthWidget";
 import { Plus, Trash2, KeyRound, Shield, User, X, ShieldCheck, PencilLine, Link2, AlertTriangle, Upload, Clock, Unlock } from "lucide-react";
 import { toast } from "sonner";
@@ -114,7 +115,8 @@ export default function UserManagement() {
           {[
             { key: "users", emoji: "👥", label: t("user_mgmt_users_tab") },
             { key: "sessions", emoji: "🖥️", label: t("user_mgmt_sessions_tab") },
-            { key: "invites", emoji: "🔗", label: "Davet Linkleri" },
+            { key: "invites", emoji: "🔗", label: t("user_mgmt_invites_tab", "Davet Linkleri") },
+            { key: "invite_codes", emoji: "🔑", label: t("user_mgmt_invite_codes_tab", "Davet Kodları") },
           ].map((tab, i, arr) => (
             <button
               key={tab.key}
@@ -144,6 +146,10 @@ export default function UserManagement() {
         ) : subtab === "invites" ? (
           <div data-testid="user-mgmt-invites-content">
             <InviteManagement />
+          </div>
+        ) : subtab === "invite_codes" ? (
+          <div data-testid="user-mgmt-invite-codes-content">
+            <InviteCodesManagement />
           </div>
         ) : (<>
         <div className="flex items-center justify-between mb-3">

@@ -10314,6 +10314,12 @@ app.include_router(
     make_invites_router(db, require_admin, _hash_password, _create_token, _parse_user_agent, now_iso, _public_user),
     prefix="/api",
 )
+# v140.34 — Basit davet KODU (8-karakter alfanümerik) + /auth/register akışı.
+from routes.invite_codes import make_invite_codes_router
+app.include_router(
+    make_invite_codes_router(db, require_admin, _hash_password, _create_token, _parse_user_agent, now_iso, _public_user),
+    prefix="/api",
+)
 app.include_router(make_svs_router(db, require_auth, require_admin), prefix="/api")
 from routes.ocr import make_ocr_router
 app.include_router(make_ocr_router(db, require_edit, require_auth), prefix="/api")
@@ -10644,6 +10650,12 @@ async def startup():
         await ensure_invites_indexes(db)
     except Exception as _e:
         logging.getLogger("server").warning(f"invites index ensure: {_e}")
+    # v140.34 — Invite codes (short 8-char) indexes
+    try:
+        from routes.invite_codes import ensure_invite_codes_indexes
+        await ensure_invite_codes_indexes(db)
+    except Exception as _e:
+        logging.getLogger("server").warning(f"invite_codes index ensure: {_e}")
     # SvS indexes
     try:
         from routes.svs import ensure_svs_indexes

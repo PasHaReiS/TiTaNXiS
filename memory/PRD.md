@@ -2796,3 +2796,39 @@ Rate-limit, retry, backoff, cache, non-destructive semantik — hepsi merkezi ma
 
 ### Deployment
 Deployment_agent PASS — production build blocker yok. User Republish tetikleyecek.
+
+## v140.34 — Davet Kodlu Kayıt Sistemi (Sep 1, 2026)
+
+### Backend
+- **Yeni koleksiyon**: `invite_codes` — schema: `{id, code, created_by, created_by_username, created_at, used, used_by, used_by_user_id, used_at}`
+- **Yeni route dosyası**: `/app/backend/routes/invite_codes.py`
+- **Kod üretimi**: 8-karakter alfanümerik (büyük harf + rakam). Belirsiz karakterler `O/0/I/1` hariç. `secrets.choice` ile kripto-güvenli. Collision-safe (6 deneme, unique index).
+- **Endpoints**:
+  - `POST /api/invite-codes` (admin) → yeni kod üret; response: `{id, code, used:false, created_by_username, created_at, ...}`
+  - `GET /api/invite-codes` (admin) → tüm kodları listele (kullanıldı/bekliyor)
+  - `DELETE /api/invite-codes/{code}` (admin) → kodu sil
+  - `POST /api/auth/register` (public) → `{invite_code, username, password, terms_accepted_at?}` → user + session + JWT döner
+- **Atomik kod yakma**: `db.invite_codes.update_one({code, used:false}, {$set:{used:true,...}})` ile race-condition-safe.
+- **Hata mesajı**: geçersiz/kullanılmış kod → 400 `"Davet kodunuz geçersiz veya kullanılmış. Yönetici ile iletişime geçin."` (kullanıcının istediği metin)
+- **Indexes**: `code` unique + `(used, created_at)` compound (bootstrap'ta ensure).
+
+### Frontend
+- **Login sayfası**: Ziyaretçi butonunun ALTINA "🔑 DAVET KODU İLE KAYIT OL" butonu eklendi. Tıklayınca modal açılır.
+- **Register modal**: Davet Kodu (font-mono, uppercase, tracking-widest) + Kullanıcı Adı + Şifre alanları. Başarılı olunca `adoptSession` ile JWT'yi yükle ve `/anasayfa`'ya yönlendir.
+- **Admin panel**: `/kullanicilar` → yeni **"🔑 Davet Kodları"** alt sekmesi. Bekliyor/Kullanıldı istatistiği, "Yeni Kod Üret" butonu, her kod için Kopyala/Sil aksiyonları.
+- **Yeni component**: `/app/frontend/src/components/InviteCodesManagement.jsx`
+
+### i18n
+Tam çeviri desteği (TR + EN) — `register_*`, `invite_codes_*`, `invite_code_*` prefix'leri, `user_mgmt_invite_codes_tab`.
+
+### E2E Test (curl smoke, preview backend)
+- Admin login ✓
+- POST /api/invite-codes → `FE9L96C2` ✓
+- GET listede 1 pending ✓
+- POST /api/auth/register → yeni user `testu91150`, JWT döndü ✓
+- Aynı kodla ikinci kayıt denemesi → HTTP 400 + doğru hata mesajı ✓
+- Bogus kod (`BOGUS123`) → HTTP 400 ✓
+- DELETE → HTTP 200 ✓
+
+### Deployment
+Deployment_agent PASS — production build blocker yok. Frontend derleme başarılı, backend restart temiz. Kullanıcı Republish tetikleyecek.

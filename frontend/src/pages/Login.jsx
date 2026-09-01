@@ -2,21 +2,30 @@ import React, { useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { apiErr } from "@/lib/api";
+import axios from "axios";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { LogIn, User, Lock, X } from "lucide-react";
+import { LogIn, User, Lock, X, KeyRound, UserPlus, Loader2 } from "lucide-react";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 const HERO_BANNER_URL = "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/3ec94e48802d40188393d56de578ede6_8c7af15c-9c2e-40cf-9dbb-0cc91f601ffe-1_all_15339.jpg";
 const BRAND_LOGO_URL = "/brand/titanxis-logo.jpg";
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 export default function Login() {
-  const { user, login, loginAsGuest, isGuest } = useAuth();
+  const { user, login, loginAsGuest, isGuest, adoptSession } = useAuth();
   const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  // v140.34 — Kayıt Ol modal state
+  const [showRegister, setShowRegister] = useState(false);
+  const [regInviteCode, setRegInviteCode] = useState("");
+  const [regUsername, setRegUsername] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regBusy, setRegBusy] = useState(false);
   const nav = useNavigate();
 
   if (user) return <Navigate to="/" replace />;
@@ -37,6 +46,45 @@ export default function Login() {
       nav(u.must_change_password ? "/profil" : "/anasayfa", { replace: true });
     } catch (err) { toast.error(apiErr(err)); }
     finally { setLoading(false); }
+  };
+
+  // v140.34 — Davet kodlu kayıt akışı
+  const submitRegister = async (e) => {
+    e.preventDefault();
+    const code = regInviteCode.trim().toUpperCase();
+    const uname = regUsername.trim().toLowerCase();
+    if (!code) {
+      toast.error(t("register_missing_code", "Davet kodu zorunlu"));
+      return;
+    }
+    if (!uname || uname.length < 3) {
+      toast.error(t("register_username_short", "Kullanıcı adı en az 3 karakter olmalı"));
+      return;
+    }
+    if (regPassword.length < 6) {
+      toast.error(t("register_password_short", "Şifre en az 6 karakter olmalı"));
+      return;
+    }
+    setRegBusy(true);
+    try {
+      const { data } = await axios.post(`${API}/auth/register`, {
+        invite_code: code,
+        username: uname,
+        password: regPassword,
+        terms_accepted_at: new Date().toISOString(),
+      });
+      adoptSession(data.token, data.user);
+      toast.success(t("register_welcome", "Hoşgeldin {{name}}!", { name: data.user.username }));
+      setShowRegister(false);
+      nav("/anasayfa", { replace: true });
+    } catch (err) {
+      // Backend has friendly Turkish messages; also handle 400 with fallback.
+      const detail = err?.response?.data?.detail;
+      const friendly = detail || t("register_invalid_code", "Davet kodunuz geçersiz veya kullanılmış. Yönetici ile iletişime geçin.");
+      toast.error(friendly);
+    } finally {
+      setRegBusy(false);
+    }
   };
 
   // Küçük takvim grid'i (mevcut ay — Ağustos 2026 vb.)
@@ -220,6 +268,31 @@ export default function Login() {
         >
           {t("guest_login_btn", "🎭 Ziyaretçi Olarak Gir")}
         </button>
+
+        {/* v140.34 — Kayıt Ol (Davet Kodu ile) — Ziyaretçi butonunun altında */}
+        <button
+          data-testid="guest-register-btn"
+          onClick={() => setShowRegister(true)}
+          style={{
+            width: "100%",
+            padding: "12px 20px",
+            borderRadius: 10,
+            border: "1.5px solid rgba(245,166,35,0.65)",
+            background: "rgba(20,12,8,0.75)",
+            color: "#F5A623",
+            fontFamily: "Cinzel, serif",
+            fontWeight: 800,
+            fontSize: 12,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.45), inset 0 0 12px rgba(245,166,35,0.10)",
+            cursor: "pointer",
+            marginTop: -4,
+          }}
+        >
+          🔑 {t("register_btn", "Davet Kodu ile Kayıt Ol")}
+        </button>
+
         {isGuest && (
           <div
             data-testid="guest-mode-indicator"
@@ -267,6 +340,127 @@ export default function Login() {
                 style={{ background: "linear-gradient(135deg, #F5A623 0%, #D4730A 50%, #E74C1A 100%)", color: "#0a0a0a", fontFamily: "Cinzel, serif" }}
               >
                 <LogIn className="w-4 h-4" /> {loading ? "..." : t("sign_in")}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* v140.34 — Davet Kodlu Kayıt Modalı */}
+      {showRegister && (
+        <div
+          className="fixed inset-0 z-[9998] flex items-center justify-center p-4"
+          onClick={() => setShowRegister(false)}
+          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+          data-testid="register-modal"
+        >
+          <div className="w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <form onSubmit={submitRegister} className="card-red-gold p-5 space-y-4 relative">
+              <button
+                type="button"
+                onClick={() => setShowRegister(false)}
+                className="absolute top-2 right-2 p-1 rounded hover:bg-white/10"
+                data-testid="register-close-btn"
+              >
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <div className="text-center mb-2">
+                <div
+                  className="w-14 h-14 mx-auto rounded-xl flex items-center justify-center mb-2"
+                  style={{ background: "linear-gradient(135deg, #F5A623, #E74C1A)" }}
+                >
+                  <UserPlus className="w-7 h-7 text-black" />
+                </div>
+                <h2
+                  className="text-lg font-bold uppercase tracking-widest gold-text"
+                  style={{ fontFamily: "Cinzel, serif" }}
+                >
+                  {t("register_title", "Davet Kodu ile Kayıt")}
+                </h2>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {t("register_hint", "Yönetici tarafından verilen 8 haneli kodu gir.")}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">
+                  {t("register_code_label", "Davet Kodu")}
+                </label>
+                <div className="relative">
+                  <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    data-testid="register-invite-code"
+                    value={regInviteCode}
+                    onChange={(e) => setRegInviteCode(e.target.value.toUpperCase())}
+                    maxLength={16}
+                    required
+                    placeholder="XXXXXXXX"
+                    className="w-full bg-black/40 border border-amber-500/40 rounded-md pl-9 pr-3 py-2 text-sm outline-none focus:border-amber-400 text-white font-mono tracking-widest"
+                    style={{ letterSpacing: "0.18em" }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">
+                  {t("username")}
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    data-testid="register-username"
+                    value={regUsername}
+                    onChange={(e) => setRegUsername(e.target.value)}
+                    minLength={3}
+                    maxLength={32}
+                    required
+                    placeholder={t("register_username_placeholder", "3-32 karakter")}
+                    className="w-full bg-black/40 border border-white/10 rounded-md pl-9 pr-3 py-2 text-sm outline-none focus:border-amber-400 text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">
+                  {t("password")}
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    data-testid="register-password"
+                    type="password"
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    minLength={6}
+                    required
+                    placeholder={t("register_password_placeholder", "En az 6 karakter")}
+                    className="w-full bg-black/40 border border-white/10 rounded-md pl-9 pr-3 py-2 text-sm outline-none focus:border-amber-400 text-white"
+                  />
+                </div>
+              </div>
+
+              <button
+                data-testid="register-submit"
+                type="submit"
+                disabled={regBusy}
+                className="w-full py-2.5 rounded-lg font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-2 disabled:opacity-60"
+                style={{
+                  background: "linear-gradient(135deg, #F5A623 0%, #D4730A 50%, #E74C1A 100%)",
+                  color: "#0a0a0a",
+                  fontFamily: "Cinzel, serif",
+                }}
+              >
+                {regBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                {regBusy ? t("register_busy", "Kayıt yapılıyor…") : t("register_submit", "Kayıt Ol")}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setShowRegister(false); setShowLogin(true); }}
+                className="w-full text-center text-[10px] text-muted-foreground hover:gold-text uppercase tracking-widest"
+                data-testid="register-goto-login"
+              >
+                {t("register_have_account", "Hesabın var mı? Giriş yap")}
               </button>
             </form>
           </div>
