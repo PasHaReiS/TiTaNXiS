@@ -3655,11 +3655,16 @@ function EventForm({ initial, initialTemplate, onClose }) {  const { t } = useTr
   );
 }
 
-function BireyselEventForm({ onClose }) {  const [name, setName] = useState("");
+function BireyselEventForm({ onClose }) {
+  const { data: activeGroups = [] } = useSWR("/event-groups?active_only=true", fetcher);
+  const [name, setName] = useState("");
   const [date, setDate] = useState(
     new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
   );
   const [description, setDescription] = useState("");
+  // v140.29 — Grup seçimi ("none" = Grup Yok, "group" = Grup Var)
+  const [groupMode, setGroupMode] = useState("none");
+  const [selectedGroup, setSelectedGroup] = useState("");
 
   const [showInLb, setShowInLb] = useState(true);
   const [autoReport, setAutoReport] = useState(false);
@@ -3669,6 +3674,10 @@ function BireyselEventForm({ onClose }) {  const [name, setName] = useState("");
   const submit = async (e) => {
     e.preventDefault();
     if (!name.trim()) { toast.error("Etkinlik adı gerekli"); return; }
+    if (groupMode === "group" && !selectedGroup.trim()) {
+      toast.error("Grup seçmelisin veya 'Grup Yok' seçeneğine dön");
+      return;
+    }
     setSaving(true);
     try {
       const selected = Object.keys(channels).filter((k) => channels[k]);
@@ -3678,7 +3687,8 @@ function BireyselEventForm({ onClose }) {  const [name, setName] = useState("");
         subtitle: null,
         description: description.trim() || null,
         multiplier: 1,
-        group_name: "",           // ungrouped — individual events stand alone
+        // v140.29 — grup seçimi: mode "group" ise seçilen grup adı, aksi halde boş
+        group_name: groupMode === "group" ? selectedGroup.trim() : "",
         banner_url: null,
         hidden_from_leaderboard: !showInLb,
         attendance_enabled: false,
@@ -3755,6 +3765,59 @@ function BireyselEventForm({ onClose }) {  const [name, setName] = useState("");
           data-testid="bireysel-description"
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white resize-none"
         />
+
+        {/* v140.29 — Grup seçimi (Grup Var / Grup Yok) */}
+        <div className="mt-3 rounded p-3" style={{ background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.30)" }} data-testid="bireysel-group-section">
+          <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-2">GRUP SEÇİMİ</div>
+          <div className="flex gap-2 mb-2">
+            <button
+              type="button"
+              data-testid="bireysel-group-mode-none"
+              onClick={() => { setGroupMode("none"); setSelectedGroup(""); }}
+              className="chip text-xs px-3 py-1.5 flex-1"
+              style={{
+                borderColor: groupMode === "none" ? "#A78BFA" : "rgba(148,163,184,0.5)",
+                color: groupMode === "none" ? "#C4B5FD" : "#94A3B8",
+                background: groupMode === "none" ? "rgba(168,85,247,0.15)" : "transparent",
+              }}
+              aria-pressed={groupMode === "none"}
+            >
+              🚫 Grup Yok
+            </button>
+            <button
+              type="button"
+              data-testid="bireysel-group-mode-group"
+              onClick={() => setGroupMode("group")}
+              className="chip text-xs px-3 py-1.5 flex-1"
+              style={{
+                borderColor: groupMode === "group" ? "#A78BFA" : "rgba(148,163,184,0.5)",
+                color: groupMode === "group" ? "#C4B5FD" : "#94A3B8",
+                background: groupMode === "group" ? "rgba(168,85,247,0.15)" : "transparent",
+              }}
+              aria-pressed={groupMode === "group"}
+            >
+              📁 Grup Var
+            </button>
+          </div>
+          {groupMode === "group" && (
+            <div data-testid="bireysel-group-select-row">
+              <select
+                data-testid="bireysel-group-select"
+                value={selectedGroup}
+                onChange={(e) => setSelectedGroup(e.target.value)}
+                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
+              >
+                <option value="">— Grup seç —</option>
+                {(activeGroups || []).map((g) => (
+                  <option key={g.name || g} value={g.name || g}>{g.name || g}</option>
+                ))}
+              </select>
+              <p className="text-[10px] mt-1 opacity-70" style={{ color: "#94A3B8" }}>
+                Aynı gruba ait etkinliklerin puanları birlikte toplanır.
+              </p>
+            </div>
+          )}
+        </div>
 
         <div className="mt-3 rounded p-3" style={{ background: "rgba(245,166,35,0.06)", border: "1px solid rgba(245,166,35,0.30)" }}>
           <label className="flex items-center gap-2 cursor-pointer">

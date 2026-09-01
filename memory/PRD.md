@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.29 — Bireysel Etkinlik Group Selector)** — Frontend:
+  - `BireyselEventForm` (`Events.jsx`): Yeni "GRUP SEÇİMİ" bölümü — iki chip toggle: **🚫 Grup Yok** (default) ve **📁 Grup Var**. `groupMode` state + `selectedGroup` state.
+  - "Grup Var" seçilince `useSWR("/event-groups?active_only=true")`'dan gelen aktif gruplarla dolu `<select>` görünür (`data-testid=bireysel-group-select`). "Grup Yok"'a dönünce dropdown gizlenir + `selectedGroup` sıfırlanır.
+  - Submit'te validation: mod=group ama seçim boşsa toast + block. Body'ye `group_name` mod'a göre yazılır (`""` ya da seçilen grup adı).
+  - **Top10 mantığı** (v140.28'de zaten uyumlu): grup verilirse `?group_name=X` (grubun tüm etkinliklerinden toplanır), verilmezse `?event_name=X` (aynı ada sahip recurring series'ten toplanır). Bireysel form → seçime göre ayarlanan `group_name` doğal olarak bu ranking'i etkiler.
+
+
 - **Feb 31, 2026 (v140.28 — Event Top10 Group/Series Ranking)** — Multi:
   - **Task #1 (Bireysel Etkinlik grup alanı)**: `BireyselEventModal` formunda grup seçim alanı zaten yoktu — `group_name: ""` hardcoded. Kullanıcının şikâyeti muhtemelen İttifak Etkinlik formuyla karışıklık; kod inceleme sonucu no-op olarak dokümanlandı.
   - **Task #2 (İlk 10 mantığı)**:
