@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.27 — Frontend Build Fix: machina Engine Constraint)** — Frontend:
+  - **Root cause**: `livekit-client@2.15.0` transitive `machina@^7.0.0` getiriyor; machina@7.x `node>=22.22` engine constraint istiyor. Cloud build image v0.3.77 node 20.18.1 → deploy build step 8 fail.
+  - **Fix** (`package.json` resolutions): `"machina": "4.0.2"` eklendi (2018 öncesi, engine constraint yok, temel FSM API livekit'in ihtiyaçlarını karşılıyor). `livekit-client@^2.15.0` korundu — react-components 2.9.14 export'larıyla uyum.
+  - `yarn install` re-solve: `machina@4.0.2, machina@^7.0.0` → `version "4.0.2"` ✅. Frontend `sesli-kanallar` sayfası temiz compile (`compile_err=False`, `rooms_ok=True`) ✅.
+  - **Not**: Bot fire-and-forget webhook fix (v140.26) preview'da canlı; production'da yeniden yaşanan "Read timeout" hatası Republish sonrası çözülecek (production hâlâ eski kodu çalıştırıyor).
+
+
 - **Feb 31, 2026 (v140.26 — Telegram Bot Webhook Fix)** — Backend:
   - **Root cause**: `/api/telegram/webhook` handler `await process_update(body)` senkron çalışıyordu. Bazı ağır update'ler (LLM NLP, DB batch) 60sn+ sürüyor → Telegram "Read timeout expired" → 68 pending update backlog → yeni mesajlar işlenmiyor.
   - **Fix**: `server.py` webhook handler `asyncio.create_task(process_update(body))` ile fire-and-forget. Handler <200ms'de dönüyor. Callback query dispatch de aynı şekilde.
