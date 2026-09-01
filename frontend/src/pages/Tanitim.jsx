@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import { Sword, ArrowRight, Copy, Check } from "lucide-react";
+import { Sword, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 
 /**
@@ -50,17 +50,30 @@ export default function Tanitim() {
     <div
       data-testid="tanitim-page"
       style={{
-        minHeight: "100vh",
+        height: "100vh",
+        minHeight: "100dvh",
+        maxHeight: "100dvh",
+        overflow: "hidden",
         background:
           "radial-gradient(1200px 600px at 50% -10%, rgba(255,176,32,0.10), transparent 60%), #0a0a0a",
         color: "#f5f5f4",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "32px 16px",
+        padding: "12px 12px",
+        boxSizing: "border-box",
       }}
     >
-      <div style={{ width: "100%", maxWidth: 720 }}>
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 560,
+          maxHeight: "100%",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}
+      >
         {/* Brand row */}
         <div
           data-testid="tanitim-brand"
@@ -68,16 +81,16 @@ export default function Tanitim() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: 10,
-            marginBottom: 22,
+            gap: 8,
+            flexShrink: 0,
           }}
         >
-          <Sword size={22} color="#f5b21c" />
+          <Sword size={16} color="#f5b21c" />
           <span
             style={{
-              letterSpacing: "0.35em",
+              letterSpacing: "0.3em",
               fontWeight: 700,
-              fontSize: 12,
+              fontSize: 10,
               color: "#f5b21c",
               textTransform: "uppercase",
             }}
@@ -86,16 +99,37 @@ export default function Tanitim() {
           </span>
         </div>
 
-        {/* Hero image */}
-        <div
-          data-testid="tanitim-hero-wrapper"
+        {/* Hero image — v140.10: TÜM görsel tek CTA. Görselin içine gömülü
+            "UYGULAMAYA GİR" paneli zaten var; tıklayınca titanxis.com'a gider. */}
+        <a
+          data-testid="tanitim-cta-btn"
+          href={ctaHref}
+          aria-label={t("tanitim_cta", "UYGULAMAYA GİR")}
           style={{
-            borderRadius: 16,
+            flex: "1 1 auto",
+            minHeight: 0,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "stretch",
+            textDecoration: "none",
+            borderRadius: 14,
             overflow: "hidden",
-            border: "1px solid rgba(245,178,28,0.25)",
+            border: "1px solid rgba(245,178,28,0.35)",
             boxShadow:
-              "0 0 60px rgba(245,178,28,0.18), 0 20px 40px rgba(0,0,0,0.55)",
+              "0 0 40px rgba(245,178,28,0.22), 0 12px 28px rgba(0,0,0,0.55)",
             background: "#0f0f0f",
+            cursor: "pointer",
+            transition: "transform 0.15s ease, box-shadow 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-2px)";
+            e.currentTarget.style.boxShadow =
+              "0 0 60px rgba(245,178,28,0.35), 0 18px 40px rgba(0,0,0,0.7)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow =
+              "0 0 40px rgba(245,178,28,0.22), 0 12px 28px rgba(0,0,0,0.55)";
           }}
         >
           <img
@@ -104,19 +138,29 @@ export default function Tanitim() {
             alt={t("tanitim_hero_alt", "TiTaNXiS Lonca Yönetim Uygulaması")}
             loading="eager"
             fetchpriority="high"
-            style={{ width: "100%", height: "auto", display: "block" }}
+            style={{
+              maxWidth: "100%",
+              maxHeight: "100%",
+              width: "auto",
+              height: "100%",
+              objectFit: "contain",
+              display: "block",
+              margin: "auto",
+            }}
           />
-        </div>
+        </a>
 
-        {/* Intro copy */}
+        {/* Intro copy — kompakt tek satır */}
         <h1
           data-testid="tanitim-title"
           style={{
-            marginTop: 28,
-            fontSize: "clamp(20px, 4.5vw, 28px)",
-            lineHeight: 1.35,
+            margin: 0,
+            fontSize: "clamp(11px, 2.6vw, 14px)",
+            lineHeight: 1.3,
             textAlign: "center",
-            fontWeight: 800,
+            fontWeight: 700,
+            flexShrink: 0,
+            opacity: 0.9,
           }}
         >
           {t(
@@ -130,15 +174,15 @@ export default function Tanitim() {
           <div
             data-testid="tanitim-invite-chip"
             style={{
-              marginTop: 20,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: 10,
+              gap: 8,
               flexWrap: "wrap",
+              flexShrink: 0,
             }}
           >
-            <span style={{ opacity: 0.75, fontSize: 14 }}>
+            <span style={{ opacity: 0.7, fontSize: 11 }}>
               {t("tanitim_invite_label", "Davet Kodun")}
             </span>
             <button
@@ -147,8 +191,8 @@ export default function Tanitim() {
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 8,
-                padding: "8px 14px",
+                gap: 6,
+                padding: "5px 10px",
                 borderRadius: 999,
                 background: "rgba(245,178,28,0.10)",
                 border: "1px solid rgba(245,178,28,0.45)",
@@ -156,73 +200,16 @@ export default function Tanitim() {
                 fontFamily:
                   "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
                 fontWeight: 700,
-                letterSpacing: "0.08em",
+                letterSpacing: "0.06em",
                 cursor: "pointer",
+                fontSize: 11,
               }}
             >
-              {copied ? <Check size={16} /> : <Copy size={16} />}
+              {copied ? <Check size={12} /> : <Copy size={12} />}
               {invite}
             </button>
           </div>
         )}
-
-        {/* CTA */}
-        <div
-          style={{
-            marginTop: 32,
-            display: "flex",
-            justifyContent: "center",
-          }}
-        >
-          <a
-            data-testid="tanitim-cta-btn"
-            href={ctaHref}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "16px 34px",
-              borderRadius: 14,
-              background:
-                "linear-gradient(135deg, #ffd36b 0%, #f5b21c 55%, #b8760a 100%)",
-              color: "#150e00",
-              fontWeight: 900,
-              fontSize: "clamp(15px, 3.6vw, 18px)",
-              letterSpacing: "0.14em",
-              textDecoration: "none",
-              textTransform: "uppercase",
-              boxShadow:
-                "0 10px 30px rgba(245,178,28,0.45), inset 0 1px 0 rgba(255,255,255,0.4)",
-              transition: "transform 0.15s ease, box-shadow 0.15s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "translateY(-2px)";
-              e.currentTarget.style.boxShadow =
-                "0 14px 36px rgba(245,178,28,0.55), inset 0 1px 0 rgba(255,255,255,0.5)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow =
-                "0 10px 30px rgba(245,178,28,0.45), inset 0 1px 0 rgba(255,255,255,0.4)";
-            }}
-          >
-            {t("tanitim_cta", "UYGULAMAYA GİR")}
-            <ArrowRight size={20} />
-          </a>
-        </div>
-
-        {/* Foot line */}
-        <p
-          data-testid="tanitim-footer"
-          style={{
-            marginTop: 28,
-            textAlign: "center",
-            fontSize: 13,
-            opacity: 0.55,
-          }}
-        >
-          {t("tanitim_footer", "🌐 titanxis.com")}
-        </p>
       </div>
     </div>
   );

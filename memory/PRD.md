@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.10 — /tanitim Single-Screen Fit)** — Frontend:
+  - **Duplicate CTA fix**: Alt kısımdaki ayrı amber "UYGULAMAYA GİR" butonu kaldırıldı. Tüm hero görseli (`<a>` sarmalayıcı) tek CTA oldu — görselin içine gömülü "UYGULAMAYA GİR" paneli zaten var, tıklama `titanxis.com`'a gider.
+  - **One-viewport layout**: `height:100vh + 100dvh + overflow:hidden + flex column`. Görsel `flex:1 1 auto + objectFit:contain` ile mevcut alana sığar. Padding 32→12px, gap 10px, brand rozeti 22→16px, intro font 20→11-14px clamp, invite chip pill 8→5px padding + 12px ikon.
+  - **Kaldırılanlar**: Foot line `titanxis.com`, ArrowRight ikonu (import da temizlendi), 720→560 max-width.
+  - **Doğrulama**: Mobil 390×844 → `needs_scroll=False`, `cta_count=1`, `href=https://titanxis.com` ✅. iPhone SE 375×667 → `needs_scroll=False` ✅.
+
+
 - **Feb 31, 2026 (v140.9 — Duplicate Reminder Fix)** — Backend:
   - **Root cause**: 3 paralel yol aynı etkinlik için firing yapabiliyordu:
     1. `_rsvp_reminder_task` (eski 30dk fixed) → web push
