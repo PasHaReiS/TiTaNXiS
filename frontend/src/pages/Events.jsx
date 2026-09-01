@@ -3824,19 +3824,64 @@ function BireyselEventForm({ onClose }) {
           </div>
           {groupMode === "existing" && (
             <div data-testid="bireysel-group-select-row">
-              <select
-                data-testid="bireysel-group-select"
-                value={selectedGroup}
-                onChange={(e) => setSelectedGroup(e.target.value)}
-                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
-              >
-                <option value="">— Grup seç —</option>
-                {(activeGroups || []).map((g) => (
-                  <option key={g.name || g} value={g.name || g}>{g.name || g}</option>
-                ))}
-              </select>
+              {/* v140.31 — Özel liste-picker: grup adı + silme butonu.
+                  `/event-groups?active_only=true` zaten arşivlenen grupları
+                  filtreler; burada admin ayrıca manuel silebilir (cascade). */}
+              {(activeGroups || []).length === 0 ? (
+                <div className="text-xs opacity-70 py-2" style={{ color: "#94A3B8" }}>
+                  Henüz aktif grup yok.
+                </div>
+              ) : (
+                <div className="rounded-md border border-border overflow-hidden max-h-56 overflow-y-auto" data-testid="bireysel-group-list">
+                  {(activeGroups || []).map((g) => {
+                    const gname = g.name || g;
+                    const isSelected = selectedGroup === gname;
+                    return (
+                      <div
+                        key={gname}
+                        data-testid={`bireysel-group-row-${gname}`}
+                        className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border last:border-b-0"
+                        style={{
+                          background: isSelected ? "rgba(168,85,247,0.15)" : "transparent",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => setSelectedGroup(gname)}
+                      >
+                        <span className="text-sm flex items-center gap-2 min-w-0 flex-1" style={{ color: isSelected ? "#C4B5FD" : "#F5F0E8" }}>
+                          {isSelected ? "✅" : "📁"} <span className="truncate">{gname}</span>
+                          {typeof g.active === "number" && (
+                            <span className="text-[10px] opacity-60 ml-1">({g.active})</span>
+                          )}
+                        </span>
+                        <button
+                          type="button"
+                          data-testid={`bireysel-group-delete-${gname}`}
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!window.confirm(`"${gname}" grubunu ve içindeki tüm etkinlik + puanları KALICI olarak silmek istediğinden emin misin?`)) return;
+                            try {
+                              await api.delete(`/events/group/${encodeURIComponent(gname)}`);
+                              toast.success("Grup silindi");
+                              if (selectedGroup === gname) setSelectedGroup("");
+                              mutate("/event-groups?active_only=true");
+                              mutate((k) => typeof k === "string" && (k.startsWith("/events") || k.startsWith("/event-groups")));
+                            } catch (err) {
+                              toast.error(err?.response?.data?.detail || err.message);
+                            }
+                          }}
+                          className="text-red-400 hover:text-red-300 p-1 rounded"
+                          title={`"${gname}" grubunu sil`}
+                          aria-label={`"${gname}" grubunu sil`}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <p className="text-[10px] mt-1 opacity-70" style={{ color: "#94A3B8" }}>
-                Aynı gruba ait etkinliklerin puanları birlikte toplanır.
+                Aynı gruba ait etkinliklerin puanları birlikte toplanır. Arşive giden grup burada görünmez; 🗑️ ile kalıcı silinir (cascade).
               </p>
             </div>
           )}

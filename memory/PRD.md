@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.31 — Bireysel Group List: Auto-Filter Archived + Manual Delete)** — Frontend:
+  - **Task 1 (Auto-arşiv filter)**: Backend `GET /event-groups?active_only=true` zaten `active > 0` (yani non-archived event içeren) gruplarla filtreliyordu — no-op, kod inceleme ile doğrulandı.
+  - **Task 2 (Manuel silme)**: `BireyselEventForm` mevcut grup dropdown'u özel liste-picker'a dönüştürüldü. Her grup satırında ad + aktif event sayısı + 🗑️ silme butonu. Tıklandığında `window.confirm` → `DELETE /api/events/group/{name}` (mevcut cascade endpoint; events + points siler).
+  - Silme sonrası: `mutate("/event-groups?active_only=true")` + toast, seçili grup silindiyse `selectedGroup` reset.
+  - `data-testid`: `bireysel-group-list`, `bireysel-group-row-{name}`, `bireysel-group-delete-{name}`. `max-h-56 + overflow-y-auto` uzun listelerde kaydırılır.
+
+
 - **Feb 31, 2026 (v140.30 — Bireysel Etkinlik: 3-Mode Group Selector)** — Frontend:
   - `BireyselEventForm` grup seçici genişletildi: **🚫 Grup Yok** / **📁 Mevcut Grup** / **✨ Yeni Grup** (3 chip toggle). Modlar arası geçişte diğer state'ler otomatik sıfırlanır.
   - **Mevcut Grup**: `useSWR("/event-groups?active_only=true")`'dan aktif gruplarla dolu `<select>` (`bireysel-group-select`).
