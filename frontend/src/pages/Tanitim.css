@@ -1,3 +1,37 @@
+/* v140.21 — Golden click-flash */
+@keyframes tanitim-flash {
+  0% {
+    background:
+      radial-gradient(circle at 50% 50%, rgba(255,196,80,0.85) 0%, rgba(255,140,0,0.55) 25%, rgba(255,140,0,0.0) 55%),
+      radial-gradient(1400px 700px at 50% -10%, rgba(255,140,0,0.14), transparent 60%),
+      #0a0a0a;
+  }
+  60% {
+    background:
+      radial-gradient(circle at 50% 50%, rgba(255,196,80,0.35) 0%, rgba(255,140,0,0.20) 45%, rgba(255,140,0,0.0) 75%),
+      radial-gradient(1400px 700px at 50% -10%, rgba(255,140,0,0.14), transparent 60%),
+      #0a0a0a;
+  }
+  100% {
+    background:
+      radial-gradient(1400px 700px at 50% -10%, rgba(255,140,0,0.14), transparent 60%),
+      #0a0a0a;
+  }
+}
+
+.tanitim-root.tanitim-flash-on {
+  animation: tanitim-flash 620ms ease-out forwards;
+}
+
+.tanitim-root.tanitim-flash-on > div {
+  transition: transform 180ms ease-out, box-shadow 220ms ease-out;
+  transform: scale(0.985);
+  box-shadow:
+    0 0 90px rgba(255,196,80,0.85),
+    0 0 160px rgba(255,140,0,0.55),
+    0 18px 40px rgba(0,0,0,0.65) !important;
+}
+
 /* /tanitim landing — dedicated stylesheet (v140.19).
  * 
  * Fire palette:

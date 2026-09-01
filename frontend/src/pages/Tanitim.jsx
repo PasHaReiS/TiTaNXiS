@@ -23,14 +23,31 @@ const APP_URL = "https://titanxis.com";
 
 export default function Tanitim() {
   const { t } = useTranslation();
+  const [flashing, setFlashing] = React.useState(false);
+
+  // v140.21 — Golden click-flash: tıklamada arka planda kısa altın parıltı
+  // + hero card scale/glow, ~250ms sonra `window.open` ile titanxis.com'u
+  // yeni sekmede aç. Tarayıcı native yönlendirmesini `preventDefault` ile
+  // durduruyoruz ki flash animasyonu tamamen görünsün.
+  const handleClick = (e) => {
+    if (flashing) return;
+    e.preventDefault();
+    setFlashing(true);
+    setTimeout(() => {
+      window.open(APP_URL, "_blank", "noopener,noreferrer");
+      // 620ms sonra animasyon durumu resetle (aynı sekme'de kalanlar için)
+      setTimeout(() => setFlashing(false), 620);
+    }, 260);
+  };
 
   return (
     <a
       data-testid="tanitim-page"
-      className="tanitim-root"
+      className={`tanitim-root${flashing ? " tanitim-flash-on" : ""}`}
       href={APP_URL}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={handleClick}
       aria-label={t("tanitim_cta", "UYGULAMAYA GİR")}
       style={{
         height: "100vh",

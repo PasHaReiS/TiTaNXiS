@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.21 — /tanitim Golden Click Flash)** — Frontend:
+  - Kullanıcı önceki versiyondaki tıklama sırasında beliren altın parıltı efektini istedi.
+  - `Tanitim.css`: Yeni keyframe `@keyframes tanitim-flash` (620ms) — merkezden yayılan `rgba(255,196,80,*)` → `rgba(255,140,0,*)` radial-gradient burst. `.tanitim-flash-on` class'ıyla tetiklenir. Hero card scale `0.985` + kalın altın box-shadow (`90px + 160px + 40px`).
+  - `Tanitim.jsx`: `flashing` state + `handleClick`. Click'te `preventDefault()` → `setFlashing(true)` → 260ms sonra `window.open(APP_URL, "_blank", "noopener,noreferrer")` → animasyon tamamlansın diye 620ms sonra state reset. Root class dinamik: `tanitim-root` / `tanitim-root tanitim-flash-on`.
+  - Doğrulama: E2E click → popup URL `https://titanxis.com/` ✅. (`mid_class` capture Playwright'ın popup-race'inden dolayı yakalanamadı; gerçek kullanıcı tıklamalarında `preventDefault` sırayla çalışır.)
+
+
 - **Feb 31, 2026 (v140.20 — /tanitim Image-Only Final)** — Frontend:
   - Kullanıcı çift render şikâyeti: promo görselinin içinde zaten baked olan (TITANXIS logosu, "LONCANA KATIL, EFSANENİ YAZ" başlığı, alt başlık, 3 altın kart, "UYGULAMAYA GİR" panel, globe + titanxis.com) tüm elementler + hemen altında React duplikatları (H1/subtitle/native cards/CTA button) aynı anda render ediliyordu. Kullanıcı ikinci setini "mor/sade duplikasyon" olarak gördü.
   - Fix: Tüm React duplikat elementler (`tanitim-title`, `tanitim-subtitle`, `tanitim-feature-row`, `tanitim-brand`, `tanitim-domain`, `tanitim-invite-chip`, kart body'leri, CTA butonu) silindi. Sadece hero görseli kaldı.
