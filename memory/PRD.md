@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.20 — /tanitim Image-Only Final)** — Frontend:
+  - Kullanıcı çift render şikâyeti: promo görselinin içinde zaten baked olan (TITANXIS logosu, "LONCANA KATIL, EFSANENİ YAZ" başlığı, alt başlık, 3 altın kart, "UYGULAMAYA GİR" panel, globe + titanxis.com) tüm elementler + hemen altında React duplikatları (H1/subtitle/native cards/CTA button) aynı anda render ediliyordu. Kullanıcı ikinci setini "mor/sade duplikasyon" olarak gördü.
+  - Fix: Tüm React duplikat elementler (`tanitim-title`, `tanitim-subtitle`, `tanitim-feature-row`, `tanitim-brand`, `tanitim-domain`, `tanitim-invite-chip`, kart body'leri, CTA butonu) silindi. Sadece hero görseli kaldı.
+  - Root artık `<a href=https://titanxis.com target="_blank" rel="noopener noreferrer">` — tıklanınca yeni sekmede app açılır. `100vh + overflow:hidden`, `objectFit:contain`.
+  - `Tanitim.css` `.tanitim-root` defensive rule seti aynen kalıyor (bottom nav / FAB / footer garanti gizli).
+  - Doğrulama: needs_scroll=False, root_tag=A, target=_blank, hero=True, TÜM duplicate testid count=0, visible_bottom_fixed=[] ✅.
+
+
 - **Feb 31, 2026 (v140.19 — /tanitim CSS Externalization + Defensive Nav Hide)** — Frontend:
   - Yeni dosya: `/app/frontend/src/pages/Tanitim.css`.
     - Palette sınıfları: `.tanitim-title` `.tanitim-card-title` → `color: #FF8C00`; `.tanitim-subtitle` `.tanitim-card-desc` `.tanitim-invite-label` → `color: #FFF5DC`.
