@@ -25,19 +25,17 @@ export default function Tanitim() {
   const { t } = useTranslation();
   const [flashing, setFlashing] = React.useState(false);
 
-  // v140.21 — Golden click-flash: tıklamada arka planda kısa altın parıltı
-  // + hero card scale/glow, ~250ms sonra `window.open` ile titanxis.com'u
-  // yeni sekmede aç. Tarayıcı native yönlendirmesini `preventDefault` ile
-  // durduruyoruz ki flash animasyonu tamamen görünsün.
+  // v140.22 — Tıklama: fire-orange ambient glow'a geçiş (0.3s CSS transition
+  // `.tanitim-flash-on::before`) → 0.5s bekle → titanxis.com yeni sekmede aç.
+  // Toplam 500ms + kullanıcı görsel geribildirimi yeterince alır.
   const handleClick = (e) => {
     if (flashing) return;
     e.preventDefault();
     setFlashing(true);
     setTimeout(() => {
       window.open(APP_URL, "_blank", "noopener,noreferrer");
-      // 620ms sonra animasyon durumu resetle (aynı sekme'de kalanlar için)
-      setTimeout(() => setFlashing(false), 620);
-    }, 260);
+      setTimeout(() => setFlashing(false), 300);
+    }, 500);
   };
 
   return (

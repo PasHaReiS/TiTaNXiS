@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.22 — /tanitim Ambient Load + Fire Click Animations)** — Frontend:
+  - `Tanitim.css`: v140.21 flash keyframe kaldırıldı. Yerine:
+    1. `.tanitim-root::before` sabit fullscreen pseudo layer, `radial-gradient(ellipse at center, rgba(255,200,0,0.4) 0%, transparent 70%)`. `@keyframes tanitim-load` opacity 0→0.6, 1.5s `ease-in forwards`.
+    2. `.tanitim-flash-on::before` background'ı `rgba(255,100,0,0.6)` fire-orange'a smooth kaydırır (`transition: background 0.3s + opacity 0.3s`).
+    3. `.tanitim-root > *` içerik z-index:1 ile ambient katmanın üstünde kalır.
+  - `Tanitim.jsx`: `handleClick` timing güncellendi — `setFlashing(true)` → 500ms bekle → `window.open` → 300ms sonra state reset. 0.3s CSS transition tamamen görünür.
+
+
 - **Feb 31, 2026 (v140.21 — /tanitim Golden Click Flash)** — Frontend:
   - Kullanıcı önceki versiyondaki tıklama sırasında beliren altın parıltı efektini istedi.
   - `Tanitim.css`: Yeni keyframe `@keyframes tanitim-flash` (620ms) — merkezden yayılan `rgba(255,196,80,*)` → `rgba(255,140,0,*)` radial-gradient burst. `.tanitim-flash-on` class'ıyla tetiklenir. Hero card scale `0.985` + kalın altın box-shadow (`90px + 160px + 40px`).

@@ -1,35 +1,30 @@
-/* v140.21 — Golden click-flash */
-@keyframes tanitim-flash {
-  0% {
-    background:
-      radial-gradient(circle at 50% 50%, rgba(255,196,80,0.85) 0%, rgba(255,140,0,0.55) 25%, rgba(255,140,0,0.0) 55%),
-      radial-gradient(1400px 700px at 50% -10%, rgba(255,140,0,0.14), transparent 60%),
-      #0a0a0a;
-  }
-  60% {
-    background:
-      radial-gradient(circle at 50% 50%, rgba(255,196,80,0.35) 0%, rgba(255,140,0,0.20) 45%, rgba(255,140,0,0.0) 75%),
-      radial-gradient(1400px 700px at 50% -10%, rgba(255,140,0,0.14), transparent 60%),
-      #0a0a0a;
-  }
-  100% {
-    background:
-      radial-gradient(1400px 700px at 50% -10%, rgba(255,140,0,0.14), transparent 60%),
-      #0a0a0a;
-  }
+/* v140.22 — 1) Load-in golden glow, 2) Fire click flash */
+
+/* Ambient glow katmanı — sayfa yüklenince opacity 0 → 0.6 ease-in 1.5s */
+.tanitim-root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(ellipse at center, rgba(255,200,0,0.4) 0%, transparent 70%);
+  opacity: 0;
+  animation: tanitim-load 1.5s ease-in forwards;
+  transition: background 0.3s ease-out, opacity 0.3s ease-out;
 }
 
-.tanitim-root.tanitim-flash-on {
-  animation: tanitim-flash 620ms ease-out forwards;
+@keyframes tanitim-load {
+  from { opacity: 0; }
+  to   { opacity: 0.6; }
 }
 
-.tanitim-root.tanitim-flash-on > div {
-  transition: transform 180ms ease-out, box-shadow 220ms ease-out;
-  transform: scale(0.985);
-  box-shadow:
-    0 0 90px rgba(255,196,80,0.85),
-    0 0 160px rgba(255,140,0,0.55),
-    0 18px 40px rgba(0,0,0,0.65) !important;
+/* Root'un içindeki içerikler ambient katmanın üstünde kalsın */
+.tanitim-root > * { position: relative; z-index: 1; }
+
+/* Tıklama: ambient glow'u ateş-turuncu tona kaydır (0.3s smooth) */
+.tanitim-root.tanitim-flash-on::before {
+  background: radial-gradient(ellipse at center, rgba(255,100,0,0.6) 0%, transparent 70%);
+  opacity: 1;
 }
 
 /* /tanitim landing — dedicated stylesheet (v140.19).
