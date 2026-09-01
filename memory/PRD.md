@@ -20,6 +20,16 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.16 — /tanitim Restore + Palette)** — Frontend:
+  - v140.14 tam yapısı geri getirildi (brand rozeti → hero görsel → H1 → subtitle → davet chip → 3 native kart → CTA → globe+domain → footer). `LegalFooter.jsx`'ten `/tanitim` özel gizleme kaldırıldı — footer tekrar görünür.
+  - **Palette (v140.16)**:
+    - H1 "LONCANA KATIL, EFSANENİ YAZ" ve kart başlıkları (SIRALAMA/ETKİNLİKLER/LOJ HAKKINDA): solid `#FF8C00` (amber-orange). Gradient text-fill kaldırıldı, düz renk.
+    - Subtitle + kart açıklamaları: `#FFF5DC` (cream white).
+    - Globe ikonu + `titanxis.com` link: `#FFC87A` (soft amber).
+    - CTA butonu, marka rozeti, kart ikonları, border/bg glow dokunulmadı — mevcut altın paleti korundu.
+  - Doğrulama: `getComputedStyle` ile 5 renk 1:1 eşleşti (`rgb(255,140,0)`, `rgb(255,245,220)`, `rgb(255,200,122)`) ✅.
+
+
 - **Feb 31, 2026 (v140.15 — /tanitim Minimal Hero-Only)** — Frontend:
   - `Tanitim.jsx` minimal versiyona indirildi. Yalnızca hero görseli tek büyük tıklanabilir `<a href=titanxis.com>` CTA olarak render edilir; içeriğin tamamı (logo, başlık, kartlar, "UYGULAMAYA GİR" panel, titanxis.com satırı) zaten görselin içine gömülü.
   - Silinen React elementleri: H1 `LONCANA KATIL...`, alt başlık paragrafı, native ikon kartları grid'i (`data-testid=tanitim-feature-*`), globe+domain rowu, brand rozeti. Sadece davet chip (opsiyonel, `?davet=CODE` geldiğinde) korundu.
