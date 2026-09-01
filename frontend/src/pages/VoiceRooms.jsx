@@ -532,6 +532,16 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
     );
   }, [usersList, inviteSearch]);
 
+  // v140.37 — Ban list + password change (in-room admin).
+  const { data: bansData, mutate: refetchBans } = useSWR(
+    isAdmin && roomId && inviteOpen ? `/voice/rooms/${roomId}/bans` : null,
+    fetcher,
+  );
+  const banItems = bansData?.items || [];
+  const [pwdOpen, setPwdOpen] = useState(false);
+  const [newPwd, setNewPwd] = useState("");
+  const [pwdBusy, setPwdBusy] = useState(false);
+
   const toggleInvitedUser = async (uid) => {
     const next = invitedIds.includes(uid)
       ? invitedIds.filter((x) => x !== uid)
@@ -554,12 +564,50 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
 
   const kickParticipant = async (p) => {
     if (!p?.identity) return;
-    if (!window.confirm(t("voice_kick_confirm", "\"{{name}}\" adlı katılımcıyı odadan atmak istediğine emin misin?", { name: p.name || p.identity }))) return;
+    if (!window.confirm(t("voice_kick_confirm", "\"{{name}}\" adlı katılımcıyı odadan atmak istediğine emin misin? Bu odaya yasaklanacak.", { name: p.name || p.identity }))) return;
     try {
-      await api.post(`/voice/rooms/${roomId}/kick`, { identity: p.identity });
-      toast.success(t("voice_kick_success", "Katılımcı odadan atıldı"));
+      const r = await api.post(`/voice/rooms/${roomId}/kick`, { identity: p.identity });
+      if (r.data?.banned_user_id) {
+        toast.success(t("voice_kick_and_ban_success", "Katılımcı atıldı ve yasaklandı"));
+        refetchBans();
+      } else if (r.data?.is_guest) {
+        toast.success(t("voice_kick_guest_note", "Ziyaretçi atıldı (ban etkisiz — kimliği rastgeledir)"));
+      } else {
+        toast.success(t("voice_kick_success", "Katılımcı odadan atıldı"));
+      }
     } catch (e) {
       toast.error(e?.response?.data?.detail || e.message);
+    }
+  };
+
+  const unbanUser = async (userId, username) => {
+    if (!window.confirm(t("voice_unban_confirm", "\"{{name}}\" için yasağı kaldırmak istediğine emin misin?", { name: username }))) return;
+    try {
+      await api.delete(`/voice/rooms/${roomId}/bans/${userId}`);
+      toast.success(t("voice_unban_success", "Yasak kaldırıldı"));
+      refetchBans();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    }
+  };
+
+  const submitPasswordChange = async () => {
+    const pw = newPwd.trim();
+    if (pw.length < 4) {
+      toast.error(t("voice_pwd_change_too_short", "Şifre en az 4 karakter olmalı"));
+      return;
+    }
+    setPwdBusy(true);
+    try {
+      await api.patch(`/voice/rooms/${roomId}/password`, { password: pw });
+      toast.success(t("voice_pwd_change_success", "Şifre değiştirildi (mevcut katılımcılar etkilenmez)"));
+      setPwdOpen(false);
+      setNewPwd("");
+      if (onInvitedChange) onInvitedChange(); // parent refresh so password_plain gets updated for admin
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally {
+      setPwdBusy(false);
     }
   };
 
@@ -776,11 +824,76 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
               )}
             </button>
           )}
+          {/* v140.37 — Admin: şifre değiştir */}
+          {isAdmin && (
+            <button
+              data-testid="voice-pwd-change-toggle"
+              onClick={() => setPwdOpen((v) => !v)}
+              className="chip text-xs flex items-center gap-1"
+              style={{
+                borderColor: pwdOpen ? "#F5A623" : "rgba(245,166,35,0.5)",
+                color: "#F5A623",
+                background: pwdOpen ? "rgba(245,166,35,0.15)" : "transparent",
+              }}
+              title={t("voice_pwd_change_title", "Oda şifresini değiştir")}
+            >
+              🔑 {t("voice_pwd_change_btn", "Şifre Değiştir")}
+            </button>
+          )}
           <span className="chip text-xs flex items-center gap-1" style={{ borderColor: "#22C55E", color: "#22C55E" }}>
             <Users size={12} /> {participants.length}
           </span>
         </div>
       </div>
+
+      {/* v140.37 — Admin: in-room password change */}
+      {isAdmin && pwdOpen && (
+        <div
+          data-testid="voice-pwd-change-panel"
+          className="mb-6 rounded-lg p-4 flex items-center gap-2 flex-wrap"
+          style={{
+            background: "rgba(10,6,4,0.72)",
+            border: "1px solid rgba(245,166,35,0.35)",
+          }}
+        >
+          <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#F5A623" }}>
+            🔑 {t("voice_pwd_change_title", "Oda şifresini değiştir")}:
+          </span>
+          <input
+            data-testid="voice-pwd-change-input"
+            type="text"
+            value={newPwd}
+            onChange={(e) => setNewPwd(e.target.value)}
+            placeholder={t("voice_pwd_change_placeholder", "Yeni şifre (en az 4 karakter)")}
+            className="flex-1 min-w-[180px] bg-black/40 border border-amber-500/40 rounded px-3 py-1.5 text-xs text-white"
+          />
+          <button
+            data-testid="voice-pwd-change-submit"
+            onClick={submitPasswordChange}
+            disabled={pwdBusy}
+            className="chip text-xs font-bold"
+            style={{
+              background: "linear-gradient(135deg, #F5A623, #E74C1A)",
+              color: "#0B0704",
+              border: "none",
+              cursor: pwdBusy ? "not-allowed" : "pointer",
+              opacity: pwdBusy ? 0.6 : 1,
+            }}
+          >
+            {pwdBusy ? t("voice_pwd_change_saving", "Kaydediliyor…") : t("save", "Kaydet")}
+          </button>
+          <button
+            onClick={() => { setPwdOpen(false); setNewPwd(""); }}
+            className="chip text-xs"
+            style={{ borderColor: "rgba(148,163,184,0.5)", color: "#E5E7EB" }}
+          >
+            {t("cancel", "İptal")}
+          </button>
+          <p className="w-full text-[10px] mt-1" style={{ color: "#94A3B8" }}>
+            {t("voice_pwd_change_note", "Mevcut katılımcılar etkilenmez; yeni girişlerde bu şifre geçerli olacak.")}
+          </p>
+        </div>
+      )}
 
       {/* v140.36 — Admin: in-room invite management panel */}
       {isAdmin && inviteOpen && (
@@ -848,6 +961,56 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
                   </label>
                 );
               })
+            )}
+          </div>
+
+          {/* v140.37 — Ban list (yasaklılar) */}
+          <div className="mt-4 pt-3" style={{ borderTop: "1px solid rgba(239,68,68,0.25)" }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#F87171" }}>
+                🚫 {t("voice_ban_list_title", "Yasaklı Üyeler")}
+              </span>
+              <span className="text-[10px]" style={{ color: "#94A3B8" }}>
+                {t("voice_ban_list_count", "{{n}} yasaklı", { n: banItems.length })}
+              </span>
+            </div>
+            {banItems.length === 0 ? (
+              <div
+                data-testid="voice-ban-list-empty"
+                className="text-[10px] text-center py-2 rounded"
+                style={{ background: "rgba(0,0,0,0.25)", color: "#94A3B8" }}
+              >
+                {t("voice_ban_list_empty", "Bu odada yasaklı üye yok.")}
+              </div>
+            ) : (
+              <div
+                data-testid="voice-ban-list"
+                className="rounded"
+                style={{ background: "rgba(0,0,0,0.25)" }}
+              >
+                {banItems.map((b) => (
+                  <div
+                    key={b.user_id}
+                    data-testid={`voice-ban-row-${b.user_id}`}
+                    className="flex items-center gap-2 px-2 py-1.5"
+                    style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                  >
+                    <span className="text-[10px] px-1 rounded font-bold" style={{ background: "rgba(239,68,68,0.20)", color: "#F87171" }}>
+                      🚫
+                    </span>
+                    <span className="text-xs flex-1" style={{ color: "#F5F0E8" }}>{b.username}</span>
+                    <button
+                      data-testid={`voice-unban-${b.user_id}`}
+                      onClick={() => unbanUser(b.user_id, b.username)}
+                      className="chip text-[10px]"
+                      style={{ borderColor: "rgba(34,197,94,0.6)", color: "#86EFAC" }}
+                      title={t("voice_unban_btn_title", "Yasağı kaldır")}
+                    >
+                      {t("voice_unban_btn", "Yasağı Kaldır")}
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>

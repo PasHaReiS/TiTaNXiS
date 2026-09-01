@@ -2898,3 +2898,30 @@ Deployment_agent PASS. Frontend derleme başarılı, backend restart temiz. Repu
 
 ### Deployment
 Deployment_agent PASS. Frontend derleme başarılı (benign eslint warning), backend restart temiz.
+
+## v140.37 — Oda İçi Şifre Değiştirme + Kick-Ban Sistemi (Sep 1, 2026)
+
+### Backend
+- **PATCH /api/voice/rooms/{id}/password** (admin): body `{password}`. `password_hash` + `password_plain` + `password_updated_at` günceller. Min 4 karakter. Mevcut LiveKit oturumları etkilenmez (join edildikten sonra token doğrulaması yok); yalnız yeni `/voice/token` çağrıları yeni şifreyi bekler.
+- **GET /api/voice/rooms/{id}/bans** (admin): `banned_user_ids` → `users` join → `[{user_id, username}]`.
+- **DELETE /api/voice/rooms/{id}/bans/{user_id}** (admin): `$pull` ile ban listesinden çıkarır.
+- **POST /kick genişletildi**: Identity pattern `{username}-{id[:6]}` regex ile parse edilip user DB'de aranıyor. Bulunduysa `banned_user_ids`'e `$addToSet` ile eklenir. Ziyaretçi (`guest-*`) → ban etkisiz (identity her join'de rastgele; frontend uygun toast basıyor).
+- **POST /voice/token banned check**: `if u.id in banned_user_ids → 403 "Bu odadan yasaklandınız"` (şifre bilse bile).
+
+### Frontend (`VoiceRooms.jsx`)
+- **Şifre Değiştir Paneli**: Başlıkta "🔑 Şifre Değiştir" toggle → inline input + Kaydet/İptal. Info metni: "Mevcut katılımcılar etkilenmez; yeni girişlerde bu şifre geçerli olacak."
+- **Ban List UI**: `Davet Yönetimi` panelinin altında ayrılmış bölüm "🚫 Yasaklı Üyeler ({count})". SWR `/voice/rooms/{id}/bans`. Her yasaklı yanında "Yasağı Kaldır" butonu (confirm + DELETE + refetch).
+- **Kick UX güncellendi**: Backend'in dönüşüne göre 3 toast varyantı: `banned_user_id` doldu → "Katılımcı atıldı ve yasaklandı"; `is_guest=true` → "Ziyaretçi atıldı (ban etkisiz)"; diğer → normal kick success.
+- **i18n**: TR + EN key'leri (`voice_pwd_change_*`, `voice_ban_list_*`, `voice_unban_*`, `voice_room_banned`).
+
+### E2E Test (curl smoke, preview backend)
+- PATCH password too-short → HTTP 400 ✓
+- PATCH password valid → 200 ✓
+- GET password reveal returns new plaintext ✓
+- GET bans empty → items=[] ✓
+- Seeded ban → GET bans returns 1 item with username ✓
+- DELETE unban → 200 + list empty again ✓
+- Cleanup ✓
+
+### Deployment
+Deployment_agent PASS. Backend restart clean, frontend compile OK.

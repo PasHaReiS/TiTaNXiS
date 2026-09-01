@@ -10201,10 +10201,29 @@ class VoiceKickBody(BaseModel):
     identity: str
 
 
+class VoiceRoomPasswordUpdate(BaseModel):
+    password: str
+
+
+def _extract_user_id_prefix(identity: str) -> Optional[str]:
+    """v140.37 — Kick edilen kişinin identity'sinden user id prefix'ini çıkar.
+    Kimlik formatı: `{username}-{id[:6]}` (üye) veya `guest-{hex8}` (ziyaretçi).
+    Ziyaretçi için None döner (ban etkisiz)."""
+    if not identity or identity.startswith("guest-"):
+        return None
+    if "-" not in identity:
+        return None
+    tail = identity.rsplit("-", 1)[-1]
+    return tail if len(tail) >= 4 else None
+
+
 @api_router.post("/voice/rooms/{room_id}/kick")
 async def voice_room_kick(room_id: str, body: VoiceKickBody,
                           admin: dict = Depends(require_admin)):
-    """v140.36 — Admin bir katılımcıyı odadan çıkarır (LiveKit removeParticipant)."""
+    """v140.36 — Admin bir katılımcıyı odadan çıkarır (LiveKit removeParticipant).
+    v140.37 — Kick edilen üye otomatik olarak bu odanın `banned_user_ids`
+    listesine eklenir. Ziyaretçiler için ban etkisizdir (identity her join'de
+    yenilenir); yalnızca üye tabanlı ban uygulanır."""
     identity = (body.identity or "").strip()
     if not identity:
         raise HTTPException(400, "identity gerekli")
@@ -10235,7 +10254,87 @@ async def voice_room_kick(room_id: str, body: VoiceKickBody,
     finally:
         try: await lkapi.aclose()
         except Exception: pass
-    return {"ok": True, "kicked": identity, "room": room["name"]}
+
+    # v140.37 — Ban listesine ekle (mümkünse user_id ile).
+    banned_user_id = None
+    banned_username = None
+    uid_prefix = _extract_user_id_prefix(identity)
+    if uid_prefix:
+        u = await db.users.find_one(
+            {"id": {"$regex": f"^{uid_prefix}"}},
+            {"_id": 0, "id": 1, "username": 1},
+        )
+        if u:
+            banned_user_id = u.get("id")
+            banned_username = u.get("username")
+            # Adminleri banlamayı da yasakla — admin kendine ceza vermesin.
+            await db.voice_rooms.update_one(
+                {"id": room_id},
+                {"$addToSet": {"banned_user_ids": banned_user_id}},
+            )
+    return {
+        "ok": True, "kicked": identity, "room": room["name"],
+        "banned_user_id": banned_user_id, "banned_username": banned_username,
+        "is_guest": identity.startswith("guest-"),
+    }
+
+
+@api_router.patch("/voice/rooms/{room_id}/password")
+async def voice_room_update_password(room_id: str, body: VoiceRoomPasswordUpdate,
+                                     _: dict = Depends(require_admin)):
+    """v140.37 — Admin oda şifresini değiştirir. Mevcut katılımcılar etkilenmez
+    (LiveKit session zaten açık); sonraki `/voice/token` çağrılarında yeni şifre
+    doğrulanır."""
+    pw = (body.password or "").strip()
+    if not pw:
+        raise HTTPException(400, "Yeni şifre boş olamaz")
+    if len(pw) < 4:
+        raise HTTPException(400, "Şifre en az 4 karakter olmalı")
+    r = await db.voice_rooms.update_one(
+        {"id": room_id},
+        {"$set": {
+            "password_hash": _hash_password(pw),
+            "password_plain": pw,
+            "password_updated_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Oda bulunamadı")
+    return {"ok": True}
+
+
+@api_router.get("/voice/rooms/{room_id}/bans")
+async def voice_room_list_bans(room_id: str, _: dict = Depends(require_admin)):
+    """v140.37 — Admin oda yasaklıları listesini görür (kullanıcı adı + id)."""
+    room = await db.voice_rooms.find_one({"id": room_id}, {"_id": 0, "banned_user_ids": 1})
+    if not room:
+        raise HTTPException(404, "Oda bulunamadı")
+    ids = list(room.get("banned_user_ids") or [])
+    if not ids:
+        return {"items": []}
+    users = await db.users.find(
+        {"id": {"$in": ids}},
+        {"_id": 0, "id": 1, "username": 1},
+    ).to_list(len(ids) + 5)
+    umap = {u["id"]: u for u in users}
+    items = [
+        {"user_id": uid, "username": umap.get(uid, {}).get("username") or "(silinmiş)"}
+        for uid in ids
+    ]
+    return {"items": items}
+
+
+@api_router.delete("/voice/rooms/{room_id}/bans/{user_id}")
+async def voice_room_unban(room_id: str, user_id: str,
+                           _: dict = Depends(require_admin)):
+    """v140.37 — Yasaklı üyenin banını kaldır."""
+    r = await db.voice_rooms.update_one(
+        {"id": room_id},
+        {"$pull": {"banned_user_ids": user_id}},
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Oda bulunamadı")
+    return {"ok": True, "unbanned": user_id}
 
 
 @api_router.get("/voice/rooms")
@@ -10344,6 +10443,11 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
         raise HTTPException(404, "Oda bulunamadı")
     is_admin = bool(u) and u.get("role") == "admin"
     invited_ids = list(room.get("invited_user_ids") or [])
+    banned_ids = list(room.get("banned_user_ids") or [])
+    # v140.37 — Ban kontrolü: Admin bile ban listesindeyse geçemez (ancak
+    # normalde admin'ler kick edilmemeli). Bu, güvenli-varsayılan davranıştır.
+    if u and u.get("id") in banned_ids:
+        raise HTTPException(403, "Bu odadan yasaklandınız")
     is_invited = bool(u) and u.get("id") in invited_ids
     if not (is_admin or is_invited):
         # Şifre kontrolü zorunlu (davetsiz üye VEYA ziyaretçi).
