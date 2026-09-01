@@ -2934,3 +2934,8 @@ Deployment_agent PASS. Backend restart clean, frontend compile OK.
 - **Sorun**: `ActiveRoomUI`'da `pttPress`/`pttRelease` (const useCallback, deps `[..., playBeep]`) `playBeep`'ten önce tanımlıydı. React her render'da deps array'ini okuduğu için `Cannot access playBeep before initialization` ReferenceError → oda içi UI crash.
 - **Fix**: `audioCtxRef` + `ensureAudioCtx` + `playBeep` bloğu `toggleMic`'ten hemen sonra, `pttPress`'ten ÖNCE deklare edildi. Sonrasındaki tekrar bloğu silindi. Davranış değişmedi; sadece deklarasyon sırası düzeltildi.
 - Deployment_agent PASS.
+
+## v140.40 — VoiceRooms RTC Race Fix (Sep 1, 2026)
+- **Sorun**: "UnexpectedConnectionState: PC manager is closed" — LiveKit Room `connect()` tamamlanmadan (veya disconnect sonrası) `setMicrophoneEnabled` / data channel publish çağrıları RTCEngine kapalıyken tetikleniyordu.
+- **Fix**: `useConnectionState` + `ConnectionState.Connected` guard eklendi. Etkilenen call-site'lar: micMode useEffect, toggleMic, pttPress, pttRelease, broadcastMode useEffect (kendi mode duyurusu ve ParticipantConnected rebroadcast). Bağlantı hazır olmadıkça hiçbir track/data op çalışmaz.
+- Deployment_agent PASS.

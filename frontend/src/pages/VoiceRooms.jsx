@@ -11,9 +11,10 @@ import {
   useTracks,
   useDataChannel,
   useRoomContext,
+  useConnectionState,
   StartAudio,
 } from "@livekit/components-react";
-import { Track, RoomEvent } from "livekit-client";
+import { Track, RoomEvent, ConnectionState } from "livekit-client";
 import "@livekit/components-styles";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -509,6 +510,12 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
   const participants = useParticipants();
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const tracks = useTracks([{ source: Track.Source.Microphone, withPlaceholder: true }]);
+  // v140.40 — RTC race koruması: Room fully connected olmadan mikrofon aç/kapat
+  // ya da data broadcast yapma. `useConnectionState` LiveKit'in resmi hook'u;
+  // "PC manager is closed" hatası (connect() tamamlanmadan önce publish, veya
+  // disconnect sonrası track işlemi) böylece önlenir.
+  const connectionState = useConnectionState();
+  const isConnected = connectionState === ConnectionState.Connected;
 
   // v140.36 — Admin controls: kick + in-room invite management.
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -619,9 +626,10 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
   const [pttHeld, setPttHeld] = useState(false);
 
   // Mode değişince mic state'i ayarla: continuous → mic aç; ptt → mic kapa.
+  // v140.40 — Sadece `isConnected` iken track işlemi yap.
   useEffect(() => {
     try { localStorage.setItem("voice_mic_mode", micMode); } catch {}
-    if (!localParticipant) return;
+    if (!isConnected || !localParticipant) return;
     if (micMode === "continuous") {
       if (!isMicrophoneEnabled) localParticipant.setMicrophoneEnabled(true).catch(() => {});
     } else {
@@ -629,11 +637,12 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
       if (isMicrophoneEnabled && !pttHeld) localParticipant.setMicrophoneEnabled(false).catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [micMode]);
+  }, [micMode, isConnected]);
 
   const toggleMic = () => {
+    if (!isConnected || !localParticipant) return;
     if (micMode === "ptt") return; // PTT modunda toggle disable
-    localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
+    localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled).catch(() => {});
   };
 
   // v140.33 — PTT ses efekti: hafif "beep on/off" tonu (Web Audio API).
@@ -672,24 +681,25 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
 
   // PTT press/release handlers — pointer (mouse + touch), plus Spacebar hold.
   // v140.33 — beep on/off geri bildirimi eklendi.
+  // v140.40 — RTC guard: bağlantı hazır değilse track operasyonu yapma.
   const pttPress = useCallback(() => {
-    if (micMode !== "ptt" || !localParticipant) return;
+    if (micMode !== "ptt" || !localParticipant || !isConnected) return;
     setPttHeld((prev) => {
       if (prev) return prev; // zaten basılı — çift beep yok
       try { playBeep(880, 55, 0.09); } catch {}
       return true;
     });
     localParticipant.setMicrophoneEnabled(true).catch(() => {});
-  }, [micMode, localParticipant, playBeep]);
+  }, [micMode, localParticipant, playBeep, isConnected]);
   const pttRelease = useCallback(() => {
-    if (micMode !== "ptt" || !localParticipant) return;
+    if (micMode !== "ptt" || !localParticipant || !isConnected) return;
     setPttHeld((prev) => {
       if (!prev) return prev; // zaten kapalı
       try { playBeep(440, 55, 0.09); } catch {}
       return false;
     });
     localParticipant.setMicrophoneEnabled(false).catch(() => {});
-  }, [micMode, localParticipant, playBeep]);
+  }, [micMode, localParticipant, playBeep, isConnected]);
 
   useEffect(() => {
     if (micMode !== "ptt") return undefined;
@@ -742,21 +752,23 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
   }, [sendMicMode]);
 
   // Kendi modun değişince odaya duyur.
+  // v140.40 — Data channel de connect sonrası açılır; broadcast'ı gate'le.
   useEffect(() => {
+    if (!isConnected) return;
     broadcastMode(micMode);
-  }, [micMode, broadcastMode]);
+  }, [micMode, broadcastMode, isConnected]);
 
   // Yeni bir katılımcı bağlandığında kendi modunu tekrar duyur (yeni gelen
   // rozeti hemen görebilsin).
   useEffect(() => {
-    if (!room) return undefined;
+    if (!room || !isConnected) return undefined;
     const onJoin = () => {
       // küçük gecikme: peer'in data channel'ı hazır olsun
       setTimeout(() => broadcastMode(micMode), 300);
     };
     room.on(RoomEvent.ParticipantConnected, onJoin);
     return () => { room.off(RoomEvent.ParticipantConnected, onJoin); };
-  }, [room, micMode, broadcastMode]);
+  }, [room, micMode, broadcastMode, isConnected]);
 
   // Ayrılan katılımcının modunu temizle.
   useEffect(() => {
