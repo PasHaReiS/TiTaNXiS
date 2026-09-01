@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.12 — /tanitim Native Rebuild)** — Frontend:
+  - Promo görsel (`titanxis_tanitim.png`) tamamen kaldırıldı — içine gömülü uzun kart açıklamaları + "Loncana Katıl, Efsaneni Yaz" heading + description satırları CSS ile silinemiyordu, bu yüzden görsel yerine native React layout kondu.
+  - Yeni yapı: **TiTaNXiS marka rozeti** + **3 ikon kartı** (Crown → SIRALAMA, Swords → ETKİNLİKLER, BookOpen → LOJ HAKKINDA, sadece ikon + başlık, açıklama YOK) + **Amber "UYGULAMAYA GİR" butonu**. Havadar `gap:44px`, padding `28×24`, radial altın glow bg.
+  - i18n: 3 yeni feature key (`tanitim_feature_leaderboard`, `tanitim_feature_events`, `tanitim_feature_guide`) TR + EN.
+  - Layout invariants korundu: `100dvh + overflow:hidden` (scroll yok), footer `/tanitim`'de gizli.
+  - Doğrulama: 390×844 mobil viewport → `needs_scroll=False`, 3 kart görünür, CTA `href=titanxis.com`, `?davet=CODE` desteği hâlâ çalışıyor ✅.
+
+
 - **Feb 31, 2026 (v140.10 — /tanitim Single-Screen Fit)** — Frontend:
   - **Duplicate CTA fix**: Alt kısımdaki ayrı amber "UYGULAMAYA GİR" butonu kaldırıldı. Tüm hero görseli (`<a>` sarmalayıcı) tek CTA oldu — görselin içine gömülü "UYGULAMAYA GİR" paneli zaten var, tıklama `titanxis.com`'a gider.
   - **One-viewport layout**: `height:100vh + 100dvh + overflow:hidden + flex column`. Görsel `flex:1 1 auto + objectFit:contain` ile mevcut alana sığar. Padding 32→12px, gap 10px, brand rozeti 22→16px, intro font 20→11-14px clamp, invite chip pill 8→5px padding + 12px ikon.

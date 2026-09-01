@@ -1,25 +1,30 @@
 import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import { Sword, Copy, Check } from "lucide-react";
+import { Sword, Crown, Swords, BookOpen, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 
 /**
- * Public landing page — `/tanitim`.
+ * Public landing page — `/tanitim` (v140.12).
  *
- * - No auth required (mounted outside AppShell).
- * - Dark theme (#0a0a0a) matching TiTaNXiS gold/amber accent.
- * - Displays the QR-free promo hero image + short TR intro + big amber CTA
- *   that sends the visitor to `https://titanxis.com` (i.e. the app root).
- * - Supports `?davet=CODE` query param → renders a copyable invite chip and
- *   forwards the code to the landing URL so signup can pre-fill it.
- * - Every visible string routes through `useTranslation()` for i18n.
+ * v140.12 — Native rebuild: promo görsel + gömülü metinleri kaldırıp yerine
+ * temiz React layout kondu. Kart açıklamaları, uzun intro satırı ve footer
+ * yok. Sadece:
+ *   - TiTaNXiS marka rozeti
+ *   - 3 ikon kartı (SIRALAMA, ETKİNLİKLER, LOJ HAKKINDA — açıklama yok)
+ *   - Amber "UYGULAMAYA GİR" butonu
+ * Tümü tek mobil ekrana sığar (`100dvh + overflow:hidden`).
+ *
+ * `?davet=CODE` desteklenir → küçük altın chip + CTA'ya param forward.
  */
 
-const HERO_URL =
-  "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/389b9cb896e2412ca2fcd45b85b403cd_titanxis_tanitim.png";
-
 const APP_URL = "https://titanxis.com";
+
+const FEATURE_KEYS = [
+  { key: "leaderboard", Icon: Crown,    label: "SIRALAMA" },
+  { key: "events",      Icon: Swords,   label: "ETKİNLİKLER" },
+  { key: "guide",       Icon: BookOpen, label: "LOJ HAKKINDA" },
+];
 
 export default function Tanitim() {
   const { t } = useTranslation();
@@ -30,8 +35,6 @@ export default function Tanitim() {
 
   const ctaHref = useMemo(() => {
     if (!invite) return APP_URL;
-    // Forward invite code to signup entry (also works if user is redirected
-    // to `/` — the query survives on titanxis.com).
     return `${APP_URL}/?davet=${encodeURIComponent(invite)}`;
   }, [invite]);
 
@@ -55,121 +58,137 @@ export default function Tanitim() {
         maxHeight: "100dvh",
         overflow: "hidden",
         background:
-          "radial-gradient(1200px 600px at 50% -10%, rgba(255,176,32,0.10), transparent 60%), #0a0a0a",
+          "radial-gradient(1200px 700px at 50% -10%, rgba(255,176,32,0.14), transparent 60%), #0a0a0a",
         color: "#f5f5f4",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "12px 12px",
+        padding: "28px 24px",
         boxSizing: "border-box",
       }}
     >
       <div
         style={{
           width: "100%",
-          maxWidth: 560,
+          maxWidth: 520,
           maxHeight: "100%",
           display: "flex",
           flexDirection: "column",
-          gap: 10,
+          alignItems: "center",
+          gap: 44,
         }}
       >
-        {/* Brand row */}
+        {/* Brand */}
         <div
           data-testid="tanitim-brand"
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: 8,
-            flexShrink: 0,
+            gap: 10,
           }}
         >
-          <Sword size={16} color="#f5b21c" />
+          <Sword size={22} color="#f5b21c" />
           <span
             style={{
-              letterSpacing: "0.3em",
-              fontWeight: 700,
-              fontSize: 10,
+              letterSpacing: "0.45em",
+              fontWeight: 800,
+              fontSize: 15,
               color: "#f5b21c",
               textTransform: "uppercase",
+              fontFamily: "'Cinzel', serif",
             }}
           >
             TiTaNXiS
           </span>
         </div>
 
-        {/* Hero image — v140.10: TÜM görsel tek CTA. Görselin içine gömülü
-            "UYGULAMAYA GİR" paneli zaten var; tıklayınca titanxis.com'a gider. */}
+        {/* Feature cards — icon + title only */}
+        <div
+          data-testid="tanitim-feature-row"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 14,
+            width: "100%",
+          }}
+        >
+          {FEATURE_KEYS.map(({ key, Icon, label }) => (
+            <div
+              key={key}
+              data-testid={`tanitim-feature-${key}`}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 12,
+                padding: "22px 10px",
+                borderRadius: 14,
+                background:
+                  "linear-gradient(180deg, rgba(245,178,28,0.08), rgba(15,10,20,0.65))",
+                border: "1px solid rgba(245,178,28,0.30)",
+                boxShadow: "0 6px 18px rgba(0,0,0,0.45)",
+              }}
+            >
+              <Icon size={30} color="#f5b21c" strokeWidth={1.6} />
+              <span
+                style={{
+                  fontSize: "clamp(10px, 2.6vw, 12px)",
+                  letterSpacing: "0.14em",
+                  fontWeight: 800,
+                  color: "#f5f0e8",
+                  fontFamily: "'Cinzel', serif",
+                  textAlign: "center",
+                }}
+              >
+                {t(`tanitim_feature_${key}`, label)}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* CTA */}
         <a
           data-testid="tanitim-cta-btn"
           href={ctaHref}
           aria-label={t("tanitim_cta", "UYGULAMAYA GİR")}
           style={{
-            flex: "1 1 auto",
-            minHeight: 0,
-            display: "flex",
+            display: "inline-flex",
+            alignItems: "center",
             justifyContent: "center",
-            alignItems: "stretch",
-            textDecoration: "none",
+            gap: 14,
+            padding: "18px 42px",
             borderRadius: 14,
-            overflow: "hidden",
-            border: "1px solid rgba(245,178,28,0.35)",
+            background:
+              "linear-gradient(135deg, #ffd36b 0%, #f5b21c 55%, #b8760a 100%)",
+            color: "#150e00",
+            fontWeight: 900,
+            fontSize: "clamp(15px, 3.8vw, 18px)",
+            letterSpacing: "0.18em",
+            textDecoration: "none",
+            textTransform: "uppercase",
+            fontFamily: "'Cinzel', serif",
             boxShadow:
-              "0 0 40px rgba(245,178,28,0.22), 0 12px 28px rgba(0,0,0,0.55)",
-            background: "#0f0f0f",
-            cursor: "pointer",
+              "0 12px 34px rgba(245,178,28,0.45), inset 0 1px 0 rgba(255,255,255,0.4)",
             transition: "transform 0.15s ease, box-shadow 0.2s ease",
+            cursor: "pointer",
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = "translateY(-2px)";
             e.currentTarget.style.boxShadow =
-              "0 0 60px rgba(245,178,28,0.35), 0 18px 40px rgba(0,0,0,0.7)";
+              "0 16px 40px rgba(245,178,28,0.60), inset 0 1px 0 rgba(255,255,255,0.5)";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = "translateY(0)";
             e.currentTarget.style.boxShadow =
-              "0 0 40px rgba(245,178,28,0.22), 0 12px 28px rgba(0,0,0,0.55)";
+              "0 12px 34px rgba(245,178,28,0.45), inset 0 1px 0 rgba(255,255,255,0.4)";
           }}
         >
-          <img
-            data-testid="tanitim-hero-image"
-            src={HERO_URL}
-            alt={t("tanitim_hero_alt", "TiTaNXiS Lonca Yönetim Uygulaması")}
-            loading="eager"
-            fetchpriority="high"
-            style={{
-              maxWidth: "100%",
-              maxHeight: "100%",
-              width: "auto",
-              height: "100%",
-              objectFit: "contain",
-              display: "block",
-              margin: "auto",
-            }}
-          />
+          {t("tanitim_cta", "UYGULAMAYA GİR")}
         </a>
 
-        {/* Intro copy — kompakt tek satır */}
-        <h1
-          data-testid="tanitim-title"
-          style={{
-            margin: 0,
-            fontSize: "clamp(11px, 2.6vw, 14px)",
-            lineHeight: 1.3,
-            textAlign: "center",
-            fontWeight: 700,
-            flexShrink: 0,
-            opacity: 0.9,
-          }}
-        >
-          {t(
-            "tanitim_intro",
-            "⚔️ TiTaNXiS Lonca Yönetim Uygulaması — Loncanu yönet, etkinliklerini takip et, sıralamanda yerini al!"
-          )}
-        </h1>
-
-        {/* Invite chip (only when ?davet= present) */}
+        {/* Invite chip (?davet=…) */}
         {invite && (
           <div
             data-testid="tanitim-invite-chip"
@@ -177,12 +196,11 @@ export default function Tanitim() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: 8,
+              gap: 10,
               flexWrap: "wrap",
-              flexShrink: 0,
             }}
           >
-            <span style={{ opacity: 0.7, fontSize: 11 }}>
+            <span style={{ opacity: 0.72, fontSize: 12 }}>
               {t("tanitim_invite_label", "Davet Kodun")}
             </span>
             <button
@@ -191,8 +209,8 @@ export default function Tanitim() {
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 6,
-                padding: "5px 10px",
+                gap: 7,
+                padding: "7px 12px",
                 borderRadius: 999,
                 background: "rgba(245,178,28,0.10)",
                 border: "1px solid rgba(245,178,28,0.45)",
@@ -200,12 +218,12 @@ export default function Tanitim() {
                 fontFamily:
                   "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
                 fontWeight: 700,
-                letterSpacing: "0.06em",
+                letterSpacing: "0.07em",
                 cursor: "pointer",
-                fontSize: 11,
+                fontSize: 12,
               }}
             >
-              {copied ? <Check size={12} /> : <Copy size={12} />}
+              {copied ? <Check size={14} /> : <Copy size={14} />}
               {invite}
             </button>
           </div>
