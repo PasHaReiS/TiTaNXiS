@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.30 — Bireysel Etkinlik: 3-Mode Group Selector)** — Frontend:
+  - `BireyselEventForm` grup seçici genişletildi: **🚫 Grup Yok** / **📁 Mevcut Grup** / **✨ Yeni Grup** (3 chip toggle). Modlar arası geçişte diğer state'ler otomatik sıfırlanır.
+  - **Mevcut Grup**: `useSWR("/event-groups?active_only=true")`'dan aktif gruplarla dolu `<select>` (`bireysel-group-select`).
+  - **Yeni Grup**: serbest metin input (`bireysel-group-new-input`, maxLength=60). Kaydedince backend `events` doc'una `group_name` olarak yazılır ve otomatik olarak aktif gruplar listesine dahil edilir.
+  - Submit validation: mod=existing ama boş seçim → block; mod=new ama boş ad → block.
+  - `resolvedGroupName` mode'a göre çözülür: `existing` → seçilen, `new` → yeni ad, `none` → `""`.
+  - Top10 mantığı (v140.28) otomatik uyumlu: yeni grup adı da `?group_name=X` sorgusuyla ranking hesaplar.
+
+
 - **Feb 31, 2026 (v140.29 — Bireysel Etkinlik Group Selector)** — Frontend:
   - `BireyselEventForm` (`Events.jsx`): Yeni "GRUP SEÇİMİ" bölümü — iki chip toggle: **🚫 Grup Yok** (default) ve **📁 Grup Var**. `groupMode` state + `selectedGroup` state.
   - "Grup Var" seçilince `useSWR("/event-groups?active_only=true")`'dan gelen aktif gruplarla dolu `<select>` görünür (`data-testid=bireysel-group-select`). "Grup Yok"'a dönünce dropdown gizlenir + `selectedGroup` sıfırlanır.

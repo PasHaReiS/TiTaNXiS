@@ -3662,9 +3662,10 @@ function BireyselEventForm({ onClose }) {
     new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
   );
   const [description, setDescription] = useState("");
-  // v140.29 — Grup seçimi ("none" = Grup Yok, "group" = Grup Var)
+  // v140.29 — Grup seçimi ("none" = Grup Yok, "existing" = Mevcut, "new" = Yeni ad)
   const [groupMode, setGroupMode] = useState("none");
   const [selectedGroup, setSelectedGroup] = useState("");
+  const [newGroupName, setNewGroupName] = useState("");
 
   const [showInLb, setShowInLb] = useState(true);
   const [autoReport, setAutoReport] = useState(false);
@@ -3674,21 +3675,29 @@ function BireyselEventForm({ onClose }) {
   const submit = async (e) => {
     e.preventDefault();
     if (!name.trim()) { toast.error("Etkinlik adı gerekli"); return; }
-    if (groupMode === "group" && !selectedGroup.trim()) {
+    if (groupMode === "existing" && !selectedGroup.trim()) {
       toast.error("Grup seçmelisin veya 'Grup Yok' seçeneğine dön");
+      return;
+    }
+    if (groupMode === "new" && !newGroupName.trim()) {
+      toast.error("Yeni grup adı boş olamaz");
       return;
     }
     setSaving(true);
     try {
       const selected = Object.keys(channels).filter((k) => channels[k]);
+      // v140.30 — mod'a göre grup adını çöz
+      const resolvedGroupName =
+        groupMode === "existing" ? selectedGroup.trim()
+        : groupMode === "new" ? newGroupName.trim()
+        : "";
       const body = {
         name: name.trim(),
         date: new Date(date).toISOString(),
         subtitle: null,
         description: description.trim() || null,
         multiplier: 1,
-        // v140.29 — grup seçimi: mode "group" ise seçilen grup adı, aksi halde boş
-        group_name: groupMode === "group" ? selectedGroup.trim() : "",
+        group_name: resolvedGroupName,
         banner_url: null,
         hidden_from_leaderboard: !showInLb,
         attendance_enabled: false,
@@ -3766,15 +3775,15 @@ function BireyselEventForm({ onClose }) {
           className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white resize-none"
         />
 
-        {/* v140.29 — Grup seçimi (Grup Var / Grup Yok) */}
+        {/* v140.30 — Grup seçimi: Yok / Mevcut / Yeni (3 chip) */}
         <div className="mt-3 rounded p-3" style={{ background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.30)" }} data-testid="bireysel-group-section">
           <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-2">GRUP SEÇİMİ</div>
-          <div className="flex gap-2 mb-2">
+          <div className="flex gap-2 mb-2 flex-wrap">
             <button
               type="button"
               data-testid="bireysel-group-mode-none"
-              onClick={() => { setGroupMode("none"); setSelectedGroup(""); }}
-              className="chip text-xs px-3 py-1.5 flex-1"
+              onClick={() => { setGroupMode("none"); setSelectedGroup(""); setNewGroupName(""); }}
+              className="chip text-xs px-3 py-1.5 flex-1 min-w-[90px]"
               style={{
                 borderColor: groupMode === "none" ? "#A78BFA" : "rgba(148,163,184,0.5)",
                 color: groupMode === "none" ? "#C4B5FD" : "#94A3B8",
@@ -3786,20 +3795,34 @@ function BireyselEventForm({ onClose }) {
             </button>
             <button
               type="button"
-              data-testid="bireysel-group-mode-group"
-              onClick={() => setGroupMode("group")}
-              className="chip text-xs px-3 py-1.5 flex-1"
+              data-testid="bireysel-group-mode-existing"
+              onClick={() => { setGroupMode("existing"); setNewGroupName(""); }}
+              className="chip text-xs px-3 py-1.5 flex-1 min-w-[90px]"
               style={{
-                borderColor: groupMode === "group" ? "#A78BFA" : "rgba(148,163,184,0.5)",
-                color: groupMode === "group" ? "#C4B5FD" : "#94A3B8",
-                background: groupMode === "group" ? "rgba(168,85,247,0.15)" : "transparent",
+                borderColor: groupMode === "existing" ? "#A78BFA" : "rgba(148,163,184,0.5)",
+                color: groupMode === "existing" ? "#C4B5FD" : "#94A3B8",
+                background: groupMode === "existing" ? "rgba(168,85,247,0.15)" : "transparent",
               }}
-              aria-pressed={groupMode === "group"}
+              aria-pressed={groupMode === "existing"}
             >
-              📁 Grup Var
+              📁 Mevcut Grup
+            </button>
+            <button
+              type="button"
+              data-testid="bireysel-group-mode-new"
+              onClick={() => { setGroupMode("new"); setSelectedGroup(""); }}
+              className="chip text-xs px-3 py-1.5 flex-1 min-w-[90px]"
+              style={{
+                borderColor: groupMode === "new" ? "#A78BFA" : "rgba(148,163,184,0.5)",
+                color: groupMode === "new" ? "#C4B5FD" : "#94A3B8",
+                background: groupMode === "new" ? "rgba(168,85,247,0.15)" : "transparent",
+              }}
+              aria-pressed={groupMode === "new"}
+            >
+              ✨ Yeni Grup
             </button>
           </div>
-          {groupMode === "group" && (
+          {groupMode === "existing" && (
             <div data-testid="bireysel-group-select-row">
               <select
                 data-testid="bireysel-group-select"
@@ -3814,6 +3837,22 @@ function BireyselEventForm({ onClose }) {
               </select>
               <p className="text-[10px] mt-1 opacity-70" style={{ color: "#94A3B8" }}>
                 Aynı gruba ait etkinliklerin puanları birlikte toplanır.
+              </p>
+            </div>
+          )}
+          {groupMode === "new" && (
+            <div data-testid="bireysel-group-new-row">
+              <input
+                type="text"
+                data-testid="bireysel-group-new-input"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="Yeni grup adı (örn. Kış Turnuvası)"
+                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white"
+                maxLength={60}
+              />
+              <p className="text-[10px] mt-1 opacity-70" style={{ color: "#94A3B8" }}>
+                Yeni bir grup adı yazıyorsun. Kaydedince aktif gruplar listesine eklenecek.
               </p>
             </div>
           )}
