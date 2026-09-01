@@ -489,7 +489,12 @@ async def setup_webhook() -> bool:
 
 
 async def process_update(update_data: dict) -> None:
-    """Called from the FastAPI webhook route. Feeds the update through PTB."""
+    """Called from the FastAPI webhook route. Feeds the update through PTB.
+
+    v140.23 — Auto-register any group/supergroup chat we hear from into
+    `db.telegram_bot_groups` so downstream broadcasts (`_send_tg_channel`)
+    can fan-out to every registered chat. Fully non-blocking; failures
+    swallowed so they never break command handling."""
     if _app is None:
         log.warning("process_update called but bot not initialized.")
         return
@@ -498,6 +503,32 @@ async def process_update(update_data: dict) -> None:
         await _app.initialize()
         await _app.start()
     update = Update.de_json(update_data, _app.bot)
+    # v140.23 — group auto-registration (before command dispatch so join
+    # events / kick events + regular messages all get captured).
+    try:
+        chat = getattr(update, "effective_chat", None)
+        if chat and chat.type in ("group", "supergroup"):
+            from server import db as _db  # local import to avoid cycles at load
+            await _db.telegram_bot_groups.update_one(
+                {"chat_id": chat.id},
+                {"$set": {
+                    "chat_id": chat.id,
+                    "title": getattr(chat, "title", None),
+                    "type": chat.type,
+                    "last_seen": datetime.now(timezone.utc).isoformat(),
+                }},
+                upsert=True,
+            )
+        # Handle bot being removed from the group.
+        mcm = getattr(update, "my_chat_member", None)
+        if mcm and mcm.chat and mcm.chat.type in ("group", "supergroup"):
+            new_status = getattr(mcm.new_chat_member, "status", None) if getattr(mcm, "new_chat_member", None) else None
+            if new_status in ("left", "kicked"):
+                from server import db as _db
+                await _db.telegram_bot_groups.delete_one({"chat_id": mcm.chat.id})
+                log.info(f"[bot-groups] removed from chat_id={mcm.chat.id} status={new_status}")
+    except Exception as _ex:
+        log.debug(f"telegram_bot_groups upsert skipped: {_ex}")
     await _app.process_update(update)
 
 
@@ -2288,10 +2319,22 @@ async def edit_message_text(chat_id: str, message_id: int, text: str,
 async def send_event_notification(event_name: str, event_date: str,
                                     group_name: str, multiplier: float,
                                     event_id: Optional[str] = None) -> bool:
-    """Broadcast to TELEGRAM_CHANNEL_ID (if set) when a new event is created.
+    """Broadcast to TELEGRAM_EVENT_TEST_GROUP when a new event is created.
+
+    v140.23 — Yeni etkinlik bildirimleri SADECE test grubuna gönderilir
+    (`TELEGRAM_EVENT_TEST_GROUP` env var). Diğer tüm bildirimler (hatırlatmalar,
+    duyurular, doğum günleri, todo, streak) `TELEGRAM_CHANNEL_ID` +
+    `db.telegram_bot_groups` fan-out'u üzerinden gider (bkz. `_send_tg_channel`
+    ve `_broadcast_group_ids` helper). Fallback: eğer `TELEGRAM_EVENT_TEST_GROUP`
+    boşsa, `TELEGRAM_TEST_CHAT_ID` yoksa da `TELEGRAM_CHANNEL_ID` kullanılır.
+
     v134.7 — Attaches an inline "📅 Takvime Ekle" button that opens Google
     Calendar's event-create URL (mobil + web'de aynı deep-link)."""
-    channel = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+    channel = (
+        os.environ.get("TELEGRAM_EVENT_TEST_GROUP", "").strip()
+        or os.environ.get("TELEGRAM_TEST_CHAT_ID", "").strip()
+        or os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+    )
     if not channel:
         return False
 

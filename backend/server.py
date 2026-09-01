@@ -5853,22 +5853,49 @@ async def push_scheduled_snooze(sch_id: str, body: PushSnoozeBody, _: dict = Dep
     return updated
 
 
+async def _broadcast_group_ids() -> list:
+    """v140.23 — Bota kayıtlı tüm grup chat_id'lerinin dedup'lı listesi.
+    Kaynaklar:
+      1. `db.telegram_bot_groups` (bot bir gruba eklendiğinde `process_update`
+         auto-upsert yapıyor).
+      2. `TELEGRAM_CHANNEL_ID` env var (kayıtlı gruplar boşsa fallback +
+         her zaman set'e dahil).
+    Yeni etkinlik bildirimleri BU listeyi kullanmaz — o özel olarak
+    `TELEGRAM_EVENT_TEST_GROUP`'a gider (bkz. `send_event_notification`)."""
+    ids = set()
+    try:
+        async for g in db.telegram_bot_groups.find({}, {"_id": 0, "chat_id": 1}):
+            cid = g.get("chat_id")
+            if cid is not None:
+                ids.add(str(cid))
+    except Exception as ex:
+        logger.debug(f"_broadcast_group_ids db read failed: {ex}")
+    fallback = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+    if fallback:
+        ids.add(fallback)
+    return sorted(ids)
+
+
 async def _send_tg_channel(doc: dict) -> dict:
-    """Broadcast the scheduled push to the Telegram GROUP channel only.
-    Isolated from DM fan-out so the scheduler can run both concurrently via
-    `asyncio.gather` — a slow/failing channel call no longer delays DMs.
+    """Broadcast the scheduled push to EVERY registered Telegram group.
+
+    v140.23 — Fan-out via `_broadcast_group_ids()`. Her grup için tek gönderim
+    (dedupe DB'de zaten set olarak yapılıyor); ayrıca çağrıyı yalnızca 1 kez
+    tetikleyen `push_scheduled_loop`'un idempotent claim'i çift göndermeyi
+    engelliyor.
 
     When `doc.image_url` is provided we use `sendPhoto` (caption up to 1024
     chars) so announcements render as a rich card in the group; otherwise
     fall back to plain `sendMessage`."""
     from telegram_bot import send_message as _tg_send, send_photo as _tg_photo
-    out = {"channel_sent": False}
+    out = {"channel_sent": False, "channel_delivered": 0, "channel_targets": 0}
     if not os.environ.get("TELEGRAM_BOT_TOKEN", "").strip():
         return out
     if not doc.get("send_channel", True):
         return out
-    channel = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
-    if not channel:
+    targets = await _broadcast_group_ids()
+    out["channel_targets"] = len(targets)
+    if not targets:
         return out
     title = (doc.get("title") or "").strip()
     body_txt = (doc.get("body") or "").strip()
@@ -5878,10 +5905,14 @@ async def _send_tg_channel(doc: dict) -> dict:
         text_lines.append(body_txt)
     text = "\n".join(text_lines) or "🔔 Etkinlik hatırlatması"
     img = (doc.get("image_url") or "").strip()
-    if img:
-        out["channel_sent"] = await _tg_photo(channel, img, caption=text)
-    else:
-        out["channel_sent"] = await _tg_send(channel, text)
+    for chat_id in targets:
+        try:
+            ok = await (_tg_photo(chat_id, img, caption=text) if img else _tg_send(chat_id, text))
+            if ok:
+                out["channel_delivered"] += 1
+        except Exception as ex:
+            logger.warning(f"_send_tg_channel: broadcast to {chat_id} failed: {ex}")
+    out["channel_sent"] = out["channel_delivered"] > 0
     return out
 
 

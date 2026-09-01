@@ -20,6 +20,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.23 — Telegram Broadcast Routing Split)** — Multi:
+  - **`.env`**: `TELEGRAM_EVENT_TEST_GROUP=-1005228424846` eklendi.
+  - **`telegram_bot.py`**:
+    - `send_event_notification` artık `TELEGRAM_EVENT_TEST_GROUP` env'ini kullanır (fallback: `TELEGRAM_TEST_CHAT_ID` → `TELEGRAM_CHANNEL_ID`). Yeni etkinlik bildirimleri SADECE test grubuna gider.
+    - `process_update`: her grup/supergroup mesajı `db.telegram_bot_groups` (chat_id, title, type, last_seen) koleksiyonuna upsert edilir. `my_chat_member` update'inde bot `left`/`kicked` olursa doc silinir.
+  - **`server.py`**:
+    - Yeni helper `_broadcast_group_ids()` — `db.telegram_bot_groups` + `TELEGRAM_CHANNEL_ID` fallback'inin dedup'lı setini döner.
+    - `_send_tg_channel` fan-out: her registered grup için tek gönderim; per-target hata izole. `channel_targets` + `channel_delivered` metric'leri yanıtta. Duplicate guard (`push_scheduled_loop`'un idempotent claim'i) korunuyor.
+  - **Seed**: Production `TELEGRAM_CHANNEL_ID=-1003597221954` grubu `telegram_bot_groups`'a manuel seed edildi (bota daha önce başka gruplara eklenmediği durumda fan-out hedefsiz kalmasın).
+
+
 - **Feb 31, 2026 (v140.22 — /tanitim Ambient Load + Fire Click Animations)** — Frontend:
   - `Tanitim.css`: v140.21 flash keyframe kaldırıldı. Yerine:
     1. `.tanitim-root::before` sabit fullscreen pseudo layer, `radial-gradient(ellipse at center, rgba(255,200,0,0.4) 0%, transparent 70%)`. `@keyframes tanitim-load` opacity 0→0.6, 1.5s `ease-in forwards`.
