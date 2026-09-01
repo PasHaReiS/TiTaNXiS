@@ -5853,7 +5853,7 @@ async def push_scheduled_snooze(sch_id: str, body: PushSnoozeBody, _: dict = Dep
     return updated
 
 
-async def _broadcast_group_ids() -> list:
+async def _broadcast_group_ids(notif_type: Optional[str] = None) -> list:
     """v140.23 — Bota kayıtlı tüm grup chat_id'lerinin dedup'lı listesi.
     Kaynaklar:
       1. `db.telegram_bot_groups` (bot bir gruba eklendiğinde `process_update`
@@ -5861,19 +5861,80 @@ async def _broadcast_group_ids() -> list:
       2. `TELEGRAM_CHANNEL_ID` env var (kayıtlı gruplar boşsa fallback +
          her zaman set'e dahil).
     Yeni etkinlik bildirimleri BU listeyi kullanmaz — o özel olarak
-    `TELEGRAM_EVENT_TEST_GROUP`'a gider (bkz. `send_event_notification`)."""
+    `TELEGRAM_EVENT_TEST_GROUP`'a gider (bkz. `send_event_notification`).
+
+    v140.25 — Optional `notif_type` filtresi: grup'un
+    `notification_settings[notif_type]` false ise o grup listeden çıkarılır.
+    Type default'u True (opt-out sistemi)."""
     ids = set()
+    settings_map = {}  # chat_id_str → notification_settings dict
     try:
-        async for g in db.telegram_bot_groups.find({}, {"_id": 0, "chat_id": 1}):
+        async for g in db.telegram_bot_groups.find({}, {"_id": 0, "chat_id": 1, "notification_settings": 1}):
             cid = g.get("chat_id")
-            if cid is not None:
-                ids.add(str(cid))
+            if cid is None:
+                continue
+            cid_str = str(cid)
+            ids.add(cid_str)
+            settings_map[cid_str] = g.get("notification_settings") or {}
     except Exception as ex:
         logger.debug(f"_broadcast_group_ids db read failed: {ex}")
     fallback = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
     if fallback:
         ids.add(fallback)
+    if notif_type:
+        ids = {cid for cid in ids if settings_map.get(cid, {}).get(notif_type, True)}
     return sorted(ids)
+
+
+DEFAULT_NOTIFICATION_SETTINGS = {
+    "yeni_etkinlik": True,
+    "etkinlik_hatirlatma": True,
+    "duyurular": True,
+    "dogum_gunu": True,
+    "streak": True,
+    "gorev": True,
+}
+
+
+@api_router.get("/telegram/groups")
+async def telegram_groups_list(_: dict = Depends(require_admin)):
+    """v140.25 — Bota kayıtlı Telegram grupları + her birinin bildirim ayarları."""
+    rows = await db.telegram_bot_groups.find({}, {"_id": 0}).sort("last_seen", -1).to_list(200)
+    for r in rows:
+        # Backward-compat: eski docs'ta notification_settings yoksa default doldur
+        current = r.get("notification_settings") or {}
+        r["notification_settings"] = {**DEFAULT_NOTIFICATION_SETTINGS, **current}
+    return rows
+
+
+class NotifSettingsUpdate(BaseModel):
+    notification_settings: dict
+
+
+@api_router.patch("/telegram/groups/{group_id}/notifications")
+async def telegram_group_update_notifications(group_id: str, body: NotifSettingsUpdate, _: dict = Depends(require_admin)):
+    """v140.25 — Bir grubun bildirim ayarlarını güncelle. `group_id` chat_id (string
+    veya int olarak yollanabilir)."""
+    # chat_id int veya string olabilir — her ikisiyle de eşleştir
+    try:
+        cid_int = int(group_id)
+    except Exception:
+        cid_int = None
+    filter_q = {"$or": [{"chat_id": group_id}]}
+    if cid_int is not None:
+        filter_q["$or"].append({"chat_id": cid_int})
+    # Sadece bilinen anahtarlar (bool)
+    clean = {k: bool(v) for k, v in (body.notification_settings or {}).items()
+             if k in DEFAULT_NOTIFICATION_SETTINGS}
+    if not clean:
+        raise HTTPException(400, "notification_settings boş veya geçersiz")
+    res = await db.telegram_bot_groups.update_one(
+        filter_q,
+        {"$set": {f"notification_settings.{k}": v for k, v in clean.items()}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(404, "Grup bulunamadı")
+    return {"updated": True, "notification_settings": clean}
 
 
 async def _send_tg_channel(doc: dict) -> dict:
@@ -5893,7 +5954,9 @@ async def _send_tg_channel(doc: dict) -> dict:
         return out
     if not doc.get("send_channel", True):
         return out
-    targets = await _broadcast_group_ids()
+    # v140.25 — Notification type filter (opt-out per grup).
+    notif_type = (doc.get("notif_type") or "duyurular").strip() or None
+    targets = await _broadcast_group_ids(notif_type=notif_type)
     out["channel_targets"] = len(targets)
     if not targets:
         return out

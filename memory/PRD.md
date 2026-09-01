@@ -20,6 +20,19 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.25 — Telegram Group Notification Manager)** — Multi:
+  - **Backend** (`server.py`):
+    - `_broadcast_group_ids(notif_type=None)` — grup'un `notification_settings[notif_type]` false ise listeden çıkarır (opt-out, default True).
+    - `DEFAULT_NOTIFICATION_SETTINGS` sabiti (6 anahtar): `yeni_etkinlik, etkinlik_hatirlatma, duyurular, dogum_gunu, streak, gorev`.
+    - `GET /api/telegram/groups` (admin) → gruplar + notification_settings default doldurmalı.
+    - `PATCH /api/telegram/groups/{group_id}/notifications` (admin) → chat_id int/string tolerant match, `NotifSettingsUpdate` pydantic model, sadece bilinen anahtarlar `bool` cast, `$set` ile dot-notation.
+    - `_send_tg_channel(doc)` artık `doc.notif_type` (default `"duyurular"`) okur → filtered fan-out.
+  - **Frontend** (`TelegramGroups.jsx`, App.js route, i18n):
+    - Yeni admin sayfası `/admin/telegram-gruplari`. Her grup kartında 6 toggle (aria-checked switch UI), pending edit tracker, per-grup **Kaydet** butonu (`disabled` iken sadece değişiklik varsa aktif).
+    - i18n TR + EN: 12 yeni key (`tg_groups_*`, `notif_*`).
+  - **Doğrulama**: GET → 1 grup default settings ile, PATCH `duyurular:false` → `{updated:true}` ✅.
+
+
 - **Feb 31, 2026 (v140.24 — Voice Room Mic Mode: Continuous vs Push-to-Talk)** — Frontend:
   - `VoiceRooms.jsx` `ActiveRoomUI`:
     - Yeni `micMode` state (`continuous` | `ptt`) — `localStorage.voice_mic_mode` ile per-user kalıcı.
