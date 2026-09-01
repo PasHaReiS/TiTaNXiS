@@ -1,55 +1,35 @@
 import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import { Sword, Crown, Swords, BookOpen, Globe, Copy, Check } from "lucide-react";
+import { Crown, Swords, BookOpen, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 
 /**
- * Public landing page — `/tanitim` (v140.16 restore + palette refresh).
+ * Public landing page — `/tanitim` (v140.17 full rewrite).
  *
- * Yapı: brand rozeti → hero görsel → gradient-siz solid amber-orange H1
- * "LONCANA KATIL, EFSANENİ YAZ" → cream beyaz subtitle → (davet chip)
- * → 3 özellik kartı (amber-orange başlık + cream beyaz açıklama)
- * → büyük amber "UYGULAMAYA GİR" CTA → globe + amber `titanxis.com`
- * → global `LegalFooter`.
- *
- * v140.16 palette:
- *   - Ana başlık + kart başlıkları:   #FF8C00 (amber-orange, solid)
- *   - Alt başlık + kart açıklamaları: #FFF5DC (cream white)
- *   - titanxis.com link:              #FFC87A (soft amber)
- * Diğer elementler (CTA butonu, marka rozeti, ikonlar, kart border/bg,
- * arka plan glow) mevcut altın paleti korur — bkz. `Sword`/`Crown`/`Swords`.
+ * KESIN kurallar:
+ *  - `100dvh + overflow:hidden` → mobil 390×844'te scroll YOK.
+ *  - Tüm sayfa TEK bir `<a href=titanxis.com>` — herhangi bir noktaya
+ *    tıklanınca app açılır (davet chip'in kopyala butonu hariç,
+ *    stopPropagation ile korunuyor).
+ *  - İçerik sadece: hero görsel (flex:1, object-fit:cover) → 3 minik
+ *    özellik ikonu satırı (SIRALAMA / ETKİNLİKLER / LOJ HAKKINDA)
+ *    → küçük "UYGULAMAYA GİR" metni.
+ *  - Metin rengi: `#FF8C00` (amber-orange).
+ *  - Footer / uzun paragraf / tekrar eden başlık YOK.
+ *  - `LegalFooter.jsx` bu yolda gizli.
  */
 
 const HERO_URL =
   "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/389b9cb896e2412ca2fcd45b85b403cd_titanxis_tanitim.png";
 
 const APP_URL = "https://titanxis.com";
-
-// v140.16 palette
-const HEADING_COLOR = "#FF8C00"; // amber-orange
-const BODY_COLOR = "#FFF5DC";    // cream white
-const DOMAIN_COLOR = "#FFC87A";  // soft amber
+const AMBER = "#FF8C00";
 
 const FEATURES = [
-  {
-    key: "leaderboard",
-    Icon: Crown,
-    title: "SIRALAMA",
-    desc: "Loncanızın gücünü sıralamalarda gösterin. En iyiler arasında yerinizi alın!",
-  },
-  {
-    key: "events",
-    Icon: Swords,
-    title: "ETKİNLİKLER",
-    desc: "Etkinlikleri planlayın, katılımı artırın ve loncanızı zaferlere taşıyın.",
-  },
-  {
-    key: "guide",
-    Icon: BookOpen,
-    title: "LOJ HAKKINDA",
-    desc: "Rehber, kahraman bilgileri ve lonca stratejileri.",
-  },
+  { key: "leaderboard", Icon: Crown,    label: "SIRALAMA" },
+  { key: "events",      Icon: Swords,   label: "ETKİNLİKLER" },
+  { key: "guide",       Icon: BookOpen, label: "LOJ HAKKINDA" },
 ];
 
 export default function Tanitim() {
@@ -64,7 +44,10 @@ export default function Tanitim() {
     return `${APP_URL}/?davet=${encodeURIComponent(invite)}`;
   }, [invite]);
 
-  const copyInvite = async () => {
+  const copyInvite = async (e) => {
+    // Chip'in kopyala butonu: sayfayı yönlendirmesin.
+    e.preventDefault();
+    e.stopPropagation();
     try {
       await navigator.clipboard.writeText(invite);
       setCopied(true);
@@ -76,275 +59,154 @@ export default function Tanitim() {
   };
 
   return (
-    <div
+    <a
       data-testid="tanitim-page"
+      href={ctaHref}
+      aria-label={t("tanitim_cta", "UYGULAMAYA GİR")}
       style={{
-        minHeight: "100vh",
+        height: "100vh",
+        minHeight: "100dvh",
+        maxHeight: "100dvh",
+        overflow: "hidden",
         background:
-          "radial-gradient(1400px 700px at 50% -10%, rgba(255,176,32,0.14), transparent 60%), #0a0a0a",
-        color: BODY_COLOR,
-        padding: "36px 20px 66px",
+          "radial-gradient(1200px 600px at 50% -10%, rgba(255,140,0,0.14), transparent 60%), #0a0a0a",
+        color: AMBER,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "stretch",
+        padding: "12px 12px 14px",
         boxSizing: "border-box",
+        textDecoration: "none",
+        cursor: "pointer",
       }}
     >
+      {/* Hero image — flex:1, object-fit:cover */}
       <div
+        data-testid="tanitim-cta-btn"
         style={{
-          width: "100%",
-          maxWidth: 680,
-          margin: "0 auto",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 32,
+          flex: "1 1 auto",
+          minHeight: 0,
+          borderRadius: 14,
+          overflow: "hidden",
+          border: "1px solid rgba(255,140,0,0.35)",
+          boxShadow:
+            "0 0 40px rgba(255,140,0,0.22), 0 12px 28px rgba(0,0,0,0.55)",
+          background: "#0f0f0f",
         }}
       >
-        {/* Brand */}
+        <img
+          data-testid="tanitim-hero-image"
+          src={HERO_URL}
+          alt={t("tanitim_hero_alt", "TiTaNXiS Lonca Yönetim Uygulaması")}
+          loading="eager"
+          fetchpriority="high"
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
+        />
+      </div>
+
+      {/* Davet chip (?davet=…) — hero altında yer alır */}
+      {invite && (
         <div
-          data-testid="tanitim-brand"
+          data-testid="tanitim-invite-chip"
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: 10,
+            gap: 8,
+            marginTop: 10,
+            flexShrink: 0,
           }}
         >
-          <Sword size={20} color="#f5b21c" />
-          <span
-            style={{
-              letterSpacing: "0.45em",
-              fontWeight: 800,
-              fontSize: 13,
-              color: "#f5b21c",
-              textTransform: "uppercase",
-              fontFamily: "'Cinzel', serif",
-            }}
-          >
-            TiTaNXiS
+          <span style={{ opacity: 0.72, fontSize: 11, color: AMBER }}>
+            {t("tanitim_invite_label", "Davet Kodun")}
           </span>
-        </div>
-
-        {/* 1) Hero image */}
-        <div
-          data-testid="tanitim-hero-wrapper"
-          style={{
-            width: "100%",
-            borderRadius: 18,
-            overflow: "hidden",
-            border: "1px solid rgba(245,178,28,0.32)",
-            boxShadow:
-              "0 0 50px rgba(245,178,28,0.22), 0 16px 34px rgba(0,0,0,0.55)",
-            background: "#0f0f0f",
-          }}
-        >
-          <img
-            data-testid="tanitim-hero-image"
-            src={HERO_URL}
-            alt={t("tanitim_hero_alt", "TiTaNXiS Lonca Yönetim Uygulaması")}
-            loading="eager"
-            fetchpriority="high"
-            style={{ width: "100%", height: "auto", display: "block" }}
-          />
-        </div>
-
-        {/* 2) Ana başlık — v140.16: solid amber-orange */}
-        <h1
-          data-testid="tanitim-title"
-          style={{
-            margin: 0,
-            fontFamily: "'Cinzel', serif",
-            fontSize: "clamp(28px, 6vw, 44px)",
-            lineHeight: 1.15,
-            textAlign: "center",
-            fontWeight: 800,
-            color: HEADING_COLOR,
-            letterSpacing: "0.02em",
-          }}
-        >
-          {t("tanitim_headline", "LONCANA KATIL, EFSANENİ YAZ")}
-        </h1>
-
-        {/* 3) Alt başlık — v140.16: cream white */}
-        <p
-          data-testid="tanitim-subtitle"
-          style={{
-            margin: 0,
-            maxWidth: 560,
-            fontSize: "clamp(13px, 3.2vw, 16px)",
-            lineHeight: 1.55,
-            textAlign: "center",
-            color: BODY_COLOR,
-          }}
-        >
-          {t(
-            "tanitim_subtitle",
-            "TiTaNXiS ile loncanu en üst seviyeye taşı. Yönetimi kolaylaştır, gücünü göster, efsaneni birlikte yazalım!"
-          )}
-        </p>
-
-        {/* Invite chip (?davet=…) */}
-        {invite && (
-          <div
-            data-testid="tanitim-invite-chip"
+          <button
+            data-testid="tanitim-invite-copy-btn"
+            onClick={copyInvite}
             style={{
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
-              justifyContent: "center",
-              gap: 10,
-              flexWrap: "wrap",
-            }}
-          >
-            <span style={{ opacity: 0.72, fontSize: 13, color: BODY_COLOR }}>
-              {t("tanitim_invite_label", "Davet Kodun")}
-            </span>
-            <button
-              data-testid="tanitim-invite-copy-btn"
-              onClick={copyInvite}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 7,
-                padding: "8px 14px",
-                borderRadius: 999,
-                background: "rgba(245,178,28,0.10)",
-                border: "1px solid rgba(245,178,28,0.45)",
-                color: "#f5b21c",
-                fontFamily:
-                  "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                cursor: "pointer",
-                fontSize: 13,
-              }}
-            >
-              {copied ? <Check size={14} /> : <Copy size={14} />}
-              {invite}
-            </button>
-          </div>
-        )}
-
-        {/* 4) 3 özellik kartı — v140.16: amber-orange başlık + cream açıklama */}
-        <div
-          data-testid="tanitim-feature-row"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            gap: 16,
-            width: "100%",
-          }}
-        >
-          {FEATURES.map(({ key, Icon, title, desc }) => (
-            <div
-              key={key}
-              data-testid={`tanitim-feature-${key}`}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "flex-start",
-                gap: 12,
-                padding: "22px 16px",
-                borderRadius: 14,
-                background:
-                  "linear-gradient(180deg, rgba(245,178,28,0.08), rgba(15,10,20,0.65))",
-                border: "1px solid rgba(245,178,28,0.28)",
-                boxShadow: "0 6px 18px rgba(0,0,0,0.45)",
-                minHeight: 168,
-                textAlign: "center",
-              }}
-            >
-              <Icon size={34} color="#f5b21c" strokeWidth={1.6} />
-              <span
-                style={{
-                  fontSize: 13,
-                  letterSpacing: "0.16em",
-                  fontWeight: 800,
-                  color: HEADING_COLOR,
-                  fontFamily: "'Cinzel', serif",
-                }}
-              >
-                {t(`tanitim_feature_${key}_title`, title)}
-              </span>
-              <span
-                style={{
-                  fontSize: 12,
-                  lineHeight: 1.5,
-                  color: BODY_COLOR,
-                }}
-              >
-                {t(`tanitim_feature_${key}_desc`, desc)}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* 5) CTA */}
-        <a
-          data-testid="tanitim-cta-btn"
-          href={ctaHref}
-          aria-label={t("tanitim_cta", "UYGULAMAYA GİR")}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 12,
-            padding: "18px 46px",
-            borderRadius: 14,
-            background:
-              "linear-gradient(135deg, #ffd36b 0%, #f5b21c 55%, #b8760a 100%)",
-            color: "#150e00",
-            fontWeight: 900,
-            fontSize: "clamp(15px, 3.8vw, 18px)",
-            letterSpacing: "0.18em",
-            textDecoration: "none",
-            textTransform: "uppercase",
-            fontFamily: "'Cinzel', serif",
-            boxShadow:
-              "0 12px 34px rgba(245,178,28,0.45), inset 0 1px 0 rgba(255,255,255,0.4)",
-            transition: "transform 0.15s ease, box-shadow 0.2s ease",
-            cursor: "pointer",
-            marginTop: 4,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.boxShadow =
-              "0 16px 40px rgba(245,178,28,0.60), inset 0 1px 0 rgba(255,255,255,0.5)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow =
-              "0 12px 34px rgba(245,178,28,0.45), inset 0 1px 0 rgba(255,255,255,0.4)";
-          }}
-        >
-          {t("tanitim_cta", "UYGULAMAYA GİR")}
-        </a>
-
-        {/* 6) Globe + titanxis.com — v140.16: soft amber */}
-        <div
-          data-testid="tanitim-domain"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 6,
-          }}
-        >
-          <Globe size={18} color={DOMAIN_COLOR} strokeWidth={1.8} />
-          <a
-            href={APP_URL}
-            style={{
-              color: DOMAIN_COLOR,
+              gap: 6,
+              padding: "5px 10px",
+              borderRadius: 999,
+              background: "rgba(255,140,0,0.10)",
+              border: `1px solid ${AMBER}`,
+              color: AMBER,
               fontFamily:
                 "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-              fontSize: 13,
+              fontWeight: 700,
               letterSpacing: "0.06em",
-              textDecoration: "none",
-              fontWeight: 600,
+              cursor: "pointer",
+              fontSize: 11,
             }}
           >
-            titanxis.com
-          </a>
+            {copied ? <Check size={12} /> : <Copy size={12} />}
+            {invite}
+          </button>
         </div>
+      )}
+
+      {/* 3 minik özellik ikonu satırı */}
+      <div
+        data-testid="tanitim-feature-row"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-around",
+          gap: 8,
+          marginTop: 12,
+          flexShrink: 0,
+        }}
+      >
+        {FEATURES.map(({ key, Icon, label }) => (
+          <div
+            key={key}
+            data-testid={`tanitim-feature-${key}`}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <Icon size={18} color={AMBER} strokeWidth={1.8} />
+            <span
+              style={{
+                fontSize: 9,
+                letterSpacing: "0.10em",
+                fontWeight: 700,
+                color: AMBER,
+                fontFamily: "'Cinzel', serif",
+              }}
+            >
+              {t(`tanitim_feature_${key}_title`, label)}
+            </span>
+          </div>
+        ))}
       </div>
-    </div>
+
+      {/* Küçük "UYGULAMAYA GİR" metni */}
+      <div
+        data-testid="tanitim-cta-label"
+        style={{
+          marginTop: 10,
+          textAlign: "center",
+          color: AMBER,
+          fontSize: 11,
+          letterSpacing: "0.32em",
+          fontWeight: 800,
+          fontFamily: "'Cinzel', serif",
+          textTransform: "uppercase",
+          flexShrink: 0,
+        }}
+      >
+        {t("tanitim_cta", "UYGULAMAYA GİR")}
+      </div>
+    </a>
   );
 }

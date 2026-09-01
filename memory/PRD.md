@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.17 — /tanitim Full Rewrite Minimal Clickable)** — Frontend:
+  - `Tanitim.jsx` sıfırdan yazıldı. Kök element `<a href=titanxis.com>` — TÜM sayfa tek tıklanabilir alan. `height:100vh + 100dvh + overflow:hidden` (mobil 390×844'te scroll YOK).
+  - İçerik akışı (flex column): (1) hero görsel `flex:1 + object-fit:cover` alanı doldurur, (2) opsiyonel davet chip (`?davet=CODE`), (3) 3 minik ikon satırı (Crown/Swords/BookOpen + 9px caption), (4) `UYGULAMAYA GİR` küçük letterspaced metin.
+  - Tüm metin `#FF8C00` (amber-orange). Border/glow/bg `rgba(255,140,0,*)`'e taşındı.
+  - Davet chip kopyala butonu `preventDefault + stopPropagation` ile sayfayı yönlendirmiyor.
+  - `LegalFooter.jsx` tekrar `/tanitim`'de gizli.
+  - Doğrulama (390×844): root `<A>` tag'i, href=titanxis.com, hero visible, 3 feature item, cta_label='UYGULAMAYA GİR', color=rgb(255,140,0), footer/title/subtitle silinmiş, needs_scroll=False ✅.
+
+
 - **Feb 31, 2026 (v140.16 — /tanitim Restore + Palette)** — Frontend:
   - v140.14 tam yapısı geri getirildi (brand rozeti → hero görsel → H1 → subtitle → davet chip → 3 native kart → CTA → globe+domain → footer). `LegalFooter.jsx`'ten `/tanitim` özel gizleme kaldırıldı — footer tekrar görünür.
   - **Palette (v140.16)**:
