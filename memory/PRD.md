@@ -20,6 +20,16 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.18 — /tanitim Ghost Row Removed + Fire Palette)** — Frontend:
+  - v140.17'de bottom'da render edilen minik ikon satırı (`tanitim-feature-row` altta) + küçük letterspaced "UYGULAMAYA GİR" (`tanitim-cta-label`) tamamen silindi — kullanıcı "hayalet satır" olarak adlandırıyordu.
+  - v140.16 yapısı geri: hero → H1 → subtitle → (davet chip) → 3 native kart → amber CTA. Root hâlâ tek büyük `<a href=titanxis.com>` (tüm sayfa tıklanabilir).
+  - Fire palette React elementlerine düzgünce uygulandı:
+    - H1 & kart başlıkları: `#FF8C00` (amber-orange).
+    - Subtitle & kart açıklamaları: `#FFF5DC` (cream white).
+    - Kart border/bg glow `rgba(255,140,0,*)`'a taşındı, CTA gradient `#ffb347 → #FF8C00 → #b8570a`.
+  - `LegalFooter.jsx` `/tanitim`'de gizli kalmaya devam ediyor.
+
+
 - **Feb 31, 2026 (v140.17 — /tanitim Full Rewrite Minimal Clickable)** — Frontend:
   - `Tanitim.jsx` sıfırdan yazıldı. Kök element `<a href=titanxis.com>` — TÜM sayfa tek tıklanabilir alan. `height:100vh + 100dvh + overflow:hidden` (mobil 390×844'te scroll YOK).
   - İçerik akışı (flex column): (1) hero görsel `flex:1 + object-fit:cover` alanı doldurur, (2) opsiyonel davet chip (`?davet=CODE`), (3) 3 minik ikon satırı (Crown/Swords/BookOpen + 9px caption), (4) `UYGULAMAYA GİR` küçük letterspaced metin.
