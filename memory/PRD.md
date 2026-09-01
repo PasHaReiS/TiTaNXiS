@@ -20,6 +20,18 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.24 — Voice Room Mic Mode: Continuous vs Push-to-Talk)** — Frontend:
+  - `VoiceRooms.jsx` `ActiveRoomUI`:
+    - Yeni `micMode` state (`continuous` | `ptt`) — `localStorage.voice_mic_mode` ile per-user kalıcı.
+    - Mode selector chip'leri (`data-testid=voice-mic-mode-continuous` / `voice-mic-mode-ptt`), `role=tablist` + `aria-selected`.
+    - `continuous`: mevcut davranış — Sustur/Aç toggle butonu (`voice-mute-btn`).
+    - `ptt`: mikrofon default OFF; `onMouseDown+onTouchStart` → `setMicrophoneEnabled(true)`, `onMouseUp+onMouseLeave+onTouchEnd` → false. Ayrıca Spacebar hold desteği (`keydown/keyup` window listener'ları, input/textarea odaklı değilse).
+    - Mode değişince `useEffect` doğru mic state'i uygular (continuous → aç, ptt → kapa).
+    - Aktif "konuşuyorsun" göstergesi: buton yeşile döner + `0 0 24px rgba(34,197,94,0.55)` glow.
+  - i18n: 7 yeni key TR + EN (`voice_mic_mode_label`, `voice_mic_mode_continuous`, `voice_mic_mode_ptt`, `voice_ptt_hold`, `voice_ptt_active`, `voice_ptt_hint`, `voice_ptt_help`).
+  - Aynı odada farklı kullanıcılar bağımsız modda kalabilir (state client-side).
+
+
 - **Feb 31, 2026 (v140.23 — Telegram Broadcast Routing Split)** — Multi:
   - **`.env`**: `TELEGRAM_EVENT_TEST_GROUP=-1005228424846` eklendi.
   - **`telegram_bot.py`**:

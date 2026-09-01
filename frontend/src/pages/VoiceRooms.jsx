@@ -402,7 +402,63 @@ function ActiveRoomUI({ roomName, onLeave }) {
   const participants = useParticipants();
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const tracks = useTracks([{ source: Track.Source.Microphone, withPlaceholder: true }]);
-  const toggleMic = () => localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
+
+  // v140.24 — Mic mode: "continuous" (default) or "ptt" (push-to-talk).
+  // localStorage kalıcılığı per-user (aynı tarayıcı üzerinde).
+  const [micMode, setMicMode] = useState(() => {
+    try { return localStorage.getItem("voice_mic_mode") || "continuous"; } catch { return "continuous"; }
+  });
+  const [pttHeld, setPttHeld] = useState(false);
+
+  // Mode değişince mic state'i ayarla: continuous → mic aç; ptt → mic kapa.
+  useEffect(() => {
+    try { localStorage.setItem("voice_mic_mode", micMode); } catch {}
+    if (!localParticipant) return;
+    if (micMode === "continuous") {
+      if (!isMicrophoneEnabled) localParticipant.setMicrophoneEnabled(true).catch(() => {});
+    } else {
+      // PTT: default OFF, sadece basılı tutunca aç
+      if (isMicrophoneEnabled && !pttHeld) localParticipant.setMicrophoneEnabled(false).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [micMode]);
+
+  const toggleMic = () => {
+    if (micMode === "ptt") return; // PTT modunda toggle disable
+    localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
+  };
+
+  // PTT press/release handlers — pointer (mouse + touch), plus Spacebar hold.
+  const pttPress = useCallback(() => {
+    if (micMode !== "ptt" || !localParticipant) return;
+    setPttHeld(true);
+    localParticipant.setMicrophoneEnabled(true).catch(() => {});
+  }, [micMode, localParticipant]);
+  const pttRelease = useCallback(() => {
+    if (micMode !== "ptt" || !localParticipant) return;
+    setPttHeld(false);
+    localParticipant.setMicrophoneEnabled(false).catch(() => {});
+  }, [micMode, localParticipant]);
+
+  useEffect(() => {
+    if (micMode !== "ptt") return undefined;
+    const onKD = (e) => {
+      if (e.code === "Space" && !e.repeat && !e.target.matches("input, textarea")) {
+        e.preventDefault();
+        pttPress();
+      }
+    };
+    const onKU = (e) => {
+      if (e.code === "Space") { e.preventDefault(); pttRelease(); }
+    };
+    window.addEventListener("keydown", onKD);
+    window.addEventListener("keyup", onKU);
+    return () => {
+      window.removeEventListener("keydown", onKD);
+      window.removeEventListener("keyup", onKU);
+    };
+  }, [micMode, pttPress, pttRelease]);
+
   return (
     <div className="max-w-3xl mx-auto p-6" data-testid="voice-active-room">
       <div className="mb-6 flex items-center justify-between">
@@ -413,6 +469,47 @@ function ActiveRoomUI({ roomName, onLeave }) {
           <Users size={12} /> {participants.length}
         </span>
       </div>
+
+      {/* v140.24 — Mikrofon modu seçici */}
+      <div
+        data-testid="voice-mic-mode-selector"
+        className="mb-4 flex items-center justify-center gap-2"
+        role="tablist"
+        aria-label={t("voice_mic_mode_label", "Mikrofon Modu")}
+      >
+        <span className="text-[11px] uppercase tracking-widest" style={{ color: "#94A3B8" }}>
+          {t("voice_mic_mode_label", "Mikrofon Modu")}
+        </span>
+        <button
+          data-testid="voice-mic-mode-continuous"
+          role="tab"
+          aria-selected={micMode === "continuous"}
+          onClick={() => setMicMode("continuous")}
+          className="chip text-xs flex items-center gap-1 px-3 py-1.5"
+          style={{
+            borderColor: micMode === "continuous" ? "#22C55E" : "rgba(148,163,184,0.5)",
+            color: micMode === "continuous" ? "#22C55E" : "#94A3B8",
+            background: micMode === "continuous" ? "rgba(34,197,94,0.10)" : "transparent",
+          }}
+        >
+          <Mic size={12} /> {t("voice_mic_mode_continuous", "Sürekli Açık")}
+        </button>
+        <button
+          data-testid="voice-mic-mode-ptt"
+          role="tab"
+          aria-selected={micMode === "ptt"}
+          onClick={() => setMicMode("ptt")}
+          className="chip text-xs flex items-center gap-1 px-3 py-1.5"
+          style={{
+            borderColor: micMode === "ptt" ? "#F5A623" : "rgba(148,163,184,0.5)",
+            color: micMode === "ptt" ? "#F5A623" : "#94A3B8",
+            background: micMode === "ptt" ? "rgba(245,166,35,0.10)" : "transparent",
+          }}
+        >
+          🎤 {t("voice_mic_mode_ptt", "Push to Talk")}
+        </button>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
         {tracks.map((tr, idx) => {
           const p = tr.participant;
@@ -447,20 +544,50 @@ function ActiveRoomUI({ roomName, onLeave }) {
           );
         })}
       </div>
+
       <div className="flex gap-3 justify-center">
-        <button
-          data-testid="voice-mute-btn"
-          onClick={toggleMic}
-          className="chip text-sm flex items-center gap-2 px-4 py-2"
-          style={{
-            borderColor: isMicrophoneEnabled ? "#22C55E" : "#EF4444",
-            color: isMicrophoneEnabled ? "#22C55E" : "#EF4444",
-            background: isMicrophoneEnabled ? "rgba(34,197,94,0.10)" : "rgba(239,68,68,0.10)",
-          }}
-        >
-          {isMicrophoneEnabled ? <Mic size={16} /> : <MicOff size={16} />}
-          {isMicrophoneEnabled ? t("voice_mute", "Sustur") : t("voice_unmute", "Aç")}
-        </button>
+        {micMode === "continuous" ? (
+          <button
+            data-testid="voice-mute-btn"
+            onClick={toggleMic}
+            className="chip text-sm flex items-center gap-2 px-4 py-2"
+            style={{
+              borderColor: isMicrophoneEnabled ? "#22C55E" : "#EF4444",
+              color: isMicrophoneEnabled ? "#22C55E" : "#EF4444",
+              background: isMicrophoneEnabled ? "rgba(34,197,94,0.10)" : "rgba(239,68,68,0.10)",
+            }}
+          >
+            {isMicrophoneEnabled ? <Mic size={16} /> : <MicOff size={16} />}
+            {isMicrophoneEnabled ? t("voice_mute", "Sustur") : t("voice_unmute", "Aç")}
+          </button>
+        ) : (
+          <button
+            data-testid="voice-ptt-btn"
+            onMouseDown={pttPress}
+            onMouseUp={pttRelease}
+            onMouseLeave={pttRelease}
+            onTouchStart={(e) => { e.preventDefault(); pttPress(); }}
+            onTouchEnd={(e) => { e.preventDefault(); pttRelease(); }}
+            onContextMenu={(e) => e.preventDefault()}
+            aria-label={t("voice_ptt_hint", "Basılı tut → konuş, bırak → kapat")}
+            className="chip text-sm flex items-center gap-2 px-6 py-3 select-none"
+            style={{
+              borderColor: pttHeld ? "#22C55E" : "#F5A623",
+              color: pttHeld ? "#22C55E" : "#F5A623",
+              background: pttHeld ? "rgba(34,197,94,0.20)" : "rgba(245,166,35,0.15)",
+              boxShadow: pttHeld ? "0 0 24px rgba(34,197,94,0.55)" : "none",
+              userSelect: "none",
+              touchAction: "none",
+              transition: "all 120ms ease-out",
+              cursor: pttHeld ? "grabbing" : "grab",
+            }}
+          >
+            <Mic size={18} />
+            {pttHeld
+              ? t("voice_ptt_active", "🔴 Konuşuyorsun...")
+              : t("voice_ptt_hold", "Basılı Tut → Konuş")}
+          </button>
+        )}
         <button
           data-testid="voice-leave-btn"
           onClick={onLeave}
@@ -470,6 +597,12 @@ function ActiveRoomUI({ roomName, onLeave }) {
           <LogOut size={16} /> {t("voice_leave", "Ayrıl")}
         </button>
       </div>
+
+      {micMode === "ptt" && (
+        <p className="mt-3 text-center text-[11px] opacity-70" style={{ color: "#94A3B8" }} data-testid="voice-ptt-help">
+          {t("voice_ptt_help", "Push to Talk aktif — konuşurken butona basılı tut (veya Boşluk tuşuna). Bırakınca mikrofon kapanır.")}
+        </p>
+      )}
     </div>
   );
 }
