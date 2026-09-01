@@ -636,6 +636,40 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
     localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
   };
 
+  // v140.33 — PTT ses efekti: hafif "beep on/off" tonu (Web Audio API).
+  // v140.39 — pttPress/pttRelease deps'inde referanslandığı için bu blok
+  // temporal dead zone'u önlemek amacıyla PTT handler'larından ÖNCE deklare
+  // ediliyor.
+  const audioCtxRef = useRef(null);
+  const ensureAudioCtx = useCallback(() => {
+    if (!audioCtxRef.current) {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtxRef.current = new AC();
+      } catch {}
+    }
+    return audioCtxRef.current;
+  }, []);
+  const playBeep = useCallback((freq = 880, durationMs = 55, volume = 0.09) => {
+    try {
+      const ctx = ensureAudioCtx();
+      if (!ctx) return;
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.value = 0;
+      const now = ctx.currentTime;
+      gain.gain.linearRampToValueAtTime(volume, now + 0.005);
+      gain.gain.linearRampToValueAtTime(0, now + durationMs / 1000);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + durationMs / 1000 + 0.02);
+    } catch {}
+  }, [ensureAudioCtx]);
+
   // PTT press/release handlers — pointer (mouse + touch), plus Spacebar hold.
   // v140.33 — beep on/off geri bildirimi eklendi.
   const pttPress = useCallback(() => {
@@ -686,37 +720,6 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
   // kullanıyoruz; diğerleri identity → mode map'inde.
   const [remoteModes, setRemoteModes] = useState({});
   const room = useRoomContext();
-
-  // v140.33 — PTT ses efekti: hafif "beep on/off" tonu (Web Audio API).
-  const audioCtxRef = useRef(null);
-  const ensureAudioCtx = useCallback(() => {
-    if (!audioCtxRef.current) {
-      try {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (AC) audioCtxRef.current = new AC();
-      } catch {}
-    }
-    return audioCtxRef.current;
-  }, []);
-  const playBeep = useCallback((freq = 880, durationMs = 55, volume = 0.09) => {
-    try {
-      const ctx = ensureAudioCtx();
-      if (!ctx) return;
-      if (ctx.state === "suspended") ctx.resume().catch(() => {});
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      gain.gain.value = 0;
-      const now = ctx.currentTime;
-      gain.gain.linearRampToValueAtTime(volume, now + 0.005);
-      gain.gain.linearRampToValueAtTime(0, now + durationMs / 1000);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + durationMs / 1000 + 0.02);
-    } catch {}
-  }, [ensureAudioCtx]);
 
   // v140.33 — Data channel: mic-mode broadcast.
   const { send: sendMicMode } = useDataChannel("mic-mode", (msg) => {

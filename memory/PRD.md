@@ -2929,3 +2929,8 @@ Deployment_agent PASS. Backend restart clean, frontend compile OK.
 ## v140.38 — Sohbet FAB gizlendi (Sep 1, 2026)
 - `/app/frontend/src/components/ChatFab.jsx` başında `return null` — component tamamen render dışı. Layout.jsx dokunulmadı, geri açmak için tek satır silmek yeterli.
 - Deployment_agent PASS.
+
+## v140.39 — VoiceRooms TDZ Crash Fix (Sep 1, 2026)
+- **Sorun**: `ActiveRoomUI`'da `pttPress`/`pttRelease` (const useCallback, deps `[..., playBeep]`) `playBeep`'ten önce tanımlıydı. React her render'da deps array'ini okuduğu için `Cannot access playBeep before initialization` ReferenceError → oda içi UI crash.
+- **Fix**: `audioCtxRef` + `ensureAudioCtx` + `playBeep` bloğu `toggleMic`'ten hemen sonra, `pttPress`'ten ÖNCE deklare edildi. Sonrasındaki tekrar bloğu silindi. Davranış değişmedi; sadece deklarasyon sırası düzeltildi.
+- Deployment_agent PASS.
