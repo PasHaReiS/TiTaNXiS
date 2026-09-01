@@ -20,6 +20,20 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.14 — /tanitim Full Rebuild)** — Frontend:
+  - `Tanitim.jsx` sıfırdan yazıldı. Sıralı yapı: (1) TiTaNXiS marka rozeti → (2) Hero görsel `titanxis_tanitim.png` (kart wrapper, altın border, glow) → (3) Ana başlık `LONCANA KATIL, EFSANENİ YAZ` (Cinzel serif, gradient gold text-fill, clamp 28-44px) → (4) Alt başlık paragrafı → (5) Davet chip (opsiyonel) → (6) 3 özellik kartı grid (auto-fit minmax 180px, Crown/Swords/BookOpen ikonu + başlık + açıklama) → (7) Büyük amber "UYGULAMAYA GİR" CTA (translateY hover glow) → (8) Globe ikonu + `titanxis.com` link
+  - `overflow:hidden` kaldırıldı — normal scroll, footer 30px ile içerik arasında 66px bottom padding.
+  - i18n: 8 yeni key TR + EN (`tanitim_headline`, `tanitim_subtitle`, `tanitim_feature_{leaderboard,events,guide}_{title,desc}`).
+  - Doğrulama (mobil 390×844): hero ✅, title `LONCANA KATIL, EFSANENİ YAZ` ✅, subtitle ✅, 3 kart ✅, CTA `href=titanxis.com/?davet=…` ✅, globe+domain ✅, footer ✅, davet chip ✅.
+
+
+- **Feb 31, 2026 (v140.13 — /tanitim Revert to v140.10)** — Frontend:
+  - Kullanıcı native rebuild + minimal layout değişikliklerini beğenmedi. `Tanitim.jsx` v140.10 state'e geri alındı: promo hero görseli (gömülü kart açıklamaları + heading + "UYGULAMAYA GİR" panel dahil) tek büyük tıklanabilir CTA olarak geri geldi. Altında kısa intro `<h1>` satırı + davet chip.
+  - `LegalFooter.jsx` v140.10 state'e geri alındı — `useLocation` import + `/tanitim` özel gizleme kaldırıldı. Footer artık `/tanitim`'de de görünür.
+  - i18n key'leri (`tanitim_feature_*`) dokunulmadı — kullanılmıyor ama zararsız (fallback default).
+  - Doğrulama: `/tanitim` mobil 390×844 → hero görseli, intro title (`data-testid=tanitim-title`), footer (`data-testid=legal-footer`) tümü görünür ✅.
+
+
 - **Feb 31, 2026 (v140.12 — /tanitim Native Rebuild)** — Frontend:
   - Promo görsel (`titanxis_tanitim.png`) tamamen kaldırıldı — içine gömülü uzun kart açıklamaları + "Loncana Katıl, Efsaneni Yaz" heading + description satırları CSS ile silinemiyordu, bu yüzden görsel yerine native React layout kondu.
   - Yeni yapı: **TiTaNXiS marka rozeti** + **3 ikon kartı** (Crown → SIRALAMA, Swords → ETKİNLİKLER, BookOpen → LOJ HAKKINDA, sadece ikon + başlık, açıklama YOK) + **Amber "UYGULAMAYA GİR" butonu**. Havadar `gap:44px`, padding `28×24`, radial altın glow bg.
