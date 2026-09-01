@@ -1,0 +1,45 @@
+/* /tanitim landing — dedicated stylesheet (v140.19).
+ * 
+ * Fire palette:
+ *   Başlıklar (H1 + kart başlıkları):        #FF8C00 (amber-orange)
+ *   Alt başlıklar (subtitle + kart body):    #FFF5DC (cream white)
+ *   Titanxis link:                            #FFC87A
+ *
+ * Ayrıca defensive: `/tanitim` route'unda uygulama nav bar / FAB / mobile
+ * tab bar gibi kalıntı fixed alt elementleri gizler.
+ */
+
+/* --- palette ------------------------------------------------------------- */
+
+.tanitim-title {
+  color: #FF8C00;
+}
+
+.tanitim-subtitle {
+  color: #FFF5DC;
+}
+
+.tanitim-card-title {
+  color: #FF8C00;
+}
+
+.tanitim-card-desc {
+  color: #FFF5DC;
+}
+
+.tanitim-invite-label {
+  color: #FFF5DC;
+}
+
+/* --- defensive nav-hide -------------------------------------------------- */
+/* /tanitim sayfası standalone landing; herhangi bir global bottom-nav / FAB
+   yanlışlıkla render edilirse gizle. Bu route'a özgü body class
+   `body:has(.tanitim-root)` sayesinde etkinleşir; başka sayfalar etkilenmez. */
+body:has(.tanitim-root) [data-testid="floating-chat-btn"],
+body:has(.tanitim-root) [data-testid="floating-voice-btn"],
+body:has(.tanitim-root) [data-testid="radial-menu"],
+body:has(.tanitim-root) [data-testid="mobile-bottom-nav"],
+body:has(.tanitim-root) [data-testid="legal-footer"],
+body:has(.tanitim-root) nav[role="navigation"] {
+  display: none !important;
+}

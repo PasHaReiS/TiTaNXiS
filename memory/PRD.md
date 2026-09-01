@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.19 — /tanitim CSS Externalization + Defensive Nav Hide)** — Frontend:
+  - Yeni dosya: `/app/frontend/src/pages/Tanitim.css`.
+    - Palette sınıfları: `.tanitim-title` `.tanitim-card-title` → `color: #FF8C00`; `.tanitim-subtitle` `.tanitim-card-desc` `.tanitim-invite-label` → `color: #FFF5DC`.
+    - Defensive nav-hide: `body:has(.tanitim-root) [data-testid=floating-chat-btn]`, `floating-voice-btn`, `radial-menu`, `mobile-bottom-nav`, `legal-footer`, `nav[role=navigation]` → `display:none !important`. `/tanitim` `AppShell` dışında olduğu için bunların çoğu zaten render edilmiyor ama defensive olarak da kapatıldı.
+  - `Tanitim.jsx`: `import "./Tanitim.css"` + root `<a>`'ya `className="tanitim-root"`. H1/subtitle/kart başlığı/kart açıklaması/invite-label elementlerinden inline `color:` kaldırıldı, yerlerine class name'ler tanımlandı.
+  - Doğrulama: `getComputedStyle` ile 4 renk (rgb 255,140,0 · 255,245,220) tam eşleşti; `getAttribute('style')` `.tanitim-title` üzerinde `color:` içermiyor (`inline_color_on_title=False`); viewport'un alt %55'inde `position:fixed` görünen element `[]` ✅.
+
+
 - **Feb 31, 2026 (v140.18 — /tanitim Ghost Row Removed + Fire Palette)** — Frontend:
   - v140.17'de bottom'da render edilen minik ikon satırı (`tanitim-feature-row` altta) + küçük letterspaced "UYGULAMAYA GİR" (`tanitim-cta-label`) tamamen silindi — kullanıcı "hayalet satır" olarak adlandırıyordu.
   - v140.16 yapısı geri: hero → H1 → subtitle → (davet chip) → 3 native kart → amber CTA. Root hâlâ tek büyük `<a href=titanxis.com>` (tüm sayfa tıklanabilir).

@@ -3,28 +3,26 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { Crown, Swords, BookOpen, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
+import "./Tanitim.css";
 
 /**
- * Public landing page — `/tanitim` (v140.18).
+ * Public landing page — `/tanitim` (v140.19).
  *
- * v140.18 değişikleri:
- *   - Alt "hayalet" satır (3 minik ikon + küçük UYGULAMAYA GİR letterspacing metni)
- *     tamamen silindi. Aşağıda tekrar eden bar kalmadı.
- *   - Fire palette: H1 & kart başlıkları `#FF8C00` (amber-orange), subtitle &
- *     kart açıklamaları `#FFF5DC` (cream white). Renkler artık React
- *     elementlerinde de uygulanıyor.
- * Diğer her şey (root `<a>` clickable wrapper, davet chip, `LegalFooter`'ın
- * `/tanitim`'de gizli olması, koyu tema + altın glow) v140.17'den korundu.
+ * v140.19 iki kesin fix:
+ *   1) Root element `.tanitim-root` sınıfını taşır; `Tanitim.css` içindeki
+ *      `body:has(.tanitim-root) …` defensive rule ile bu route'ta olası
+ *      residual global bottom nav / FAB / footer / RadialMenu tamamı
+ *      `display:none !important` ile gizlenir.
+ *   2) Metin renkleri inline'dan CSS sınıflarına taşındı — `tanitim-title`,
+ *      `tanitim-subtitle`, `tanitim-card-title`, `tanitim-card-desc`,
+ *      `tanitim-invite-label`. Renkler CSS dosyasında yer alır.
+ * Diğer yapı (root `<a>`, hero, davet chip, 3 native kart, CTA) korundu.
  */
 
 const HERO_URL =
   "https://customer-assets-4nw71qhi.emergentagent.net/wingman/e2335aef-f0ff-495b-ab82-aa3a75b41e0e/attachments/389b9cb896e2412ca2fcd45b85b403cd_titanxis_tanitim.png";
 
 const APP_URL = "https://titanxis.com";
-
-// v140.18 palette — fire tones
-const HEADING_COLOR = "#FF8C00"; // amber-orange
-const BODY_COLOR = "#FFF5DC";    // cream white
 
 const FEATURES = [
   {
@@ -60,7 +58,6 @@ export default function Tanitim() {
   }, [invite]);
 
   const copyInvite = async (e) => {
-    // Chip'in kopyala butonu: sayfa yönlendirmesin.
     e.preventDefault();
     e.stopPropagation();
     try {
@@ -76,6 +73,7 @@ export default function Tanitim() {
   return (
     <a
       data-testid="tanitim-page"
+      className="tanitim-root"
       href={ctaHref}
       aria-label={t("tanitim_cta", "UYGULAMAYA GİR")}
       style={{
@@ -83,7 +81,6 @@ export default function Tanitim() {
         display: "block",
         background:
           "radial-gradient(1400px 700px at 50% -10%, rgba(255,140,0,0.14), transparent 60%), #0a0a0a",
-        color: BODY_COLOR,
         padding: "36px 20px 40px",
         boxSizing: "border-box",
         textDecoration: "none",
@@ -124,9 +121,10 @@ export default function Tanitim() {
           />
         </div>
 
-        {/* Ana başlık — #FF8C00 */}
+        {/* Ana başlık — renk `.tanitim-title` sınıfından gelir (#FF8C00) */}
         <h1
           data-testid="tanitim-title"
+          className="tanitim-title"
           style={{
             margin: 0,
             fontFamily: "'Cinzel', serif",
@@ -134,23 +132,22 @@ export default function Tanitim() {
             lineHeight: 1.15,
             textAlign: "center",
             fontWeight: 800,
-            color: HEADING_COLOR,
             letterSpacing: "0.02em",
           }}
         >
           {t("tanitim_headline", "LONCANA KATIL, EFSANENİ YAZ")}
         </h1>
 
-        {/* Alt başlık — #FFF5DC */}
+        {/* Alt başlık — renk `.tanitim-subtitle` sınıfından gelir (#FFF5DC) */}
         <p
           data-testid="tanitim-subtitle"
+          className="tanitim-subtitle"
           style={{
             margin: 0,
             maxWidth: 560,
             fontSize: "clamp(13px, 3.2vw, 16px)",
             lineHeight: 1.55,
             textAlign: "center",
-            color: BODY_COLOR,
           }}
         >
           {t(
@@ -171,7 +168,7 @@ export default function Tanitim() {
               flexWrap: "wrap",
             }}
           >
-            <span style={{ opacity: 0.72, fontSize: 13, color: BODY_COLOR }}>
+            <span className="tanitim-invite-label" style={{ opacity: 0.72, fontSize: 13 }}>
               {t("tanitim_invite_label", "Davet Kodun")}
             </span>
             <button
@@ -184,8 +181,8 @@ export default function Tanitim() {
                 padding: "8px 14px",
                 borderRadius: 999,
                 background: "rgba(255,140,0,0.10)",
-                border: `1px solid ${HEADING_COLOR}`,
-                color: HEADING_COLOR,
+                border: "1px solid #FF8C00",
+                color: "#FF8C00",
                 fontFamily:
                   "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
                 fontWeight: 700,
@@ -200,7 +197,7 @@ export default function Tanitim() {
           </div>
         )}
 
-        {/* 3 özellik kartı — başlık #FF8C00, açıklama #FFF5DC */}
+        {/* 3 özellik kartı */}
         <div
           data-testid="tanitim-feature-row"
           style={{
@@ -218,7 +215,6 @@ export default function Tanitim() {
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                justifyContent: "flex-start",
                 gap: 10,
                 padding: "20px 14px",
                 borderRadius: 14,
@@ -230,24 +226,21 @@ export default function Tanitim() {
                 textAlign: "center",
               }}
             >
-              <Icon size={30} color={HEADING_COLOR} strokeWidth={1.6} />
+              <Icon size={30} color="#FF8C00" strokeWidth={1.6} />
               <span
+                className="tanitim-card-title"
                 style={{
                   fontSize: 13,
                   letterSpacing: "0.16em",
                   fontWeight: 800,
-                  color: HEADING_COLOR,
                   fontFamily: "'Cinzel', serif",
                 }}
               >
                 {t(`tanitim_feature_${key}_title`, title)}
               </span>
               <span
-                style={{
-                  fontSize: 12,
-                  lineHeight: 1.5,
-                  color: BODY_COLOR,
-                }}
+                className="tanitim-card-desc"
+                style={{ fontSize: 12, lineHeight: 1.5 }}
               >
                 {t(`tanitim_feature_${key}_desc`, desc)}
               </span>
