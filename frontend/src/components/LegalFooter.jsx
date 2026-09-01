@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 /**
@@ -7,9 +7,12 @@ import { useTranslation } from "react-i18next";
  * z-index 1500 (RadialMenu 1600 üstte kalır, modallar 9998+ hâlâ üstte).
  * v135.7 — Yumuşak gradient fade: üstte 18px'lik amber-siyah geçiş +
  * dış box-shadow ile "haleli" görünüm.
+ * v140.15 — `/tanitim` landing sayfasında gizlenir (tek-ekran layout için).
  */
 export default function LegalFooter() {
   const { t } = useTranslation();
+  const loc = useLocation();
+  if (loc.pathname === "/tanitim") return null;
   return (
     <div
       data-testid="legal-footer"

@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 31, 2026 (v140.15 — /tanitim Minimal Hero-Only)** — Frontend:
+  - `Tanitim.jsx` minimal versiyona indirildi. Yalnızca hero görseli tek büyük tıklanabilir `<a href=titanxis.com>` CTA olarak render edilir; içeriğin tamamı (logo, başlık, kartlar, "UYGULAMAYA GİR" panel, titanxis.com satırı) zaten görselin içine gömülü.
+  - Silinen React elementleri: H1 `LONCANA KATIL...`, alt başlık paragrafı, native ikon kartları grid'i (`data-testid=tanitim-feature-*`), globe+domain rowu, brand rozeti. Sadece davet chip (opsiyonel, `?davet=CODE` geldiğinde) korundu.
+  - `LegalFooter.jsx` tekrar `useLocation` ile `/tanitim`'de gizleniyor (v140.11 mantığı geri geldi).
+  - Layout: `100dvh + overflow:hidden`, padding 16px, `objectFit:contain` ile görsel viewport'a sığar.
+  - Doğrulama (390×844): hero ✅, `tanitim-title`/`tanitim-subtitle`/`tanitim-feature-*`/`legal-footer` count=0 ✅, `needs_scroll=False`, CTA `href=https://titanxis.com` ✅.
+
+
 - **Feb 31, 2026 (v140.14 — /tanitim Full Rebuild)** — Frontend:
   - `Tanitim.jsx` sıfırdan yazıldı. Sıralı yapı: (1) TiTaNXiS marka rozeti → (2) Hero görsel `titanxis_tanitim.png` (kart wrapper, altın border, glow) → (3) Ana başlık `LONCANA KATIL, EFSANENİ YAZ` (Cinzel serif, gradient gold text-fill, clamp 28-44px) → (4) Alt başlık paragrafı → (5) Davet chip (opsiyonel) → (6) 3 özellik kartı grid (auto-fit minmax 180px, Crown/Swords/BookOpen ikonu + başlık + açıklama) → (7) Büyük amber "UYGULAMAYA GİR" CTA (translateY hover glow) → (8) Globe ikonu + `titanxis.com` link
   - `overflow:hidden` kaldırıldı — normal scroll, footer 30px ile içerik arasında 66px bottom padding.
