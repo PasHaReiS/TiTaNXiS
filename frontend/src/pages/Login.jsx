@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate, Navigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { apiErr } from "@/lib/api";
 import axios from "axios";
@@ -27,6 +27,24 @@ export default function Login() {
   const [regPassword, setRegPassword] = useState("");
   const [regBusy, setRegBusy] = useState(false);
   const nav = useNavigate();
+  const location = useLocation();
+
+  // v140.35 — Telegram /davet linki: /kayit?davet=CODE veya /login?davet=CODE
+  // → register modal'ı otomatik aç ve kodu ön-doldur. Query'yi silmek için
+  // URL'i temizle (kullanıcı geri gitse aynı davranış tekrarlanmasın).
+  useEffect(() => {
+    if (user) return;
+    const params = new URLSearchParams(location.search);
+    const code = (params.get("davet") || params.get("code") || "").trim().toUpperCase();
+    if (code) {
+      setRegInviteCode(code);
+      setShowRegister(true);
+      // URL'den kodu temizle — modal state artık kodu tutuyor.
+      const cleanPath = location.pathname === "/kayit" ? "/login" : location.pathname;
+      window.history.replaceState({}, "", cleanPath);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (user) return <Navigate to="/" replace />;
 

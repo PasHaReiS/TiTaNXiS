@@ -104,8 +104,12 @@ export default function VoiceRooms() {
 
     let password = null;
     let guestName = null;
-    // v140.7 — Davet sistemi kaldırıldı. Admin şifresiz girer, herkes şifreyle girer.
-    const skipPrompt = isAdmin;
+    // v140.35 — Erişim kuralları:
+    //   • Admin           → şifre/davet gerekmez
+    //   • Davetli üye     → şifre gerekmez (backend `is_invited: true` döndü)
+    //   • Davetsiz üye    → şifre girmeli
+    //   • Ziyaretçi       → şifre girmeli
+    const skipPrompt = isAdmin || !!room.is_invited;
     if (!skipPrompt) {
       if (!user) {
         guestName = window.prompt(t("voice_guest_name_prompt", "Ziyaretçi adın (görünecek isim):"), "Ziyaretçi");
@@ -254,6 +258,24 @@ function RoomCard({ room, onJoin, isAdmin, onDeleted }) {
       <div className="text-[10px] uppercase tracking-wider" style={{ color: "#94A3B8" }}>
         {t("voice_room_password_badge", "🔒 Şifreli")}
         {isAdmin && <span className="ml-2" style={{ color: "#F5A623" }}>{t("voice_room_admin_bypass", "· 👑 Admin (şifresiz)")}</span>}
+        {!isAdmin && room.is_invited && (
+          <span
+            data-testid={`voice-room-invited-badge-${room.id}`}
+            className="ml-2 font-bold"
+            style={{ color: "#22C55E" }}
+          >
+            {t("voice_room_invited_badge", "· 🎫 Davetlisin (şifresiz)")}
+          </span>
+        )}
+        {isAdmin && typeof room.invited_count === "number" && room.invited_count > 0 && (
+          <span
+            data-testid={`voice-room-invited-count-${room.id}`}
+            className="ml-2"
+            style={{ color: "#86EFAC" }}
+          >
+            {t("voice_room_invited_count", "· 🎫 {{n}} davetli", { n: room.invited_count })}
+          </span>
+        )}
       </div>
 
       {/* v140.8 — Admin şifre paylaşım paneli */}
@@ -320,7 +342,24 @@ function CreateRoomButton({ onCreated }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  // v140.7 — Davetli üye seçimi kaldırıldı. Sadece ad + şifre.
+  // v140.35 — Davet ettiğim üyelerin id listesi.
+  const [invitedIds, setInvitedIds] = useState([]);
+  const [userSearch, setUserSearch] = useState("");
+  const { data: usersList = [] } = useSWR(open ? "/users" : null, fetcher);
+  const filteredUsers = React.useMemo(() => {
+    const q = userSearch.trim().toLowerCase();
+    const arr = Array.isArray(usersList) ? usersList : (usersList.items || []);
+    if (!q) return arr;
+    return arr.filter((u) =>
+      (u.username || "").toLowerCase().includes(q) ||
+      (u.email || "").toLowerCase().includes(q)
+    );
+  }, [usersList, userSearch]);
+
+  const toggleInvite = (id) => {
+    setInvitedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
   const submit = async () => {
     if (!password.trim()) {
       toast.error(t("voice_password_required", "Şifre zorunludur"));
@@ -330,9 +369,10 @@ function CreateRoomButton({ onCreated }) {
       await api.post("/voice/rooms", {
         name: name.trim(),
         password: password.trim(),
+        invited_user_ids: invitedIds,
       });
       toast.success(t("voice_room_created", "Oda oluşturuldu"));
-      setOpen(false); setName(""); setPassword("");
+      setOpen(false); setName(""); setPassword(""); setInvitedIds([]); setUserSearch("");
       onCreated();
     } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
   };
@@ -347,11 +387,11 @@ function CreateRoomButton({ onCreated }) {
         <Plus size={14} /> {t("voice_room_new", "Yeni Oda")}
       </button>
       {open && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 p-4" onClick={() => setOpen(false)}>
           <div
             data-testid="voice-room-new-modal"
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-xl p-5"
+            className="w-full max-w-md rounded-xl p-5 max-h-[90vh] overflow-y-auto"
             style={{ background: "#1E1410", border: "1px solid rgba(245,166,35,0.55)" }}
           >
             <h3 className="text-lg font-bold mb-4" style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}>
@@ -370,10 +410,69 @@ function CreateRoomButton({ onCreated }) {
               placeholder={t("voice_room_password_ph", "Oda şifresi (zorunlu)")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-black/40 border border-amber-500/40 rounded px-3 py-2 text-sm text-white mb-4"
+              className="w-full bg-black/40 border border-amber-500/40 rounded px-3 py-2 text-sm text-white mb-3"
             />
+
+            {/* v140.35 — Üye davet listesi */}
+            <div
+              data-testid="voice-room-invite-picker"
+              className="mb-3 rounded-lg p-3"
+              style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(34,197,94,0.35)" }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#22C55E" }}>
+                  🎫 {t("voice_room_invite_title", "Davet Et (Opsiyonel)")}
+                </span>
+                <span className="text-[10px]" style={{ color: "#94A3B8" }}>
+                  {invitedIds.length > 0 ? t("voice_room_invited_selected", "{{n}} seçildi", { n: invitedIds.length }) : ""}
+                </span>
+              </div>
+              <p className="text-[10px] mb-2 leading-relaxed" style={{ color: "#94A3B8" }}>
+                {t("voice_room_invite_hint", "Davetli üyeler odaya şifre girmeden doğrudan katılabilir.")}
+              </p>
+              <input
+                data-testid="voice-room-invite-search"
+                placeholder={t("voice_room_invite_search_ph", "Üye ara…")}
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="w-full bg-black/40 border border-white/10 rounded px-3 py-1.5 text-xs text-white mb-2"
+              />
+              <div
+                className="max-h-40 overflow-y-auto rounded"
+                style={{ background: "rgba(0,0,0,0.25)" }}
+              >
+                {filteredUsers.length === 0 ? (
+                  <div className="text-[10px] text-center py-3" style={{ color: "#94A3B8" }}>
+                    {t("voice_room_invite_no_users", "Üye bulunamadı")}
+                  </div>
+                ) : (
+                  filteredUsers.map((u) => (
+                    <label
+                      key={u.id}
+                      data-testid={`voice-room-invite-row-${u.id}`}
+                      className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-white/5"
+                      style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                    >
+                      <input
+                        type="checkbox"
+                        data-testid={`voice-room-invite-check-${u.id}`}
+                        checked={invitedIds.includes(u.id)}
+                        onChange={() => toggleInvite(u.id)}
+                        className="accent-amber-500"
+                        style={{ width: 12, height: 12 }}
+                      />
+                      <span className="text-xs" style={{ color: "#F5F0E8" }}>{u.username}</span>
+                      {u.role === "admin" && (
+                        <span className="text-[9px] px-1 rounded" style={{ background: "rgba(245,166,35,0.20)", color: "#F5A623" }}>ADMIN</span>
+                      )}
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+
             <p className="text-[10px] mb-4 leading-relaxed" style={{ color: "#94A3B8" }}>
-              {t("voice_room_password_hint", "Bu şifreyi katılmasını istediğin üyelerle paylaş. Adminler şifresiz girer.")}
+              {t("voice_room_password_hint_v2", "Davetsiz üyeler ve ziyaretçiler için bu şifre gerekli. Adminler ve davetliler şifresiz girer.")}
             </p>
             <div className="flex gap-2">
               <button

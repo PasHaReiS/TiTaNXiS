@@ -1362,31 +1362,51 @@ async def streak_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
 
 # ------------------------------ /davet, /hatirlatici, /dil ------------------
 async def davet_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
-    """v138 — Kişiselleştirilmiş davet mektubu + link üretir.
+    """v140.35 — /davet artık `invite_codes` tablosunu kullanıyor (tek sistem).
 
     - Kullanıcının bağlı olması gerekir (`_require_link`).
-    - `invites` koleksiyonuna 8-hane token yazılır.
+    - 8-karakter alfanümerik kod (O/0/I/1 hariç) üretilir; `db.invite_codes`
+      koleksiyonuna yazılır. Aynı kod, kayıt formunda davet kodu olarak
+      geçerlidir (POST /api/auth/register).
     - Guild adı `guild_settings.guild_name` → env `GUILD_NAME` → "TiTaNXiS" fallback.
-    - Mektup + link tek mesaj olarak Markdown formatında; link ve token
-      backtick içinde → kopyala/yapıştır kolay olsun.
-    - Dil: `reply_ml` mevcut priority (NLP override / preferred_language /
-      Telegram client / DeepL detection) → TR + EN + 27 dilde otomatik çevirir.
+    - Link `{WEB_BASE}/kayit?davet={code}` — kullanıcı tıklayınca kayıt
+      formunda kod otomatik dolu gelir.
     """
     u = await _require_link(update)
     if not u: return
-    import secrets
-    token = secrets.token_urlsafe(6).upper()[:8]
-    invite = {
-        "token": token, "created_by": u["id"],
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "used": False,
-    }
+    import secrets, string
+    # invite_codes ile aynı alfabe (belirsiz karakterler hariç).
+    _ALPHA = "".join(c for c in (string.ascii_uppercase + string.digits)
+                     if c not in {"O", "0", "I", "1"})
+    def _gen():
+        return "".join(secrets.choice(_ALPHA) for _ in range(8))
+    now = datetime.now(timezone.utc).isoformat()
     guild_name = "TiTaNXiS"
+    code = _gen()
     if _db is not None:
+        # Collision-safe (6 deneme, unique index).
+        for _ in range(6):
+            existing = await _db.invite_codes.find_one({"code": code}, {"_id": 0, "code": 1})
+            if not existing:
+                break
+            code = _gen()
+        doc = {
+            "id": secrets.token_hex(8),
+            "code": code,
+            "created_by": u["id"],
+            "created_by_username": (u.get("username") or u.get("email") or "").strip() or "telegram",
+            "created_at": now,
+            "used": False,
+            "used_by": None,
+            "used_by_user_id": None,
+            "used_at": None,
+            # v140.35 — Kaynağı işaretle (analytics / audit).
+            "source": "telegram_davet",
+        }
         try:
-            await _db.invites.insert_one(invite)
+            await _db.invite_codes.insert_one(doc)
         except Exception as e:
-            log.warning(f"davet insert_one failed: {e}")
+            log.warning(f"davet invite_codes insert_one failed: {e}")
         try:
             name_doc = await _db.guild_settings.find_one({"key": "guild_name"}, {"_id": 0})
             if name_doc and name_doc.get("value"):
@@ -1396,7 +1416,7 @@ async def davet_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
     inviter_display = (u.get("username") or u.get("email") or "Bir komutan").strip()
-    link = f"{WEB_BASE}/kayit?davet={token}"
+    link = f"{WEB_BASE}/kayit?davet={code}"
     letter = (
         f"🎫 *Kişisel Davet Mektubu*\n\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
@@ -1412,10 +1432,10 @@ async def davet_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
         f"• 🤖 *Telegram botu* — her komuta anında yanıt\n\n"
         f"🔗 *Katılım linki:*\n"
         f"`{link}`\n\n"
-        f"*Davet kodu:* `{token}`\n"
+        f"*Davet kodu:* `{code}`\n"
         f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"💡 Bu linke tıklayan yeni üyeler otomatik olarak seninle eşlenir "
-        f"— davet bonusu senin puanına yansır.\n\n"
+        f"💡 Linke tıklayan yeni üye, kayıt formunda kodu otomatik doldurulmuş "
+        f"olarak görecek. Kod tek kullanımlıktır.\n\n"
         f"🌐 [{WEB_BASE}]({WEB_BASE})"
     )
     await reply_ml(update, letter)

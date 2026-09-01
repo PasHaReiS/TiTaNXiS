@@ -2832,3 +2832,42 @@ Tam çeviri desteği (TR + EN) — `register_*`, `invite_codes_*`, `invite_code_
 
 ### Deployment
 Deployment_agent PASS — production build blocker yok. Frontend derleme başarılı, backend restart temiz. Kullanıcı Republish tetikleyecek.
+
+## v140.35 — /davet ↔ invite_codes Birleşme + Voice Room Davet Sistemi (Sep 1, 2026)
+
+### Task 1: /davet komutu ↔ invite_codes tek sistem
+- **telegram_bot.py `davet_command`**: `db.invites` yerine artık `db.invite_codes` koleksiyonuna yazıyor. Kod formatı `invite_codes.py` ile birebir aynı (8-char, O/0/I/1 hariç). Schema: `{id, code, created_by, created_by_username, created_at, used:false, used_by, used_by_user_id, used_at, source:"telegram_davet"}`.
+- **Link**: `{WEB_BASE}/kayit?davet={CODE}` (mevcut format korundu → mektup URL değişmedi).
+- **App.js**: Yeni route `/kayit` (path param'sız) → Login sayfası. `/kayit/:token` mevcut Signup route dokunulmadı.
+- **Login.jsx**: `useLocation` ile query okur; `?davet=CODE` veya `?code=CODE` → register modal auto-open + kod pre-fill + URL temizleme.
+- **Sonuç**: Telegram'da `/davet` → link tıkla → kayıt formu koduyla birlikte açılır → tek kullanımlık, aynı `invite_codes` tablosunda yakılır.
+
+### Task 2: Voice Room Davet + Erişim Sistemi (invited_user_ids geri geldi)
+- **VoiceRoomCreate model**: `invited_user_ids: Optional[List[str]]` eklendi.
+- **POST /api/voice/rooms**: `invited_user_ids` alanı kaydediliyor.
+- **PATCH /api/voice/rooms/{id}/invited** (admin): Davetli listesini sonradan güncelle.
+- **GET /api/voice/rooms**: Her authed user için `is_invited: bool` ve `invited_count: int` hesaplanır. Sadece admin `invited_user_ids` tam listesini görür.
+- **POST /api/voice/token** — yeni erişim matrisi:
+  - Admin → şifre/davet gerekmez ✓
+  - Authed + `is_invited=true` → şifre gerekmez ✓
+  - Authed + davetsiz → şifre zorunlu ✓
+  - Ziyaretçi → şifre zorunlu ✓
+- **Frontend VoiceRooms.jsx**:
+  - `CreateRoomButton` → arama kutulu üye seçici (SWR `/users`), checkbox listesi, admin işaretli rozet, seçim sayacı.
+  - `RoomCard` → davetli için "🎫 Davetlisin (şifresiz)" yeşil rozet; admin için "🎫 N davetli" sayacı.
+  - `join()` → `room.is_invited || isAdmin` ise şifre prompt'u atlanıyor.
+- **i18n**: TR + EN key'leri (`voice_room_invited_badge`, `voice_room_invite_title`, `voice_room_invited_selected` vb.).
+
+### E2E Test Sonuçları (curl, preview backend)
+- Admin login ✓
+- POST /voice/rooms with invited_user_ids → oda oluştu, invited=[uid1] ✓
+- GET /voice/rooms → admin için invited_user_ids döndü, invited_count=1 ✓
+- PATCH /voice/rooms/{id}/invited → iki üye ile güncellendi ✓
+- DELETE cleanup ✓
+- POST /invite-codes → admin tarafından kod üretimi ✓
+- POST /auth/register → kod ile kayıt başarılı, user oluştu ✓
+- **Cross-system schema unity doğrulandı**: /davet komutunun ürettiği kod + admin API'sinin ürettiği kod aynı `invite_codes` tablosunda, aynı schema ile.
+- **Frontend auto-fill**: `/kayit?davet=TESTCODE` URL'i açıldığında register modal otomatik açılıp kod input'una TESTCODE yazıldı (screenshot doğrulandı).
+
+### Deployment
+Deployment_agent PASS. Frontend derleme başarılı, backend restart temiz. Republish için hazır.

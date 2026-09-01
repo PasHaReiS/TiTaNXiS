@@ -10132,6 +10132,14 @@ except Exception:
 class VoiceRoomCreate(BaseModel):
     name: str
     password: str  # v139 — zorunlu; şifresiz oda yok
+    # v140.35 — Davetli üye ID listesi. Davetli olan üyeler şifre girmeden
+    # doğrudan odaya katılabilir. Boş bırakılırsa oda "sadece şifre" modunda
+    # kalır (mevcut davranış).
+    invited_user_ids: Optional[List[str]] = None
+
+
+class VoiceRoomInviteUpdate(BaseModel):
+    invited_user_ids: List[str]
 
 
 @api_router.post("/voice/rooms")
@@ -10141,6 +10149,7 @@ async def voice_room_create(body: VoiceRoomCreate, u: dict = Depends(require_adm
     if not (body.password or "").strip():
         raise HTTPException(400, "Oda şifresi zorunludur")
     pw = body.password.strip()
+    invited = list({(x or "").strip() for x in (body.invited_user_ids or []) if (x or "").strip()})
     doc = {
         "id": str(uuid.uuid4()),
         "name": body.name.strip()[:80],
@@ -10151,6 +10160,8 @@ async def voice_room_create(body: VoiceRoomCreate, u: dict = Depends(require_adm
         # istiyor. Plaintext admin-only endpoint (`GET /voice/rooms/{id}/password`)
         # üzerinden döndürülüyor; asla `voice_rooms_list` yanıtında çıkmıyor.
         "password_plain": pw,
+        # v140.35 — Davetli listesi (invite bypass, ayrı sistem değil).
+        "invited_user_ids": invited,
     }
     await db.voice_rooms.insert_one(doc)
     doc.pop("_id", None)
@@ -10159,14 +10170,36 @@ async def voice_room_create(body: VoiceRoomCreate, u: dict = Depends(require_adm
     return doc
 
 
+@api_router.patch("/voice/rooms/{room_id}/invited")
+async def voice_room_update_invited(room_id: str, body: VoiceRoomInviteUpdate,
+                                     _: dict = Depends(require_admin)):
+    """v140.35 — Odanın davetli listesini güncelle. Admin yetkisi zorunlu."""
+    invited = list({(x or "").strip() for x in (body.invited_user_ids or []) if (x or "").strip()})
+    r = await db.voice_rooms.update_one(
+        {"id": room_id},
+        {"$set": {"invited_user_ids": invited}},
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Oda bulunamadı")
+    return {"ok": True, "invited_user_ids": invited}
+
+
 @api_router.get("/voice/rooms")
 async def voice_rooms_list(u: Optional[dict] = Depends(_optional_auth)):
-    """v140.7 — Odaları herkese göster (ziyaretçi dahil); password_hash asla dönmez.
-    Davet listesi kaldırıldı — sadece şifre ile erişim."""
-    rows = await db.voice_rooms.find(
-        {},
-        {"_id": 0, "password_hash": 0, "password_plain": 0, "invited_user_ids": 0},
-    ).sort("created_at", 1).to_list(200)
+    """v140.35 — Davet sistemi geri geldi (opsiyonel bypass). Odalar herkese
+    görünür; her authed user için `is_invited: bool` hesaplanır. Adminler için
+    `invited_user_ids` de döner (yönetim UI'ı için)."""
+    projection = {"_id": 0, "password_hash": 0, "password_plain": 0}
+    is_admin = bool(u) and u.get("role") == "admin"
+    rows = await db.voice_rooms.find({}, projection).sort("created_at", 1).to_list(200)
+    uid = (u or {}).get("id")
+    for r in rows:
+        invited = list(r.get("invited_user_ids") or [])
+        r["is_invited"] = bool(uid and uid in invited)
+        r["invited_count"] = len(invited)
+        if not is_admin:
+            # Sadece admine tam listeyi göster; diğerlerine sadece flag+count yeter.
+            r.pop("invited_user_ids", None)
     return rows
 
 
@@ -10239,7 +10272,12 @@ class VoiceTokenBody(BaseModel):
 
 @api_router.post("/voice/token")
 async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optional_auth)):
-    """v140.7 — Davet sistemi kaldırıldı. Sadece şifre ile erişim (admin bypass korunuyor)."""
+    """v140.35 — Erişim mantığı:
+      • Admin → şifre/davet gerekmez.
+      • Authed user + davetli → şifre gerekmez.
+      • Authed user + davetsiz → şifre gerekli.
+      • Ziyaretçi (auth yok) → şifre gerekli (biliyorsa girer).
+    """
     if not _LK_OK:
         raise HTTPException(500, "LiveKit SDK yüklü değil")
     lk_key = os.environ.get("LIVEKIT_API_KEY", "").strip()
@@ -10251,8 +10289,10 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
     if not room:
         raise HTTPException(404, "Oda bulunamadı")
     is_admin = bool(u) and u.get("role") == "admin"
-    if not is_admin:
-        # Şifre kontrolü zorunlu
+    invited_ids = list(room.get("invited_user_ids") or [])
+    is_invited = bool(u) and u.get("id") in invited_ids
+    if not (is_admin or is_invited):
+        # Şifre kontrolü zorunlu (davetsiz üye VEYA ziyaretçi).
         from auth import verify_password as _verify_password
         if not body.password or not _verify_password(body.password, room.get("password_hash", "")):
             raise HTTPException(403, "Şifre yanlış")

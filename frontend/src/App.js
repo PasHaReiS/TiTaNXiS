@@ -171,6 +171,10 @@ function AppShell() {
           <Route path="/raporlar" element={<RequireAdmin><MotionPage><Reports /></MotionPage></RequireAdmin>} />
           <Route path="/anketler" element={<RequireAuth><MotionPage><Polls /></MotionPage></RequireAuth>} />
           <Route path="/kayit/:token" element={<MotionPage><Signup /></MotionPage>} />
+          {/* v140.35 — Telegram /davet linki `/kayit?davet=CODE` — parametresiz
+              versiyon Login sayfasına düşer, query string orada okunup
+              register modal'ı ön-doldurulmuş şekilde açılır. */}
+          <Route path="/kayit" element={<MotionPage><Login /></MotionPage>} />
           <Route path="/lonca" element={<MotionPage><PublicGuildProfile /></MotionPage>} />
           <Route path="/guild" element={<MotionPage><PublicGuildProfile /></MotionPage>} />
           <Route path="/svs" element={<RequireAuth><MotionPage><SvSTracker /></MotionPage></RequireAuth>} />
