@@ -436,6 +436,14 @@ export default function Events() {
     const g = {};
     const un = [];
     filteredEvents.forEach((e) => {
+      // v140.43 — Kolon kategorileme artık event_type'a göre: "bireysel" işaretli
+      // etkinlikler grup adı verilse de HER ZAMAN Bireysel kolonuna düşer.
+      // Legacy kayıtlar (event_type=None) için grup adı fallback devreye girer.
+      const et = (e.event_type || "").trim().toLowerCase();
+      if (et === "bireysel") {
+        un.push(e);
+        return;
+      }
       const gn = (e.group_name || "").trim();
       if (gn) {
         if (!g[gn]) g[gn] = [];
@@ -3008,6 +3016,17 @@ function EventForm({ initial, initialTemplate, onClose }) {  const { t } = useTr
     initial ? !!(initial.group_name && String(initial.group_name).trim()) : true,
   );
   const [groupName, setGroupName] = useState(initial?.group_name || "SvS vs 10007");
+  // v140.43 — İlk 10 raporlama toggle'ı EventForm'a taşındı: Grup Var/Yok
+  // fark etmeksizin daima görünür. State edit modunda mevcut değerden gelir.
+  const [autoReport, setAutoReport] = useState(!!(initial && initial.auto_report_top10));
+  const [reportChannels, setReportChannels] = useState(() => {
+    const arr = (initial && Array.isArray(initial.report_channels)) ? initial.report_channels : [];
+    return {
+      telegram: arr.includes("telegram"),
+      push: arr.includes("push"),
+      message: arr.includes("message"),
+    };
+  });
   const [reminderEnabled, setReminderEnabled] = useState(
     initial ? initial.reminder_enabled !== false : true,
   );
@@ -3147,6 +3166,14 @@ function EventForm({ initial, initialTemplate, onClose }) {  const { t } = useTr
         // adını backend'e gönder → Event.template_source_name alanında saklanır
         // → kartın üstünde küçük mor "Şablon: X" chip'i olarak görünür.
         template_source_name: (!initial && templateSourceName) ? templateSourceName : undefined,
+        // v140.43 — Grup toggle'ı event_type'ı değiştirmez; İttifak formu
+        // hep "ittifak" kaydeder. Edit modunda mevcut event_type korunur.
+        event_type: (initial && initial.event_type) || "ittifak",
+        // v140.43 — İlk 10 otomatik raporla (Grup Var/Yok'tan bağımsız).
+        auto_report_top10: autoReport,
+        report_channels: autoReport
+          ? Object.keys(reportChannels).filter((k) => reportChannels[k])
+          : [],
       };
       let res;
       if (initial) {
@@ -3395,6 +3422,60 @@ function EventForm({ initial, initialTemplate, onClose }) {  const { t } = useTr
               className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-white" />
           </>
         )}
+
+        {/* v140.43 — İlk 10 otomatik raporla (Grup Var/Yok bağımsız — HER ZAMAN görünür) */}
+        <div
+          className="mt-3 rounded p-3"
+          style={{ background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.30)" }}
+          data-testid="event-form-reporting-section"
+        >
+          <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-2">
+            {t("event_reporting_section", "RAPORLAMA")}
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer mb-2">
+            <input
+              type="checkbox"
+              checked={autoReport}
+              onChange={(e) => setAutoReport(e.target.checked)}
+              data-testid="event-form-auto-report-checkbox"
+              className="cursor-pointer"
+            />
+            <span className="text-sm font-bold text-white">📊 {t("event_reporting_top10", "İlk 10 kişiyi otomatik raporla")}</span>
+          </label>
+          {autoReport && (
+            <div>
+              <div className="text-[10px] text-muted-foreground mb-1.5">
+                {t("event_reporting_channels", "Raporlama kanalları (çoklu seçim)")}
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { key: "telegram", label: "📨 Telegram" },
+                  { key: "push", label: "🔔 Push" },
+                  { key: "message", label: "💬 Mesaj" },
+                ].map((ch) => {
+                  const active = !!reportChannels[ch.key];
+                  return (
+                    <button
+                      key={ch.key}
+                      type="button"
+                      onClick={() => setReportChannels({ ...reportChannels, [ch.key]: !active })}
+                      className="chip justify-center text-[10px] py-1.5"
+                      data-testid={`event-form-channel-${ch.key}`}
+                      style={active ? {
+                        background: "linear-gradient(135deg, rgba(56,189,248,0.25), rgba(3,105,161,0.25))",
+                        borderColor: "#38BDF8",
+                        color: "#F0F9FF",
+                      } : { opacity: 0.65 }}
+                      aria-pressed={active}
+                    >
+                      {ch.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
 
         <label className="block text-xs uppercase text-muted-foreground font-bold mb-1 mt-3">Etkinlik Görseli</label>
         <ImageDropzone purpose="event" value={banner} onChange={setBanner} max={1} compact />
@@ -3706,6 +3787,9 @@ function BireyselEventForm({ onClose }) {
         auto_archive: false,
         auto_report_top10: autoReport,
         report_channels: autoReport ? selected : [],
+        // v140.43 — Grup atansa bile bu etkinlik BİREYSEL kalır; kolon
+        // kategorileme event_type üzerinden yapılır.
+        event_type: "bireysel",
       };
       await api.post("/events", body);
       mutate((k) => typeof k === "string" && (k.startsWith("/events") || k.startsWith("/event-groups")));

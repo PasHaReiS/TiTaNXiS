@@ -233,6 +233,13 @@ class Event(BaseModel):
     auto_certificate: Optional[bool] = False
     auto_certificate_title: Optional[str] = None
     auto_certificate_theme: Optional[str] = "amber"
+    # v140.43 — Etkinlik tipi kalıcı olarak saklanır. Değerler: "bireysel"
+    # (Bireysel Etkinlik formundan gelen) veya "ittifak" (İttifak/EventForm
+    # formundan gelen). Kolon kategorileme (Kolektif ↔ Bireysel) artık grup
+    # adına DEĞİL, bu alana bakar → grup atanan bir Bireysel etkinlik hâlâ
+    # Bireysel kolonunda kalır. Eski kayıtlar için None → legacy group_name
+    # fallback devreye girer.
+    event_type: Optional[str] = None
 
 
 class EventCreate(BaseModel):
@@ -275,6 +282,8 @@ class EventCreate(BaseModel):
     auto_certificate: Optional[bool] = False
     auto_certificate_title: Optional[str] = None
     auto_certificate_theme: Optional[str] = "amber"
+    # v140.43 — bkz. Event modeli.
+    event_type: Optional[str] = None
     # v136 — Recurrence knobs on create. Backend spawns N-1 additional
     # events after the base one when `interval != "none"` and count > 1.
     # Values: "daily" | "2days" | "weekly" | "2weekly" | "monthly".

@@ -2968,3 +2968,24 @@ Deployment_agent PASS. Backend restart clean, frontend compile OK.
 - Kick + reason seed → GET /bans returns object with reason ✓
 
 Deployment_agent PASS.
+
+## v140.43 — Etkinlik Tipi Kalıcılığı + İlk 10 Her Zaman Görünür (Sep 2, 2026)
+
+### Sorun
+- Bireysel Etkinlik formunda "Grup Var" seçilip grup atandığında etkinlik, `group_name` alanının dolu olması nedeniyle otomatik olarak Kolektif kolonuna kayıyordu — kullanıcının seçtiği "Bireysel" kimliği kayboluyordu.
+- İttifak formunda İlk 10 (auto_report_top10) UI'ı yoktu; kullanıcı hem grup var hem grup yok'ta İlk 10 seçeneğinin görünmesini istedi.
+
+### Fix
+- **Backend**: `Event` ve `EventCreate` modellerine `event_type: Optional[str]` alanı eklendi. Değerler: `"bireysel"` | `"ittifak"`. DB geri uyumlu (eski kayıtlar None; fallback devrede).
+- **Frontend**:
+  - `BireyselEventForm.submit` → `event_type: "bireysel"` sabit.
+  - `EventForm.submit` → `event_type: (initial?.event_type) || "ittifak"` (edit modunda mevcut değer korunur).
+  - `Events.jsx` `useMemo` bucket'lama: `event_type === "bireysel"` → HER ZAMAN ungrouped kolon (grup adı verilse bile). Legacy None → eski group_name mantığı.
+  - `EventForm`'a yeni "RAPORLAMA / 📊 İlk 10 kişiyi otomatik raporla" bölümü eklendi — Grup Var/Yok'tan bağımsız, HER ZAMAN görünür. State `autoReport` + `reportChannels` (telegram/push/message) edit modunda mevcut değerden gelir.
+
+### E2E Test (curl smoke)
+- Bireysel + grup_name set → response.event_type = "bireysel" ✓, group_name = "BireyselWithGroupTest" ✓, top10 = true ✓
+- Ittifak + boş grup → response.event_type = "ittifak" ✓, top10 = true ✓, channels = ["push","message"] ✓
+- Cleanup DELETE ✓
+
+Deployment_agent PASS.
