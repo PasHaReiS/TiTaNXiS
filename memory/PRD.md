@@ -3011,3 +3011,8 @@ Deployment_agent PASS.
 - Cleanup + purge ✓
 
 Deployment_agent PASS.
+
+## v140.45 — Speaking Rozeti (Sep 2, 2026)
+- `useSpeakingParticipants` hook eklendi. `speakingIds` Set'i her render'da güncel; her participant tile'a pulsing yeşil "🎙️ Konuşuyor…" rozeti (animate-pulse + green glow + aria-live=polite) render ediliyor sadece o an konuşurken.
+- i18n TR: "Konuşuyor…" · EN: "Speaking…".
+- Deployment_agent PASS.

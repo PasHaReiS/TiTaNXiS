@@ -12,6 +12,7 @@ import {
   useDataChannel,
   useRoomContext,
   useConnectionState,
+  useSpeakingParticipants,
   StartAudio,
 } from "@livekit/components-react";
 import { Track, RoomEvent, ConnectionState } from "livekit-client";
@@ -516,6 +517,13 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
   // disconnect sonrası track işlemi) böylece önlenir.
   const connectionState = useConnectionState();
   const isConnected = connectionState === ConnectionState.Connected;
+  // v140.45 — Aktif konuşanları (VAD) canlı takip et → tile üstünde pulsing
+  // "Konuşuyor…" rozeti. LiveKit VAD API'si.
+  const speakingParticipants = useSpeakingParticipants();
+  const speakingIds = React.useMemo(
+    () => new Set((speakingParticipants || []).map((p) => p?.identity).filter(Boolean)),
+    [speakingParticipants],
+  );
 
   // v140.36 — Admin controls: kick + in-room invite management.
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -1207,6 +1215,24 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
                   </span>
                 );
               })()}
+              {/* v140.45 — Speaking rozeti (VAD): sadece o an konuşurken göster,
+                  pulsing yeşil, tile altında dikkat çekici. */}
+              {speakingIds.has(p.identity) && (
+                <span
+                  data-testid={`voice-speaking-badge-${p.identity}`}
+                  className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded animate-pulse flex items-center gap-1"
+                  style={{
+                    background: "rgba(34,197,94,0.20)",
+                    color: "#86EFAC",
+                    border: "1px solid #22C55E",
+                    boxShadow: "0 0 8px rgba(34,197,94,0.55)",
+                    letterSpacing: "0.08em",
+                  }}
+                  aria-live="polite"
+                >
+                  🎙️ {t("voice_speaking_label", "Konuşuyor…")}
+                </span>
+              )}
               <div className="flex items-center gap-1">
                 {muted && <MicOff size={12} color="#EF4444" />}
                 {locallyMuted && (
