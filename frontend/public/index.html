@@ -33,6 +33,34 @@
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href="https://titanxis.com" />
 
+        <!-- v140.42 — JSON-LD structured data (Organization + WebSite) — Google zengin sonuç için -->
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "name": "TiTaNXiS",
+          "url": "https://titanxis.com",
+          "description": "Lonca Yönetim Uygulaması",
+          "logo": "https://titanxis.com/brand/titanxis-logo.jpg",
+          "sameAs": ["https://titanxis.com/tanitim"]
+        }
+        </script>
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "name": "TiTaNXiS",
+          "url": "https://titanxis.com",
+          "description": "TiTaNXiS ile loncanu yönet, etkinliklerini takip et, sıralamanda yerini al. GOW lonca yönetim platformu.",
+          "inLanguage": "tr-TR",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://titanxis.com/?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        }
+        </script>
+
         <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
         <link rel="icon" href="%PUBLIC_URL%/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" sizes="16x16" href="%PUBLIC_URL%/icons/favicon-16.png" />

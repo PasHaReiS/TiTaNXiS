@@ -10199,10 +10199,59 @@ async def voice_room_detail(room_id: str, _: dict = Depends(require_admin)):
 
 class VoiceKickBody(BaseModel):
     identity: str
+    # v140.42 — Kick sebebi (opsiyonel). Ban listesinde admin yasağı kaldırırken
+    # neden atıldığını görebilsin diye kayıt altında tutulur.
+    reason: Optional[str] = None
 
 
 class VoiceRoomPasswordUpdate(BaseModel):
     password: str
+
+
+# v140.42 — Public SEO URL list. Yeni public sayfa eklerken buraya bir satır
+# ekle → hem `/api/sitemap.xml` hem de container startup'ta üretilen static
+# `/sitemap.xml` otomatik güncellenir.
+PUBLIC_SEO_URLS: List[dict] = [
+    {"loc": "https://titanxis.com/", "priority": "1.0"},
+    {"loc": "https://titanxis.com/tanitim", "priority": "0.8"},
+    {"loc": "https://titanxis.com/lonca", "priority": "0.7"},
+    {"loc": "https://titanxis.com/kurallar", "priority": "0.6"},
+    {"loc": "https://titanxis.com/sesli-kanallar", "priority": "0.6"},
+]
+
+
+def _build_sitemap_xml() -> str:
+    lines = [
+        "<?xml version='1.0' encoding='UTF-8'?>",
+        "<urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9'>",
+    ]
+    for u in PUBLIC_SEO_URLS:
+        lines.append(f"  <url><loc>{u['loc']}</loc><priority>{u['priority']}</priority></url>")
+    lines.append("</urlset>")
+    lines.append("")
+    return "\n".join(lines)
+
+
+@api_router.get("/sitemap.xml")
+async def sitemap_xml():
+    """v140.42 — Runtime sitemap. `PUBLIC_SEO_URLS` listesinden anlık üretilir;
+    yeni public sayfa eklenince otomatik dahil olur."""
+    from fastapi.responses import Response as _Resp
+    return _Resp(content=_build_sitemap_xml(), media_type="application/xml")
+
+
+def _write_static_sitemap():
+    """v140.42 — Container startup'ta static `/sitemap.xml`'i tazele. Runtime
+    endpoint (`/api/sitemap.xml`) ile aynı listeden üretilir; single source of
+    truth `PUBLIC_SEO_URLS`."""
+    try:
+        import os as _os
+        path = "/app/frontend/public/sitemap.xml"
+        if _os.path.isdir("/app/frontend/public"):
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(_build_sitemap_xml())
+    except Exception as e:
+        logging.getLogger("seo").warning(f"static sitemap write failed: {e}")
 
 
 def _extract_user_id_prefix(identity: str) -> Optional[str]:
@@ -10256,8 +10305,10 @@ async def voice_room_kick(room_id: str, body: VoiceKickBody,
         except Exception: pass
 
     # v140.37 — Ban listesine ekle (mümkünse user_id ile).
+    # v140.42 — Sebep (opsiyonel) kaydediliyor; ban listesi UI'ında görünür.
     banned_user_id = None
     banned_username = None
+    reason = ((body.reason or "").strip() or None)
     uid_prefix = _extract_user_id_prefix(identity)
     if uid_prefix:
         u = await db.users.find_one(
@@ -10267,14 +10318,29 @@ async def voice_room_kick(room_id: str, body: VoiceKickBody,
         if u:
             banned_user_id = u.get("id")
             banned_username = u.get("username")
-            # Adminleri banlamayı da yasakla — admin kendine ceza vermesin.
+            ban_record = {
+                "user_id": banned_user_id,
+                "username": banned_username,
+                "reason": reason,
+                "banned_at": datetime.now(timezone.utc).isoformat(),
+                "banned_by_username": admin.get("username") or "",
+            }
+            # Aynı kullanıcı için mevcut kayıt varsa değiştir; yoksa ekle.
             await db.voice_rooms.update_one(
                 {"id": room_id},
-                {"$addToSet": {"banned_user_ids": banned_user_id}},
+                {"$pull": {"banned_users": {"user_id": banned_user_id}}},
+            )
+            await db.voice_rooms.update_one(
+                {"id": room_id},
+                {
+                    "$push": {"banned_users": ban_record},
+                    "$addToSet": {"banned_user_ids": banned_user_id},  # geri uyumluluk
+                },
             )
     return {
         "ok": True, "kicked": identity, "room": room["name"],
         "banned_user_id": banned_user_id, "banned_username": banned_username,
+        "reason": reason,
         "is_guest": identity.startswith("guest-"),
     }
 
@@ -10305,32 +10371,49 @@ async def voice_room_update_password(room_id: str, body: VoiceRoomPasswordUpdate
 
 @api_router.get("/voice/rooms/{room_id}/bans")
 async def voice_room_list_bans(room_id: str, _: dict = Depends(require_admin)):
-    """v140.37 — Admin oda yasaklıları listesini görür (kullanıcı adı + id)."""
-    room = await db.voice_rooms.find_one({"id": room_id}, {"_id": 0, "banned_user_ids": 1})
+    """v140.37 — Admin oda yasaklıları listesini görür.
+    v140.42 — Ban objesi artık `reason`, `banned_at`, `banned_by_username` içerir;
+    legacy `banned_user_ids` (sadece id listesi) de dahil edilir (username join)."""
+    room = await db.voice_rooms.find_one(
+        {"id": room_id},
+        {"_id": 0, "banned_users": 1, "banned_user_ids": 1},
+    )
     if not room:
         raise HTTPException(404, "Oda bulunamadı")
-    ids = list(room.get("banned_user_ids") or [])
-    if not ids:
-        return {"items": []}
-    users = await db.users.find(
-        {"id": {"$in": ids}},
-        {"_id": 0, "id": 1, "username": 1},
-    ).to_list(len(ids) + 5)
-    umap = {u["id"]: u for u in users}
-    items = [
-        {"user_id": uid, "username": umap.get(uid, {}).get("username") or "(silinmiş)"}
-        for uid in ids
-    ]
+    items = list(room.get("banned_users") or [])
+    seen = {b.get("user_id") for b in items}
+    # Legacy id-only ban kayıtlarını da göster (reason yok).
+    legacy_ids = [uid for uid in (room.get("banned_user_ids") or []) if uid not in seen]
+    if legacy_ids:
+        users = await db.users.find(
+            {"id": {"$in": legacy_ids}},
+            {"_id": 0, "id": 1, "username": 1},
+        ).to_list(len(legacy_ids) + 5)
+        umap = {u["id"]: u.get("username") for u in users}
+        for uid in legacy_ids:
+            items.append({
+                "user_id": uid,
+                "username": umap.get(uid) or "(silinmiş)",
+                "reason": None,
+                "banned_at": None,
+                "banned_by_username": None,
+            })
     return {"items": items}
 
 
 @api_router.delete("/voice/rooms/{room_id}/bans/{user_id}")
 async def voice_room_unban(room_id: str, user_id: str,
                            _: dict = Depends(require_admin)):
-    """v140.37 — Yasaklı üyenin banını kaldır."""
+    """v140.37 — Yasaklı üyenin banını kaldır. v140.42 — hem yeni `banned_users`
+    hem de legacy `banned_user_ids` alanından çeker."""
     r = await db.voice_rooms.update_one(
         {"id": room_id},
-        {"$pull": {"banned_user_ids": user_id}},
+        {
+            "$pull": {
+                "banned_user_ids": user_id,
+                "banned_users": {"user_id": user_id},
+            },
+        },
     )
     if r.matched_count == 0:
         raise HTTPException(404, "Oda bulunamadı")
@@ -10499,6 +10582,11 @@ async def _voice_seed_hook():
         await _voice_rooms_seed()
     except Exception as e:
         logger.warning(f"voice_rooms_seed failed: {e}")
+    # v140.42 — Static /sitemap.xml'i public path listesinden tazele.
+    try:
+        _write_static_sitemap()
+    except Exception as e:
+        logger.warning(f"sitemap refresh failed: {e}")
 
 
 app.include_router(api_router)

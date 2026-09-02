@@ -572,8 +572,19 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
   const kickParticipant = async (p) => {
     if (!p?.identity) return;
     if (!window.confirm(t("voice_kick_confirm", "\"{{name}}\" adlı katılımcıyı odadan atmak istediğine emin misin? Bu odaya yasaklanacak.", { name: p.name || p.identity }))) return;
+    // v140.42 — Kick sebebi (opsiyonel). Cancel → boş sebeple devam; iptal etmek
+    // için önceki confirm'de "Cancel" seçilir.
+    const reason = window.prompt(
+      t("voice_kick_reason_prompt", "Kick sebebi (opsiyonel, boş bırakılabilir):"),
+      ""
+    );
+    // window.prompt Cancel = null; OK = string ("" olabilir). Cancel = iptal.
+    if (reason === null) return;
     try {
-      const r = await api.post(`/voice/rooms/${roomId}/kick`, { identity: p.identity });
+      const r = await api.post(`/voice/rooms/${roomId}/kick`, {
+        identity: p.identity,
+        reason: reason.trim() || null,
+      });
       if (r.data?.banned_user_id) {
         toast.success(t("voice_kick_and_ban_success", "Katılımcı atıldı ve yasaklandı"));
         refetchBans();
@@ -1007,13 +1018,33 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
                   <div
                     key={b.user_id}
                     data-testid={`voice-ban-row-${b.user_id}`}
-                    className="flex items-center gap-2 px-2 py-1.5"
+                    className="flex items-start gap-2 px-2 py-1.5"
                     style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
                   >
-                    <span className="text-[10px] px-1 rounded font-bold" style={{ background: "rgba(239,68,68,0.20)", color: "#F87171" }}>
+                    <span className="text-[10px] px-1 rounded font-bold mt-0.5" style={{ background: "rgba(239,68,68,0.20)", color: "#F87171" }}>
                       🚫
                     </span>
-                    <span className="text-xs flex-1" style={{ color: "#F5F0E8" }}>{b.username}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs" style={{ color: "#F5F0E8" }}>{b.username}</span>
+                      {/* v140.42 — Sebep + banlayan admin + tarih */}
+                      {b.reason && (
+                        <div
+                          data-testid={`voice-ban-reason-${b.user_id}`}
+                          className="text-[10px] italic mt-0.5"
+                          style={{ color: "#FCA5A5" }}
+                        >
+                          "{b.reason}"
+                        </div>
+                      )}
+                      {(b.banned_by_username || b.banned_at) && (
+                        <div className="text-[9px] opacity-60 mt-0.5" style={{ color: "#94A3B8" }}>
+                          {b.banned_by_username && <span>{t("voice_ban_by", "Yasaklayan")}: {b.banned_by_username}</span>}
+                          {b.banned_at && (
+                            <span className="ml-2">{new Date(b.banned_at).toLocaleString("tr-TR")}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     <button
                       data-testid={`voice-unban-${b.user_id}`}
                       onClick={() => unbanUser(b.user_id, b.username)}

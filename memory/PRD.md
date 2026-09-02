@@ -2945,3 +2945,26 @@ Deployment_agent PASS. Backend restart clean, frontend compile OK.
 - `/app/frontend/public/robots.txt` oluşturuldu (Allow: / + Sitemap direktifi).
 - `/app/frontend/public/index.html` güncellendi: yeni `<title>`, description ve keywords meta etiketleri kullanıcının istediği metinlerle.
 - Deployment_agent PASS.
+
+## v140.42 — Dynamic Sitemap + JSON-LD + Ban Reason (Sep 2, 2026)
+
+### 1. Dynamic Sitemap
+- `PUBLIC_SEO_URLS` Python list (server.py) tek gerçek kaynak; yeni public sayfa eklerken buraya 1 satır ekle → hem `/api/sitemap.xml` (runtime endpoint, `application/xml`) hem de container startup'ta yazılan static `/app/frontend/public/sitemap.xml` senkron.
+- Şu an dahil: `/`, `/tanitim`, `/lonca`, `/kurallar`, `/sesli-kanallar`.
+
+### 2. JSON-LD Structured Data
+- `/app/frontend/public/index.html <head>`: iki JSON-LD blok — `Organization` (name, url, description, logo, sameAs) ve `WebSite` (potentialAction SearchAction ile Google sitelinks search box tetikleyici).
+
+### 3. Ban Reason
+- `VoiceKickBody.reason: Optional[str]` eklendi.
+- MongoDB schema: `voice_rooms.banned_users: [{user_id, username, reason, banned_at, banned_by_username}]`. Legacy `banned_user_ids: [str]` de destekleniyor (GET /bans birleştirir; DELETE ikisinden de `$pull`).
+- Kick akışı: confirm → opsiyonel prompt sebep → POST /kick body'de gönderilir.
+- Yasaklılar UI: her satırda küfür/sebep italik, altında "Yasaklayan: admin · TR tarih" satırı.
+
+### E2E Test
+- `/api/sitemap.xml` 200 + application/xml + 5 URL ✓
+- `/sitemap.xml` static refreshed at startup, aynı içerik ✓
+- Index.html'de 2 `application/ld+json` bloğu ✓
+- Kick + reason seed → GET /bans returns object with reason ✓
+
+Deployment_agent PASS.
