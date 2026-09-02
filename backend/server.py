@@ -10181,16 +10181,92 @@ async def voice_room_create(body: VoiceRoomCreate, u: dict = Depends(require_adm
 
 @api_router.patch("/voice/rooms/{room_id}/invited")
 async def voice_room_update_invited(room_id: str, body: VoiceRoomInviteUpdate,
-                                     _: dict = Depends(require_admin)):
-    """v140.35 — Odanın davetli listesini güncelle. Admin yetkisi zorunlu."""
+                                     admin: dict = Depends(require_admin)):
+    """v140.35 — Odanın davetli listesini güncelle. Admin yetkisi zorunlu.
+    v140.44 — Yeni davet edilen (delta) her üyeye "Bir sesli odaya davet
+    edildin: {roomName}" bildirim çanı + web push gönder."""
     invited = list({(x or "").strip() for x in (body.invited_user_ids or []) if (x or "").strip()})
-    r = await db.voice_rooms.update_one(
+    room = await db.voice_rooms.find_one({"id": room_id}, {"_id": 0, "id": 1, "name": 1, "invited_user_ids": 1})
+    if not room:
+        raise HTTPException(404, "Oda bulunamadı")
+    prev = set(room.get("invited_user_ids") or [])
+    newly_added = [uid for uid in invited if uid not in prev]
+    await db.voice_rooms.update_one(
         {"id": room_id},
         {"$set": {"invited_user_ids": invited}},
     )
-    if r.matched_count == 0:
-        raise HTTPException(404, "Oda bulunamadı")
-    return {"ok": True, "invited_user_ids": invited}
+
+    # v140.44 — Yeni davetlileri bilgilendir (bell + web push + SSE).
+    if newly_added:
+        room_name = room.get("name") or "Sesli Oda"
+        admin_uname = (admin.get("username") or "").strip() or "Yönetici"
+        title = "🎫 Sesli oda davetin var"
+        body_txt = f"Bir sesli odaya davet edildin: {room_name}"
+        url_target = "/sesli-kanallar"
+        now_iso_str = now_iso()
+
+        # Bell rows (bulk insert).
+        try:
+            notif_docs = [{
+                "id": str(uuid.uuid4()),
+                "user_id": uid,
+                "title": title,
+                "body": body_txt,
+                "url": url_target,
+                "event_id": None,
+                "sched_id": f"voice-invite-{room_id}",
+                "kind": "voice_room_invite",
+                "meta": {"room_id": room_id, "room_name": room_name, "invited_by": admin_uname},
+                "created_at": now_iso_str,
+                "read": False,
+            } for uid in newly_added]
+            if notif_docs:
+                await db.in_app_notifications.insert_many(notif_docs)
+                for doc in notif_docs:
+                    try:
+                        _publish_notif(doc["user_id"], {
+                            "id": doc["id"], "title": title, "body": body_txt,
+                            "url": url_target, "event_id": None,
+                            "sched_id": doc["sched_id"],
+                            "kind": "voice_room_invite",
+                            "created_at": now_iso_str, "read": False,
+                        })
+                    except Exception:
+                        pass
+        except Exception as _bex:
+            logger.warning(f"voice_invite bell insert failed: {_bex}")
+
+        # Web push (VAPID) to all matching user subscriptions.
+        try:
+            subs = await db.push_subscriptions.find(
+                {"user_id": {"$in": newly_added}}, {"_id": 0}
+            ).to_list(500)
+            if subs:
+                private_pem, _pub = await _get_or_create_vapid()
+                payload = json.dumps({
+                    "title": title,
+                    "body": body_txt,
+                    "url": url_target,
+                    "tag": f"voice-invite-{room_id}",
+                }, ensure_ascii=False)
+                for s in subs:
+                    try:
+                        webpush(
+                            subscription_info={"endpoint": s["endpoint"], "keys": s["keys"]},
+                            data=payload,
+                            vapid_private_key=private_pem,
+                            vapid_claims={"sub": os.environ.get("VAPID_SUB", "mailto:admin@titanxis.local")},
+                        )
+                    except WebPushException as ex:
+                        code = getattr(ex.response, "status_code", None) if hasattr(ex, "response") else None
+                        if code in (404, 410):
+                            await db.push_subscriptions.delete_one({"endpoint": s["endpoint"]})
+                    except Exception:
+                        pass
+        except Exception as _pex:
+            logger.warning(f"voice_invite web push failed: {_pex}")
+
+    return {"ok": True, "invited_user_ids": invited, "notified_new": len(newly_added)}
 
 
 @api_router.get("/voice/rooms/{room_id}")

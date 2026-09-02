@@ -554,16 +554,19 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
       ? invitedIds.filter((x) => x !== uid)
       : [...invitedIds, uid];
     try {
-      await api.patch(`/voice/rooms/${roomId}/invited`, { invited_user_ids: next });
+      const r = await api.patch(`/voice/rooms/${roomId}/invited`, { invited_user_ids: next });
       // Optimistic update + refetch
       refetchRoomDetail({ ...adminRoomDetail, invited_user_ids: next }, false);
       refetchRoomDetail();
       if (onInvitedChange) onInvitedChange();
-      toast.success(
-        invitedIds.includes(uid)
-          ? t("voice_invite_removed", "Davet iptal edildi")
-          : t("voice_invite_added", "Üye davet edildi")
-      );
+      const notified = r?.data?.notified_new || 0;
+      if (invitedIds.includes(uid)) {
+        toast.success(t("voice_invite_removed", "Davet iptal edildi"));
+      } else if (notified > 0) {
+        toast.success(t("voice_invite_added_notified", "Üye davet edildi ve bildirim gönderildi"));
+      } else {
+        toast.success(t("voice_invite_added", "Üye davet edildi"));
+      }
     } catch (e) {
       toast.error(e?.response?.data?.detail || e.message);
     }

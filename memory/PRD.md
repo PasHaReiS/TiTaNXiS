@@ -2989,3 +2989,25 @@ Deployment_agent PASS.
 - Cleanup DELETE ✓
 
 Deployment_agent PASS.
+
+## v140.44 — Davetliye Bildirim (Sep 2, 2026)
+
+### Backend
+- `PATCH /api/voice/rooms/{room_id}/invited` artık delta hesaplıyor: eski `invited_user_ids` ile yeni liste karşılaştırılıp NEWLY-ADDED üyeler bulunuyor. Her yeni üye için 3 kanal:
+  - **Bell (in_app_notifications)**: `{title: "🎫 Sesli oda davetin var", body: "Bir sesli odaya davet edildin: {room_name}", url: "/sesli-kanallar", kind: "voice_room_invite", meta: {room_id, room_name, invited_by}}`
+  - **SSE broadcast**: `_publish_notif(user_id, {...})` ile açık EventSource'lara canlı push (çan ikonu titreme animasyonu tetiklenir).
+  - **Web Push (VAPID)**: `pywebpush` + `push_subscriptions` koleksiyonu. `webpush()` çağrısı, mevcut pattern (streak celebrate, digest test) ile aynı — 404/410 endpoint'leri otomatik temizler.
+- Response artık `{ok, invited_user_ids, notified_new}` döner (yeni bildirilen sayısı).
+- Yalnızca DELTA bildiriliyor — aynı listeyle PATCH tekrar edilirse yeniden bildirim yok.
+
+### Frontend
+- `VoiceRooms.jsx` `toggleInvitedUser` response'tan `notified_new` okur; > 0 ise "Üye davet edildi ve bildirim gönderildi" toast'ı, aksi hâlde eski "Üye davet edildi" toast'ı.
+- i18n TR/EN key: `voice_invite_added_notified`.
+
+### E2E Test (curl smoke)
+- PATCH invited [uid1, uid2] → `notified_new: 2` ✓
+- Aynı listeyle PATCH tekrar → `notified_new: 0` (delta yok) ✓
+- MongoDB `in_app_notifications` koleksiyonunda uid1 için 1 kayıt (kind=voice_room_invite, doğru title+body+meta) ✓
+- Cleanup + purge ✓
+
+Deployment_agent PASS.
