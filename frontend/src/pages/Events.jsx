@@ -1916,8 +1916,15 @@ export default function Events() {
       </div>
 
       {showForm && (
-        <EventForm initial={editing} initialTemplate={prefillTpl}
-                   onClose={() => { setShowForm(false); setEditing(null); setPrefillTpl(null); }} />
+        // v140.46 — Edit modunda event_type'a göre doğru form: "bireysel" ise
+        // BireyselEventForm, aksi hâlde İttifak EventForm. Yeni kayıt akışı
+        // hâlâ event_type=undefined ile EventForm'u seçer (varsayılan İttifak).
+        ((editing && (editing.event_type || "").toLowerCase() === "bireysel")
+          ? <BireyselEventForm initial={editing}
+                onClose={() => { setShowForm(false); setEditing(null); setPrefillTpl(null); }} />
+          : <EventForm initial={editing} initialTemplate={prefillTpl}
+                onClose={() => { setShowForm(false); setEditing(null); setPrefillTpl(null); }} />
+        )
       )}
       {seriesTpl && (
         <TemplateSeriesModal
@@ -3736,21 +3743,38 @@ function EventForm({ initial, initialTemplate, onClose }) {  const { t } = useTr
   );
 }
 
-function BireyselEventForm({ onClose }) {
+function BireyselEventForm({ initial = null, onClose }) {
   const { data: activeGroups = [] } = useSWR("/event-groups?active_only=true", fetcher);
-  const [name, setName] = useState("");
+  const isEdit = !!initial;
+  const [name, setName] = useState(initial?.name || "");
   const [date, setDate] = useState(
-    new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+    initial?.date
+      ? (() => {
+          const d = new Date(initial.date);
+          const tz = d.getTimezoneOffset() * 60000;
+          return new Date(d.getTime() - tz).toISOString().slice(0, 16);
+        })()
+      : new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
   );
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(initial?.description || "");
   // v140.29 — Grup seçimi ("none" = Grup Yok, "existing" = Mevcut, "new" = Yeni ad)
-  const [groupMode, setGroupMode] = useState("none");
-  const [selectedGroup, setSelectedGroup] = useState("");
+  // v140.46 — Edit modunda mevcut group_name'e göre modu türet.
+  const [groupMode, setGroupMode] = useState(
+    initial && (initial.group_name || "").trim() ? "existing" : "none",
+  );
+  const [selectedGroup, setSelectedGroup] = useState(initial?.group_name || "");
   const [newGroupName, setNewGroupName] = useState("");
 
-  const [showInLb, setShowInLb] = useState(true);
-  const [autoReport, setAutoReport] = useState(false);
-  const [channels, setChannels] = useState({ telegram: false, push: false, message: false });
+  const [showInLb, setShowInLb] = useState(initial ? !initial.hidden_from_leaderboard : true);
+  const [autoReport, setAutoReport] = useState(!!(initial && initial.auto_report_top10));
+  const [channels, setChannels] = useState(() => {
+    const arr = (initial && Array.isArray(initial.report_channels)) ? initial.report_channels : [];
+    return {
+      telegram: arr.includes("telegram"),
+      push: arr.includes("push"),
+      message: arr.includes("message"),
+    };
+  });
   const [saving, setSaving] = useState(false);
 
   const submit = async (e) => {
@@ -3791,10 +3815,14 @@ function BireyselEventForm({ onClose }) {
         // kategorileme event_type üzerinden yapılır.
         event_type: "bireysel",
       };
-      await api.post("/events", body);
+      if (isEdit) {
+        await api.patch(`/events/${initial.id}`, body);
+      } else {
+        await api.post("/events", body);
+      }
       mutate((k) => typeof k === "string" && (k.startsWith("/events") || k.startsWith("/event-groups")));
       mutate("/stats");
-      toast.success("Bireysel etkinlik oluşturuldu");
+      toast.success(isEdit ? "Bireysel etkinlik güncellendi" : "Bireysel etkinlik oluşturuldu");
       onClose();
     } catch (err) {
       toast.error(err?.response?.data?.detail || err.message);

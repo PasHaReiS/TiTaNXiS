@@ -3016,3 +3016,11 @@ Deployment_agent PASS.
 - `useSpeakingParticipants` hook eklendi. `speakingIds` Set'i her render'da güncel; her participant tile'a pulsing yeşil "🎙️ Konuşuyor…" rozeti (animate-pulse + green glow + aria-live=polite) render ediliyor sadece o an konuşurken.
 - i18n TR: "Konuşuyor…" · EN: "Speaking…".
 - Deployment_agent PASS.
+
+## v140.46 — Bireysel Etkinlik Edit Form Routing (Sep 2, 2026)
+- **Sorun**: Bireysel etkinliğe Düzenle tıklanınca İttifak formu açılıyordu; İlk 10 seçeneği doğru form olmadığı için kayboluyordu.
+- **Fix**:
+  - `BireyselEventForm({ initial = null, onClose })` — optional prefill prop. Edit modunda name/date/description/group_name→groupMode/showInLb/autoReport/channels tümü mevcut değerden gelir; submit `PATCH /events/{id}` (POST yerine).
+  - `Events.jsx` render mantığı: `editing.event_type?.toLowerCase() === "bireysel"` → `BireyselEventForm`; aksi hâlde `EventForm`. Yeni oluşturma akışları etkilenmedi.
+- **E2E**: PATCH ile event_type="bireysel" korunuyor, top10 toggle karşılıklı update ediyor ✓
+- Deployment_agent PASS.
