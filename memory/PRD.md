@@ -3024,3 +3024,17 @@ Deployment_agent PASS.
   - `Events.jsx` render mantığı: `editing.event_type?.toLowerCase() === "bireysel"` → `BireyselEventForm`; aksi hâlde `EventForm`. Yeni oluşturma akışları etkilenmedi.
 - **E2E**: PATCH ile event_type="bireysel" korunuyor, top10 toggle karşılıklı update ediyor ✓
 - Deployment_agent PASS.
+
+## v140.47 — Reminder Dinamik Metin + Duplicate Fix + Test Mode (Sep 2, 2026)
+
+### Değişiklikler
+1. **Dinamik süre metni**: `_fire_event_reminder` Telegram + push başlığı artık `⏰ *{lead} dk kaldı* — Etkinlik başlıyor` (15/30/60/120 hepsi için doğru).
+2. **Per-channel dedup**: Yeni koleksiyon `event_reminder_sends` — unique index `(event_id, minutes_before, channel)`. Her kanal (Telegram channel_id, her push subscription endpoint) için tekil claim. Duplicate insert = skip. Loop restart / race / retry senaryolarında aynı kombinasyon 2× fire olmaz.
+3. **Test modu**: `REMINDER_TEST_MODE=true` (varsayılan aktif) → Telegram channel + web push + DM fanout tamamen atlanır; sadece `telegram_username='PasHaReisBen'` olan üyenin DM'ine gider. Kullanıcı adı `REMINDER_TEST_USERNAME` env ile override edilebilir. Test bittiğinde `REMINDER_TEST_MODE=false` set → normal path aktif olur (kod dokunulmaz).
+
+### E2E Test
+- `event_reminder_sends` unique index oluşturuldu ✓
+- Aynı `(event, lead, channel)` ikinci insert → DuplicateKeyError ✓
+- Farklı channel aynı (event, lead) → OK ✓
+
+Deployment_agent PASS.

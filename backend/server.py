@@ -6500,6 +6500,15 @@ async def _start_push_scheduler():
     # v135.26 — Pre-event reminder ticker (Telegram channel + web push to
     # RSVP yes/maybe, honouring `notification_prefs.reminder`).
     asyncio.create_task(_event_reminder_loop())
+    # v140.47 — Reminder dedup index: (event_id, minutes_before, channel) unique.
+    try:
+        await db.event_reminder_sends.create_index(
+            [("event_id", 1), ("minutes_before", 1), ("channel", 1)],
+            unique=True,
+            name="uniq_event_reminder_sends",
+        )
+    except Exception as _e:
+        logger.warning(f"event_reminder_sends index ensure: {_e}")
     # v135.28 — Daily birthday greeting ticker (Telegram + admin push).
     asyncio.create_task(_birthday_celebration_loop())
     # v135.33 — Admin todo due-date reminder ticker.
@@ -6522,8 +6531,19 @@ ALLOWED_REMINDER_MINUTES = (15, 30, 60, 120)
 
 
 async def _fire_event_reminder(ev: dict) -> dict:
-    """Fire the pre-event reminder for a single event. Returns fanout stats."""
-    stats = {"telegram": False, "push_sent": 0}
+    """Fire the pre-event reminder for a single event. Returns fanout stats.
+
+    v140.47 — 3 kritik güncelleme:
+      (1) Mesaj metni artık `{lead} dk kaldı` biçiminde — 15/30/60/120 hepsi
+          için doğru gözüksün. Push başlığı da aynı formatı kullanır.
+      (2) Per-channel dedup: (event_id, minutes_before, channel) benzersiz
+          index'li `event_reminder_sends` koleksiyonu üzerinden atomic claim.
+          Aynı kombinasyon 2× fire edilmez — sürücü loop tekrar çalışsa bile.
+      (3) Test modu: `REMINDER_TEST_MODE=true` (VEYA `REMINDER_TEST_USERNAME`
+          set) → Telegram channel + web push + DM fanout DEVREDIŞI, sadece
+          `telegram_username == PasHaReisBen` olan üyenin DM'ine gönderilir.
+    """
+    stats = {"telegram": False, "push_sent": 0, "test_mode": False}
     lead = int(ev.get("reminder_minutes") or 0)
     if lead <= 0:
         return stats
@@ -6531,7 +6551,6 @@ async def _fire_event_reminder(ev: dict) -> dict:
     ev_name = (ev.get("name") or "").strip() or "Etkinlik"
     ev_group = (ev.get("group_name") or "").strip() or "—"
     ev_date_raw = ev.get("date") or ""
-    # Format Turkey-time start for both Telegram + push body.
     from datetime import datetime as _dt, timezone as _tz, timedelta as _td
     try:
         _dtu = _dt.fromisoformat(str(ev_date_raw).replace("Z", "+00:00"))
@@ -6541,26 +6560,83 @@ async def _fire_event_reminder(ev: dict) -> dict:
         tr_time_line = dt_tr.strftime("%Y-%m-%d %H:%M")
     except Exception:
         tr_time_line = str(ev_date_raw)[:16]
-    # 1) Telegram channel — reuse the existing helper so formatting matches.
+
+    # v140.47 — Test modu: sadece PasHaReisBen'e DM.
+    test_username = (os.environ.get("REMINDER_TEST_USERNAME", "").strip() or "PasHaReisBen")
+    test_mode_flag = (os.environ.get("REMINDER_TEST_MODE", "true").strip().lower() in ("1", "true", "yes", "on"))
+    if test_mode_flag:
+        stats["test_mode"] = True
+        # Sebep-etiketli dedup: aynı (event, lead) tekrar fire olmasın.
+        try:
+            await db.event_reminder_sends.insert_one({
+                "event_id": ev_id, "minutes_before": lead, "channel": "test_dm",
+                "sent_at": _dt.now(_tz.utc).isoformat(),
+            })
+        except Exception:
+            logger.info(f"[event-reminder][test] dedup hit event={ev_id} lead={lead}")
+            return stats
+        try:
+            from telegram_bot import send_message as _tg_send_msg
+            # Kullanıcıyı users tablosunda veya telegram_chat_map'te bul.
+            uname_lc = test_username.lower()
+            chat_id = None
+            u = await db.users.find_one(
+                {"telegram_username": {"$regex": f"^{test_username}$", "$options": "i"}},
+                {"_id": 0, "telegram_chat_id": 1},
+            )
+            if u and u.get("telegram_chat_id"):
+                chat_id = str(u["telegram_chat_id"])
+            if not chat_id:
+                m = await db.telegram_chat_map.find_one(
+                    {"username_lc": uname_lc}, {"_id": 0, "chat_id": 1}
+                )
+                if m and m.get("chat_id"):
+                    chat_id = str(m["chat_id"])
+            if chat_id:
+                msg = (
+                    f"⏰ *{lead} dk kaldı* — Etkinlik başlıyor\n\n"
+                    f"📅 *{ev_name}*\n"
+                    f"🗓 Başlangıç: `{tr_time_line} (TR)`\n"
+                    f"📊 Grup: {ev_group}\n\n"
+                    f"_🧪 test modu — sadece @{test_username}_"
+                )
+                stats["telegram"] = bool(await _tg_send_msg(chat_id, msg))
+                logger.info(f"[event-reminder][test] DM'd @{test_username} event={ev_id} lead={lead} → {stats['telegram']}")
+            else:
+                logger.warning(f"[event-reminder][test] @{test_username} chat_id bulunamadı; skip")
+        except Exception as ex:
+            logger.warning(f"[event-reminder][test] failed for {ev_id}: {ex}")
+        return stats
+
+    # ---- Normal path (test modu kapalı) ----
+    lead_line = f"⏰ *{lead} dk kaldı* — Etkinlik başlıyor."
+    # 1) Telegram channel — per-channel dedup.
     try:
         from telegram_bot import send_message as _tg_send
         channel = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
         token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
         if channel and token:
-            lines = [
-                f"⏰ *Hatırlatma!* Etkinlik {lead} dakika içinde başlıyor.",
-                "",
-                f"📅 *{ev_name}*",
-                f"🗓 Başlangıç: `{tr_time_line} (TR)`",
-                f"📊 Grup: {ev_group}",
-            ]
-            base = (os.environ.get("PUBLIC_BASE_URL", "") or "https://titanxis.com").rstrip("/")
-            if ev_id:
-                lines.append(f"\n🔗 [Etkinliğe Katıl]({base}/etkinlikler#event-{ev_id})")
-            stats["telegram"] = bool(await _tg_send(channel, "\n".join(lines)))
+            try:
+                await db.event_reminder_sends.insert_one({
+                    "event_id": ev_id, "minutes_before": lead, "channel": f"tg:{channel}",
+                    "sent_at": _dt.now(_tz.utc).isoformat(),
+                })
+                lines = [
+                    lead_line,
+                    "",
+                    f"📅 *{ev_name}*",
+                    f"🗓 Başlangıç: `{tr_time_line} (TR)`",
+                    f"📊 Grup: {ev_group}",
+                ]
+                base = (os.environ.get("PUBLIC_BASE_URL", "") or "https://titanxis.com").rstrip("/")
+                if ev_id:
+                    lines.append(f"\n🔗 [Etkinliğe Katıl]({base}/etkinlikler#event-{ev_id})")
+                stats["telegram"] = bool(await _tg_send(channel, "\n".join(lines)))
+            except Exception:
+                logger.info(f"[event-reminder] tg dedup hit event={ev_id} lead={lead} channel={channel}")
     except Exception as ex:
         logger.warning(f"[event-reminder] tg channel failed for {ev_id}: {ex}")
-    # 2) Web push — to yes/maybe RSVPs, filtered by live alliance + per-channel opt-out.
+    # 2) Web push — per-channel dedup (subscription endpoint).
     try:
         scope = ev.get("alliance_scope")
         rsvps = await db.event_rsvps.find(
@@ -6569,7 +6645,6 @@ async def _fire_event_reminder(ev: dict) -> dict:
         ).to_list(1000)
         rsvps = await _filter_rsvps_by_current_alliance(rsvps, scope)
         user_ids = list({r["user_id"] for r in rsvps if r.get("user_id")})
-        # Honour per-channel opt-out ("reminder").
         disabled = await _users_disabled_for_pref("reminder")
         if disabled:
             user_ids = [u for u in user_ids if u not in disabled]
@@ -6579,7 +6654,7 @@ async def _fire_event_reminder(ev: dict) -> dict:
                 {"user_id": {"$in": user_ids}}, {"_id": 0},
             ).to_list(1000)
             payload = json.dumps({
-                "title": f"⏰ {ev_name} — {lead} dk içinde",
+                "title": f"⏰ {lead} dk kaldı — {ev_name}",
                 "body": f"Başlangıç: {tr_time_line} (TR) · Grup: {ev_group}",
                 "url": f"/etkinlikler#event-{ev_id}" if ev_id else "/etkinlikler",
                 "tag": f"event-reminder-{ev_id}",
@@ -6587,6 +6662,15 @@ async def _fire_event_reminder(ev: dict) -> dict:
             }, ensure_ascii=False)
             sent = 0
             for s in subs:
+                endpoint_hash = s.get("endpoint", "")[:200]
+                try:
+                    await db.event_reminder_sends.insert_one({
+                        "event_id": ev_id, "minutes_before": lead,
+                        "channel": f"push:{endpoint_hash}",
+                        "sent_at": _dt.now(_tz.utc).isoformat(),
+                    })
+                except Exception:
+                    continue  # dedup: bu subscription için zaten gönderilmiş
                 try:
                     webpush(
                         subscription_info={"endpoint": s["endpoint"], "keys": s["keys"]},
