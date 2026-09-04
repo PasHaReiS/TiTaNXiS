@@ -2549,7 +2549,17 @@ TURKISH_NAMES = [
 
 @api_router.post("/seed")
 async def seed_data(force: bool = False, _: dict = Depends(require_admin)):
-    """Populate DB with initial data. If force=True, wipes existing."""
+    """v140.48 — Production'da kalıcı olarak devre dışı. Destructive `delete_many({})`
+    içeren bu endpoint kazayla tetiklenirse veri kaybına yol açar. Seed
+    işlemi artık idempotent startup hook + admin panel akışları tarafından
+    yönetilir. Endpoint çağrılırsa 404 döner (admin dahil kimse çağıramaz)."""
+    raise HTTPException(status_code=404, detail="Endpoint kaldırıldı (v140.48)")
+
+
+async def _seed_data_deprecated_body(force: bool = False):
+    """Eski seed gövdesi — referans için tutuldu, çağrılmaz. Tetiklemek
+    isteyen bir mühendis bu fonksiyonu manuel import edip terminalden
+    çalıştırmalı; HTTP üzerinden erişim yok."""
     if force:
         await db.members.delete_many({})
         await db.events.delete_many({})
@@ -10403,10 +10413,39 @@ def _build_sitemap_xml() -> str:
 
 @api_router.get("/sitemap.xml")
 async def sitemap_xml():
-    """v140.42 — Runtime sitemap. `PUBLIC_SEO_URLS` listesinden anlık üretilir;
-    yeni public sayfa eklenince otomatik dahil olur."""
+    """v140.42 — Runtime sitemap.
+    v140.48 — Yeni public sayfa eklerken PUBLIC_SEO_URLS'e ekle → otomatik
+    dahil olur. Ek olarak DB'deki aktif (arşivsiz + gizlenmemiş) etkinlikler
+    de otomatik listelenir → yeni etkinlik eklendiğinde sitemap yenilenir."""
     from fastapi.responses import Response as _Resp
-    return _Resp(content=_build_sitemap_xml(), media_type="application/xml")
+    lines = [
+        "<?xml version='1.0' encoding='UTF-8'?>",
+        "<urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9'>",
+    ]
+    for u in PUBLIC_SEO_URLS:
+        lines.append(f"  <url><loc>{u['loc']}</loc><priority>{u['priority']}</priority></url>")
+    # v140.48 — Dinamik etkinlik URL'leri (max 500). Arşivlenen / gizlenen
+    # etkinlikler dahil edilmez.
+    base = "https://titanxis.com"
+    try:
+        cur = db.events.find(
+            {"archived": {"$ne": True}, "hidden_from_leaderboard": {"$ne": True}},
+            {"_id": 0, "id": 1, "date": 1},
+        ).sort("date", -1).limit(500)
+        async for ev in cur:
+            eid = ev.get("id")
+            if not eid:
+                continue
+            lastmod = str(ev.get("date") or "")[:10]
+            lastmod_tag = f"<lastmod>{lastmod}</lastmod>" if lastmod else ""
+            lines.append(
+                f"  <url><loc>{base}/etkinlikler#event-{eid}</loc>{lastmod_tag}<priority>0.5</priority></url>"
+            )
+    except Exception as _e:
+        logging.getLogger("seo").warning(f"sitemap dynamic events failed: {_e}")
+    lines.append("</urlset>")
+    lines.append("")
+    return _Resp(content="\n".join(lines), media_type="application/xml")
 
 
 def _write_static_sitemap():

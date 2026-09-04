@@ -3038,3 +3038,24 @@ Deployment_agent PASS.
 - Farklı channel aynı (event, lead) → OK ✓
 
 Deployment_agent PASS.
+
+## v140.48 — Seed Disable + Dinamik Sitemap + Event JSON-LD + Konuşma Süre Sayacı (Sep 2, 2026)
+
+### 1. /api/seed devre dışı
+- `seed_data` gövdesi `HTTPException(404, "Endpoint kaldırıldı (v140.48)")` — admin dahil hiç kimse çağıramaz. Eski destructive gövde `_seed_data_deprecated_body` altında referans olarak korundu (HTTP erişimsiz). Deployment_agent BLOCKER çözüldü.
+
+### 2. Dinamik Sitemap Genişletme
+- `GET /api/sitemap.xml` artık `PUBLIC_SEO_URLS` (statik) + `db.events` (arşivsiz + gizlenmemiş, max 500) → her etkinlik için `<url><loc>https://titanxis.com/etkinlikler#event-{id}</loc><lastmod>{yyyy-mm-dd}</lastmod><priority>0.5</priority></url>`. Yeni etkinlik = otomatik sitemap.
+
+### 3. Structured Data — Etkinlikler
+- `EventDetailModal` mount olunca `document.head`'e JSON-LD script enjekte ediyor: `@type: Event, name, startDate, description, eventStatus (Scheduled|Cancelled), eventAttendanceMode: OnlineEventAttendanceMode, organizer: TiTaNXiS, url, image (opsiyonel banner_url)`. Modal kapanınca script otomatik kaldırılır.
+
+### 4. Konuşma Süre Sayacı
+- `ActiveRoomUI`'da state: `talkSeconds`, refs: `talkAccumRef` (ms), `talkStartRef`. Local participant `isSpeaking` transition'ında start/stop; her saniye setInterval ile UI güncelle. Header'da chip: "🕒 Bu oturum: MM:SS" — konuşurken bg mor tint. i18n TR/EN keys.
+
+### E2E Test (curl smoke)
+- POST /api/seed → HTTP 404 ✓
+- POST /api/seed?force=true → HTTP 404 ✓
+- GET /api/sitemap.xml → 5 static + 9 dinamik event <loc> (14 toplam) ✓
+
+Deployment_agent PASS.

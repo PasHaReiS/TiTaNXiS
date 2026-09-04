@@ -525,6 +525,42 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
     [speakingParticipants],
   );
 
+  // v140.48 — Kendi kümülatif konuşma süren (bu oturum). Local participant
+  // isSpeaking transitions'ını izler, saniye cinsinden toplar. Odaya girince
+  // 0'dan başlar, ayrılınca ActiveRoomUI unmount → state kaybolur.
+  const [talkSeconds, setTalkSeconds] = useState(0);
+  const talkAccumRef = useRef(0);        // toplam ms
+  const talkStartRef = useRef(null);     // konuşmaya başlanan an (ms) veya null
+  const localIdentity = localParticipant?.identity;
+  const localIsSpeaking = !!(localIdentity && speakingIds.has(localIdentity));
+  useEffect(() => {
+    if (localIsSpeaking) {
+      if (talkStartRef.current === null) {
+        talkStartRef.current = Date.now();
+      }
+    } else if (talkStartRef.current !== null) {
+      talkAccumRef.current += Date.now() - talkStartRef.current;
+      talkStartRef.current = null;
+      setTalkSeconds(Math.floor(talkAccumRef.current / 1000));
+    }
+  }, [localIsSpeaking]);
+  useEffect(() => {
+    // Konuşurken UI'ı saniyede bir güncelle.
+    const iv = setInterval(() => {
+      if (talkStartRef.current !== null) {
+        setTalkSeconds(
+          Math.floor((talkAccumRef.current + (Date.now() - talkStartRef.current)) / 1000)
+        );
+      }
+    }, 1000);
+    return () => clearInterval(iv);
+  }, []);
+  const talkTimeLabel = React.useMemo(() => {
+    const m = Math.floor(talkSeconds / 60);
+    const s = talkSeconds % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }, [talkSeconds]);
+
   // v140.36 — Admin controls: kick + in-room invite management.
   const [inviteOpen, setInviteOpen] = useState(false);
   const { data: adminRoomDetail, mutate: refetchRoomDetail } = useSWR(
@@ -879,6 +915,19 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
           )}
           <span className="chip text-xs flex items-center gap-1" style={{ borderColor: "#22C55E", color: "#22C55E" }}>
             <Users size={12} /> {participants.length}
+          </span>
+          {/* v140.48 — Kendi konuşma süresi (bu oturum) */}
+          <span
+            data-testid="voice-talk-time-self"
+            className="chip text-xs flex items-center gap-1"
+            style={{
+              borderColor: "rgba(168,85,247,0.55)",
+              color: "#C4B5FD",
+              background: localIsSpeaking ? "rgba(168,85,247,0.20)" : "transparent",
+            }}
+            title={t("voice_talk_time_title", "Bu oturumdaki toplam konuşma süren")}
+          >
+            🕒 {t("voice_talk_time_label", "Bu oturum")}: {talkTimeLabel}
           </span>
         </div>
       </div>

@@ -2151,6 +2151,40 @@ function EventDetailModal({ event, open, onClose, onEdit, events = [], onNavigat
   // v135.29 — Auto-generated share image modal (admin only).
   const [shareOpen, setShareOpen] = React.useState(false);
 
+  // v140.48 — JSON-LD Event schema: modal açıldığında head'e enjekte edilir,
+  // Google crawler JS'i render edip zengin etkinlik kartını gösterebilsin.
+  React.useEffect(() => {
+    if (!event || !open) return undefined;
+    const script = document.createElement("script");
+    script.type = "application/ld+json";
+    script.id = `ld-event-${event.id}`;
+    try {
+      const payload = {
+        "@context": "https://schema.org",
+        "@type": "Event",
+        "name": event.name || "Etkinlik",
+        "startDate": event.date || null,
+        "description": event.description || event.subtitle || event.name || "",
+        "eventStatus": event.archived
+          ? "https://schema.org/EventCancelled"
+          : "https://schema.org/EventScheduled",
+        "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode",
+        "organizer": {
+          "@type": "Organization",
+          "name": "TiTaNXiS",
+          "url": "https://titanxis.com",
+        },
+        "url": `https://titanxis.com/etkinlikler#event-${event.id}`,
+        ...(event.banner_url ? { "image": event.banner_url } : {}),
+      };
+      script.text = JSON.stringify(payload);
+      document.head.appendChild(script);
+    } catch {}
+    return () => {
+      try { document.head.removeChild(script); } catch {}
+    };
+  }, [event, open]);
+
   // Sibling navigation — Esc closes the modal, ← / → walk through the
   // same filteredEvents list currently rendered on the page. We stop when
   // there's nothing to navigate to instead of wrapping so admins don't
