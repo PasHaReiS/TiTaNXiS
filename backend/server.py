@@ -5887,28 +5887,41 @@ async def push_scheduled_snooze(sch_id: str, body: PushSnoozeBody, _: dict = Dep
 
 async def _broadcast_group_ids(notif_type: Optional[str] = None) -> list:
     """v140.23 — Bota kayıtlı tüm grup chat_id'lerinin dedup'lı listesi.
-    Kaynaklar:
-      1. `db.telegram_bot_groups` (bot bir gruba eklendiğinde `process_update`
-         auto-upsert yapıyor).
-      2. `TELEGRAM_CHANNEL_ID` env var (kayıtlı gruplar boşsa fallback +
-         her zaman set'e dahil).
-
-    v140.25 — Optional `notif_type` filtresi: grup'un
-    `notification_settings[notif_type]` false ise o grup listeden çıkarılır.
-
-    v140.50 — `notification_routing` singleton override: eğer admin bu
-    bildirim türü için `routes[notif_type].group_chat_id` set etmişse
-    fanout'ı sadece o gruba yönlendir. Tüm 5 remaining tür
-    (yeni_etkinlik/duyurular/dogum_gunu/streak/gorev) böylece DB'yi okur."""
-    # DB route override.
+    v140.50 — `notification_routing.routes[notif_type].group_chat_id`
+             override eklendi.
+    v140.51 — DM override: `routes[notif_type].dm_username` doluysa o
+             kullanıcının `telegram_chat_id`'sini listeye ek olarak dahil
+             et → group + DM tek fanout'ta gider."""
+    override_group = None
+    dm_chat_id = None
     if notif_type:
         try:
             rdoc = await db.notification_routing.find_one({"_id": "singleton"}, {"_id": 0}) or {}
-            override = ((rdoc.get("routes") or {}).get(notif_type) or {}).get("group_chat_id", "")
-            if override and str(override).strip():
-                return [str(override).strip()]
+            route = ((rdoc.get("routes") or {}).get(notif_type) or {})
+            og = str(route.get("group_chat_id") or "").strip()
+            if og:
+                override_group = og
+            dm_uname = str(route.get("dm_username") or "").strip().lstrip("@")
+            if dm_uname:
+                u = await db.users.find_one(
+                    {"telegram_username": {"$regex": f"^{dm_uname}$", "$options": "i"}},
+                    {"_id": 0, "telegram_chat_id": 1},
+                )
+                if u and u.get("telegram_chat_id"):
+                    dm_chat_id = str(u["telegram_chat_id"])
+                if not dm_chat_id:
+                    m = await db.telegram_chat_map.find_one(
+                        {"username_lc": dm_uname.lower()}, {"_id": 0, "chat_id": 1},
+                    )
+                    if m and m.get("chat_id"):
+                        dm_chat_id = str(m["chat_id"])
         except Exception as _e:
-            logger.debug(f"_broadcast_group_ids routing override read failed: {_e}")
+            logger.debug(f"_broadcast_group_ids routing read failed: {_e}")
+    if override_group:
+        out = [override_group]
+        if dm_chat_id and dm_chat_id != override_group:
+            out.append(dm_chat_id)
+        return out
     ids = set()
     settings_map = {}
     try:
@@ -6595,6 +6608,37 @@ async def patch_notification_routing(body: NotificationRoutingUpdate,
     )
     doc = await db.notification_routing.find_one({"_id": "singleton"}, {"_id": 0})
     return doc
+
+
+# v140.51 — Reminder history for admin QA visibility.
+@api_router.get("/reminder-history")
+async def get_reminder_history(limit: int = 20, _: dict = Depends(require_admin)):
+    """Son N hatırlatma fire kaydı (event join'li). `event_reminder_sends`
+    koleksiyonundan çekilir; her satır: {event_id, event_name, minutes_before,
+    channel, sent_at}. Aynı (event, lead) için birden fazla channel satırı
+    olabilir → QA görünürlük için kanal-başına ayrı satır gösterilir."""
+    limit = max(1, min(int(limit or 20), 100))
+    rows = await db.event_reminder_sends.find(
+        {}, {"_id": 0}
+    ).sort("sent_at", -1).to_list(limit)
+    # Enrich with event name.
+    eids = list({r.get("event_id") for r in rows if r.get("event_id")})
+    ev_map = {}
+    if eids:
+        async for ev in db.events.find({"id": {"$in": eids}}, {"_id": 0, "id": 1, "name": 1}):
+            ev_map[ev.get("id")] = ev.get("name") or "(silinmiş)"
+    return {
+        "items": [
+            {
+                "event_id": r.get("event_id"),
+                "event_name": ev_map.get(r.get("event_id"), "(silinmiş)"),
+                "minutes_before": r.get("minutes_before"),
+                "channel": r.get("channel"),
+                "sent_at": r.get("sent_at"),
+            }
+            for r in rows
+        ]
+    }
 
 
 # v135.26 — Automated pre-event reminder scheduler.

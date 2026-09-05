@@ -92,16 +92,26 @@ export default function TelegramGroups() {
           <MessageCircle size={22} />
           {t("tg_groups_title", "Telegram Grupları")}
         </h1>
-        <button
-          onClick={load}
-          className="chip text-xs flex items-center gap-1"
-          data-testid="tg-groups-refresh"
-          disabled={loading}
-          style={{ borderColor: "#94A3B8", color: "#94A3B8" }}
-        >
-          <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          {t("tg_groups_refresh", "Yenile")}
-        </button>
+        <div className="flex items-center gap-2">
+          <a
+            href="/admin/bildirim-yonlendirme"
+            data-testid="nav-notif-routing-link"
+            className="chip text-xs flex items-center gap-1"
+            style={{ borderColor: "#C4B5FD", color: "#C4B5FD" }}
+          >
+            🔔 {t("nav_notif_routing", "Bildirim Yönlendirme")}
+          </a>
+          <button
+            onClick={load}
+            className="chip text-xs flex items-center gap-1"
+            data-testid="tg-groups-refresh"
+            disabled={loading}
+            style={{ borderColor: "#94A3B8", color: "#94A3B8" }}
+          >
+            <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+            {t("tg_groups_refresh", "Yenile")}
+          </button>
+        </div>
       </div>
 
       <p className="text-sm mb-4" style={{ color: "#94A3B8" }} data-testid="tg-groups-help">

@@ -3110,3 +3110,24 @@ Deployment_agent PASS.
 - Python live-check her tür için `notification_routing` doc'unu okuyup override group_chat_id gösterdi ✓
 
 Not: DM override (dm_username) UI'da kaydediliyor ancak backend'de aktif olarak kullanılmıyor — DM ile ilgili fanout için ayrı entegrasyon gerekli (Next Action).
+
+## v140.51 — DM Override + Reminder History + Menü Linki (Sep 5, 2026)
+
+### 1. DM Override Fanout
+- `_broadcast_group_ids(notif_type)` genişletildi: `routes[notif_type].dm_username` doluysa users tablosundan → `telegram_chat_id` çözümleyip listeye ek olarak dahil eder (fallback: `telegram_chat_map.username_lc`). Grup + DM tek fanout'ta gider.
+- `send_event_notification` (telegram_bot.py) "yeni_etkinlik" için `extra_dm` çözümleyip channel send'inden sonra ek DM gönderiyor.
+- **Kapsam**: 6 türün tamamı DM override desteği kazandı.
+
+### 2. Reminder History Panel
+- Yeni endpoint `GET /api/reminder-history?limit=N` (admin). `event_reminder_sends`'i sort by sent_at desc, events join ile enrich; her satır: `{event_id, event_name, minutes_before, channel, sent_at}`.
+- Frontend: `NotificationRouting.jsx` sayfasının en altına `ReminderHistorySection` — SWR ile 20 satırlık tablo, kanal badge helper (🔔 Push / 📨 TG / 🧪 Test DM), tarih TR locale, "Yenile" butonu. i18n TR/EN.
+
+### 3. Menü Linki
+- `TelegramGroups.jsx` header'ına "🔔 Bildirim Yönlendirme" chip'i eklendi → `/admin/bildirim-yonlendirme`'a doğrudan link. Admin doğal olarak Telegram Grupları sayfasında bu sayfayı bulur. i18n key: `nav_notif_routing`.
+
+### E2E Test (curl + Python live-check)
+- GET /reminder-history → 1 item (event_id: evX seed'i) ✓
+- Routing DM lookup: `routes.duyurular.dm_username="pashareisben"` → users lookup → chat_id 999888777 → expected fanout [-1005555555, 999888777] ✓
+- Cleanup done ✓
+
+Deployment_agent skip (pure additive, backend clean restart, frontend edit only).

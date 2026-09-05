@@ -2356,12 +2356,30 @@ async def send_event_notification(event_name: str, event_date: str,
         or os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
     )
     # v140.50 — notification_routing DB override for "yeni_etkinlik".
+    # v140.51 — DM override: aynı türün dm_username'i doluysa o kullanıcıya
+    # ek olarak DM gönder.
+    extra_dm = None
     try:
         if _db is not None:
             rdoc = await _db.notification_routing.find_one({"_id": "singleton"}, {"_id": 0}) or {}
-            override = ((rdoc.get("routes") or {}).get("yeni_etkinlik") or {}).get("group_chat_id", "")
-            if override and str(override).strip():
-                channel = str(override).strip()
+            route = ((rdoc.get("routes") or {}).get("yeni_etkinlik") or {})
+            override = str(route.get("group_chat_id") or "").strip()
+            if override:
+                channel = override
+            dm_uname = str(route.get("dm_username") or "").strip().lstrip("@")
+            if dm_uname:
+                u = await _db.users.find_one(
+                    {"telegram_username": {"$regex": f"^{dm_uname}$", "$options": "i"}},
+                    {"_id": 0, "telegram_chat_id": 1},
+                )
+                if u and u.get("telegram_chat_id"):
+                    extra_dm = str(u["telegram_chat_id"])
+                if not extra_dm:
+                    m = await _db.telegram_chat_map.find_one(
+                        {"username_lc": dm_uname.lower()}, {"_id": 0, "chat_id": 1},
+                    )
+                    if m and m.get("chat_id"):
+                        extra_dm = str(m["chat_id"])
     except Exception as _e:
         log.debug(f"send_event_notification routing read failed: {_e}")
     if not channel:
@@ -2416,7 +2434,14 @@ async def send_event_notification(event_name: str, event_date: str,
             {"text": "📅 Takvime Ekle", "url": gcal},
         ]]
     }
-    return await send_message(channel, "\n".join(lines), reply_markup=reply_markup)
+    result = await send_message(channel, "\n".join(lines), reply_markup=reply_markup)
+    # v140.51 — Ek DM: notification_routing.routes.yeni_etkinlik.dm_username
+    if extra_dm and extra_dm != channel:
+        try:
+            await send_message(extra_dm, "\n".join(lines), reply_markup=reply_markup)
+        except Exception as _e:
+            log.debug(f"send_event_notification extra DM failed: {_e}")
+    return result
 
 
 # ------------------------------ SvS reminders --------------------------------

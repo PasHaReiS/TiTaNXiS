@@ -205,6 +205,71 @@ export default function NotificationRouting() {
           {saving ? t("saving", "Kaydediliyor…") : t("save", "Kaydet")}
         </button>
       </div>
+
+      {/* v140.51 — Reminder History (QA visibility) */}
+      <ReminderHistorySection />
+    </div>
+  );
+}
+
+
+function ReminderHistorySection() {
+  const { t } = useTranslation();
+  const { data, mutate } = useSWR("/reminder-history?limit=20", fetcher);
+  const items = data?.items || [];
+  const channelBadge = (ch) => {
+    if (!ch) return "—";
+    if (ch.startsWith("push:")) return "🔔 Push";
+    if (ch.startsWith("tg:")) return `📨 TG ${ch.slice(3)}`;
+    if (ch === "test_dm") return "🧪 Test DM";
+    return ch;
+  };
+  return (
+    <div data-testid="reminder-history-section" className="rounded-lg p-4"
+         style={{ background: "rgba(10,6,4,0.72)", border: "1px solid rgba(148,163,184,0.30)" }}>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-bold uppercase tracking-widest" style={{ color: "#C4B5FD" }}>
+          🕘 {t("reminder_history_title", "Son 20 Hatırlatma")}
+        </h2>
+        <button
+          data-testid="reminder-history-refresh"
+          onClick={() => mutate()}
+          className="chip text-[10px]"
+          style={{ borderColor: "rgba(148,163,184,0.5)", color: "#E5E7EB" }}
+        >
+          {t("refresh", "Yenile")}
+        </button>
+      </div>
+      {items.length === 0 ? (
+        <div className="text-[10px] text-center py-3" style={{ color: "#94A3B8" }}>
+          {t("reminder_history_empty", "Henüz fire edilmiş hatırlatma yok")}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11px]">
+            <thead>
+              <tr style={{ color: "#94A3B8", textAlign: "left", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                <th className="py-1.5 px-2">{t("reminder_history_event", "Etkinlik")}</th>
+                <th className="py-1.5 px-2">{t("reminder_history_lead", "Lead")}</th>
+                <th className="py-1.5 px-2">{t("reminder_history_channel", "Kanal")}</th>
+                <th className="py-1.5 px-2">{t("reminder_history_when", "Zaman")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((r, i) => (
+                <tr key={i} data-testid={`reminder-history-row-${i}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                  <td className="py-1.5 px-2" style={{ color: "#F5F0E8" }}>{r.event_name}</td>
+                  <td className="py-1.5 px-2" style={{ color: "#F5A623" }}>{r.minutes_before} dk</td>
+                  <td className="py-1.5 px-2" style={{ color: "#86EFAC" }}>{channelBadge(r.channel)}</td>
+                  <td className="py-1.5 px-2" style={{ color: "#94A3B8" }}>
+                    {r.sent_at ? new Date(r.sent_at).toLocaleString("tr-TR") : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
