@@ -6038,6 +6038,107 @@ class NotifSettingsUpdate(BaseModel):
     notification_settings: dict
 
 
+class TelegramGroupCreateBody(BaseModel):
+    chat_id: str
+    title: Optional[str] = None
+    notification_settings: Optional[dict] = None
+
+
+@api_router.post("/telegram/groups")
+async def telegram_group_create(body: TelegramGroupCreateBody, admin: dict = Depends(require_admin)):
+    """v136 — Manuel Telegram grubu ekleme. Bot henüz gruba eklenmemişse
+    bile admin chat_id'yi elden girip Bildirim Yönlendirme dropdown'unda
+    hemen kullanabilir. Otomatik keşif (webhook `chat_member` eventi) sonradan
+    aynı chat_id'yi update ederek `title`/`last_seen` alanlarını taze tutar."""
+    raw = (body.chat_id or "").strip()
+    if not raw:
+        raise HTTPException(400, "chat_id boş olamaz")
+    # -100... veya sade sayı; ikisi de kabul.
+    if not raw.lstrip("-").isdigit():
+        raise HTTPException(400, "chat_id sadece rakam (opsiyonel başında '-') olmalı")
+    try:
+        cid_int = int(raw)
+    except Exception:
+        cid_int = None
+    title = (body.title or "").strip() or f"Manuel Grup ({raw})"
+    settings = {**DEFAULT_NOTIFICATION_SETTINGS, **(body.notification_settings or {})}
+    settings = {k: bool(v) for k, v in settings.items() if k in DEFAULT_NOTIFICATION_SETTINGS}
+    filter_q = {"$or": [{"chat_id": raw}]}
+    if cid_int is not None:
+        filter_q["$or"].append({"chat_id": cid_int})
+    existing = await db.telegram_bot_groups.find_one(filter_q, {"_id": 0})
+    now = now_iso()
+    if existing:
+        await db.telegram_bot_groups.update_one(
+            filter_q,
+            {"$set": {"title": title, "notification_settings": settings,
+                      "manual": True, "updated_at": now,
+                      "updated_by": admin.get("username") or admin.get("email")}},
+        )
+        doc = await db.telegram_bot_groups.find_one(filter_q, {"_id": 0})
+        return {"created": False, "updated": True, "group": doc}
+    doc = {
+        "id": str(uuid.uuid4()),
+        "chat_id": cid_int if cid_int is not None else raw,
+        "title": title,
+        "notification_settings": settings,
+        "manual": True,
+        "created_at": now,
+        "last_seen": now,
+        "created_by": admin.get("username") or admin.get("email"),
+    }
+    await db.telegram_bot_groups.insert_one(doc)
+    doc.pop("_id", None)
+    return {"created": True, "updated": False, "group": doc}
+
+
+@api_router.delete("/telegram/groups/{group_id}")
+async def telegram_group_delete(group_id: str, _: dict = Depends(require_admin)):
+    """v136 — Manuel olarak eklenmiş grubu kaldır. Bot tarafından keşfedilenler
+    tekrar bulunacağı için silinmeye gerek yok ama admin isterse kaldırabilir."""
+    try:
+        cid_int = int(group_id)
+    except Exception:
+        cid_int = None
+    filter_q = {"$or": [{"chat_id": group_id}]}
+    if cid_int is not None:
+        filter_q["$or"].append({"chat_id": cid_int})
+    r = await db.telegram_bot_groups.delete_one(filter_q)
+    if r.deleted_count == 0:
+        raise HTTPException(404, "Grup bulunamadı")
+    return {"deleted": True}
+
+
+class TelegramGroupTestBody(BaseModel):
+    text: Optional[str] = None
+
+
+@api_router.post("/telegram/groups/{group_id}/test")
+async def telegram_group_test(group_id: str, body: TelegramGroupTestBody, admin: dict = Depends(require_admin)):
+    """v136 — Bir gruba test mesajı gönder (yönlendirme doğrulaması için)."""
+    from telegram_bot import send_message as _tg_send
+    try:
+        cid_int = int(group_id)
+    except Exception:
+        cid_int = None
+    filter_q = {"$or": [{"chat_id": group_id}]}
+    if cid_int is not None:
+        filter_q["$or"].append({"chat_id": cid_int})
+    grp = await db.telegram_bot_groups.find_one(filter_q, {"_id": 0})
+    if not grp:
+        raise HTTPException(404, "Grup bulunamadı")
+    target_cid = grp.get("chat_id")
+    text = (body.text or "").strip() or (
+        f"✅ *TiTaNXiS Bildirim Yönlendirme Testi*\n\n"
+        f"Bu bir test mesajıdır — grup ID `{target_cid}` doğru şekilde bota bağlı."
+    )
+    try:
+        ok = await _tg_send(target_cid, text)
+        return {"ok": bool(ok), "chat_id": target_cid}
+    except Exception as ex:
+        raise HTTPException(500, f"Gönderilemedi: {ex}")
+
+
 @api_router.patch("/telegram/groups/{group_id}/notifications")
 async def telegram_group_update_notifications(group_id: str, body: NotifSettingsUpdate, _: dict = Depends(require_admin)):
     """v140.25 — Bir grubun bildirim ayarlarını güncelle. `group_id` chat_id (string

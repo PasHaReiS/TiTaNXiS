@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 5, 2026 (v136 — Manuel Telegram Grubu Ekleme)** — Backend + Frontend:
+  - Backend `server.py`: 3 yeni endpoint — `POST /api/telegram/groups` (manuel ekle/güncelle — chat_id + optional title + notification_settings; `manual: true` flag'ıyla işaretlenir; aynı chat_id varsa update eder), `DELETE /api/telegram/groups/{group_id}` ve `POST /api/telegram/groups/{group_id}/test` (test mesajı gönderir, `telegram_bot.send_message` üzerinden).
+  - Frontend `NotificationRouting.jsx`: "Telegram Grupları" bölümü eklendi (mor accent) — manuel ekleme formu (Chat ID + opsiyonel isim), grup listesi (Manuel badge'i ile), her satırda Test/Sil butonları. Bir grubu silmek onaylı ve o grup route'larda seçili ise route'lardan da temizler. Bot tarafından keşfedilen gruplar da aynı listede (badge'siz) görünür.
+  - i18n: 24 yeni TR + EN key (`routing_groups_*`, `routing_group_*`, `adding`, `sending`, `deleting`).
+  - Doğrulama: curl (POST/DELETE/GET manuel + invalid input 400 + duplicate → update + 404 on repeat delete) + Playwright screenshot (desktop 1920 + mobile 390) — 3 grup satırı listeleniyor, Manuel badge doğru, form validasyon çalışıyor.
+
+
+
 - **Feb 5, 2026 (v136 — Bulk Invite Codes + Push Analytics + OCR History/Restore)** — Backend + Frontend:
   - **Toplu Davet Kodu**: `POST /api/invite-codes/bulk?count=N` (N ∈ {5,10,20}); frontend `InviteCodesManagement.jsx` panel'e 5/10/20 toggle + "N Kod Üret" butonu (`data-testid=invite-code-bulk-controls`). Batch id ile gruplanır. i18n: `invite_code_bulk_*`.
   - **Push Analitik**: `GET /api/push/analytics?days=&notif_pref=` — huni (sent/viewed/clicked + view_rate + ctr), tür bazlı kırılım, son 50 yayın. `push_history` doküman şeması `notif_pref` alanı ile genişletildi (broadcast helper'a otomatik yazılıyor). Yeni sayfa: `/admin/push-analitik` (ayrıca `/admin/push-analytics` alias'ı). RadialMenu'ye 📊 nav item eklendi. i18n: `push_analytics_*`, `push_type_*`, `nav_push_analytics`.

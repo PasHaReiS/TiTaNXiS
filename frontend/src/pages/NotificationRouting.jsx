@@ -3,7 +3,7 @@ import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { api, apiErr } from "@/lib/api";
-import { Bell, Save, TestTube } from "lucide-react";
+import { Bell, Save, TestTube, Plus, Trash2, Send, RefreshCw } from "lucide-react";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -19,11 +19,17 @@ const NOTIF_TYPES = [
 export default function NotificationRouting({ embedded = false }) {
   const { t } = useTranslation();
   const { data, mutate, isLoading } = useSWR("/notification-routing", fetcher);
-  const { data: groups = [] } = useSWR("/telegram/groups", fetcher);
+  const { data: groups = [], mutate: refetchGroups } = useSWR("/telegram/groups", fetcher);
   const [testMode, setTestMode] = useState(false);
   const [testUsername, setTestUsername] = useState("PasHaReisBen");
   const [routes, setRoutes] = useState({});
   const [saving, setSaving] = useState(false);
+  // v136 — Manuel grup ekleme
+  const [newGroupChatId, setNewGroupChatId] = useState("");
+  const [newGroupTitle, setNewGroupTitle] = useState("");
+  const [addingGroup, setAddingGroup] = useState(false);
+  const [testingGroup, setTestingGroup] = useState(null);
+  const [deletingGroup, setDeletingGroup] = useState(null);
 
   useEffect(() => {
     if (data) {
@@ -65,6 +71,79 @@ export default function NotificationRouting({ embedded = false }) {
       ...prev,
       [typeKey]: { ...(prev[typeKey] || {}), [field]: value },
     }));
+  };
+
+  // v136 — Manuel grup ekleme handler'ları
+  const addGroup = async () => {
+    const cid = newGroupChatId.trim();
+    const title = newGroupTitle.trim();
+    if (!cid) {
+      toast.error(t("routing_group_chat_id_required", "Chat ID boş olamaz"));
+      return;
+    }
+    if (!/^-?\d+$/.test(cid)) {
+      toast.error(t("routing_group_chat_id_invalid", "Chat ID sadece rakam (başında '-' olabilir) olmalı"));
+      return;
+    }
+    setAddingGroup(true);
+    try {
+      const r = await api.post("/telegram/groups", { chat_id: cid, title: title || undefined });
+      toast.success(
+        r.data?.created
+          ? t("routing_group_created", "Grup eklendi")
+          : t("routing_group_updated", "Grup güncellendi")
+      );
+      setNewGroupChatId("");
+      setNewGroupTitle("");
+      await refetchGroups();
+    } catch (e) {
+      toast.error(apiErr(e));
+    } finally {
+      setAddingGroup(false);
+    }
+  };
+
+  const testGroup = async (chat_id) => {
+    setTestingGroup(chat_id);
+    try {
+      const r = await api.post(`/telegram/groups/${chat_id}/test`, {});
+      if (r.data?.ok) {
+        toast.success(t("routing_group_test_ok", "Test mesajı gönderildi: {{cid}}", { cid: chat_id }));
+      } else {
+        toast.error(t("routing_group_test_fail", "Test mesajı gönderilemedi"));
+      }
+    } catch (e) {
+      toast.error(apiErr(e));
+    } finally {
+      setTestingGroup(null);
+    }
+  };
+
+  const deleteGroup = async (chat_id, title) => {
+    if (!window.confirm(t("routing_group_delete_confirm", "\"{{name}}\" grubunu bildirim listesinden kaldırmak istiyor musun? (Bot tekrar keşfederse otomatik geri gelir)", { name: title || chat_id }))) {
+      return;
+    }
+    setDeletingGroup(chat_id);
+    try {
+      await api.delete(`/telegram/groups/${encodeURIComponent(chat_id)}`);
+      toast.success(t("routing_group_deleted", "Grup kaldırıldı"));
+      // Bu grup şu an route'lardan birinde seçili ise temizle
+      setRoutes((prev) => {
+        const nx = {};
+        Object.entries(prev).forEach(([k, v]) => {
+          nx[k] = { ...v };
+          if (String(nx[k].group_chat_id) === String(chat_id)) {
+            nx[k].group_chat_id = "";
+          }
+        });
+        return nx;
+      });
+      await refetchGroups();
+    } catch (e) {
+      toast.error(apiErr(e));
+    } finally {
+      setDeletingGroup(null);
+    }
   };
 
   if (isLoading) {
@@ -131,6 +210,151 @@ export default function NotificationRouting({ embedded = false }) {
             ? t("routing_test_on", `🧪 Test Modu: Sadece @${testUsername} DM alacak, diğer kanallar devre dışı.`, { name: testUsername })
             : t("routing_test_off", "✅ Normal akış: Aşağıdaki yönlendirme kurallarına göre bildirim gider.")}
         </p>
+      </div>
+
+      {/* v136 — Manuel Grup Ekleme + Grup Listesi */}
+      <div
+        data-testid="routing-groups-section"
+        className="rounded-lg p-4"
+        style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.35)" }}
+      >
+        <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4" style={{ color: "#A78BFA" }} />
+            <span className="text-sm font-bold" style={{ color: "#C4B5FD" }}>
+              {t("routing_groups_title", "Telegram Grupları")}
+            </span>
+            <span className="chip text-[10px]" style={{ borderColor: "rgba(168,85,247,0.55)", color: "#DDD6FE" }}>
+              {groupList.length}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => refetchGroups()}
+            className="chip text-[10px] flex items-center gap-1"
+            data-testid="routing-groups-refresh"
+            title={t("refresh", "Yenile")}
+          >
+            <RefreshCw className="w-3 h-3" /> {t("refresh", "Yenile")}
+          </button>
+        </div>
+
+        <p className="text-[10px] mb-3" style={{ color: "#94A3B8" }}>
+          {t(
+            "routing_groups_help",
+            "Bot otomatik olarak eklendiği grupları burada listeler. Bot henüz gruba eklenmediyse bile grup Chat ID'sini manuel ekleyip hemen yönlendirmelerde kullanabilirsin."
+          )}
+        </p>
+
+        {/* Manuel ekleme formu */}
+        <div
+          className="rounded p-3 mb-3 flex flex-col sm:flex-row gap-2"
+          style={{ background: "rgba(15,10,20,0.55)", border: "1px dashed rgba(168,85,247,0.45)" }}
+          data-testid="routing-group-add-form"
+        >
+          <input
+            data-testid="routing-group-add-chat-id"
+            value={newGroupChatId}
+            onChange={(e) => setNewGroupChatId(e.target.value)}
+            placeholder={t("routing_group_add_chat_id_placeholder", "Chat ID (örn: -1001234567890)")}
+            className="flex-1 bg-black/40 border border-white/10 rounded px-2 py-1.5 text-xs text-white font-mono"
+          />
+          <input
+            data-testid="routing-group-add-title"
+            value={newGroupTitle}
+            onChange={(e) => setNewGroupTitle(e.target.value)}
+            placeholder={t("routing_group_add_title_placeholder", "Grup adı (opsiyonel)")}
+            className="flex-1 bg-black/40 border border-white/10 rounded px-2 py-1.5 text-xs text-white"
+          />
+          <button
+            type="button"
+            onClick={addGroup}
+            disabled={addingGroup || !newGroupChatId.trim()}
+            data-testid="routing-group-add-btn"
+            className="chip text-[11px] flex items-center gap-1"
+            style={{
+              background: "linear-gradient(135deg, #A78BFA, #7C3AED)",
+              color: "#0B0704",
+              borderColor: "#A78BFA",
+              fontWeight: 800,
+              opacity: addingGroup || !newGroupChatId.trim() ? 0.5 : 1,
+              cursor: addingGroup || !newGroupChatId.trim() ? "not-allowed" : "pointer",
+            }}
+          >
+            <Plus className="w-3 h-3" />
+            {addingGroup ? t("adding", "Ekleniyor…") : t("routing_group_add_btn", "Grup Ekle")}
+          </button>
+        </div>
+
+        {/* Mevcut grup listesi */}
+        {groupList.length === 0 ? (
+          <div
+            className="text-center text-[11px] py-3 rounded"
+            style={{ background: "rgba(15,10,20,0.4)", border: "1px dashed rgba(148,163,184,0.25)", color: "#94A3B8" }}
+            data-testid="routing-groups-empty"
+          >
+            {t("routing_groups_empty", "Henüz grup yok. Botu Telegram grubuna ekle veya yukarıdan manuel Chat ID gir.")}
+          </div>
+        ) : (
+          <div className="space-y-1.5" data-testid="routing-groups-list">
+            {groupList.map((g) => {
+              const cid = String(g.chat_id || g.id || "");
+              const isManual = !!g.manual;
+              return (
+                <div
+                  key={cid}
+                  data-testid={`routing-group-row-${cid}`}
+                  className="rounded p-2 flex items-center gap-2 flex-wrap"
+                  style={{
+                    background: isManual ? "rgba(168,85,247,0.10)" : "rgba(148,163,184,0.08)",
+                    border: `1px solid ${isManual ? "rgba(168,85,247,0.4)" : "rgba(148,163,184,0.28)"}`,
+                  }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12px] font-bold truncate" style={{ color: "#F5F0E8" }}>
+                      {g.title || t("routing_group_untitled", "İsimsiz Grup")}
+                    </div>
+                    <div className="text-[9px] font-mono" style={{ color: "#94A3B8" }}>
+                      chat_id: {cid}
+                      {isManual && (
+                        <span
+                          className="ml-2 px-1.5 py-0.5 rounded uppercase font-bold"
+                          style={{ background: "rgba(168,85,247,0.22)", color: "#DDD6FE", fontFamily: "sans-serif" }}
+                        >
+                          {t("routing_group_manual_badge", "Manuel")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => testGroup(cid)}
+                    disabled={testingGroup === cid}
+                    className="chip text-[10px] flex items-center gap-1"
+                    data-testid={`routing-group-test-${cid}`}
+                    title={t("routing_group_test_title", "Bu gruba test mesajı gönder")}
+                    style={{ borderColor: "#38BDF8", color: "#38BDF8", opacity: testingGroup === cid ? 0.5 : 1 }}
+                  >
+                    <Send className="w-3 h-3" />
+                    {testingGroup === cid ? t("sending", "Gönderiliyor…") : t("routing_group_test_btn", "Test")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteGroup(cid, g.title)}
+                    disabled={deletingGroup === cid}
+                    className="chip text-[10px] flex items-center gap-1"
+                    data-testid={`routing-group-delete-${cid}`}
+                    title={t("routing_group_delete_title", "Grubu kaldır")}
+                    style={{ borderColor: "#EF4444", color: "#F87171", opacity: deletingGroup === cid ? 0.5 : 1 }}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    {deletingGroup === cid ? t("deleting", "Kaldırılıyor…") : t("delete", "Sil")}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Per-type routes */}
