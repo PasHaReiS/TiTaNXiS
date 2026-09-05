@@ -5892,14 +5892,25 @@ async def _broadcast_group_ids(notif_type: Optional[str] = None) -> list:
          auto-upsert yapıyor).
       2. `TELEGRAM_CHANNEL_ID` env var (kayıtlı gruplar boşsa fallback +
          her zaman set'e dahil).
-    Yeni etkinlik bildirimleri BU listeyi kullanmaz — o özel olarak
-    `TELEGRAM_EVENT_TEST_GROUP`'a gider (bkz. `send_event_notification`).
 
     v140.25 — Optional `notif_type` filtresi: grup'un
     `notification_settings[notif_type]` false ise o grup listeden çıkarılır.
-    Type default'u True (opt-out sistemi)."""
+
+    v140.50 — `notification_routing` singleton override: eğer admin bu
+    bildirim türü için `routes[notif_type].group_chat_id` set etmişse
+    fanout'ı sadece o gruba yönlendir. Tüm 5 remaining tür
+    (yeni_etkinlik/duyurular/dogum_gunu/streak/gorev) böylece DB'yi okur."""
+    # DB route override.
+    if notif_type:
+        try:
+            rdoc = await db.notification_routing.find_one({"_id": "singleton"}, {"_id": 0}) or {}
+            override = ((rdoc.get("routes") or {}).get(notif_type) or {}).get("group_chat_id", "")
+            if override and str(override).strip():
+                return [str(override).strip()]
+        except Exception as _e:
+            logger.debug(f"_broadcast_group_ids routing override read failed: {_e}")
     ids = set()
-    settings_map = {}  # chat_id_str → notification_settings dict
+    settings_map = {}
     try:
         async for g in db.telegram_bot_groups.find({}, {"_id": 0, "chat_id": 1, "notification_settings": 1}):
             cid = g.get("chat_id")

@@ -2355,6 +2355,15 @@ async def send_event_notification(event_name: str, event_date: str,
         or os.environ.get("TELEGRAM_TEST_CHAT_ID", "").strip()
         or os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
     )
+    # v140.50 — notification_routing DB override for "yeni_etkinlik".
+    try:
+        if _db is not None:
+            rdoc = await _db.notification_routing.find_one({"_id": "singleton"}, {"_id": 0}) or {}
+            override = ((rdoc.get("routes") or {}).get("yeni_etkinlik") or {}).get("group_chat_id", "")
+            if override and str(override).strip():
+                channel = str(override).strip()
+    except Exception as _e:
+        log.debug(f"send_event_notification routing read failed: {_e}")
     if not channel:
         return False
 

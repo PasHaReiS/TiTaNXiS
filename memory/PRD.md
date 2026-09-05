@@ -3088,3 +3088,25 @@ Deployment_agent PASS.
 - .env'de REMINDER_TEST_MODE=false onaylandı ✓
 
 Deployment_agent PASS.
+
+## v140.50 — Diğer 5 Bildirim Türünün Routing Entegrasyonu (Sep 5, 2026)
+
+### Fix
+- **`_broadcast_group_ids(notif_type)` genişletildi** (server.py): fonksiyon çağrıldığında ilk olarak `notification_routing` singleton doc'undan `routes[notif_type].group_chat_id` kontrol edilir. Override varsa fonksiyon SADECE o gruba yönlendirir (kayıtlı gruplar ve fallback devre dışı). Bu tek değişiklik şu 4 türü kapsıyor: **duyurular, dogum_gunu, streak, gorev** (hepsi bu helper'ı çağırıyor).
+- **`send_event_notification` genişletildi** (telegram_bot.py): "yeni_etkinlik" için `notification_routing.routes.yeni_etkinlik.group_chat_id` override kontrolü eklendi. Env fallback zinciri (EVENT_TEST_GROUP → TEST_CHAT_ID → CHANNEL_ID) hâlâ geçerli; DB override üstteki en yüksek öncelik.
+
+### Kapsam
+| Bildirim Türü | Fonksiyon | Routing Aktif? |
+|---|---|---|
+| Etkinlik Hatırlatma | `_fire_event_reminder` | ✅ v140.49 |
+| Yeni Etkinlik | `send_event_notification` | ✅ v140.50 |
+| Duyuru | fanout via `_broadcast_group_ids("duyurular")` | ✅ v140.50 |
+| Doğum Günü | fanout via `_broadcast_group_ids("dogum_gunu")` | ✅ v140.50 |
+| Streak | fanout via `_broadcast_group_ids("streak")` | ✅ v140.50 |
+| Görev | fanout via `_broadcast_group_ids("gorev")` | ✅ v140.50 |
+
+### E2E Test (curl)
+- PATCH 5 routes set (yeni_etkinlik, duyurular, dogum_gunu, streak, gorev) → response'ta değerler ✓
+- Python live-check her tür için `notification_routing` doc'unu okuyup override group_chat_id gösterdi ✓
+
+Not: DM override (dm_username) UI'da kaydediliyor ancak backend'de aktif olarak kullanılmıyor — DM ile ilgili fanout için ayrı entegrasyon gerekli (Next Action).
