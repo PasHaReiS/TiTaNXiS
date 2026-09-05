@@ -8,6 +8,17 @@ import { initReactI18next } from "react-i18next";
 // ---------------------------------------------------------------------------
 
 const tr = {
+  // v136 — OCR Multi-select Undo Panel (Members & Events)
+  ocr_undo_panel_member_title: "OCR Üye İşlemleri — Toplu Geri Al",
+  ocr_undo_panel_event_title: "OCR Puan Girişleri — Toplu Geri Al",
+  ocr_undo_records: "kayıt",
+  ocr_undo_selected_count: "{{n}} seçili",
+  ocr_undo_select_all: "Tümünü Seç",
+  ocr_undo_clear: "Temizle",
+  ocr_undo_bulk_apply: "Seçilenleri Geri Al",
+  ocr_undo_preview: "Seçili {{n}} işlem geri alındığında {{m}} üye ve {{p}} puan silinecek.",
+  ocr_bulk_undo_confirm: "{{n}} işlem geri alınacak.\n\n{{typeSummary}}\n\nToplam silinecek: {{m}} üye · {{p}} puan\n\nOnaylıyor musunuz?",
+  ocr_bulk_undo_done: "Geri alındı: {{u}} işlem · {{m}} üye · {{p}} puan silindi{{skipped}}",
   // v140 — Public landing page /tanitim
   tanitim_hero_alt: "TiTaNXiS Lonca Yönetim Uygulaması",
   tanitim_intro: "⚔️ TiTaNXiS Lonca Yönetim Uygulaması — Loncanu yönet, etkinliklerini takip et, sıralamanda yerini al!",
@@ -1510,6 +1521,17 @@ const en = {
   event_tab_unreminded: "Reminders off",
   alliance_rename_placeholder: "Name of the new alliance",
   alliance_rename_tooltip: "Change the name of the alliance",
+  // v136 — OCR Multi-select Undo Panel
+  ocr_undo_panel_member_title: "OCR Member Operations — Bulk Undo",
+  ocr_undo_panel_event_title: "OCR Point Entries — Bulk Undo",
+  ocr_undo_records: "records",
+  ocr_undo_selected_count: "{{n}} selected",
+  ocr_undo_select_all: "Select All",
+  ocr_undo_clear: "Clear",
+  ocr_undo_bulk_apply: "Undo Selected",
+  ocr_undo_preview: "Undoing the selected {{n}} operations will delete {{m}} members and {{p}} points.",
+  ocr_bulk_undo_confirm: "{{n}} operations will be undone.\n\n{{typeSummary}}\n\nTotal to delete: {{m}} members · {{p}} points\n\nProceed?",
+  ocr_bulk_undo_done: "Undone: {{u}} ops · {{m}} members · {{p}} points deleted{{skipped}}",
   // v140 — Public landing page /tanitim
   tanitim_hero_alt: "TiTaNXiS Guild Management App",
   tanitim_intro: "⚔️ TiTaNXiS Guild Management App — Manage your guild, track events, claim your spot on the leaderboard!",

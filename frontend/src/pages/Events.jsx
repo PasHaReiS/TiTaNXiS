@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import ImageDropzone from "@/components/ImageDropzone";
 import OcrDialog from "@/components/OcrDialog";
+import OcrUndoPanel from "@/components/OcrUndoPanel";
 import EventAttendance from "@/components/EventAttendance";
 import EventReminderDialog from "@/components/EventReminderDialog";
 import EventCountdown from "@/components/EventCountdown";
@@ -1317,6 +1318,10 @@ export default function Events() {
       </Header>
 
       <div className="px-4">
+
+        <CanEdit>
+          <OcrUndoPanel scope="event" />
+        </CanEdit>
 
         {selectionMode && (
           <EventsBulkToolbar

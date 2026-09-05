@@ -20,6 +20,19 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 5, 2026 (v136 — Multi-Select OCR Undo)** — Backend + Frontend:
+  - Backend `routes/ocr_audit.py`:
+    - `GET /api/ocr/audit/recent` yeni parametreler: `types=` (virgülle ayrılmış op_type filtresi) ve `include_undone`.
+    - Yeni endpoint `POST /api/ocr/audit/undo-bulk { op_ids: [...] }`: en fazla 100 kayıt, per-op yetki kontrolü (`pasha` tümünü, diğerleri sadece kendini), zaten-undone / not_found / forbidden atlanır. Response: `{total, undone, skipped, deleted_members, deleted_points, results:[...]}`.
+    - Yeni index: `op_type,created_at`.
+  - Frontend `components/OcrUndoPanel.jsx` (yeni): shared multi-select panel, `scope="member"|"event"` prop'u ile op_type filtresi. Checkbox seçim, "Tümünü Seç"/"Temizle", detaylı önizleme (üye/puan sayaçları), tip bazlı özet ve toplu geri alma butonu. `data-testid`: `ocr-undo-panel-{scope}`, `ocr-undo-select-all-{scope}`, `ocr-undo-bulk-btn-{scope}`, `ocr-undo-check-{op_id}`.
+  - `pages/Members.jsx`: eski hiç render edilmeyen `OcrUndoBar` fonksiyonu silindi; `<OcrUndoPanel scope="member" />` header altına eklendi (`CanEdit` içinde).
+  - `pages/Events.jsx`: `<OcrUndoPanel scope="event" />` header altına eklendi (`CanEdit` içinde).
+  - i18n (`tr` + `en`) 10 yeni key: `ocr_undo_panel_member_title`, `ocr_undo_panel_event_title`, `ocr_undo_records`, `ocr_undo_selected_count`, `ocr_undo_select_all`, `ocr_undo_clear`, `ocr_undo_bulk_apply`, `ocr_undo_preview`, `ocr_bulk_undo_confirm`, `ocr_bulk_undo_done`.
+  - Doğrulama: curl e2e (kayıt oluştur → bulk undo → tekrar dene → already_undone skip), Playwright screenshot (desktop + mobile) — panel doğru filtreleme ile görünür.
+
+
+
 - **Feb 31, 2026 (v140.32 — Voice Room Local Mute)** — Frontend:
   - `VoiceRooms.jsx` `ActiveRoomUI`: her katılımcı tile'ının sağ üst köşesine 🔊/🔇 local-mute toggle butonu (`data-testid=voice-local-mute-{identity}`). Kendi tile'ında gösterilmez (`identity === localParticipant.identity` check).
   - `localMutes` state (identity → bool). Tıkta `RemoteParticipant.setVolume(0/1)` — server-side kimseyi etkilemez, sadece bu client. Fallback: eski livekit-client API'si için `audioTrackPublications` üzerinden `track.setVolume` iterate.
