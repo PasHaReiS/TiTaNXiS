@@ -32,8 +32,6 @@ const ITEMS = [
   { key: "etkinlikler", labelKey: "nav_events",      path: "/etkinlikler" },
   { key: "raporlar",    labelKey: "nav_reports",     path: "/raporlar", adminOnly: true },
   { key: "uyeler",      labelKey: "nav_members",     path: "/uyeler" },
-  { key: "notifrouting",labelKey: "nav_notif_routing", path: "/admin/bildirim-yonlendirme", adminOnly: true, emoji: "🔔" },
-  { key: "pushanalytics",labelKey: "nav_push_analytics", path: "/admin/push-analitik", adminOnly: true, emoji: "📊" },
 ];
 
 // Radius (px) icons orbit around the central pill.

@@ -16,7 +16,7 @@ const NOTIF_TYPES = [
   { key: "gorev", label: "Görev", emoji: "✅" },
 ];
 
-export default function NotificationRouting() {
+export default function NotificationRouting({ embedded = false }) {
   const { t } = useTranslation();
   const { data, mutate, isLoading } = useSWR("/notification-routing", fetcher);
   const { data: groups = [] } = useSWR("/telegram/groups", fetcher);
@@ -72,18 +72,20 @@ export default function NotificationRouting() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-4 space-y-6" data-testid="notification-routing-page">
-      <div className="flex items-center gap-3">
-        <Bell className="w-6 h-6" style={{ color: "#F5A623" }} />
-        <div>
-          <h1 className="text-2xl font-bold gold-text" style={{ fontFamily: "Cinzel, serif" }}>
-            {t("routing_title", "Bildirim Yönlendirme")}
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            {t("routing_subtitle", "Her bildirim türünün hangi Telegram grubuna ve/veya DM'e gideceğini yönet.")}
-          </p>
+    <div className={embedded ? "space-y-6" : "max-w-3xl mx-auto p-4 space-y-6"} data-testid="notification-routing-page">
+      {!embedded && (
+        <div className="flex items-center gap-3">
+          <Bell className="w-6 h-6" style={{ color: "#F5A623" }} />
+          <div>
+            <h1 className="text-2xl font-bold gold-text" style={{ fontFamily: "Cinzel, serif" }}>
+              {t("routing_title", "Bildirim Yönlendirme")}
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              {t("routing_subtitle", "Her bildirim türünün hangi Telegram grubuna ve/veya DM'e gideceğini yönet.")}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Test Mode */}
       <div
