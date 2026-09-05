@@ -6519,10 +6519,71 @@ async def _start_push_scheduler():
         )
     except Exception as _e:
         logger.warning(f"event_reminder_sends index ensure: {_e}")
+
+    # v140.49 — Notification routing singleton (default değerlerle).
+    try:
+        default_routes = {t: {"group_chat_id": "", "dm_username": ""} for t in
+                          ("etkinlik_hatirlatma", "yeni_etkinlik", "duyurular",
+                           "dogum_gunu", "streak", "gorev")}
+        await db.notification_routing.update_one(
+            {"_id": "singleton"},
+            {"$setOnInsert": {
+                "test_mode": False,
+                "test_username": "PasHaReisBen",
+                "routes": default_routes,
+            }},
+            upsert=True,
+        )
+    except Exception as _e:
+        logger.warning(f"notification_routing seed: {_e}")
     # v135.28 — Daily birthday greeting ticker (Telegram + admin push).
     asyncio.create_task(_birthday_celebration_loop())
     # v135.33 — Admin todo due-date reminder ticker.
     asyncio.create_task(_admin_todo_due_reminder_loop())
+
+
+# v140.49 — Notification Routing endpoints.
+class NotificationRoutingUpdate(BaseModel):
+    test_mode: Optional[bool] = None
+    test_username: Optional[str] = None
+    routes: Optional[dict] = None  # {type: {group_chat_id, dm_username}}
+
+
+@api_router.get("/notification-routing")
+async def get_notification_routing(_: dict = Depends(require_admin)):
+    doc = await db.notification_routing.find_one({"_id": "singleton"}, {"_id": 0}) or {}
+    if not doc:
+        doc = {"test_mode": False, "test_username": "PasHaReisBen", "routes": {}}
+    return doc
+
+
+@api_router.patch("/notification-routing")
+async def patch_notification_routing(body: NotificationRoutingUpdate,
+                                     _: dict = Depends(require_admin)):
+    set_ops = {}
+    if body.test_mode is not None:
+        set_ops["test_mode"] = bool(body.test_mode)
+    if body.test_username is not None:
+        set_ops["test_username"] = str(body.test_username).strip() or "PasHaReisBen"
+    if body.routes is not None:
+        allowed = {"etkinlik_hatirlatma", "yeni_etkinlik", "duyurular",
+                   "dogum_gunu", "streak", "gorev"}
+        clean = {}
+        for k, v in (body.routes or {}).items():
+            if k not in allowed or not isinstance(v, dict):
+                continue
+            clean[k] = {
+                "group_chat_id": str((v.get("group_chat_id") or "")).strip(),
+                "dm_username": str((v.get("dm_username") or "")).strip().lstrip("@"),
+            }
+        set_ops["routes"] = clean
+    if not set_ops:
+        raise HTTPException(400, "En az bir alan gönderilmeli")
+    await db.notification_routing.update_one(
+        {"_id": "singleton"}, {"$set": set_ops}, upsert=True,
+    )
+    doc = await db.notification_routing.find_one({"_id": "singleton"}, {"_id": 0})
+    return doc
 
 
 # v135.26 — Automated pre-event reminder scheduler.
@@ -6572,8 +6633,23 @@ async def _fire_event_reminder(ev: dict) -> dict:
         tr_time_line = str(ev_date_raw)[:16]
 
     # v140.47 — Test modu: sadece PasHaReisBen'e DM.
-    test_username = (os.environ.get("REMINDER_TEST_USERNAME", "").strip() or "PasHaReisBen")
-    test_mode_flag = (os.environ.get("REMINDER_TEST_MODE", "true").strip().lower() in ("1", "true", "yes", "on"))
+    # v140.49 — Öncelik: DB'deki `notification_routing` singleton doc → env fallback.
+    routing_doc = None
+    try:
+        routing_doc = await db.notification_routing.find_one({"_id": "singleton"}, {"_id": 0}) or {}
+    except Exception:
+        routing_doc = {}
+    _env_test = (os.environ.get("REMINDER_TEST_MODE", "false").strip().lower() in ("1", "true", "yes", "on"))
+    test_mode_flag = bool(routing_doc.get("test_mode", _env_test))
+    test_username = (
+        (routing_doc.get("test_username") or "").strip()
+        or os.environ.get("REMINDER_TEST_USERNAME", "").strip()
+        or "PasHaReisBen"
+    )
+    # Etkinlik hatırlatma route override (DB'de tanımlıysa).
+    route_er = ((routing_doc.get("routes") or {}).get("etkinlik_hatirlatma") or {})
+    route_group = (route_er.get("group_chat_id") or "").strip()
+    route_dm_username = (route_er.get("dm_username") or "").strip()
     if test_mode_flag:
         stats["test_mode"] = True
         # Sebep-etiketli dedup: aynı (event, lead) tekrar fire olmasın.
@@ -6620,10 +6696,11 @@ async def _fire_event_reminder(ev: dict) -> dict:
 
     # ---- Normal path (test modu kapalı) ----
     lead_line = f"⏰ *{lead} dk kaldı* — Etkinlik başlıyor."
-    # 1) Telegram channel — per-channel dedup.
+    # 1) Telegram channel — DB route override varsa oraya, yoksa env
+    #    TELEGRAM_CHANNEL_ID; her ikisinde de per-channel dedup.
     try:
         from telegram_bot import send_message as _tg_send
-        channel = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+        channel = route_group or os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
         token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
         if channel and token:
             try:

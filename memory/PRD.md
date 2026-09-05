@@ -3059,3 +3059,32 @@ Deployment_agent PASS.
 - GET /api/sitemap.xml → 5 static + 9 dinamik event <loc> (14 toplam) ✓
 
 Deployment_agent PASS.
+
+## v140.49 — Bildirim Yönlendirme Merkezi (Sep 5, 2026)
+
+### 1. Test Modu Kapatıldı
+- `/app/backend/.env`: `REMINDER_TEST_MODE=false` (varsayılan artık normal akış).
+
+### 2. + 3. Bildirim Yönlendirme Merkezi
+**Backend**:
+- Yeni singleton koleksiyon `notification_routing`: `{test_mode, test_username, routes: {6 tür: {group_chat_id, dm_username}}}`. Startup'ta idempotent upsert (default değerler).
+- Endpoints: `GET /api/notification-routing`, `PATCH /api/notification-routing` (admin only).
+- `_fire_event_reminder` artık `notification_routing` doc'unu DB'den okuyor:
+  - `test_mode` DB > env fallback.
+  - `test_username` DB > env fallback > "PasHaReisBen".
+  - `routes.etkinlik_hatirlatma.group_chat_id` doluysa Telegram channel override → env `TELEGRAM_CHANNEL_ID` yerine bu grup kullanılır.
+
+**Frontend**:
+- Yeni sayfa `/app/frontend/src/pages/NotificationRouting.jsx` — route `/admin/bildirim-yonlendirme` (RequireAdmin).
+- UI:
+  - Üstte "Test Modu" bölümü (on/off switch + test kullanıcı adı input + dinamik açıklama).
+  - Altında 6 bildirim türü kartı: Etkinlik Hatırlatma, Yeni Etkinlik, Duyuru, Doğum Günü, Streak, Görev. Her kart için Telegram Grubu dropdown (SWR `/telegram/groups`) + DM kullanıcı adı input.
+  - Sticky Kaydet butonu — tek PATCH ile hepsi.
+- i18n tümüyle `t(...)` sarılı — TR default + gerektiğinde EN fallback.
+
+### E2E Test (curl smoke)
+- GET default → test_mode=false, test_username="PasHaReisBen", 6 route boş ✓
+- PATCH routes.etkinlik_hatirlatma + routes.yeni_etkinlik → doc güncellendi, response'ta yeni değerler ✓
+- .env'de REMINDER_TEST_MODE=false onaylandı ✓
+
+Deployment_agent PASS.
