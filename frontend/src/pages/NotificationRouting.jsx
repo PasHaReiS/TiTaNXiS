@@ -215,21 +215,38 @@ export default function NotificationRouting() {
 
 function ReminderHistorySection() {
   const { t } = useTranslation();
-  const { data, mutate } = useSWR("/reminder-history?limit=20", fetcher);
+  const [notifType, setNotifType] = React.useState("");
+  const [dateFrom, setDateFrom] = React.useState("");
+  const [dateTo, setDateTo] = React.useState("");
+  const params = new URLSearchParams();
+  params.set("limit", "50");
+  if (notifType) params.set("notif_type", notifType);
+  if (dateFrom) params.set("date_from", new Date(dateFrom).toISOString());
+  if (dateTo) params.set("date_to", new Date(dateTo).toISOString());
+  const { data, mutate } = useSWR(`/reminder-history?${params.toString()}`, fetcher);
   const items = data?.items || [];
   const channelBadge = (ch) => {
     if (!ch) return "—";
     if (ch.startsWith("push:")) return "🔔 Push";
     if (ch.startsWith("tg:")) return `📨 TG ${ch.slice(3)}`;
     if (ch === "test_dm") return "🧪 Test DM";
+    if (ch.startsWith("dm:")) return `💬 DM ${ch.slice(3)}`;
     return ch;
   };
+  const typeLabel = (nt) => ({
+    etkinlik_hatirlatma: "⏰ Hatırlatma",
+    yeni_etkinlik: "🆕 Yeni Etkinlik",
+    duyurular: "📣 Duyuru",
+    dogum_gunu: "🎂 Doğum Günü",
+    streak: "🔥 Streak",
+    gorev: "✅ Görev",
+  })[nt] || nt || "—";
   return (
     <div data-testid="reminder-history-section" className="rounded-lg p-4"
          style={{ background: "rgba(10,6,4,0.72)", border: "1px solid rgba(148,163,184,0.30)" }}>
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <h2 className="text-sm font-bold uppercase tracking-widest" style={{ color: "#C4B5FD" }}>
-          🕘 {t("reminder_history_title", "Son 20 Hatırlatma")}
+          🕘 {t("reminder_history_title", "Hatırlatma Geçmişi")}
         </h2>
         <button
           data-testid="reminder-history-refresh"
@@ -240,6 +257,39 @@ function ReminderHistorySection() {
           {t("refresh", "Yenile")}
         </button>
       </div>
+      {/* v140.53 — Filtreler */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+        <select
+          data-testid="reminder-history-filter-type"
+          value={notifType}
+          onChange={(e) => setNotifType(e.target.value)}
+          className="bg-black/40 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white"
+        >
+          <option value="">{t("reminder_history_filter_all", "Tüm türler")}</option>
+          <option value="etkinlik_hatirlatma">⏰ {t("routing_type_etkinlik_hatirlatma", "Etkinlik Hatırlatma")}</option>
+          <option value="yeni_etkinlik">🆕 {t("routing_type_yeni_etkinlik", "Yeni Etkinlik")}</option>
+          <option value="duyurular">📣 {t("routing_type_duyurular", "Duyuru")}</option>
+          <option value="dogum_gunu">🎂 {t("routing_type_dogum_gunu", "Doğum Günü")}</option>
+          <option value="streak">🔥 {t("routing_type_streak", "Streak")}</option>
+          <option value="gorev">✅ {t("routing_type_gorev", "Görev")}</option>
+        </select>
+        <input
+          type="datetime-local"
+          data-testid="reminder-history-filter-from"
+          value={dateFrom}
+          onChange={(e) => setDateFrom(e.target.value)}
+          placeholder={t("reminder_history_filter_from", "Başlangıç")}
+          className="bg-black/40 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white"
+        />
+        <input
+          type="datetime-local"
+          data-testid="reminder-history-filter-to"
+          value={dateTo}
+          onChange={(e) => setDateTo(e.target.value)}
+          placeholder={t("reminder_history_filter_to", "Bitiş")}
+          className="bg-black/40 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white"
+        />
+      </div>
       {items.length === 0 ? (
         <div className="text-[10px] text-center py-3" style={{ color: "#94A3B8" }}>
           {t("reminder_history_empty", "Henüz fire edilmiş hatırlatma yok")}
@@ -249,9 +299,9 @@ function ReminderHistorySection() {
           <table className="w-full text-[11px]">
             <thead>
               <tr style={{ color: "#94A3B8", textAlign: "left", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                <th className="py-1.5 px-2">{t("reminder_history_type", "Tür")}</th>
                 <th className="py-1.5 px-2">{t("reminder_history_event", "Etkinlik")}</th>
-                <th className="py-1.5 px-2">{t("reminder_history_lead", "Lead")}</th>
-                <th className="py-1.5 px-2">{t("reminder_history_channel", "Kanal")}</th>
+                <th className="py-1.5 px-2">{t("reminder_history_channel", "Hedef")}</th>
                 <th className="py-1.5 px-2">{t("reminder_history_status", "Durum")}</th>
                 <th className="py-1.5 px-2">{t("reminder_history_when", "Zaman")}</th>
               </tr>
@@ -259,8 +309,11 @@ function ReminderHistorySection() {
             <tbody>
               {items.map((r, i) => (
                 <tr key={i} data-testid={`reminder-history-row-${i}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                  <td className="py-1.5 px-2" style={{ color: "#F5F0E8" }}>{r.event_name}</td>
-                  <td className="py-1.5 px-2" style={{ color: "#F5A623" }}>{r.minutes_before} dk</td>
+                  <td className="py-1.5 px-2" style={{ color: "#F5A623" }}>{typeLabel(r.notif_type)}</td>
+                  <td className="py-1.5 px-2" style={{ color: "#F5F0E8" }}>
+                    {r.event_name}
+                    {r.minutes_before ? <span className="ml-2 opacity-70">({r.minutes_before} dk)</span> : null}
+                  </td>
                   <td className="py-1.5 px-2" style={{ color: "#86EFAC" }}>{channelBadge(r.channel)}</td>
                   <td className="py-1.5 px-2">
                     {r.success === true ? <span style={{ color: "#22C55E" }}>✓ {t("reminder_history_ok", "Başarılı")}</span>

@@ -6612,16 +6612,28 @@ async def patch_notification_routing(body: NotificationRoutingUpdate,
 
 # v140.51 — Reminder history for admin QA visibility.
 @api_router.get("/reminder-history")
-async def get_reminder_history(limit: int = 20, _: dict = Depends(require_admin)):
-    """Son N hatırlatma fire kaydı (event join'li). `event_reminder_sends`
-    koleksiyonundan çekilir; her satır: {event_id, event_name, minutes_before,
-    channel, sent_at}. Aynı (event, lead) için birden fazla channel satırı
-    olabilir → QA görünürlük için kanal-başına ayrı satır gösterilir."""
-    limit = max(1, min(int(limit or 20), 100))
-    rows = await db.event_reminder_sends.find(
-        {}, {"_id": 0}
-    ).sort("sent_at", -1).to_list(limit)
-    # Enrich with event name.
+async def get_reminder_history(
+    limit: int = 20,
+    notif_type: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    _: dict = Depends(require_admin),
+):
+    """v140.51 — QA visibility.
+    v140.53 — Filters: notif_type (etkinlik_hatirlatma / yeni_etkinlik / duyurular
+    / dogum_gunu / streak / gorev), date_from / date_to (ISO)."""
+    limit = max(1, min(int(limit or 20), 200))
+    q = {}
+    if notif_type:
+        q["notif_type"] = notif_type
+    date_q = {}
+    if date_from:
+        date_q["$gte"] = str(date_from)
+    if date_to:
+        date_q["$lte"] = str(date_to)
+    if date_q:
+        q["sent_at"] = date_q
+    rows = await db.event_reminder_sends.find(q, {"_id": 0}).sort("sent_at", -1).to_list(limit)
     eids = list({r.get("event_id") for r in rows if r.get("event_id")})
     ev_map = {}
     if eids:
@@ -6631,15 +6643,35 @@ async def get_reminder_history(limit: int = 20, _: dict = Depends(require_admin)
         "items": [
             {
                 "event_id": r.get("event_id"),
-                "event_name": ev_map.get(r.get("event_id"), "(silinmiş)"),
+                "event_name": ev_map.get(r.get("event_id"), r.get("event_name") or "(silinmiş)"),
                 "minutes_before": r.get("minutes_before"),
                 "channel": r.get("channel"),
                 "sent_at": r.get("sent_at"),
                 "success": r.get("success"),
+                "notif_type": r.get("notif_type") or "etkinlik_hatirlatma",
             }
             for r in rows
         ]
     }
+
+
+async def _log_notif_send(notif_type: str, target: str, success: bool,
+                          event_id: Optional[str] = None,
+                          event_name: Optional[str] = None) -> None:
+    """v140.53 — Generic post-send logger. Duyuru / doğum günü / streak /
+    görev fanout'ları bu helper'ı çağırsın; reminder_history tablosunda
+    aynı satırlar görünsün. Best-effort — hata sessizce logger'a düşer."""
+    try:
+        await db.event_reminder_sends.insert_one({
+            "notif_type": notif_type,
+            "event_id": event_id,
+            "event_name": event_name,
+            "channel": target,
+            "success": bool(success),
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as _e:
+        logger.debug(f"_log_notif_send failed ({notif_type} → {target}): {_e}")
 
 
 # v135.26 — Automated pre-event reminder scheduler.

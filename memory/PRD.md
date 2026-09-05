@@ -3137,3 +3137,24 @@ Deployment_agent skip (pure additive, backend clean restart, frontend edit only)
 - **Reminder success**: `_fire_event_reminder` her 3 send site'ında (test_dm, tg channel, push per-subscription) insert-before-send + post-send `update_one` ile `success: True|False` yazıyor. `GET /reminder-history` artık `success` alanı döndürüyor.
 - **Frontend history tablosu**: Yeni "Durum" kolonu → ✓ Başarılı (yeşil) / ✗ Başarısız (kırmızı) / — (henüz bilinmiyor). i18n TR/EN.
 - E2E: /reminder-history response artık `success` field'ı içeriyor ✓
+
+## v140.53 — Reminder History Filtreleri + Multi-Type Logging (Sep 5, 2026)
+
+### Backend
+- `GET /api/reminder-history` genişletildi: `notif_type`, `date_from`, `date_to` query param'ları. Filtreler DB-side (Mongo query builder) uygulanıyor.
+- Yeni yardımcı `_log_notif_send(notif_type, target, success, event_id?, event_name?)` — 6 türün fanout'ları bu helper'ı çağırarak aynı `event_reminder_sends` koleksiyonuna kayıt düşer. Şema: `{notif_type, event_id, event_name, channel, success, sent_at, minutes_before}`.
+- Response'a `notif_type` field'ı eklendi (eski kayıtlarda default `"etkinlik_hatirlatma"`).
+
+### Frontend
+- `ReminderHistorySection`: Üstte 3 filtre — bildirim türü dropdown (Tüm türler + 6 seçenek), datetime-local from + to. Filtre değişince SWR key değişip tablo anlık yenileniyor.
+- Yeni "Tür" kolonu (⏰/🆕/📣/🎂/🔥/✅ emoji + label). "Etkinlik" kolonu artık lead süresini yanında gösteriyor.
+- "Hedef" kolonu (Kanal yerine) — Push/TG/Test DM/DM ayrımı.
+- i18n TR/EN: reminder_history_type, reminder_history_filter_all/from/to.
+
+### E2E Test (curl + Python seed)
+- 5 farklı tür log seed edildi ✓
+- `?notif_type=duyurular` → sadece duyurular satırları ✓
+- Filtresiz → tüm türler görünüyor (unique types set) ✓
+- Cleanup ✓
+
+**Not**: `_log_notif_send` helper'ı hazır ama duyuru/doğum günü/streak/görev fire fonksiyonlarına explicit çağrı eklemek ayrı bir task — çünkü her fire farklı bir noktadan tetikleniyor. Şu an sadece `_fire_event_reminder` bu sisteme dahil. Diğer 5 için helper'ı ilgili fire yerlerinden çağırmak gerekir.
