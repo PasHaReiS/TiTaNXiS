@@ -33,6 +33,10 @@ class AuditCreate(BaseModel):
     created_point_ids: Optional[List[str]] = None
     event_id: Optional[str] = None
     note: Optional[str] = None
+    # v136 — Snapshot of the ORIGINAL point rows that were deleted+replaced
+    # during an `overwrite_duplicates` OCR run. Undo re-inserts them so the
+    # previous values are restored.
+    overwritten_snapshots: Optional[List[dict]] = None
 
 
 class BulkUndoBody(BaseModel):
@@ -40,9 +44,16 @@ class BulkUndoBody(BaseModel):
 
 
 async def _do_undo_one(db, op: dict) -> dict:
-    """Perform undo for a single op doc. Returns stats. Does NOT check auth."""
+    """Perform undo for a single op doc. Returns stats. Does NOT check auth.
+
+    v136 — Also restores `overwritten_snapshots` (original point rows that
+    were deleted+replaced during an OCR overwrite). We first delete the
+    OCR-inserted rows so we don't collide on member_id+event_id, then
+    re-insert the snapshots (skipping any whose id already exists).
+    """
     deleted_members = 0
     deleted_points = 0
+    restored_points = 0
     for mid in (op.get("created_member_ids") or []):
         try:
             r = await db.members.delete_one({"id": mid})
@@ -57,7 +68,25 @@ async def _do_undo_one(db, op: dict) -> dict:
                 deleted_points += 1
         except Exception as e:
             logger.warning(f"undo point {pid}: {e}")
-    return {"deleted_members": deleted_members, "deleted_points": deleted_points}
+    # Restore original point rows (before OCR overwrite).
+    snaps = op.get("overwritten_snapshots") or []
+    for snap in snaps:
+        try:
+            if not isinstance(snap, dict) or not snap.get("id"):
+                continue
+            existing = await db.points.find_one({"id": snap["id"]}, {"_id": 0, "id": 1})
+            if existing:
+                continue
+            snap_copy = {k: v for k, v in snap.items() if k != "_id"}
+            await db.points.insert_one(snap_copy)
+            restored_points += 1
+        except Exception as e:
+            logger.warning(f"restore snapshot: {e}")
+    return {
+        "deleted_members": deleted_members,
+        "deleted_points": deleted_points,
+        "restored_points": restored_points,
+    }
 
 
 def make_ocr_audit_router(db, require_admin):
@@ -74,6 +103,7 @@ def make_ocr_audit_router(db, require_admin):
             "created_member_ids": body.created_member_ids or [],
             "updated_member_ids": body.updated_member_ids or [],
             "created_point_ids": body.created_point_ids or [],
+            "overwritten_snapshots": body.overwritten_snapshots or [],
             "event_id": body.event_id,
             "note": (body.note or "")[:240],
             "created_at": _now(),
@@ -115,6 +145,7 @@ def make_ocr_audit_router(db, require_admin):
         await db.ocr_audit.update_one(
             {"id": op_id},
             {"$set": {"undone": True, "undone_at": _now(), "undone_by": user.get("id"),
+                      "undone_by_name": user.get("username") or user.get("email"),
                       "undone_stats": stats}},
         )
         return {"ok": True, **stats}
@@ -133,6 +164,7 @@ def make_ocr_audit_router(db, require_admin):
         uid = user.get("id")
         total_members = 0
         total_points = 0
+        total_restored = 0
         undone_cnt = 0
         skipped_cnt = 0
         results = []
@@ -159,9 +191,11 @@ def make_ocr_audit_router(db, require_admin):
                 stats = await _do_undo_one(db, op)
                 total_members += stats["deleted_members"]
                 total_points += stats["deleted_points"]
+                total_restored += stats.get("restored_points", 0)
                 await db.ocr_audit.update_one(
                     {"id": op_id},
                     {"$set": {"undone": True, "undone_at": _now(), "undone_by": uid,
+                              "undone_by_name": user.get("username") or user.get("email"),
                               "undone_stats": stats}},
                 )
                 undone_cnt += 1
@@ -178,6 +212,7 @@ def make_ocr_audit_router(db, require_admin):
             "skipped": skipped_cnt,
             "deleted_members": total_members,
             "deleted_points": total_points,
+            "restored_points": total_restored,
             "results": results,
         }
 

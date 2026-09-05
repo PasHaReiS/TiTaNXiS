@@ -16,11 +16,15 @@ Endpoints:
 """
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from pydantic import BaseModel
 import uuid
 import secrets
 import string
+
+# v136 — Bulk generation caps. Frontend UI only exposes 5/10/20 preset buttons.
+_BULK_ALLOWED = {5, 10, 20}
+_BULK_MAX = 20
 
 
 def _now_iso() -> str:
@@ -76,6 +80,50 @@ def make_invite_codes_router(db, require_admin, hash_password_fn,
         await db.invite_codes.insert_one(doc)
         doc.pop("_id", None)
         return doc
+
+    @router.post("/invite-codes/bulk")
+    async def create_codes_bulk(
+        count: int = Query(10, ge=1, le=_BULK_MAX, description="Kaç kod üretilecek (5/10/20)"),
+        admin: dict = Depends(require_admin),
+    ):
+        """v136 — Toplu davet kodu üretimi. Frontend 5/10/20 seçenekleri sunar.
+        Response: {items: [...], created: N}"""
+        if count not in _BULK_ALLOWED:
+            raise HTTPException(400, f"count 5, 10 veya 20 olmalı (gelen: {count})")
+        created_docs = []
+        for _ in range(count):
+            code = None
+            for _try in range(8):
+                candidate = _gen_code()
+                exists = await db.invite_codes.find_one({"code": candidate}, {"_id": 0, "code": 1})
+                if not exists:
+                    code = candidate
+                    break
+            if not code:
+                # Çok nadir; şimdiye kadar üretilenleri döndür.
+                break
+            doc = {
+                "id": str(uuid.uuid4()),
+                "code": code,
+                "created_by": admin.get("id"),
+                "created_by_username": admin.get("username") or "",
+                "created_at": _now_iso(),
+                "used": False,
+                "used_by": None,
+                "used_by_user_id": None,
+                "used_at": None,
+                "batch_id": None,  # aynı batch'te üretilen kodları gruplamak için
+            }
+            created_docs.append(doc)
+        if not created_docs:
+            raise HTTPException(500, "Toplu kod üretilemedi, tekrar dene")
+        batch_id = str(uuid.uuid4())
+        for d in created_docs:
+            d["batch_id"] = batch_id
+        await db.invite_codes.insert_many(created_docs)
+        for d in created_docs:
+            d.pop("_id", None)
+        return {"items": created_docs, "created": len(created_docs), "batch_id": batch_id}
 
     @router.get("/invite-codes")
     async def list_codes(_: dict = Depends(require_admin)):

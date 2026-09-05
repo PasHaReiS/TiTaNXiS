@@ -603,11 +603,15 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
         const created_member_ids = (_applyRes?.created_member_ids) || (_applyRes?.data?.created_member_ids) || [];
         const updated_member_ids = (_applyRes?.updated_member_ids) || (_applyRes?.data?.updated_member_ids) || [];
         const created_point_ids  = (_applyRes?.created_point_ids)  || (_applyRes?.data?.created_point_ids)  || [];
+        // v136 — Original point rows deleted by an overwrite-duplicates OCR run.
+        // Piping them into the audit doc lets bulk undo `restore` them.
+        const overwritten_snapshots = (_applyRes?.overwritten_snapshots) || (_applyRes?.data?.overwritten_snapshots) || [];
         await api.post("/ocr/audit", {
           op_type,
           created_member_ids, updated_member_ids, created_point_ids,
+          overwritten_snapshots,
           event_id: extra.event_id || null,
-          note: `${arr?.length || 0} satır`,
+          note: `${arr?.length || 0} satır${overwritten_snapshots.length ? ` · ${overwritten_snapshots.length} üzerine yazıldı` : ""}`,
         });
         globalMutate("/ocr/audit/recent?limit=20");
       } catch (auditErr) {

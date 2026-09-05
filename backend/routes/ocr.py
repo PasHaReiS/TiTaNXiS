@@ -409,6 +409,9 @@ def make_ocr_router(db, require_edit, require_auth):
         docs: list[dict] = []
         new_member_docs: list[dict] = []
         overwrite_member_ids: list[str] = []  # collect ids so we bulk-delete once
+        # v136 — Before-snapshot for overwritten point rows so admins can
+        # "restore" (roll back) the OCR overwrite via the OCR Undo panel.
+        overwritten_snapshots: list[dict] = []
         now_iso_str = _dt.now(_tz.utc).isoformat()
         # Preflight: existing point rows for this event (by member_id) so we can
         # BLOCK duplicate submissions instead of silently double-counting.
@@ -508,7 +511,14 @@ def make_ocr_router(db, require_edit, require_auth):
             await db.members.insert_many(new_member_docs)
         # Overwrite mode: wipe the previous point rows for the flagged members
         # BEFORE inserting the new ones so we don't briefly double-count.
+        # v136 — Snapshot the ORIGINAL point docs first so an admin can
+        # restore them from the OCR Undo history.
         if overwrite_member_ids:
+            snapshot_rows = await db.points.find(
+                {"event_id": body.event_id, "member_id": {"$in": overwrite_member_ids}},
+                {"_id": 0},
+            ).to_list(10000)
+            overwritten_snapshots = snapshot_rows
             await db.points.delete_many({
                 "event_id": body.event_id,
                 "member_id": {"$in": overwrite_member_ids},
@@ -540,6 +550,11 @@ def make_ocr_router(db, require_edit, require_auth):
             "skipped_duplicates": skipped_duplicates,
             "errors": errors,
             "event_name": ev.get("name"),
+            # v136 — Audit / undo hooks: the frontend pipes these into the
+            # OCR audit record so bulk-undo can restore original values.
+            "created_point_ids": [d["id"] for d in docs],
+            "created_member_ids": [nm["id"] for nm in new_member_docs],
+            "overwritten_snapshots": overwritten_snapshots,
         }
 
     @router.get("/ocr/event-participants/{event_id}")

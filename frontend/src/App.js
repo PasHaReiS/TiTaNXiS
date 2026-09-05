@@ -55,6 +55,7 @@ import AydinlatmaMetni from "@/pages/AydinlatmaMetni";
 import Tanitim from "@/pages/Tanitim";
 import TelegramGroups from "@/pages/TelegramGroups";
 import NotificationRouting from "@/pages/NotificationRouting";
+import PushAnalytics from "@/pages/PushAnalytics";
 import PushSoundListener from "@/components/PushSoundListener";
 import LegalFooter from "@/components/LegalFooter";
 import MotionPage from "@/components/MotionPage";
@@ -152,6 +153,8 @@ function AppShell() {
           <Route path="/admin/telegram-sablonlar" element={<RequireAdmin><MotionPage><Templates /></MotionPage></RequireAdmin>} />
           <Route path="/admin/telegram-gruplari" element={<RequireAdmin><MotionPage><TelegramGroups /></MotionPage></RequireAdmin>} />
           <Route path="/admin/bildirim-yonlendirme" element={<RequireAdmin><MotionPage><NotificationRouting /></MotionPage></RequireAdmin>} />
+          <Route path="/admin/push-analitik" element={<RequireAdmin><MotionPage><PushAnalytics /></MotionPage></RequireAdmin>} />
+          <Route path="/admin/push-analytics" element={<RequireAdmin><MotionPage><PushAnalytics /></MotionPage></RequireAdmin>} />
           <Route path="/sablonlar" element={<RequireAdmin><MotionPage><Templates /></MotionPage></RequireAdmin>} />
           <Route path="/uye-ekle-ocr" element={<RequireAdmin><MotionPage><MemberAddOcr /></MotionPage></RequireAdmin>} />
           <Route path="/admin/gorevler" element={<RequireAdmin><MotionPage><AdminTodos /></MotionPage></RequireAdmin>} />

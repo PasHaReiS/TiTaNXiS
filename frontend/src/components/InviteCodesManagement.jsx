@@ -16,6 +16,8 @@ export default function InviteCodesManagement() {
   const { data, mutate, isLoading } = useSWR("/invite-codes", fetcher);
   const items = (data && data.items) || [];
   const [busy, setBusy] = useState(false);
+  const [bulkCount, setBulkCount] = useState(10);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [copied, setCopied] = useState(null);
 
   const generate = async () => {
@@ -28,6 +30,20 @@ export default function InviteCodesManagement() {
       toast.error(apiErr(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const generateBulk = async () => {
+    setBulkBusy(true);
+    try {
+      const r = await api.post(`/invite-codes/bulk?count=${bulkCount}`);
+      const n = r.data?.created || 0;
+      toast.success(t("invite_code_bulk_created", "{{n}} davet kodu üretildi", { n }));
+      await mutate();
+    } catch (e) {
+      toast.error(apiErr(e));
+    } finally {
+      setBulkBusy(false);
     }
   };
 
@@ -92,6 +108,51 @@ export default function InviteCodesManagement() {
             <Plus className="w-3.5 h-3.5" />
             {busy ? t("invite_code_creating", "Üretiliyor…") : t("invite_code_create_btn", "Yeni Kod Üret")}
           </button>
+          {/* v136 — Toplu üretim: 5/10/20 seçimi + tek buton */}
+          <div
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1"
+            style={{ background: "rgba(20,12,10,0.6)", border: "1px solid rgba(168,85,247,0.4)" }}
+            data-testid="invite-code-bulk-controls"
+          >
+            <span className="text-[10px] uppercase font-bold" style={{ color: "#C4B5FD", letterSpacing: "0.08em" }}>
+              {t("invite_code_bulk_label", "Toplu")}
+            </span>
+            {[5, 10, 20].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setBulkCount(n)}
+                data-testid={`invite-code-bulk-count-${n}`}
+                className="chip text-[10px]"
+                style={
+                  bulkCount === n
+                    ? { background: "rgba(168,85,247,0.35)", color: "#EDE9FE", borderColor: "#A78BFA", fontWeight: 800 }
+                    : {}
+                }
+              >
+                {n}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={generateBulk}
+              disabled={bulkBusy}
+              data-testid="invite-code-bulk-create-btn"
+              className="chip text-[10px] flex items-center gap-1"
+              style={{
+                borderColor: "#A78BFA", color: "#0B0704",
+                background: "linear-gradient(135deg, #A78BFA, #7C3AED)",
+                fontWeight: 800,
+                opacity: bulkBusy ? 0.6 : 1,
+                cursor: bulkBusy ? "not-allowed" : "pointer",
+              }}
+            >
+              <Plus className="w-3 h-3" />
+              {bulkBusy
+                ? t("invite_code_bulk_creating", "Üretiliyor…")
+                : t("invite_code_bulk_create_btn", "{{n}} Kod Üret", { n: bulkCount })}
+            </button>
+          </div>
         </div>
       </div>
 

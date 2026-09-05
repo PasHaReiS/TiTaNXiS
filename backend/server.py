@@ -5222,6 +5222,7 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
     if not subs:
         await db.push_history.insert_one({
             "id": hid, "title": title, "body": body, "url": url, "tag": tag,
+            "notif_pref": notif_pref or "general",
             "sent": 0, "removed": 0, "opened": 0, "clicked": 0,
             "created_at": now_iso(),
         })
@@ -5258,10 +5259,80 @@ async def _broadcast_push(title: str, body: str, url: str = "/", tag: str = "tit
             pass
     await db.push_history.insert_one({
         "id": hid, "title": title, "body": body, "url": url, "tag": tag,
+        "notif_pref": notif_pref or "general",
         "sent": sent, "removed": removed, "opened": 0, "clicked": 0,
         "created_at": now_iso(),
     })
     return {"sent": sent, "removed": removed}
+
+
+@api_router.get("/push/analytics")
+async def push_analytics(
+    days: int = 30,
+    notif_pref: Optional[str] = None,
+    _: dict = Depends(require_admin),
+):
+    """v136 — Push Notification Funnel Analytics.
+    Returns aggregate + per-type breakdown for the last `days` days.
+    Response: {
+        totals: {sent, viewed, clicked, ctr, view_rate},
+        by_type: [{notif_pref, sent, viewed, clicked, ctr, view_rate}],
+        recent: [{id, title, notif_pref, sent, opened, clicked, created_at}],
+        types: [...],  // distinct notif_pref values
+    }
+    """
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    since = (_dt.now(_tz.utc) - _td(days=max(1, min(days, 365)))).isoformat()
+    q: dict = {"created_at": {"$gte": since}}
+    if notif_pref:
+        q["notif_pref"] = notif_pref
+    rows = await db.push_history.find(q, {"_id": 0}).sort("created_at", -1).to_list(2000)
+    total_sent = sum(int(r.get("sent") or 0) for r in rows)
+    total_viewed = sum(int(r.get("opened") or 0) for r in rows)
+    total_clicked = sum(int(r.get("clicked") or 0) for r in rows)
+    per_type: dict = {}
+    for r in rows:
+        k = r.get("notif_pref") or "general"
+        e = per_type.setdefault(k, {"notif_pref": k, "sent": 0, "viewed": 0, "clicked": 0, "count": 0})
+        e["sent"] += int(r.get("sent") or 0)
+        e["viewed"] += int(r.get("opened") or 0)
+        e["clicked"] += int(r.get("clicked") or 0)
+        e["count"] += 1
+    def _rates(e):
+        s = e["sent"] or 0
+        e["view_rate"] = round((e["viewed"] / s) * 100, 1) if s else 0.0
+        e["ctr"] = round((e["clicked"] / s) * 100, 1) if s else 0.0
+        return e
+    by_type = sorted([_rates(v) for v in per_type.values()], key=lambda x: -x["sent"])
+    # Distinct types ever seen in history (for filter dropdown).
+    all_types = await db.push_history.distinct("notif_pref")
+    types_list = sorted([t for t in all_types if t])
+    recent = [
+        {
+            "id": r.get("id"),
+            "title": r.get("title"),
+            "body": (r.get("body") or "")[:120],
+            "notif_pref": r.get("notif_pref") or "general",
+            "sent": int(r.get("sent") or 0),
+            "opened": int(r.get("opened") or 0),
+            "clicked": int(r.get("clicked") or 0),
+            "created_at": r.get("created_at"),
+        }
+        for r in rows[:50]
+    ]
+    return {
+        "totals": {
+            "sent": total_sent,
+            "viewed": total_viewed,
+            "clicked": total_clicked,
+            "view_rate": round((total_viewed / total_sent) * 100, 1) if total_sent else 0.0,
+            "ctr": round((total_clicked / total_sent) * 100, 1) if total_sent else 0.0,
+        },
+        "by_type": by_type,
+        "recent": recent,
+        "types": types_list,
+        "days": days,
+    }
 
 
 @api_router.post("/push/history/{hid}/opened")

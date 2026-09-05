@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 5, 2026 (v136 — Bulk Invite Codes + Push Analytics + OCR History/Restore)** — Backend + Frontend:
+  - **Toplu Davet Kodu**: `POST /api/invite-codes/bulk?count=N` (N ∈ {5,10,20}); frontend `InviteCodesManagement.jsx` panel'e 5/10/20 toggle + "N Kod Üret" butonu (`data-testid=invite-code-bulk-controls`). Batch id ile gruplanır. i18n: `invite_code_bulk_*`.
+  - **Push Analitik**: `GET /api/push/analytics?days=&notif_pref=` — huni (sent/viewed/clicked + view_rate + ctr), tür bazlı kırılım, son 50 yayın. `push_history` doküman şeması `notif_pref` alanı ile genişletildi (broadcast helper'a otomatik yazılıyor). Yeni sayfa: `/admin/push-analitik` (ayrıca `/admin/push-analytics` alias'ı). RadialMenu'ye 📊 nav item eklendi. i18n: `push_analytics_*`, `push_type_*`, `nav_push_analytics`.
+  - **Undo Geçmişi Tab**: `OcrUndoPanel` bileşenine Aktif/Geçmiş sekmeleri (`data-testid=ocr-undo-tab-{active|history}-{scope}`). Geçmiş sekmesi `include_undone=true` filtresiyle çeker; her satır kim yaptı / ne zaman / hangi op tipi / kim geri aldı / silinen üye+puan + restore edilen puan detayını gösterir.
+  - **Overwritten Point Restore**: `POST /api/ocr/apply-event-points` overwrite yolunda orijinal `points` satırlarını snapshot alır ve response'ta `overwritten_snapshots` döner; `OcrDialog.jsx` snapshot'ı `POST /api/ocr/audit` payload'una ekler; `AuditCreate` modeline `overwritten_snapshots: List[dict]` alanı eklendi. `_do_undo_one` snapshot'ı re-insert eder (id çakışması varsa atlar), yeni istatistik alanı: `restored_points`. Bulk undo response'u toplam `restored_points` da döner. Frontend onay dialogu ve toast bunu detaylı gösterir. Ayrıca `undone_by_name` alanı audit'e eklendi.
+  - Doğrulama: curl (bulk 5/10/20 + invalid 7=400, push/analytics totals + by_type, undo include_undone) + Playwright screenshot (desktop 1920 + mobile 390) — 4 özellik de çalışıyor.
+
+
+
 - **Feb 5, 2026 (v136 — Multi-Select OCR Undo)** — Backend + Frontend:
   - Backend `routes/ocr_audit.py`:
     - `GET /api/ocr/audit/recent` yeni parametreler: `types=` (virgülle ayrılmış op_type filtresi) ve `include_undone`.
