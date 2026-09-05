@@ -6635,6 +6635,7 @@ async def get_reminder_history(limit: int = 20, _: dict = Depends(require_admin)
                 "minutes_before": r.get("minutes_before"),
                 "channel": r.get("channel"),
                 "sent_at": r.get("sent_at"),
+                "success": r.get("success"),
             }
             for r in rows
         ]
@@ -6712,6 +6713,7 @@ async def _fire_event_reminder(ev: dict) -> dict:
             await db.event_reminder_sends.insert_one({
                 "event_id": ev_id, "minutes_before": lead, "channel": "test_dm",
                 "sent_at": _dt.now(_tz.utc).isoformat(),
+                "success": None,  # v140.52 — post-send update
             })
         except Exception:
             logger.info(f"[event-reminder][test] dedup hit event={ev_id} lead={lead}")
@@ -6742,8 +6744,17 @@ async def _fire_event_reminder(ev: dict) -> dict:
                     f"_🧪 test modu — sadece @{test_username}_"
                 )
                 stats["telegram"] = bool(await _tg_send_msg(chat_id, msg))
+                # v140.52 — Post-send success update.
+                await db.event_reminder_sends.update_one(
+                    {"event_id": ev_id, "minutes_before": lead, "channel": "test_dm"},
+                    {"$set": {"success": bool(stats["telegram"])}},
+                )
                 logger.info(f"[event-reminder][test] DM'd @{test_username} event={ev_id} lead={lead} → {stats['telegram']}")
             else:
+                await db.event_reminder_sends.update_one(
+                    {"event_id": ev_id, "minutes_before": lead, "channel": "test_dm"},
+                    {"$set": {"success": False}},
+                )
                 logger.warning(f"[event-reminder][test] @{test_username} chat_id bulunamadı; skip")
         except Exception as ex:
             logger.warning(f"[event-reminder][test] failed for {ev_id}: {ex}")
@@ -6762,6 +6773,7 @@ async def _fire_event_reminder(ev: dict) -> dict:
                 await db.event_reminder_sends.insert_one({
                     "event_id": ev_id, "minutes_before": lead, "channel": f"tg:{channel}",
                     "sent_at": _dt.now(_tz.utc).isoformat(),
+                    "success": None,
                 })
                 lines = [
                     lead_line,
@@ -6774,6 +6786,10 @@ async def _fire_event_reminder(ev: dict) -> dict:
                 if ev_id:
                     lines.append(f"\n🔗 [Etkinliğe Katıl]({base}/etkinlikler#event-{ev_id})")
                 stats["telegram"] = bool(await _tg_send(channel, "\n".join(lines)))
+                await db.event_reminder_sends.update_one(
+                    {"event_id": ev_id, "minutes_before": lead, "channel": f"tg:{channel}"},
+                    {"$set": {"success": bool(stats["telegram"])}},
+                )
             except Exception:
                 logger.info(f"[event-reminder] tg dedup hit event={ev_id} lead={lead} channel={channel}")
     except Exception as ex:
@@ -6810,9 +6826,11 @@ async def _fire_event_reminder(ev: dict) -> dict:
                         "event_id": ev_id, "minutes_before": lead,
                         "channel": f"push:{endpoint_hash}",
                         "sent_at": _dt.now(_tz.utc).isoformat(),
+                        "success": None,
                     })
                 except Exception:
                     continue  # dedup: bu subscription için zaten gönderilmiş
+                push_ok = False
                 try:
                     webpush(
                         subscription_info={"endpoint": s["endpoint"], "keys": s["keys"]},
@@ -6821,12 +6839,17 @@ async def _fire_event_reminder(ev: dict) -> dict:
                         vapid_claims={"sub": os.environ.get("VAPID_SUB", "mailto:admin@titanxis.local")},
                     )
                     sent += 1
+                    push_ok = True
                 except WebPushException as _wex:
                     code = getattr(_wex.response, "status_code", None) if hasattr(_wex, "response") else None
                     if code in (404, 410):
                         await db.push_subscriptions.delete_one({"endpoint": s["endpoint"]})
                 except Exception:
                     pass
+                await db.event_reminder_sends.update_one(
+                    {"event_id": ev_id, "minutes_before": lead, "channel": f"push:{endpoint_hash}"},
+                    {"$set": {"success": push_ok}},
+                )
             stats["push_sent"] = sent
     except Exception as ex:
         logger.warning(f"[event-reminder] push failed for {ev_id}: {ex}")

@@ -252,6 +252,7 @@ function ReminderHistorySection() {
                 <th className="py-1.5 px-2">{t("reminder_history_event", "Etkinlik")}</th>
                 <th className="py-1.5 px-2">{t("reminder_history_lead", "Lead")}</th>
                 <th className="py-1.5 px-2">{t("reminder_history_channel", "Kanal")}</th>
+                <th className="py-1.5 px-2">{t("reminder_history_status", "Durum")}</th>
                 <th className="py-1.5 px-2">{t("reminder_history_when", "Zaman")}</th>
               </tr>
             </thead>
@@ -261,6 +262,11 @@ function ReminderHistorySection() {
                   <td className="py-1.5 px-2" style={{ color: "#F5F0E8" }}>{r.event_name}</td>
                   <td className="py-1.5 px-2" style={{ color: "#F5A623" }}>{r.minutes_before} dk</td>
                   <td className="py-1.5 px-2" style={{ color: "#86EFAC" }}>{channelBadge(r.channel)}</td>
+                  <td className="py-1.5 px-2">
+                    {r.success === true ? <span style={{ color: "#22C55E" }}>✓ {t("reminder_history_ok", "Başarılı")}</span>
+                      : r.success === false ? <span style={{ color: "#F87171" }}>✗ {t("reminder_history_fail", "Başarısız")}</span>
+                      : <span style={{ color: "#94A3B8" }}>—</span>}
+                  </td>
                   <td className="py-1.5 px-2" style={{ color: "#94A3B8" }}>
                     {r.sent_at ? new Date(r.sent_at).toLocaleString("tr-TR") : "—"}
                   </td>

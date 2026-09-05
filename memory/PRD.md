@@ -3131,3 +3131,9 @@ Not: DM override (dm_username) UI'da kaydediliyor ancak backend'de aktif olarak 
 - Cleanup done ✓
 
 Deployment_agent skip (pure additive, backend clean restart, frontend edit only).
+
+## v140.52 — Menü Linki + Success Kaydı (Sep 5, 2026)
+- **RadialMenu**: Yeni admin-only item `notifrouting` → `/admin/bildirim-yonlendirme`. i18n `nav_notif_routing` (TR: "Bildirim Yönlendirme" / EN: "Notification Routing"). Admin artık URL yazmadan bulur.
+- **Reminder success**: `_fire_event_reminder` her 3 send site'ında (test_dm, tg channel, push per-subscription) insert-before-send + post-send `update_one` ile `success: True|False` yazıyor. `GET /reminder-history` artık `success` alanı döndürüyor.
+- **Frontend history tablosu**: Yeni "Durum" kolonu → ✓ Başarılı (yeşil) / ✗ Başarısız (kırmızı) / — (henüz bilinmiyor). i18n TR/EN.
+- E2E: /reminder-history response artık `success` field'ı içeriyor ✓
