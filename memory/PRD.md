@@ -20,6 +20,21 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 5, 2026 (v136 — CRITICAL FIX: OCR Undo puan/üye artık gerçekten siliniyor)** — Backend + Frontend:
+  - **Bug**: OCR Undo panelinden "Geri Al" basıldığında sadece audit satırı `undone: true` işaretleniyordu; eklenen puanlar ve üyeler DB'de kalıyordu. Root cause: `OcrDialog.jsx` audit çağrısını `onApply`'ın döndürdüğü response'tan `created_point_ids` / `created_member_ids` alıyor ama Events.jsx & Members.jsx `onApply` callback'leri response'u `return` etmiyordu → audit'e boş ID listesi yazılıyordu → undo silecek bir şey bulamıyordu.
+  - **Fix**:
+    - `Events.jsx` OCR event points `onApply`: `return res.data` eklendi.
+    - `Members.jsx` OCR batch members `onApply`: `return res.data` eklendi.
+    - Backend `POST /api/members/batch-create`: response'a `created_member_ids: [id...]` eklendi.
+    - Backend `POST /api/ocr/apply-members`: response'a `created_member_ids` + `updated_member_ids` eklendi (created/updated satırlar kaydedilirken tracker'lardan besleniyor).
+  - **Doğrulama** (uçtan uca curl):
+    1) `apply-event-points` → 2 puan + 1 yeni üye kaydı
+    2) audit doc oluşturuldu
+    3) `undo-bulk` çağrısı: `deleted_points: 2`, `deleted_members: 1`
+    4) Puan GET → yok; üye GET → HTTP 404. Tüm izler temiz.
+
+
+
 - **Feb 5, 2026 (v136 — Manuel Telegram Grubu Ekleme)** — Backend + Frontend:
   - Backend `server.py`: 3 yeni endpoint — `POST /api/telegram/groups` (manuel ekle/güncelle — chat_id + optional title + notification_settings; `manual: true` flag'ıyla işaretlenir; aynı chat_id varsa update eder), `DELETE /api/telegram/groups/{group_id}` ve `POST /api/telegram/groups/{group_id}/test` (test mesajı gönderir, `telegram_bot.send_message` üzerinden).
   - Frontend `NotificationRouting.jsx`: "Telegram Grupları" bölümü eklendi (mor accent) — manuel ekleme formu (Chat ID + opsiyonel isim), grup listesi (Manuel badge'i ile), her satırda Test/Sil butonları. Bir grubu silmek onaylı ve o grup route'larda seçili ise route'lardan da temizler. Bot tarafından keşfedilen gruplar da aynı listede (badge'siz) görünür.

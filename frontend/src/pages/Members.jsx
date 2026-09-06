@@ -1482,6 +1482,10 @@ export default function Members() {
             `Eklendi: ${res.data.created} · Mevcut: ${res.data.existing}` +
               (newAlliances ? ` · Yeni ittifak: ${newAlliances}` : ""),
           );
+          // v136 — Return response so OcrDialog audit call captures
+          // created_member_ids + updated_member_ids; undo then actually
+          // deletes the members instead of just marking the audit undone.
+          return res.data;
         }}
       />
     </div>

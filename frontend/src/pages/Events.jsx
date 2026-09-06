@@ -1999,7 +1999,6 @@ export default function Events() {
           mutate((k) => typeof k === "string" && k.startsWith("/members"));
           mutate(`/ocr/event-participants/${extra.event_id}`);
           mutate("/stats");
-          const errs = (res.data.errors || []).length;
           const newMembers = res.data.new_members_created || 0;
           const skipped = (res.data.skipped_duplicates || []);
           const overwritten = res.data.overwritten || 0;
@@ -2043,6 +2042,11 @@ export default function Events() {
           } else {
             toast.success(parts_msg);
           }
+          // v136 — Return response payload so OcrDialog can pipe
+          // created_point_ids + overwritten_snapshots into the audit log so
+          // bulk undo can actually delete the points (not just mark the audit
+          // row as undone).
+          return res.data;
         }}
       />
     </div>

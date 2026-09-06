@@ -291,6 +291,9 @@ def make_ocr_router(db, require_edit, require_auth):
         updated = 0
         skipped = 0
         errors: list[str] = []
+        # v136 — Track ids so the OCR audit / bulk-undo can roll them back.
+        created_member_ids: list[str] = []
+        updated_member_ids: list[str] = []
         for row in body.members:
             raw_name = str(row.get("name") or "").strip()
             clean_name = _strip_alliance_tag(raw_name)
@@ -332,6 +335,7 @@ def make_ocr_router(db, require_edit, require_auth):
                     if upd:
                         await db.members.update_one({"id": existing_member["id"]}, {"$set": upd})
                         updated += 1
+                        updated_member_ids.append(existing_member["id"])
                     else:
                         skipped += 1
                 else:
@@ -350,6 +354,7 @@ def make_ocr_router(db, require_edit, require_auth):
                     }
                     await db.members.insert_one(doc)
                     created += 1
+                    created_member_ids.append(doc["id"])
             except Exception as e:
                 errors.append(f"{clean_name}: {e}")
         # Audit log — best-effort, never fails the request.
@@ -367,7 +372,15 @@ def make_ocr_router(db, require_edit, require_auth):
             })
         except Exception:
             pass
-        return {"created": created, "updated": updated, "skipped": skipped, "errors": errors}
+        return {
+            "created": created,
+            "updated": updated,
+            "skipped": skipped,
+            "errors": errors,
+            # v136 — Ids for OCR undo pipeline.
+            "created_member_ids": created_member_ids,
+            "updated_member_ids": updated_member_ids,
+        }
 
     @router.post("/ocr/apply-event-points")
     async def apply_event_points(body: OcrApplyEventPointsBody, admin: dict = Depends(require_edit)):

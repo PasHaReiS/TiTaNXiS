@@ -989,11 +989,16 @@ async def batch_create_members(body: BatchCreateBody, _: dict = Depends(require_
 
     if docs_to_insert:
         await db.members.insert_many(docs_to_insert)
+    # v136 — Return the created member IDs so the OCR audit log (created via
+    # `OcrDialog` on the frontend) can actually roll them back on undo. Without
+    # this list undo can only mark the audit doc as undone but the inserted
+    # members stay in the DB.
     return {
         "created": created_members,
         "existing": existing_hits,
         "new_alliances": new_alliances,
         "report": report,
+        "created_member_ids": [d["id"] for d in docs_to_insert],
     }
 
 
