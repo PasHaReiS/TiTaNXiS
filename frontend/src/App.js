@@ -59,6 +59,7 @@ import PushAnalytics from "@/pages/PushAnalytics";
 import PushSoundListener from "@/components/PushSoundListener";
 import LegalFooter from "@/components/LegalFooter";
 import MotionPage from "@/components/MotionPage";
+import CanonicalTag from "@/components/CanonicalTag";
 
 function LoadingScreen() {
   return (
@@ -135,6 +136,7 @@ function AppShell() {
   return (
     <div className="app-shell">
       <Layout>
+        <CanonicalTag />
         <AnimatePresence mode="wait" initial={false}>
         <Routes location={location} key={location.pathname}>
           <Route path="/login" element={<Login />} />

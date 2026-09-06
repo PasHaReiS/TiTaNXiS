@@ -20,6 +20,16 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 5, 2026 (v136 — SEO canonical düzeltmesi — GSC uyarı fix)** — Frontend:
+  - `public/index.html`: `<link rel="canonical" href="https://titanxis.com/">` (trailing slash eklendi), `<meta property="og:url" content="https://titanxis.com/">`.
+  - Yeni: `src/components/CanonicalTag.jsx` — `useLocation` ile her route değişiminde `canonical` + `og:url` meta tag'lerini `https://titanxis.com{pathname}` olarak günceller. Kök `/` için trailing slash var, diğer path'ler slash'sız (canonical form).
+  - `App.js`: `<CanonicalTag />` Layout içine mount edildi.
+  - `robots.txt` `Sitemap: https://titanxis.com/sitemap.xml` (değişiklik yok — zaten doğru).
+  - `sitemap.xml` tüm URL'ler `https://` (değişiklik yok — zaten doğru).
+  - Deploy agent PASS. HTTP→HTTPS ve www→non-www 301 yönlendirmeleri Emergent ingress/edge katmanında; kod tarafında yapılacak bir şey yok. GSC "Doğru standart etikete sahip alternatif sayfa — Yönlendirmeli sayfa" uyarısı 24-48 saat içinde temizlenmeli.
+
+
+
 - **Feb 5, 2026 (v136 — Multi-Group Routing + Group Notif Toggles + Sample Names + Minute Text)** — Backend + Frontend:
   - **Multi-group per notif type**: `notification_routing.routes[type]` şeması artık `group_chat_ids: [str, ...]` (yeni) + `group_chat_id: str` (legacy backward-compat) alanlarını ikisini birden tutuyor. `_broadcast_group_ids` her ikisini birleştirip **dedup**'lu döner; aynı gruba tek bildirim gider.
   - **Grup notif toggle'ları**: Bildirim Yönlendirme → Telegram Grupları listesindeki her satırda 6 bildirim türü (🆕 yeni_etkinlik, ⏰ etkinlik_hatirlatma, 📣 duyurular, 🎂 dogum_gunu, 🔥 streak, ✅ gorev) inline aç/kapat butonu (`data-testid=routing-group-notif-toggle-{cid}-{tp}`) — mevcut `PATCH /api/telegram/groups/{id}/notifications` endpoint'i kullanıyor.
