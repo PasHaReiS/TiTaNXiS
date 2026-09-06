@@ -47,8 +47,18 @@ export default function OcrUndoPanel({ scope = "member", title, defaultOpen = fa
   const { data, mutate: refetch } = useSWR(key, (u) => api.get(u).then((r) => r.data), { refreshInterval: 30000 });
   const rows = data?.items || [];
   const isPasha = !!data?.is_pasha;
-  // In history mode, only show undone rows; in active mode, only non-undone.
-  const items = includeUndone ? rows.filter((r) => r.undone) : rows.filter((r) => !r.undone);
+  // v136 — "Aktif" sekmesinde geri alınabilecek gerçek işlemleri göster.
+  // Fix öncesi kalan boş ID listeli eski audit satırları (created_member_ids,
+  // created_point_ids ve overwritten_snapshots hepsi boş) undo'da hiçbir şey
+  // silmediği için bunları aktif listeden gizliyoruz — Geçmiş sekmesinde de
+  // "Eski (boş)" rozetiyle görünürler.
+  const _hasPayload = (r) =>
+    (r.created_member_ids || []).length > 0 ||
+    (r.created_point_ids || []).length > 0 ||
+    (r.overwritten_snapshots || []).length > 0;
+  const items = includeUndone
+    ? rows.filter((r) => r.undone)
+    : rows.filter((r) => !r.undone && _hasPayload(r));
 
   const [open, setOpen] = React.useState(defaultOpen);
   const [selected, setSelected] = React.useState(new Set());
@@ -109,10 +119,25 @@ export default function OcrUndoPanel({ scope = "member", title, defaultOpen = fa
     const typeSummary = Object.entries(perTypeCount)
       .map(([k, v]) => `• ${t(OP_LABEL_KEYS[k], OP_LABEL_FALLBACKS[k] || k)}: ${v}`)
       .join("\n");
+    // v136 — Collect sample member names across selected ops (up to 12 for the dialog).
+    const allNames = [];
+    for (const op of selectedItems) {
+      for (const n of (op.sample_names || [])) {
+        if (n && !allNames.includes(n)) allNames.push(n);
+        if (allNames.length >= 12) break;
+      }
+      if (allNames.length >= 12) break;
+    }
+    const namesLine = allNames.length
+      ? `\n\n${t("ocr_undo_confirm_names_line", "Etkilenen üyeler ({{n}}): {{names}}", {
+          n: allNames.length,
+          names: allNames.slice(0, 10).join(", ") + (allNames.length > 10 ? "…" : ""),
+        })}`
+      : "";
     const msg = t(
-      "ocr_bulk_undo_confirm_v2",
-      "{{n}} işlem geri alınacak.\n\n{{typeSummary}}\n\nSilinecek: {{m}} üye · {{p}} puan\nGeri yüklenecek: {{r}} puan (önceki değere)\n\nOnaylıyor musunuz?",
-      { n: opIds.length, typeSummary, m: summary.members, p: summary.points, r: summary.restored }
+      "ocr_bulk_undo_confirm_v3",
+      "{{n}} işlem geri alınacak.\n\n{{typeSummary}}\n\nSilinecek: {{m}} üye · {{p}} puan\nGeri yüklenecek: {{r}} puan (önceki değere){{namesLine}}\n\nOnaylıyor musunuz?",
+      { n: opIds.length, typeSummary, m: summary.members, p: summary.points, r: summary.restored, namesLine }
     );
     if (!window.confirm(msg)) return;
     setBusy(true);
@@ -336,6 +361,12 @@ export default function OcrUndoPanel({ scope = "member", title, defaultOpen = fa
                         )})
                       </span>
                     </div>
+                    {(op.sample_names || []).length > 0 && (
+                      <div className="text-[10px] mt-0.5 truncate" style={{ color: "#FDE68A" }}>
+                        {(op.sample_names || []).slice(0, 6).join(", ")}
+                        {(op.sample_names || []).length > 6 && "…"}
+                      </div>
+                    )}
                     <div className="text-[10px] mt-0.5" style={{ color: "#94A3B8" }}>
                       {op.user_name && (
                         <span>

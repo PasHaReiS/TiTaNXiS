@@ -37,6 +37,9 @@ class AuditCreate(BaseModel):
     # during an `overwrite_duplicates` OCR run. Undo re-inserts them so the
     # previous values are restored.
     overwritten_snapshots: Optional[List[dict]] = None
+    # v136 — First N participant/member names for the undo-confirm dialog.
+    # Frontend prompts admin with "Silinecek: 3 üye · Ali, Ekko, Vanya".
+    sample_names: Optional[List[str]] = None
 
 
 class BulkUndoBody(BaseModel):
@@ -104,6 +107,7 @@ def make_ocr_audit_router(db, require_admin):
             "updated_member_ids": body.updated_member_ids or [],
             "created_point_ids": body.created_point_ids or [],
             "overwritten_snapshots": body.overwritten_snapshots or [],
+            "sample_names": (body.sample_names or [])[:10],
             "event_id": body.event_id,
             "note": (body.note or "")[:240],
             "created_at": _now(),

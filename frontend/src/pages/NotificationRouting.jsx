@@ -38,8 +38,13 @@ export default function NotificationRouting({ embedded = false }) {
       const initRoutes = {};
       NOTIF_TYPES.forEach((tp) => {
         const r = (data.routes || {})[tp.key] || {};
+        // v136 — Multi-group. Backend `group_chat_ids: []` yeni; legacy
+        // `group_chat_id` string'i ilk grupta absorb ediliyor.
+        const ids = Array.isArray(r.group_chat_ids) && r.group_chat_ids.length
+          ? r.group_chat_ids.map(String)
+          : (r.group_chat_id ? [String(r.group_chat_id)] : []);
         initRoutes[tp.key] = {
-          group_chat_id: r.group_chat_id || "",
+          group_chat_ids: ids,
           dm_username: r.dm_username || "",
         };
       });
@@ -52,10 +57,21 @@ export default function NotificationRouting({ embedded = false }) {
   const save = async () => {
     setSaving(true);
     try {
+      // v136 — Backend'e hem yeni `group_chat_ids` hem legacy `group_chat_id`
+      // gönderiyoruz (server ikisini de kabul ediyor).
+      const payloadRoutes = {};
+      Object.entries(routes).forEach(([k, v]) => {
+        const ids = (v.group_chat_ids || []).map(String);
+        payloadRoutes[k] = {
+          group_chat_ids: ids,
+          group_chat_id: ids[0] || "",
+          dm_username: v.dm_username || "",
+        };
+      });
       await api.patch("/notification-routing", {
         test_mode: testMode,
         test_username: testUsername.trim() || "PasHaReisBen",
-        routes,
+        routes: payloadRoutes,
       });
       toast.success(t("routing_saved", "Yönlendirme ayarları kaydedildi"));
       await mutate();
@@ -71,6 +87,33 @@ export default function NotificationRouting({ embedded = false }) {
       ...prev,
       [typeKey]: { ...(prev[typeKey] || {}), [field]: value },
     }));
+  };
+
+  // v136 — Multi-select grup toggler (aynı gruba dup ekleme yok).
+  const toggleRouteGroup = (typeKey, chatId) => {
+    setRoutes((prev) => {
+      const cur = prev[typeKey] || { group_chat_ids: [], dm_username: "" };
+      const ids = Array.isArray(cur.group_chat_ids) ? [...cur.group_chat_ids] : [];
+      const idx = ids.indexOf(chatId);
+      if (idx === -1) ids.push(chatId);
+      else ids.splice(idx, 1);
+      return { ...prev, [typeKey]: { ...cur, group_chat_ids: ids } };
+    });
+  };
+
+  // v136 — Grup satırındaki 6 bildirim türü switch'i için toggle.
+  const toggleGroupNotif = async (group, notifKey) => {
+    const cid = String(group.chat_id || group.id || "");
+    const cur = { ...(group.notification_settings || {}) };
+    const next = { ...cur, [notifKey]: !(cur[notifKey] ?? true) };
+    try {
+      await api.patch(`/telegram/groups/${encodeURIComponent(cid)}/notifications`, {
+        notification_settings: next,
+      });
+      await refetchGroups();
+    } catch (e) {
+      toast.error(apiErr(e));
+    }
   };
 
   // v136 — Manuel grup ekleme handler'ları
@@ -350,6 +393,31 @@ export default function NotificationRouting({ embedded = false }) {
                     <Trash2 className="w-3 h-3" />
                     {deletingGroup === cid ? t("deleting", "Kaldırılıyor…") : t("delete", "Sil")}
                   </button>
+                  {/* v136 — Bu gruba giden 6 bildirim türünün aç/kapat switch'leri */}
+                  <div className="w-full flex flex-wrap gap-1.5 mt-1" data-testid={`routing-group-notifs-${cid}`}>
+                    {NOTIF_TYPES.map((tp) => {
+                      const on = (g.notification_settings || {})[tp.key] ?? true;
+                      return (
+                        <button
+                          key={tp.key}
+                          type="button"
+                          onClick={() => toggleGroupNotif(g, tp.key)}
+                          data-testid={`routing-group-notif-toggle-${cid}-${tp.key}`}
+                          className="chip text-[9px] flex items-center gap-1"
+                          title={t(`routing_type_${tp.key}`, tp.label)}
+                          style={{
+                            background: on ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.06)",
+                            borderColor: on ? "rgba(34,197,94,0.45)" : "rgba(239,68,68,0.35)",
+                            color: on ? "#86EFAC" : "#94A3B8",
+                            opacity: on ? 1 : 0.7,
+                          }}
+                        >
+                          <span>{tp.emoji}</span>
+                          <span>{on ? "✓" : "✕"}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}
@@ -363,7 +431,8 @@ export default function NotificationRouting({ embedded = false }) {
           {t("routing_types_title", "Bildirim Türleri")}
         </h2>
         {NOTIF_TYPES.map((tp) => {
-          const r = routes[tp.key] || { group_chat_id: "", dm_username: "" };
+          const r = routes[tp.key] || { group_chat_ids: [], dm_username: "" };
+          const selectedIds = Array.isArray(r.group_chat_ids) ? r.group_chat_ids : [];
           return (
             <div
               key={tp.key}
@@ -374,25 +443,51 @@ export default function NotificationRouting({ embedded = false }) {
               <div className="text-sm font-bold mb-2 flex items-center gap-2">
                 <span>{tp.emoji}</span>
                 <span style={{ color: "#F5F0E8" }}>{t(`routing_type_${tp.key}`, tp.label)}</span>
+                {selectedIds.length > 0 && (
+                  <span className="chip text-[9px]" style={{ borderColor: "rgba(168,85,247,0.55)", color: "#DDD6FE" }}>
+                    {t("routing_selected_groups", "{{n}} grup seçili", { n: selectedIds.length })}
+                  </span>
+                )}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] uppercase tracking-widest text-muted-foreground block mb-1">
-                    {t("routing_group_label", "Telegram Grubu")}
+                    {t("routing_groups_multi_label", "Telegram Grupları (birden fazla seçilebilir)")}
                   </label>
-                  <select
-                    data-testid={`routing-group-${tp.key}`}
-                    value={r.group_chat_id}
-                    onChange={(e) => updateRoute(tp.key, "group_chat_id", e.target.value)}
-                    className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-xs text-white"
-                  >
-                    <option value="">{t("routing_group_none", "— Grup yok —")}</option>
-                    {groupList.map((g) => (
-                      <option key={g.chat_id || g.id} value={String(g.chat_id || "")}>
-                        {g.title || g.name || g.chat_id}
-                      </option>
-                    ))}
-                  </select>
+                  {groupList.length === 0 ? (
+                    <div className="text-[10px] italic" style={{ color: "#94A3B8" }}>
+                      {t("routing_groups_none_available", "Henüz grup yok — yukarıdan ekle")}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5" data-testid={`routing-groups-select-${tp.key}`}>
+                      {groupList.map((g) => {
+                        const cid = String(g.chat_id || g.id || "");
+                        const active = selectedIds.includes(cid);
+                        return (
+                          <button
+                            key={cid}
+                            type="button"
+                            onClick={() => toggleRouteGroup(tp.key, cid)}
+                            data-testid={`routing-group-toggle-${tp.key}-${cid}`}
+                            className="chip text-[10px] flex items-center gap-1"
+                            style={
+                              active
+                                ? {
+                                    background: "linear-gradient(135deg,#A78BFA,#7C3AED)",
+                                    color: "#0B0704",
+                                    borderColor: "#A78BFA",
+                                    fontWeight: 800,
+                                  }
+                                : { borderColor: "rgba(148,163,184,0.4)", color: "#CBD5E1" }
+                            }
+                            title={`chat_id: ${cid}`}
+                          >
+                            {active ? "✓" : "+"} {g.title || g.name || cid}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-[10px] uppercase tracking-widest text-muted-foreground block mb-1">

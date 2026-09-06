@@ -606,10 +606,16 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
         // v136 — Original point rows deleted by an overwrite-duplicates OCR run.
         // Piping them into the audit doc lets bulk undo `restore` them.
         const overwritten_snapshots = (_applyRes?.overwritten_snapshots) || (_applyRes?.data?.overwritten_snapshots) || [];
+        // v136 — Sample names for the undo confirm dialog (up to 10).
+        const sample_names = (arr || [])
+          .map((r) => String(r?.name || "").replace(/^\s*\[[^\]]+\]\s*/, "").trim())
+          .filter(Boolean)
+          .slice(0, 10);
         await api.post("/ocr/audit", {
           op_type,
           created_member_ids, updated_member_ids, created_point_ids,
           overwritten_snapshots,
+          sample_names,
           event_id: extra.event_id || null,
           note: `${arr?.length || 0} satır${overwritten_snapshots.length ? ` · ${overwritten_snapshots.length} üzerine yazıldı` : ""}`,
         });

@@ -8,6 +8,12 @@ import { initReactI18next } from "react-i18next";
 // ---------------------------------------------------------------------------
 
 const tr = {
+  // v136 — Multi-group routing + group toggles + confirm names + minute text
+  routing_groups_multi_label: "Telegram Grupları (birden fazla seçilebilir)",
+  routing_groups_none_available: "Henüz grup yok — yukarıdan ekle",
+  routing_selected_groups: "{{n}} grup seçili",
+  ocr_undo_confirm_names_line: "Etkilenen üyeler ({{n}}): {{names}}",
+  ocr_bulk_undo_confirm_v3: "{{n}} işlem geri alınacak.\n\n{{typeSummary}}\n\nSilinecek: {{m}} üye · {{p}} puan\nGeri yüklenecek: {{r}} puan (önceki değere){{namesLine}}\n\nOnaylıyor musunuz?",
   // v136 — Manuel Telegram Grup ekleme (Bildirim Yönlendirme)
   routing_groups_title: "Telegram Grupları",
   routing_groups_help: "Bot otomatik olarak eklendiği grupları burada listeler. Bot henüz gruba eklenmediyse bile grup Chat ID'sini manuel ekleyip hemen yönlendirmelerde kullanabilirsin.",

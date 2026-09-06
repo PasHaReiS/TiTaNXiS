@@ -5968,15 +5968,24 @@ async def _broadcast_group_ids(notif_type: Optional[str] = None) -> list:
     v140.51 — DM override: `routes[notif_type].dm_username` doluysa o
              kullanıcının `telegram_chat_id`'sini listeye ek olarak dahil
              et → group + DM tek fanout'ta gider."""
-    override_group = None
+    override_groups: list[str] = []
     dm_chat_id = None
     if notif_type:
         try:
             rdoc = await db.notification_routing.find_one({"_id": "singleton"}, {"_id": 0}) or {}
             route = ((rdoc.get("routes") or {}).get(notif_type) or {})
+            # v136 — Multi-group support. Kabul edilenler:
+            #   - `group_chat_ids: [str, str, ...]` (yeni)
+            #   - `group_chat_id: str` (eski; backward-compat)
+            multi = route.get("group_chat_ids") or []
+            if isinstance(multi, list):
+                for g in multi:
+                    gs = str(g or "").strip()
+                    if gs and gs not in override_groups:
+                        override_groups.append(gs)
             og = str(route.get("group_chat_id") or "").strip()
-            if og:
-                override_group = og
+            if og and og not in override_groups:
+                override_groups.append(og)
             dm_uname = str(route.get("dm_username") or "").strip().lstrip("@")
             if dm_uname:
                 u = await db.users.find_one(
@@ -5993,9 +6002,15 @@ async def _broadcast_group_ids(notif_type: Optional[str] = None) -> list:
                         dm_chat_id = str(m["chat_id"])
         except Exception as _e:
             logger.debug(f"_broadcast_group_ids routing read failed: {_e}")
-    if override_group:
-        out = [override_group]
-        if dm_chat_id and dm_chat_id != override_group:
+    if override_groups:
+        # Dedup + DM ek: bir bildirim aynı gruba yalnızca 1 kez gider.
+        seen = set()
+        out: list[str] = []
+        for g in override_groups:
+            if g and g not in seen:
+                seen.add(g)
+                out.append(g)
+        if dm_chat_id and dm_chat_id not in seen:
             out.append(dm_chat_id)
         return out
     ids = set()
@@ -6773,8 +6788,22 @@ async def patch_notification_routing(body: NotificationRoutingUpdate,
         for k, v in (body.routes or {}).items():
             if k not in allowed or not isinstance(v, dict):
                 continue
+            # v136 — Multi-group + backward-compat.
+            multi_raw = v.get("group_chat_ids")
+            multi: list[str] = []
+            if isinstance(multi_raw, list):
+                for g in multi_raw:
+                    gs = str(g or "").strip()
+                    if gs and gs not in multi:
+                        multi.append(gs)
+            legacy = str((v.get("group_chat_id") or "")).strip()
+            if legacy and legacy not in multi:
+                multi.append(legacy)
             clean[k] = {
-                "group_chat_id": str((v.get("group_chat_id") or "")).strip(),
+                # Yeni alan: array. Eski `group_chat_id` alanını da ilk grubu
+                # göstererek dolduruyoruz — legacy okuyan istemciler için.
+                "group_chat_ids": multi,
+                "group_chat_id": multi[0] if multi else "",
                 "dm_username": str((v.get("dm_username") or "")).strip().lstrip("@"),
             }
         set_ops["routes"] = clean
@@ -6870,7 +6899,7 @@ async def _fire_event_reminder(ev: dict) -> dict:
     """Fire the pre-event reminder for a single event. Returns fanout stats.
 
     v140.47 — 3 kritik güncelleme:
-      (1) Mesaj metni artık `{lead} dk kaldı` biçiminde — 15/30/60/120 hepsi
+      (1) Mesaj metni artık `{lead} dakika kaldı` biçiminde — 15/30/60/120 hepsi
           için doğru gözüksün. Push başlığı da aynı formatı kullanır.
       (2) Per-channel dedup: (event_id, minutes_before, channel) benzersiz
           index'li `event_reminder_sends` koleksiyonu üzerinden atomic claim.
@@ -6946,7 +6975,7 @@ async def _fire_event_reminder(ev: dict) -> dict:
                     chat_id = str(m["chat_id"])
             if chat_id:
                 msg = (
-                    f"⏰ *{lead} dk kaldı* — Etkinlik başlıyor\n\n"
+                    f"⏰ *{lead} dakika kaldı* — Etkinlik başlıyor\n\n"
                     f"📅 *{ev_name}*\n"
                     f"🗓 Başlangıç: `{tr_time_line} (TR)`\n"
                     f"📊 Grup: {ev_group}\n\n"
@@ -6970,7 +6999,7 @@ async def _fire_event_reminder(ev: dict) -> dict:
         return stats
 
     # ---- Normal path (test modu kapalı) ----
-    lead_line = f"⏰ *{lead} dk kaldı* — Etkinlik başlıyor."
+    lead_line = f"⏰ *{lead} dakika kaldı* — Etkinlik başlıyor."
     # 1) Telegram channel — DB route override varsa oraya, yoksa env
     #    TELEGRAM_CHANNEL_ID; her ikisinde de per-channel dedup.
     try:
@@ -7021,7 +7050,7 @@ async def _fire_event_reminder(ev: dict) -> dict:
                 {"user_id": {"$in": user_ids}}, {"_id": 0},
             ).to_list(1000)
             payload = json.dumps({
-                "title": f"⏰ {lead} dk kaldı — {ev_name}",
+                "title": f"⏰ {lead} dakika kaldı — {ev_name}",
                 "body": f"Başlangıç: {tr_time_line} (TR) · Grup: {ev_group}",
                 "url": f"/etkinlikler#event-{ev_id}" if ev_id else "/etkinlikler",
                 "tag": f"event-reminder-{ev_id}",

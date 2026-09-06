@@ -20,6 +20,16 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 5, 2026 (v136 — Multi-Group Routing + Group Notif Toggles + Sample Names + Minute Text)** — Backend + Frontend:
+  - **Multi-group per notif type**: `notification_routing.routes[type]` şeması artık `group_chat_ids: [str, ...]` (yeni) + `group_chat_id: str` (legacy backward-compat) alanlarını ikisini birden tutuyor. `_broadcast_group_ids` her ikisini birleştirip **dedup**'lu döner; aynı gruba tek bildirim gider.
+  - **Grup notif toggle'ları**: Bildirim Yönlendirme → Telegram Grupları listesindeki her satırda 6 bildirim türü (🆕 yeni_etkinlik, ⏰ etkinlik_hatirlatma, 📣 duyurular, 🎂 dogum_gunu, 🔥 streak, ✅ gorev) inline aç/kapat butonu (`data-testid=routing-group-notif-toggle-{cid}-{tp}`) — mevcut `PATCH /api/telegram/groups/{id}/notifications` endpoint'i kullanıyor.
+  - **Undo Onay Detayı**: `AuditCreate.sample_names: List[str]` alanı eklendi. `OcrDialog.jsx` audit çağrısında ilk 10 üye adını (`[TAG]` sıyrılmış) sample_names olarak gönderiyor. `OcrUndoPanel` her satırın altında ilk 6 ismi altın renkte gösteriyor + toplu undo onay dialoğunda "Etkilenen üyeler (N): PasHa, Ekko, Vanya…" satırı çıkıyor.
+  - **Eski Audit Temizleme**: Aktif sekmede sadece `_hasPayload(op)` (created_member_ids ∪ created_point_ids ∪ overwritten_snapshots) dolu satırlar gösteriliyor; fix öncesi boş audit satırları admin'i şaşırtmasın diye filtreleniyor (Geçmiş sekmesinde hâlâ görünürler).
+  - **Dinamik dakika metni**: `"⏰ *{lead} dk kaldı*"` → `"⏰ *{lead} dakika kaldı*"` (3 yer: test-DM, Telegram grup broadcast, Web Push başlığı). 15 → "15 dakika kaldı", 5 → "5 dakika kaldı", 30 → "30 dakika kaldı".
+  - **Doğrulama**: curl (multi-group PATCH duplicate `-1001111` gönderildi → response `["-1001111", "-1002222"]` dedup, sample_names round-trip, reset OK, "dakika kaldı" 3 yerde) + Playwright (Notif Yönlendirme çoklu-chip seçimi + grup notif toggle render OK).
+
+
+
 - **Feb 5, 2026 (v136 — CRITICAL FIX: OCR Undo puan/üye artık gerçekten siliniyor)** — Backend + Frontend:
   - **Bug**: OCR Undo panelinden "Geri Al" basıldığında sadece audit satırı `undone: true` işaretleniyordu; eklenen puanlar ve üyeler DB'de kalıyordu. Root cause: `OcrDialog.jsx` audit çağrısını `onApply`'ın döndürdüğü response'tan `created_point_ids` / `created_member_ids` alıyor ama Events.jsx & Members.jsx `onApply` callback'leri response'u `return` etmiyordu → audit'e boş ID listesi yazılıyordu → undo silecek bir şey bulamıyordu.
   - **Fix**:
