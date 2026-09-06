@@ -429,6 +429,18 @@ export default function Members() {
     if (filterCountries.length) {
       filtered = filtered.filter((m) => filterCountries.includes((m.country || "").toUpperCase()));
     }
+    // v136 — Restore inline search across üye adı / ittifak adı / rütbe.
+    // Backend `?search=` sadece isme bakıyor; UI'da tek arama çubuğu üç alanı
+    // birden taradığı için ekstra client-side filtre uyguluyoruz.
+    const qStr = String(q || "").trim().toLocaleLowerCase("tr");
+    if (qStr) {
+      filtered = filtered.filter((m) => {
+        const name = String(m.name || "").toLocaleLowerCase("tr");
+        const ally = String(m.alliance_name || "").toLocaleLowerCase("tr");
+        const rank = String(m.rank || "").toLocaleLowerCase("tr");
+        return name.includes(qStr) || ally.includes(qStr) || rank.includes(qStr);
+      });
+    }
 
     // 2. Group by alliance
     const NOGROUP = t("no_group");
@@ -471,7 +483,7 @@ export default function Members() {
         return a.localeCompare(b, "tr");
       })
       .map((name) => ({ name, members: groups[name] }));
-  }, [members, filterAlliances, filterRanks, sortMode, t]);
+  }, [members, filterAlliances, filterRanks, filterCountries, sortMode, q, t]);
 
   const totalCount = members.length;
   const shownCount = grouped.reduce((n, g) => n + g.members.length, 0);
@@ -631,6 +643,43 @@ export default function Members() {
         <CanEdit>
           <OcrUndoPanel scope="member" />
         </CanEdit>
+
+        {/* v136 — Üye arama çubuğu (isim + ittifak + rütbe) */}
+        <div
+          data-testid="members-search-bar"
+          className="mx-auto max-w-5xl mb-3 rounded-lg flex items-center gap-2 px-3 py-2"
+          style={{
+            background: "rgba(20,12,10,0.72)",
+            border: "1px solid rgba(245,166,35,0.35)",
+          }}
+        >
+          <Search className="w-4 h-4" style={{ color: "#F5A623" }} />
+          <input
+            data-testid="members-search-input"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={t("members_search_placeholder", "Üye adı, ittifak veya rütbeye göre ara (örn: PasHa, GOW, R5)")}
+            className="flex-1 bg-transparent outline-none text-[13px] text-white placeholder:text-white/40"
+          />
+          {q && (
+            <button
+              type="button"
+              onClick={() => setQ("")}
+              data-testid="members-search-clear"
+              className="text-white/60 hover:text-white text-[10px] px-1"
+              title={t("clear", "Temizle")}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <span
+            className="hidden sm:inline text-[10px] px-2 py-0.5 rounded"
+            style={{ background: "rgba(245,166,35,0.15)", color: "#FCD34D" }}
+            data-testid="members-search-count"
+          >
+            {t("members_search_count", "{{shown}} / {{total}} üye", { shown: shownCount, total: totalCount })}
+          </span>
+        </div>
 
         {selectionMode && (
           <div

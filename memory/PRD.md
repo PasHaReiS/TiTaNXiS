@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 5, 2026 (v136 — Üyeler arama çubuğu geri eklendi)** — Frontend:
+  - `pages/Members.jsx`: OcrUndoPanel altına inline arama çubuğu (`data-testid=members-search-bar`, `members-search-input`, `members-search-clear`, `members-search-count`). Mevcut `q` state'i vardı ama render edilmemişti; artık isim + ittifak_adı + rütbe alanlarında case-insensitive Turkish locale ile filtreleyerek `useMemo` grouping'e giriyor. Sağda "N / M üye" canlı sayaç, sol ikon (`Search`), sağda temizle (`X`) butonu.
+  - i18n: 3 yeni key (tr + en): `members_search_placeholder`, `members_search_count`, `clear`.
+  - `deployment_agent` PASS. Playwright doğrulama: "GOW" araması 162 üye (GOW ittifakı) getirdi; "R5" 0 üye; boşken 269/269. Mobil (390) da fitting doğru.
+
+
+
 - **Feb 5, 2026 (v136 — SEO canonical düzeltmesi — GSC uyarı fix)** — Frontend:
   - `public/index.html`: `<link rel="canonical" href="https://titanxis.com/">` (trailing slash eklendi), `<meta property="og:url" content="https://titanxis.com/">`.
   - Yeni: `src/components/CanonicalTag.jsx` — `useLocation` ile her route değişiminde `canonical` + `og:url` meta tag'lerini `https://titanxis.com{pathname}` olarak günceller. Kök `/` için trailing slash var, diğer path'ler slash'sız (canonical form).

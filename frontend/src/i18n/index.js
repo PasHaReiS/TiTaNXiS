@@ -8,6 +8,10 @@ import { initReactI18next } from "react-i18next";
 // ---------------------------------------------------------------------------
 
 const tr = {
+  // v136 — Üye arama çubuğu (isim + ittifak + rütbe)
+  members_search_placeholder: "Üye adı, ittifak veya rütbeye göre ara (örn: PasHa, GOW, R5)",
+  members_search_count: "{{shown}} / {{total}} üye",
+  clear: "Temizle",
   // v136 — Multi-group routing + group toggles + confirm names + minute text
   routing_groups_multi_label: "Telegram Grupları (birden fazla seçilebilir)",
   routing_groups_none_available: "Henüz grup yok — yukarıdan ekle",
@@ -1609,6 +1613,10 @@ const en = {
   ocr_undo_preview: "Undoing the selected {{n}} operations will delete {{m}} members and {{p}} points.",
   ocr_bulk_undo_confirm: "{{n}} operations will be undone.\n\n{{typeSummary}}\n\nTotal to delete: {{m}} members · {{p}} points\n\nProceed?",
   ocr_bulk_undo_done: "Undone: {{u}} ops · {{m}} members · {{p}} points deleted{{skipped}}",
+  // v136 — Members search bar
+  members_search_placeholder: "Search by name, alliance, or rank (e.g. PasHa, GOW, R5)",
+  members_search_count: "{{shown}} / {{total}} members",
+  clear: "Clear",
   // v136 — Manuel Telegram Group Add (Notification Routing)
   routing_groups_title: "Telegram Groups",
   routing_groups_help: "The bot lists groups where it's been added. If it hasn't been added yet, you can enter the group's Chat ID manually and use it in routes right away.",
