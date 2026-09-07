@@ -963,31 +963,88 @@ async def _member_score(member_id: str) -> int:
 
 
 # ------------------------------ /siralama (with top10) ------------------------
+# v136 — /siralama cache: same request within 60s returns cached response.
+# Key: (limit, event_query_lc). Prevents hammering Mongo when multiple users
+# spam /siralama in a group chat.
+_SIRALAMA_CACHE: dict = {}  # key -> {"at": epoch, "text": str}
+_SIRALAMA_CACHE_TTL = 60
+
+
 async def siralama_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if _db is None:
         await reply_ml(update, "⚠️ Veritabanı hazır değil.")
         return
     args = getattr(context, "args", None) or []
-    limit = 10 if (args and args[0].lower() == "top10") else 5
+    # v136 — Argüman şeması:
+    #   /siralama                        → tüm aktif etkinlikler, top 5
+    #   /siralama top10                  → tüm aktif etkinlikler, top 10
+    #   /siralama <etkinlik_adı>         → sadece o etkinlik, top 10
+    #   /siralama <etkinlik_adı> top10   → sadece o etkinlik, top 10
+    #   /siralama <etkinlik_adı> top5    → sadece o etkinlik, top 5
+    limit = 5
+    event_query = ""
+    if args:
+        tokens = [a for a in args if a]
+        # Son token top5/top10 modifier ise ayır
+        if tokens and tokens[-1].lower() in ("top10", "top5"):
+            limit = 10 if tokens[-1].lower() == "top10" else 5
+            tokens = tokens[:-1]
+        if tokens and tokens[0].lower() in ("top10", "top5"):
+            # /siralama top10 (baştaki modifier)
+            limit = 10 if tokens[0].lower() == "top10" else 5
+            tokens = tokens[1:]
+        event_query = " ".join(tokens).strip()
+        # Tek etkinlik sorgulanıyorsa varsayılan top10 mantıklı
+        if event_query and limit == 5 and not any(a.lower() in ("top5",) for a in args):
+            limit = 10
+
+    # Cache check
+    import time as _time
+    cache_key = (limit, event_query.lower())
+    now_ts = _time.time()
+    cached = _SIRALAMA_CACHE.get(cache_key)
+    if cached and (now_ts - cached["at"] < _SIRALAMA_CACHE_TTL):
+        await reply_ml(update, cached["text"])
+        return
 
     # v136 — Etkinlik-başına sıralama. Her AKTİF (arşivlenmemiş) etkinlik ayrı
     # bir blok olarak listelenir. Arşiv etkinlikleri sıralamaya girmez.
+    q_filter = {"archived": {"$ne": True}}
+    if event_query:
+        # Regex ile isim eşleştir (case-insensitive, kısmi eşleşme).
+        import re as _re
+        safe = _re.escape(event_query)
+        q_filter["name"] = {"$regex": safe, "$options": "i"}
     active_events = await _db.events.find(
-        {"archived": {"$ne": True}},
+        q_filter,
         {"_id": 0, "id": 1, "name": 1, "group_name": 1, "date": 1},
     ).sort("date", -1).to_list(2000)
     if not active_events:
-        await reply_ml(update, "📊 Şu an aktif etkinlik bulunmuyor.")
+        if event_query:
+            await reply_ml(
+                update,
+                f"📊 `{event_query}` adında aktif etkinlik bulunamadı.\n"
+                "_Arşivlenmiş etkinlikler sıralamaya dahil edilmiyor._",
+            )
+        else:
+            await reply_ml(update, "📊 Şu an aktif etkinlik bulunmuyor.")
         return
 
     blocks: list[str] = []
     empty_events: list[str] = []
-    header = f"🏆 *Aktif Etkinlik Sıralaması (Top {limit})*\n_({len(active_events)} aktif etkinlik)_"
+    if event_query:
+        header = (
+            f"🏆 *`{event_query}` Sonuçları (Top {limit})*\n"
+            f"_({len(active_events)} eşleşen aktif etkinlik)_"
+        )
+    else:
+        header = (
+            f"🏆 *Aktif Etkinlik Sıralaması (Top {limit})*\n"
+            f"_({len(active_events)} aktif etkinlik)_"
+        )
     blocks.append(header)
 
-    # Her etkinlik için ayrı aggregation. Etkinlik sayısı yönetilebilir (~20-40)
-    # olduğu için per-event ayrı sorgu Telegram cevap gecikmesine anlamlı yük
-    # bindirmiyor; buna karşılık okunur, "bloklu" format kullanıcı isteğidir.
+    # Her etkinlik için ayrı aggregation.
     for ev in active_events:
         ev_id = ev.get("id")
         ev_name = ev.get("name") or "?"
@@ -1016,11 +1073,12 @@ async def siralama_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if len(blocks) == 1:
         # Sadece header var → hiç puan girişi yok
-        await reply_ml(
-            update,
+        msg = (
             "📊 Aktif etkinlikler var ama henüz puan girişi yok.\n"
-            f"_({len(active_events)} aktif etkinlik takip ediliyor.)_",
+            f"_({len(active_events)} aktif etkinlik takip ediliyor.)_"
         )
+        _SIRALAMA_CACHE[cache_key] = {"at": now_ts, "text": msg}
+        await reply_ml(update, msg)
         return
     if empty_events:
         blocks.append(
@@ -1029,7 +1087,13 @@ async def siralama_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             + ("…" if len(empty_events) > 8 else "")
             + "_"
         )
-    await reply_ml(update, "\n\n".join(blocks))
+    final_msg = "\n\n".join(blocks)
+    _SIRALAMA_CACHE[cache_key] = {"at": now_ts, "text": final_msg}
+    # Cache boyutu kontrolü (nadir de olsa) — 100 anahtarı geçerse temizle.
+    if len(_SIRALAMA_CACHE) > 100:
+        _SIRALAMA_CACHE.clear()
+        _SIRALAMA_CACHE[cache_key] = {"at": now_ts, "text": final_msg}
+    await reply_ml(update, final_msg)
 
 
 # ------------------------------ /puan ----------------------------------------

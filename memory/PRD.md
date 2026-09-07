@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 5, 2026 (v136 — /siralama argümanlı sorgu + 60sn cache)** — Backend (Telegram bot):
+  - **Argümanlı sorgu**: `/siralama {etkinlik_adı}` sadece o etkinliği regex ile (case-insensitive kısmi eşleşme) filtreler. Bulunmazsa "`{ad}` adında aktif etkinlik bulunamadı" mesajı; arşiv etkinlikler DAHIL EDİLMEZ.
+  - **Modifier esnekliği**: `top10`/`top5` hem başta hem sonda kabul edilir (`/siralama top10`, `/siralama kskxj top10`, `/siralama top5 kskxj` hepsi çalışır). Tek etkinlik sorgusunda default top 10.
+  - **60 sn TTL cache**: `_SIRALAMA_CACHE` module-level dict, key=`(limit, event_query_lc)`, aynı sorguya 60 sn içinde tekrar cache'ten cevap gider — grup sohbetinde spam durumunda Mongo aggregation'ı hammer'lanmaz. Cache boyutu 100'ü aşarsa flush.
+  - Live DB testi: `/siralama` (9 aktif, 2 dolu blok), `/siralama kskxj` (1 blok top 10), `/siralama NonexistentEvent` (temiz hata), 2. cache çağrısı <0.5 ms.
+  - `deployment_agent` PASS.
+
+
+
 - **Feb 5, 2026 (v136 — /siralama komutu per-event bloklara çevrildi)** — Backend (Telegram bot):
   - `telegram_bot.py` `siralama_command`: Aktif etkinlikleri (`archived != true`) toparlar, her etkinlik için ayrı aggregation yapar, her etkinlik ayrı "📊 {ev_name} Sıralaması:" bloğu olarak yayınlanır (medal + `X,XXX puan` formatı).
   - Aktif etkinlik yok → "📊 Şu an aktif etkinlik bulunmuyor."
