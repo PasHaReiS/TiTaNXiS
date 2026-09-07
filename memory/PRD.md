@@ -20,6 +20,20 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 5, 2026 (v136 — Çok kullanımlık davet linkleri, mevcut sisteme dokunmadan)** — Backend + Frontend:
+  - Yeni koleksiyon `voice_invite_tokens {id, token, room_id, room_name, created_by, created_at, active: bool}` (eski `voice_room_invites` DB'de kalıyor, kod yollarından çıktı).
+  - `POST /api/voice/rooms/{room_id}/invite-link` — admin, TTL yok, `active=true`, response'ta `link: https://titanxis.com/ses/{name}?token=...`
+  - `GET /api/voice/rooms/{room_id}/invite-links` — sadece `active=true` olanları listeler, her satırda tam link
+  - `DELETE /api/voice/rooms/{room_id}/invite-link/{token}` — soft-delete (`active=false`, `deactivated_at` timestamp)
+  - `POST /api/voice/token` — `active=true` kontrolü yeter, tekrar tekrar kullanılabilir; `active=false` → 403 "devre dışı bırakılmış"
+  - Telegram `/ses_davet {oda_adi}` — yeni koleksiyona insert, mesajda "♻️ Çok kullanımlık" bilgisi
+  - Frontend `VoiceRooms.jsx` → `<InviteLinksPanel>` bileşeni RoomCard admin bloğunda — mor accent, Davet Linki Oluştur + kopyala/sil butonları, boş durumda "Aktif davet linki yok" placeholder
+  - Yeni indexler: `voice_invite_tokens.token` unique + `(room_id, active, created_at)` compound
+  - **KESİN KURAL doğrulandı**: Total rooms=3 sabit, seed no-op, existing rooms/passwords/invited_user_ids dokunulmadı
+  - Curl e2e 8/8: create→list→redeem→redeem-again→delete→redeem-fail→list-empty→rooms-preserved
+
+
+
 - **Feb 5, 2026 (v136 — 3 iyileştirme + KESİN KURAL: seed devre dışı)** — Backend + Frontend:
   - **/top10**: yeni `CommandHandler("top10", top10_command)` — her aktif etkinlik bloğunda 10 satır garanti.
   - **/etkinlik_top5 + /etkinlikler_top5**: yeni komut — sadece top 5 per event blokları (tema net bir isim).

@@ -11111,10 +11111,12 @@ class VoiceTokenBody(BaseModel):
 
 
 class VoiceInviteCreateBody(BaseModel):
-    """v136 — Ses odası için tek kullanımlık davet linki oluşturur.
+    """v136 — Ses odası için ÇOK KULLANIMLIK davet linki oluşturur.
     Yalnızca admin çağırabilir. Link formatı: {WEB}/ses/{room_name}?token=XXXX
-    Token 24 saat geçerli, bir kez kullanılınca `used=true` olur."""
-    ttl_hours: Optional[int] = 24
+    Token varsayılan olarak `active=true`; admin `active=false` yapana kadar
+    tekrar tekrar kullanılabilir. Kayıt `voice_invite_tokens` koleksiyonuna gider
+    (eski `voice_room_invites` tablosuna DOKUNMAZ — geriye dönük uyumluluk)."""
+    pass
 
 
 @api_router.post("/voice/rooms/{room_id}/invite-link")
@@ -11123,7 +11125,6 @@ async def voice_room_create_invite(room_id: str, body: VoiceInviteCreateBody,
     room = await db.voice_rooms.find_one({"id": room_id}, {"_id": 0, "name": 1, "id": 1})
     if not room:
         raise HTTPException(404, "Oda bulunamadı")
-    ttl = max(1, min(int(body.ttl_hours or 24), 168))  # 1 saat – 7 gün arası
     token = secrets.token_urlsafe(16)  # 128 bit
     now = datetime.now(timezone.utc)
     doc = {
@@ -11134,23 +11135,53 @@ async def voice_room_create_invite(room_id: str, body: VoiceInviteCreateBody,
         "created_by": u.get("id"),
         "created_by_username": u.get("username") or u.get("email"),
         "created_at": now.isoformat(),
-        "expires_at": (now + timedelta(hours=ttl)).isoformat(),
-        "used": False,
-        "used_by": None,
-        "used_at": None,
+        "active": True,
     }
-    await db.voice_room_invites.insert_one(doc)
-    # Public web taban URL'i CANONICAL_ORIGIN env'i varsa oradan, yoksa
-    # varsayılan production domain.
+    await db.voice_invite_tokens.insert_one(doc)
     origin = (os.environ.get("CANONICAL_ORIGIN") or "https://titanxis.com").rstrip("/")
-    link = f"{origin}/ses/{room['name']}?token={token}"
+    import urllib.parse as _up
+    safe_room = _up.quote(room["name"], safe="")
+    link = f"{origin}/ses/{safe_room}?token={token}"
     return {
         "token": token,
         "link": link,
         "room_name": room["name"],
-        "expires_at": doc["expires_at"],
-        "ttl_hours": ttl,
+        "active": True,
+        "created_at": doc["created_at"],
     }
+
+
+@api_router.get("/voice/rooms/{room_id}/invite-links")
+async def voice_room_list_invites(room_id: str, _: dict = Depends(require_admin)):
+    """v136 — Odanın AKTİF davet linklerini listele. `active=false` olanlar
+    dahil edilmez (silinmiş sayılır)."""
+    room = await db.voice_rooms.find_one({"id": room_id}, {"_id": 0, "id": 1, "name": 1})
+    if not room:
+        raise HTTPException(404, "Oda bulunamadı")
+    rows = await db.voice_invite_tokens.find(
+        {"room_id": room_id, "active": True},
+        {"_id": 0},
+    ).sort("created_at", -1).limit(50).to_list(50)
+    origin = (os.environ.get("CANONICAL_ORIGIN") or "https://titanxis.com").rstrip("/")
+    import urllib.parse as _up
+    safe_room = _up.quote(room["name"], safe="")
+    for r in rows:
+        r["link"] = f"{origin}/ses/{safe_room}?token={r['token']}"
+    return {"items": rows, "count": len(rows), "room_name": room["name"]}
+
+
+@api_router.delete("/voice/rooms/{room_id}/invite-link/{token}")
+async def voice_room_delete_invite(room_id: str, token: str,
+                                    _: dict = Depends(require_admin)):
+    """v136 — Bir davet token'ını devre dışı bırak (`active=false`). Fiziksel
+    silme değil — audit izini korumak için soft-delete."""
+    r = await db.voice_invite_tokens.update_one(
+        {"room_id": room_id, "token": token, "active": True},
+        {"$set": {"active": False, "deactivated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Aktif token bulunamadı")
+    return {"deleted": True, "token": token}
 
 
 @api_router.post("/voice/token")
@@ -11158,9 +11189,11 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
     """v140.35 — Erişim mantığı:
       • Admin → şifre/davet gerekmez.
       • Authed user + davetli → şifre gerekmez.
-      • Geçerli tek kullanımlık davet token'ı → şifre gerekmez (v136).
+      • Geçerli AKTİF davet token'ı → şifre gerekmez (v136, çok kullanımlık).
       • Authed user + davetsiz → şifre gerekli.
       • Ziyaretçi (auth yok) → şifre gerekli (biliyorsa girer).
+    Mevcut davetli/şifre/admin akışına dokunulmadı — invite_token yalnızca
+    ek bir bypass yoludur.
     """
     if not _LK_OK:
         raise HTTPException(500, "LiveKit SDK yüklü değil")
@@ -11181,36 +11214,24 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
     is_admin = bool(u) and u.get("role") == "admin"
     invited_ids = list(room.get("invited_user_ids") or [])
     banned_ids = list(room.get("banned_user_ids") or [])
-    # v140.37 — Ban kontrolü: Admin bile ban listesindeyse geçemez (ancak
-    # normalde admin'ler kick edilmemeli). Bu, güvenli-varsayılan davranıştır.
     if u and u.get("id") in banned_ids:
         raise HTTPException(403, "Bu odadan yasaklandınız")
     is_invited = bool(u) and u.get("id") in invited_ids
-    # v136 — Davet token'ı doğrulama. Doğruysa şifre gerekmez ve token
-    # tek kullanımlık olduğu için hemen "kullanıldı" işaretlenir.
+    # v136 — AKTİF davet token doğrulama. Çok kullanımlık: `active=true` &&
+    # `room_id` eşleşmesi yeter, silinmediği sürece defalarca kullanılabilir.
     invite_ok = False
     if body.invite_token:
-        invite = await db.voice_room_invites.find_one({"token": body.invite_token}, {"_id": 0})
-        now_iso = datetime.now(timezone.utc).isoformat()
+        invite = await db.voice_invite_tokens.find_one(
+            {"token": body.invite_token}, {"_id": 0},
+        )
         if not invite:
             raise HTTPException(403, "Davet linki geçersiz")
-        if invite.get("used"):
-            raise HTTPException(403, "Davet linki daha önce kullanılmış")
-        if invite.get("expires_at") and invite["expires_at"] < now_iso:
-            raise HTTPException(403, "Davet linkinin süresi dolmuş")
+        if not invite.get("active"):
+            raise HTTPException(403, "Davet linki devre dışı bırakılmış")
         if invite.get("room_id") != room.get("id"):
             raise HTTPException(403, "Davet linki bu oda için değil")
-        # Mark used atomically.
-        marked = await db.voice_room_invites.update_one(
-            {"token": body.invite_token, "used": False},
-            {"$set": {"used": True, "used_at": now_iso,
-                      "used_by": (u or {}).get("id") or "guest"}},
-        )
-        if marked.modified_count == 0:
-            raise HTTPException(403, "Davet linki daha önce kullanılmış")
         invite_ok = True
     if not (is_admin or is_invited or invite_ok):
-        # Şifre kontrolü zorunlu (davetsiz üye VEYA ziyaretçi).
         from auth import verify_password as _verify_password
         if not body.password or not _verify_password(body.password, room.get("password_hash", "")):
             raise HTTPException(403, "Şifre yanlış")

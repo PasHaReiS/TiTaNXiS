@@ -1045,9 +1045,10 @@ async def _ensure_bot_indexes(db):
         await db.points.create_index([("event_id", 1), ("member_id", 1)])
         await db.event_rsvps.create_index([("member_id", 1), ("status", 1)])
         await db.events.create_index([("archived", 1), ("date", -1)])
-        # v136 — Ses davet token lookups (redeem + reuse-check hot path).
-        await db.voice_room_invites.create_index("token", unique=True)
-        await db.voice_room_invites.create_index([("room_id", 1), ("used", 1)])
+        # v136 — Ses davet token lookups (redeem + list hot path). Aktif
+        # tokenler `active=true` ile filtrelenir.
+        await db.voice_invite_tokens.create_index("token", unique=True)
+        await db.voice_invite_tokens.create_index([("room_id", 1), ("active", 1), ("created_at", -1)])
         # `members.name` çoğu sorguda regex ile aranıyor.
         try:
             await db.members.create_index([("name", "text"), ("alliance_name", "text")], name="tb_name_ally_text")
@@ -1280,27 +1281,20 @@ async def ses_davet_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     token = secrets.token_urlsafe(16)
     now = datetime.now(timezone.utc)
-    ttl_hours = 24
+    import uuid as _uuid
     doc = {
-        "id": None,
+        "id": str(_uuid.uuid4()),
         "token": token,
         "room_id": room["id"],
         "room_name": room["name"],
         "created_by": user.get("id"),
         "created_by_username": user.get("username") or user.get("email"),
         "created_at": now.isoformat(),
-        "expires_at": (now + timedelta(hours=ttl_hours)).isoformat(),
-        "used": False,
-        "used_by": None,
-        "used_at": None,
+        "active": True,
         "source": "telegram",
     }
-    # id alanı FastAPI POST endpoint'iyle aynı düzeni tutsun.
-    import uuid as _uuid
-    doc["id"] = str(_uuid.uuid4())
-    await _db.voice_room_invites.insert_one(doc)
+    await _db.voice_invite_tokens.insert_one(doc)
     origin = (os.environ.get("CANONICAL_ORIGIN") or WEB_BASE or "https://titanxis.com").rstrip("/")
-    # room_name'i URL-safe hale getir (boşluk vb.)
     import urllib.parse as _up
     safe_room = _up.quote(room["name"], safe="")
     link = f"{origin}/ses/{safe_room}?token={token}"
@@ -1308,9 +1302,9 @@ async def ses_davet_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update,
         f"🎙 *Ses Odası Davet Linki*\n\n"
         f"🏠 Oda: *{room['name']}*\n"
-        f"⏳ Geçerlilik: `{ttl_hours} saat` (bir kez kullanılınca geçersiz)\n\n"
+        f"♻️ Çok kullanımlık — admin panelinden silene kadar geçerli\n\n"
         f"🔗 {link}\n\n"
-        f"_Bu linke tıklayan kişi şifresiz olarak odaya girer. Linki güvenilir kişilere gönder._",
+        f"_Bu linke tıklayan kişi şifresiz olarak odaya girer. Web panelden 'Aktif Davet Linkleri' altından silebilirsin._",
     )
 
 
