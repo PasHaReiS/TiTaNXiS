@@ -468,6 +468,8 @@ function CreateRoomButton({ onCreated }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  // v140.35 — Davet ettiğim üyelerin id listesi.
+  const [invitedIds, setInvitedIds] = useState([]);
   const [userSearch, setUserSearch] = useState("");
   const { data: usersList = [] } = useSWR(open ? "/users" : null, fetcher);
   const filteredUsers = React.useMemo(() => {

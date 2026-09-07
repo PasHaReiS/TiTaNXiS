@@ -1064,125 +1064,84 @@ async def siralama_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await reply_ml(update, "⚠️ Veritabanı hazır değil.")
         return
     args = getattr(context, "args", None) or []
-    # v136 — Argüman şeması:
-    #   /siralama                        → tüm aktif etkinlikler, top 5
-    #   /siralama top10                  → tüm aktif etkinlikler, top 10
-    #   /siralama <etkinlik_adı>         → sadece o etkinlik, top 10
-    #   /siralama <etkinlik_adı> top10   → sadece o etkinlik, top 10
-    #   /siralama <etkinlik_adı> top5    → sadece o etkinlik, top 5
-    limit = 5
-    event_query = ""
-    if args:
-        tokens = [a for a in args if a]
-        # Son token top5/top10 modifier ise ayır
-        if tokens and tokens[-1].lower() in ("top10", "top5"):
-            limit = 10 if tokens[-1].lower() == "top10" else 5
-            tokens = tokens[:-1]
-        if tokens and tokens[0].lower() in ("top10", "top5"):
-            # /siralama top10 (baştaki modifier)
-            limit = 10 if tokens[0].lower() == "top10" else 5
-            tokens = tokens[1:]
-        event_query = " ".join(tokens).strip()
-        # Tek etkinlik sorgulanıyorsa varsayılan top10 mantıklı
-        if event_query and limit == 5 and not any(a.lower() in ("top5",) for a in args):
-            limit = 10
+    # top10/top5 modifier'ları eskilerden kalabilir; artık her iki mod da 10 üye.
+    event_query = " ".join(
+        [a for a in args if a.lower() not in ("top10", "top5")]
+    ).strip()
 
-    # Cache check
+    # Cache: (event_query_lc,)
     import time as _time
-    cache_key = (limit, event_query.lower())
+    cache_key = ("v2", event_query.lower())
     now_ts = _time.time()
     cached = _SIRALAMA_CACHE.get(cache_key)
     if cached and (now_ts - cached["at"] < _SIRALAMA_CACHE_TTL):
         await reply_ml(update, cached["text"])
         return
 
-    # v136 — Etkinlik-başına sıralama. Her AKTİF (arşivlenmemiş) etkinlik ayrı
-    # bir blok olarak listelenir. Arşiv etkinlikleri sıralamaya girmez.
-    q_filter = {"archived": {"$ne": True}}
-    if event_query:
-        # Regex ile isim eşleştir (case-insensitive, kısmi eşleşme).
-        import re as _re
-        safe = _re.escape(event_query)
-        q_filter["name"] = {"$regex": safe, "$options": "i"}
-    active_events = await _db.events.find(
-        q_filter,
-        {"_id": 0, "id": 1, "name": 1, "group_name": 1, "date": 1},
-    ).sort("date", -1).to_list(2000)
-    if not active_events:
-        if event_query:
-            await reply_ml(
-                update,
-                f"📊 `{event_query}` adında aktif etkinlik bulunamadı.\n"
-                "_Arşivlenmiş etkinlikler sıralamaya dahil edilmiyor._",
-            )
-        else:
-            await reply_ml(update, "📊 Şu an aktif etkinlik bulunmuyor.")
-        return
-
-    blocks: list[str] = []
-    empty_events: list[str] = []
-    if event_query:
-        header = (
-            f"🏆 *`{event_query}` Sonuçları (Top {limit})*\n"
-            f"_({len(active_events)} eşleşen aktif etkinlik)_"
-        )
-    else:
-        header = (
-            f"🏆 *Aktif Etkinlik Sıralaması (Top {limit})*\n"
-            f"_({len(active_events)} aktif etkinlik)_"
-        )
-    blocks.append(header)
-
-    # Her etkinlik için ayrı aggregation.
-    for ev in active_events:
-        ev_id = ev.get("id")
-        ev_name = ev.get("name") or "?"
-        pipeline = [
-            {"$match": {"event_id": ev_id}},
+    if not event_query:
+        # v136 — Genel sıralama: tüm etkinliklerdeki puanlar toplanır,
+        # arşiv olsun olmasın hepsi dahil (kullanıcı isteği: sade format,
+        # sadece ilk 10 isim + toplam). Etkinlik/ittifak breakdown YOK.
+        rows = await _db.points.aggregate([
             {"$group": {"_id": "$member_id", "total": {"$sum": "$points"}}},
             {"$sort": {"total": -1}},
-            {"$limit": limit},
-        ]
-        rows = await _db.points.aggregate(pipeline).to_list(limit)
+            {"$limit": 10},
+        ]).to_list(10)
         if not rows:
-            empty_events.append(ev_name)
-            continue
+            msg = "📊 Henüz puan girişi yok."
+            _SIRALAMA_CACHE[cache_key] = {"at": now_ts, "text": msg}
+            await reply_ml(update, msg)
+            return
         mids = [r["_id"] for r in rows]
-        ms = await _db.members.find({"id": {"$in": mids}}, {"_id": 0}).to_list(len(mids))
+        ms = await _db.members.find({"id": {"$in": mids}}, {"_id": 0, "id": 1, "name": 1}).to_list(len(mids))
         mmap = {m["id"]: m for m in ms}
-        lines = [f"📊 *{ev_name} Sıralaması:*"]
+        lines = ["🏆 *Genel Sıralama (İlk 10)*"]
         for i, r in enumerate(rows):
             m = mmap.get(r["_id"]) or {}
-            medal = ["🥇", "🥈", "🥉"][i] if i < 3 else f"{i+1}."
-            ally = m.get("alliance_name") or "-"
-            lines.append(
-                f"{medal} *{m.get('name', '?')}* [{ally}] — `{int(r['total']):,}` puan"
-            )
-        blocks.append("\n".join(lines))
-
-    if len(blocks) == 1:
-        # Sadece header var → hiç puan girişi yok
-        msg = (
-            "📊 Aktif etkinlikler var ama henüz puan girişi yok.\n"
-            f"_({len(active_events)} aktif etkinlik takip ediliyor.)_"
-        )
+            lines.append(f"{i+1}. *{m.get('name', '?')}* — `{int(r['total']):,}` puan")
+        msg = "\n".join(lines)
         _SIRALAMA_CACHE[cache_key] = {"at": now_ts, "text": msg}
         await reply_ml(update, msg)
         return
-    if empty_events:
-        blocks.append(
-            "\n_ℹ️ Henüz puan girilmemiş aktif etkinlikler: "
-            + ", ".join(f"*{n}*" for n in empty_events[:8])
-            + ("…" if len(empty_events) > 8 else "")
-            + "_"
-        )
-    final_msg = "\n\n".join(blocks)
-    _SIRALAMA_CACHE[cache_key] = {"at": now_ts, "text": final_msg}
-    # Cache boyutu kontrolü (nadir de olsa) — 100 anahtarı geçerse temizle.
+
+    # v136 — Etkinlik sorgusu: kısmi eşleşme, arşiv dahil.
+    import re as _re
+    safe = _re.escape(event_query)
+    ev = await _db.events.find_one(
+        {"name": {"$regex": safe, "$options": "i"}},
+        {"_id": 0, "id": 1, "name": 1},
+    )
+    if not ev:
+        msg = f"📊 `{event_query}` adında etkinlik bulunamadı."
+        _SIRALAMA_CACHE[cache_key] = {"at": now_ts, "text": msg}
+        await reply_ml(update, msg)
+        return
+    rows = await _db.points.aggregate([
+        {"$match": {"event_id": ev["id"]}},
+        {"$group": {"_id": "$member_id", "total": {"$sum": "$points"}}},
+        {"$sort": {"total": -1}},
+        {"$limit": 10},
+    ]).to_list(10)
+    if not rows:
+        msg = f"📊 *{ev['name']}* etkinliğinde henüz puan girişi yok."
+        _SIRALAMA_CACHE[cache_key] = {"at": now_ts, "text": msg}
+        await reply_ml(update, msg)
+        return
+    mids = [r["_id"] for r in rows]
+    ms = await _db.members.find({"id": {"$in": mids}}, {"_id": 0, "id": 1, "name": 1}).to_list(len(mids))
+    mmap = {m["id"]: m for m in ms}
+    lines = [f"📊 *{ev['name']} Sıralaması (İlk 10)*"]
+    for i, r in enumerate(rows):
+        m = mmap.get(r["_id"]) or {}
+        lines.append(f"{i+1}. *{m.get('name', '?')}* — `{int(r['total']):,}` puan")
+    msg = "\n".join(lines)
+    _SIRALAMA_CACHE[cache_key] = {"at": now_ts, "text": msg}
+    # Cache boyutu güvenliği
     if len(_SIRALAMA_CACHE) > 100:
+        keep = {cache_key: _SIRALAMA_CACHE[cache_key]}
         _SIRALAMA_CACHE.clear()
-        _SIRALAMA_CACHE[cache_key] = {"at": now_ts, "text": final_msg}
-    await reply_ml(update, final_msg)
+        _SIRALAMA_CACHE.update(keep)
+    await reply_ml(update, msg)
 
 
 # v136 — /top10 direct alias: siralama_command with limit=10.

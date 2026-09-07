@@ -2007,7 +2007,7 @@ export default function Events() {
             (overwritten ? ` · ${overwritten} üzerine yazıldı` : "") +
             (newMembers ? ` · ${newMembers} yeni üye oluşturuldu` : "") +
             (skipped.length ? ` · ${skipped.length} mükerrer atlandı` : "") +
-            (errs ? ` · ${errs} hata` : "");
+            ((res.data.errors || []).length ? ` · ${(res.data.errors || []).length} hata` : "");
           if (skipped.length > 0) {
             const names = skipped.slice(0, 5).map((s) => s.name).join(", ");
             const downloadSkippedCsv = () => {

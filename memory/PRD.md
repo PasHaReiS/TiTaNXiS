@@ -20,6 +20,16 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 5, 2026 (v136 — /siralama sade format yeniden yazımı)** — Backend (Telegram):
+  - **/siralama (parametresiz)**: Tüm etkinliklerin toplam puanı (arşiv dahil) tek aggregation'da toplanıp genel top 10 döner. Format: `1. *isim* — X,XXX puan` (breakdown/ittifak/medal YOK).
+  - **/siralama {etkinlik_adı}**: Kısmi regex eşleşme, ARŞİV DAHİL. O etkinliğin ilk 10 üyesi sade formatta.
+  - **Legacy modifier**: `top10`/`top5` args'tan strip edilir (no-op, artık her mod 10 üye).
+  - **Cache**: 60sn TTL korundu, key `("v2", event_query_lc)` — eski v1 önbelleklerini kirletmez.
+  - Canlı DB testleri 6/6 geçti: genel top 10, unmatched query, matched query (kskxj), archived query (Pre 5.gün), NOT-FOUND, `top10` modifier.
+  - `deployment_agent` PASS.
+
+
+
 - **Feb 5, 2026 (v136 — SesInvite full ActiveRoomUI render fix)** — Backend + Frontend:
   - **Bug**: `titanxis.com/ses/{oda}?token=X` üzerinden girince minimalist "Bağlandın: X" ekranı görünüyordu; mikrofon kontrolleri, katılımcı grid, admin aksiyonları eksikti.
   - **Fix**:
