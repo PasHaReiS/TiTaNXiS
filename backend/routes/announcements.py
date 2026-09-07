@@ -1,15 +1,51 @@
 """Duyurular (Announcements) — CRUD + bulk actions + edit-history revert.
 
-Cross-cutting helpers (`_broadcast_push`, `_send_tg_channel`, `_send_tg_dms`,
-`_broadcast_in_app`, `_translate_fields`) callable olarak inject edilir; bu
+Cross-cutting helpers (`broadcast_push`, `send_tg_channel`, `send_tg_dms`,
+`broadcast_in_app`, `translate_fields`) callable olarak inject edilir; bu
 sayede modül import-graph'e mengene olmadan mevcut helper'ları kullanır.
 """
 import asyncio
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, Awaitable, Callable, List, Optional, Protocol, Sequence, Tuple
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
+
+# v141 — Refactor Phase 3: Protocol'lar helper signature'larını sözleşme
+# haline getirir. Böylece server.py'de bir helper rename olursa mypy/IDE
+# hemen görür — silent wiring hataları önlenmiş olur.
+class _BroadcastPushFn(Protocol):
+    async def __call__(
+        self,
+        title: str,
+        body: str,
+        url: str = "/",
+        *,
+        tag: str = ...,
+        group_name: Optional[str] = None,
+        alliance_name: Optional[str] = None,
+        country_iso2: Optional[str] = None,
+        event_id: Optional[str] = None,
+        sound: Optional[str] = None,
+        notif_pref: Optional[str] = None,
+    ) -> dict: ...
+
+
+class _SendTgChannelFn(Protocol):
+    async def __call__(self, doc: dict) -> dict: ...
+
+
+class _SendTgDmsFn(Protocol):
+    async def __call__(self, doc: dict) -> dict: ...
+
+
+class _BroadcastInAppFn(Protocol):
+    async def __call__(self, doc: dict, notif_pref: Optional[str] = None) -> dict: ...
+
+
+class _TranslateFieldsFn(Protocol):
+    async def __call__(self, doc: dict, fields: Sequence[Tuple[str, str]]) -> None: ...
 
 
 def _now_iso() -> str:
@@ -47,11 +83,11 @@ def make_announcements_router(
     db,
     require_auth,
     require_admin,
-    broadcast_push,
-    send_tg_channel,
-    send_tg_dms,
-    broadcast_in_app,
-    translate_fields,
+    broadcast_push: _BroadcastPushFn,
+    send_tg_channel: _SendTgChannelFn,
+    send_tg_dms: _SendTgDmsFn,
+    broadcast_in_app: _BroadcastInAppFn,
+    translate_fields: _TranslateFieldsFn,
     logger=None,
 ):
     router = APIRouter()

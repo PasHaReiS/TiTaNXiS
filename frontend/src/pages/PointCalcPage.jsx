@@ -3,10 +3,11 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Trash2, Pencil, Check, X, Settings, ChevronRight, Globe, Download, Upload, Share2, History as HistoryIcon, RotateCcw } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, Settings, ChevronRight, Globe, Download, Upload, Share2, History as HistoryIcon, RotateCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import { translateUserText } from "@/lib/deeplTranslate";
+import PCExcelWizard from "@/components/PCExcelWizard";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -208,8 +209,10 @@ function TranslatedText({ source, translations, testId }) {
 
 export default function PointCalcPage() {
   const { t } = useTranslation();
+  const { isAdmin } = useAuth();
   const [kind, setKind] = useState("pre");
   const [selectedId, setSelectedId] = useState(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   return (
     <div className="min-h-screen" data-testid="point-calc-page" style={{ paddingBottom: 80 }}>
@@ -224,7 +227,25 @@ export default function PointCalcPage() {
             style={{ borderColor: "rgba(231,76,26,0.35)" }}
             data-testid="pc-kind-tabs"
           >
-            <div className="flex-shrink-0"><PCAdminActions kind={kind} slot="excel" /></div>
+            <div className="flex-shrink-0 flex items-center gap-1">
+              <PCAdminActions kind={kind} slot="excel" />
+              {isAdmin && (
+                <button
+                  onClick={() => setWizardOpen(true)}
+                  data-testid={`pc-wizard-open-${kind}`}
+                  title={t("pc_wizard_open_tip", { defaultValue: "Excel iş akışı sihirbazı" })}
+                  className="h-8 px-2 sm:px-3 rounded-lg text-[11px] font-bold flex items-center gap-1 whitespace-nowrap"
+                  style={{
+                    background: "linear-gradient(135deg,#7C3AED,#A855F7)",
+                    color: "#fff",
+                    boxShadow: "0 4px 14px rgba(168,85,247,0.35)",
+                  }}
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span className="hidden sm:inline">{t("pc_wizard_btn", { defaultValue: "Sihirbaz" })}</span>
+                </button>
+              )}
+            </div>
             <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
               {KINDS.map((k) => {
                 const active = kind === k.key;
@@ -257,6 +278,7 @@ export default function PointCalcPage() {
         </Header>
 
         <SidebarContent kind={kind} selectedId={selectedId} setSelectedId={setSelectedId} />
+        <PCExcelWizard kind={kind} open={wizardOpen} onClose={() => setWizardOpen(false)} />
       </div>
     </div>
   );
