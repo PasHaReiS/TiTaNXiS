@@ -20,6 +20,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 7, 2026 (v141 — Refactor Phase 2 + i18n split + PC modülü mühürleme + CalcBody hizalama)** — Backend + Frontend:
+  - **server.py 11,299 → 10,822 satır** (~475 satır daha azaldı). Kümülatif Phase 1+2: **11,836 → 10,822 (%8.6 azalma)**.
+  - **PC Modülü Tamamlandı**: `translate-all` + `export` + `import` (openpyxl) `routes/point_calc.py`'ye taşındı. `translate_one`/`enabled_langs`/`deepl_api_key` callable/value olarak inject edildi. Aynı koleksiyondan iki modülün yazması leaky-boundary'i kapandı.
+  - **CalculationBody Şema Hizalandı**: `forticlad` + `gelismis_forticlad` opsiyonel alan eklendi (default 0) — GET `/unit-costs/{category}` ile round-trip parity sağlandı.
+  - **Announcements → routes/announcements.py**: 7 endpoint + 3 model taşındı. 5 fan-out helper (`_broadcast_push`, `_send_tg_channel`, `_send_tg_dms`, `_broadcast_in_app`, `_translate_fields`) callable DI ile inject edildi. `str.lstrip('🚨 ')` char-set bug'ı `str.removeprefix('🚨 ')` ile düzeltildi.
+  - **Guild Target Settings → routes/guild_settings.py**: 2 endpoint + model taşındı.
+  - **i18n index.js 10,085 → 109 satır (%98.9 azalma)**. 29 dilin çeviri sözlükleri `/app/frontend/src/i18n/langs/{tr,en,ru,de,fr,es,ko,bg,cs,da,el,et,fi,hu,id,it,ja,lt,lv,nb,nl,pl,pt,ro,sk,sl,sv,uk,zh}.js` altına ayrıldı. index.js lean loader oldu: static import + resources + LANGUAGES + i18n.init. Legacy `ar` bloğu preserve edildi (dosyada tutuldu) ama resources'ta kayıtlı değil (orijinal davranışla uyumlu).
+  - **Regression testing**: `testing_agent_v3_fork` → 26/26 pytest test PASS + frontend TR→EN→RU dil geçişi doğrulandı (`/app/backend/tests/test_refactor_iter56.py` + `/app/test_reports/iteration_56.json`). Announcement PATCH/revert history akışı, guild-target clamp (0..100), PC export/import round-trip, translate-all DeepL entegrasyonu — hepsi PASS.
+  - **Minor code review fix'leri uygulandı**: `Depends(require_admin or require_edit)` → sadece `Depends(require_admin)`, `lstrip('🚨 ')` → `removeprefix('🚨 ')`.
+
+
 - **Feb 7, 2026 (v141 — Refactor Phase 1: server.py modülerleştirme)** — Backend:
   - `server.py` monolithic 11,836 → 11,300 satır (~555 satır azaldı, %4.7). 8 bağımsız endpoint grubu route modüllerine taşındı; davranış değişikliği YOK.
   - Yeni route modülleri (`/app/backend/routes/`):

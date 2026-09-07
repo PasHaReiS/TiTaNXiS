@@ -1,0 +1,33 @@
+{
+  "summary": "Iter 56 — Refactor Phase 2 regression (backend + frontend). Built /app/backend/tests/test_refactor_iter56.py with 26 pytest cases: (1) CalculationBody schema alignment — POST /api/calculations now accepts optional forticlad + gelismis_forticlad (defaults 0) and GET /api/unit-costs/{category} exposes both fields; (2) routes/announcements.py — list (+ filter=urgent), create with broadcast=false (no fanout side effects, no fanout key in response), patch → history snapshot → revert restores original body, delete, bulk-delete, editor-forbidden gate; (3) routes/guild_settings.py — GET default (60), PUT clamp 0..100 (250→100, -10→0), editor forbidden; (4) routes/point_calc.py extensions — GET /point-calc/export?kind=pre returns valid .xlsx (PK zip magic, >500 B), rejects unauth (401/403) and invalid kind (400), POST /point-calc/import round-trip of the just-exported bytes returns {updated, skipped, errors}, POST /point-calc/translate-all returns 200 or 503 (DeepL config-dependent) with {days_processed, strings_translated}; (5) Phase-1 regression sweep — commanders, alliance-colors, alliance-scopes, multiplier-history, unit-costs, legal, reports/guild-data.csv, point-calc list, health. Result: 26/26 PASS in 27s against the production external URL. Frontend: home page renders in Turkish, language switcher opens (data-testid attributes present), TR→EN→RU switching confirmed live (menu changed 'Türkçe' → 'English' → 'Русский' UI strings). No i18n compile errors after the 10,085 → 109-line loader rewrite; no page errors; only pre-existing hydration warning about nested <button> in Leaderboard row (unrelated to this refactor).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Leaderboard row", "issues": ["Pre-existing hydration warning: <button> nested inside another <button> (row-alliance inside leaderboard-row). Not introduced by this refactor but visible in console."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_refactor_iter56.py",
+    "/app/test_reports/pytest/iter56.xml"
+  ],
+  "action_items": [
+    "MINOR: routes/point_calc.py uses `Depends(require_admin or require_edit)` on translate-all and import. Python evaluates `func_a or func_b` at import time → always returns `require_admin` (functions are truthy). So the 'admin OR editor' intent is silently dropped — only admins pass. If editor access is required, wrap in a helper `require_admin_or_edit` dependency. If admin-only is intended, remove the confusing `or require_edit` for clarity.",
+    "MINOR: routes/announcements.py line ~197 uses `update['title'].lstrip('🚨 ')` — str.lstrip takes a *set of chars*, not a substring, so it will also strip stray leading spaces/emoji characters. Use `removeprefix('🚨 ')` (Py 3.9+) instead."
+  ],
+  "critical_code_review_comments": [
+    "server.py is still 10,822 lines — even after this iteration's ~475-line reduction plus the massive i18n win, the backend monolith remains the top structural risk. Prioritise extracting members/events/leaderboard/points-crud next.",
+    "`Depends(require_admin or require_edit)` in routes/point_calc.py (translate-all + import) is a latent bug pattern — evaluates to `Depends(require_admin)`. Fix or delete the misleading `or`.",
+    "`str.lstrip('🚨 ')` in routes/announcements.py PATCH handler removes any leading char from the set — not the substring. Use `str.removeprefix`.",
+    "i18n/index.js loader is clean and small — nice cleanup. Consider dynamic imports (`import(./langs/${code}.js)`) if bundle size becomes a concern; current eager-import bundles all 29 languages into the initial chunk.",
+    "routes/announcements.py cleanly uses callable DI for the 4 fan-out helpers and translate_fields — good pattern; recommend documenting the expected async signatures via typing.Protocol so a helper rename can't silently break wiring."
+  ],
+  "updated_files": ["/app/backend/tests/test_refactor_iter56.py (new)"],
+  "success_rate": {"backend": "100% (26/26)", "frontend": "smoke pass (home renders, i18n loader compiles, TR/EN/RU switching verified)"},
+  "test_credentials": "admin/Admin123, pasha/pasha123 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Transient only: 2 TEST_CAT_* calculations rows (deleted in-test), 1 TEST_PC_* point-calc day (deleted via class fixture teardown), 3 TEST_ANN_/TEST_BULK_ announcements (deleted in-test). guild_target restored to 60 after clamp tests. No residual test data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run new regression baseline: `python -m pytest backend/tests/test_refactor_iter56.py -v -o addopts=` (the `-o addopts=` neutralises the repo-wide xdist loadscope config for single-file runs). Iter 55 tests are still valid; run both for full coverage. If DeepL becomes configured, translate-all will actually return 200 with day_processed>0 instead of 503 — test tolerates both. Announcements POST tests pass broadcast=false to avoid firing Web Push + Telegram DMs; if you need to test the fanout path, seed a controlled push subscription first or expect real notifications to go out."
+}

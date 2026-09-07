@@ -4242,235 +4242,8 @@ async def deepl_bulk_translate(body: DeeplBulkBody, _: dict = Depends(require_ad
     return {"count": len(result), "translations": result}
 
 
-@api_router.post("/point-calc/translate-all")
-async def translate_all_pc(kind: str = Query(...), _: dict = Depends(require_admin)):
-    if kind not in ("pre", "diger"):
-        raise HTTPException(400, "invalid kind")
-    if not DEEPL_API_KEY:
-        raise HTTPException(503, "DEEPL_API_KEY not configured")
-    days = []
-    async for d in db.point_calc_days.find({"kind": kind}):
-        d.pop("_id", None)
-        days.append(d)
-
-    translated_strings = 0
-    for day in days:
-        current = day.get("translations") or {}
-        strings = set()
-        if day.get("name"): strings.add(day["name"])
-        for tb in day.get("tables") or []:
-            if tb.get("title"): strings.add(tb["title"])
-            for m in tb.get("multipliers") or []:
-                if m.get("name"): strings.add(m["name"])
-            for mat in tb.get("materials") or []:
-                if mat.get("name"): strings.add(mat["name"])
-        # Skip strings that already have full translations.
-        missing = [s for s in strings if not current.get(s) or len(current.get(s, {})) < len(ENABLED_LANGS)]
-        if not missing:
-            continue
-        for src in missing:
-            tr_map = await _translate_one(src)
-            if tr_map:
-                current[src] = {**(current.get(src) or {}), **tr_map}
-                translated_strings += 1
-        await db.point_calc_days.update_one(
-            {"id": day["id"]},
-            {"$set": {"translations": current, "updated_at": now_iso()}},
-        )
-    return {"days_processed": len(days), "strings_translated": translated_strings}
-
-
-@api_router.get("/point-calc/export")
-async def export_point_calc(kind: str = Query(...), _: dict = Depends(require_auth)):
-    if kind not in ("pre", "diger"):
-        raise HTTPException(400, "invalid kind")
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
-    from fastapi.responses import StreamingResponse
-    import io
-
-    wb = Workbook()
-    wb.remove(wb.active)
-    header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill(start_color="E74C1A", end_color="E74C1A", fill_type="solid")
-
-    def apply_header(ws, cols):
-        for i, col in enumerate(cols, 1):
-            c = ws.cell(row=1, column=i, value=col)
-            c.font = header_font
-            c.fill = header_fill
-            c.alignment = Alignment(horizontal="center", vertical="center")
-            ws.column_dimensions[c.column_letter].width = max(16, min(40, len(str(col)) + 4))
-
-    days_cursor = db.point_calc_days.find({"kind": kind}).sort([("order", 1), ("created_at", 1)])
-    async for day in days_cursor:
-        day.pop("_id", None)
-        sheet_name = (day.get("name") or "Etkinlik")[:28].replace("/", "-").replace("\\", "-").replace(":", "-").replace("*", "-").replace("?", "-").replace("[", "").replace("]", "")
-        ws = wb.create_sheet(title=sheet_name or "Etkinlik")
-        apply_header(ws, ["Tablo Başlığı", "Çarpan Adı", "Çarpan Miktarı", "Miktar", "Toplam Puan", "Birim İsmi", "Birim Miktarı", "Birim Toplam"])
-        row = 2
-        for tb in day.get("tables") or []:
-            title = tb.get("title", "")
-            miktar = float(tb.get("miktar") or 0)
-            mults = tb.get("multipliers") or []
-            mult_name = mults[0].get("name", "") if mults else ""
-            mult_val = float(mults[0].get("value") or 0) if mults else 0
-            total_points = miktar * mult_val
-            mats = tb.get("materials") or []
-            if not mats:
-                ws.append([title, mult_name, mult_val, miktar, total_points, "", "", ""])
-                row += 1
-                continue
-            for mat in mats:
-                amt = 0
-                try: amt = float(mat.get("amount") or 0)
-                except Exception: amt = 0
-                ws.append([title, mult_name, mult_val, miktar, total_points, mat.get("name", ""), amt, miktar * amt])
-                row += 1
-        ws.freeze_panes = "A2"
-        ws.auto_filter.ref = ws.dimensions
-
-    # Translations sheet
-    trs = wb.create_sheet(title="_Ceviriler")
-    apply_header(trs, ["Etkinlik", "Kaynak (TR)"] + [l.upper() for l in ENABLED_LANGS])
-    days_cursor2 = db.point_calc_days.find({"kind": kind}).sort([("order", 1)])
-    async for day in days_cursor2:
-        day.pop("_id", None)
-        for src, tr_map in (day.get("translations") or {}).items():
-            row_vals = [day.get("name", ""), src] + [tr_map.get(l, "") for l in ENABLED_LANGS]
-            trs.append(row_vals)
-    trs.freeze_panes = "A2"
-    if trs.max_row > 1:
-        trs.auto_filter.ref = trs.dimensions
-
-    if len(wb.worksheets) == 0:
-        wb.create_sheet(title="Bos")
-
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    fname = f"puan_hesaplama_{kind}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M')}.xlsx"
-    return StreamingResponse(
-        buf,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
-    )
-
-
-@api_router.post("/point-calc/import")
-async def import_point_calc(
-    kind: str = Query(...),
-    file: UploadFile = File(...),
-    _: dict = Depends(require_admin),
-):
-    """Round-trip import of an edited Puan Hesaplama Excel export.
-    Each sheet (except _Ceviriler / Bos) is a day; sheet name must match an
-    existing day's name (truncated to 28 chars). Rows are grouped into tables
-    by (title, mult_name, mult_val, miktar). Existing day is updated (a snapshot
-    is written to point_calc_history before the mutation for undo).
-    """
-    if kind not in ("pre", "diger"):
-        raise HTTPException(400, "invalid kind")
-    from openpyxl import load_workbook
-    import io as _io
-
-    raw = await file.read()
-    try:
-        wb = load_workbook(filename=_io.BytesIO(raw), data_only=True)
-    except Exception as e:
-        raise HTTPException(400, f"Excel açılamadı: {e}")
-
-    days_cursor = db.point_calc_days.find({"kind": kind}).sort([("order", 1), ("created_at", 1)])
-    all_days = []
-    async for d in days_cursor:
-        d.pop("_id", None)
-        all_days.append(d)
-
-    def _norm(s: str) -> str:
-        return (s or "").strip().lower()
-
-    # Build lookup by truncated name (matches export sheet-name rule)
-    name_to_day = {}
-    for d in all_days:
-        n = (d.get("name") or "")[:28]
-        name_to_day[_norm(n)] = d
-
-    updated, skipped, errors = 0, 0, []
-
-    for sheet_name in wb.sheetnames:
-        if sheet_name in ("_Ceviriler", "Bos"):
-            continue
-        day = name_to_day.get(_norm(sheet_name))
-        if not day:
-            skipped += 1
-            errors.append(f"Sayfa '{sheet_name}' için eşleşen etkinlik bulunamadı")
-            continue
-        ws = wb[sheet_name]
-        rows = list(ws.iter_rows(min_row=2, values_only=True))
-        # Group rows by (title, mult_name, mult_val, miktar) — preserves order of appearance
-        groups = []
-        group_index = {}
-        for row in rows:
-            if not row or all((c is None or str(c).strip() == "") for c in row):
-                continue
-            title = (str(row[0]) if row[0] is not None else "").strip()
-            mult_name = (str(row[1]) if len(row) > 1 and row[1] is not None else "").strip()
-            try:
-                mult_val = float(row[2]) if len(row) > 2 and row[2] is not None and str(row[2]).strip() != "" else 0.0
-            except Exception:
-                mult_val = 0.0
-            try:
-                miktar = float(row[3]) if len(row) > 3 and row[3] is not None and str(row[3]).strip() != "" else 0.0
-            except Exception:
-                miktar = 0.0
-            mat_name = (str(row[5]) if len(row) > 5 and row[5] is not None else "").strip()
-            try:
-                mat_amt = row[6] if len(row) > 6 and row[6] is not None and str(row[6]).strip() != "" else ""
-            except Exception:
-                mat_amt = ""
-
-            key = (title, mult_name, mult_val, miktar)
-            if key not in group_index:
-                group_index[key] = len(groups)
-                groups.append({"title": title, "mult_name": mult_name, "mult_val": mult_val, "miktar": miktar, "mats": []})
-            if mat_name or (mat_amt not in ("", None)):
-                groups[group_index[key]]["mats"].append({"name": mat_name, "amount": str(mat_amt) if mat_amt != "" else ""})
-
-        tables = []
-        for g in groups:
-            tables.append({
-                "id": str(uuid.uuid4()),
-                "title": g["title"],
-                "miktar": g["miktar"],
-                "multipliers": (
-                    [{"id": str(uuid.uuid4()), "name": g["mult_name"], "value": g["mult_val"]}]
-                    if (g["mult_name"] or g["mult_val"]) else []
-                ),
-                "materials": [
-                    {"id": str(uuid.uuid4()), "name": m["name"], "amount": m["amount"]}
-                    for m in g["mats"]
-                ],
-            })
-
-        # Snapshot before mutating
-        current = await db.point_calc_days.find_one({"id": day["id"]})
-        if current:
-            current.pop("_id", None)
-            await db.point_calc_history.insert_one({
-                "version_id": str(uuid.uuid4()),
-                "day_id": day["id"],
-                "saved_at": now_iso(),
-                "changed_fields": ["tables"],
-                "snapshot": current,
-                "source": "excel_import",
-            })
-        await db.point_calc_days.update_one(
-            {"id": day["id"]},
-            {"$set": {"tables": tables, "updated_at": now_iso()}},
-        )
-        updated += 1
-
-    return {"updated": updated, "skipped": skipped, "errors": errors}
+# /point-calc/translate-all + /point-calc/export + /point-calc/import
+# → routes/point_calc.py (Refactor Phase 2)
 
 
 # ---------- Web Push (VAPID) ----------
@@ -7363,258 +7136,8 @@ async def cron_telegram_dm_health():
     return results
 
 
-@api_router.get("/announcements")
-async def announcements_list(
-    user: dict = Depends(require_auth),
-    limit: int = 30,
-    search: Optional[str] = None,
-    filter: Optional[str] = None,  # "all" | "urgent" | "scheduled" | "normal"
-):
-    """Public list of active announcements, newest first. Admins/editors see
-    inactive rows too so they can un-archive.
-
-    `search` — case-insensitive match against title/body.
-    `filter` — restrict to `urgent`, `scheduled` (pending_broadcast=true) or
-    `normal` (non-urgent, already broadcast). `all` / missing = no filter.
-    """
-    q: dict = {} if (user and user.get("role") in ("admin", "editor")) else {"active": True}
-    if search:
-        s = search.strip()
-        if s:
-            q["$or"] = [
-                {"title": {"$regex": s, "$options": "i"}},
-                {"body": {"$regex": s, "$options": "i"}},
-            ]
-    f = (filter or "").strip().lower()
-    if f == "urgent":
-        q["urgent"] = True
-    elif f == "scheduled":
-        q["pending_broadcast"] = True
-    elif f == "normal":
-        q["urgent"] = {"$ne": True}
-        q["pending_broadcast"] = {"$ne": True}
-    elif f == "archived":
-        # v135.35 — Admin arşiv görünümü. active=False duyuruları listeler.
-        q["active"] = False
-    cursor = db.announcements.find(q, {"_id": 0}).sort("created_at", -1).limit(max(1, min(limit, 100)))
-    return {"items": [r async for r in cursor]}
-
-
-class AnnouncementBody(BaseModel):
-    title: str
-    body: str
-    url: Optional[str] = None
-    image_url: Optional[str] = None
-    broadcast: Optional[bool] = True
-    urgent: Optional[bool] = False
-    pinned: Optional[bool] = False  # v135 — sticky banner on home page
-    pinned_until: Optional[str] = None  # v135.8 — ISO8601 UTC — banner auto-hides after this
-    scheduled_at: Optional[str] = None  # ISO8601 UTC — future time defers fan-out until due
-
-
-@api_router.post("/announcements")
-async def announcements_create(body: AnnouncementBody, user: dict = Depends(require_admin)):
-    """Create an announcement and (optionally) fan it out across all 4
-    notification channels the moment it's inserted. `broadcast=False` stores
-    the record without pushing — useful for drafting scheduled announcements
-    that only surface in the app's Duyurular list.
-
-    When `scheduled_at` is a future ISO8601 timestamp, the announcement is
-    stored with `pending_broadcast=True` and `active=False` so it stays
-    hidden from the public list. The background `_announcement_scheduler_loop`
-    dispatches the 4-channel fan-out once the timestamp is due.
-    """
-    from datetime import datetime as _dt_ann, timezone as _tz_ann
-    scheduled_at_iso: Optional[str] = None
-    is_scheduled = False
-    if body.scheduled_at:
-        try:
-            when = _dt_ann.fromisoformat(body.scheduled_at.replace("Z", "+00:00"))
-        except Exception:
-            raise HTTPException(400, "invalid scheduled_at (must be ISO8601)")
-        if when.tzinfo is None:
-            when = when.replace(tzinfo=_tz_ann.utc)
-        if when <= _dt_ann.now(_tz_ann.utc):
-            raise HTTPException(400, "scheduled_at must be in the future")
-        scheduled_at_iso = when.isoformat()
-        is_scheduled = True
-
-    doc = {
-        "id": str(uuid.uuid4()),
-        "title": (("🚨 " + body.title.strip()) if body.urgent else body.title.strip()),
-        "body": body.body.strip(),
-        "url": (body.url or "/duyurular").strip(),
-        "urgent": bool(body.urgent),
-        "image_url": (body.image_url or "").strip() or None,
-        "created_by": user["id"],
-        "created_by_username": user.get("username") or "",
-        "created_at": now_iso(),
-        # Scheduled announcements stay inactive until the loop fires them so
-        # they don't leak into the public /announcements list early.
-        "active": (not is_scheduled),
-        "scheduled_at": scheduled_at_iso,
-        "pending_broadcast": is_scheduled and bool(body.broadcast),
-        "pinned": bool(body.pinned),  # v135 — home banner sticky flag
-        "pinned_until": (body.pinned_until or "").strip() or None,  # v135.8 — auto-expire timestamp
-    }
-    # v127 — Auto-translate title + body to all 28 non-TR languages so
-    # the Duyurular list and push notifications can render in the user's
-    # language without a round-trip.
-    # v135.20 — Async translate manager: tek çağrıda title + body çevrilir.
-    try:
-        await _translate_fields(doc, [
-            ("title", "title_translations"),
-            ("body", "body_translations"),
-        ])
-    except Exception as _tx_ex:
-        logger.warning(f"announcement auto-translate failed: {_tx_ex}")
-    await db.announcements.insert_one(doc)
-    result = {"item": {k: v for k, v in doc.items() if k != "_id"}}
-    if body.broadcast and not is_scheduled:
-        import asyncio as _asyncio_ann
-        # Reuse the 4-channel scheduler-style dispatch so a manual admin
-        # announcement lands via Web Push, Telegram Group, Telegram DMs (with
-        # country-based DeepL translation), AND the in-app bell — identical to
-        # a fired scheduled reminder. `event_id=None` means every notification-
-        # enabled user receives the in-app row.
-        push_doc = {"id": doc["id"], "title": doc["title"], "body": doc["body"],
-                    "url": doc["url"], "image_url": doc.get("image_url"),
-                    "send_channel": True, "send_dm": True,
-                    "send_app": True, "event_id": None}
-        push_task = _broadcast_push(
-            doc["title"], doc["body"], doc["url"],
-            tag=f"announcement-{doc['id']}",
-            sound="rally",
-            notif_pref="announcement",
-        )
-        channel_task = _send_tg_channel(push_doc)
-        dm_task = _send_tg_dms(push_doc)
-        app_task = _broadcast_in_app(push_doc, notif_pref="announcement")
-        results = await _asyncio_ann.gather(
-            push_task, channel_task, dm_task, app_task,
-            return_exceptions=True,
-        )
-        push_r, ch_r, dm_r, app_r = [
-            (r if not isinstance(r, Exception) else {}) for r in results
-        ]
-        result["fanout"] = {
-            "push_sent": (push_r or {}).get("sent", 0) if isinstance(push_r, dict) else 0,
-            "telegram_channel_sent": (ch_r or {}).get("channel_sent", False),
-            "telegram_dm_sent": (dm_r or {}).get("dm_sent", 0),
-            "telegram_dm_translated": (dm_r or {}).get("dm_translated", 0),
-            "telegram_dm_langs": (dm_r or {}).get("dm_lang_breakdown", {}),
-            "app_notif_sent": (app_r or {}).get("app_notif_sent", 0),
-        }
-    return result
-
-
-@api_router.delete("/announcements/{aid}")
-async def announcements_delete(aid: str, user: dict = Depends(require_admin)):
-    """Hard-delete: permanently removes the announcement row."""
-    r = await db.announcements.delete_one({"id": aid})
-    if r.deleted_count == 0:
-        raise HTTPException(404, "Duyuru bulunamadı")
-    return {"ok": True}
-
-
-# v135.36 — Bulk actions for archived announcements (active=False).
-class AnnouncementBulkBody(BaseModel):
-    ids: List[str]
-
-
-@api_router.post("/announcements/bulk-delete")
-async def announcements_bulk_delete(body: AnnouncementBulkBody, _: dict = Depends(require_admin)):
-    ids = [i for i in (body.ids or []) if i]
-    if not ids:
-        return {"deleted": 0}
-    r = await db.announcements.delete_many({"id": {"$in": ids}})
-    return {"deleted": r.deleted_count}
-
-
-@api_router.post("/announcements/bulk-restore")
-async def announcements_bulk_restore(body: AnnouncementBulkBody, _: dict = Depends(require_admin)):
-    """Un-archive many at once: flips active=True on every provided id."""
-    ids = [i for i in (body.ids or []) if i]
-    if not ids:
-        return {"restored": 0}
-    r = await db.announcements.update_many(
-        {"id": {"$in": ids}},
-        {"$set": {"active": True, "restored_at": now_iso()}},
-    )
-    return {"restored": r.modified_count}
-
-
-class AnnouncementPatch(BaseModel):
-    title: Optional[str] = None
-    body: Optional[str] = None
-    url: Optional[str] = None
-    image_url: Optional[str] = None
-    urgent: Optional[bool] = None
-    active: Optional[bool] = None
-    pinned: Optional[bool] = None
-    pinned_until: Optional[str] = None
-
-
-@api_router.patch("/announcements/{aid}")
-async def announcements_patch(aid: str, body: AnnouncementPatch, _: dict = Depends(require_admin)):
-    """In-place edit so admins can fix a typo without spawning a new fan-out.
-    Does NOT re-broadcast — silent update. Previous title/body is pushed
-    into the `history` array so an accidental edit can be reverted."""
-    update = {k: v for k, v in body.model_dump().items() if v is not None}
-    if not update:
-        raise HTTPException(400, "Değişiklik yok")
-    current = await db.announcements.find_one({"id": aid}, {"_id": 0})
-    if not current:
-        raise HTTPException(404, "Duyuru bulunamadı")
-    if "title" in update:
-        u = update.get("urgent") if "urgent" in update else current.get("urgent")
-        clean = update["title"].lstrip("🚨 ").strip()
-        update["title"] = ("🚨 " + clean) if u else clean
-    # Snapshot previous title+body BEFORE the write if either is changing
-    snap = None
-    if ("title" in update and update["title"] != current.get("title")) or \
-       ("body" in update and update["body"] != current.get("body")):
-        snap = {
-            "title": current.get("title"),
-            "body": current.get("body"),
-            "image_url": current.get("image_url"),
-            "urgent": current.get("urgent"),
-            "edited_at": now_iso(),
-        }
-    update["updated_at"] = now_iso()
-    ops = {"$set": update}
-    if snap:
-        ops["$push"] = {"history": {"$each": [snap], "$slice": -20}}  # keep last 20
-    await db.announcements.update_one({"id": aid}, ops)
-    doc = await db.announcements.find_one({"id": aid}, {"_id": 0})
-    return {"ok": True, "item": doc}
-
-
-@api_router.post("/announcements/{aid}/revert")
-async def announcements_revert(aid: str, _: dict = Depends(require_admin)):
-    """Revert to the most recent history snapshot (pop the last entry).
-    Returns the updated announcement. 400 if no history exists."""
-    doc = await db.announcements.find_one({"id": aid}, {"_id": 0})
-    if not doc:
-        raise HTTPException(404, "Duyuru bulunamadı")
-    hist = doc.get("history") or []
-    if not hist:
-        raise HTTPException(400, "Geri alınacak sürüm yok")
-    prev = hist[-1]
-    await db.announcements.update_one(
-        {"id": aid},
-        {
-            "$set": {
-                "title": prev.get("title"),
-                "body": prev.get("body"),
-                "image_url": prev.get("image_url"),
-                "urgent": prev.get("urgent"),
-                "reverted_at": now_iso(),
-            },
-            "$pop": {"history": 1},
-        },
-    )
-    return {"ok": True, "item": await db.announcements.find_one({"id": aid}, {"_id": 0})}
+# /announcements (list, create, delete, bulk-delete, bulk-restore, patch, revert)
+# → routes/announcements.py (Refactor Phase 2)
 
 
 # ---------- Recurring event series: bulk edit + bulk delete ----------
@@ -9055,24 +8578,7 @@ class GuildTargetBody(BaseModel):
     target: int  # 0-100 percentage benchmark
 
 
-@api_router.get("/settings/guild-target")
-async def settings_get_guild_target(user: dict = Depends(require_auth)):
-    """Return the guild's target participation percentage. Used by the
-    Katılım Trendi chart to draw a benchmark line. Default 60% if unset."""
-    doc = await db.guild_settings.find_one({"key": "guild_target"}, {"_id": 0})
-    return {"target": int((doc or {}).get("value", 60))}
-
-
-@api_router.put("/settings/guild-target")
-async def settings_set_guild_target(body: GuildTargetBody, user: dict = Depends(require_admin)):
-    t = max(0, min(100, int(body.target)))
-    await db.guild_settings.update_one(
-        {"key": "guild_target"},
-        {"$set": {"key": "guild_target", "value": t, "updated_at": now_iso(),
-                  "updated_by": user["id"], "updated_by_username": user.get("username")}},
-        upsert=True,
-    )
-    return {"target": t}
+# /settings/guild-target GET+PUT → routes/guild_settings.py (Refactor Phase 2)
 
 
 # ---------- Trend Alerts (bell + Telegram when MA breaches target for 3d) ----------
@@ -10792,13 +10298,31 @@ app.include_router(make_alliance_meta_router(db, require_edit), prefix="/api")
 from routes.unit_costs import make_unit_costs_router
 app.include_router(make_unit_costs_router(db, require_edit, require_admin), prefix="/api")
 from routes.point_calc import make_point_calc_router
-app.include_router(make_point_calc_router(db, require_edit, require_auth), prefix="/api")
+app.include_router(make_point_calc_router(
+    db, require_edit, require_auth,
+    require_admin=require_admin,
+    translate_one=_translate_one,
+    enabled_langs=ENABLED_LANGS,
+    deepl_api_key=DEEPL_API_KEY,
+), prefix="/api")
 from routes.event_ics import make_event_ics_router
 app.include_router(make_event_ics_router(db), prefix="/api")
 from routes.legal import make_legal_router
 app.include_router(make_legal_router(db, _translate_one), prefix="/api")
 from routes.multiplier_history import make_multiplier_history_router
 app.include_router(make_multiplier_history_router(db, enrich_points_batch), prefix="/api")
+from routes.guild_settings import make_guild_settings_router
+app.include_router(make_guild_settings_router(db, require_auth, require_admin), prefix="/api")
+from routes.announcements import make_announcements_router
+app.include_router(make_announcements_router(
+    db, require_auth, require_admin,
+    broadcast_push=_broadcast_push,
+    send_tg_channel=_send_tg_channel,
+    send_tg_dms=_send_tg_dms,
+    broadcast_in_app=_broadcast_in_app,
+    translate_fields=_translate_fields,
+    logger=logging.getLogger(__name__),
+), prefix="/api")
 
 
 # v135.36 — Auto-issue certificates to attendees when an event archives.

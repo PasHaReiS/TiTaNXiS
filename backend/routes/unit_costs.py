@@ -28,6 +28,11 @@ class CalculationBody(BaseModel):
     celik: float
     benzin: float
     sure_saniye: float
+    # v141 — Round-trip parity with GET /api/unit-costs/{category}: those
+    # responses expose forticlad + gelismis_forticlad, so a POST must accept
+    # them too. Optional with 0 defaults so old clients keep working.
+    forticlad: float = 0
+    gelismis_forticlad: float = 0
 
 
 def make_unit_costs_router(db, require_edit, require_admin):
