@@ -20,6 +20,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 5, 2026 (v136 — Ses odası aktif UI mobilde 2 satıra bölündü)** — Frontend:
+  - `pages/VoiceRooms.jsx` `ActiveRoomUI` başlık altındaki chip satırı reorganize edildi:
+    * **Satır 1** (`data-testid=voice-actions-row-1`): 🎫 Davetleri Yönet + 🔑 Şifre Değiştir (admin-only)
+    * **Satır 2** (`data-testid=voice-actions-row-2`): 👥 Katılımcı sayısı + 🕒 Bu oturum sayacı + 🔗 Davet Linki (yeni quick-action, admin-only)
+  - Yeni buton `voice-invite-link-quick`: tek tıkla `POST /api/voice/rooms/{id}/invite-link` çağırır, dönen linki panoya kopyalar ve toast gösterir. Aktif odayı terk etmeden hızlı davet paylaşımı.
+  - `flex-wrap` sayesinde mobilde (390px) 2 satır ayrık, desktop (1920px) tek satırda sığdığı için tek satır kalıyor.
+  - Doğrulama: Playwright screenshot mobil + desktop; row1/row2/invite-btn üçü de doğru render (`ROW_1 True ROW_2 True INVITE_BTN True`).
+  - `deployment_agent` PASS. Mevcut sese davet/şifre/admin akışına dokunulmadı.
+
+
+
 - **Feb 5, 2026 (v136 — Çok kullanımlık davet linkleri, mevcut sisteme dokunmadan)** — Backend + Frontend:
   - Yeni koleksiyon `voice_invite_tokens {id, token, room_id, room_name, created_by, created_at, active: bool}` (eski `voice_room_invites` DB'de kalıyor, kod yollarından çıktı).
   - `POST /api/voice/rooms/{room_id}/invite-link` — admin, TTL yok, `active=true`, response'ta `link: https://titanxis.com/ses/{name}?token=...`

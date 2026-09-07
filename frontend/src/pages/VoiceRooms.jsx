@@ -868,13 +868,15 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
 
   return (
     <div className="max-w-3xl mx-auto p-6" data-testid="voice-active-room">
-      <div className="mb-6 flex items-center justify-between gap-2 flex-wrap">
-        <h2 className="text-xl font-black" style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}>
+      <div className="mb-6">
+        <h2 className="text-xl font-black mb-3" style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}>
           🎙️ {roomName}
         </h2>
-        <div className="flex items-center gap-2">
-          {/* v140.36 — Admin: davet paneli toggle */}
-          {isAdmin && (
+        {/* v136 — İki satırlı buton düzeni (mobilde taşmasın).
+            Satır 1: Admin aksiyonları (Davetleri Yönet + Şifre Değiştir).
+            Satır 2: Bilgi + Davet Linki (katılımcı, oturum sayacı, davet linki). */}
+        {isAdmin && (
+          <div className="flex flex-wrap items-center gap-2 mb-2" data-testid="voice-actions-row-1">
             <button
               data-testid="voice-invite-panel-toggle"
               onClick={() => setInviteOpen((v) => !v)}
@@ -896,9 +898,6 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
                 </span>
               )}
             </button>
-          )}
-          {/* v140.37 — Admin: şifre değiştir */}
-          {isAdmin && (
             <button
               data-testid="voice-pwd-change-toggle"
               onClick={() => setPwdOpen((v) => !v)}
@@ -912,11 +911,12 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
             >
               🔑 {t("voice_pwd_change_btn", "Şifre Değiştir")}
             </button>
-          )}
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-2" data-testid="voice-actions-row-2">
           <span className="chip text-xs flex items-center gap-1" style={{ borderColor: "#22C55E", color: "#22C55E" }}>
             <Users size={12} /> {participants.length}
           </span>
-          {/* v140.48 — Kendi konuşma süresi (bu oturum) */}
           <span
             data-testid="voice-talk-time-self"
             className="chip text-xs flex items-center gap-1"
@@ -929,6 +929,36 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
           >
             🕒 {t("voice_talk_time_label", "Bu oturum")}: {talkTimeLabel}
           </span>
+          {isAdmin && (
+            <button
+              data-testid="voice-invite-link-quick"
+              onClick={async () => {
+                try {
+                  const r = await api.post(`/voice/rooms/${roomId}/invite-link`, {});
+                  const link = r.data?.link;
+                  if (link) {
+                    try {
+                      await navigator.clipboard.writeText(link);
+                      toast.success(t("voice_invite_link_copied", "Davet linki oluşturuldu ve kopyalandı"));
+                    } catch {
+                      toast.success(t("voice_invite_created", "Davet linki oluşturuldu"));
+                    }
+                  }
+                } catch (e) {
+                  toast.error(e?.response?.data?.detail || e.message);
+                }
+              }}
+              className="chip text-xs flex items-center gap-1"
+              style={{
+                borderColor: "rgba(168,85,247,0.55)",
+                color: "#C4B5FD",
+                background: "transparent",
+              }}
+              title={t("voice_invite_link_btn_title", "Tek tıkla davet linki oluştur ve kopyala")}
+            >
+              🔗 {t("voice_invite_link_btn", "Davet Linki")}
+            </button>
+          )}
         </div>
       </div>
 
