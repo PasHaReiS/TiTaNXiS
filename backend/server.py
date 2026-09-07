@@ -1478,134 +1478,13 @@ async def public_folder_leaderboard(folder_id: str):
 
 
 # ---------- Points ----------
-@api_router.get("/points")
-async def list_points(search: Optional[str] = None, limit: int = 1000):
-    docs = await db.points.find({}, {"_id": 0}).sort("date", -1).to_list(limit)
-    await enrich_points_batch(docs)
-    if search:
-        s = search.lower()
-        docs = [d for d in docs if s in (d.get("member_name") or "").lower() or s in (d.get("event_name") or "").lower() or s in (d.get("note") or "").lower()]
-    return docs
-
-
-@api_router.post("/points")
-async def create_point(body: PointCreate, _: dict = Depends(require_edit)):
-    p = Point(**body.model_dump())
-    doc = p.model_dump()
-    await enrich_point(doc)
-    await db.points.insert_one(doc)
-    doc.pop("_id", None)
-    # Activity feed log
-    try:
-        await db.activity_log.insert_one({
-            "id": uuid.uuid4().hex,
-            "member_id": doc.get("member_id"),
-            "member_name": doc.get("member_name", "?"),
-            "action_type": "score_update",
-            "details": f"+{doc.get('points', 0)} puan aldı",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "device": "desktop",
-        })
-    except Exception:
-        pass
-    return doc
-
-
-@api_router.post("/points/bulk")
-async def bulk_points(body: BulkPointCreate, _: dict = Depends(require_edit)):
-    docs_to_insert = []
-    for mid in body.member_ids:
-        p = Point(
-            member_id=mid,
-            event_id=body.event_id,
-            points=body.points,
-            multiplier=body.multiplier or 1.0,
-            note=body.note,
-        )
-        docs_to_insert.append(p.model_dump())
-    await enrich_points_batch(docs_to_insert)
-    if docs_to_insert:
-        await db.points.insert_many(docs_to_insert)
-    for d in docs_to_insert:
-        d.pop("_id", None)
-    return {"created": len(docs_to_insert), "points": docs_to_insert}
-
-
-@api_router.delete("/points/{point_id}")
-async def delete_point(point_id: str, _: dict = Depends(require_edit)):
-    res = await db.points.delete_one({"id": point_id})
-    if res.deleted_count == 0:
-        raise HTTPException(404, "Puan kaydı bulunamadı")
-    return {"ok": True}
-
-
-@api_router.patch("/points/{point_id}")
-async def update_point(point_id: str, body: PointUpdate, _: dict = Depends(require_edit)):
-    update = {k: v for k, v in body.model_dump().items() if v is not None}
-    if not update:
-        raise HTTPException(400, "Değişiklik yok")
-    # If event_id changed, refresh cached event_name
-    if "event_id" in update:
-        ev = await db.events.find_one({"id": update["event_id"]}, {"_id": 0, "name": 1})
-        update["event_name"] = ev["name"] if ev else "Bilinmeyen"
-    res = await db.points.update_one({"id": point_id}, {"$set": update})
-    if res.matched_count == 0:
-        raise HTTPException(404, "Puan kaydı bulunamadı")
-    doc = await db.points.find_one({"id": point_id}, {"_id": 0})
-    return doc
-
-
-@api_router.patch("/scores/{score_id}")
-async def update_score(score_id: str, body: PointUpdate, _: dict = Depends(require_edit)):
-    return await update_point(score_id, body, _)
-
-
-# ---------- Scores (alias for Points - same underlying collection) ----------
-@api_router.get("/scores")
-async def list_scores(search: Optional[str] = None, limit: int = 1000):
-    return await list_points(search=search, limit=limit)
-
-
-@api_router.post("/scores")
-async def create_score(body: PointCreate, _: dict = Depends(require_edit)):
-    return await create_point(body, _)
-
-
-@api_router.post("/scores/bulk")
-async def bulk_scores(body: BulkPointCreate, _: dict = Depends(require_edit)):
-    return await bulk_points(body, _)
-
-
-@api_router.delete("/scores/{score_id}")
-async def delete_score(score_id: str, _: dict = Depends(require_edit)):
-    return await delete_point(score_id, _)
+# /points + /scores CRUD → routes/points.py (Refactor Phase 5)
 
 
 # ---------- Commanders → routes/commanders.py ----------
 
 
-# ---------- Stats & Leaderboard ----------
-@api_router.get("/stats")
-async def get_stats():
-    member_count = await db.members.count_documents({})
-    event_count = await db.events.count_documents({"archived": False})
-    pipeline = [
-        {"$project": {"weighted": {"$multiply": ["$points", {"$ifNull": ["$multiplier", 1.0]}]}}},
-        {"$group": {"_id": None, "total": {"$sum": "$weighted"}}},
-    ]
-    result = await db.points.aggregate(pipeline).to_list(1)
-    total = int(result[0]["total"]) if result else 0
-    avg = int(total / event_count) if event_count > 0 else 0
-    power_pipe = [{"$group": {"_id": None, "total": {"$sum": {"$ifNull": ["$bireysel_guc", 0]}}}}]
-    power_res = await db.members.aggregate(power_pipe).to_list(1)
-    total_power = int(power_res[0]["total"]) if power_res else 0
-    return {
-        "member_count": member_count,
-        "event_count": event_count,
-        "total_points": total,
-        "event_avg": avg,
-        "total_power": total_power,
-    }
+# /stats → routes/stats.py (Refactor Phase 5)
 
 
 @api_router.get("/leaderboard")
@@ -10196,8 +10075,17 @@ app.include_router(make_event_groups_router(
 # v141 — Wizard funnel analytics
 from routes.wizard_analytics import make_wizard_analytics_router
 app.include_router(make_wizard_analytics_router(
-    db, require_admin, optional_auth=_optional_auth,
+    db, require_admin, optional_auth=_optional_auth, broadcast_push=_broadcast_push,
 ), prefix="/api")
+# v141 — Refactor Phase 5: Points/Scores CRUD + /stats
+from routes.points import make_points_router
+app.include_router(make_points_router(
+    db, require_edit,
+    enrich_point=enrich_point,
+    enrich_points_batch=enrich_points_batch,
+), prefix="/api")
+from routes.stats import make_stats_router
+app.include_router(make_stats_router(db), prefix="/api")
 
 
 # v135.36 — Auto-issue certificates to attendees when an event archives.

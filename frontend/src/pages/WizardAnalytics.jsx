@@ -14,7 +14,34 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
 export default function WizardAnalytics() {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
-  const { data, error, isLoading } = useSWR(isAdmin ? "/wizard-analytics/summary" : null, fetcher, { refreshInterval: 60000 });
+  // v141 — Yeni filtre panelleri: tarih aralığı + user_id + kind. Boş bırakılınca
+  // varsayılan davranış (7g + 30g) korunur.
+  const [filters, setFilters] = React.useState({ since: "", until: "", user_id: "", kind: "" });
+  const qs = React.useMemo(() => {
+    const p = new URLSearchParams();
+    if (filters.since) p.set("since", filters.since);
+    if (filters.until) p.set("until", filters.until);
+    if (filters.user_id) p.set("user_id", filters.user_id);
+    if (filters.kind) p.set("kind", filters.kind);
+    return p.toString() ? `?${p.toString()}` : "";
+  }, [filters]);
+  const [checkingAlerts, setCheckingAlerts] = React.useState(false);
+  const [alertResult, setAlertResult] = React.useState(null);
+
+  const { data, error, isLoading, mutate } = useSWR(isAdmin ? `/wizard-analytics/summary${qs}` : null, fetcher, { refreshInterval: 60000 });
+
+  const runAlertCheck = async () => {
+    setCheckingAlerts(true);
+    setAlertResult(null);
+    try {
+      const res = await api.post("/wizard-analytics/check-alerts");
+      setAlertResult(res.data);
+    } catch (e) {
+      setAlertResult({ error: e?.response?.data?.detail || e.message });
+    } finally {
+      setCheckingAlerts(false);
+    }
+  };
 
   if (!isAdmin) {
     return (
@@ -43,7 +70,8 @@ export default function WizardAnalytics() {
     );
   }
 
-  const d = data || { last_7_days: {}, last_30_days: {}, by_kind_30d: {}, daily_opens_30d: [] };
+  const d = data || { last_7_days: {}, last_30_days: {}, by_kind_30d: {}, daily_opens_30d: [], top_users_30d: [], filtered: null, range: null };
+  const isFiltered = !!d.filtered;
 
   return (
     <div className="min-h-screen" data-testid="wizard-analytics-page">
@@ -55,42 +83,189 @@ export default function WizardAnalytics() {
           </div>
         </Header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-          <FunnelCard title={t("wa_last7", { defaultValue: "Son 7 Gün" })} d={d.last_7_days} />
-          <FunnelCard title={t("wa_last30", { defaultValue: "Son 30 Gün" })} d={d.last_30_days} />
+        {/* Filter panel */}
+        <div
+          className="rounded-2xl p-4 mt-3 grid grid-cols-2 sm:grid-cols-5 gap-2"
+          style={{
+            background: "linear-gradient(180deg,#1a0f0a 0%,#0e0805 100%)",
+            border: "1px solid rgba(245,158,11,0.25)",
+          }}
+        >
+          <div className="col-span-2 sm:col-span-1">
+            <label className="text-[10px] uppercase tracking-widest opacity-70 block mb-1" style={{ color: "#F5F0E8" }}>Başlangıç</label>
+            <input
+              type="date"
+              value={filters.since ? filters.since.slice(0, 10) : ""}
+              onChange={(e) => setFilters((f) => ({ ...f, since: e.target.value ? `${e.target.value}T00:00:00Z` : "" }))}
+              data-testid="wa-filter-since"
+              className="w-full h-9 px-2 rounded-lg text-sm"
+              style={{ background: "rgba(255,255,255,0.05)", color: "#F5F0E8", border: "1px solid rgba(255,255,255,0.12)" }}
+            />
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <label className="text-[10px] uppercase tracking-widest opacity-70 block mb-1" style={{ color: "#F5F0E8" }}>Bitiş</label>
+            <input
+              type="date"
+              value={filters.until ? filters.until.slice(0, 10) : ""}
+              onChange={(e) => setFilters((f) => ({ ...f, until: e.target.value ? `${e.target.value}T23:59:59Z` : "" }))}
+              data-testid="wa-filter-until"
+              className="w-full h-9 px-2 rounded-lg text-sm"
+              style={{ background: "rgba(255,255,255,0.05)", color: "#F5F0E8", border: "1px solid rgba(255,255,255,0.12)" }}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-widest opacity-70 block mb-1" style={{ color: "#F5F0E8" }}>Kullanıcı ID</label>
+            <input
+              type="text"
+              placeholder="admin..."
+              value={filters.user_id}
+              onChange={(e) => setFilters((f) => ({ ...f, user_id: e.target.value }))}
+              data-testid="wa-filter-user"
+              className="w-full h-9 px-2 rounded-lg text-sm"
+              style={{ background: "rgba(255,255,255,0.05)", color: "#F5F0E8", border: "1px solid rgba(255,255,255,0.12)" }}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-widest opacity-70 block mb-1" style={{ color: "#F5F0E8" }}>Sekme</label>
+            <select
+              value={filters.kind}
+              onChange={(e) => setFilters((f) => ({ ...f, kind: e.target.value }))}
+              data-testid="wa-filter-kind"
+              className="w-full h-9 px-2 rounded-lg text-sm"
+              style={{ background: "rgba(255,255,255,0.05)", color: "#F5F0E8", border: "1px solid rgba(255,255,255,0.12)" }}
+            >
+              <option value="">Tümü</option>
+              <option value="pre">SvS Pre</option>
+              <option value="diger">Diğer</option>
+            </select>
+          </div>
+          <div className="flex flex-col justify-end gap-1">
+            <button
+              onClick={() => setFilters({ since: "", until: "", user_id: "", kind: "" })}
+              data-testid="wa-filter-reset"
+              className="h-9 px-3 rounded-lg text-xs font-bold"
+              style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.12)" }}
+            >
+              Sıfırla
+            </button>
+            <button
+              onClick={runAlertCheck}
+              disabled={checkingAlerts}
+              data-testid="wa-check-alerts"
+              className="h-9 px-3 rounded-lg text-xs font-bold inline-flex items-center justify-center gap-1"
+              style={{
+                background: "linear-gradient(135deg,#DC2626,#EF4444)",
+                color: "#fff",
+                boxShadow: "0 4px 12px rgba(239,68,68,0.3)",
+                opacity: checkingAlerts ? 0.6 : 1,
+              }}
+              title="Düşük dönüşüm için alarm testi"
+            >
+              🚨 Alarm Testi
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+        {alertResult && (
           <div
-            className="rounded-2xl p-5"
+            className="rounded-lg mt-2 p-3 text-xs"
             style={{
-              background: "linear-gradient(180deg,#1a0f0a 0%,#0e0805 100%)",
-              border: "1px solid rgba(245,158,11,0.25)",
+              background: alertResult.alert_sent ? "rgba(239,68,68,0.1)" : alertResult.should_alert ? "rgba(245,158,11,0.1)" : "rgba(16,185,129,0.08)",
+              border: `1px solid ${alertResult.alert_sent ? "rgba(239,68,68,0.35)" : alertResult.should_alert ? "rgba(245,158,11,0.35)" : "rgba(16,185,129,0.3)"}`,
+              color: "#F5F0E8",
             }}
+            data-testid="wa-alert-result"
           >
-            <h3 className="text-sm font-bold uppercase mb-3 tracking-widest" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }}>
-              {t("wa_by_kind", { defaultValue: "Sekme Dağılımı (30G)" })}
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              <KindBar kind="pre" count={d.by_kind_30d?.pre || 0} total={(d.by_kind_30d?.pre || 0) + (d.by_kind_30d?.diger || 0)} />
-              <KindBar kind="diger" count={d.by_kind_30d?.diger || 0} total={(d.by_kind_30d?.pre || 0) + (d.by_kind_30d?.diger || 0)} />
+            {alertResult.error && <>⚠️ {alertResult.error}</>}
+            {!alertResult.error && (
+              <>
+                📊 30G: {alertResult.opens_30d} açılış, %{alertResult.conv_end_to_end_30d} tamamlandı
+                {alertResult.alert_sent && <> · ✅ <strong>Admin'lere Web Push gönderildi</strong></>}
+                {!alertResult.alert_sent && alertResult.should_alert && alertResult.cool_off && <> · ⏸️ 24s bekleme süresi aktif</>}
+                {!alertResult.alert_sent && !alertResult.should_alert && <> · ✔️ Eşik altında değil (opens ≥ 5 & conv &lt; 40 gerekli)</>}
+              </>
+            )}
+          </div>
+        )}
+
+        {isFiltered ? (
+          <div className="mt-4">
+            <FunnelCard
+              title={`Filtre: ${d.range?.since?.slice(0, 10)} → ${d.range?.until?.slice(0, 10)}`}
+              d={d.filtered}
+            />
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+              <FunnelCard title={t("wa_last7", { defaultValue: "Son 7 Gün" })} d={d.last_7_days} />
+              <FunnelCard title={t("wa_last30", { defaultValue: "Son 30 Gün" })} d={d.last_30_days} />
             </div>
-          </div>
 
-          <div
-            className="rounded-2xl p-5"
-            style={{
-              background: "linear-gradient(180deg,#1a0f0a 0%,#0e0805 100%)",
-              border: "1px solid rgba(245,158,11,0.25)",
-            }}
-          >
-            <h3 className="text-sm font-bold uppercase mb-3 tracking-widest flex items-center gap-2" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }}>
-              <TrendingUp className="w-4 h-4" style={{ color: "#10B981" }} />
-              {t("wa_daily", { defaultValue: "Günlük Açılma (30G)" })}
-            </h3>
-            <Sparkline data={d.daily_opens_30d || []} />
-          </div>
-        </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+              <div
+                className="rounded-2xl p-5"
+                style={{
+                  background: "linear-gradient(180deg,#1a0f0a 0%,#0e0805 100%)",
+                  border: "1px solid rgba(245,158,11,0.25)",
+                }}
+              >
+                <h3 className="text-sm font-bold uppercase mb-3 tracking-widest" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }}>
+                  {t("wa_by_kind", { defaultValue: "Sekme Dağılımı (30G)" })}
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <KindBar kind="pre" count={d.by_kind_30d?.pre || 0} total={(d.by_kind_30d?.pre || 0) + (d.by_kind_30d?.diger || 0)} />
+                  <KindBar kind="diger" count={d.by_kind_30d?.diger || 0} total={(d.by_kind_30d?.pre || 0) + (d.by_kind_30d?.diger || 0)} />
+                </div>
+              </div>
+
+              <div
+                className="rounded-2xl p-5"
+                style={{
+                  background: "linear-gradient(180deg,#1a0f0a 0%,#0e0805 100%)",
+                  border: "1px solid rgba(245,158,11,0.25)",
+                }}
+              >
+                <h3 className="text-sm font-bold uppercase mb-3 tracking-widest flex items-center gap-2" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }}>
+                  <TrendingUp className="w-4 h-4" style={{ color: "#10B981" }} />
+                  {t("wa_daily", { defaultValue: "Günlük Açılma (30G)" })}
+                </h3>
+                <Sparkline data={d.daily_opens_30d || []} />
+              </div>
+            </div>
+
+            {(d.top_users_30d || []).length > 0 && (
+              <div
+                className="rounded-2xl p-5 mt-4"
+                style={{
+                  background: "linear-gradient(180deg,#1a0f0a 0%,#0e0805 100%)",
+                  border: "1px solid rgba(245,158,11,0.25)",
+                }}
+                data-testid="wa-top-users"
+              >
+                <h3 className="text-sm font-bold uppercase mb-3 tracking-widest" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }}>
+                  En Aktif 5 Kullanıcı (30G)
+                </h3>
+                <div className="space-y-2">
+                  {d.top_users_30d.map((u, i) => (
+                    <div
+                      key={u.user_id}
+                      className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-white/5"
+                      onClick={() => setFilters((f) => ({ ...f, user_id: u.user_id }))}
+                    >
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                        style={{ background: i === 0 ? "#F59E0B" : i === 1 ? "#A855F7" : "#6366F1", color: "#fff" }}>
+                        {i + 1}
+                      </div>
+                      <div className="flex-1 text-sm" style={{ color: "#F5F0E8" }}>{u.username}</div>
+                      <div className="text-xs opacity-70 font-mono" style={{ color: "#F5F0E8" }}>{u.events} olay</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

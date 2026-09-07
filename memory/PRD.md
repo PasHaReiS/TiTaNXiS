@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 7, 2026 (v141 — Refactor Phase 5 + Wizard Analytics Filter + Alert)** — Backend + Frontend:
+  - **Refactor Phase 5**: `routes/points.py` yeni (11 endpoint — /points CRUD + /points/bulk + /scores alias'lar, `enrich_point` + `enrich_points_batch` DI). `routes/stats.py` yeni (/stats endpoint). server.py **10,697 → 10,585 satır** (kümülatif Phase 1-5: **11,836 → 10,585, %10.6 azalma; 1,251 satır ekstrakt**).
+  - **Wizard Analytics — Filtre**: `/wizard-analytics/summary` yeni query params (`since`, `until`, `user_id`, `kind`). Filtreli mod: özel `range` içeren `filtered` bloğu döner. Default mod: 7g + 30g + `by_kind_30d` + `daily_opens_30d` + **yeni** `top_users_30d` (en aktif 5 kullanıcı, tıklayınca kullanıcı filtresine dönüşüyor). Telemetry `user_username` de kaydediyor artık.
+  - **Wizard Analytics — Alert**: `/wizard-analytics/check-alerts` yeni endpoint. `opens_30d >= 5` **VE** `conv_end_to_end_30d < %40` ise `_broadcast_push` ile admin'lere Web Push atıyor (`tag=wizard-alert`, `notif_pref=admin`, `url=/admin/wizard-analytics`). 24 saat cool-down `pc_wizard_alerts` collection'ında saklanıyor. Sonuç JSON: `{checked_at, conv_end_to_end_30d, opens_30d, should_alert, alert_sent, cool_off}`.
+  - **Frontend — WizardAnalytics.jsx**: Filtre paneli (tarih iki ucu, kullanıcı ID input, sekme select, "Sıfırla" + "🚨 Alarm Testi" butonları). Filtreli görünümde tek `FunnelCard`, filtre boşken 2 kart + top-users listesi (tıklanabilir). Alert sonucu 3 farklı renkte panel (yeşil = normal, sarı = eşik altı ama cool-down aktif, kırmızı = push gönderildi). SWR key filtrelere bağlı — her filtre değişiminde otomatik re-fetch.
+  - **Verify (canlı DB)**: (a) `/points`, `/scores`, `/stats` = 200; Points CRUD (create → patch → delete) round-trip PASS; (b) `check-alerts` = `{should_alert:false, opens_30d:1}` (5'in altı olduğu için tetiklenmedi — beklendiği gibi); (c) `?kind=pre` filtresi çalışıyor; (d) `?since=2020-01-01` filtreli mod `{filtered:{...}, range:{...}}` döndü.
+
+
 - **Feb 7, 2026 (v141 — Refactor Phase 4 + Wizard TR Ötesi + Wizard Analytics)** — Backend + Frontend:
   - **Refactor Phase 4**: `routes/event_groups.py` yeni. 4 endpoint taşındı (`/events/archive-group`, `/events/unarchive-group`, `/events/rename-group`, `/events/group/{name}`). `_auto_translate_all` + `_auto_issue_certs_for_event` callable DI. server.py **10,744 → 10,697 satır** (kümülatif: **11,836 → 10,697, %9.6 azalma**).
   - **Wizard TR Ötesi (i18n)**: `pc_wizard_*` 26 anahtar 7 dile hardcoded çeviri ile enjekte edildi (`en, de, fr, es, ru, ar, ko`). Kalan diller TR fallback ile çalışacak (i18next `fallbackLng: 'tr'`). Python seed script ile idempotent — çalıştırıldığında zaten var olan anahtarları atlıyor.
