@@ -20,6 +20,25 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 5, 2026 (v136 — 3 iyileştirme + KESİN KURAL: seed devre dışı)** — Backend + Frontend:
+  - **/top10**: yeni `CommandHandler("top10", top10_command)` — her aktif etkinlik bloğunda 10 satır garanti.
+  - **/etkinlik_top5 + /etkinlikler_top5**: yeni komut — sadece top 5 per event blokları (tema net bir isim).
+  - **Ses Odası Davet Linki**:
+    * Backend: `POST /api/voice/rooms/{room_id}/invite-link` (admin, TTL 1-168 saat, default 24), `secrets.token_urlsafe(16)`; `/api/voice/token` extended: `room_name` veya `room_id` + `invite_token` kabul ediyor, atomik `used=true` işaretlemesi + reuse=403.
+    * Yeni koleksiyon `voice_room_invites` + `token` unique index, `(room_id,used)` compound.
+    * Telegram: `/ses_davet {oda_adi}` (admin only, telegram_chat_id → users.role=admin match) — link kutulu mesajı chat'e döner.
+    * Frontend: yeni sayfa `SesInvite.jsx` route `/ses/:roomName?token=` — LiveKit ile şifresiz oto-join, guest ismi opsiyonel.
+  - **KESİN KURAL — seed devre dışı**: `_voice_rooms_seed` artık no-op. "Genel / SvS Savaşı / Strateji Odası" default kayıtları ARTIK ÜRETİLMİYOR. Mevcut 3 oda korundu (test: `Total rooms: 3`, `SEED SKIPPED` log). Sonraki geliştirmeler yalnızca yeni özellik ekleyecek, mevcut oda/şifre/davet verilerine dokunmayacak.
+  - **Doğrulama** (uçtan uca curl):
+    * Link üretildi → `link: https://titanxis.com/ses/Genel?token=...`
+    * Guest redemption `invite_used: True` + LK token
+    * Reuse → HTTP 403 `Davet linki daha önce kullanılmış`
+    * Bilinmeyen oda → HTTP 404
+    * Startup log `voice_rooms_seed: SKIPPED (v136 policy — existing rooms preserved)`
+  - `deployment_agent` PASS.
+
+
+
 - **Feb 5, 2026 (v136 — /siralama argümanlı sorgu + 60sn cache)** — Backend (Telegram bot):
   - **Argümanlı sorgu**: `/siralama {etkinlik_adı}` sadece o etkinliği regex ile (case-insensitive kısmi eşleşme) filtreler. Bulunmazsa "`{ad}` adında aktif etkinlik bulunamadı" mesajı; arşiv etkinlikler DAHIL EDİLMEZ.
   - **Modifier esnekliği**: `top10`/`top5` hem başta hem sonda kabul edilir (`/siralama top10`, `/siralama kskxj top10`, `/siralama top5 kskxj` hepsi çalışır). Tek etkinlik sorgusunda default top 10.

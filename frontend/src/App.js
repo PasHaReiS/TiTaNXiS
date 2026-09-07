@@ -27,6 +27,7 @@ import AccessDenied from "@/pages/AccessDenied";
 import LockedPage from "@/pages/LockedPage";
 import GuildChat from "@/pages/GuildChat";
 import VoiceRooms from "@/pages/VoiceRooms";
+import SesInvite from "@/pages/SesInvite";
 import Members from "@/pages/Members";
 import MemberHome from "@/pages/MemberHome";
 import Events from "@/pages/Events";
@@ -164,6 +165,7 @@ function AppShell() {
           <Route path="/kurallar" element={<MotionPage><GuildRules /></MotionPage>} />
           <Route path="/sohbet" element={<RequireAuth><MotionPage><GuildChat /></MotionPage></RequireAuth>} />
           <Route path="/sesli-kanallar" element={<MotionPage><VoiceRooms /></MotionPage>} />
+          <Route path="/ses/:roomName" element={<MotionPage><SesInvite /></MotionPage>} />
           <Route path="/admin/uyeler" element={<RequireAdmin><MotionPage><Members /></MotionPage></RequireAdmin>} />
           <Route path="/arsiv" element={<RequireAuth><MotionPage><Events /></MotionPage></RequireAuth>} />
           <Route path="/katilim" element={<RequireAdmin><MotionPage><Reports /></MotionPage></RequireAdmin>} />

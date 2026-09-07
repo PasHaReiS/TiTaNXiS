@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import secrets
 import httpx
 import logging
 import io
@@ -11102,9 +11103,54 @@ async def voice_active_count():
 
 
 class VoiceTokenBody(BaseModel):
-    room_id: str
+    room_id: Optional[str] = None
+    room_name: Optional[str] = None  # v136 — davet linki `/ses/{room_name}` üzerinden geldiğinde
     password: Optional[str] = None
     guest_name: Optional[str] = None  # ziyaretçi için görünen ad
+    invite_token: Optional[str] = None  # v136 — tek kullanımlık davet token'ı
+
+
+class VoiceInviteCreateBody(BaseModel):
+    """v136 — Ses odası için tek kullanımlık davet linki oluşturur.
+    Yalnızca admin çağırabilir. Link formatı: {WEB}/ses/{room_name}?token=XXXX
+    Token 24 saat geçerli, bir kez kullanılınca `used=true` olur."""
+    ttl_hours: Optional[int] = 24
+
+
+@api_router.post("/voice/rooms/{room_id}/invite-link")
+async def voice_room_create_invite(room_id: str, body: VoiceInviteCreateBody,
+                                    u: dict = Depends(require_admin)):
+    room = await db.voice_rooms.find_one({"id": room_id}, {"_id": 0, "name": 1, "id": 1})
+    if not room:
+        raise HTTPException(404, "Oda bulunamadı")
+    ttl = max(1, min(int(body.ttl_hours or 24), 168))  # 1 saat – 7 gün arası
+    token = secrets.token_urlsafe(16)  # 128 bit
+    now = datetime.now(timezone.utc)
+    doc = {
+        "id": str(uuid.uuid4()),
+        "token": token,
+        "room_id": room["id"],
+        "room_name": room["name"],
+        "created_by": u.get("id"),
+        "created_by_username": u.get("username") or u.get("email"),
+        "created_at": now.isoformat(),
+        "expires_at": (now + timedelta(hours=ttl)).isoformat(),
+        "used": False,
+        "used_by": None,
+        "used_at": None,
+    }
+    await db.voice_room_invites.insert_one(doc)
+    # Public web taban URL'i CANONICAL_ORIGIN env'i varsa oradan, yoksa
+    # varsayılan production domain.
+    origin = (os.environ.get("CANONICAL_ORIGIN") or "https://titanxis.com").rstrip("/")
+    link = f"{origin}/ses/{room['name']}?token={token}"
+    return {
+        "token": token,
+        "link": link,
+        "room_name": room["name"],
+        "expires_at": doc["expires_at"],
+        "ttl_hours": ttl,
+    }
 
 
 @api_router.post("/voice/token")
@@ -11112,6 +11158,7 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
     """v140.35 — Erişim mantığı:
       • Admin → şifre/davet gerekmez.
       • Authed user + davetli → şifre gerekmez.
+      • Geçerli tek kullanımlık davet token'ı → şifre gerekmez (v136).
       • Authed user + davetsiz → şifre gerekli.
       • Ziyaretçi (auth yok) → şifre gerekli (biliyorsa girer).
     """
@@ -11122,7 +11169,13 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
     lk_url = os.environ.get("LIVEKIT_URL", "").strip()
     if not (lk_key and lk_secret and lk_url):
         raise HTTPException(500, "LiveKit credentials .env'de eksik")
-    room = await db.voice_rooms.find_one({"id": body.room_id})
+    # v136 — Davet linkinden gelenler `room_name` gönderir; klasik akışta
+    # `room_id` verilir. İkisi de eksikse hata.
+    room = None
+    if body.room_id:
+        room = await db.voice_rooms.find_one({"id": body.room_id})
+    elif body.room_name:
+        room = await db.voice_rooms.find_one({"name": body.room_name})
     if not room:
         raise HTTPException(404, "Oda bulunamadı")
     is_admin = bool(u) and u.get("role") == "admin"
@@ -11133,7 +11186,30 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
     if u and u.get("id") in banned_ids:
         raise HTTPException(403, "Bu odadan yasaklandınız")
     is_invited = bool(u) and u.get("id") in invited_ids
-    if not (is_admin or is_invited):
+    # v136 — Davet token'ı doğrulama. Doğruysa şifre gerekmez ve token
+    # tek kullanımlık olduğu için hemen "kullanıldı" işaretlenir.
+    invite_ok = False
+    if body.invite_token:
+        invite = await db.voice_room_invites.find_one({"token": body.invite_token}, {"_id": 0})
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if not invite:
+            raise HTTPException(403, "Davet linki geçersiz")
+        if invite.get("used"):
+            raise HTTPException(403, "Davet linki daha önce kullanılmış")
+        if invite.get("expires_at") and invite["expires_at"] < now_iso:
+            raise HTTPException(403, "Davet linkinin süresi dolmuş")
+        if invite.get("room_id") != room.get("id"):
+            raise HTTPException(403, "Davet linki bu oda için değil")
+        # Mark used atomically.
+        marked = await db.voice_room_invites.update_one(
+            {"token": body.invite_token, "used": False},
+            {"$set": {"used": True, "used_at": now_iso,
+                      "used_by": (u or {}).get("id") or "guest"}},
+        )
+        if marked.modified_count == 0:
+            raise HTTPException(403, "Davet linki daha önce kullanılmış")
+        invite_ok = True
+    if not (is_admin or is_invited or invite_ok):
         # Şifre kontrolü zorunlu (davetsiz üye VEYA ziyaretçi).
         from auth import verify_password as _verify_password
         if not body.password or not _verify_password(body.password, room.get("password_hash", "")):
@@ -11151,30 +11227,18 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
         .with_identity(identity) \
         .with_name(display) \
         .with_grants(VideoGrants(room_join=True, room=room["name"], can_publish=True, can_subscribe=True))
-    return {"token": at.to_jwt(), "url": lk_url, "room": room["name"], "identity": identity}
+    return {"token": at.to_jwt(), "url": lk_url, "room": room["name"], "identity": identity,
+            "invite_used": invite_ok}
 
 
 async def _voice_rooms_seed():
-    """v139 — 3 default oda default şifre `titanxis` ile."""
-    default_pw = "titanxis"
-    default_pw_hash = _hash_password(default_pw)
-    for name in ("Genel", "SvS Savaşı", "Strateji Odası"):
-        existing = await db.voice_rooms.find_one({"name": name})
-        if not existing:
-            await db.voice_rooms.insert_one({
-                "id": str(uuid.uuid4()),
-                "name": name,
-                "created_by": "system",
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "password_hash": default_pw_hash,
-                "password_plain": default_pw,
-            })
-        elif not existing.get("password_plain"):
-            # v140.8 — Eski seed'lerde plaintext yok; admin göz ikonundan görebilsin diye backfill.
-            await db.voice_rooms.update_one(
-                {"_id": existing["_id"]},
-                {"$set": {"password_plain": default_pw}},
-            )
+    """v136 — SEED DEVRE DIŞI (kesin kural).
+    Bundan sonra hiçbir yeni default oda oluşturulmayacak. Mevcut odalar,
+    şifreler ve davet listeleri hiçbir güncellemede değiştirilmemelidir.
+    Bu fonksiyon geri çağrılırsa hemen no-op olarak döner.
+    """
+    logger.info("voice_rooms_seed: SKIPPED (v136 policy — existing rooms preserved)")
+    return
 
 
 @app.on_event("startup")

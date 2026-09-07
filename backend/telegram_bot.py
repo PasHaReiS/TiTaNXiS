@@ -20,6 +20,7 @@ import os
 import asyncio
 import logging
 import contextvars
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -27,6 +28,7 @@ import httpx
 
 from telegram import Update, BotCommand
 from telegram.ext import Application, CommandHandler, ContextTypes, PollAnswerHandler, MessageHandler, filters
+from telegram.request import HTTPXRequest
 
 log = logging.getLogger("telegram")
 
@@ -325,12 +327,41 @@ def init_bot(db) -> Optional[Application]:
     if not BOT_TOKEN:
         log.warning("TELEGRAM_BOT_TOKEN not set — Telegram bot disabled.")
         return None
-    _app = Application.builder().token(BOT_TOKEN).build()
+    # v136 — Tuned HTTP client for faster send_message throughput. Larger
+    # connection pool + tighter connect timeout so that per-command RTT stays
+    # under ~200ms even under bursty webhook load (single user spamming or a
+    # group chat with dozens of concurrent commands).
+    _tuned = HTTPXRequest(
+        connection_pool_size=32,
+        connect_timeout=5.0,
+        read_timeout=10.0,
+        write_timeout=10.0,
+        pool_timeout=2.0,
+    )
+    _app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .request(_tuned)
+        .get_updates_request(_tuned)
+        .build()
+    )
+    # v136 — Fire-and-forget index creation (idempotent). MongoDB will refuse
+    # to rebuild an existing index so this is a no-op after the first boot.
+    try:
+        asyncio.get_event_loop().create_task(_ensure_bot_indexes(db))
+    except RuntimeError:
+        # No running loop yet (called from sync context). Fine — init_bot is
+        # called from FastAPI startup where the loop already runs.
+        pass
     _app.add_handler(CommandHandler("start", start_command))
     _app.add_handler(CommandHandler("siralama", siralama_command))
     _app.add_handler(CommandHandler("ranking", siralama_command))
     _app.add_handler(CommandHandler("siralamatop5", siralama_command))
     _app.add_handler(CommandHandler("top5", siralama_command))
+    _app.add_handler(CommandHandler("top10", top10_command))
+    _app.add_handler(CommandHandler("etkinlik_top5", etkinlik_top5_command))
+    _app.add_handler(CommandHandler("etkinlikler_top5", etkinlik_top5_command))
+    _app.add_handler(CommandHandler("ses_davet", ses_davet_command))
     _app.add_handler(CommandHandler("guc", guc_command))
     _app.add_handler(CommandHandler("power", guc_command))
     _app.add_handler(CommandHandler("etkinlik", etkinlik_command))
@@ -969,6 +1000,63 @@ async def _member_score(member_id: str) -> int:
 _SIRALAMA_CACHE: dict = {}  # key -> {"at": epoch, "text": str}
 _SIRALAMA_CACHE_TTL = 60
 
+# v136 — Genişletilmiş komut cache'i. /puan, /profil, /istatistik komutlarında
+# aynı sorgu 60 sn içinde tekrar geldiğinde cache'ten döner. Anahtar:
+# ("puan"|"profil"|"istatistik", target_member_id).
+_CMD_CACHE: dict = {}
+_CMD_CACHE_TTL = 60
+
+
+def _cache_get(kind: str, key: str):
+    import time as _t
+    slot = _CMD_CACHE.get((kind, key))
+    if not slot:
+        return None
+    if _t.time() - slot["at"] > _CMD_CACHE_TTL:
+        return None
+    return slot["text"]
+
+
+def _cache_put(kind: str, key: str, text: str):
+    import time as _t
+    _CMD_CACHE[(kind, key)] = {"at": _t.time(), "text": text}
+    # Guard memory.
+    if len(_CMD_CACHE) > 500:
+        _CMD_CACHE.clear()
+
+
+def invalidate_ranking_cache():
+    """Called from server.py when new points are inserted / OCR undone so
+    the next /siralama call sees fresh data instead of the stale 60s cache."""
+    _SIRALAMA_CACHE.clear()
+    # /puan, /profil, /istatistik puanlara bağlı olduğundan onları da temizle.
+    for k in list(_CMD_CACHE.keys()):
+        if k[0] in ("puan", "profil", "istatistik"):
+            _CMD_CACHE.pop(k, None)
+
+
+async def _ensure_bot_indexes(db):
+    """v136 — /siralama, /puan, /profil, /istatistik komutlarının aggregation
+    performansı için kritik indexler. Idempotent — Mongo mevcut olanı geri
+    kullanır."""
+    try:
+        await db.points.create_index("event_id")
+        await db.points.create_index("member_id")
+        await db.points.create_index([("event_id", 1), ("member_id", 1)])
+        await db.event_rsvps.create_index([("member_id", 1), ("status", 1)])
+        await db.events.create_index([("archived", 1), ("date", -1)])
+        # v136 — Ses davet token lookups (redeem + reuse-check hot path).
+        await db.voice_room_invites.create_index("token", unique=True)
+        await db.voice_room_invites.create_index([("room_id", 1), ("used", 1)])
+        # `members.name` çoğu sorguda regex ile aranıyor.
+        try:
+            await db.members.create_index([("name", "text"), ("alliance_name", "text")], name="tb_name_ally_text")
+        except Exception:
+            pass  # başka bir text index varsa; bir koleksiyonda tek text index tutulur
+        log.info("Bot indexes ensured.")
+    except Exception as e:
+        log.warning(f"_ensure_bot_indexes: {e}")
+
 
 async def siralama_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if _db is None:
@@ -1096,6 +1184,142 @@ async def siralama_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await reply_ml(update, final_msg)
 
 
+# v136 — /top10 direct alias: siralama_command with limit=10.
+async def top10_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    class _Ctx:
+        args = ["top10"] + (getattr(context, "args", None) or [])
+    return await siralama_command(update, _Ctx())
+
+
+# v136 — /etkinlik_top5: her aktif etkinlik ayrı blok halinde ilk 5 üye.
+# `/siralama top5` ile aynı; daha net bir komut adı ve bloklu format garantili.
+async def etkinlik_top5_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    if _db is None:
+        await reply_ml(update, "⚠️ Veritabanı hazır değil.")
+        return
+    active_events = await _db.events.find(
+        {"archived": {"$ne": True}},
+        {"_id": 0, "id": 1, "name": 1, "date": 1},
+    ).sort("date", -1).to_list(2000)
+    if not active_events:
+        await reply_ml(update, "📊 Şu an aktif etkinlik bulunmuyor.")
+        return
+    blocks: list[str] = [f"🏆 *Etkinlik Bazlı İlk 5 Sıralaması*\n_({len(active_events)} aktif etkinlik)_"]
+    empty_events: list[str] = []
+    for ev in active_events:
+        ev_id = ev.get("id")
+        ev_name = ev.get("name") or "?"
+        rows = await _db.points.aggregate([
+            {"$match": {"event_id": ev_id}},
+            {"$group": {"_id": "$member_id", "total": {"$sum": "$points"}}},
+            {"$sort": {"total": -1}},
+            {"$limit": 5},
+        ]).to_list(5)
+        if not rows:
+            empty_events.append(ev_name)
+            continue
+        mids = [r["_id"] for r in rows]
+        ms = await _db.members.find({"id": {"$in": mids}}, {"_id": 0}).to_list(len(mids))
+        mmap = {m["id"]: m for m in ms}
+        lines = [f"📊 *{ev_name} — İlk 5:*"]
+        for i, r in enumerate(rows):
+            m = mmap.get(r["_id"]) or {}
+            medal = ["🥇", "🥈", "🥉"][i] if i < 3 else f"{i+1}."
+            lines.append(
+                f"{medal} *{m.get('name', '?')}* — `{int(r['total']):,}` puan"
+            )
+        blocks.append("\n".join(lines))
+    if len(blocks) == 1:
+        await reply_ml(
+            update,
+            "📊 Aktif etkinlikler var ama henüz puan girişi yok.\n"
+            f"_({len(active_events)} aktif etkinlik takip ediliyor.)_",
+        )
+        return
+    if empty_events:
+        blocks.append(
+            "\n_ℹ️ Puan girilmemiş aktif etkinlikler: "
+            + ", ".join(f"*{n}*" for n in empty_events[:8])
+            + ("…" if len(empty_events) > 8 else "")
+            + "_"
+        )
+    await reply_ml(update, "\n\n".join(blocks))
+
+
+# v136 — /ses_davet {oda_adi}: Admin tek kullanımlık davet linki üretir ve
+# çağıran chat'e gönderir. Link 24 saat geçerli, 1 kez kullanılınca geçersiz.
+async def ses_davet_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if _db is None:
+        await reply_ml(update, "⚠️ Veritabanı hazır değil.")
+        return
+    # Auth: Sadece admin. Telegram user'ı `users` koleksiyonundaki `admin`
+    # role'ü ile eşleşmeli.
+    tg_id = update.effective_user.id if update.effective_user else None
+    if not tg_id:
+        await reply_ml(update, "❌ Kullanıcı bilgisi alınamadı.")
+        return
+    user = await _db.users.find_one({"telegram_chat_id": str(tg_id)}, {"_id": 0, "id": 1, "role": 1, "username": 1, "email": 1})
+    if not user or user.get("role") != "admin":
+        await reply_ml(update, "🔒 Bu komut yalnızca yönetici hesabıyla eşleşmiş Telegram kullanıcılarına açık. `/start` ile hesabını bağla ve admin yetkisi al.")
+        return
+    args = getattr(context, "args", None) or []
+    if not args:
+        await reply_ml(update, "Kullanım: `/ses_davet {oda_adi}`\nÖrn: `/ses_davet SvS`")
+        return
+    room_name = " ".join(args).strip()
+    room = await _db.voice_rooms.find_one({"name": room_name}, {"_id": 0, "id": 1, "name": 1})
+    if not room:
+        # Kısmi eşleşme dene
+        import re as _re
+        safe = _re.escape(room_name)
+        room = await _db.voice_rooms.find_one(
+            {"name": {"$regex": safe, "$options": "i"}}, {"_id": 0, "id": 1, "name": 1}
+        )
+    if not room:
+        await reply_ml(update, f"❌ `{room_name}` adında ses odası bulunamadı.")
+        return
+    token = secrets.token_urlsafe(16)
+    now = datetime.now(timezone.utc)
+    ttl_hours = 24
+    doc = {
+        "id": None,
+        "token": token,
+        "room_id": room["id"],
+        "room_name": room["name"],
+        "created_by": user.get("id"),
+        "created_by_username": user.get("username") or user.get("email"),
+        "created_at": now.isoformat(),
+        "expires_at": (now + timedelta(hours=ttl_hours)).isoformat(),
+        "used": False,
+        "used_by": None,
+        "used_at": None,
+        "source": "telegram",
+    }
+    # id alanı FastAPI POST endpoint'iyle aynı düzeni tutsun.
+    import uuid as _uuid
+    doc["id"] = str(_uuid.uuid4())
+    await _db.voice_room_invites.insert_one(doc)
+    origin = (os.environ.get("CANONICAL_ORIGIN") or WEB_BASE or "https://titanxis.com").rstrip("/")
+    # room_name'i URL-safe hale getir (boşluk vb.)
+    import urllib.parse as _up
+    safe_room = _up.quote(room["name"], safe="")
+    link = f"{origin}/ses/{safe_room}?token={token}"
+    await reply_ml(
+        update,
+        f"🎙 *Ses Odası Davet Linki*\n\n"
+        f"🏠 Oda: *{room['name']}*\n"
+        f"⏳ Geçerlilik: `{ttl_hours} saat` (bir kez kullanılınca geçersiz)\n\n"
+        f"🔗 {link}\n\n"
+        f"_Bu linke tıklayan kişi şifresiz olarak odaya girer. Linki güvenilir kişilere gönder._",
+    )
+
+
+# v136 — /siralama, /puan, /profil, /istatistik cache invalidation hook.
+# Server.py bunu OCR apply/undo, /events puan girişi, delete_points çağrılarında
+# çağırıp cache'i temizler → kullanıcı puan girişinden sonra hemen taze sonuç
+# görür (60sn beklemek zorunda kalmaz).
+
+
 # ------------------------------ /puan ----------------------------------------
 async def puan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = getattr(context, "args", None) or []
@@ -1108,14 +1332,21 @@ async def puan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         r = await _require_member(update)
         if not r: return
         u, m = r
+    # v136 — 60sn cache.
+    cached = _cache_get("puan", m["id"])
+    if cached:
+        await reply_ml(update, cached)
+        return
     score = await _member_score(m["id"])
-    await reply_ml(update,
+    text = (
         f"⚔️ *{m.get('name','?')}*\n\n"
         f"🏆 Toplam Puan: `{score:,}`\n"
         f"💪 Güç: `{int(m.get('bireysel_guc') or 0):,}`\n"
         f"🎖 Rütbe: {m.get('rank','-')}\n"
         f"🏰 İttifak: {m.get('alliance_name','-')}"
     )
+    _cache_put("puan", m["id"], text)
+    await reply_ml(update, text)
 
 
 # ------------------------------ /karsilastir --------------------------------
@@ -1239,9 +1470,14 @@ async def profil_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         r = await _require_member(update)
         if not r: return
         u, m = r
+    # v136 — 60sn cache.
+    cached = _cache_get("profil", m["id"])
+    if cached:
+        await reply_ml(update, cached)
+        return
     score = await _member_score(m["id"])
     rsvp_yes = await _db.event_rsvps.count_documents({"member_id": m["id"], "status": "yes"}) if _db is not None else 0
-    await reply_ml(update,
+    text = (
         f"👤 *{m.get('name','?')}*\n"
         f"🎖 {m.get('rank','-')} · 🏰 {m.get('alliance_name','-')}\n\n"
         f"🏆 Puan: `{score:,}`\n"
@@ -1250,6 +1486,8 @@ async def profil_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📅 Eklenme: `{(m.get('created_at') or '')[:10]}`\n\n"
         f"📊 Detay: [{WEB_BASE}/uyeler]({WEB_BASE}/uyeler)"
     )
+    _cache_put("profil", m["id"], text)
+    await reply_ml(update, text)
 
 
 # ------------------------------ /rozet, /istatistik ------------------------
@@ -1273,12 +1511,17 @@ async def istatistik_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
     r = await _require_member(update)
     if not r: return
     u, m = r
+    # v136 — 60sn cache.
+    cached = _cache_get("istatistik", m["id"])
+    if cached:
+        await reply_ml(update, cached)
+        return
     score = await _member_score(m["id"])
     pt_count = await _db.points.count_documents({"member_id": m["id"]})
     rsvp_yes = await _db.event_rsvps.count_documents({"member_id": m["id"], "status": "yes"})
     rsvp_no = await _db.event_rsvps.count_documents({"member_id": m["id"], "status": "no"})
     rate = round(rsvp_yes * 100 / max(1, rsvp_yes + rsvp_no))
-    await reply_ml(update,
+    text = (
         f"📊 *{m.get('name','?')} — İstatistikler*\n\n"
         f"🏆 Toplam Puan: `{score:,}`\n"
         f"🎯 Puanlı Etkinlik: `{pt_count}`\n"
@@ -1286,6 +1529,8 @@ async def istatistik_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
         f"❌ RSVP Hayır: `{rsvp_no}`\n"
         f"📈 Katılım Oranı: `%{rate}`"
     )
+    _cache_put("istatistik", m["id"], text)
+    await reply_ml(update, text)
 
 
 # ------------------------------ /bildirimler, /mola --------------------------
