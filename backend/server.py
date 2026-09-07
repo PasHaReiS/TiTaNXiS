@@ -1328,30 +1328,8 @@ async def events_bulk_archive(body: BulkArchiveBody, _: dict = Depends(require_e
     return {"modified": res.modified_count, "archived": bool(body.archived)}
 
 
-@api_router.post("/events/archive-group")
-async def archive_group(group_name: str, _: dict = Depends(require_edit)):
-    # v135.36 — First collect target events so we can auto-issue certs after
-    # the archive flip (only on events that had `auto_certificate=True`).
-    targets = await db.events.find(
-        {"group_name": group_name, "archived": False},
-        {"_id": 0, "id": 1, "auto_certificate": 1},
-    ).to_list(2000)
-    res = await db.events.update_many({"group_name": group_name, "archived": False}, {"$set": {"archived": True}})
-    for ev in targets:
-        if ev.get("auto_certificate"):
-            try:
-                fn = globals().get("_auto_issue_certs_for_event")
-                if fn:
-                    await fn(ev["id"])
-            except Exception as ex:
-                logger.warning(f"auto-cert on archive-group failed for {ev.get('id')}: {ex}")
-    return {"modified": res.modified_count}
-
-
-@api_router.post("/events/unarchive-group")
-async def unarchive_group(group_name: str, _: dict = Depends(require_edit)):
-    res = await db.events.update_many({"group_name": group_name, "archived": True}, {"$set": {"archived": False}})
-    return {"modified": res.modified_count}
+# /events/archive-group + /events/unarchive-group + /events/rename-group +
+# /events/group/{name} → routes/event_groups.py (Refactor Phase 4)
 
 
 @api_router.post("/events/auto-archive-sweep")
@@ -1386,44 +1364,7 @@ async def auto_archive_sweep():
 
 
 
-@api_router.post("/events/rename-group")
-async def rename_group(old_name: str, new_name: str, _: dict = Depends(require_edit)):
-    new_name = (new_name or "").strip()
-    if not new_name:
-        raise HTTPException(400, "new_name cannot be empty")
-    if new_name == old_name:
-        return {"modified": 0}
-    # v125 — Auto-translate the renamed group so leaderboard chips and
-    # event card headers pick up localized names on the next render.
-    try:
-        translations = await _auto_translate_all(new_name)
-    except Exception as ex:
-        logger.warning(f"auto-translate rename failed: {ex}")
-        translations = None
-    # v135.12 — Only overwrite if we got a non-empty result. Empty result
-    # from DeepL means rate-limit or transient failure; keep existing so
-    # backfill can retry.
-    set_doc: dict = {"group_name": new_name}
-    if translations is not None:
-        set_doc["group_translations"] = translations
-    res = await db.events.update_many(
-        {"group_name": old_name},
-        {"$set": set_doc},
-    )
-    return {"modified": res.modified_count, "new_name": new_name}
-
-
-@api_router.delete("/events/group/{group_name}")
-async def delete_group(group_name: str, _: dict = Depends(require_edit)):
-    # Cascade: remove all points tied to any event in this group, then remove the events themselves.
-    events = await db.events.find({"group_name": group_name}, {"_id": 0, "id": 1}).to_list(2000)
-    event_ids = [e["id"] for e in events]
-    points_deleted = 0
-    if event_ids:
-        pr = await db.points.delete_many({"event_id": {"$in": event_ids}})
-        points_deleted = pr.deleted_count
-    er = await db.events.delete_many({"group_name": group_name})
-    return {"events_deleted": er.deleted_count, "points_deleted": points_deleted}
+# /events/rename-group + /events/group/{name} → routes/event_groups.py
 
 
 # ============================================================
@@ -10244,6 +10185,18 @@ app.include_router(make_members_admin_router(
     db, require_edit,
     record_member_changes=_record_member_changes,
     enrich_points_batch=enrich_points_batch,
+), prefix="/api")
+# v141 — Refactor Phase 4: event group ops
+from routes.event_groups import make_event_groups_router
+app.include_router(make_event_groups_router(
+    db, require_edit,
+    auto_translate_all=_auto_translate_all,
+    auto_issue_certs_for_event=lambda eid: globals()["_auto_issue_certs_for_event"](eid),
+), prefix="/api")
+# v141 — Wizard funnel analytics
+from routes.wizard_analytics import make_wizard_analytics_router
+app.include_router(make_wizard_analytics_router(
+    db, require_admin, optional_auth=_optional_auth,
 ), prefix="/api")
 
 

@@ -1,15 +1,27 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { mutate as globalMutate } from "swr";
 import { Download, Upload, Languages, CheckCircle2, X, ChevronRight, FileSpreadsheet, Loader2 } from "lucide-react";
 
-// v141 — PC Excel İş Akışı Wizard.
-// 3 adım: (1) Excel'i indir  (2) çevrim-dışı düzenle  (3) yükle + DeepL çeviri
-// Mevcut endpoint'ler: GET /point-calc/export, POST /point-calc/import,
-// POST /point-calc/translate-all. Yeni bir backend değişikliği YOK — sadece
-// admin için görsel iş akışı.
+// v141 — PC Excel İş Akışı Wizard. 3 adım: İndir → Düzenle → Yükle + DeepL.
+// Analytics: her adım geçişi /api/wizard-analytics/event'e best-effort loglanır.
+function _newSessionId() {
+  try {
+    if (crypto?.randomUUID) return crypto.randomUUID();
+  } catch (e) { /* fallthrough */ }
+  return `wz-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function _track(event, kind, session_id, meta = {}) {
+  try {
+    await api.post("/wizard-analytics/event", { event, kind, session_id, meta });
+  } catch (e) {
+    // Best-effort telemetry — asla UI'yi engellemez.
+  }
+}
+
 export default function PCExcelWizard({ kind, open, onClose }) {
   const { t } = useTranslation();
   const [step, setStep] = useState(1); // 1 = indir, 2 = düzenle, 3 = yükle
@@ -20,6 +32,8 @@ export default function PCExcelWizard({ kind, open, onClose }) {
   const [translating, setTranslating] = useState(false);
   const [translated, setTranslated] = useState(null);
   const fileRef = useRef(null);
+  // Yeni session — her wizard açılışı ayrı funnel bacağı.
+  const sessionId = useMemo(() => (open ? _newSessionId() : null), [open, kind]);
 
   useEffect(() => {
     if (open) {
@@ -28,8 +42,9 @@ export default function PCExcelWizard({ kind, open, onClose }) {
       setFile(null);
       setImportResult(null);
       setTranslated(null);
+      _track("wizard_opened", kind, sessionId);
     }
-  }, [open, kind]);
+  }, [open, kind, sessionId]);
 
   if (!open) return null;
 
@@ -54,6 +69,7 @@ export default function PCExcelWizard({ kind, open, onClose }) {
       URL.revokeObjectURL(url);
       setDownloaded(true);
       setStep(2);
+      _track("step1_download", kind, sessionId);
       toast.success(t("pc_wizard_downloaded", { defaultValue: "Excel indirildi — sırada düzenleme adımı" }));
     } catch (e) {
       toast.error(`Excel: ${e.message}`);
@@ -66,6 +82,7 @@ export default function PCExcelWizard({ kind, open, onClose }) {
     if (!file) return;
     setBusy(true);
     setImportResult(null);
+    _track("step3_import", kind, sessionId, { size: file.size });
     try {
       const fd = new FormData();
       fd.append("file", file);
@@ -74,6 +91,7 @@ export default function PCExcelWizard({ kind, open, onClose }) {
       });
       setImportResult(res.data);
       globalMutate(`/point-calc?kind=${kind}`);
+      _track("step3_import_success", kind, sessionId, { updated: res.data.updated, skipped: res.data.skipped });
       toast.success(t("pc_import_events_updated", { count: res.data.updated, defaultValue: `${res.data.updated} etkinlik güncellendi` }));
     } catch (e) {
       toast.error(e?.response?.data?.detail || e.message);
@@ -84,6 +102,7 @@ export default function PCExcelWizard({ kind, open, onClose }) {
 
   const translateAll = async () => {
     setTranslating(true);
+    _track("step3_translate", kind, sessionId);
     try {
       const res = await api.post(`/point-calc/translate-all?kind=${kind}`);
       setTranslated(res.data);
@@ -254,7 +273,7 @@ export default function PCExcelWizard({ kind, open, onClose }) {
                   ← {t("pc_wizard_back", { defaultValue: "Geri" })}
                 </button>
                 <button
-                  onClick={() => setStep(3)}
+                  onClick={() => { setStep(3); _track("step2_next", kind, sessionId); }}
                   data-testid="pc-wizard-next-3"
                   className="h-10 px-6 rounded-lg text-sm font-bold inline-flex items-center gap-2"
                   style={{ background: "linear-gradient(135deg,#F97316,#EF4444)", color: "#fff", boxShadow: "0 6px 18px rgba(239,68,68,0.3)" }}

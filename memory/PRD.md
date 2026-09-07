@@ -20,6 +20,18 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 7, 2026 (v141 — Refactor Phase 4 + Wizard TR Ötesi + Wizard Analytics)** — Backend + Frontend:
+  - **Refactor Phase 4**: `routes/event_groups.py` yeni. 4 endpoint taşındı (`/events/archive-group`, `/events/unarchive-group`, `/events/rename-group`, `/events/group/{name}`). `_auto_translate_all` + `_auto_issue_certs_for_event` callable DI. server.py **10,744 → 10,697 satır** (kümülatif: **11,836 → 10,697, %9.6 azalma**).
+  - **Wizard TR Ötesi (i18n)**: `pc_wizard_*` 26 anahtar 7 dile hardcoded çeviri ile enjekte edildi (`en, de, fr, es, ru, ar, ko`). Kalan diller TR fallback ile çalışacak (i18next `fallbackLng: 'tr'`). Python seed script ile idempotent — çalıştırıldığında zaten var olan anahtarları atlıyor.
+  - **Wizard Analytics — Backend**: `routes/wizard_analytics.py` yeni. `POST /wizard-analytics/event` (public telemetry) 7 event tipi kabul ediyor: `wizard_opened`, `step1_download`, `step2_next`, `step3_import`, `step3_import_success`, `step3_translate`, `wizard_closed`. `GET /wizard-analytics/summary` (admin) 7 gün + 30 gün funnel + `by_kind_30d` + `daily_opens_30d` döndürüyor. Conversion rates: `conv_open_to_download`, `conv_download_to_upload`, `conv_upload_to_success`, `conv_end_to_end`.
+  - **Wizard Analytics — Frontend**: `pages/WizardAnalytics.jsx` yeni — 2 funnel kartı (7g/30g), 4 conversion chip, kind dağılımı (pre/diğer), 30 günlük sparkline. `PCExcelWizard.jsx` her adım geçişinde `_track()` çağırıyor (session_id ile funnel bacağı takibi). SWR 60s refresh interval. Route eklendi: `/admin/wizard-analytics`.
+  - **Verify**: 
+    * Phase 4 event group ops: 4 endpoint 200
+    * Telemetry pixel: 3 event insert → `summary` funnel'da `opens=1, step1=1, step3_success=1, conv_e2e=100%` doğru gösteriyor
+    * `by_kind_30d.pre=3, daily_opens_30d[0]={date:'2026-09-07', opens:1}` — segmentasyon çalışıyor.
+    * Backend + frontend her ikisi de restart sonrası 200/OK.
+
+
 - **Feb 7, 2026 (v141 — Refactor Phase 3 + i18n Lazy Load + Announcement Protocol + PC Excel Wizard)** — Backend + Frontend:
   - **Refactor Phase 3**: `routes/members_admin.py` yeni. 5 endpoint taşındı — `/members/{id}/history` (enrich_points_batch DI, `if points:` guard), `/members/{id}/changes`, `/members/bulk-country`, `/members/bulk-rank`, `/members/bulk-alliance` (hepsi `_record_member_changes` DI ile). server.py **10,822 → 10,744** (kümülatif Phase 1+2+3: **11,836 → 10,744, %9.2 azalma**).
   - **Announcement Helper Protocol**: `routes/announcements.py` başına 5 `typing.Protocol` sınıfı eklendi (`_BroadcastPushFn`, `_SendTgChannelFn`, `_SendTgDmsFn`, `_BroadcastInAppFn`, `_TranslateFieldsFn`). `make_announcements_router` parametreleri tip-hint ile bağlandı — helper rename olursa mypy/IDE hemen görüyor.
