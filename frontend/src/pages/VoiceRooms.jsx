@@ -345,13 +345,129 @@ function RoomCard({ room, onJoin, isAdmin, onDeleted }) {
   );
 }
 
+
+// v136 — Ses odası davet linki paneli. `voice_invite_tokens` üzerinden aktif
+// linkleri gösterir; oluştur / kopyala / sil aksiyonları. Mevcut şifre / davetli
+// akışına dokunmaz — sadece ek bir bypass yoludur.
+function InviteLinksPanel({ roomId, roomName }) {
+  const { t } = useTranslation();
+  const { data, mutate: refetch } = useSWR(
+    roomId ? `/voice/rooms/${roomId}/invite-links` : null,
+    fetcher,
+    { refreshInterval: 45000 },
+  );
+  const items = data?.items || [];
+  const [busy, setBusy] = useState(false);
+  const [copiedTok, setCopiedTok] = useState(null);
+
+  const create = async () => {
+    setBusy(true);
+    try {
+      await api.post(`/voice/rooms/${roomId}/invite-link`, {});
+      toast.success(t("voice_invite_created", "Davet linki oluşturuldu"));
+      await refetch();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const copyLink = async (link, tok) => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedTok(tok);
+      setTimeout(() => setCopiedTok(null), 1500);
+      toast.success(t("voice_invite_copied", "Bağlantı panoya kopyalandı"));
+    } catch {
+      toast.error(t("voice_invite_copy_fail", "Kopyalanamadı"));
+    }
+  };
+  const del = async (tok) => {
+    if (!window.confirm(t("voice_invite_delete_confirm", "Bu davet linkini devre dışı bırak?"))) return;
+    try {
+      await api.delete(`/voice/rooms/${roomId}/invite-link/${tok}`);
+      toast.success(t("voice_invite_deleted", "Davet linki devre dışı bırakıldı"));
+      await refetch();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    }
+  };
+
+  return (
+    <div
+      data-testid={`voice-room-invites-${roomId}`}
+      className="rounded-lg px-2 py-2 space-y-1.5"
+      style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.35)" }}
+    >
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#C4B5FD" }}>
+          🔗 {t("voice_invite_links_title", "Davet Linkleri")}
+          {items.length > 0 && <span className="ml-1 opacity-70">({items.length})</span>}
+        </span>
+        <button
+          data-testid={`voice-room-invite-create-${roomId}`}
+          onClick={create}
+          disabled={busy}
+          className="chip text-[10px] flex items-center gap-1"
+          style={{
+            background: "linear-gradient(135deg,#A78BFA,#7C3AED)",
+            color: "#0B0704", fontWeight: 800, borderColor: "#A78BFA",
+            opacity: busy ? 0.5 : 1,
+          }}
+        >
+          <Plus className="w-3 h-3" />
+          {busy ? t("adding", "Ekleniyor…") : t("voice_invite_create_btn", "Davet Linki Oluştur")}
+        </button>
+      </div>
+      {items.length === 0 ? (
+        <div className="text-[10px] italic text-center py-1" style={{ color: "#94A3B8" }}>
+          {t("voice_invite_empty", "Aktif davet linki yok — oluştur ve paylaş")}
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {items.map((r) => (
+            <div
+              key={r.token}
+              data-testid={`voice-room-invite-row-${r.token}`}
+              className="flex items-center gap-1 rounded px-1.5 py-1 text-[10px]"
+              style={{ background: "rgba(15,10,20,0.55)", border: "1px solid rgba(148,163,184,0.25)" }}
+            >
+              <span className="flex-1 min-w-0 truncate font-mono" style={{ color: "#DDD6FE" }}>
+                {r.link || `${r.token.slice(0, 12)}…`}
+              </span>
+              <button
+                onClick={() => copyLink(r.link, r.token)}
+                data-testid={`voice-room-invite-copy-${r.token}`}
+                title={t("voice_invite_copy", "Kopyala")}
+                className="opacity-75 hover:opacity-100"
+                style={{ background: "transparent", border: "none", cursor: "pointer" }}
+              >
+                {copiedTok === r.token
+                  ? <Check size={12} color="#22C55E" />
+                  : <Copy size={12} color="#94A3B8" />}
+              </button>
+              <button
+                onClick={() => del(r.token)}
+                data-testid={`voice-room-invite-delete-${r.token}`}
+                title={t("voice_invite_delete", "Sil")}
+                className="opacity-75 hover:opacity-100"
+                style={{ background: "transparent", border: "none", cursor: "pointer" }}
+              >
+                <Trash2 size={12} color="#F87171" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CreateRoomButton({ onCreated }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  // v140.35 — Davet ettiğim üyelerin id listesi.
-  const [invitedIds, setInvitedIds] = useState([]);
   const [userSearch, setUserSearch] = useState("");
   const { data: usersList = [] } = useSWR(open ? "/users" : null, fetcher);
   const filteredUsers = React.useMemo(() => {

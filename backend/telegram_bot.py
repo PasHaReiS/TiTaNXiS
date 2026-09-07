@@ -1261,11 +1261,11 @@ async def ses_davet_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user = await _db.users.find_one({"telegram_chat_id": str(tg_id)}, {"_id": 0, "id": 1, "role": 1, "username": 1, "email": 1})
     if not user or user.get("role") != "admin":
-        await reply_ml(update, "🔒 Bu komut yalnızca yönetici hesabıyla eşleşmiş Telegram kullanıcılarına açık. `/start` ile hesabını bağla ve admin yetkisi al.")
+        await reply_ml(update, "🔒 Bu komut sadece adminler içindir.")
         return
     args = getattr(context, "args", None) or []
     if not args:
-        await reply_ml(update, "Kullanım: `/ses_davet {oda_adi}`\nÖrn: `/ses_davet SvS`")
+        await reply_ml(update, "Kullanım: `/ses_davet oda_adı`\nÖrn: `/ses_davet SvS`")
         return
     room_name = " ".join(args).strip()
     room = await _db.voice_rooms.find_one({"name": room_name}, {"_id": 0, "id": 1, "name": 1})
@@ -1277,7 +1277,7 @@ async def ses_davet_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             {"name": {"$regex": safe, "$options": "i"}}, {"_id": 0, "id": 1, "name": 1}
         )
     if not room:
-        await reply_ml(update, f"❌ `{room_name}` adında ses odası bulunamadı.")
+        await reply_ml(update, "❌ Oda bulunamadı.")
         return
     token = secrets.token_urlsafe(16)
     now = datetime.now(timezone.utc)

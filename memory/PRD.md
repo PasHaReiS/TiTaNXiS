@@ -20,6 +20,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 5, 2026 (v136 — ReferenceError fix + /ses_davet mesaj netleştirme)** — Backend + Frontend:
+  - **Fix**: `VoiceRooms.jsx` içinde `InviteLinksPanel` fonksiyon tanımı bir önceki edit'te yanlışlıkla silinmişti — geri eklendi (line 352). Runtime `InviteLinksPanel is not defined` hatası giderildi.
+  - **Telegram /ses_davet mesajları netleştirildi**:
+    * Admin değilse → `🔒 Bu komut sadece adminler içindir.`
+    * Oda bulunamazsa → `❌ Oda bulunamadı.`
+    * Kullanım → `/ses_davet oda_adı`
+  - Playwright doğrulaması: `RUNTIME_ERROR_PRESENT: False`, `INVITE_LINKS_PANEL_IN_ADMIN_PANEL: True`, panel içinde "DAVET LİNKLERİ (6)" bölümü ile aktif linkler + kopyala/sil butonları görünür.
+  - `deployment_agent` PASS — no findings, no blockers.
+
+
+
 - **Feb 5, 2026 (v136 — Davet Yönetimi paneline Davet Linkleri bölümü)** — Frontend:
   - `pages/VoiceRooms.jsx` — Aktif oda "Davet Yönetimi" paneline (`voice-invite-panel`) yasaklı üyeler listesinin altına mor accent bir bölme ile `<InviteLinksPanel roomId={roomId} roomName={roomName} />` bileşeni eklendi.
   - Panelde şimdi 3 bölüm sırayla: (1) Üye davetleri (checkbox listesi) → (2) Yasaklı üyeler → (3) **Davet Linkleri** (aktif token listesi, Davet Linki Oluştur butonu, her satırda kopyala + kırmızı çöp kutusu).
