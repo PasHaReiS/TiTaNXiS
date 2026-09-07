@@ -20,6 +20,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 5, 2026 (v136 — SesInvite full ActiveRoomUI render fix)** — Backend + Frontend:
+  - **Bug**: `titanxis.com/ses/{oda}?token=X` üzerinden girince minimalist "Bağlandın: X" ekranı görünüyordu; mikrofon kontrolleri, katılımcı grid, admin aksiyonları eksikti.
+  - **Fix**:
+    - Backend `/voice/token` response'a `room_id` alanı eklendi (kullanılan `voice_rooms` doc `id`'si).
+    - Frontend `VoiceRooms.jsx`: `function ActiveRoomUI` → `export function ActiveRoomUI` (dışa açıldı).
+    - Frontend `SesInvite.jsx`: Bağlantı başarılı olunca render şeması `VoiceRooms.jsx` main join flow'u ile aynı — `<LiveKitRoom>` + `<ActiveRoomUI roomId={lk.room_id} roomName={lk.room_name} isAdmin={...}>` + `<RoomAudioRenderer>` + `<StartAudio>`.
+  - Admin davet linki ile girerse tam admin arayüzü (davet linkleri panel dahil), guest davet linki ile girerse aynı grid + mic kontrolleri.
+  - Curl doğrulaması: `room_id: 22311a31-...`, `has_lk_token: True`, `invite_used: True`. `deployment_agent` PASS.
+
+
+
 - **Feb 5, 2026 (v136 — ReferenceError fix + /ses_davet mesaj netleştirme)** — Backend + Frontend:
   - **Fix**: `VoiceRooms.jsx` içinde `InviteLinksPanel` fonksiyon tanımı bir önceki edit'te yanlışlıkla silinmişti — geri eklendi (line 352). Runtime `InviteLinksPanel is not defined` hatası giderildi.
   - **Telegram /ses_davet mesajları netleştirildi**:

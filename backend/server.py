@@ -11248,7 +11248,8 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
         .with_identity(identity) \
         .with_name(display) \
         .with_grants(VideoGrants(room_join=True, room=room["name"], can_publish=True, can_subscribe=True))
-    return {"token": at.to_jwt(), "url": lk_url, "room": room["name"], "identity": identity,
+    return {"token": at.to_jwt(), "url": lk_url, "room": room["name"],
+            "room_id": room["id"], "identity": identity,
             "invite_used": invite_ok}
 
 

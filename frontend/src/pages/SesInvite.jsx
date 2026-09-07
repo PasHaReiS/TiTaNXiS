@@ -1,16 +1,18 @@
 // v136 — Ses odası davet linki landing.
 // URL: /ses/:roomName?token=XXXX
 // Backend /api/voice/token'a `{room_name, invite_token}` gönderir, LiveKit
-// token'ı alır ve doğrudan `<LiveKitRoom>` ile odaya bağlanır. Şifre gerekmez;
-// token backend'de tek kullanımlık olarak işaretlenir.
+// token'ı + room_id alır ve doğrudan ActiveRoomUI ile odaya bağlanır. Normal
+// akıştaki tüm oda özellikleri (mikrofon modu, katılımcı grid, admin
+// aksiyonları) burada da çalışır.
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { LiveKitRoom, RoomAudioRenderer, StartAudio } from "@livekit/components-react";
 import "@livekit/components-styles";
 import { useTranslation } from "react-i18next";
 import { api, apiErr } from "@/lib/api";
-import { Mic, LogOut, Loader2, Lock, CheckCircle2 } from "lucide-react";
+import { Mic, Loader2, Lock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { ActiveRoomUI } from "@/pages/VoiceRooms";
 
 export default function SesInvite() {
   const { t } = useTranslation();
@@ -20,29 +22,14 @@ export default function SesInvite() {
   const nav = useNavigate();
   const { user } = useAuth() || {};
 
-  const [state, setState] = useState("checking"); // checking | joining | connected | error
+  const [state, setState] = useState("checking"); // checking | guest_name | joining | connected | error
   const [errMsg, setErrMsg] = useState("");
-  const [lkToken, setLkToken] = useState("");
-  const [lkUrl, setLkUrl] = useState("");
+  const [lk, setLk] = useState(null); // { token, url, room_id, room_name }
   const [guestName, setGuestName] = useState("");
   const [busy, setBusy] = useState(false);
 
   const decodedName = decodeURIComponent(roomName || "");
-
-  useEffect(() => {
-    if (!token) {
-      setState("error");
-      setErrMsg(t("ses_invite_no_token", "Davet token'ı bulunamadı."));
-      return;
-    }
-    // Giriş yapmış kullanıcılar için doğrudan devam et
-    if (user) {
-      joinNow("");
-    } else {
-      setState("guest_name");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, user]);
+  const isAdmin = user?.role === "admin";
 
   const joinNow = useCallback(async (gname) => {
     setBusy(true);
@@ -51,17 +38,30 @@ export default function SesInvite() {
       const body = { room_name: decodedName, invite_token: token };
       if (gname && !user) body.guest_name = gname;
       const r = await api.post("/voice/token", body);
-      setLkToken(r.data.token);
-      setLkUrl(r.data.url);
+      setLk({
+        token: r.data.token,
+        url: r.data.url,
+        room_id: r.data.room_id,
+        room_name: r.data.room,
+      });
       setState("connected");
     } catch (e) {
-      const msg = apiErr(e) || (e?.message || "Bilinmeyen hata");
-      setErrMsg(msg);
+      setErrMsg(apiErr(e) || e?.message || "Bilinmeyen hata");
       setState("error");
     } finally {
       setBusy(false);
     }
   }, [decodedName, token, user]);
+
+  useEffect(() => {
+    if (!token) {
+      setState("error");
+      setErrMsg(t("ses_invite_no_token", "Davet token'ı bulunamadı."));
+      return;
+    }
+    if (user) joinNow("");
+    else setState("guest_name");
+  }, [token, user, joinNow, t]);
 
   if (state === "checking" || state === "joining") {
     return (
@@ -118,34 +118,28 @@ export default function SesInvite() {
       </div>
     );
   }
-  // connected
+  // v136 — Bağlantı başarılı: full ActiveRoomUI'ı render et (normal oda akışı).
   return (
     <LiveKitRoom
-      token={lkToken}
-      serverUrl={lkUrl}
+      data-lk-theme="default"
+      token={lk.token}
+      serverUrl={lk.url}
       connect
       audio
       video={false}
       onDisconnected={() => nav("/sesli-kanallar")}
-      className="min-h-[60vh]"
+      style={{ minHeight: "calc(100vh - 120px)" }}
       data-testid="ses-invite-livekit"
     >
-      <div className="flex flex-col items-center justify-center gap-3 p-6">
-        <CheckCircle2 className="w-8 h-8" style={{ color: "#22C55E" }} />
-        <div className="text-white text-lg font-bold">
-          {t("ses_invite_connected", "Bağlandın: {{room}}", { room: decodedName })}
-        </div>
-        <StartAudio label={t("ses_invite_start_audio", "Sesi başlat")} />
-        <button
-          data-testid="ses-invite-leave"
-          onClick={() => nav("/sesli-kanallar")}
-          className="chip text-[11px] flex items-center gap-1"
-          style={{ borderColor: "#EF4444", color: "#F87171" }}
-        >
-          <LogOut className="w-3 h-3" /> {t("ses_invite_leave", "Ayrıl")}
-        </button>
-      </div>
+      <ActiveRoomUI
+        roomId={lk.room_id}
+        roomName={lk.room_name || decodedName}
+        isAdmin={isAdmin}
+        onLeave={() => nav("/sesli-kanallar")}
+        onInvitedChange={() => {}}
+      />
       <RoomAudioRenderer />
+      <StartAudio label={t("voice_start_audio", "🔊 Sesi Başlat")} />
     </LiveKitRoom>
   );
 }

@@ -622,7 +622,7 @@ function CreateRoomButton({ onCreated }) {
   );
 }
 
-function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
+export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
   const { t } = useTranslation();
   const participants = useParticipants();
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
