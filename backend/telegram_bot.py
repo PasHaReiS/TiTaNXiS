@@ -1104,15 +1104,61 @@ async def siralama_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await reply_ml(update, msg)
         return
 
-    # v136 — Etkinlik sorgusu: kısmi eşleşme, arşiv dahil.
+    # v136 — Etkinlik/grup sorgusu: önce EXACT group_name (case-insensitive),
+    # sonra event name regex, en son group_name regex.
     import re as _re
     safe = _re.escape(event_query)
+
+    async def _group_response(group_name: str, group_ids: list[str]):
+        rows = await _db.points.aggregate([
+            {"$match": {"event_id": {"$in": group_ids}}},
+            {"$group": {"_id": "$member_id", "total": {"$sum": "$points"}}},
+            {"$sort": {"total": -1}},
+            {"$limit": 10},
+        ]).to_list(10)
+        if not rows:
+            return f"📊 *{group_name}* grubunda henüz puan girişi yok."
+        mids = [r["_id"] for r in rows]
+        ms = await _db.members.find({"id": {"$in": mids}}, {"_id": 0, "id": 1, "name": 1}).to_list(len(mids))
+        mmap = {m["id"]: m for m in ms}
+        lines = [f"📊 *{group_name} Grubu — İlk 10*"]
+        for i, r in enumerate(rows):
+            m = mmap.get(r["_id"]) or {}
+            lines.append(f"{i+1}. *{m.get('name', '?')}* — `{int(r['total']):,}` puan")
+        return "\n".join(lines)
+
+    # 1) Exact group_name match (case-insensitive)
+    exact_group = await _db.events.find(
+        {"group_name": {"$regex": f"^{safe}$", "$options": "i"}},
+        {"_id": 0, "id": 1, "group_name": 1},
+    ).to_list(2000)
+    if exact_group:
+        gname = exact_group[0].get("group_name") or event_query
+        gids = [e["id"] for e in exact_group if e.get("id")]
+        msg = await _group_response(gname, gids)
+        _SIRALAMA_CACHE[cache_key] = {"at": now_ts, "text": msg}
+        await reply_ml(update, msg)
+        return
+
+    # 2) Event name partial regex
     ev = await _db.events.find_one(
         {"name": {"$regex": safe, "$options": "i"}},
         {"_id": 0, "id": 1, "name": 1},
     )
     if not ev:
-        msg = f"📊 `{event_query}` adında etkinlik bulunamadı."
+        # 3) Group name partial regex fallback
+        group_events = await _db.events.find(
+            {"group_name": {"$regex": safe, "$options": "i"}},
+            {"_id": 0, "id": 1, "group_name": 1},
+        ).to_list(2000)
+        if group_events:
+            gname = group_events[0].get("group_name") or event_query
+            gids = [e["id"] for e in group_events if e.get("id")]
+            msg = await _group_response(gname, gids)
+            _SIRALAMA_CACHE[cache_key] = {"at": now_ts, "text": msg}
+            await reply_ml(update, msg)
+            return
+        msg = f"📊 `{event_query}` adında etkinlik veya grup bulunamadı."
         _SIRALAMA_CACHE[cache_key] = {"at": now_ts, "text": msg}
         await reply_ml(update, msg)
         return

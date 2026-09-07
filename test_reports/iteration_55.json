@@ -1,0 +1,33 @@
+{
+  "summary": "Iter 55 refactor regression — backend-only. Built /app/backend/tests/test_refactor_iter55.py (25 pytest cases) covering every endpoint moved out of server.py into routes/{commanders,alliance_meta,multiplier_history,unit_costs,point_calc,event_ics,legal,reports_csv}.py plus a smoke sweep for auth/members/events/leaderboard/health/voice-rooms and the point-calc endpoints intentionally kept in server.py (translate/export/import). Result: 25 passed / 0 failed against the production external URL. All extracted routers respond with the same shapes and status codes as pre-refactor; require_edit and require_admin gates behave correctly (verified editor gets 401/403 on PUT /api/unit-costs/{category}); public HMAC verify at /api/public/point-calc/{id}?sig=... accepts valid signatures and rejects tampered ones; /api/events/{id}/ics returns a well-formed VCALENDAR document; /api/legal/{privacy,terms}?lang=tr returns TR content and ?lang=en still succeeds via the injected _translate_one dependency; enrich_points_batch injection into multiplier-history is wired (list returns 200, entries carry the expected enrichment keys); /api/reports/archive-points-export.csv and /api/reports/guild-data.csv both return 200. No regressions detected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_refactor_iter55.py",
+    "/app/test_reports/pytest/iter55.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is still 11,300 lines even after this refactor — well above the 700-line rule of thumb. Continue extracting logical groups (auth wiring, members, events, points, leaderboard, voice) into routes/ modules; the current refactor is a good template but only ~5% of the file was moved.",
+    "routes/point_calc.py splits POINT-CALC CRUD from translate/export/import which remain in server.py. This is a leaky boundary: the same collection is written from two modules, so any future schema change must be edited in both places. Recommend moving translate/export/import into the same router (or a sibling router that imports helpers) to remove the duplication surface.",
+    "CalculationBody in routes/unit_costs.py requires 7 fields (category, soldier_count, yemek, odun, celik, benzin, sure_saniye) but the GET-defaults response for /unit-costs/{category} also exposes forticlad + gelismis_forticlad. The two schemas drift — a POST cannot round-trip a GET. Align the models or split them explicitly.",
+    "make_multiplier_history_router accepts enrich_points_batch as a positional callable; a small typing.Protocol would document the expected async signature and prevent silent wiring mistakes if the helper is renamed."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_refactor_iter55.py (new)"
+  ],
+  "success_rate": {"backend": "100% (25/25)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "admin/Admin123, pasha/pasha123 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Tests create and delete their own transient data: 1 TEST_CMD_* commander, 1 TESTAL_* alliance color, 1 TEST_PC_* point-calc day, 1 calculation row. All are removed inside the tests; no residual test data was left behind (aside from the calculations doc which was DELETEd by id when the POST returned one).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "test_refactor_iter55.py is the regression baseline for the modularization. Run with `python -m pytest backend/tests/test_refactor_iter55.py -v -o addopts=` (the repo pytest.ini forces xdist loadscope which conflicts with single-file runs; -o addopts= clears it). Payload gotchas discovered while writing the tests: POST /api/commanders requires `category` (not just name/role); POST /api/calculations requires exactly {category, soldier_count, yemek, odun, celik, benzin, sure_saniye} as floats — no `name`/`units` fields; POST /api/point-calc uses `name` not `title`; GET /api/point-calc/export requires ?kind=pre|post. login response key is `access_token`. BASE_URL is read from /app/frontend/.env because REACT_APP_BACKEND_URL is not exported into the pytest env.",
+  "rca_of_the_issue": "N/A — no bugs found. Initial four test failures were payload-schema mismatches in the test itself (missing required Pydantic fields), not backend defects; the server correctly returned 422 with detailed field-level errors. Fixed the payloads and all 25 tests pass."
+}

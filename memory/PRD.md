@@ -20,6 +20,29 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 7, 2026 (v141 — Refactor Phase 1: server.py modülerleştirme)** — Backend:
+  - `server.py` monolithic 11,836 → 11,300 satır (~555 satır azaldı, %4.7). 8 bağımsız endpoint grubu route modüllerine taşındı; davranış değişikliği YOK.
+  - Yeni route modülleri (`/app/backend/routes/`):
+    * `commanders.py` — Commanders CRUD (models + 4 endpoint)
+    * `reports_csv.py` — 2 CSV export endpoint (`archive-points`, `guild-data`)
+    * `alliance_meta.py` — Alliance Colors + Scopes (5 endpoint)
+    * `multiplier_history.py` — `enrich_points_batch` injected as callable
+    * `unit_costs.py` — Unit Costs + Calculations (5 endpoint)
+    * `point_calc.py` — CRUD + share + HMAC verify + version history (8 endpoint). `translate-all/export/import` server.py'de kaldı (ENABLED_LANGS + openpyxl bağımlılıkları).
+    * `event_ics.py` — Google Calendar `.ics` export
+    * `legal.py` — Legal doc servisi, `_translate_one` callable dep ile
+  - Router factory pattern korundu (`make_X_router(db, deps...)`) — mevcut routes/ pattern'i ile birebir uyumlu, prefix `/api` bloklu wiring `server.py:10784` civarı.
+  - **Regression testing**: `testing_agent_v3_fork` → 25/25 pytest test PASS, no regressions (`/app/backend/tests/test_refactor_iter55.py` + `/app/test_reports/iteration_55.json`). Auth gates (require_edit / require_admin) korundu; HMAC sign/verify çalışıyor; `_translate_one` legal endpoint'inde injected callable üzerinden erişilebilir; enrich_points_batch multiplier-history'de aynı zenginleştirmeyi yapıyor.
+  - **Backlog**: Phase 2 (Announcements, Reports Merkezi, Trend, Events bulk, Members bulk — cross-dep helper'lar bekliyor), Phase 3 (Voice Rooms, Telegram webhook, Push scheduler).
+
+
+- **Feb 5, 2026 (v136 — /siralama grup adı desteği)** — Backend (Telegram):
+  - `/siralama {arg}` çözümleme sırası: (1) **EXACT group_name** (regex `^arg$`, case-insensitive) → grup aggregation, (2) event name partial regex → tek etkinlik, (3) group_name partial regex → grup aggregation.
+  - Sonuç: `/siralama Kafes` → "Kafes Grubu — İlk 10" (grup aggregation), `/siralama Kafes 1` → "Kafes 1 Sıralaması — İlk 10" (event), `/siralama kskxj` → event, `/siralama ZZ` → temiz "bulunamadı".
+  - Preview canlı DB testleri 6/6 senaryo geçti. `deployment_agent` PASS.
+
+
+
 - **Feb 5, 2026 (v136 — /siralama sade format yeniden yazımı)** — Backend (Telegram):
   - **/siralama (parametresiz)**: Tüm etkinliklerin toplam puanı (arşiv dahil) tek aggregation'da toplanıp genel top 10 döner. Format: `1. *isim* — X,XXX puan` (breakdown/ittifak/medal YOK).
   - **/siralama {etkinlik_adı}**: Kısmi regex eşleşme, ARŞİV DAHİL. O etkinliğin ilk 10 üyesi sade formatta.

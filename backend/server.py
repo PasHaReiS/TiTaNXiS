@@ -500,82 +500,8 @@ async def list_alliances():
 # v124 — Legal documents (Privacy / Terms / Aydınlatma) served in the
 # user's language. TR is the source-of-truth; other languages are
 # translated on-demand via DeepL and cached in `legal_translations`.
-@api_router.get("/legal/{doc}")
-async def get_legal(doc: str, lang: str = "tr"):
-    from legal_content import LEGAL_SOURCES, LEGAL_UPDATED
-    if doc not in LEGAL_SOURCES:
-        raise HTTPException(404, "unknown legal doc")
-    lang = (lang or "tr").lower()
-    src = LEGAL_SOURCES[doc]
-    if lang == "tr":
-        return {"doc": doc, "lang": "tr", "updated": LEGAL_UPDATED,
-                "title": src["title"], "sections": src["sections"]}
-    # Cache hit?
-    cached = await db.legal_translations.find_one({"doc": doc, "lang": lang}, {"_id": 0})
-    if cached:
-        return cached["content"]
-    # Cache miss → translate via DeepL. Loops per section to reuse the
-    # existing per-string helper (which handles quota + logging).
-    try:
-        n = len(src["sections"])
-        title_tr = (await _translate_one(src["title"], target_langs=[lang])).get(lang, src["title"])
-        sections_tr = []
-        for s in src["sections"]:
-            h_tr = (await _translate_one(s["heading"], target_langs=[lang])).get(lang, s["heading"])
-            b_tr = (await _translate_one(s["body"], target_langs=[lang])).get(lang, s["body"])
-            sections_tr.append({"heading": h_tr, "body": b_tr})
-        content = {
-            "doc": doc, "lang": lang, "updated": LEGAL_UPDATED,
-            "title": title_tr, "sections": sections_tr,
-        }
-        from datetime import datetime as _ldt, timezone as _ltz
-        await db.legal_translations.update_one(
-            {"doc": doc, "lang": lang},
-            {"$set": {"doc": doc, "lang": lang, "content": content,
-                      "cached_at": _ldt.now(_ltz.utc).isoformat()}},
-            upsert=True,
-        )
-        return content
-    except Exception as e:
-        logger.warning(f"legal translate fallback tr for {doc}/{lang}: {e}")
-        return {"doc": doc, "lang": "tr", "updated": LEGAL_UPDATED,
-                "title": src["title"], "sections": src["sections"]}
-
-
-# v124 — Google Calendar / iCal export for a single event. Serves a
-# standards-compliant .ics file so any calendar app can subscribe.
-@api_router.get("/events/{event_id}/ics")
-async def event_ics(event_id: str):
-    ev = await db.events.find_one({"id": event_id}, {"_id": 0})
-    if not ev:
-        raise HTTPException(404, "event not found")
-    from datetime import datetime as _dt2, timezone as _tz2, timedelta as _td2
-    try:
-        start = _dt2.fromisoformat((ev.get("date") or "").replace("Z", "+00:00"))
-    except Exception:
-        raise HTTPException(400, "bad event date")
-    if start.tzinfo is None:
-        start = start.replace(tzinfo=_tz2.utc)
-    end = start + _td2(hours=2)
-    def fmt(d: _dt2) -> str:
-        return d.astimezone(_tz2.utc).strftime("%Y%m%dT%H%M%SZ")
-    name = (ev.get("name") or "TiTaNXiS Event").replace("\n", " ").replace(",", "\\,")
-    subtitle = (ev.get("subtitle") or "").replace("\n", " ").replace(",", "\\,")
-    uid = f"{event_id}@titanxis"
-    ics = "\r\n".join([
-        "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//TiTaNXiS//EN",
-        "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
-        "BEGIN:VEVENT",
-        f"UID:{uid}",
-        f"DTSTAMP:{fmt(_dt2.now(_tz2.utc))}",
-        f"DTSTART:{fmt(start)}",
-        f"DTEND:{fmt(end)}",
-        f"SUMMARY:{name}",
-        f"DESCRIPTION:{subtitle}" if subtitle else "DESCRIPTION:",
-        "END:VEVENT", "END:VCALENDAR", "",
-    ])
-    return Response(content=ics, media_type="text/calendar; charset=utf-8",
-                    headers={"Content-Disposition": f'attachment; filename="titanxis-{event_id[:8]}.ics"'})
+# /legal/{doc}  → routes/legal.py
+# /events/{event_id}/ics  → routes/event_ics.py
 
 
 # v124 — Event in-app chat. Lightweight polling-based messages; only
@@ -1673,108 +1599,8 @@ async def public_folder_leaderboard(folder_id: str):
 
 
 
-@api_router.get("/reports/archive-points-export.csv")
-async def archive_points_export_csv(_: dict = Depends(require_edit)):
-    """Full member × event points dump for every archived event. Streams a
-    CSV with `member_name, member_id, alliance, event_name, event_date,
-    group_name, multiplier, base_points, final_points`. Powers the "CSV
-    Toplu Dışa Aktar" button on the Leaderboard archive tab."""
-    import io, csv
-    events = await db.events.find({"archived": True}, {"_id": 0}).to_list(2000)
-    ev_by_id = {e["id"]: e for e in events}
-    if not events:
-        buf = io.StringIO()
-        w = csv.writer(buf)
-        w.writerow(["member_name", "member_id", "alliance", "event_name", "event_date", "group_name", "multiplier", "base_points", "final_points"])
-        return Response(content=buf.getvalue(), media_type="text/csv", headers={"Content-Disposition": 'attachment; filename="archive_points.csv"'})
-    points = await db.points.find({"event_id": {"$in": list(ev_by_id.keys())}}, {"_id": 0}).to_list(20000)
-    # Enrich with member data (alliance)
-    member_ids = list({p.get("member_id") for p in points if p.get("member_id")})
-    members = await db.members.find({"id": {"$in": member_ids}}, {"_id": 0, "id": 1, "name": 1, "member_id": 1, "alliance_name": 1}).to_list(5000) if member_ids else []
-    m_by_id = {m["id"]: m for m in members}
-    buf = io.StringIO()
-    w = csv.writer(buf)
-    w.writerow(["member_name", "member_id", "alliance", "event_name", "event_date", "group_name", "multiplier", "base_points", "final_points"])
-    for p in points:
-        m = m_by_id.get(p.get("member_id"), {})
-        e = ev_by_id.get(p.get("event_id"), {})
-        base = int(p.get("points") or 0)
-        mult = float(p.get("multiplier") or 1.0)
-        # v63 — Puanlar tr-TR binlik ayraçlı.
-        _tr = lambda n: f"{int(n):,}".replace(",", ".")
-        w.writerow([
-            p.get("member_name") or m.get("name") or "",
-            m.get("member_id") or "",
-            m.get("alliance_name") or "",
-            p.get("event_name") or e.get("name") or "",
-            str(e.get("date") or "")[:10],
-            e.get("group_name") or "",
-            mult,
-            _tr(base),
-            _tr(int(round(base * mult))),
-        ])
-    return Response(
-        content=buf.getvalue(),
-        media_type="text/csv",
-        headers={"Content-Disposition": 'attachment; filename="archive_points.csv"'},
-    )
-
-
-
-@api_router.get("/reports/guild-data.csv")
-async def reports_guild_data_csv(_: dict = Depends(require_edit)):
-    """Guild-wide member + point summary. Streams a single flat CSV row
-    per member with lifetime totals (attendance counts, total points,
-    active-vs-archived point split) so admins can offline-archive the whole
-    roster with one click. Powers the "Guild Data CSV" button on Members."""
-    import io, csv
-    members = await db.members.find({}, {"_id": 0}).to_list(5000)
-    events = await db.events.find({}, {"_id": 0}).to_list(4000)
-    ev_by_id = {e["id"]: e for e in events}
-    points = await db.points.find({}, {"_id": 0}).to_list(50000)
-    tally = {}
-    for p in points:
-        mid = p.get("member_id")
-        if not mid:
-            continue
-        ev = ev_by_id.get(p.get("event_id"), {})
-        base = int(p.get("points") or 0)
-        mult = float(p.get("multiplier") or 1.0)
-        final_ = int(round(base * mult))
-        row = tally.setdefault(mid, {"total": 0, "active": 0, "archived": 0, "events": 0})
-        row["total"] += final_
-        row["events"] += 1
-        if ev.get("archived"):
-            row["archived"] += final_
-        else:
-            row["active"] += final_
-    buf = io.StringIO()
-    w = csv.writer(buf)
-    # v63 — Rütbe sütunu kaldırıldı, puanlar tr-TR binlik ayraçlı.
-    w.writerow([
-        "member_id", "name", "alliance_name", "country", "power",
-        "castle_level", "total_points", "active_points", "archived_points",
-        "event_count",
-    ])
-    members_sorted = sorted(members, key=lambda m: -int(m.get("power") or 0))
-    for m in members_sorted:
-        t = tally.get(m.get("id"), {"total": 0, "active": 0, "archived": 0, "events": 0})
-        def _tr(n):
-            return f"{int(n):,}".replace(",", ".")
-        w.writerow([
-            m.get("member_id") or "",
-            m.get("name") or "",
-            m.get("alliance_name") or "",
-            m.get("country") or "",
-            m.get("power") or 0,
-            m.get("castle_level") or "",
-            _tr(t["total"]), _tr(t["active"]), _tr(t["archived"]), t["events"],
-        ])
-    return Response(
-        content=buf.getvalue(),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="guild_data.csv"'},
-    )
+# /reports/archive-points-export.csv  → routes/reports_csv.py
+# /reports/guild-data.csv              → routes/reports_csv.py
 
 
 # ---------- Points ----------
@@ -1881,39 +1707,7 @@ async def delete_score(score_id: str, _: dict = Depends(require_edit)):
     return await delete_point(score_id, _)
 
 
-# ---------- Commanders ----------
-@api_router.get("/commanders")
-async def list_commanders(category: Optional[str] = None):
-    query = {}
-    if category:
-        query["category"] = category
-    docs = await db.commanders.find(query, {"_id": 0}).to_list(1000)
-    return docs
-
-
-@api_router.post("/commanders")
-async def create_commander(body: CommanderCreate, _: dict = Depends(require_edit)):
-    c = Commander(**body.model_dump())
-    await db.commanders.insert_one(c.model_dump())
-    return c.model_dump()
-
-
-@api_router.patch("/commanders/{commander_id}")
-async def update_commander(commander_id: str, body: CommanderUpdate, _: dict = Depends(require_edit)):
-    update = {k: v for k, v in body.model_dump().items() if v is not None}
-    res = await db.commanders.update_one({"id": commander_id}, {"$set": update})
-    if res.matched_count == 0:
-        raise HTTPException(404, "Komutan bulunamadı")
-    doc = await db.commanders.find_one({"id": commander_id}, {"_id": 0})
-    return doc
-
-
-@api_router.delete("/commanders/{commander_id}")
-async def delete_commander(commander_id: str, _: dict = Depends(require_edit)):
-    res = await db.commanders.delete_one({"id": commander_id})
-    if res.deleted_count == 0:
-        raise HTTPException(404, "Komutan bulunamadı")
-    return {"ok": True}
+# ---------- Commanders → routes/commanders.py ----------
 
 
 # ---------- Stats & Leaderboard ----------
@@ -2169,17 +1963,7 @@ async def alliance_drill(alliance_name: str):
 
 
 
-# ---------- Multiplier history ----------
-@api_router.get("/multiplier-history")
-async def multiplier_history():
-    points = await db.points.find({}, {"_id": 0}).sort("date", -1).to_list(200)
-    await enrich_points_batch(points)
-    # Aggregate by multiplier
-    by_mult = {}
-    for p in points:
-        m = str(p.get("multiplier", 1.0))
-        by_mult.setdefault(m, []).append(p)
-    return {"history": points, "grouped": by_mult}
+# ---------- Multiplier history → routes/multiplier_history.py ----------
 
 
 # ---------- Export ----------
@@ -2460,68 +2244,7 @@ async def event_groups(active_only: bool = False):
 
 
 # ---------- Alliance Colors ----------
-class AllianceColor(BaseModel):
-    name: str
-    color: str  # hex like "#DC2626"
-
-
-@api_router.get("/alliance-colors")
-async def list_alliance_colors():
-    docs = await db.alliance_colors.find({}, {"_id": 0}).to_list(500)
-    return {d["name"]: d["color"] for d in docs}
-
-
-@api_router.put("/alliance-colors")
-async def upsert_alliance_color(body: AllianceColor, _: dict = Depends(require_edit)):
-    name = (body.name or "").strip()
-    color = (body.color or "").strip()
-    if not name:
-        raise HTTPException(400, "Alliance name required")
-    if not color.startswith("#") or len(color) not in (4, 7):
-        raise HTTPException(400, "Color must be hex like #RRGGBB or #RGB")
-    await db.alliance_colors.update_one(
-        {"name": name},
-        {"$set": {"name": name, "color": color, "updated_at": now_iso()}},
-        upsert=True,
-    )
-    return {"name": name, "color": color}
-
-
-@api_router.delete("/alliance-colors/{name}")
-async def delete_alliance_color(name: str, _: dict = Depends(require_edit)):
-    await db.alliance_colors.delete_one({"name": name})
-    return {"deleted": True}
-
-
-class AllianceScopeBody(BaseModel):
-    scope: str  # "global" | "server"
-
-
-@api_router.get("/alliance-scopes")
-async def list_alliance_scopes():
-    """Per-alliance default scope (Global/Sunucu) used to render the toggle
-    above each alliance header on the Members page."""
-    docs = await db.alliance_scopes.find({}, {"_id": 0}).to_list(500)
-    return {d["name"]: d.get("scope", "server") for d in docs}
-
-
-@api_router.post("/alliances/{name}/scope")
-async def set_alliance_scope(name: str, body: AllianceScopeBody, _: dict = Depends(require_edit)):
-    """Sets an alliance's scope AND cascades that scope to every member with
-    the same alliance_name — so leaders can flip the whole guild in one tap
-    without having to edit each member individually."""
-    if body.scope not in ("global", "server"):
-        raise HTTPException(400, "scope must be 'global' or 'server'")
-    await db.alliance_scopes.update_one(
-        {"name": name},
-        {"$set": {"name": name, "scope": body.scope, "updated_at": now_iso()}},
-        upsert=True,
-    )
-    result = await db.members.update_many(
-        {"alliance_name": name},
-        {"$set": {"scope": body.scope}},
-    )
-    return {"name": name, "scope": body.scope, "members_updated": result.modified_count}
+# ---------- Alliance Colors + Scopes → routes/alliance_meta.py ----------
 
 
 # ---------- Seed ----------
@@ -3257,287 +2980,9 @@ async def undo_import(batch_id: str, _: dict = Depends(require_edit)):
 
 
 # ---------- Setup ----------
-# ---------- Unit Costs & Calculations (used by Asker Eğitim calculator) ----------
-class UnitCostBody(BaseModel):
-    yemek: float = 0
-    odun: float = 0
-    celik: float = 0
-    benzin: float = 0
-    sure_saniye: float = 0
-    forticlad: float = 0
-    gelismis_forticlad: float = 0
-
-
-class CalculationBody(BaseModel):
-    category: str
-    soldier_count: float
-    yemek: float
-    odun: float
-    celik: float
-    benzin: float
-    sure_saniye: float
-
-
-@api_router.get("/unit-costs/{category}")
-async def get_unit_costs(category: str):
-    doc = await db.unit_costs.find_one({"category": category})
-    if not doc:
-        return {"category": category, "yemek": 0, "odun": 0, "celik": 0, "benzin": 0, "sure_saniye": 0, "forticlad": 0, "gelismis_forticlad": 0}
-    return {
-        "category": doc.get("category", category),
-        "yemek": doc.get("yemek", 0),
-        "odun": doc.get("odun", 0),
-        "celik": doc.get("celik", 0),
-        "benzin": doc.get("benzin", 0),
-        "sure_saniye": doc.get("sure_saniye", 0),
-        "forticlad": doc.get("forticlad", 0),
-        "gelismis_forticlad": doc.get("gelismis_forticlad", 0),
-    }
-
-
-@api_router.put("/unit-costs/{category}")
-async def put_unit_costs(category: str, body: UnitCostBody, _: dict = Depends(require_admin)):
-    doc = {"category": category, **body.model_dump(), "updated_at": now_iso()}
-    await db.unit_costs.update_one({"category": category}, {"$set": doc}, upsert=True)
-    return doc
-
-
-@api_router.get("/calculations")
-async def list_calculations(category: str = Query(...), limit: int = 50):
-    cursor = db.calculations.find({"category": category}).sort("created_at", -1).limit(min(200, max(1, limit)))
-    out = []
-    async for d in cursor:
-        d.pop("_id", None)
-        out.append(d)
-    return out
-
-
-@api_router.post("/calculations")
-async def create_calculation(body: CalculationBody, _: dict = Depends(require_edit)):
-    doc = {"id": str(uuid.uuid4()), **body.model_dump(), "created_at": now_iso()}
-    await db.calculations.insert_one(dict(doc))
-    doc.pop("_id", None)
-    return doc
-
-
-@api_router.delete("/calculations/{calc_id}")
-async def delete_calculation(calc_id: str, _: dict = Depends(require_edit)):
-    r = await db.calculations.delete_one({"id": calc_id})
-    if r.deleted_count == 0:
-        raise HTTPException(404, "not found")
-    return {"deleted": True}
-
-
-# ---------- Point Calculator (Puan Hesaplama) ----------
-class PCMultiplier(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str = ""
-    value: float = 0
-
-
-class PCMaterial(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str = ""
-    amount: str = ""
-
-
-class PCUnitLabels(BaseModel):
-    yemek: str = "Yemek"
-    odun: str = "Odun"
-    celik: str = "Çelik"
-    benzin: str = "Benzin"
-    forticlad: str = "Forticlad"
-    gelismis_forticlad: str = "Gelişmiş Forticlad"
-
-
-class PCTable(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    title: str = ""
-    miktar: float = 0
-    multipliers: List[PCMultiplier] = []
-    materials: List[PCMaterial] = []
-
-
-class PCDayCreate(BaseModel):
-    kind: str
-    name: str
-    order: int = 0
-    title: str = ""
-    miktar: float = 0
-    multipliers: List[PCMultiplier] = []
-    unit_labels: Optional[PCUnitLabels] = None
-    materials: List[PCMaterial] = []
-    tables: List[PCTable] = []
-
-
-class PCDayUpdate(BaseModel):
-    name: Optional[str] = None
-    order: Optional[int] = None
-    title: Optional[str] = None
-    miktar: Optional[float] = None
-    multipliers: Optional[List[PCMultiplier]] = None
-    unit_labels: Optional[PCUnitLabels] = None
-    materials: Optional[List[PCMaterial]] = None
-    tables: Optional[List[PCTable]] = None
-    translations: Optional[Dict[str, Dict[str, str]]] = None
-
-
-async def _seed_default_pc_days(kind: str):
-    if kind not in ("pre", "diger"):
-        return
-    existing = await db.point_calc_days.count_documents({"kind": kind})
-    if existing > 0:
-        return
-    defaults = [f"{i+1}. Gün" for i in range(6)]
-    docs = []
-    for idx, name in enumerate(defaults):
-        docs.append({
-            "id": str(uuid.uuid4()),
-            "kind": kind,
-            "name": name,
-            "order": idx,
-            "title": "",
-            "miktar": 0,
-            "multipliers": [],
-            "unit_labels": PCUnitLabels().model_dump(),
-            "materials": [],
-            "created_at": now_iso(),
-            "updated_at": now_iso(),
-        })
-    await db.point_calc_days.insert_many(docs)
-
-
-@api_router.get("/point-calc")
-async def list_point_calc(kind: str = Query(...)):
-    if kind not in ("pre", "diger"):
-        raise HTTPException(400, "invalid kind")
-    await _seed_default_pc_days(kind)
-    cursor = db.point_calc_days.find({"kind": kind}).sort([("order", 1), ("created_at", 1)])
-    out = []
-    async for d in cursor:
-        d.pop("_id", None)
-        out.append(d)
-    return out
-
-
-@api_router.post("/point-calc")
-async def create_point_calc(body: PCDayCreate, _: dict = Depends(require_edit)):
-    if body.kind not in ("pre", "diger"):
-        raise HTTPException(400, "invalid kind")
-    doc = body.model_dump()
-    if doc.get("unit_labels") is None:
-        doc["unit_labels"] = PCUnitLabels().model_dump()
-    doc["id"] = str(uuid.uuid4())
-    doc["created_at"] = now_iso()
-    doc["updated_at"] = now_iso()
-    await db.point_calc_days.insert_one(dict(doc))
-    doc.pop("_id", None)
-    return doc
-
-
-@api_router.patch("/point-calc/{day_id}")
-async def update_point_calc(day_id: str, body: PCDayUpdate, _: dict = Depends(require_edit)):
-    upd = {k: v for k, v in body.model_dump(exclude_none=True).items()}
-    if not upd:
-        raise HTTPException(400, "no fields")
-    # Snapshot the current doc BEFORE mutation, so admins can revert.
-    current = await db.point_calc_days.find_one({"id": day_id})
-    if not current:
-        raise HTTPException(404, "not found")
-    current.pop("_id", None)
-    await db.point_calc_history.insert_one({
-        "version_id": str(uuid.uuid4()),
-        "day_id": day_id,
-        "saved_at": now_iso(),
-        "changed_fields": list(upd.keys()),
-        "snapshot": current,
-    })
-    upd["updated_at"] = now_iso()
-    r = await db.point_calc_days.update_one({"id": day_id}, {"$set": upd})
-    if r.matched_count == 0:
-        raise HTTPException(404, "not found")
-    d = await db.point_calc_days.find_one({"id": day_id})
-    d.pop("_id", None)
-    return d
-
-
-@api_router.delete("/point-calc/{day_id}")
-async def delete_point_calc(day_id: str, _: dict = Depends(require_edit)):
-    r = await db.point_calc_days.delete_one({"id": day_id})
-    if r.deleted_count == 0:
-        raise HTTPException(404, "not found")
-    return {"deleted": True}
-
-
-# ---------- Public share link (HMAC-signed, read-only) ----------
-import hmac as _hmac
-import hashlib as _hashlib
-
-def _pc_sign(day_id: str) -> str:
-    secret = os.environ.get("JWT_SECRET", "dev-secret").encode()
-    return _hmac.new(secret, day_id.encode(), _hashlib.sha256).hexdigest()[:32]
-
-
-@api_router.get("/point-calc/{day_id}/share")
-async def make_share_link(day_id: str, _: dict = Depends(require_edit)):
-    doc = await db.point_calc_days.find_one({"id": day_id})
-    if not doc:
-        raise HTTPException(404, "not found")
-    return {"id": day_id, "sig": _pc_sign(day_id)}
-
-
-@api_router.get("/public/point-calc/{day_id}")
-async def public_point_calc(day_id: str, sig: str = Query(...)):
-    expected = _pc_sign(day_id)
-    if not _hmac.compare_digest(expected, sig):
-        raise HTTPException(403, "invalid signature")
-    doc = await db.point_calc_days.find_one({"id": day_id})
-    if not doc:
-        raise HTTPException(404, "not found")
-    doc.pop("_id", None)
-    return doc
-
-
-# ---------- Version history ----------
-@api_router.get("/point-calc/{day_id}/history")
-async def list_history(day_id: str, _: dict = Depends(require_auth)):
-    cursor = db.point_calc_history.find({"day_id": day_id}).sort("saved_at", -1).limit(20)
-    out = []
-    async for h in cursor:
-        h.pop("_id", None)
-        out.append({
-            "version_id": h.get("version_id"),
-            "saved_at": h.get("saved_at"),
-            "changed_fields": h.get("changed_fields", []),
-        })
-    return out
-
-
-@api_router.post("/point-calc/{day_id}/revert/{version_id}")
-async def revert_history(day_id: str, version_id: str, _: dict = Depends(require_edit)):
-    snap = await db.point_calc_history.find_one({"day_id": day_id, "version_id": version_id})
-    if not snap:
-        raise HTTPException(404, "version not found")
-    prev = snap.get("snapshot") or {}
-    # Save current as new snapshot before reverting.
-    current = await db.point_calc_days.find_one({"id": day_id})
-    if current:
-        current.pop("_id", None)
-        await db.point_calc_history.insert_one({
-            "version_id": str(uuid.uuid4()),
-            "day_id": day_id,
-            "saved_at": now_iso(),
-            "changed_fields": ["revert"],
-            "snapshot": current,
-        })
-    prev.pop("id", None)
-    prev["updated_at"] = now_iso()
-    await db.point_calc_days.update_one({"id": day_id}, {"$set": prev})
-    doc = await db.point_calc_days.find_one({"id": day_id})
-    doc.pop("_id", None)
-    return doc
-
-
+# ---------- Unit Costs + Calculations → routes/unit_costs.py ----------
+# ---------- Point Calculator (CRUD + share + history) → routes/point_calc.py
+# translate-all / export / import kept here (need ENABLED_LANGS + openpyxl).
 # ---------- Translation Engine (Google Cloud Translation API v2, DeepL fallback) ----------
 # v135.16 — Primary engine switched to Google Cloud Translation API. DeepL is
 # kept as a fallback so existing production deployments keep working during
@@ -8634,7 +8079,6 @@ async def _compose_event_share_image(event: dict, theme: str = "fire") -> bytes:
 
 @api_router.get("/events/{event_id}/share-image.png")
 async def event_share_image(event_id: str, theme: str = "fire"):
-    from fastapi.responses import Response
     ev = await db.events.find_one({"id": event_id}, {"_id": 0})
     if not ev:
         raise HTTPException(404, "event not found")
@@ -11337,6 +10781,24 @@ app.include_router(make_certificates_router(
     _compose_event_share_image, SHARE_THEMES,
 ), prefix="/api")
 app.include_router(make_performance_router(db, require_auth), prefix="/api")
+
+# v141 — Refactor Phase 1: küçük, bağımsız endpoint gruplarını route modüllerine taşı.
+from routes.commanders import make_commanders_router
+app.include_router(make_commanders_router(db, require_edit), prefix="/api")
+from routes.reports_csv import make_reports_csv_router
+app.include_router(make_reports_csv_router(db, require_edit), prefix="/api")
+from routes.alliance_meta import make_alliance_meta_router
+app.include_router(make_alliance_meta_router(db, require_edit), prefix="/api")
+from routes.unit_costs import make_unit_costs_router
+app.include_router(make_unit_costs_router(db, require_edit, require_admin), prefix="/api")
+from routes.point_calc import make_point_calc_router
+app.include_router(make_point_calc_router(db, require_edit, require_auth), prefix="/api")
+from routes.event_ics import make_event_ics_router
+app.include_router(make_event_ics_router(db), prefix="/api")
+from routes.legal import make_legal_router
+app.include_router(make_legal_router(db, _translate_one), prefix="/api")
+from routes.multiplier_history import make_multiplier_history_router
+app.include_router(make_multiplier_history_router(db, enrich_points_batch), prefix="/api")
 
 
 # v135.36 — Auto-issue certificates to attendees when an event archives.
