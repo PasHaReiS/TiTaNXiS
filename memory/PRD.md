@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 5, 2026 (v136 — Davet Yönetimi paneline Davet Linkleri bölümü)** — Frontend:
+  - `pages/VoiceRooms.jsx` — Aktif oda "Davet Yönetimi" paneline (`voice-invite-panel`) yasaklı üyeler listesinin altına mor accent bir bölme ile `<InviteLinksPanel roomId={roomId} roomName={roomName} />` bileşeni eklendi.
+  - Panelde şimdi 3 bölüm sırayla: (1) Üye davetleri (checkbox listesi) → (2) Yasaklı üyeler → (3) **Davet Linkleri** (aktif token listesi, Davet Linki Oluştur butonu, her satırda kopyala + kırmızı çöp kutusu).
+  - "🔗 Davet Linki" quick-action butonundan üretilen linkler bu listede de görünür — SWR aynı `/voice/rooms/{id}/invite-links` endpoint'ini paylaşıyor, 45s auto-refresh + refetch.
+  - Playwright mobil (390x844) doğrulaması: `INVITE_LINKS_PANEL_IN_ADMIN_PANEL True`.
+  - `deployment_agent` PASS. Ses odası/şifre/davetli akışına dokunulmadı.
+
+
+
 - **Feb 5, 2026 (v136 — Ses odası aktif UI mobilde 2 satıra bölündü)** — Frontend:
   - `pages/VoiceRooms.jsx` `ActiveRoomUI` başlık altındaki chip satırı reorganize edildi:
     * **Satır 1** (`data-testid=voice-actions-row-1`): 🎫 Davetleri Yönet + 🔑 Şifre Değiştir (admin-only)

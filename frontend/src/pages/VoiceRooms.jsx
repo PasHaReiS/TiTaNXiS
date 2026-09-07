@@ -1149,6 +1149,11 @@ function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
               </div>
             )}
           </div>
+
+          {/* v136 — Davet Linkleri bölümü (aktif odada Davet Yönetimi paneli) */}
+          <div className="mt-4 pt-3" style={{ borderTop: "1px solid rgba(168,85,247,0.25)" }}>
+            <InviteLinksPanel roomId={roomId} roomName={roomName} />
+          </div>
         </div>
       )}
 
