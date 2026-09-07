@@ -9976,6 +9976,42 @@ from routes.event_messages import make_event_messages_router
 app.include_router(make_event_messages_router(db, require_auth), prefix="/api")
 from routes.cron_health import make_cron_health_router, log_cron_run as _log_cron_run
 app.include_router(make_cron_health_router(db, require_admin), prefix="/api")
+
+# v141 — Cron endpoint'lerini otomatik logla. Route decorator ile her cron'a
+# tek tek eklemek yerine, middleware yanıtı yakaladıktan sonra fire-and-forget
+# `log_cron_run` çağırır. Kapsam: /api/cron/* + /api/events/auto-archive-sweep +
+# /api/wizard-analytics/check-alerts.
+_CRON_PATH_MAP = {
+    "/api/cron/deepl-retry-i18n": "deepl-retry-i18n",
+    "/api/cron/rsvp-reminder-tick": "rsvp-reminder-tick",
+    "/api/cron/prune-deepl-log": "prune-deepl-log",
+    "/api/cron/weekly-digest-email": "weekly-digest-email",
+    "/api/cron/telegram-daily-briefing": "telegram-daily-briefing",
+    "/api/cron/attendance-chase": "attendance-chase",
+    "/api/cron/telegram-weekly-summary": "telegram-weekly-summary",
+    "/api/cron/telegram-dm-health": "telegram-dm-health",
+    "/api/cron/purge-stale-event-order": "purge-stale-event-order",
+    "/api/events/auto-archive-sweep": "auto-archive-sweep",
+    # wizard-analytics-alert-check zaten kendi endpoint'inde log yazıyor.
+}
+
+
+@app.middleware("http")
+async def _cron_health_middleware(request, call_next):
+    response = await call_next(request)
+    try:
+        path = request.url.path
+        name = _CRON_PATH_MAP.get(path)
+        if name and request.method == "POST":
+            status = "success" if 200 <= response.status_code < 400 else "failure"
+            # fire-and-forget: response'u geciktirme
+            import asyncio as _cron_asyncio
+            _cron_asyncio.create_task(_log_cron_run(
+                db, name, status, detail=f"HTTP {response.status_code}"
+            ))
+    except Exception:
+        pass
+    return response
 # v141 — Phase 8 (Final): loyalty leaderboard
 from routes.loyalty import make_loyalty_router
 app.include_router(make_loyalty_router(db), prefix="/api")

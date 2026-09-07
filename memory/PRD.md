@@ -20,6 +20,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 7, 2026 (v141 — Cron Log Hook — 11 cron tamamlandı)** — Backend:
+  - **Middleware yaklaşımı**: `_cron_health_middleware` FastAPI middleware — `/api/cron/*`, `/api/events/auto-archive-sweep` yollarını yakalar, `_CRON_PATH_MAP` (10 giriş) ile eşleştirir. Response status'una göre `success`/`failure` yazar. `asyncio.create_task` fire-and-forget — response gecikmiyor.
+  - Sonuç: cron endpoint'lerine tek tek dokunmadan **10 cron** artık `cron_health_log`'a otomatik yazıyor (11. cron `wizard-analytics-alert-check` zaten kendi içinde loguyor).
+  - **Verify**: 4 cron manuel tetiklendi (deepl-retry-i18n, rsvp-reminder-tick, purge-stale-event-order, telegram-dm-health), dashboard'da başarı sayaçları anında dolarak "0dk önce" gösterildi.
+
+
 - **Feb 7, 2026 (v141 — Refactor Phase 8 (Final) + Cron Log Hook + Wizard Telegram Alert)** — Backend + Frontend:
   - **Refactor Phase 8 (Final)**: `routes/loyalty.py` yeni — `GET /loyalty/leaderboard` (Sadıklar sıralaması, weighted point threshold aggregation). server.py **10,536 → 10,514 satır** (kümülatif Phase 1-8: **11,836 → 10,514, %11.2 azalma, 1,322 satır ekstrakt, 23 route modülü**).
   - **Cron Log Hook**: `routes/cron_health.py`'ye `log_cron_run(db, name, status, detail)` async helper eklendi. Fire-and-forget upsert pattern — `cron_health_log` collection'ında `last_run_at`, `last_status`, `success_count`, `failure_count`, `last_detail` (500 char cap). `wizard-analytics/check-alerts` endpoint'ine wire edildi (canlı test: `success_count: 1` doğru dolduruldu). Diğer cron'lar aynı 1-satır pattern ile takılabilir.
