@@ -505,70 +505,8 @@ async def list_members(search: Optional[str] = None, country: Optional[str] = No
 # /events/{event_id}/messages GET+POST → routes/event_messages.py (Phase 7)
 
 
-# v122 — Sadıklar (Loyalty) leaderboard. For each event with
-# `loyalty_enabled=true`, every member whose weighted point total meets
-# or exceeds `loyalty_threshold` earns 1 loyalty point. The leaderboard
-# ranks members by cumulative loyalty count. Members with 0 loyalty are
-# omitted so the ranking stays focused on active loyalists.
-@api_router.get("/loyalty/leaderboard")
-async def loyalty_leaderboard():
-    events = await db.events.find(
-        {"loyalty_enabled": True, "loyalty_threshold": {"$gt": 0},
-         "hidden_from_leaderboard": {"$ne": True}},
-        {"_id": 0, "id": 1, "name": 1, "loyalty_threshold": 1, "multiplier": 1, "date": 1},
-    ).to_list(2000)
-    if not events:
-        return []
-    ev_by_id = {e["id"]: e for e in events}
-    ev_ids = list(ev_by_id.keys())
-    # Weighted point totals per (event, member).
-    pipeline = [
-        {"$match": {"event_id": {"$in": ev_ids}}},
-        {"$project": {
-            "event_id": 1, "member_id": 1,
-            "weighted": {"$multiply": ["$points", {"$ifNull": ["$multiplier", 1.0]}]},
-        }},
-        {"$group": {"_id": {"e": "$event_id", "m": "$member_id"}, "total": {"$sum": "$weighted"}}},
-    ]
-    rows = await db.points.aggregate(pipeline).to_list(50000)
-    # Fan-out: which members qualified for which events.
-    loyalty_by_member: Dict[str, int] = {}
-    events_by_member: Dict[str, List[str]] = {}
-    for r in rows:
-        ev_id = r["_id"]["e"]
-        mid = r["_id"]["m"]
-        ev = ev_by_id.get(ev_id)
-        if not ev:
-            continue
-        threshold = int(ev.get("loyalty_threshold") or 0)
-        if threshold <= 0:
-            continue
-        if r["total"] >= threshold:
-            loyalty_by_member[mid] = loyalty_by_member.get(mid, 0) + 1
-            events_by_member.setdefault(mid, []).append(ev.get("name") or ev_id)
-    if not loyalty_by_member:
-        return []
-    member_ids = list(loyalty_by_member.keys())
-    members = await db.members.find({"id": {"$in": member_ids}}, {"_id": 0}).to_list(len(member_ids))
-    m_by_id = {m["id"]: m for m in members}
-    result = []
-    for mid, score in loyalty_by_member.items():
-        m = m_by_id.get(mid)
-        if not m:
-            continue
-        result.append({
-            "member_id": mid,
-            "name": m.get("name"),
-            "rank": m.get("rank"),
-            "alliance_name": m.get("alliance_name"),
-            "loyalty_score": score,
-            "events_qualified": sorted(events_by_member.get(mid, [])),
-            "total_loyalty_events": len(events),
-        })
-    result.sort(key=lambda r: (-r["loyalty_score"], (r.get("name") or "").lower()))
-    for i, r in enumerate(result):
-        r["position"] = i + 1
-    return result
+# /loyalty/leaderboard → routes/loyalty.py (Phase 8 Final)
+# /stats → routes/stats.py (Refactor Phase 5)
 
 
 # v121 — Bulk RSVP streak lookup for the Members page. Returns a
@@ -10017,7 +9955,8 @@ app.include_router(make_event_groups_router(
 # v141 — Wizard funnel analytics
 from routes.wizard_analytics import make_wizard_analytics_router, make_wizard_csv_router
 app.include_router(make_wizard_analytics_router(
-    db, require_admin, optional_auth=_optional_auth, broadcast_push=_broadcast_push,
+    db, require_admin, optional_auth=_optional_auth,
+    broadcast_push=_broadcast_push, send_admin_telegram=lambda text: _send_admin_telegram(text),
 ), prefix="/api")
 app.include_router(make_wizard_csv_router(db, require_admin), prefix="/api")
 # v141 — Refactor Phase 5: Points/Scores CRUD + /stats
@@ -10035,8 +9974,47 @@ app.include_router(make_members_read_router(db), prefix="/api")
 # v141 — Refactor Phase 7: event messages + cron health
 from routes.event_messages import make_event_messages_router
 app.include_router(make_event_messages_router(db, require_auth), prefix="/api")
-from routes.cron_health import make_cron_health_router
+from routes.cron_health import make_cron_health_router, log_cron_run as _log_cron_run
 app.include_router(make_cron_health_router(db, require_admin), prefix="/api")
+# v141 — Phase 8 (Final): loyalty leaderboard
+from routes.loyalty import make_loyalty_router
+app.include_router(make_loyalty_router(db), prefix="/api")
+
+
+# v141 — Admin Telegram bildirim helper (Wizard Analytics alert hook için).
+async def _send_admin_telegram(text: str) -> bool:
+    """Bağlı admin telegram_chat_id'lerine HTML mesaj yollar. Sessiz fail."""
+    try:
+        admins = await db.users.find(
+            {"role": "admin", "telegram_chat_id": {"$exists": True, "$ne": None}},
+            {"_id": 0, "telegram_chat_id": 1},
+        ).to_list(50)
+        if not admins:
+            return False
+        import os as _os
+        import httpx as _httpx
+        token = _os.environ.get("TELEGRAM_BOT_TOKEN")
+        if not token:
+            return False
+        sent = 0
+        async with _httpx.AsyncClient(timeout=8.0) as client:
+            for a in admins:
+                chat_id = a.get("telegram_chat_id")
+                if not chat_id:
+                    continue
+                try:
+                    r = await client.post(
+                        f"https://api.telegram.org/bot{token}/sendMessage",
+                        json={"chat_id": chat_id, "text": text, "parse_mode": "HTML",
+                              "disable_web_page_preview": False},
+                    )
+                    if r.status_code == 200:
+                        sent += 1
+                except Exception:
+                    continue
+        return sent > 0
+    except Exception:
+        return False
 
 
 # v135.36 — Auto-issue certificates to attendees when an event archives.

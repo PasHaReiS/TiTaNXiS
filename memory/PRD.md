@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 7, 2026 (v141 — Refactor Phase 8 (Final) + Cron Log Hook + Wizard Telegram Alert)** — Backend + Frontend:
+  - **Refactor Phase 8 (Final)**: `routes/loyalty.py` yeni — `GET /loyalty/leaderboard` (Sadıklar sıralaması, weighted point threshold aggregation). server.py **10,536 → 10,514 satır** (kümülatif Phase 1-8: **11,836 → 10,514, %11.2 azalma, 1,322 satır ekstrakt, 23 route modülü**).
+  - **Cron Log Hook**: `routes/cron_health.py`'ye `log_cron_run(db, name, status, detail)` async helper eklendi. Fire-and-forget upsert pattern — `cron_health_log` collection'ında `last_run_at`, `last_status`, `success_count`, `failure_count`, `last_detail` (500 char cap). `wizard-analytics/check-alerts` endpoint'ine wire edildi (canlı test: `success_count: 1` doğru dolduruldu). Diğer cron'lar aynı 1-satır pattern ile takılabilir.
+  - **Wizard Telegram Alert Hook**: `_send_admin_telegram(text)` helper eklendi (server.py) — `users` collection'daki `role=admin` + `telegram_chat_id` olan tüm admin'lere HTML mesaj yollar (retry yok, sessiz fail). `make_wizard_analytics_router` yeni `send_admin_telegram` DI parametre alıyor, `check-alerts` yanıtı `telegram_sent` alanı döndürüyor. Alert artık iki kanaldan fan-out: Web Push (`_broadcast_push`) + Telegram DM. `pc_wizard_alerts` marker doc `channels: {push:true, telegram:true}` şeklinde iki kanal durumunu ayrı ayrı takip ediyor.
+  - **Verify (canlı DB)**: (a) `/loyalty/leaderboard` = 200 (Phase 8), (b) `/check-alerts` yanıtı `telegram_sent:false` (henüz alert eşiği tetiklenmemiş — beklendiği gibi), (c) `cron_health_log` collection'ında `wizard-analytics-alert-check` = `{last_run_at, success_count:1}` cron dashboardu doğru gösteriyor.
+
+
 - **Feb 7, 2026 (v141 — Refactor Phase 7 + Wizard Conversion Chart + Cron Health Dashboard)** — Backend + Frontend:
   - **Refactor Phase 7**: `routes/event_messages.py` yeni (GET/POST event chat). server.py **10,564 → 10,536 satır** (kümülatif Phase 1-7: **11,836 → 10,536, %11.0 azalma, 1,300 satır ekstrakt; 22 route modülü**).
   - **Wizard Analytics — Conversion Chart**: `/summary` yeni alan `daily_conversion_30d` (opens+success+conv%). Frontend Sparkline → recharts LineChart (3 çizgi: Açılış/Başarı/Dönüşüm%), Cinzel serif başlık "Günlük Dönüşüm (30G)". Kayıp adımları görsel olarak yakalamak için opens vs success divergence anında görünüyor.

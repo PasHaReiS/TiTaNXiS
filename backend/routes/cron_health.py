@@ -1,19 +1,46 @@
 """Cron sağlık dashboard'u — .emergent/crons.yml'ı okur ve DB'de tutulan
 son çalışma zamanlarıyla birleştirir. Sadece admin.
 
-Ek olarak `/cron-health/log` cron endpoint'lerinin kendi tetiklendiğinde
-`cron_health_log` koleksiyonuna kayıt bırakmasına izin verir; ancak bu
-tamamen opsiyoneldir — mevcut cron kodu değişmese bile dashboard okuma
-tarafından çalışır.
+Ek olarak `log_cron_run` yardımcısı server.py'deki cron endpoint'lerine
+tek satır import ile takılabilir; success/failure counter'ları otomatik
+`cron_health_log` koleksiyonuna işler.
 """
 import os
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends
 
 
+_log = logging.getLogger(__name__)
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+async def log_cron_run(db, name: str, status: str = "success", detail: Optional[str] = None):
+    """v141 — Cron endpoint'lerinin son çalışma zamanı + başarı sayacını
+    `cron_health_log` collection'ına upsert eder. Fire-and-forget kullanım:
+        try: await log_cron_run(db, "rsvp-reminder-tick", "success")
+        except: pass
+    """
+    try:
+        update: dict = {
+            "$set": {
+                "name": name,
+                "last_run_at": _now_iso(),
+                "last_status": status,
+                "last_detail": (detail or "")[:500],
+            },
+            "$inc": {
+                "success_count": 1 if status == "success" else 0,
+                "failure_count": 1 if status != "success" else 0,
+            },
+        }
+        await db.cron_health_log.update_one({"name": name}, update, upsert=True)
+    except Exception as ex:
+        _log.warning(f"log_cron_run failed for {name}: {ex}")
 
 
 def _parse_crons_yml() -> list:

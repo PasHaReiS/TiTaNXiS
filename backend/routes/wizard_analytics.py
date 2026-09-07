@@ -29,7 +29,7 @@ class WizardEventBody(BaseModel):
     meta: Optional[dict] = Field(default_factory=dict)
 
 
-def make_wizard_analytics_router(db, require_admin, optional_auth=None, broadcast_push=None):
+def make_wizard_analytics_router(db, require_admin, optional_auth=None, broadcast_push=None, send_admin_telegram=None):
     router = APIRouter()
 
     @router.post("/wizard-analytics/event")
@@ -202,12 +202,12 @@ def make_wizard_analytics_router(db, require_admin, optional_auth=None, broadcas
     @router.post("/wizard-analytics/check-alerts")
     async def check_alerts():
         """Cron-safe düşük dönüşüm alarmı — 30 gün içinde `conv_end_to_end < 40`
-        ve `opens >= 5` ise adminlere Web Push atılır. 24 saat cool-down."""
+        ve `opens >= 5` ise adminlere Web Push + Telegram DM atılır. 24 saat cool-down."""
+        from routes.cron_health import log_cron_run
         now = datetime.now(timezone.utc)
         since_30 = now - timedelta(days=30)
         stats = await _funnel({"created_at": {"$gte": since_30}})
 
-        # Debounce: son 24 saat içinde alert atıldıysa tekrar atma
         marker = await db.pc_wizard_alerts.find_one({"key": "low_conversion"}, {"_id": 0})
         cool_off = False
         if marker and marker.get("last_sent_at"):
@@ -225,16 +225,31 @@ def make_wizard_analytics_router(db, require_admin, optional_auth=None, broadcas
         should_alert = opens >= 5 and conv < 40 and not cool_off
 
         alert_sent = False
-        if should_alert and broadcast_push:
-            try:
-                await broadcast_push(
-                    title="⚠️ Wizard dönüşümü düşük",
-                    body=f"Son 30 gün: {opens} açılış, sadece %{conv} tamamlandı. Kullanıcılar bir adımda takılıyor olabilir.",
-                    url="/admin/wizard-analytics",
-                    tag="wizard-alert",
-                    sound="rally",
-                    notif_pref="admin",
-                )
+        tg_sent = False
+        if should_alert:
+            body_txt = f"Son 30 gün: {opens} açılış, sadece %{conv} tamamlandı. Kullanıcılar bir adımda takılıyor olabilir."
+            if broadcast_push:
+                try:
+                    await broadcast_push(
+                        title="⚠️ Wizard dönüşümü düşük",
+                        body=body_txt,
+                        url="/admin/wizard-analytics",
+                        tag="wizard-alert",
+                        sound="rally",
+                        notif_pref="admin",
+                    )
+                    alert_sent = True
+                except Exception:
+                    pass
+            # v141 — Telegram hook: admin channel'a da fan-out
+            if send_admin_telegram:
+                try:
+                    tg_sent = bool(await send_admin_telegram(
+                        f"🚨 <b>Wizard dönüşümü düşük</b>\n{body_txt}\n\n<a href='https://oyun-loncasi.preview.emergentagent.com/admin/wizard-analytics'>Analitik paneli</a>"
+                    ))
+                except Exception:
+                    pass
+            if alert_sent or tg_sent:
                 await db.pc_wizard_alerts.update_one(
                     {"key": "low_conversion"},
                     {"$set": {
@@ -242,12 +257,17 @@ def make_wizard_analytics_router(db, require_admin, optional_auth=None, broadcas
                         "last_sent_at": now.isoformat(),
                         "last_conv": conv,
                         "last_opens": opens,
+                        "channels": {"push": alert_sent, "telegram": tg_sent},
                     }},
                     upsert=True,
                 )
-                alert_sent = True
-            except Exception:
-                pass
+
+        # Cron log
+        try:
+            await log_cron_run(db, "wizard-analytics-alert-check", "success",
+                              detail=f"opens={opens} conv={conv} alert={alert_sent} tg={tg_sent}")
+        except Exception:
+            pass
 
         return {
             "checked_at": now.isoformat(),
@@ -255,6 +275,7 @@ def make_wizard_analytics_router(db, require_admin, optional_auth=None, broadcas
             "opens_30d": opens,
             "should_alert": should_alert,
             "alert_sent": alert_sent,
+            "telegram_sent": tg_sent,
             "cool_off": cool_off,
         }
 
