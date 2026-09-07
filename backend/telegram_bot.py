@@ -969,34 +969,67 @@ async def siralama_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     args = getattr(context, "args", None) or []
     limit = 10 if (args and args[0].lower() == "top10") else 5
-    # Aggregate points table (aktif skorlama)
-    pipeline = [
-        {"$group": {"_id": "$member_id", "total": {"$sum": "$points"}}},
-        {"$sort": {"total": -1}}, {"$limit": limit},
-    ]
-    rows = await _db.points.aggregate(pipeline).to_list(limit)
-    if not rows:
-        # Fallback: bireysel_guc sırala
-        cur = _db.members.find({}, {"_id": 0, "name": 1, "alliance_name": 1, "bireysel_guc": 1}).sort("bireysel_guc", -1).limit(limit)
-        ms = await cur.to_list(limit)
-        if not ms:
-            await reply_ml(update, "📊 Henüz sıralama verisi yok.")
-            return
-        lines = [f"🏆 *En Güçlü {limit}*\n"]
-        for i, m in enumerate(ms):
-            medal = ["🥇","🥈","🥉"][i] if i < 3 else f"{i+1}."
-            lines.append(f"{medal} *{m.get('name','?')}* [{m.get('alliance_name','-')}] — {int(m.get('bireysel_guc') or 0):,}")
-        await reply_ml(update, "\n".join(lines))
+
+    # v136 — Etkinlik-başına sıralama. Her AKTİF (arşivlenmemiş) etkinlik ayrı
+    # bir blok olarak listelenir. Arşiv etkinlikleri sıralamaya girmez.
+    active_events = await _db.events.find(
+        {"archived": {"$ne": True}},
+        {"_id": 0, "id": 1, "name": 1, "group_name": 1, "date": 1},
+    ).sort("date", -1).to_list(2000)
+    if not active_events:
+        await reply_ml(update, "📊 Şu an aktif etkinlik bulunmuyor.")
         return
-    mids = [r["_id"] for r in rows]
-    ms = await _db.members.find({"id": {"$in": mids}}, {"_id": 0}).to_list(len(mids))
-    mmap = {m["id"]: m for m in ms}
-    lines = [f"🏆 *Sıralama (Top {limit})*\n"]
-    for i, r in enumerate(rows):
-        m = mmap.get(r["_id"]) or {}
-        medal = ["🥇","🥈","🥉"][i] if i < 3 else f"{i+1}."
-        lines.append(f"{medal} *{m.get('name','?')}* [{m.get('alliance_name','-')}] — `{int(r['total']):,}`")
-    await reply_ml(update, "\n".join(lines))
+
+    blocks: list[str] = []
+    empty_events: list[str] = []
+    header = f"🏆 *Aktif Etkinlik Sıralaması (Top {limit})*\n_({len(active_events)} aktif etkinlik)_"
+    blocks.append(header)
+
+    # Her etkinlik için ayrı aggregation. Etkinlik sayısı yönetilebilir (~20-40)
+    # olduğu için per-event ayrı sorgu Telegram cevap gecikmesine anlamlı yük
+    # bindirmiyor; buna karşılık okunur, "bloklu" format kullanıcı isteğidir.
+    for ev in active_events:
+        ev_id = ev.get("id")
+        ev_name = ev.get("name") or "?"
+        pipeline = [
+            {"$match": {"event_id": ev_id}},
+            {"$group": {"_id": "$member_id", "total": {"$sum": "$points"}}},
+            {"$sort": {"total": -1}},
+            {"$limit": limit},
+        ]
+        rows = await _db.points.aggregate(pipeline).to_list(limit)
+        if not rows:
+            empty_events.append(ev_name)
+            continue
+        mids = [r["_id"] for r in rows]
+        ms = await _db.members.find({"id": {"$in": mids}}, {"_id": 0}).to_list(len(mids))
+        mmap = {m["id"]: m for m in ms}
+        lines = [f"📊 *{ev_name} Sıralaması:*"]
+        for i, r in enumerate(rows):
+            m = mmap.get(r["_id"]) or {}
+            medal = ["🥇", "🥈", "🥉"][i] if i < 3 else f"{i+1}."
+            ally = m.get("alliance_name") or "-"
+            lines.append(
+                f"{medal} *{m.get('name', '?')}* [{ally}] — `{int(r['total']):,}` puan"
+            )
+        blocks.append("\n".join(lines))
+
+    if len(blocks) == 1:
+        # Sadece header var → hiç puan girişi yok
+        await reply_ml(
+            update,
+            "📊 Aktif etkinlikler var ama henüz puan girişi yok.\n"
+            f"_({len(active_events)} aktif etkinlik takip ediliyor.)_",
+        )
+        return
+    if empty_events:
+        blocks.append(
+            "\n_ℹ️ Henüz puan girilmemiş aktif etkinlikler: "
+            + ", ".join(f"*{n}*" for n in empty_events[:8])
+            + ("…" if len(empty_events) > 8 else "")
+            + "_"
+        )
+    await reply_ml(update, "\n\n".join(blocks))
 
 
 # ------------------------------ /puan ----------------------------------------

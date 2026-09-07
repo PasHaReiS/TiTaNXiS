@@ -20,6 +20,16 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 5, 2026 (v136 — /siralama komutu per-event bloklara çevrildi)** — Backend (Telegram bot):
+  - `telegram_bot.py` `siralama_command`: Aktif etkinlikleri (`archived != true`) toparlar, her etkinlik için ayrı aggregation yapar, her etkinlik ayrı "📊 {ev_name} Sıralaması:" bloğu olarak yayınlanır (medal + `X,XXX puan` formatı).
+  - Aktif etkinlik yok → "📊 Şu an aktif etkinlik bulunmuyor."
+  - Aktif etkinlik var ama hiçbirinde puan yok → tek satır bilgilendirme.
+  - Boş etkinlikler alt satırda footer olarak listeleniyor.
+  - `/siralama top10` her bloğu top 10'a çıkarır. `/ranking`, `/top5`, `/siralamatop5` de aynı handler'a bağlı.
+  - Canlı DB testinde 9 aktif etkinlikten 2'sinde puan var — çıktı isteğe uygun (`kskxj` ve `L2` blokları).
+
+
+
 - **Feb 5, 2026 (v136 — Üyeler arama çubuğu geri eklendi)** — Frontend:
   - `pages/Members.jsx`: OcrUndoPanel altına inline arama çubuğu (`data-testid=members-search-bar`, `members-search-input`, `members-search-clear`, `members-search-count`). Mevcut `q` state'i vardı ama render edilmemişti; artık isim + ittifak_adı + rütbe alanlarında case-insensitive Turkish locale ile filtreleyerek `useMemo` grouping'e giriyor. Sağda "N / M üye" canlı sayaç, sol ikon (`Search`), sağda temizle (`X`) butonu.
   - i18n: 3 yeni key (tr + en): `members_search_placeholder`, `members_search_count`, `clear`.
