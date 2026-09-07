@@ -20,6 +20,18 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 7, 2026 (v141 — Telegram sıralama komutları arşiv filtresi)** — Backend (Telegram Bot):
+  - **Sorun**: `/siralama` ve `/top10` argümansızken tüm puanları (aktif + arşiv) topluyor; kullanıcı arşive taşınan etkinlik gruplarını görmemesi gerektiğini bildirdi.
+  - **Fix (`/app/backend/telegram_bot.py:1081-1112`)**: Argümansız çağrıda `events.distinct("id", {"archived": {"$ne": True}})` ile aktif event ID listesi çekilir, `points.aggregate` bunları `$in` ile filtreler. Başlık artık "🏆 *Genel Sıralama — Aktif Etkinlikler (İlk 10)*".
+  - **Argümanlı çağrılar (`/siralama {grup}` / `/siralama {etkinlik}`) DEĞİŞMEDİ** — kullanıcı isteği: arşiv sadece explicit arama ile görünsün. Exact group name → event name partial → group name partial fallback zinciri hem aktif hem arşiv etkinlikleri kapsamaya devam ediyor.
+  - **Verify (canlı DB, 9 aktif + 5 arşiv etkinlik)**:
+    * `/siralama` → 8 aktif üye × puan (arşiv Pre grupları hariç). ✅
+    * `/top10` → aynı liste (siralama_command'a delege). ✅
+    * `/siralama Kafes` → "Kafes grubunda henüz puan girişi yok" (aktif grup, henüz puan yok). ✅
+    * `/siralama Pre` → arşiv grubu bulundu ve raporlandı (explicit lookup). ✅
+  - Cache invalidation (`invalidate_siralama_cache`) mevcut hook zincirinde çalışmaya devam ediyor.
+
+
 - **Feb 7, 2026 (v141 — Refactor Phase 2 + i18n split + PC modülü mühürleme + CalcBody hizalama)** — Backend + Frontend:
   - **server.py 11,299 → 10,822 satır** (~475 satır daha azaldı). Kümülatif Phase 1+2: **11,836 → 10,822 (%8.6 azalma)**.
   - **PC Modülü Tamamlandı**: `translate-all` + `export` + `import` (openpyxl) `routes/point_calc.py`'ye taşındı. `translate_one`/`enabled_langs`/`deepl_api_key` callable/value olarak inject edildi. Aynı koleksiyondan iki modülün yazması leaky-boundary'i kapandı.

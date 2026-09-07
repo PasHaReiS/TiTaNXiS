@@ -1079,23 +1079,31 @@ async def siralama_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not event_query:
-        # v136 — Genel sıralama: tüm etkinliklerdeki puanlar toplanır,
-        # arşiv olsun olmasın hepsi dahil (kullanıcı isteği: sade format,
-        # sadece ilk 10 isim + toplam). Etkinlik/ittifak breakdown YOK.
+        # v141 — Arg'sız /siralama ve /top10 SADECE aktif etkinliklerin
+        # puanlarını toplar. Arşive taşınmış etkinlik gruplarını hariç tutar
+        # (kullanıcı isteği: arşiv sadece explicit `/siralama {grup_adı}` ya da
+        # `/siralama {etkinlik_adı}` çağrılarında görünsün).
+        active_event_ids = await _db.events.distinct("id", {"archived": {"$ne": True}})
+        if not active_event_ids:
+            msg = "📊 Şu an aktif etkinlik yok."
+            _SIRALAMA_CACHE[cache_key] = {"at": now_ts, "text": msg}
+            await reply_ml(update, msg)
+            return
         rows = await _db.points.aggregate([
+            {"$match": {"event_id": {"$in": active_event_ids}}},
             {"$group": {"_id": "$member_id", "total": {"$sum": "$points"}}},
             {"$sort": {"total": -1}},
             {"$limit": 10},
         ]).to_list(10)
         if not rows:
-            msg = "📊 Henüz puan girişi yok."
+            msg = "📊 Aktif etkinliklerde henüz puan girişi yok."
             _SIRALAMA_CACHE[cache_key] = {"at": now_ts, "text": msg}
             await reply_ml(update, msg)
             return
         mids = [r["_id"] for r in rows]
         ms = await _db.members.find({"id": {"$in": mids}}, {"_id": 0, "id": 1, "name": 1}).to_list(len(mids))
         mmap = {m["id"]: m for m in ms}
-        lines = ["🏆 *Genel Sıralama (İlk 10)*"]
+        lines = ["🏆 *Genel Sıralama — Aktif Etkinlikler (İlk 10)*"]
         for i, r in enumerate(rows):
             m = mmap.get(r["_id"]) or {}
             lines.append(f"{i+1}. *{m.get('name', '?')}* — `{int(r['total']):,}` puan")
