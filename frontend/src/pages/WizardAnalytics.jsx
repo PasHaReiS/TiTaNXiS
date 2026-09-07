@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Sparkles, Download, Upload, FileSpreadsheet, Languages, TrendingUp, Activity } from "lucide-react";
+import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
 import Header from "@/components/Header";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -261,9 +262,9 @@ export default function WizardAnalytics() {
               >
                 <h3 className="text-sm font-bold uppercase mb-3 tracking-widest flex items-center gap-2" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }}>
                   <TrendingUp className="w-4 h-4" style={{ color: "#10B981" }} />
-                  {t("wa_daily", { defaultValue: "Günlük Açılma (30G)" })}
+                  {t("wa_daily", { defaultValue: "Günlük Dönüşüm (30G)" })}
                 </h3>
-                <Sparkline data={d.daily_opens_30d || []} />
+                <ConversionTrend data={d.daily_conversion_30d || []} fallback={d.daily_opens_30d || []} />
               </div>
             </div>
 
@@ -417,6 +418,40 @@ function Sparkline({ data }) {
           title={`${d.date}: ${d.opens}`}
         />
       ))}
+    </div>
+  );
+}
+
+// v141 — Günlük dönüşüm trend chart'ı. `daily_conversion_30d` boşsa
+// fallback olarak `daily_opens_30d`'yi bar chart olarak çizer.
+function ConversionTrend({ data, fallback }) {
+  const rows = (data && data.length ? data : (fallback || []).map((r) => ({ ...r, success: 0, conv: 0 })));
+  if (!rows.length) {
+    return <div className="text-xs opacity-50 py-8 text-center">Henüz veri yok.</div>;
+  }
+  return (
+    <div style={{ width: "100%", height: 160 }} data-testid="wa-conversion-trend">
+      <ResponsiveContainer>
+        <LineChart data={rows} margin={{ top: 5, right: 10, bottom: 0, left: -20 }}>
+          <CartesianGrid stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
+          <XAxis dataKey="date" stroke="rgba(255,255,255,0.4)" style={{ fontSize: 10 }} tickFormatter={(v) => v.slice(5)} />
+          <YAxis stroke="rgba(255,255,255,0.4)" style={{ fontSize: 10 }} />
+          <Tooltip
+            contentStyle={{
+              background: "#1a0f0a",
+              border: "1px solid rgba(245,158,11,0.4)",
+              borderRadius: 8,
+              fontSize: 12,
+              color: "#F5F0E8",
+            }}
+            labelStyle={{ color: "#F59E0B" }}
+          />
+          <Legend wrapperStyle={{ fontSize: 10 }} iconSize={10} />
+          <Line type="monotone" dataKey="opens" name="Açılış" stroke="#A855F7" strokeWidth={2} dot={{ r: 2 }} />
+          <Line type="monotone" dataKey="success" name="Başarı" stroke="#10B981" strokeWidth={2} dot={{ r: 2 }} />
+          <Line type="monotone" dataKey="conv" name="Dönüşüm %" stroke="#F59E0B" strokeWidth={2} dot={{ r: 2 }} strokeDasharray="4 4" />
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   );
 }

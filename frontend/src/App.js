@@ -20,6 +20,7 @@ import PointsAbout from "@/pages/PointsAbout";
 import PointCalcPage from "@/pages/PointCalcPage";
 import PublicPointCalcPage from "@/pages/PublicPointCalcPage";
 import WizardAnalytics from "@/pages/WizardAnalytics";
+import CronHealth from "@/pages/CronHealth";
 import PublicFolderLeaderboard from "@/pages/PublicFolderLeaderboard";
 import VipSupport from "@/pages/VipSupport";
 import Dashboard from "@/pages/Dashboard";
@@ -160,6 +161,7 @@ function AppShell() {
           <Route path="/admin/push-analitik" element={<RequireAdmin><MotionPage><PushAnalytics /></MotionPage></RequireAdmin>} />
           <Route path="/admin/push-analytics" element={<RequireAdmin><MotionPage><PushAnalytics /></MotionPage></RequireAdmin>} />
           <Route path="/admin/wizard-analytics" element={<RequireAdmin><MotionPage><WizardAnalytics /></MotionPage></RequireAdmin>} />
+          <Route path="/admin/cron-health" element={<RequireAdmin><MotionPage><CronHealth /></MotionPage></RequireAdmin>} />
           <Route path="/sablonlar" element={<RequireAdmin><MotionPage><Templates /></MotionPage></RequireAdmin>} />
           <Route path="/uye-ekle-ocr" element={<RequireAdmin><MotionPage><MemberAddOcr /></MotionPage></RequireAdmin>} />
           <Route path="/admin/gorevler" element={<RequireAdmin><MotionPage><AdminTodos /></MotionPage></RequireAdmin>} />

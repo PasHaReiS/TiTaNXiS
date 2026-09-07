@@ -147,6 +147,35 @@ def make_wizard_analytics_router(db, require_admin, optional_auth=None, broadcas
             async for r in db.pc_wizard_events.aggregate(daily_pipeline)
         ]
 
+        # v141 — Daily conversion trend: her gün için opens vs success
+        # birlikte döner. Frontend recharts LineChart bunu ikili line'a
+        # dönüştürür (kayıp adımlarını görsel olarak bulmak için).
+        conv_pipeline = [
+            {"$match": {**base_extra, "created_at": {"$gte": since_30},
+                        "event": {"$in": ["wizard_opened", "step3_import_success"]}}},
+            {"$group": {
+                "_id": {
+                    "date": {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}},
+                    "event": "$event",
+                },
+                "count": {"$sum": 1},
+            }},
+        ]
+        conv_rows = await db.pc_wizard_events.aggregate(conv_pipeline).to_list(1000)
+        conv_by_day: dict = {}
+        for r in conv_rows:
+            d = r["_id"]["date"]
+            row = conv_by_day.setdefault(d, {"date": d, "opens": 0, "success": 0})
+            if r["_id"]["event"] == "wizard_opened":
+                row["opens"] = r["count"]
+            elif r["_id"]["event"] == "step3_import_success":
+                row["success"] = r["count"]
+        daily_conv = sorted(
+            [{**v, "conv": round(100 * v["success"] / v["opens"], 1) if v["opens"] else 0}
+             for v in conv_by_day.values()],
+            key=lambda x: x["date"],
+        )
+
         # Top 5 users (last 30d, only if user_id NOT filtered)
         top_users = []
         if not user_id:
@@ -166,6 +195,7 @@ def make_wizard_analytics_router(db, require_admin, optional_auth=None, broadcas
             "last_30_days": last30,
             "by_kind_30d": by_kind,
             "daily_opens_30d": daily,
+            "daily_conversion_30d": daily_conv,
             "top_users_30d": top_users,
         }
 

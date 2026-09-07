@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 7, 2026 (v141 — Refactor Phase 7 + Wizard Conversion Chart + Cron Health Dashboard)** — Backend + Frontend:
+  - **Refactor Phase 7**: `routes/event_messages.py` yeni (GET/POST event chat). server.py **10,564 → 10,536 satır** (kümülatif Phase 1-7: **11,836 → 10,536, %11.0 azalma, 1,300 satır ekstrakt; 22 route modülü**).
+  - **Wizard Analytics — Conversion Chart**: `/summary` yeni alan `daily_conversion_30d` (opens+success+conv%). Frontend Sparkline → recharts LineChart (3 çizgi: Açılış/Başarı/Dönüşüm%), Cinzel serif başlık "Günlük Dönüşüm (30G)". Kayıp adımları görsel olarak yakalamak için opens vs success divergence anında görünüyor.
+  - **Cron Sağlık Dashboardu**: `routes/cron_health.py` yeni. `GET /admin/cron-health` — `.emergent/crons.yml` parse edip (dep-free minimal YAML reader) + `cron_health_log` collection'ı ile birleştirir. Frontend `/admin/cron-health` sayfası — her cron için renkli badge (Sağlıklı/Bayat/Hatalı/Kapalı), cron expr, endpoint, son çalışma zamanı (dk/sa/gün), başarı/hata sayaçları. 60s auto-refresh.
+  - **Verify**: (a) event_messages 200, (b) cron-health 11 cron döndü (`auto-archive-sweep` first, tüm entries doğru parse edilmiş), (c) wizard summary `daily_conversion_30d=[{date, opens:1, success:1, conv:100.0}]`, (d) frontend cron page + chart doğrulanacak.
+
+
 - **Feb 7, 2026 (v141 — Cron Wire + Refactor Phase 6 + Wizard CSV Export)** — Backend + Frontend:
   - **Cron Wire**: `.emergent/crons.yml`'e `wizard-analytics-alert-check` eklendi — her gün 03:00 UTC'de `POST /api/wizard-analytics/check-alerts` tetiklenir. 30G opens ≥ 5 VE conv < %40 ise admin'lere otomatik Web Push (24s cool-down). Manuel "Alarm Testi" butonu backup olarak kaldı.
   - **Refactor Phase 6**: `routes/members_read.py` yeni — `GET /alliances` + `GET /members/{id}` (bio join dahil). Sadece `db` dep. server.py **10,585 → 10,564 satır** (kümülatif Phase 1-6: **11,836 → 10,564, %10.7 azalma, 1,272 satır ekstrakt**).
