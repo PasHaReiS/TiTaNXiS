@@ -229,3 +229,70 @@ def make_wizard_analytics_router(db, require_admin, optional_auth=None, broadcas
         }
 
     return router
+
+
+def make_wizard_csv_router(db, require_admin):
+    """v141 — Ayrı router: /wizard-analytics/export.csv (filtered event dump)."""
+    from fastapi.responses import Response
+    import csv, io
+    csv_router = APIRouter()
+
+    @csv_router.get("/wizard-analytics/export.csv")
+    async def export_csv(
+        _: dict = Depends(require_admin),
+        since: Optional[str] = None,
+        until: Optional[str] = None,
+        user_id: Optional[str] = None,
+        kind: Optional[str] = None,
+        limit: int = 5000,
+    ):
+        """CSV export of raw wizard events matching the given filters. Powers
+        the "CSV İndir" button on /admin/wizard-analytics for audit/deep-dive."""
+        q: dict = {}
+        now = datetime.now(timezone.utc)
+        if since:
+            try:
+                d = datetime.fromisoformat(since.replace("Z", "+00:00"))
+                q.setdefault("created_at", {})["$gte"] = d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+            except Exception:
+                raise HTTPException(400, f"invalid since: {since}")
+        if until:
+            try:
+                d = datetime.fromisoformat(until.replace("Z", "+00:00"))
+                q.setdefault("created_at", {})["$lte"] = d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+            except Exception:
+                raise HTTPException(400, f"invalid until: {until}")
+        if user_id:
+            q["user_id"] = user_id
+        if kind and kind.lower() in ("pre", "diger"):
+            q["kind"] = kind.lower()
+
+        cursor = db.pc_wizard_events.find(q, {"_id": 0}).sort("created_at", -1).limit(min(20000, max(1, limit)))
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(["created_at", "event", "kind", "user_id", "user_username", "user_role", "session_id", "meta"])
+        n = 0
+        async for r in cursor:
+            ca = r.get("created_at")
+            if hasattr(ca, "isoformat"):
+                ca = ca.isoformat()
+            w.writerow([
+                ca or "",
+                r.get("event") or "",
+                r.get("kind") or "",
+                r.get("user_id") or "",
+                r.get("user_username") or "",
+                r.get("user_role") or "",
+                r.get("session_id") or "",
+                str(r.get("meta") or {}),
+            ])
+            n += 1
+        fname = f"wizard_events_{now.strftime('%Y%m%d_%H%M')}.csv"
+        return Response(
+            content=buf.getvalue(),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{fname}"',
+                     "X-Rows-Exported": str(n)},
+        )
+
+    return csv_router

@@ -61,3 +61,9 @@ crons:
     endpoint: "{{BASE_URL}}/api/cron/purge-stale-event-order"
     method: POST
     enabled: true
+  - name: wizard-analytics-alert-check
+    description: "v141 — Nightly at 03:00 UTC: probes wizard funnel; if 30d opens≥5 AND conv_end_to_end<40 fires Web Push to admins (24h cool-down)."
+    cron: "0 3 * * *"
+    endpoint: "{{BASE_URL}}/api/wizard-analytics/check-alerts"
+    method: POST
+    enabled: true

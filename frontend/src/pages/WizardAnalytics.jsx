@@ -163,6 +163,39 @@ export default function WizardAnalytics() {
             >
               🚨 Alarm Testi
             </button>
+            <button
+              onClick={() => {
+                const p = new URLSearchParams();
+                if (filters.since) p.set("since", filters.since);
+                if (filters.until) p.set("until", filters.until);
+                if (filters.user_id) p.set("user_id", filters.user_id);
+                if (filters.kind) p.set("kind", filters.kind);
+                const token = localStorage.getItem("ol_token");
+                const url = `${process.env.REACT_APP_BACKEND_URL}/api/wizard-analytics/export.csv${p.toString() ? `?${p.toString()}` : ""}`;
+                fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+                  .then((r) => r.blob())
+                  .then((blob) => {
+                    const dl = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = dl;
+                    a.download = `wizard_events_${new Date().toISOString().slice(0,10)}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(dl);
+                  });
+              }}
+              data-testid="wa-export-csv"
+              className="h-9 px-3 rounded-lg text-xs font-bold inline-flex items-center justify-center gap-1"
+              style={{
+                background: "linear-gradient(135deg,#059669,#10B981)",
+                color: "#fff",
+                boxShadow: "0 4px 12px rgba(16,185,129,0.3)",
+              }}
+              title="Filtrelenmiş olayları CSV olarak indir"
+            >
+              📥 CSV İndir
+            </button>
           </div>
         </div>
 

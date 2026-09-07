@@ -490,11 +490,7 @@ async def list_members(search: Optional[str] = None, country: Optional[str] = No
     return docs
 
 
-@api_router.get("/alliances")
-async def list_alliances():
-    """Return distinct alliance names for autocomplete."""
-    names = await db.members.distinct("alliance_name")
-    return sorted([n for n in names if n])
+# /alliances + /members/{id} GET → routes/members_read.py (Refactor Phase 6)
 
 
 # v124 — Legal documents (Privacy / Terms / Aydınlatma) served in the
@@ -738,28 +734,7 @@ async def members_castle_stats():
     }
 
 
-@api_router.get("/members/{member_id}")
-async def get_member(member_id: str):
-    doc = await db.members.find_one({"id": member_id}, {"_id": 0})
-    if not doc:
-        raise HTTPException(404, "Üye bulunamadı")
-    # v135.29 — Public bio join. If any app-user has linked this member
-    # (users.member_ids), surface their `bio` on the member doc so the
-    # MemberProfileDialog can render it without a second round-trip.
-    try:
-        linked = await db.users.find_one(
-            {"$or": [
-                {"member_ids": member_id},
-                {"member_id": member_id},
-            ]},
-            {"_id": 0, "bio": 1, "username": 1},
-        )
-        if linked and (linked.get("bio") or "").strip():
-            doc["bio"] = linked["bio"]
-            doc["bio_author_username"] = linked.get("username")
-    except Exception:
-        pass
-    return doc
+# /members/{id} GET → routes/members_read.py
 
 
 # /members/{id}/history + /members/{id}/changes + bulk-country + bulk-rank
@@ -10073,10 +10048,11 @@ app.include_router(make_event_groups_router(
     auto_issue_certs_for_event=lambda eid: globals()["_auto_issue_certs_for_event"](eid),
 ), prefix="/api")
 # v141 — Wizard funnel analytics
-from routes.wizard_analytics import make_wizard_analytics_router
+from routes.wizard_analytics import make_wizard_analytics_router, make_wizard_csv_router
 app.include_router(make_wizard_analytics_router(
     db, require_admin, optional_auth=_optional_auth, broadcast_push=_broadcast_push,
 ), prefix="/api")
+app.include_router(make_wizard_csv_router(db, require_admin), prefix="/api")
 # v141 — Refactor Phase 5: Points/Scores CRUD + /stats
 from routes.points import make_points_router
 app.include_router(make_points_router(
@@ -10086,6 +10062,9 @@ app.include_router(make_points_router(
 ), prefix="/api")
 from routes.stats import make_stats_router
 app.include_router(make_stats_router(db), prefix="/api")
+# v141 — Refactor Phase 6: members read + alliances
+from routes.members_read import make_members_read_router
+app.include_router(make_members_read_router(db), prefix="/api")
 
 
 # v135.36 — Auto-issue certificates to attendees when an event archives.

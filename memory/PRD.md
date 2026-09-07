@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 7, 2026 (v141 — Cron Wire + Refactor Phase 6 + Wizard CSV Export)** — Backend + Frontend:
+  - **Cron Wire**: `.emergent/crons.yml`'e `wizard-analytics-alert-check` eklendi — her gün 03:00 UTC'de `POST /api/wizard-analytics/check-alerts` tetiklenir. 30G opens ≥ 5 VE conv < %40 ise admin'lere otomatik Web Push (24s cool-down). Manuel "Alarm Testi" butonu backup olarak kaldı.
+  - **Refactor Phase 6**: `routes/members_read.py` yeni — `GET /alliances` + `GET /members/{id}` (bio join dahil). Sadece `db` dep. server.py **10,585 → 10,564 satır** (kümülatif Phase 1-6: **11,836 → 10,564, %10.7 azalma, 1,272 satır ekstrakt**).
+  - **Wizard CSV Export**: `routes/wizard_analytics.py`'ye ikinci router (`make_wizard_csv_router`) eklendi. `GET /wizard-analytics/export.csv` filtreli event dump'ı akan CSV olarak döner (`since/until/user_id/kind/limit` query params). Response header'ında `X-Rows-Exported`. Frontend'de yeşil "📥 CSV İndir" butonu filtreleri qs'e ekleyerek fetch edip blob → download tetikler.
+  - **Verify (canlı DB)**: (a) `/alliances` = 200, `/members/{id}` = 200 (Phase 6), (b) `/wizard-analytics/export.csv?since=2020-01-01` CSV header + 8 event satırı döndü, `?kind=pre` filtresi çalışıyor (X-Rows-Exported doğru sayı), (c) tüm regresyon endpoint'leri (commanders, alliance-colors, point-calc, unit-costs, legal, stats, points, scores) = 200, (d) crons.yml'e yeni entry doğru yerde.
+
+
 - **Feb 7, 2026 (v141 — Refactor Phase 5 + Wizard Analytics Filter + Alert)** — Backend + Frontend:
   - **Refactor Phase 5**: `routes/points.py` yeni (11 endpoint — /points CRUD + /points/bulk + /scores alias'lar, `enrich_point` + `enrich_points_batch` DI). `routes/stats.py` yeni (/stats endpoint). server.py **10,697 → 10,585 satır** (kümülatif Phase 1-5: **11,836 → 10,585, %10.6 azalma; 1,251 satır ekstrakt**).
   - **Wizard Analytics — Filtre**: `/wizard-analytics/summary` yeni query params (`since`, `until`, `user_id`, `kind`). Filtreli mod: özel `range` içeren `filtered` bloğu döner. Default mod: 7g + 30g + `by_kind_30d` + `daily_opens_30d` + **yeni** `top_users_30d` (en aktif 5 kullanıcı, tıklayınca kullanıcı filtresine dönüşüyor). Telemetry `user_username` de kaydediyor artık.
