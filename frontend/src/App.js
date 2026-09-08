@@ -167,6 +167,7 @@ function AppShell() {
           <Route path="/admin/wizard-analytics" element={<RequireAdmin><MotionPage><WizardAnalytics /></MotionPage></RequireAdmin>} />
           <Route path="/admin/cron-health" element={<RequireAdmin><MotionPage><CronHealth /></MotionPage></RequireAdmin>} />
           <Route path="/admin/duplicate-members" element={<RequireAdmin><MotionPage><DuplicateMembers /></MotionPage></RequireAdmin>} />
+          <Route path="/admin/duplicate-uyeler" element={<RequireAdmin><MotionPage><DuplicateMembers /></MotionPage></RequireAdmin>} />
           <Route path="/admin/audit-log" element={<RequireAdmin><MotionPage><AuditLog /></MotionPage></RequireAdmin>} />
           <Route path="*" element={<NotFound />} />
           <Route path="/sablonlar" element={<RequireAdmin><MotionPage><Templates /></MotionPage></RequireAdmin>} />

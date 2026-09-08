@@ -20,7 +20,16 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 7, 2026 (v141 — Undo Snackbar 5 silme akışına wire edildi)** — Frontend:
+- **Feb 7, 2026 (v141 — Build fix + Admin menü linkleri)** — Frontend:
+  - Build zaten temizdi (yarn build 36s'de yeşil). Önceki Undo Snackbar wire'ları etkilenmedi.
+  - Header dropdown menüsüne 3 admin-only link eklendi (`admin` kontrolü ile gizli/görünür):
+    - 🔍 **Duplicate Üyeler** → `/admin/duplicate-uyeler` (yeni alias route, aynı `DuplicateMembers` component'e mapleniyor)
+    - 📋 **Audit Log** → `/admin/audit-log`
+    - 🔔 **Bildirim Yönlendirme** → `/admin/bildirim-yonlendirme`
+  - `data-testid`'ler: `dropdown-duplicate-members`, `dropdown-audit-log`, `dropdown-notification-routing`
+  - `App.js`'e `/admin/duplicate-uyeler` alias route eklendi (`/admin/duplicate-members` de çalışmaya devam eder)
+  - `tr.js`'e 3 yeni anahtar: `nav_duplicate_members`, `nav_audit_log`, `nav_notification_routing`
+  - Tüm 3 sayfa var olduğu doğrulandı: `DuplicateMembers.jsx`, `AuditLog.jsx`, `NotificationRouting.jsx`.
   - **Wired**: Members delete (Members.jsx:1365), Event delete (Events.jsx:2293 içinde EventDetailModal), Announcement delete (Announcements.jsx:127), Score/Point delete (PointsList.jsx:130), OCR bulk undo (OcrUndoPanel.jsx:145).
   - Her silme öncesi `snapshot = { ...record }` alınır; silme sonrası `showUndo({message, onUndo: () => api.post(recreate)})` 5s snackbar tetiklenir. "Geri Al" tıklanırsa POST ile record yeniden yaratılır ve SWR cache invalide edilir.
   - **OCR özel**: undo-bulk sonrası "Geri Al" = `POST /ocr/audit/redo-bulk` (var olan endpoint), OCR ekleme etkisini yeniden uygular.

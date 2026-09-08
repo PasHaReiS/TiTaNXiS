@@ -320,6 +320,30 @@ export default function Header({ title, children }) {
                       testId="dropdown-users"
                     />
                   )}
+                  {isAdmin && (
+                    <MenuItem
+                      emoji="🔍"
+                      label={t("nav_duplicate_members", { defaultValue: "Duplicate Üyeler" })}
+                      onClick={() => goto("/admin/duplicate-uyeler")}
+                      testId="dropdown-duplicate-members"
+                    />
+                  )}
+                  {isAdmin && (
+                    <MenuItem
+                      emoji="📋"
+                      label={t("nav_audit_log", { defaultValue: "Audit Log" })}
+                      onClick={() => goto("/admin/audit-log")}
+                      testId="dropdown-audit-log"
+                    />
+                  )}
+                  {isAdmin && (
+                    <MenuItem
+                      emoji="🔔"
+                      label={t("nav_notification_routing", { defaultValue: "Bildirim Yönlendirme" })}
+                      onClick={() => goto("/admin/bildirim-yonlendirme")}
+                      testId="dropdown-notification-routing"
+                    />
+                  )}
                   <div style={{ height: 1, background: "rgba(231,76,26,0.3)" }} />
                   <MenuItem
                     emoji="🚪"
