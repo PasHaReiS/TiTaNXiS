@@ -410,8 +410,10 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
                   </div>
                 )}
 
-                {/* v142.4 — AI Rozet Önerisi (Değişim Geçmişi'nin altında) */}
-                {memberId && (
+                {/* v142.5 — AI Rozet Önerisi paneli kullanıcı isteğiyle profil kartından gizlendi.
+                    Özellik siliNmedi; backend endpoint'ler ve BadgeAISuggestions componenti
+                    duruyor — istendiğinde `false` yerine `memberId` kullanılarak yeniden açılabilir. */}
+                {false && memberId && (
                   <div className="mt-3" data-testid="profile-ai-badge-section">
                     <BadgeAISuggestions memberId={memberId} memberName={m?.name} />
                   </div>

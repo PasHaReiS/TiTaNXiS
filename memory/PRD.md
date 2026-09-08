@@ -20,7 +20,11 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 8, 2026 (v142.4 — AI Rozet Paneli MemberProfileDialog'a taşındı)** — Frontend + backend:
+- **Feb 8, 2026 (v142.5 — AI Rozet Paneli Üye Profilinden Gizlendi)** — Frontend:
+  - `MemberProfileDialog.jsx`: `BadgeAISuggestions` render'ı `{false && memberId && ...}` guard'ı ile devre dışı bırakıldı. Component import'u, backend endpoint'leri (`/ai-badge-suggestions` alias + `/badge-suggestions/{sid}/approve|reject`), `badge_suggestions` collection ve i18n anahtarları duruyor — geri açmak için `false` → `true` (veya sadece `memberId` bırakmak) yeterli.
+  - Test: Screenshot kontrolüne gerek yok — sadece render şartı değişti, dinamik davranış aynı.
+
+
   - **Backend** (`routes/badge_ai.py`): 2 yeni alias endpoint eklendi (kullanıcı istediği yol):
     - `GET  /api/members/{id}/ai-badge-suggestions` — mevcut pending önerileri listeler
     - `POST /api/members/{id}/ai-badge-suggestions` — yeni öneri üretir (admin)
