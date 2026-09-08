@@ -8,6 +8,7 @@ import TelegramLinkSection from "@/components/TelegramLinkSection";
 import CropDialog from "@/components/CropDialog";
 import { Switch } from "@/components/ui/switch";
 import { KeyRound, Shield, User, LogOut, AlertTriangle, Link2, Bell, BellOff, Volume2, VolumeX, X as XIcon, Plus, Trophy, Zap, Castle, Crown, Medal, GitCompare, Flame, Trash2, Camera, Upload as UploadIcon } from "lucide-react";
+import BadgeAISuggestions from "@/components/BadgeAISuggestions";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -574,6 +575,10 @@ export default function Profile() {
                         </span>
                       </div>
                     )}
+                    {/* v142.3 — AI Badge Suggestion panel per linked member */}
+                    <div className="mt-2">
+                      <BadgeAISuggestions memberId={m.id} memberName={m.name} />
+                    </div>
                   </div>
                   );
                 })}

@@ -57,6 +57,11 @@ _MAX_IMAGE_BYTES = 8 * 1024 * 1024  # 8 MB hard cap
 _PROMPTS = {
     "members": (
         "You are given a screenshot of a mobile strategy game's guild member roster. "
+        "The interface may be in ANY language — Turkish, English, Japanese (日本語), "
+        "Korean (한국어), Chinese (中文), Russian (Русский), Arabic (العربية). Preserve "
+        "the ORIGINAL characters exactly as displayed for player names — do NOT transliterate. "
+        "Interpret the visual TABLE STRUCTURE (rows + columns) — each row is one member; "
+        "the same column consistently holds the same field across all rows. "
         "Extract EVERY visible member row into strict JSON with this exact shape and NOTHING else: "
         "{\"members\": [{\"name\": str, \"power\": int|null, \"castle_level\": int|null, "
         "\"alliance_name\": str|null, \"rank\": str|null}]}. "

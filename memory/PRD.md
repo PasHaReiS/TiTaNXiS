@@ -20,6 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 8, 2026 (v142.3 — 3 AI Özelliği: Skeleton/Optimistic + Vision OCR (gpt-4o-mini) + AI Rozet Önerisi)** — Full-stack:
+  - **Feature 1 — Duplicate Skeleton + Optimistic UI (`pages/DuplicateMembers.jsx`)**: SWR yüklenirken shimmer animasyonlu `SkeletonList` (5 kart) gösterilir; her kart 2 üye placeholder + 3 buton placeholder içeriyor. Merge/Yoksay butonuna basılınca çift `optimisticHidden` Set'ine eklenip anında listeden kaldırılır. Hata olursa `unhidePair()` ile geri gelir + toast (`dupmembers_merge_failed`). CSS keyframe: `dup-shimmer` 1.4s linear infinite + `dup-fade-in` 0.28s. Test ID: `dup-skeleton-list`, `dup-skeleton-{i}`.
+  - **Feature 2 — Vision API OCR (gpt-4o-mini)**: `backend/.env` → `OCR_MODEL=gpt-4o-mini`. `routes/ocr.py` "members" prompt'una çoklu-dil (JP/KR/CN/RU/AR) + tablo yapısı yönergesi eklendi. Diğer OCR modları (event, war) zaten aynı LLM router'ı kullanıyor. Mevcut fuzzy matching (`difflib`) korundu ve yeni model çıktısına da uygulanıyor.
+  - **Feature 3 — AI Rozet Önerisi**: 
+    - **Backend** (`routes/badge_ai.py` — yeni): 4 endpoint (`POST /members/{id}/badge-suggestions` generate, `GET` list pending, `POST .../{sid}/approve`, `POST .../{sid}/reject`). Stats hesaplama: total points, events_participated, rsvp_yes_streak, rank_position/total. GPT-4o-mini `EMERGENT_LLM_KEY` ile katalog verilen rozetleri öneriyor (name + reason + 0-1 confidence). Approve → `member_badges` insert + `awarded_via=ai_suggestion`. `badge_suggestions` collection (id + member_id + status index). Audit log yazımı. `BADGE_AI_MODEL=gpt-4o-mini`.
+    - **Frontend** (`components/BadgeAISuggestions.jsx` — yeni): Reusable per-member panel. Sparkles/Bot icon başlık, "🔄 Yeni Öneri" butonu (admin only, spinner animasyonu), her öneride confidence badge (%80+=yeşil / %60+=amber / <=gri) + `✅ Onayla` / `❌ Reddet` butonları. Non-admin read-only. `Profile.jsx`'te her linked member için mount edildi.
+    - i18n: 14 yeni anahtar (`badgeai_title/regen_btn/regen_hint/analysing/loading/empty/empty_admin/generated/approve/reject/approved/rejected/confidence` + `dupmembers_merge_failed`) — tr.js + en.js.
+  - **Test (curl)**: generate → 2 öneri (Fakir 0.9, Savaşçı 0.8) → approve → `member_badges` insert (already_assigned=false) → list → 1 kalan → reject → OK. ✅ Full cycle PASS.
+
 - **Feb 8, 2026 (v142.2 — Duplicate Yoksay + Geri Al)** — Full-stack:
   - **Backend (`routes/duplicates.py`)**: Yeni `duplicate_ignores` collection + 3 endpoint:
     - `POST /api/duplicates/ignore {id_a,id_b,reason?}` → pair_key (sorted ID) ile idempotent kayıt, audit_log iz.

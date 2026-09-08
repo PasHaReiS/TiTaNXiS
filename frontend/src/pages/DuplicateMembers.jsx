@@ -9,14 +9,16 @@ import Header from "@/components/Header";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
-// v142.2 — Duplicate üye tespit + merge + yoksay (ignore) admin panel.
-// Sekmeler: "Aktif Çiftler" (fuzzy önerileri) ve "Yoksayılanlar" (undo destekli).
+// v142.3 — Duplicate üye tespit + merge + yoksay + loading skeleton + optimistic UI.
+// Sekmeler: "Aktif Çiftler" (fuzzy) ve "Yoksayılanlar" (undo destekli).
 export default function DuplicateMembers() {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
-  const [tab, setTab] = useState("active"); // active | ignored
+  const [tab, setTab] = useState("active");
   const [threshold, setThreshold] = useState(0.8);
   const [busyKey, setBusyKey] = useState(null);
+  // Optimistic UI: locally-hidden pair keys (merged/ignored before server confirms).
+  const [optimisticHidden, setOptimisticHidden] = useState(new Set());
 
   const {
     data: activeData,
@@ -27,7 +29,6 @@ export default function DuplicateMembers() {
     isAdmin && tab === "active" ? `/duplicates/members?threshold=${threshold}` : null,
     fetcher,
   );
-
   const {
     data: ignoredData,
     error: ignoredError,
@@ -44,6 +45,19 @@ export default function DuplicateMembers() {
     );
   }
 
+  const hidePair = (key) =>
+    setOptimisticHidden((prev) => {
+      const n = new Set(prev);
+      n.add(key);
+      return n;
+    });
+  const unhidePair = (key) =>
+    setOptimisticHidden((prev) => {
+      const n = new Set(prev);
+      n.delete(key);
+      return n;
+    });
+
   const merge = async (primary_id, secondary_id, key) => {
     if (
       !window.confirm(
@@ -54,6 +68,8 @@ export default function DuplicateMembers() {
       )
     )
       return;
+    // OPTIMISTIC: hide row immediately
+    hidePair(key);
     setBusyKey(key);
     try {
       const res = await api.post("/duplicates/merge", { primary_id, secondary_id });
@@ -65,18 +81,30 @@ export default function DuplicateMembers() {
       mutateActive();
       mutateIgnored();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || e.message);
+      // ROLLBACK on error
+      unhidePair(key);
+      toast.error(
+        e?.response?.data?.detail
+          ? `${t("dupmembers_merge_failed", { defaultValue: "Birleştirme başarısız" })}: ${
+              e.response.data.detail
+            }`
+          : e.message,
+      );
     } finally {
       setBusyKey(null);
     }
   };
 
   const ignore = async (id_a, id_b, key) => {
+    // OPTIMISTIC: hide row immediately
+    hidePair(key);
     setBusyKey(key);
     try {
       const res = await api.post("/duplicates/ignore", { id_a, id_b });
       if (res.data.already_ignored) {
-        toast.info(t("dupmembers_already_ignored", { defaultValue: "Bu çift zaten yoksayılıyor" }));
+        toast.info(
+          t("dupmembers_already_ignored", { defaultValue: "Bu çift zaten yoksayılıyor" }),
+        );
       } else {
         toast.success(
           t("dupmembers_ignored", {
@@ -87,6 +115,7 @@ export default function DuplicateMembers() {
       mutateActive();
       mutateIgnored();
     } catch (e) {
+      unhidePair(key);
       toast.error(e?.response?.data?.detail || e.message);
     } finally {
       setBusyKey(null);
@@ -111,7 +140,8 @@ export default function DuplicateMembers() {
     }
   };
 
-  const pairs = activeData || [];
+  const rawPairs = activeData || [];
+  const pairs = rawPairs.filter((p) => !optimisticHidden.has(`${p.a.id}-${p.b.id}`));
   const ignoredList = ignoredData || [];
 
   return (
@@ -119,7 +149,6 @@ export default function DuplicateMembers() {
       <div className="max-w-6xl mx-auto p-4">
         <Header title={t("dupmembers_title", { defaultValue: "Duplicate Üyeler" })}>
           <div className="flex flex-wrap items-center gap-3 justify-between">
-            {/* Tab switcher */}
             <div className="flex gap-1" data-testid="dup-tabs">
               <TabBtn
                 active={tab === "active"}
@@ -163,7 +192,7 @@ export default function DuplicateMembers() {
         {/* ACTIVE PAIRS TAB */}
         {tab === "active" && (
           <>
-            {activeLoading && <div className="text-center opacity-60 mt-10">Aranıyor…</div>}
+            {activeLoading && <SkeletonList count={5} />}
             {activeError && (
               <div className="text-center opacity-60 mt-10" style={{ color: "#F87171" }}>
                 Hata: {activeError.message}
@@ -186,7 +215,7 @@ export default function DuplicateMembers() {
                   <div
                     key={key}
                     data-testid={`dup-pair-${i}`}
-                    className="rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+                    className="rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3 dup-fade-in"
                     style={{
                       background: "linear-gradient(180deg,#1a0f0a 0%,#0e0805 100%)",
                       border: "1px solid rgba(245,158,11,0.25)",
@@ -270,7 +299,7 @@ export default function DuplicateMembers() {
         {/* IGNORED TAB */}
         {tab === "ignored" && (
           <>
-            {ignoredLoading && <div className="text-center opacity-60 mt-10">Yükleniyor…</div>}
+            {ignoredLoading && <SkeletonList count={3} />}
             {ignoredError && (
               <div className="text-center opacity-60 mt-10" style={{ color: "#F87171" }}>
                 Hata: {ignoredError.message}
@@ -284,7 +313,6 @@ export default function DuplicateMembers() {
                 })}
               </div>
             )}
-
             <div className="grid gap-2 mt-4">
               {ignoredList.map((it) => {
                 const busy = busyKey === `u-${it.pair_key}`;
@@ -338,6 +366,65 @@ export default function DuplicateMembers() {
           </>
         )}
       </div>
+
+      {/* Shimmer + fade-in animation styles */}
+      <style>{`
+        @keyframes dup-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        .dup-skeleton {
+          background: linear-gradient(90deg,
+            rgba(245,158,11,0.06) 0%,
+            rgba(245,158,11,0.16) 50%,
+            rgba(245,158,11,0.06) 100%);
+          background-size: 200% 100%;
+          animation: dup-shimmer 1.4s linear infinite;
+          border-radius: 6px;
+        }
+        @keyframes dup-fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+        .dup-fade-in { animation: dup-fade-in 0.28s ease-out; }
+      `}</style>
+    </div>
+  );
+}
+
+function SkeletonList({ count = 5 }) {
+  return (
+    <div className="grid gap-2 mt-4" data-testid="dup-skeleton-list">
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          data-testid={`dup-skeleton-${i}`}
+          className="rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+          style={{
+            background: "linear-gradient(180deg,#1a0f0a 0%,#0e0805 100%)",
+            border: "1px solid rgba(245,158,11,0.18)",
+          }}
+        >
+          <div className="flex-1 grid grid-cols-2 gap-3 min-w-0">
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+          <div className="flex flex-col items-center gap-2 flex-shrink-0">
+            <div className="dup-skeleton" style={{ width: 48, height: 20 }} />
+            <div className="flex gap-1">
+              <div className="dup-skeleton" style={{ width: 52, height: 32 }} />
+              <div className="dup-skeleton" style={{ width: 52, height: 32 }} />
+              <div className="dup-skeleton" style={{ width: 72, height: 32 }} />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <div
+      className="rounded-lg p-3"
+      style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}
+    >
+      <div className="dup-skeleton mb-2" style={{ width: "70%", height: 14 }} />
+      <div className="dup-skeleton" style={{ width: "55%", height: 10 }} />
     </div>
   );
 }

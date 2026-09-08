@@ -9874,6 +9874,9 @@ from routes.alliances import make_alliances_router
 app.include_router(make_alliances_router(db, require_edit), prefix="/api")
 from routes.badges import make_badges_router, ensure_badges_indexes, seed_preset_badges
 app.include_router(make_badges_router(db, require_auth, require_admin), prefix="/api")
+
+from routes.badge_ai import make_badge_ai_router, ensure_badge_ai_indexes
+app.include_router(make_badge_ai_router(db, require_auth, require_admin), prefix="/api")
 from routes.event_templates import make_event_templates_router, ensure_event_templates_indexes
 app.include_router(make_event_templates_router(db, require_auth, require_admin), prefix="/api")
 from routes.rollcalls import make_rollcalls_router, ensure_rollcalls_indexes
@@ -10459,10 +10462,12 @@ async def startup():
         from routes.badges import ensure_badges_indexes as _ebi, seed_preset_badges as _spb
         from routes.event_templates import ensure_event_templates_indexes as _eeti
         from routes.rollcalls import ensure_rollcalls_indexes as _eri
+        from routes.badge_ai import ensure_badge_ai_indexes as _ebai
         await _ebi(db)
         await _spb(db)
         await _eeti(db)
         await _eri(db)
+        await _ebai(db)
     except Exception as _e:
         logging.getLogger("server").warning(f"v135 feature index/seed: {_e}")
 
