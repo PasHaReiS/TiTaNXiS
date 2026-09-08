@@ -20,6 +20,19 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 8, 2026 (v142 — Header/Menü Yeniden Yapılandırması)** — Frontend:
+  - `components/Header.jsx` dropdown menüsü yeniden düzenlendi:
+    - **Kök seviye (tüm giriş yapmış kullanıcılar)**: Anketler, Lonca Kuralları, Profilim, SvS Takip, VIP Destek
+    - **Yönetim accordion** (yalnızca `isAdmin` veya `canEdit`): Bildirimler, Duyurular, Detaylı Rapor (Excel), Görevler, Kullanıcı Yönetimi, Puanlar Hakkında, Rozet Yönetimi, Sertifika Ver, Şablonlar, Duplicate Üyeler, Audit Log, Bildirim Yönlendirme
+    - **Çıkış Yap** — ayırıcının altında sabit kaldı
+  - `📸 Üye Ekle — OCR` menüden **tamamen gizlendi** (route `/uye-ekle-ocr` hâlâ Members sayfasındaki "Üye Ekle" butonundan erişilebilir).
+  - Yeni state: `yonetimOpen` (varsayılan collapsed, menü kapanınca reset).
+  - Yeni test ID: `dropdown-yonetim-toggle`, `dropdown-yonetim-panel`.
+  - Yeni i18n anahtarları: `nav_management_group` ("Yönetim"/"Management"), `nav_user_mgmt` ("Kullanıcı Yönetimi"/"User Management") — tr.js + en.js.
+  - Kullanıcı Yönetimi item'ı artık `user_mgmt` (="Yönetim") yerine `nav_user_mgmt` (="Kullanıcı Yönetimi") kullanıyor, accordion başlığı ile çakışma önlendi.
+  - Doğrulama: Mobile (390x844) + Desktop (1920x800) screenshot — OCR yok (0), accordion çalışıyor, tüm root ve admin öğeleri doğru.
+
+
 - **Feb 7, 2026 (v141 — Build fix + Admin menü linkleri)** — Frontend:
   - Build zaten temizdi (yarn build 36s'de yeşil). Önceki Undo Snackbar wire'ları etkilenmedi.
   - Header dropdown menüsüne 3 admin-only link eklendi (`admin` kontrolü ile gizli/görünür):

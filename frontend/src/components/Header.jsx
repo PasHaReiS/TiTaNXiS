@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound, Activity, Sparkles, LayoutGrid, LifeBuoy, LayoutDashboard, History, BellRing, Megaphone } from "lucide-react";
+import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound, Activity, Sparkles, LayoutGrid, LifeBuoy, LayoutDashboard, History, BellRing, Megaphone, ChevronDown, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import LogoVideoModal from "@/components/LogoVideoModal";
@@ -49,7 +49,14 @@ export default function Header({ title, children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [guestMenuOpen, setGuestMenuOpen] = useState(false);
   const [logoVideoOpen, setLogoVideoOpen] = useState(false);
+  const [yonetimOpen, setYonetimOpen] = useState(false);
   const menuRef = useRef(null);
+
+  // Reset "Yönetim" accordion when the main dropdown is closed so re-opening
+  // the profile menu always starts clean/collapsed.
+  useEffect(() => {
+    if (!menuOpen) setYonetimOpen(false);
+  }, [menuOpen]);
 
   const downloadXlsx = () => {
     try {
@@ -204,101 +211,30 @@ export default function Header({ title, children }) {
                     overflow: "visible",
                   }}
                 >
-                  {/* v135.1 — Dropdown items sorted alphabetically per
-                      Turkish collation (a b c ç d e f g ğ h ı i j k l m n o
-                      ö p r s ş t u ü v y z). "Çıkış Yap" is pinned to the
-                      bottom (below a divider) regardless of alphabetical
-                      position per explicit user UX request — destructive
-                      action stays out of the sort. */}
+                  {/* v136 — Menü yeniden yapılandırması:
+                      • Kullanıcı öğeleri kök seviyede (Türkçe alfabetik).
+                      • Admin/editor öğeleri "Yönetim" accordion altında.
+                      • "Üye Ekle — OCR" tamamen gizlendi.
+                      • "Çıkış Yap" ayırıcının altında sabit. */}
+
+                  {/* Root-level user items (all logged-in users) */}
                   <MenuItem
                     emoji="🗳️"
                     label={t("dropdown_polls", "Anketler")}
                     onClick={() => goto("/anketler")}
                     testId="dropdown-polls"
                   />
-                  {canEdit && (
-                    <MenuItem
-                      emoji="🔔"
-                      label={t("nav_notifications_hub") || "Bildirimler"}
-                      onClick={() => goto("/etkinlik-bildirimleri")}
-                      testId="dropdown-event-notifications"
-                    />
-                  )}
-                  {isAdmin && (
-                    <MenuItem
-                      emoji="📥"
-                      label={t("detailed_report")}
-                      onClick={downloadXlsx}
-                      testId="dropdown-export"
-                    />
-                  )}
-                  {isAdmin && (
-                    <MenuItem
-                      emoji="📣"
-                      label="Duyurular"
-                      onClick={() => goto("/admin/duyurular")}
-                      testId="dropdown-announcements"
-                    />
-                  )}
-                  <MenuItem
-                    emoji="🙂"
-                    label={t("my_profile")}
-                    onClick={() => goto("/profil")}
-                    testId="dropdown-profile"
-                  />
-                  {isAdmin && (
-                    <MenuItem
-                      emoji="📖"
-                      label={t("nav_points_about") || "Puanlar Hakkında"}
-                      onClick={() => goto("/puanlar-hakkinda")}
-                      testId="dropdown-points-about"
-                    />
-                  )}
-                  {isAdmin && (
-                    <MenuItem
-                      emoji="🏅"
-                      label="Rozet Yönetimi"
-                      onClick={() => goto("/admin/rozetler")}
-                      testId="dropdown-badges"
-                    />
-                  )}
-                  {isAdmin && (
-                    <MenuItem
-                      emoji="📚"
-                      label={t("nav_templates", "Şablonlar")}
-                      onClick={() => goto("/sablonlar")}
-                      testId="dropdown-templates"
-                    />
-                  )}
-                  {isAdmin && (
-                    <MenuItem
-                      emoji="📸"
-                      label={t("nav_member_add_ocr", "Üye Ekle — OCR")}
-                      onClick={() => goto("/uye-ekle-ocr")}
-                      testId="dropdown-member-add-ocr"
-                    />
-                  )}
-                  {isAdmin && (
-                    <MenuItem
-                      emoji="📋"
-                      label={t("nav_admin_todos", "Görevler")}
-                      onClick={() => goto("/admin/gorevler")}
-                      testId="dropdown-admin-todos"
-                    />
-                  )}
-                  {isAdmin && (
-                    <MenuItem
-                      emoji="🏆"
-                      label={t("nav_issue_cert", "Sertifika Ver")}
-                      onClick={() => goto("/admin/sertifika-ver")}
-                      testId="dropdown-issue-cert"
-                    />
-                  )}
                   <MenuItem
                     emoji="📜"
                     label={t("nav_guild_rules", "Lonca Kuralları")}
                     onClick={() => goto("/kurallar")}
                     testId="dropdown-guild-rules"
+                  />
+                  <MenuItem
+                    emoji="🙂"
+                    label={t("my_profile")}
+                    onClick={() => goto("/profil")}
+                    testId="dropdown-profile"
                   />
                   <MenuItem
                     emoji="⚔️"
@@ -312,38 +248,146 @@ export default function Header({ title, children }) {
                     onClick={() => goto("/vip-destek")}
                     testId="dropdown-vip-support"
                   />
-                  {isAdmin && (
-                    <MenuItem
-                      emoji="👤"
-                      label={t("user_mgmt")}
-                      onClick={() => goto("/kullanicilar")}
-                      testId="dropdown-users"
-                    />
+
+                  {/* Management accordion — visible only to admins/editors */}
+                  {(isAdmin || canEdit) && (
+                    <>
+                      <div style={{ height: 1, background: "rgba(231,76,26,0.3)", margin: "4px 0" }} />
+                      <button
+                        type="button"
+                        data-testid="dropdown-yonetim-toggle"
+                        aria-expanded={yonetimOpen}
+                        onClick={() => setYonetimOpen((v) => !v)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors hover:bg-primary/15"
+                        style={{
+                          fontFamily: "Cinzel, Rajdhani, serif",
+                          letterSpacing: "0.08em",
+                          color: "#F5D06A",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {yonetimOpen ? (
+                          <ChevronDown className="w-3.5 h-3.5 gold-text flex-shrink-0" />
+                        ) : (
+                          <ChevronRight className="w-3.5 h-3.5 gold-text flex-shrink-0" />
+                        )}
+                        <span className="flex-1 truncate">
+                          {t("nav_management_group", "Yönetim")}
+                        </span>
+                        <Shield className="w-3 h-3 gold-text opacity-70 flex-shrink-0" />
+                      </button>
+                      {yonetimOpen && (
+                        <div
+                          data-testid="dropdown-yonetim-panel"
+                          style={{
+                            background: "rgba(0,0,0,0.35)",
+                            borderTop: "1px solid rgba(231,76,26,0.2)",
+                            borderBottom: "1px solid rgba(231,76,26,0.2)",
+                            paddingLeft: 10,
+                          }}
+                        >
+                          {canEdit && (
+                            <MenuItem
+                              emoji="🔔"
+                              label={t("nav_notifications_hub") || "Bildirimler"}
+                              onClick={() => goto("/etkinlik-bildirimleri")}
+                              testId="dropdown-event-notifications"
+                            />
+                          )}
+                          {isAdmin && (
+                            <MenuItem
+                              emoji="📣"
+                              label={t("nav_announcements", "Duyurular")}
+                              onClick={() => goto("/admin/duyurular")}
+                              testId="dropdown-announcements"
+                            />
+                          )}
+                          {isAdmin && (
+                            <MenuItem
+                              emoji="📥"
+                              label={t("detailed_report")}
+                              onClick={downloadXlsx}
+                              testId="dropdown-export"
+                            />
+                          )}
+                          {isAdmin && (
+                            <MenuItem
+                              emoji="📋"
+                              label={t("nav_admin_todos", "Görevler")}
+                              onClick={() => goto("/admin/gorevler")}
+                              testId="dropdown-admin-todos"
+                            />
+                          )}
+                          {isAdmin && (
+                            <MenuItem
+                              emoji="👤"
+                              label={t("nav_user_mgmt", { defaultValue: "Kullanıcı Yönetimi" })}
+                              onClick={() => goto("/kullanicilar")}
+                              testId="dropdown-users"
+                            />
+                          )}
+                          {isAdmin && (
+                            <MenuItem
+                              emoji="📖"
+                              label={t("nav_points_about") || "Puanlar Hakkında"}
+                              onClick={() => goto("/puanlar-hakkinda")}
+                              testId="dropdown-points-about"
+                            />
+                          )}
+                          {isAdmin && (
+                            <MenuItem
+                              emoji="🏅"
+                              label={t("nav_badges_admin", "Rozet Yönetimi")}
+                              onClick={() => goto("/admin/rozetler")}
+                              testId="dropdown-badges"
+                            />
+                          )}
+                          {isAdmin && (
+                            <MenuItem
+                              emoji="🏆"
+                              label={t("nav_issue_cert", "Sertifika Ver")}
+                              onClick={() => goto("/admin/sertifika-ver")}
+                              testId="dropdown-issue-cert"
+                            />
+                          )}
+                          {isAdmin && (
+                            <MenuItem
+                              emoji="📚"
+                              label={t("nav_templates", "Şablonlar")}
+                              onClick={() => goto("/sablonlar")}
+                              testId="dropdown-templates"
+                            />
+                          )}
+                          {isAdmin && (
+                            <MenuItem
+                              emoji="🔍"
+                              label={t("nav_duplicate_members", { defaultValue: "Duplicate Üyeler" })}
+                              onClick={() => goto("/admin/duplicate-uyeler")}
+                              testId="dropdown-duplicate-members"
+                            />
+                          )}
+                          {isAdmin && (
+                            <MenuItem
+                              emoji="📋"
+                              label={t("nav_audit_log", { defaultValue: "Audit Log" })}
+                              onClick={() => goto("/admin/audit-log")}
+                              testId="dropdown-audit-log"
+                            />
+                          )}
+                          {isAdmin && (
+                            <MenuItem
+                              emoji="🔔"
+                              label={t("nav_notification_routing", { defaultValue: "Bildirim Yönlendirme" })}
+                              onClick={() => goto("/admin/bildirim-yonlendirme")}
+                              testId="dropdown-notification-routing"
+                            />
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
-                  {isAdmin && (
-                    <MenuItem
-                      emoji="🔍"
-                      label={t("nav_duplicate_members", { defaultValue: "Duplicate Üyeler" })}
-                      onClick={() => goto("/admin/duplicate-uyeler")}
-                      testId="dropdown-duplicate-members"
-                    />
-                  )}
-                  {isAdmin && (
-                    <MenuItem
-                      emoji="📋"
-                      label={t("nav_audit_log", { defaultValue: "Audit Log" })}
-                      onClick={() => goto("/admin/audit-log")}
-                      testId="dropdown-audit-log"
-                    />
-                  )}
-                  {isAdmin && (
-                    <MenuItem
-                      emoji="🔔"
-                      label={t("nav_notification_routing", { defaultValue: "Bildirim Yönlendirme" })}
-                      onClick={() => goto("/admin/bildirim-yonlendirme")}
-                      testId="dropdown-notification-routing"
-                    />
-                  )}
+
                   <div style={{ height: 1, background: "rgba(231,76,26,0.3)" }} />
                   <MenuItem
                     emoji="🚪"
