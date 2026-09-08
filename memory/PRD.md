@@ -20,7 +20,21 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 8, 2026 (v142.1 — Yönetim Alt Menü Alfabetik Sıralama)** — Frontend:
+- **Feb 8, 2026 (v142.2 — Duplicate Yoksay + Geri Al)** — Full-stack:
+  - **Backend (`routes/duplicates.py`)**: Yeni `duplicate_ignores` collection + 3 endpoint:
+    - `POST /api/duplicates/ignore {id_a,id_b,reason?}` → pair_key (sorted ID) ile idempotent kayıt, audit_log iz.
+    - `GET /api/duplicates/ignored` → yoksayılan çiftler + üye mevcut mu (`a_exists`, `b_exists`) meta.
+    - `DELETE /api/duplicates/ignore/{pair_key}` → undo, audit_log iz.
+    - `GET /duplicates/members` artık yoksayılan çiftleri filtreliyor. Merge sonrası ilgili ignore kaydı otomatik siliniyor.
+  - **Frontend (`pages/DuplicateMembers.jsx`)**: Sekmeli UI:
+    - **"Aktif Çiftler"** sekmesi: eski merge butonları + yeni `🚫 Yoksay` butonu (`EyeOff` icon).
+    - **"Yoksayılanlar"** sekmesi: yoksayılan çiftler listesi, "yoksayan admin + tarih" meta, silinmiş üyeler için `Trash2` + line-through, her satırda `↩️ Geri Al` butonu.
+    - Sekme badge'lerinde canlı sayaç.
+  - Yeni test ID'ler: `dup-tabs`, `dup-tab-active`, `dup-tab-ignored`, `dup-ignore-{i}`, `dup-ignored-{pair_key}`, `dup-unignore-{pair_key}`.
+  - Yeni i18n (tr.js + en.js): `dupmembers_tab_active/ignored`, `dupmembers_ignore_btn/hint`, `dupmembers_ignored/already_ignored`, `dupmembers_unignore_btn/hint/unignored`, `dupmembers_ignored_none/by`.
+  - **Doğrulama (curl)**: ignore → ignored list=1 → active list'ten kaybolur → unignore → ignored list=0 → active list'e döner. ✅ Tam döngü PASS.
+
+
   - `Header.jsx` Yönetim accordion içindeki 12 öğe Türkçe alfabetik sıraya dizildi (A B C Ç D E F G Ğ H I İ J K L M N O Ö P R S Ş T U Ü V Y Z).
   - Yeni sıra: **Audit Log → Bildirim Yönlendirme → Bildirimler → Detaylı Rapor (Excel) → Duplicate Üyeler → Duyurular → Görevler → Kullanıcı Yönetimi → Puanlar Hakkında → Rozet Yönetimi → Sertifika Ver → Şablonlar.**
   - Mobile screenshot ile DOM sırası doğrulandı (12/12 doğru).
