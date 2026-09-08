@@ -20,7 +20,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 8, 2026 (v142.5 — AI Rozet Paneli Üye Profilinden Gizlendi)** — Frontend:
+- **Feb 8, 2026 (v142.6 — Vision OCR CJK Fix: gpt-4o + CJK Preservation Prompt)** — Backend:
+  - **Root cause**: `gpt-4o-mini` CJK karakterlerde ve karmaşık tablolarda belirgin şekilde zayıf. Vision API çağrısı gerçekten yapılıyordu (LiteLLM logları doğruladı) — fallback yok, sorun model kalitesiydi.
+  - **`.env`**: `OCR_MODEL=gpt-4o` (mini → full). `OCR_BASE_URL=https://integrations.emergentagent.com/llm` (dokümante ediliyor, emergentintegrations otomatik kullanıyor).
+  - **`routes/ocr.py`**: 
+    - Members ve event prompt'ları güçlendirildi: "PRESERVE original Unicode characters. NEVER transliterate CJK to Latin (e.g. '张伟' → 'Zhang Wei' YASAK). Column consistency across rows."
+    - `_ocr_log` logger eklendi: her OCR çağrısında `mode, model, bytes, mime` + sonuçta `rows` sayısı loglanıyor. LLM hatasında `_ocr_log.exception` ile tam traceback.
+    - Response'a `model` alanı eklendi (istemci hangi modelin kullanıldığını görüyor).
+    - Fallback yok — LLM başarısız olursa HTTP 502 ile açıkça hata döner, sessiz basic-OCR'a düşmez.
+  - **Test (curl + sentetik CJK PNG)**: 5 satırlık test görüntüsünde 张伟, 山田太郎, 김민준, PasHa[GOW], 幽灵Ghost — **5/5 doğru okundu**, power suffix'leri (1.2B, 850M) doğru dönüştürüldü, castle/rank doğru. ✅
+
+
   - `MemberProfileDialog.jsx`: `BadgeAISuggestions` render'ı `{false && memberId && ...}` guard'ı ile devre dışı bırakıldı. Component import'u, backend endpoint'leri (`/ai-badge-suggestions` alias + `/badge-suggestions/{sid}/approve|reject`), `badge_suggestions` collection ve i18n anahtarları duruyor — geri açmak için `false` → `true` (veya sadece `memberId` bırakmak) yeterli.
   - Test: Screenshot kontrolüne gerek yok — sadece render şartı değişti, dinamik davranış aynı.
 

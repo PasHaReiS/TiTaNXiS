@@ -5,7 +5,9 @@ Three modes:
   - event:   parse an event-result screenshot → {event_hint, participants: [{name, points}]}
   - war:     parse a war-result screenshot → {winner, loser, casualties_won, casualties_lost, notes}
 
-Uses emergentintegrations LlmChat with GPT-5.4 (vision-capable) via the Emergent LLM key.
+Uses emergentintegrations LlmChat with a Vision-capable OpenAI model via the
+Emergent LLM key. Default: `gpt-4o` (full) — gpt-4o-mini is noticeably weaker on
+CJK (Chinese/Japanese/Korean) glyphs and dense tables. Set env `OCR_MODEL` to override.
 """
 import os
 import uuid
@@ -13,9 +15,14 @@ import json
 import base64
 import re
 import difflib
+import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel
 from typing import Optional
+
+_ocr_log = logging.getLogger("ocr")
+if not _ocr_log.handlers:
+    _ocr_log.setLevel(logging.INFO)
 
 
 # Strip a leading alliance tag like "[GOW] PasHa" → "PasHa" and normalise to lowercase for lookup.
@@ -51,17 +58,24 @@ def _fuzzy_match(cleaned: str, candidates: list[str]) -> Optional[str]:
 
 
 
-_LLM_MODEL = os.environ.get("OCR_MODEL", "gpt-5.4")
+_LLM_MODEL = os.environ.get("OCR_MODEL", "gpt-4o")
 _MAX_IMAGE_BYTES = 8 * 1024 * 1024  # 8 MB hard cap
 
 _PROMPTS = {
     "members": (
         "You are given a screenshot of a mobile strategy game's guild member roster. "
-        "The interface may be in ANY language — Turkish, English, Japanese (日本語), "
-        "Korean (한국어), Chinese (中文), Russian (Русский), Arabic (العربية). Preserve "
-        "the ORIGINAL characters exactly as displayed for player names — do NOT transliterate. "
-        "Interpret the visual TABLE STRUCTURE (rows + columns) — each row is one member; "
-        "the same column consistently holds the same field across all rows. "
+        "The interface can be in ANY language including Chinese (中文/繁體/简体), "
+        "Japanese (日本語 / ひらがな / カタカナ / 漢字), Korean (한국어 / 한글), "
+        "Russian (Русский), Arabic (العربية), Turkish, English or others. "
+        "\n\nCRITICAL RULES FOR NON-LATIN CHARACTERS:\n"
+        "  1) PRESERVE the ORIGINAL Unicode characters exactly as displayed. "
+        "     NEVER transliterate to Latin (e.g. do NOT convert '张伟' → 'Zhang Wei' "
+        "     or 'たろう' → 'Tarou'). Return the raw glyphs verbatim.\n"
+        "  2) If a name mixes scripts (e.g. '幽灵Ghost'), keep BOTH scripts joined.\n"
+        "  3) Read every column left-to-right, then move to the next row. Column "
+        "     assignment must stay CONSISTENT across rows (same column = same field).\n"
+        "  4) For CJK screenshots with vertical columns, still map each row's cells "
+        "     to the same (name, power, castle, rank, alliance) keys.\n\n"
         "Extract EVERY visible member row into strict JSON with this exact shape and NOTHING else: "
         "{\"members\": [{\"name\": str, \"power\": int|null, \"castle_level\": int|null, "
         "\"alliance_name\": str|null, \"rank\": str|null}]}. "
@@ -85,6 +99,9 @@ _PROMPTS = {
     ),
     "event": (
         "You are given a screenshot of an event scoreboard from a mobile strategy game. "
+        "The interface can be in ANY language — Chinese (中文), Japanese (日本語), "
+        "Korean (한국어), Russian, Arabic, Turkish, English, etc. PRESERVE original "
+        "Unicode characters for names; NEVER transliterate CJK to Latin. "
         "Extract EVERY visible participant row into strict JSON with this exact shape and NOTHING else: "
         "{\"event_hint\": str|null, \"participants\": [{\"name\": str, \"points\": int, "
         "\"alliance_name\": str|null, \"power\": int|null}]}. "
@@ -261,6 +278,10 @@ def make_ocr_router(db, require_edit, require_auth):
         api_key = os.environ.get("EMERGENT_LLM_KEY")
         if not api_key:
             raise HTTPException(500, "EMERGENT_LLM_KEY tanımlı değil")
+        _ocr_log.info(
+            "OCR parse-single mode=%s model=%s bytes=%d mime=%s",
+            mode, _LLM_MODEL, len(contents), mime,
+        )
         chat = LlmChat(
             api_key=api_key,
             session_id=f"ocr-{uuid.uuid4().hex[:8]}",
@@ -271,13 +292,17 @@ def make_ocr_router(db, require_edit, require_auth):
         try:
             reply = await chat.send_message(msg)
         except Exception as e:
+            _ocr_log.exception("OCR LLM error mode=%s: %s", mode, e)
             raise HTTPException(502, f"LLM hatası: {e}")
         try:
             data = _extract_json(reply)
         except Exception:
+            _ocr_log.warning("OCR reply not JSON: %r", reply[:300])
             raise HTTPException(422, f"LLM cevabı JSON değil: {reply[:200]}")
         data = _postprocess_rows(data, mode)
-        return {"mode": mode, "data": data, "raw_preview": reply[:400]}
+        row_count = len(data.get("members" if mode == "members" else "participants") or []) if mode in ("members", "event") else 0
+        _ocr_log.info("OCR parse-single mode=%s rows=%d", mode, row_count)
+        return {"mode": mode, "data": data, "raw_preview": reply[:400], "model": _LLM_MODEL}
 
     @router.post("/ocr/apply-members")
     async def apply_members(body: OcrApplyMembersBody, admin: dict = Depends(require_edit)):
