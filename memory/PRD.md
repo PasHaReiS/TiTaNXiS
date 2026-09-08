@@ -20,6 +20,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 8, 2026 (v142.1 — Yönetim Alt Menü Alfabetik Sıralama)** — Frontend:
+  - `Header.jsx` Yönetim accordion içindeki 12 öğe Türkçe alfabetik sıraya dizildi (A B C Ç D E F G Ğ H I İ J K L M N O Ö P R S Ş T U Ü V Y Z).
+  - Yeni sıra: **Audit Log → Bildirim Yönlendirme → Bildirimler → Detaylı Rapor (Excel) → Duplicate Üyeler → Duyurular → Görevler → Kullanıcı Yönetimi → Puanlar Hakkında → Rozet Yönetimi → Sertifika Ver → Şablonlar.**
+  - Mobile screenshot ile DOM sırası doğrulandı (12/12 doğru).
+  - Deployment readiness: `deployment_agent` PASS — hardcoded secret yok, CORS OK, env variables doğru yükleniyor, supervisor config geçerli, `.gitignore` doğru, destructive startup yok.
+
 - **Feb 8, 2026 (v142 — Header/Menü Yeniden Yapılandırması)** — Frontend:
   - `components/Header.jsx` dropdown menüsü yeniden düzenlendi:
     - **Kök seviye (tüm giriş yapmış kullanıcılar)**: Anketler, Lonca Kuralları, Profilim, SvS Takip, VIP Destek

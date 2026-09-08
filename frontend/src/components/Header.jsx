@@ -287,6 +287,28 @@ export default function Header({ title, children }) {
                             paddingLeft: 10,
                           }}
                         >
+                          {/* v142.1 — Türkçe alfabetik sıra:
+                              A B C Ç D E F G Ğ H I İ J K L M N O Ö P R S Ş T U Ü V Y Z
+                              Sıra: Audit Log → Bildirim Yönlendirme → Bildirimler →
+                              Detaylı Rapor → Duplicate Üyeler → Duyurular → Görevler →
+                              Kullanıcı Yönetimi → Puanlar Hakkında → Rozet Yönetimi →
+                              Sertifika Ver → Şablonlar */}
+                          {isAdmin && (
+                            <MenuItem
+                              emoji="📋"
+                              label={t("nav_audit_log", { defaultValue: "Audit Log" })}
+                              onClick={() => goto("/admin/audit-log")}
+                              testId="dropdown-audit-log"
+                            />
+                          )}
+                          {isAdmin && (
+                            <MenuItem
+                              emoji="🔔"
+                              label={t("nav_notification_routing", { defaultValue: "Bildirim Yönlendirme" })}
+                              onClick={() => goto("/admin/bildirim-yonlendirme")}
+                              testId="dropdown-notification-routing"
+                            />
+                          )}
                           {canEdit && (
                             <MenuItem
                               emoji="🔔"
@@ -297,18 +319,26 @@ export default function Header({ title, children }) {
                           )}
                           {isAdmin && (
                             <MenuItem
-                              emoji="📣"
-                              label={t("nav_announcements", "Duyurular")}
-                              onClick={() => goto("/admin/duyurular")}
-                              testId="dropdown-announcements"
-                            />
-                          )}
-                          {isAdmin && (
-                            <MenuItem
                               emoji="📥"
                               label={t("detailed_report")}
                               onClick={downloadXlsx}
                               testId="dropdown-export"
+                            />
+                          )}
+                          {isAdmin && (
+                            <MenuItem
+                              emoji="🔍"
+                              label={t("nav_duplicate_members", { defaultValue: "Duplicate Üyeler" })}
+                              onClick={() => goto("/admin/duplicate-uyeler")}
+                              testId="dropdown-duplicate-members"
+                            />
+                          )}
+                          {isAdmin && (
+                            <MenuItem
+                              emoji="📣"
+                              label={t("nav_announcements", "Duyurular")}
+                              onClick={() => goto("/admin/duyurular")}
+                              testId="dropdown-announcements"
                             />
                           )}
                           {isAdmin && (
@@ -357,30 +387,6 @@ export default function Header({ title, children }) {
                               label={t("nav_templates", "Şablonlar")}
                               onClick={() => goto("/sablonlar")}
                               testId="dropdown-templates"
-                            />
-                          )}
-                          {isAdmin && (
-                            <MenuItem
-                              emoji="🔍"
-                              label={t("nav_duplicate_members", { defaultValue: "Duplicate Üyeler" })}
-                              onClick={() => goto("/admin/duplicate-uyeler")}
-                              testId="dropdown-duplicate-members"
-                            />
-                          )}
-                          {isAdmin && (
-                            <MenuItem
-                              emoji="📋"
-                              label={t("nav_audit_log", { defaultValue: "Audit Log" })}
-                              onClick={() => goto("/admin/audit-log")}
-                              testId="dropdown-audit-log"
-                            />
-                          )}
-                          {isAdmin && (
-                            <MenuItem
-                              emoji="🔔"
-                              label={t("nav_notification_routing", { defaultValue: "Bildirim Yönlendirme" })}
-                              onClick={() => goto("/admin/bildirim-yonlendirme")}
-                              testId="dropdown-notification-routing"
                             />
                           )}
                         </div>
