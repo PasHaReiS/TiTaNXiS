@@ -20,7 +20,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 7, 2026 (v141 — 6 Yeni Özellik: Duplicate Merge + 404/500 + Undo + Audit + CI/CD + Zero-Downtime)** — Backend + Frontend:
+- **Feb 7, 2026 (v141 — Undo Snackbar 5 silme akışına wire edildi)** — Frontend:
+  - **Wired**: Members delete (Members.jsx:1365), Event delete (Events.jsx:2293 içinde EventDetailModal), Announcement delete (Announcements.jsx:127), Score/Point delete (PointsList.jsx:130), OCR bulk undo (OcrUndoPanel.jsx:145).
+  - Her silme öncesi `snapshot = { ...record }` alınır; silme sonrası `showUndo({message, onUndo: () => api.post(recreate)})` 5s snackbar tetiklenir. "Geri Al" tıklanırsa POST ile record yeniden yaratılır ve SWR cache invalide edilir.
+  - **OCR özel**: undo-bulk sonrası "Geri Al" = `POST /ocr/audit/redo-bulk` (var olan endpoint), OCR ekleme etkisini yeniden uygular.
+  - **UndoProvider**: App.js `AuthProvider` içine wrap edildi (tüm route'lar erişimli).
+  - **i18n**: 5 yeni TR anahtar (member_deleted_undo, event_deleted_undo, point_deleted_undo, ocr_undo_snackbar_msg, ocr_redo_done).
   - **Merge Duplicate Members**: `routes/duplicates.py` (difflib fuzzy ≥ threshold), `/admin/duplicate-members` UI (slider %60-%100, çift kart, A→B veya B→A merge, puan transfer + audit iz). ✅ 200
   - **404/500 Custom Pages**: `pages/NotFound.jsx` (kalkan+amber) + `pages/ServerError.jsx` (alev+kırmızı). React Router catch-all `path="*"`.
   - **Undo Snackbar**: `context/UndoContext.jsx` global provider (`useUndo` hook, `showUndo({message, onUndo, duration=5000})`). Amber-glow 5s snackbar, Cinzel serif "Geri Al" button.

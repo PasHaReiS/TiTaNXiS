@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { EVENTS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
+import { useUndo } from "@/context/UndoContext";
 import { Plus, Pencil, Trash2, Archive, X, Calendar, ArchiveRestore, Check, Camera, BellOff, Users, User, LayoutGrid, CalendarDays, CheckSquare, Square, EyeOff, Eye, Star, ChevronDown, ChevronRight, LayoutTemplate, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -2155,6 +2156,7 @@ function EventTop10Panel({ event }) {
 function EventDetailModal({ event, open, onClose, onEdit, events = [], onNavigate }) {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
+  const { showUndo } = useUndo();
   const [busy, setBusy] = React.useState(false);
   const [lightbox, setLightbox] = React.useState(false);
   // v135.29 — Auto-generated share image modal (admin only).
@@ -2290,10 +2292,19 @@ function EventDetailModal({ event, open, onClose, onEdit, events = [], onNavigat
     if (!window.confirm(t("confirm_delete_generic", { name: e.name }))) return;
     setBusy(true);
     try {
+      const snapshot = { ...e };
       await api.delete(`/events/${e.id}`);
       mutate((k) => typeof k === "string" && k.startsWith("/events"));
       mutate("/stats");
       toast.success(t("event_deleted"));
+      showUndo({
+        message: t("event_deleted_undo", { defaultValue: `${e.name} silindi` }),
+        onUndo: async () => {
+          await api.post("/events", snapshot);
+          mutate((k) => typeof k === "string" && k.startsWith("/events"));
+          mutate("/stats");
+        },
+      });
       onClose();
     } catch (err) { toast.error(err?.response?.data?.detail || err.message); }
     finally { setBusy(false); }

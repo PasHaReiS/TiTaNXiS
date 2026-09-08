@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Undo2, CheckSquare, Square, Loader2, ChevronDown, ChevronRight, History } from "lucide-react";
+import { useUndo } from "@/context/UndoContext";
 
 const SCOPE_TYPES = {
   member: "ocr_add_member,ocr_power,ocr_castle_rank",
@@ -40,6 +41,7 @@ function fmtWhen(iso) {
 
 export default function OcrUndoPanel({ scope = "member", title, defaultOpen = false }) {
   const { t } = useTranslation();
+  const { showUndo } = useUndo();
   const types = SCOPE_TYPES[scope] || SCOPE_TYPES.member;
   const [tab, setTab] = React.useState("active"); // "active" | "history"
   const includeUndone = tab === "history";
@@ -159,6 +161,20 @@ export default function OcrUndoPanel({ scope = "member", title, defaultOpen = fa
       );
       setSelected(new Set());
       refetch();
+      showUndo({
+        message: t("ocr_undo_snackbar_msg", {
+          defaultValue: `${d.undone || 0} OCR işlemi geri alındı`,
+        }),
+        onUndo: async () => {
+          try {
+            await api.post("/ocr/audit/redo-bulk", { op_ids: opIds });
+            refetch();
+            toast.success(t("ocr_redo_done", { defaultValue: "OCR işlemleri yeniden uygulandı" }));
+          } catch (rex) {
+            toast.error(rex?.response?.data?.detail || rex.message);
+          }
+        },
+      });
     } catch (e) {
       toast.error(e?.response?.data?.detail || e.message);
     } finally {

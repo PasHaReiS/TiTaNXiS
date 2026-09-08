@@ -4,6 +4,7 @@ import { Megaphone, Send, Trash2, Loader2, Radio, Users, MessageCircle, Bell, Hi
 import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { useUndo } from "@/context/UndoContext";
 import ImageDropzone from "@/components/ImageDropzone";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -20,6 +21,7 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
  */
 export default function Announcements({ embedded = false }) {
   const { isAdmin } = useAuth();
+  const { showUndo } = useUndo();
   // History drawer is collapsed by default so the admin sees the compose
   // form first; toggling reveals the list which is now more compact.
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -127,9 +129,27 @@ export default function Announcements({ embedded = false }) {
   const remove = async (id) => {
     if (!window.confirm("Duyuruyu tamamen silmek istiyor musun? Geri alınamaz.")) return;
     try {
+      const snapshot = items.find((x) => x.id === id);
       await api.delete(`/announcements/${id}`);
       mutate();
       toast.success("Duyuru silindi");
+      if (snapshot) {
+        showUndo({
+          message: `${snapshot.title} silindi`,
+          onUndo: async () => {
+            await api.post("/announcements", {
+              title: snapshot.title.replace(/^🚨 /, ""),
+              body: snapshot.body,
+              url: snapshot.url,
+              image_url: snapshot.image_url,
+              urgent: snapshot.urgent,
+              broadcast: false,
+              pinned: snapshot.pinned,
+            });
+            mutate();
+          },
+        });
+      }
     } catch (e) { toast.error(apiErr(e)); }
   };
 

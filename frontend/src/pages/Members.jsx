@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { allianceBadgeStyle } from "@/lib/colors";
 import { MEMBERS } from "@/constants/testIds";
 import Header from "@/components/Header";
+import { useUndo } from "@/context/UndoContext";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
 import LinkMemberDialog from "@/components/LinkMemberDialog";
 import OcrDialog from "@/components/OcrDialog";
@@ -303,6 +304,7 @@ function OcrRegisterDropdown({ onPickAddMember, onPickPower, onPickCastleRank })
 
 export default function Members() {
   const { t } = useTranslation();
+  const { showUndo } = useUndo();
   const { user, refreshMe } = useAuth();
   const navigate = useNavigate();
   const [q, setQ] = useState("");
@@ -1362,10 +1364,19 @@ export default function Members() {
                                       data-testid={MEMBERS.deleteBtn(m.id)}
                                       onClick={async () => {
                                         if (!window.confirm(t("confirm_delete_generic", { name: m.name }))) return;
+                                        const snapshot = { ...m };
                                         await api.delete(`/members/${m.id}`);
                                         mutate((k) => typeof k === "string" && k.startsWith("/members"));
                                         mutate("/stats");
                                         toast.success(t("member_deleted"));
+                                        showUndo({
+                                          message: t("member_deleted_undo", { defaultValue: `${m.name} silindi` }),
+                                          onUndo: async () => {
+                                            await api.post("/members", snapshot);
+                                            mutate((k) => typeof k === "string" && k.startsWith("/members"));
+                                            mutate("/stats");
+                                          },
+                                        });
                                       }}
                                       className="rounded bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
                                       style={{ width: 22, height: 22 }}

@@ -4,6 +4,7 @@ import { api, fmt } from "@/lib/api";
 import { POINTS } from "@/constants/testIds";
 import Header from "@/components/Header";
 import CanEdit from "@/components/CanEdit";
+import { useUndo } from "@/context/UndoContext";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
 import { Search, Trash2, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +17,7 @@ const fetcher = (url) => api.get(url).then((r) => r.data);
 
 export default function PointsList({ hideHeader = false }) {
   const { t } = useTranslation();
+  const { showUndo } = useUndo();
   const [rawQ, setRawQ] = useState("");
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState(null);
@@ -131,11 +133,27 @@ export default function PointsList({ hideHeader = false }) {
                     onClick={async (e) => {
                       e.stopPropagation();
                       if (!window.confirm(t("confirm_delete_record"))) return;
+                      const snapshot = { ...p };
                       await api.delete(`/scores/${p.id}`);
                       globalMutate((k) => typeof k === "string" && (k.startsWith("/scores") || k.startsWith("/points")));
                       globalMutate("/stats");
                       globalMutate("/leaderboard");
                       toast.success(t("deleted"));
+                      showUndo({
+                        message: t("point_deleted_undo", { defaultValue: `${snapshot.points} puan silindi` }),
+                        onUndo: async () => {
+                          await api.post("/scores", {
+                            member_id: snapshot.member_id,
+                            event_id: snapshot.event_id,
+                            points: snapshot.points,
+                            multiplier: snapshot.multiplier || 1.0,
+                            note: snapshot.note,
+                          });
+                          globalMutate((k) => typeof k === "string" && (k.startsWith("/scores") || k.startsWith("/points")));
+                          globalMutate("/stats");
+                          globalMutate("/leaderboard");
+                        },
+                      });
                     }}
                     className="w-7 h-7 rounded-md bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center"
                     aria-label={t("delete")}

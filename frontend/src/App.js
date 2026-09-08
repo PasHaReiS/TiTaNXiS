@@ -220,8 +220,9 @@ export default function App() {
   }, []);
   return (
     <AuthProvider>
-      <ThemeProvider>
-        <BrowserRouter>
+      <UndoProvider>
+        <ThemeProvider>
+          <BrowserRouter>
           <Routes>
             <Route path="/public/puan-hesaplama/:id" element={<PublicPointCalcPage />} />
             <Route path="/public/folder/:folderId" element={<PublicFolderLeaderboard />} />
@@ -235,7 +236,8 @@ export default function App() {
           <PushSoundListener />
           <LegalFooter />
           <Toaster theme="dark" position="top-center" richColors closeButton /></BrowserRouter>
-      </ThemeProvider>
+        </ThemeProvider>
+      </UndoProvider>
     </AuthProvider>
   );
 }
