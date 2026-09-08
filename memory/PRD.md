@@ -20,7 +20,16 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 8, 2026 (v142.3 — 3 AI Özelliği: Skeleton/Optimistic + Vision OCR (gpt-4o-mini) + AI Rozet Önerisi)** — Full-stack:
+- **Feb 8, 2026 (v142.4 — AI Rozet Paneli MemberProfileDialog'a taşındı)** — Frontend + backend:
+  - **Backend** (`routes/badge_ai.py`): 2 yeni alias endpoint eklendi (kullanıcı istediği yol):
+    - `GET  /api/members/{id}/ai-badge-suggestions` — mevcut pending önerileri listeler
+    - `POST /api/members/{id}/ai-badge-suggestions` — yeni öneri üretir (admin)
+    - Approve/reject endpoint'leri aynı path segmentini kullanmıyor; `/api/members/{id}/badge-suggestions/{sid}/approve|reject` korundu (idempotent).
+  - **Frontend** (`components/MemberProfileDialog.jsx`): `BadgeAISuggestions` import edildi, "Değişim Geçmişi" bölümünün ALTINA mount edildi (`data-testid="profile-ai-badge-section"`). Her üye rozet önerisini kendi profil kartında görecek.
+  - `BadgeAISuggestions.jsx` SWR ve POST çağrıları artık `/ai-badge-suggestions` alias yolunu kullanıyor.
+  - Test: `GET /api/members/{id}/ai-badge-suggestions` → `{"items": []}` (empty listing OK).
+
+
   - **Feature 1 — Duplicate Skeleton + Optimistic UI (`pages/DuplicateMembers.jsx`)**: SWR yüklenirken shimmer animasyonlu `SkeletonList` (5 kart) gösterilir; her kart 2 üye placeholder + 3 buton placeholder içeriyor. Merge/Yoksay butonuna basılınca çift `optimisticHidden` Set'ine eklenip anında listeden kaldırılır. Hata olursa `unhidePair()` ile geri gelir + toast (`dupmembers_merge_failed`). CSS keyframe: `dup-shimmer` 1.4s linear infinite + `dup-fade-in` 0.28s. Test ID: `dup-skeleton-list`, `dup-skeleton-{i}`.
   - **Feature 2 — Vision API OCR (gpt-4o-mini)**: `backend/.env` → `OCR_MODEL=gpt-4o-mini`. `routes/ocr.py` "members" prompt'una çoklu-dil (JP/KR/CN/RU/AR) + tablo yapısı yönergesi eklendi. Diğer OCR modları (event, war) zaten aynı LLM router'ı kullanıyor. Mevcut fuzzy matching (`difflib`) korundu ve yeni model çıktısına da uygulanıyor.
   - **Feature 3 — AI Rozet Önerisi**: 

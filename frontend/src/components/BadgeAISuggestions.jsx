@@ -17,7 +17,7 @@ export default function BadgeAISuggestions({ memberId, memberName }) {
   const [busy, setBusy] = useState(false);
   const [actingKey, setActingKey] = useState(null);
   const { data, error, mutate, isLoading } = useSWR(
-    memberId ? `/members/${memberId}/badge-suggestions` : null,
+    memberId ? `/members/${memberId}/ai-badge-suggestions` : null,
     fetcher,
   );
 
@@ -27,7 +27,7 @@ export default function BadgeAISuggestions({ memberId, memberName }) {
     if (!isAdmin) return;
     setBusy(true);
     try {
-      const res = await api.post(`/members/${memberId}/badge-suggestions`);
+      const res = await api.post(`/members/${memberId}/ai-badge-suggestions`);
       const cnt = (res.data?.suggestions || []).length;
       toast.success(
         t("badgeai_generated", { defaultValue: `${cnt} yeni öneri üretildi 🤖`, count: cnt }),

@@ -207,6 +207,46 @@ def make_badge_ai_router(db, require_auth, require_admin):
         ).sort("confidence", -1).to_list(20)
         return {"items": rows}
 
+    # Alias: `/ai-badge-suggestions` (kullanıcı istediği yol) → aynı sonuç.
+    @router.get("/members/{member_id}/ai-badge-suggestions")
+    async def list_suggestions_alias(member_id: str, _: dict = Depends(require_auth)):
+        rows = await db.badge_suggestions.find(
+            {"member_id": member_id, "status": "pending"}, {"_id": 0}
+        ).sort("confidence", -1).to_list(20)
+        return {"items": rows}
+
+    @router.post("/members/{member_id}/ai-badge-suggestions")
+    async def generate_alias(member_id: str, user: dict = Depends(require_admin)):
+        m = await db.members.find_one({"id": member_id}, {"_id": 0, "id": 1, "name": 1})
+        if not m:
+            raise HTTPException(404, "Üye bulunamadı")
+        stats = await _compute_member_stats(db, member_id)
+        suggestions = await _generate_suggestions(db, member_id, stats)
+        await db.badge_suggestions.delete_many(
+            {"member_id": member_id, "status": "pending"}
+        )
+        docs = []
+        for s in suggestions:
+            doc = {
+                "id": str(uuid.uuid4()),
+                "member_id": member_id,
+                "member_name": m.get("name"),
+                "badge_id": s["badge_id"],
+                "badge_key": s["key"],
+                "badge_name": s["badge_name"],
+                "reason": s["reason"],
+                "confidence": s["confidence"],
+                "status": "pending",
+                "created_at": _now_iso(),
+                "created_by": user.get("username"),
+            }
+            docs.append(doc)
+        if docs:
+            await db.badge_suggestions.insert_many([{**d} for d in docs])
+        for d in docs:
+            d.pop("_id", None)
+        return {"stats": stats, "suggestions": docs}
+
     @router.post("/members/{member_id}/badge-suggestions/{suggestion_id}/approve")
     async def approve(member_id: str, suggestion_id: str, user: dict = Depends(require_admin)):
         s = await db.badge_suggestions.find_one(

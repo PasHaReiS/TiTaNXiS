@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { allianceBadgeStyle } from "@/lib/colors";
 import ReactDOM from "react-dom";
+import BadgeAISuggestions from "@/components/BadgeAISuggestions";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -406,6 +407,13 @@ export default function MemberProfileDialog({ memberId, open, onClose }) {
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* v142.4 — AI Rozet Önerisi (Değişim Geçmişi'nin altında) */}
+                {memberId && (
+                  <div className="mt-3" data-testid="profile-ai-badge-section">
+                    <BadgeAISuggestions memberId={memberId} memberName={m?.name} />
                   </div>
                 )}
               </div>
