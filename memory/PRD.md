@@ -20,7 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 7, 2026 (v141 — Cron Log Hook — 11 cron tamamlandı)** — Backend:
+- **Feb 7, 2026 (v141 — 6 Yeni Özellik: Duplicate Merge + 404/500 + Undo + Audit + CI/CD + Zero-Downtime)** — Backend + Frontend:
+  - **Merge Duplicate Members**: `routes/duplicates.py` (difflib fuzzy ≥ threshold), `/admin/duplicate-members` UI (slider %60-%100, çift kart, A→B veya B→A merge, puan transfer + audit iz). ✅ 200
+  - **404/500 Custom Pages**: `pages/NotFound.jsx` (kalkan+amber) + `pages/ServerError.jsx` (alev+kırmızı). React Router catch-all `path="*"`.
+  - **Undo Snackbar**: `context/UndoContext.jsx` global provider (`useUndo` hook, `showUndo({message, onUndo, duration=5000})`). Amber-glow 5s snackbar, Cinzel serif "Geri Al" button.
+  - **Audit Log**: `routes/audit_log.py` (member_changes + activity_log + audit_log + ocr_audit merge), `/admin/audit-log` filtreli tablo (tarih aralığı, action, actor). 30s refresh.
+  - **CI/CD**: `.github/workflows/deploy.yml` — backend AST+ruff+pytest, frontend build, post-deploy 90s health/ready probe.
+  - **Zero-Downtime Migration**: `routes/health_ready.py` — `/api/health/ready` (DB ping + koleksiyon smoke) + `/api/health/live`. Kubernetes readiness probe için.
+  - **i18n**: 27 yeni TR anahtar (err_*, undo_*, dupmembers_*, audit_*).
   - **Middleware yaklaşımı**: `_cron_health_middleware` FastAPI middleware — `/api/cron/*`, `/api/events/auto-archive-sweep` yollarını yakalar, `_CRON_PATH_MAP` (10 giriş) ile eşleştirir. Response status'una göre `success`/`failure` yazar. `asyncio.create_task` fire-and-forget — response gecikmiyor.
   - Sonuç: cron endpoint'lerine tek tek dokunmadan **10 cron** artık `cron_health_log`'a otomatik yazıyor (11. cron `wizard-analytics-alert-check` zaten kendi içinde loguyor).
   - **Verify**: 4 cron manuel tetiklendi (deepl-retry-i18n, rsvp-reminder-tick, purge-stale-event-order, telegram-dm-health), dashboard'da başarı sayaçları anında dolarak "0dk önce" gösterildi.

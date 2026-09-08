@@ -10015,6 +10015,13 @@ async def _cron_health_middleware(request, call_next):
 # v141 — Phase 8 (Final): loyalty leaderboard
 from routes.loyalty import make_loyalty_router
 app.include_router(make_loyalty_router(db), prefix="/api")
+# v141 — Duplicate merge + audit log + health readiness
+from routes.duplicates import make_duplicates_router
+app.include_router(make_duplicates_router(db, require_admin), prefix="/api")
+from routes.audit_log import make_audit_log_router
+app.include_router(make_audit_log_router(db, require_admin), prefix="/api")
+from routes.health_ready import make_health_ready_router
+app.include_router(make_health_ready_router(db), prefix="/api")
 
 
 # v141 — Admin Telegram bildirim helper (Wizard Analytics alert hook için).
