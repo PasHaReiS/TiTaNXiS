@@ -12,8 +12,11 @@ html, body {
 
 /* v142.11 — When any bottom-sheet modal is open, hide the fixed 30px
    LegalFooter (Gizlilik / Kullanım) so it doesn't overlap the sheet's
-   İptal / Seç action bar on mobile. */
-body.modal-open [data-testid="legal-footer"] {
+   İptal / Seç action bar on mobile. v142.12 — Also hide RadialMenu
+   floating dock which sits at z-index 1600 and could poke through. */
+body.modal-open [data-testid="legal-footer"],
+body.modal-open [data-testid="radial-menu"],
+body.modal-open [data-testid="radial-menu-fab"] {
     display: none !important;
 }
 

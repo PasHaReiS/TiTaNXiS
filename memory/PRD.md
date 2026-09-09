@@ -20,7 +20,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 9, 2026 (v142.11 — MatchMemberSheet Footer Overlap Fix)** — Frontend:
+- **Feb 9, 2026 (v142.12 — 2 Kritik Fix: Match-Flip Full Refresh + Modal Butonları Görünür)** — Frontend:
+  - **Sorun 1**: `OcrDialog.jsx` (line ~1086) `newRows` hesabı artık `rowEdits[i]._manual_match` (zorla eşleşti) ve `_force_new` (zorla yeni) bayraklarını honor ediyor. Modal'dan seçim yapılınca "+N YENİ ÜYE OLUŞACAK" listesinden ilgili isim otomatik çıkar; `editedIntoNew` kontrolü de manual match'i tanır (yazım hatası uyarısı kaybolur).
+  - **Sorun 2**: `MatchMemberSheet.jsx`:
+    - `height: 75vh, max-height: 75vh` (eski 90vh).
+    - `z-index: 9999` (sheet) + `z-index: 9998` (backdrop) — LegalFooter (z:1500) + RadialMenu (z:1600) üstünde kalıyor.
+    - Footer padding-bottom `calc(max(env(safe-area-inset-bottom, 0px), 16px) + 16px)` + `backdrop-filter: blur(8px)`.
+    - Butonlar `flex-shrink:0` + `border-top` — asla scroll edilmez.
+  - `index.css` `body.modal-open` kuralı `radial-menu` + `radial-menu-fab` test id'lerini de gizliyor (belt & braces).
+  - **Doğrulama (playwright DOM injection)**: 375x812 + 390x844 iki viewport'ta legal_visible=False, cancel + confirm buttons hit their own test id (üstlerinde hiçbir şey yok), clearance=33px. Screenshot: butonlar temiz. ✅
+
+
   - **Fix 1** — `MatchMemberSheet.jsx` footer padding-bottom `calc(env(safe-area-inset-bottom, 0px) + 64px)` (eskiden +16px). Butonların 30px LegalFooter üstünden temiz görünmesi için extra clearance.
   - **Fix 2** — Sheet açıldığında `document.body.classList.add('modal-open')`, kapandığında/unmount'ta temizleniyor. `index.css`'e global kural: `body.modal-open [data-testid="legal-footer"] { display: none !important }`.
   - **Test (375x812 mobile viewport)**: legal-footer modal açıkken hidden (visible=False), İptal+Seç butonları görünür, bottom clearance 64px. Modal kapanınca footer geri geldi. `deployment_agent`: PASS ✅

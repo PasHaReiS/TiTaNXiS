@@ -1088,10 +1088,15 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             .map((r, i) => {
                               const currName = rowEdits[i]?.name ?? r.name;
                               const clean = _stripTag(currName);
-                              const isNew = !existingNamesLc.has(clean.toLowerCase());
+                              // v142.12 — Modal seçimi zorla eşleşti yaptıysa
+                              // (_manual_match) bu satır artık yeni değil.
+                              // _force_new ise tersine yeni olarak zorlanır.
+                              const forcedMatched = rowEdits[i]?._manual_match === true;
+                              const forcedNew = rowEdits[i]?._force_new === true;
+                              const isNew = forcedNew || (!forcedMatched && !existingNamesLc.has(clean.toLowerCase()));
                               const origClean = _stripTag(r.name);
                               const origWasExisting = existingNamesLc.has(origClean.toLowerCase());
-                              const editedIntoNew = origWasExisting && isNew && (rowEdits[i]?.name !== undefined);
+                              const editedIntoNew = !forcedMatched && origWasExisting && isNew && (rowEdits[i]?.name !== undefined);
                               return { i, name: currName, isNew, editedIntoNew, isExcluded: excludedRows.has(i) };
                             })
                             .filter((x) => x.isNew && !x.isExcluded);

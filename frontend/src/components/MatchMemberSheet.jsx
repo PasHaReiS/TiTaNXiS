@@ -133,7 +133,7 @@ export default function MatchMemberSheet({
           position: "fixed",
           inset: 0,
           background: "rgba(0,0,0,0.65)",
-          zIndex: 1000,
+          zIndex: 9998,
           animation: "match-sheet-fade 0.18s ease-out",
         }}
       />
@@ -147,12 +147,12 @@ export default function MatchMemberSheet({
           left: 0,
           right: 0,
           bottom: 0,
-          zIndex: 1001,
+          zIndex: 9999,
           background: "#1f1207",
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
-          maxHeight: "90vh",
-          height: "90vh",
+          height: "75vh",
+          maxHeight: "75vh",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
@@ -408,15 +408,19 @@ export default function MatchMemberSheet({
             )}
           </button>
         </div>
-        {/* Footer — pinned at bottom, never scrolls. Extra bottom padding so
-            the buttons clear both the OS gesture bar and the site's LegalFooter
-            (~48-60px). Site footer is hidden via body.modal-open in index.css. */}
+        {/* Footer — pinned, never scrolls. Padding-bottom clears iOS safe-area
+            + 30px LegalFooter (belt & braces even though body.modal-open hides
+            it via index.css). */}
         <div
           style={{
-            padding: "12px 20px calc(env(safe-area-inset-bottom, 0px) + 64px)",
+            padding: "12px 20px max(env(safe-area-inset-bottom, 16px), 16px)",
+            paddingBottom: "calc(max(env(safe-area-inset-bottom, 0px), 16px) + 16px)",
             borderTop: "1px solid rgba(255,255,255,0.08)",
-            background: "rgba(0,0,0,0.35)",
-            display: "flex", gap: 10, flexShrink: 0,
+            background: "rgba(0,0,0,0.55)",
+            backdropFilter: "blur(8px)",
+            display: "flex",
+            gap: 10,
+            flexShrink: 0,
           }}
         >
           <button
