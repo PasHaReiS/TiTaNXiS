@@ -3,7 +3,8 @@ import ReactDOM from "react-dom";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound, Activity, Sparkles, LayoutGrid, LifeBuoy, LayoutDashboard, History, BellRing, Megaphone, ChevronDown, ChevronRight } from "lucide-react";
+import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound, Activity, Sparkles, LayoutGrid, LifeBuoy, LayoutDashboard, History, BellRing, Megaphone, ChevronDown, ChevronRight, Smartphone } from "lucide-react";
+import { usePwaInstall } from "@/hooks/usePwaInstall";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import LogoVideoModal from "@/components/LogoVideoModal";
@@ -51,6 +52,7 @@ export default function Header({ title, children }) {
   const [logoVideoOpen, setLogoVideoOpen] = useState(false);
   const [yonetimOpen, setYonetimOpen] = useState(false);
   const menuRef = useRef(null);
+  const { canInstall: canInstallPwa, install: installPwa } = usePwaInstall();
 
   // Reset "Yönetim" accordion when the main dropdown is closed so re-opening
   // the profile menu always starts clean/collapsed.
@@ -211,6 +213,33 @@ export default function Header({ title, children }) {
                     overflow: "visible",
                   }}
                 >
+                  {/* v142.7 — PWA install button (top of menu, only if supported & not installed) */}
+                  {canInstallPwa && (
+                    <button
+                      type="button"
+                      data-testid="dropdown-install-pwa"
+                      onClick={async () => {
+                        const res = await installPwa();
+                        if (res?.outcome === "accepted") setMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, rgba(139,92,246,0.18), rgba(59,130,246,0.12))",
+                        borderBottom: "1px solid rgba(139,92,246,0.35)",
+                        color: "#F5F0E8",
+                        fontFamily: "Rajdhani, sans-serif",
+                        fontWeight: 700,
+                      }}
+                    >
+                      <Smartphone className="w-4 h-4 flex-shrink-0" style={{ color: "#A78BFA" }} />
+                      <span className="flex-1">
+                        {t("pwa_install_menu_label", "Uygulamayı Yükle")}
+                      </span>
+                      <span className="text-base flex-shrink-0" aria-hidden>📲</span>
+                    </button>
+                  )}
+
                   {/* v136 — Menü yeniden yapılandırması:
                       • Kullanıcı öğeleri kök seviyede (Türkçe alfabetik).
                       • Admin/editor öğeleri "Yönetim" accordion altında.

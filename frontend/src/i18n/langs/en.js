@@ -416,6 +416,8 @@ const en = {
   dupmembers_unignored: "Undone — pair may reappear in suggestions",
   dupmembers_ignored_none: "No ignored pairs yet.",
   dupmembers_ignored_by: "Ignored by",
+  pwa_install_menu_label: "Install App",
+  pwa_install_success: "App installed 🎉",
   dupmembers_merge_failed: "Merge failed",
   badgeai_title: "AI Badge Suggestion",
   badgeai_regen_btn: "New Suggestion",

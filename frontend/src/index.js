@@ -22,6 +22,16 @@ root.render(
   </React.StrictMode>,
 );
 
+// v142.7 — Capture PWA install event as early as possible so the hamburger
+// menu can show the "Uygulamayı Yükle" button on first render.
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  window.__pwaInstallEvent__ = e;
+});
+window.addEventListener("appinstalled", () => {
+  window.__pwaInstallEvent__ = null;
+});
+
 // Register service worker for offline mode + push notifications
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

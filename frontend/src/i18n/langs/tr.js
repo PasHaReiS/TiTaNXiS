@@ -610,6 +610,8 @@ const tr = {
   dupmembers_unignored: "Geri alındı — çift tekrar önerilerde görünebilir",
   dupmembers_ignored_none: "Henüz yoksayılan çift yok.",
   dupmembers_ignored_by: "Yoksayan",
+  pwa_install_menu_label: "Uygulamayı Yükle",
+  pwa_install_success: "Uygulama yüklendi 🎉",
   dupmembers_merge_failed: "Birleştirme başarısız",
   badgeai_title: "YZ Rozet Önerisi",
   badgeai_regen_btn: "Yeni Öneri",

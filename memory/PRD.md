@@ -20,7 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 8, 2026 (v142.6 — Vision OCR CJK Fix: gpt-4o + CJK Preservation Prompt)** — Backend:
+- **Feb 9, 2026 (v142.7 — Hamburger Menüde PWA Yükleme Butonu)** — Frontend:
+  - **Yeni**: `hooks/usePwaInstall.js` — `beforeinstallprompt` event'ini global cache'ten (`window.__pwaInstallEvent__`) okuyup dinleyen React hook. Standalone modda veya `appinstalled` sonrası `canInstall=false`.
+  - **`index.js`**: Uygulama boot'unda `beforeinstallprompt`'u erken yakalayıp `window.__pwaInstallEvent__` içine stash ediyor (Header mount'undan önce event kaçmasın diye).
+  - **`components/Header.jsx`**: Menünün EN ÜSTÜNDE `dropdown-install-pwa` butonu — mor gradient, `Smartphone` icon + 📲 emoji, `t("pwa_install_menu_label")`. Sadece `canInstallPwa` true iken render ediliyor. Tıklama → `deferredPrompt.prompt()` → `userChoice` → menü kapanır, event temizlenir.
+  - **i18n** (tr + en): `pwa_install_menu_label` ("Uygulamayı Yükle" / "Install App"), `pwa_install_success`.
+  - **Test**: Sentetik `beforeinstallprompt` event dispatch → mobil (390x844) + desktop (1920x800) screenshot: buton görünüyor, tıklama sonrası cache temizleniyor ✅
+  - **`deployment_agent`: PASS ✅**
+
+
   - **Root cause**: `gpt-4o-mini` CJK karakterlerde ve karmaşık tablolarda belirgin şekilde zayıf. Vision API çağrısı gerçekten yapılıyordu (LiteLLM logları doğruladı) — fallback yok, sorun model kalitesiydi.
   - **`.env`**: `OCR_MODEL=gpt-4o` (mini → full). `OCR_BASE_URL=https://integrations.emergentagent.com/llm` (dokümante ediliyor, emergentintegrations otomatik kullanıyor).
   - **`routes/ocr.py`**: 
