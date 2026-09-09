@@ -5,7 +5,8 @@ import { api, apiErr } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import { toast } from "sonner";
-import { Upload, Loader2, Check, ChevronRight, X, Camera, ScanSearch } from "lucide-react";
+import { Upload, Loader2, Check, ChevronRight, X, Camera, ScanSearch, Search } from "lucide-react";
+import MatchMemberSheet from "@/components/MatchMemberSheet";
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
 const RANKS = ["R1", "R2", "R3", "R4", "R5"];
@@ -65,6 +66,7 @@ export default function MemberAddOcr() {
   // ama bu MVP'de sadece kendi oluşturduklarını görebiliyor; server tarafında
   // require_admin zaten yetkiliyi doğruluyor).
   const [undoStack, setUndoStack] = useState([]); // [{id, name}]
+  const [matchSheetIdx, setMatchSheetIdx] = useState(null); // v142.9 — index of row whose fuzzy sheet is open
   const [undoing, setUndoing] = useState(false);
 
   const { data: membersData, mutate: mutateMembers } = useSWR("/members", fetcher);
@@ -318,47 +320,36 @@ export default function MemberAddOcr() {
                         </div>
                       )}
                       {r.fuzzy && r.fuzzy.length > 0 && (
-                        <div className="rounded p-2 space-y-1"
+                        <div className="rounded p-2"
                              style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.35)" }}
                              data-testid={`moa-fuzzy-${idx}`}>
-                          <div className="text-[10px] font-bold" style={{ color: "#93C5FD" }}>
-                            {t("moa_fuzzy_prompt", "Bu kişiyle eşleşsin mi?")}
-                          </div>
-                          {r.fuzzy.map((fm, fi) => {
-                            const conf = fm.dist <= 1 ? "#4ade80"
-                                        : fm.dist <= 2 ? "#86EFAC"
-                                        : fm.dist <= 3 ? "#FCD34D"
-                                        : "#FDBA74";
-                            return (
-                              <div key={fm.name + fi} className="flex items-center gap-2 flex-wrap">
-                                <span className="text-[11px] text-white flex-1 min-w-0 truncate">→ {fm.name}</span>
-                                <button
-                                  type="button"
-                                  data-testid={`moa-fuzzy-yes-${idx}-${fi}`}
-                                  onClick={() => {
-                                    const hit = existingByName.get(fm.name.toLowerCase())
-                                             || Array.from(existingByName.values()).find((m) => (m.name || "").toLowerCase() === fm.name.toLowerCase());
-                                    if (hit) {
-                                      updateRow(idx, {
-                                        existing_id: hit.id,
-                                        existing_name: hit.name,
-                                        existing_alliance: hit.alliance_name,
-                                        alliance_name: hit.alliance_name || r.alliance_name,
-                                        rank: hit.rank || r.rank,
-                                        name: fm.name,
-                                      });
-                                      toast.success(t("moa_fuzzy_matched_toast", "Eşleştirildi: {{n}}", { n: fm.name }));
-                                    }
-                                  }}
-                                  className="chip text-[10px]"
-                                  style={{ borderColor: conf, color: conf, background: `${conf}18` }}
-                                >
-                                  ✓ {t("moa_fuzzy_yes", "Evet")}
-                                </button>
-                              </div>
-                            );
-                          })}
-                          <div className="text-[9px] text-muted-foreground pt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setMatchSheetIdx(idx)}
+                            data-testid={`moa-fuzzy-open-${idx}`}
+                            style={{
+                              width: '100%',
+                              minHeight: '44px',
+                              padding: '10px 12px',
+                              borderRadius: '10px',
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              background: 'linear-gradient(135deg, rgba(59,130,246,0.20), rgba(139,92,246,0.16))',
+                              color: '#93C5FD',
+                              border: '1.5px solid rgba(59,130,246,0.55)',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                            }}
+                            title={t("ocr_match_open_hint", "{{n}} önerileri modal listede aç", { n: r.name })}
+                          >
+                            <Search size={14} />
+                            {t("ocr_match_open_btn", "🔍 Eşleştir")}
+                            <span style={{ fontSize: '11px', opacity: 0.8 }}>({r.fuzzy.length})</span>
+                          </button>
+                          <div className="text-[10px] text-muted-foreground pt-1 text-center">
                             {t("moa_fuzzy_no_hint", "Hayır — aşağıdaki Kaydet ile yeni üye ekle veya farklı ismi elle yaz")}
                           </div>
                         </div>
@@ -494,6 +485,30 @@ export default function MemberAddOcr() {
           </div>
         )}
       </div>
+      {/* v142.9 — Bottom-sheet modal for fuzzy member matching. */}
+      <MatchMemberSheet
+        open={matchSheetIdx !== null}
+        onClose={() => setMatchSheetIdx(null)}
+        currentName={matchSheetIdx !== null ? rows[matchSheetIdx]?.name || "" : ""}
+        members={Array.from(existingByName.values())}
+        initialSelected={matchSheetIdx !== null ? rows[matchSheetIdx]?.name || "" : ""}
+        onSelect={(pickedName) => {
+          if (matchSheetIdx === null) return;
+          const hit = existingByName.get(pickedName.toLowerCase())
+                   || Array.from(existingByName.values()).find((m) => (m.name || "").toLowerCase() === pickedName.toLowerCase());
+          if (hit) {
+            updateRow(matchSheetIdx, {
+              existing_id: hit.id,
+              existing_name: hit.name,
+              existing_alliance: hit.alliance_name,
+              alliance_name: hit.alliance_name || rows[matchSheetIdx].alliance_name,
+              rank: hit.rank || rows[matchSheetIdx].rank,
+              name: pickedName,
+            });
+            toast.success(t("ocr_match_picked_toast", "Eşleştirildi: {{n}}", { n: pickedName }));
+          }
+        }}
+      />
     </div>
   );
 }

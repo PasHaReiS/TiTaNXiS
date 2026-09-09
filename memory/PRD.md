@@ -20,7 +20,21 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 9, 2026 (v142.8 — OCR Öneri Butonları Full-Width + Dokunmatik Standart)** — Frontend:
+- **Feb 9, 2026 (v142.9 — OCR Eşleştirme Bottom-Sheet Modal)** — Frontend:
+  - **Yeni component**: `components/MatchMemberSheet.jsx` — paylaşılan bottom-sheet modal (React portal). Özellikler:
+    - Slide-up animasyon (`match-sheet-slide`), backdrop fade (`match-sheet-fade`), body scroll lock.
+    - Başlık "Üye Eşleştir" + alt başlık "`{name}` için öneri seçin".
+    - Arama input'u (autoFocus, otomatik filter).
+    - 64px min-height üye kartları: avatar dairesi (initials), isim bold, "Mevcut üye" alt satırı, sağda benzerlik yüzdesi rozeti (%85+ yeşil / 70-85 amber / <70 gri) — Levenshtein tabanlı hesaplanıyor.
+    - Alt butonlar: "İptal" (koyu) + "Seç" (amber/turuncu gradient) — full-width, 48px, `Seç` disable if `selected` boş.
+    - Modal arka planı `#1f1207`, `border-radius: 20px 20px 0 0`, iOS safe-area padding.
+    - Test ID'ler: `match-member-sheet`, `match-sheet-title/subtitle/close/search/list/empty/cancel/confirm`, `match-sheet-row-{name}`.
+  - **`components/OcrDialog.jsx`**: 3 chip bloğunun (members mode, event fuzzy, event suggestions) yerine tek satırlık "🔍 Eşleştir (n)" butonu. Tıklama → `setMatchSheetIdx({idx, mode})`. Component sonuna tek MatchMemberSheet render, seçim → `setRowEdits`.
+  - **`pages/MemberAddOcr.jsx`**: Fuzzy chip bloğu (üye ekleme sayfası) tek "🔍 Eşleştir (n)" butonu oldu. Seçimde `updateRow` mevcut hit verileriyle (id/alliance/rank) çağırılıyor.
+  - **i18n** (tr + en): 12 yeni anahtar — `match_sheet_title/subtitle/search_ph/existing/similarity/confirm/empty`, `ocr_match_open_btn/hint/picked_toast`, `cancel/close/clear`.
+  - Frontend smoke test: derleme temiz, anasayfa render, konsol hatası yok ✅
+
+
   - `components/OcrDialog.jsx` içindeki 3 ayrı öneri buton bloğu (members mode top-2 suggestions, event mode fuzzyMatches row-level, event mode full suggestions) yeniden tasarlandı:
     1. **Full-width** (`width: 100%`, `flex-direction: column`) — yan yana chip yerine alt alta liste.
     2. **min-height 44px** — mobil tıklama standardına uygun.

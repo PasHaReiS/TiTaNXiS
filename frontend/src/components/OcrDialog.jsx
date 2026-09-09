@@ -1,11 +1,12 @@
 import React, { useRef, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Camera, Loader2, Check, AlertTriangle, Upload, Scissors, Trash2, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
+import { X, Camera, Loader2, Check, AlertTriangle, Upload, Scissors, Trash2, RotateCcw, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { api, apiErr } from "@/lib/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import CropDialog from "@/components/CropDialog";
+import MatchMemberSheet from "@/components/MatchMemberSheet";
 
 const _fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -206,6 +207,10 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   // to this alliance (case-insensitive; "" means no filter). Click a
   // legend chip to toggle.
   const [allianceFilter, setAllianceFilter] = useState("");
+  // v142.9 — MatchMemberSheet — bottom-sheet modal for fuzzy member matching.
+  // Replaces inline "🔗 name" chip lists across all OCR flows.
+  // Shape: { idx: number, mode: "members" | "event" | "event-fuzzy" }
+  const [matchSheetIdx, setMatchSheetIdx] = useState(null);
   React.useEffect(() => {
     setExcludedRows(new Set()); setRowEdits({}); setShowNewList(true);
     setAutoAppliedRows([]); setAllianceFilter("");
@@ -1381,41 +1386,33 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     title={currName}
                                   />
                                   {suggestions.length > 0 && !isExcluded && (
-                                    <div style={{display:'flex', flexDirection:'column', gap:'4px', marginTop:'6px'}} data-testid={`ocr-suggest-${i}`}>
-                                      {suggestions.slice(0, 2).map((s) => {
-                                        const isSelected = currName === s.name;
-                                        return (
-                                          <button
-                                            key={s.name}
-                                            type="button"
-                                            onClick={() => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: s.name } }))}
-                                            style={{
-                                              width: '100%',
-                                              minHeight: '44px',
-                                              fontSize: '13px',
-                                              padding: '10px 12px',
-                                              borderRadius: '8px',
-                                              fontWeight: 'bold',
-                                              background: isSelected ? 'rgba(34,197,94,0.30)' : 'rgba(255,255,255,0.05)',
-                                              color: isSelected ? '#4ade80' : '#94A3B8',
-                                              border: `1.5px solid ${isSelected ? 'rgba(34,197,94,0.85)' : 'rgba(255,255,255,0.15)'}`,
-                                              boxShadow: isSelected ? '0 0 8px rgba(34,197,94,0.4)' : 'none',
-                                              cursor: 'pointer',
-                                              textAlign: 'left',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              gap: '8px',
-                                              transition: 'all 0.15s',
-                                            }}
-                                            title={`Levenshtein ${s.dist} — tıkla bağla`}
-                                            data-testid={`ocr-suggest-${i}-${s.name.replace(/\s+/g,'_')}`}
-                                          >
-                                            <span style={{fontSize:'16px'}}>{isSelected ? '✓' : '🔗'}</span>
-                                            <span style={{flex: 1, overflow: 'hidden', textOverflow: 'ellipsis'}}>{s.name}</span>
-                                            <span style={{fontSize:'10px', opacity: 0.7}}>d={s.dist}</span>
-                                          </button>
-                                        );
-                                      })}
+                                    <div style={{marginTop:'6px'}} data-testid={`ocr-suggest-${i}`}>
+                                      <button
+                                        type="button"
+                                        onClick={() => setMatchSheetIdx({ idx: i, mode: "members" })}
+                                        data-testid={`ocr-match-open-${i}`}
+                                        style={{
+                                          width: '100%',
+                                          minHeight: '44px',
+                                          padding: '10px 12px',
+                                          borderRadius: '10px',
+                                          fontSize: '13px',
+                                          fontWeight: 700,
+                                          background: 'linear-gradient(135deg, rgba(59,130,246,0.18), rgba(139,92,246,0.14))',
+                                          color: '#93C5FD',
+                                          border: '1.5px solid rgba(59,130,246,0.55)',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          gap: '6px',
+                                        }}
+                                        title={t("ocr_match_open_hint", "{{n}} önerileri modal listede aç", { n: currName })}
+                                      >
+                                        <Search size={14} />
+                                        {t("ocr_match_open_btn", "🔍 Eşleştir")}
+                                        <span style={{fontSize:'11px', opacity:0.8}}>({suggestions.length})</span>
+                                      </button>
                                     </div>
                                   )}
                                 </td>
@@ -1603,48 +1600,34 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                       {fuzzyMatches.length > 0 && (
                                         <div
                                           data-testid={`ocr-row-fuzzy-${i}`}
-                                          style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}
+                                          style={{ marginTop: '6px' }}
                                         >
-                                          <div style={{ fontSize: '11px', color: '#93C5FD', fontWeight: 700 }}>
-                                            {t("ocr_fuzzy_prompt", "Bu kişiyle eşleşsin mi?")}
-                                          </div>
-                                          {fuzzyMatches.map((fm, fi) => {
-                                            const isSelected = currName === fm.name;
-                                            return (
-                                              <button
-                                                key={fm.name + fi}
-                                                type="button"
-                                                data-testid={`ocr-row-fuzzy-yes-${i}-${fi}`}
-                                                onClick={() => {
-                                                  setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: fm.name } }));
-                                                  toast.success(t("ocr_fuzzy_matched_toast", "Eşleştirildi: {{n}}", { n: fm.name }));
-                                                }}
-                                                style={{
-                                                  width: '100%',
-                                                  minHeight: '44px',
-                                                  padding: '10px 12px',
-                                                  borderRadius: '8px',
-                                                  fontSize: '13px',
-                                                  fontWeight: 700,
-                                                  background: isSelected ? 'rgba(34,197,94,0.30)' : 'rgba(255,255,255,0.05)',
-                                                  color: isSelected ? '#4ade80' : '#94A3B8',
-                                                  border: `1.5px solid ${isSelected ? 'rgba(34,197,94,0.85)' : 'rgba(255,255,255,0.15)'}`,
-                                                  boxShadow: isSelected ? '0 0 8px rgba(34,197,94,0.4)' : 'none',
-                                                  cursor: 'pointer',
-                                                  textAlign: 'left',
-                                                  display: 'flex',
-                                                  alignItems: 'center',
-                                                  gap: '8px',
-                                                  transition: 'all 0.15s',
-                                                }}
-                                                title={`Levenshtein=${fm.dist}`}
-                                              >
-                                                <span style={{ fontSize: '16px' }}>{isSelected ? '✓' : '🔗'}</span>
-                                                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{fm.name}</span>
-                                                <span style={{ fontSize: '10px', opacity: 0.7 }}>d={fm.dist}</span>
-                                              </button>
-                                            );
-                                          })}
+                                          <button
+                                            type="button"
+                                            onClick={() => setMatchSheetIdx({ idx: i, mode: "event-fuzzy" })}
+                                            data-testid={`ocr-row-fuzzy-open-${i}`}
+                                            style={{
+                                              width: '100%',
+                                              minHeight: '44px',
+                                              padding: '10px 12px',
+                                              borderRadius: '10px',
+                                              fontSize: '13px',
+                                              fontWeight: 700,
+                                              background: 'linear-gradient(135deg, rgba(59,130,246,0.18), rgba(139,92,246,0.14))',
+                                              color: '#93C5FD',
+                                              border: '1.5px solid rgba(59,130,246,0.55)',
+                                              cursor: 'pointer',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              gap: '6px',
+                                            }}
+                                            title={t("ocr_match_open_hint", "{{n}} önerileri modal listede aç", { n: currName })}
+                                          >
+                                            <Search size={14} />
+                                            {t("ocr_match_open_btn", "🔍 Eşleştir")}
+                                            <span style={{ fontSize: '11px', opacity: 0.8 }}>({fuzzyMatches.length})</span>
+                                          </button>
                                         </div>
                                       )}
                                       <div style={{ display: 'flex', gap: '3px', marginTop: '3px', flexWrap: 'wrap' }}>
@@ -1755,42 +1738,33 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     title="Adı düzeltmek için tıkla"
                                   />
                                   {suggestions.length > 0 && !isExcluded && (
-                                    <div className="flex flex-col gap-1 mt-1.5" data-testid={`ocr-suggest-${i}`}>
-                                      {suggestions.map((s) => {
-                                        const isSelected = currName === s.name;
-                                        const confTitle = s.dist <= 1 ? "Yüksek eşleşme" : s.dist <= 2 ? "İyi eşleşme" : s.dist <= 3 ? "Yaklaşık eşleşme" : "Zayıf eşleşme";
-                                        return (
-                                          <button
-                                            key={s.name}
-                                            type="button"
-                                            onClick={() => setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: s.name } }))}
-                                            style={{
-                                              width: '100%',
-                                              minHeight: '44px',
-                                              fontSize: '13px',
-                                              padding: '10px 12px',
-                                              borderRadius: '8px',
-                                              fontWeight: 'bold',
-                                              background: isSelected ? 'rgba(34,197,94,0.30)' : 'rgba(255,255,255,0.05)',
-                                              color: isSelected ? '#4ade80' : '#94A3B8',
-                                              border: `1.5px solid ${isSelected ? 'rgba(34,197,94,0.85)' : 'rgba(255,255,255,0.15)'}`,
-                                              boxShadow: isSelected ? '0 0 8px rgba(34,197,94,0.4)' : 'none',
-                                              cursor: 'pointer',
-                                              textAlign: 'left',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              gap: '8px',
-                                              transition: 'all 0.15s',
-                                            }}
-                                            title={`${confTitle} · Levenshtein ${s.dist} — tıkla ve bu üyeye bağla`}
-                                            data-testid={`ocr-suggest-${i}-${s.name.replace(/\s+/g,'_')}`}
-                                          >
-                                            <span style={{fontSize:'16px'}}>{isSelected ? '✓' : '🔗'}</span>
-                                            <span style={{flex: 1, overflow: 'hidden', textOverflow: 'ellipsis'}}>{s.name}</span>
-                                            <span style={{fontSize:'10px', opacity: 0.7}}>d={s.dist}</span>
-                                          </button>
-                                        );
-                                      })}
+                                    <div className="mt-1.5" data-testid={`ocr-suggest-${i}`}>
+                                      <button
+                                        type="button"
+                                        onClick={() => setMatchSheetIdx({ idx: i, mode: "event" })}
+                                        data-testid={`ocr-match-open-${i}`}
+                                        style={{
+                                          width: '100%',
+                                          minHeight: '44px',
+                                          padding: '10px 12px',
+                                          borderRadius: '10px',
+                                          fontSize: '13px',
+                                          fontWeight: 700,
+                                          background: 'linear-gradient(135deg, rgba(59,130,246,0.18), rgba(139,92,246,0.14))',
+                                          color: '#93C5FD',
+                                          border: '1.5px solid rgba(59,130,246,0.55)',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          gap: '6px',
+                                        }}
+                                        title={t("ocr_match_open_hint", "{{n}} önerileri modal listede aç", { n: currName })}
+                                      >
+                                        <Search size={14} />
+                                        {t("ocr_match_open_btn", "🔍 Eşleştir")}
+                                        <span style={{ fontSize: '11px', opacity: 0.8 }}>({suggestions.length})</span>
+                                      </button>
                                     </div>
                                   )}
                                 </td>
@@ -2153,6 +2127,31 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
           setResult(null); // invalidate any previous OCR result since input changed
           setCropIdx(-1);
           toast.success("Kırpma uygulandı");
+        }}
+      />
+      {/* v142.9 — Shared bottom-sheet modal for fuzzy member matching. */}
+      <MatchMemberSheet
+        open={!!matchSheetIdx}
+        onClose={() => setMatchSheetIdx(null)}
+        currentName={(() => {
+          if (!matchSheetIdx || !result) return "";
+          const rows = mode === "event" ? (result?.data?.participants || result?.participants || [])
+                     : mode === "members" ? (result?.data?.members || result?.members || [])
+                     : [];
+          const r = rows[matchSheetIdx.idx] || {};
+          return rowEdits[matchSheetIdx.idx]?.name ?? r.name ?? "";
+        })()}
+        members={existingMembers || []}
+        initialSelected={
+          matchSheetIdx
+            ? (rowEdits[matchSheetIdx.idx]?.name ?? "")
+            : ""
+        }
+        onSelect={(pickedName) => {
+          if (!matchSheetIdx) return;
+          const i = matchSheetIdx.idx;
+          setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: pickedName } }));
+          toast.success(t("ocr_match_picked_toast", "Eşleştirildi: {{n}}", { n: pickedName }));
         }}
       />
     </AnimatePresence>
