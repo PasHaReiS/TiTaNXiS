@@ -20,7 +20,15 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 9, 2026 (v142.9 — OCR Eşleştirme Bottom-Sheet Modal)** — Frontend:
+- **Feb 9, 2026 (v142.10 — MatchMemberSheet: Match-Flip + Sticky Footer + "Yeni Üye")** — Frontend:
+  - **Fix 1 — Satır eşleşince "Eşleşti" flip**: `OcrDialog.jsx` 3 render bloğu (`isExisting`/`isMatched`) artık `rowEdits[i]._manual_match` (zorla eşleşti) ve `_force_new` (zorla yeni) bayraklarını da honor ediyor. Modal'dan seçim → `setRowEdits({...prev, name, _manual_match: true})` → satır anında ✅ yeşile döner. Name normalization (stripTag/alliance tag prefix) farkı sorun olmaktan çıktı.
+  - **Fix 2 — Modal yükseklik + sticky footer**: `MatchMemberSheet` container `max-height: 90vh`, `height: 90vh`, `overflow: hidden`, flex column. Drag handle + header + search + list (`flex: 1, minHeight: 0, overflow-y: auto`) + footer (`flex-shrink: 0`, `border-top`, semi-opak background). Liste scroll edilse bile İptal/Seç butonları hep görünür kalır. iOS safe-area padding korundu.
+  - **Fix 3 — "Yeni Üye Olarak Ekle" seçeneği**: Sabit `NEW_MEMBER_SENTINEL` export. Liste sonunda `position: sticky, bottom: 0` ile pin'lenmiş kart — avatar '?' gri daire, "Yeni Üye Olarak Ekle" + `UserPlus` icon + "Sisteme yeni kayıt eklenecek". Seçim `onSelect(currentName, {isNew: true})` tetikler. OcrDialog: `_force_new: true` bayrağı → satır "Yeni" olarak işaretlenir. MemberAddOcr: `existing_id/name/alliance` null'a çekilir → saveAllMissing fresh POST /members yapar.
+  - **onSelect signature değişti**: `(pickedName, meta)` → `meta.isNew` bool + `meta.member` full row.
+  - **i18n**: 3 yeni anahtar (tr + en) — `match_sheet_new_member_title/subtitle`, `ocr_match_new_toast`.
+  - Frontend derleme temiz, deployment_agent PASS ✅
+
+
   - **Yeni component**: `components/MatchMemberSheet.jsx` — paylaşılan bottom-sheet modal (React portal). Özellikler:
     - Slide-up animasyon (`match-sheet-slide`), backdrop fade (`match-sheet-fade`), body scroll lock.
     - Başlık "Üye Eşleştir" + alt başlık "`{name}` için öneri seçin".

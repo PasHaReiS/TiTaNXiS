@@ -1,21 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import ReactDOM from "react-dom";
-import { Search, X, User as UserIcon, Check } from "lucide-react";
+import { Search, X, User as UserIcon, Check, UserPlus } from "lucide-react";
 
-// v142.9 — Shared bottom-sheet modal for OCR fuzzy member matching.
-// Replaces the tiny inline "🔗 name" chips in Bireysel Güç OCR, event score
-// OCR, member-add OCR and every other OCR flow.
-//
-// Usage:
-//   <MatchMemberSheet
-//     open={openIdx === rowIdx}
-//     onClose={() => setOpenIdx(null)}
-//     currentName={row.name}
-//     members={existingMembers}          // [{ id, name, alliance_name? }]
-//     initialSelected={row.name}         // optional: pre-highlight
-//     onSelect={(pickedName) => setRowEdits(...)}
-//   />
+// v142.10 — Shared bottom-sheet modal for OCR fuzzy member matching.
+// Sentinel value for the "add as new member" card at the bottom of the list.
+export const NEW_MEMBER_SENTINEL = "__match_new_member__";
 
 // Levenshtein — cheap enough for a client-side list of ~1000 members.
 function _lev(a, b) {
@@ -60,6 +50,14 @@ function pctColor(pct) {
   return { bg: "rgba(148,163,184,0.15)", fg: "#94A3B8", border: "rgba(148,163,184,0.4)" };
 }
 
+/**
+ * MatchMemberSheet — v142.10
+ *
+ * Bottom-sheet modal for picking a member match on OCR flows.
+ * onSelect receives (pickedName, meta) where:
+ *   meta.isNew === true → user chose "Add as new member" sentinel.
+ *   meta.member         → full member row when picking an existing one.
+ */
 export default function MatchMemberSheet({
   open,
   onClose,
@@ -72,7 +70,7 @@ export default function MatchMemberSheet({
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState(initialSelected || "");
 
-  // Reset state when sheet opens/closes.
+  // Reset state when sheet opens.
   useEffect(() => {
     if (open) {
       setSelected(initialSelected || "");
@@ -99,6 +97,7 @@ export default function MatchMemberSheet({
         name: m.name || "",
         alliance: m.alliance_name || "",
         pct: similarityPct(needle, m.name || ""),
+        _raw: m,
       }))
       .filter((r) => r.name);
     list.sort((a, b) => b.pct - a.pct || a.name.localeCompare(b.name));
@@ -111,7 +110,12 @@ export default function MatchMemberSheet({
 
   const confirm = () => {
     if (!selected) return;
-    onSelect && onSelect(selected);
+    if (selected === NEW_MEMBER_SENTINEL) {
+      onSelect && onSelect(currentName || "", { isNew: true });
+    } else {
+      const row = ranked.find((r) => r.name === selected);
+      onSelect && onSelect(selected, { isNew: false, member: row?._raw || null });
+    }
     onClose && onClose();
   };
 
@@ -143,9 +147,11 @@ export default function MatchMemberSheet({
           background: "#1f1207",
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
-          maxHeight: "85vh",
+          maxHeight: "90vh",
+          height: "90vh",
           display: "flex",
           flexDirection: "column",
+          overflow: "hidden",
           boxShadow: "0 -18px 36px rgba(0,0,0,0.55)",
           animation: "match-sheet-slide 0.22s cubic-bezier(0.22,1,0.36,1)",
           border: "1px solid rgba(245,158,11,0.28)",
@@ -156,11 +162,11 @@ export default function MatchMemberSheet({
         <div
           style={{
             width: 44, height: 4, background: "rgba(255,255,255,0.25)",
-            borderRadius: 2, margin: "10px auto 4px",
+            borderRadius: 2, margin: "10px auto 4px", flexShrink: 0,
           }}
         />
         {/* Header */}
-        <div style={{ padding: "8px 20px 12px", display: "flex", alignItems: "flex-start", gap: 12 }}>
+        <div style={{ padding: "8px 20px 12px", display: "flex", alignItems: "flex-start", gap: 12, flexShrink: 0 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div
               data-testid="match-sheet-title"
@@ -194,7 +200,7 @@ export default function MatchMemberSheet({
           </button>
         </div>
         {/* Search */}
-        <div style={{ padding: "0 20px 12px" }}>
+        <div style={{ padding: "0 20px 12px", flexShrink: 0 }}>
           <div
             style={{
               display: "flex", alignItems: "center", gap: 8,
@@ -231,12 +237,17 @@ export default function MatchMemberSheet({
             )}
           </div>
         </div>
-        {/* Member list */}
+        {/* Member list — flex:1, scrolls internally */}
         <div
           data-testid="match-sheet-list"
           style={{
-            flex: 1, overflowY: "auto", padding: "0 12px 8px",
-            display: "flex", flexDirection: "column", gap: 6,
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            padding: "0 12px 8px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
           }}
         >
           {ranked.length === 0 && (
@@ -272,6 +283,7 @@ export default function MatchMemberSheet({
                   cursor: "pointer",
                   textAlign: "left",
                   transition: "all 0.15s",
+                  flexShrink: 0,
                 }}
               >
                 {/* Avatar */}
@@ -327,13 +339,78 @@ export default function MatchMemberSheet({
               </button>
             );
           })}
+
+          {/* v142.10 — "Yeni Üye Olarak Ekle" — sticky pinned inside the list at the end.
+              Always visible, positioned via sticky bottom so it stays at the tail even
+              during scroll. */}
+          <button
+            type="button"
+            onClick={() => setSelected(NEW_MEMBER_SENTINEL)}
+            data-testid="match-sheet-new-member"
+            style={{
+              minHeight: 64,
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "10px 12px",
+              borderRadius: 12,
+              background:
+                selected === NEW_MEMBER_SENTINEL
+                  ? "rgba(139,92,246,0.20)"
+                  : "rgba(139,92,246,0.06)",
+              border: `1.5px dashed ${
+                selected === NEW_MEMBER_SENTINEL ? "rgba(139,92,246,0.80)" : "rgba(139,92,246,0.45)"
+              }`,
+              cursor: "pointer",
+              textAlign: "left",
+              flexShrink: 0,
+              marginTop: 6,
+              position: "sticky",
+              bottom: 0,
+              backdropFilter: "blur(6px)",
+            }}
+          >
+            {/* Avatar '?' gri daire */}
+            <div
+              style={{
+                width: 44, height: 44, borderRadius: "50%",
+                background: "rgba(148,163,184,0.30)",
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                color: "#F5F0E8", fontWeight: 800, fontSize: 20, flexShrink: 0,
+              }}
+            >
+              ?
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                data-testid="match-sheet-new-member-title"
+                style={{ fontSize: 15, fontWeight: 700, color: "#F5F0E8" }}
+              >
+                {t("match_sheet_new_member_title", "Yeni Üye Olarak Ekle")}
+              </div>
+              <div
+                style={{
+                  fontSize: 11, color: "rgba(245,240,232,0.6)", marginTop: 2,
+                  display: "flex", alignItems: "center", gap: 6,
+                }}
+              >
+                <UserPlus size={10} />
+                {t("match_sheet_new_member_subtitle", "Sisteme yeni kayıt eklenecek")}
+              </div>
+            </div>
+            {selected === NEW_MEMBER_SENTINEL && (
+              <Check size={18} style={{ color: "#A78BFA", flexShrink: 0 }} />
+            )}
+          </button>
         </div>
-        {/* Footer buttons */}
+        {/* Footer — pinned at bottom, never scrolls */}
         <div
           style={{
             padding: "12px 20px calc(env(safe-area-inset-bottom, 0px) + 16px)",
             borderTop: "1px solid rgba(255,255,255,0.08)",
-            display: "flex", gap: 10,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex", gap: 10, flexShrink: 0,
           }}
         >
           <button

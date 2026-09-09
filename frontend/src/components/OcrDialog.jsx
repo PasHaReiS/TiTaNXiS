@@ -1261,7 +1261,13 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                             {mode === "members" && (() => {
                               const currName = rowEdits[i]?.name ?? r.name ?? "";
                               const cleanName = _stripTag(currName);
-                              const isExisting = existingNamesLc.has(cleanName.toLowerCase());
+                              // v142.10 — Kullanıcı MatchMemberSheet'ten seçim yaptıysa
+                              // `_manual_match` bayrağı satırı zorla "Eşleşti" durumuna
+                              // geçirir (name normalization farkı sorun olmasın diye).
+                              // `_force_new` tam tersi: "yeni kayıt" olarak sabitler.
+                              const forcedMatched = rowEdits[i]?._manual_match === true;
+                              const forcedNew = rowEdits[i]?._force_new === true;
+                              const isExisting = forcedNew ? false : (forcedMatched || existingNamesLc.has(cleanName.toLowerCase()));
                               // v135.44 — Her satır için açık eşleşme durumu:
                               // ✅ Eşleşti (kayıtlı üye bulundu) veya ⚠️ Eşleşmedi
                               // (yeni üye olarak oluşturulacak — apply-members backend
@@ -1491,7 +1497,10 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                               // + eşleşme sağlanır) veya "Manuel Eşleştir" (datalist ile
                               // mevcut üyeye yönlendir).
                               const cleanForMatch = _stripTagAndJunk(_stripTag(currName ?? "")) || _stripTag(currName ?? "");
-                              const isMatched = existingNamesLc.has((cleanForMatch || "").toLowerCase());
+                              // v142.10 — MatchMemberSheet manual pick guarantees match.
+                              const forcedMatched = rowEdits[i]?._manual_match === true;
+                              const forcedNew = rowEdits[i]?._force_new === true;
+                              const isMatched = forcedNew ? false : (forcedMatched || existingNamesLc.has((cleanForMatch || "").toLowerCase()));
                               // v135.46 — Fuzzy önerileri: exact match yoksa
                               // Latin-normalize edilmiş isim üzerinden en yakın
                               // 3 mevcut üyeyi bul; admin "Evet" ile eşleştirir.
@@ -2129,7 +2138,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
           toast.success("Kırpma uygulandı");
         }}
       />
-      {/* v142.9 — Shared bottom-sheet modal for fuzzy member matching. */}
+      {/* v142.10 — Shared bottom-sheet modal for fuzzy member matching. */}
       <MatchMemberSheet
         open={!!matchSheetIdx}
         onClose={() => setMatchSheetIdx(null)}
@@ -2147,11 +2156,29 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
             ? (rowEdits[matchSheetIdx.idx]?.name ?? "")
             : ""
         }
-        onSelect={(pickedName) => {
+        onSelect={(pickedName, meta) => {
           if (!matchSheetIdx) return;
           const i = matchSheetIdx.idx;
-          setRowEdits((prev) => ({ ...prev, [i]: { ...prev[i], name: pickedName } }));
-          toast.success(t("ocr_match_picked_toast", "Eşleştirildi: {{n}}", { n: pickedName }));
+          if (meta?.isNew) {
+            setRowEdits((prev) => ({
+              ...prev,
+              [i]: { ...prev[i], _manual_match: false, _force_new: true },
+            }));
+            toast.info(t("ocr_match_new_toast", "Yeni üye olarak eklenecek"));
+          } else {
+            setRowEdits((prev) => ({
+              ...prev,
+              [i]: {
+                ...prev[i],
+                name: pickedName,
+                _manual_match: true,
+                _force_new: false,
+                ...(meta?.member?.alliance_name ? { alliance_name: meta.member.alliance_name } : {}),
+                ...(meta?.member?.rank ? { rank: meta.member.rank } : {}),
+              },
+            }));
+            toast.success(t("ocr_match_picked_toast", "Eşleştirildi: {{n}}", { n: pickedName }));
+          }
         }}
       />
     </AnimatePresence>

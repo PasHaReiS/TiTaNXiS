@@ -485,16 +485,28 @@ export default function MemberAddOcr() {
           </div>
         )}
       </div>
-      {/* v142.9 — Bottom-sheet modal for fuzzy member matching. */}
+      {/* v142.10 — Bottom-sheet modal for fuzzy member matching. */}
       <MatchMemberSheet
         open={matchSheetIdx !== null}
         onClose={() => setMatchSheetIdx(null)}
         currentName={matchSheetIdx !== null ? rows[matchSheetIdx]?.name || "" : ""}
         members={Array.from(existingByName.values())}
         initialSelected={matchSheetIdx !== null ? rows[matchSheetIdx]?.name || "" : ""}
-        onSelect={(pickedName) => {
+        onSelect={(pickedName, meta) => {
           if (matchSheetIdx === null) return;
-          const hit = existingByName.get(pickedName.toLowerCase())
+          if (meta?.isNew) {
+            // "Yeni Üye Olarak Ekle" — clear any existing match binding so
+            // saveAllMissing treats this row as a fresh POST /members.
+            updateRow(matchSheetIdx, {
+              existing_id: null,
+              existing_name: null,
+              existing_alliance: null,
+            });
+            toast.info(t("ocr_match_new_toast", "Yeni üye olarak eklenecek"));
+            return;
+          }
+          const hit = meta?.member
+                   || existingByName.get(pickedName.toLowerCase())
                    || Array.from(existingByName.values()).find((m) => (m.name || "").toLowerCase() === pickedName.toLowerCase());
           if (hit) {
             updateRow(matchSheetIdx, {
