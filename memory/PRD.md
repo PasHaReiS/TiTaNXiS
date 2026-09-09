@@ -20,7 +20,18 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 9, 2026 (v142.7 — Hamburger Menüde PWA Yükleme Butonu)** — Frontend:
+- **Feb 9, 2026 (v142.8 — OCR Öneri Butonları Full-Width + Dokunmatik Standart)** — Frontend:
+  - `components/OcrDialog.jsx` içindeki 3 ayrı öneri buton bloğu (members mode top-2 suggestions, event mode fuzzyMatches row-level, event mode full suggestions) yeniden tasarlandı:
+    1. **Full-width** (`width: 100%`, `flex-direction: column`) — yan yana chip yerine alt alta liste.
+    2. **min-height 44px** — mobil tıklama standardına uygun.
+    3. **font-size 13px + padding 10px/12px** — okunabilir, parmak dostu.
+    4. **Selected state**: `currName === s.name` iken yeşil gradient (`rgba(34,197,94,0.30)`, border `rgba(34,197,94,0.85)`, `boxShadow: 0 0 8px rgba(34,197,94,0.4)`) + `✓` icon.
+    5. **Unselected state**: gri (`rgba(255,255,255,0.05)`, `#94A3B8`) + `🔗` icon.
+    6. **Layout**: icon (16px) → name (flex-grow, ellipsis) → Levenshtein rozeti (`d=N`, opacity 0.7).
+  - Test ID'ler korundu (`ocr-suggest-{i}-{name}`, `ocr-row-fuzzy-yes-{i}-{fi}`). Toast + selectbind logic aynı.
+  - **`fuzzyMatches`** bloğu artık ayrı "→ name" span + "Evet" mini butonu değil, tek full-width buton (name + d=N rozeti) — daha net dokunma alanı.
+
+
   - **Yeni**: `hooks/usePwaInstall.js` — `beforeinstallprompt` event'ini global cache'ten (`window.__pwaInstallEvent__`) okuyup dinleyen React hook. Standalone modda veya `appinstalled` sonrası `canInstall=false`.
   - **`index.js`**: Uygulama boot'unda `beforeinstallprompt`'u erken yakalayıp `window.__pwaInstallEvent__` içine stash ediyor (Header mount'undan önce event kaçmasın diye).
   - **`components/Header.jsx`**: Menünün EN ÜSTÜNDE `dropdown-install-pwa` butonu — mor gradient, `Smartphone` icon + 📲 emoji, `t("pwa_install_menu_label")`. Sadece `canInstallPwa` true iken render ediliyor. Tıklama → `deferredPrompt.prompt()` → `userChoice` → menü kapanır, event temizlenir.
