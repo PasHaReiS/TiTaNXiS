@@ -42,7 +42,10 @@ api.interceptors.request.use((config) => {
 
 export const fmt = (n) => {
   if (n === null || n === undefined || isNaN(n)) return "0";
-  return new Intl.NumberFormat("tr-TR").format(Math.round(n));
+  // v142.14 — Full-precision integer formatting: no rounding, no compact
+  // (K/M/B) shortening. `5503115` MUST render as `5.503.115`, never
+  // `5.500.000` or `5,5M`. Numeric strings are accepted verbatim.
+  return new Intl.NumberFormat("tr-TR").format(Number(n));
 };
 
 export const RANKS = ["R5", "R4", "R3", "R2", "R1"];

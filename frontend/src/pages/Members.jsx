@@ -1538,8 +1538,12 @@ export default function Members() {
           mutate((k) => typeof k === "string" && k.startsWith("/members"));
           mutate("/stats");
           const newAlliances = (res.data.new_alliances || []).length;
+          const created = res.data.created || 0;
+          const updated = res.data.updated || 0;
+          const existing = res.data.existing || 0;
           toast.success(
-            `Eklendi: ${res.data.created} · Mevcut: ${res.data.existing}` +
+            // v142.13 — Show update count too so admins verify power writes.
+            `Eklendi: ${created} · Güncellendi: ${updated} · Mevcut: ${existing}` +
               (newAlliances ? ` · Yeni ittifak: ${newAlliances}` : ""),
           );
           // v136 — Return response so OcrDialog audit call captures

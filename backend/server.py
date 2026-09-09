@@ -751,8 +751,10 @@ async def batch_create_members(body: BatchCreateBody, _: dict = Depends(require_
 
     created_members = 0
     existing_hits = 0
+    updated_members = 0  # v142.13 — OCR flows expect updates on existing rows.
     new_alliances: list[str] = []
     docs_to_insert: list[dict] = []
+    updated_member_ids: list[str] = []
     report: list[dict] = []
 
     for row in body.members:
@@ -771,8 +773,35 @@ async def batch_create_members(body: BatchCreateBody, _: dict = Depends(require_
 
         key = clean_name  # case-sensitive; see by_name construction above
         if key in by_name:
+            # v142.13 — Existing member — UPDATE the fields OCR captured
+            # (power / castle_level / rank / alliance) instead of silently
+            # skipping. The old code just bumped `existing_hits` and moved on,
+            # which broke Bireysel Güç OCR: powers scanned from screenshots
+            # were never written to the DB because every "power scan" hits
+            # existing members. Now we merge OCR values in and count as updates.
             existing_hits += 1
-            report.append({"name": clean_name, "alliance": canonical_alliance, "status": "existing"})
+            existing_doc = by_name[key]
+            upd: dict = {}
+            if row.power and row.power > 0:
+                upd["bireysel_guc"] = int(row.power)
+            if row.castle_level and row.castle_level > 0:
+                upd["castle_level"] = int(row.castle_level)
+            if row.rank in ("R1", "R2", "R3", "R4", "R5"):
+                upd["rank"] = row.rank
+            if canonical_alliance:
+                upd["alliance_name"] = canonical_alliance
+            if upd:
+                await db.members.update_one({"id": existing_doc["id"]}, {"$set": upd})
+                updated_members += 1
+                updated_member_ids.append(existing_doc["id"])
+                report.append({
+                    "name": clean_name,
+                    "alliance": canonical_alliance,
+                    "status": "updated",
+                    "fields": list(upd.keys()),
+                })
+            else:
+                report.append({"name": clean_name, "alliance": canonical_alliance, "status": "existing"})
             continue
         doc = {
             "id": str(uuid.uuid4()),
@@ -789,16 +818,16 @@ async def batch_create_members(body: BatchCreateBody, _: dict = Depends(require_
 
     if docs_to_insert:
         await db.members.insert_many(docs_to_insert)
-    # v136 — Return the created member IDs so the OCR audit log (created via
-    # `OcrDialog` on the frontend) can actually roll them back on undo. Without
-    # this list undo can only mark the audit doc as undone but the inserted
-    # members stay in the DB.
+    # v136 / v142.13 — Return created + updated ids so OCR audit / undo can
+    # roll BOTH kinds back (previously only creates were tracked).
     return {
         "created": created_members,
         "existing": existing_hits,
+        "updated": updated_members,
         "new_alliances": new_alliances,
         "report": report,
         "created_member_ids": [d["id"] for d in docs_to_insert],
+        "updated_member_ids": updated_member_ids,
     }
 
 

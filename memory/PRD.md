@@ -20,7 +20,22 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 9, 2026 (v142.12 — 2 Kritik Fix: Match-Flip Full Refresh + Modal Butonları Görünür)** — Frontend:
+- **Feb 9, 2026 (v142.14 — Güç Tam Precision + OCR Prompt Numeric Preservation)** — Full-stack:
+  - **`lib/api.js`** `fmt`: `Math.round(n)` kaldırıldı → `Number(n)` (integer input aynen render, float güvenliği yok). `5503115` → `"5.503.115"` (yuvarlama yok).
+  - **`routes/ocr.py`** members prompt'una eklendi:
+    - "power FULL integer olarak — '5.503.115' → 5503115, ASLA 5500000 veya '5.5M' değil"
+    - "K/M/B suffix'i approximation olarak yorumlama; sadece ekranda gerçekten kısa görünüyorsa kısa dön"
+    - "digit-group separators (`.`, `,`, space) strip et, sadece base-10 integer dön"
+    - "invent/average/clean up YOK; okunmuyorsa null"
+  - Curl testi: DB'ye 1522458397 gönderildi → DB'de aynen 1522458397 (7 haneli precision korundu) ✅
+
+- **Feb 9, 2026 (v142.13 — CRITICAL: Bireysel Güç OCR "Tümünü Ekle" Hiçbir Şey Kaydetmiyordu)** — Backend:
+  - **KÖK NEDEN**: `server.py::batch_create_members` (line 773-776) mevcut üye bulunca `existing_hits += 1` deyip HİÇBİR update yapmıyordu — sadece yeni üyeler için `insert_one`. Bireysel Güç OCR her seferinde MEVCUT üyeleri hedefler → her satır "existing" pipeline'ına düşer → hiç veri yazılmaz. Bu, OCR'nin çalıştığı ama DB'nin değişmediği rapor edilen sorunun kaynağıydı.
+  - **FIX** (`server.py`): Mevcut üyelerde artık `power/castle_level/rank/alliance` gelmişse `db.members.update_one` çağrılıyor, `updated_members` counter'ı + `updated_member_ids` dizisi geri dönüyor. Response'a yeni `updated` alanı eklendi.
+  - **Frontend** (`Members.jsx`): Toast artık "Eklendi: N · Güncellendi: N · Mevcut: N" gösteriyor (eskiden Güncellendi yoktu).
+  - **Curl end-to-end test**: Ekko üyesinin power'ı 1522450620 → 1522458397 gönderildi → response `updated: 1, fields: [bireysel_guc]` → DB'de `db_power == expected` ✅ TAM DEĞER PRESERVE.
+
+
   - **Sorun 1**: `OcrDialog.jsx` (line ~1086) `newRows` hesabı artık `rowEdits[i]._manual_match` (zorla eşleşti) ve `_force_new` (zorla yeni) bayraklarını honor ediyor. Modal'dan seçim yapılınca "+N YENİ ÜYE OLUŞACAK" listesinden ilgili isim otomatik çıkar; `editedIntoNew` kontrolü de manual match'i tanır (yazım hatası uyarısı kaybolur).
   - **Sorun 2**: `MatchMemberSheet.jsx`:
     - `height: 75vh, max-height: 75vh` (eski 90vh).
