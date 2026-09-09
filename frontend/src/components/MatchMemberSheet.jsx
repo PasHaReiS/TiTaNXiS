@@ -78,13 +78,17 @@ export default function MatchMemberSheet({
     }
   }, [open, initialSelected]);
 
-  // Lock body scroll while sheet is open.
+  // Lock body scroll while sheet is open + add `.modal-open` class so global
+  // CSS can hide the site footer (Gizlilik / Kullanım) which would otherwise
+  // overlap the sheet's İptal/Seç buttons on mobile.
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.overflow;
+    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    document.body.classList.add("modal-open");
     return () => {
-      document.body.style.overflow = prev;
+      document.body.style.overflow = prevOverflow;
+      document.body.classList.remove("modal-open");
     };
   }, [open]);
 
@@ -404,10 +408,12 @@ export default function MatchMemberSheet({
             )}
           </button>
         </div>
-        {/* Footer — pinned at bottom, never scrolls */}
+        {/* Footer — pinned at bottom, never scrolls. Extra bottom padding so
+            the buttons clear both the OS gesture bar and the site's LegalFooter
+            (~48-60px). Site footer is hidden via body.modal-open in index.css. */}
         <div
           style={{
-            padding: "12px 20px calc(env(safe-area-inset-bottom, 0px) + 16px)",
+            padding: "12px 20px calc(env(safe-area-inset-bottom, 0px) + 64px)",
             borderTop: "1px solid rgba(255,255,255,0.08)",
             background: "rgba(0,0,0,0.35)",
             display: "flex", gap: 10, flexShrink: 0,
