@@ -433,6 +433,8 @@ const en = {
   ocr_diff_new: "New",
   ocr_diff_new_record: "New record",
   ocr_bulk_save_all_split_btn: "Save All ({{u}} update, {{n}} new)",
+  ocr_retry_failed_btn: "Retry failed rows ({{n}})",
+  ocr_retry_success: "All previously-failed rows saved ✅",
   match_sheet_new_member_title: "Add as New Member",
   match_sheet_new_member_subtitle: "A brand-new record will be created",
   cancel: "Cancel",

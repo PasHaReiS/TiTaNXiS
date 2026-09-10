@@ -462,6 +462,17 @@ async def root():
     return {"message": "GOD OF WAR API", "status": "ok"}
 
 
+@api_router.get("/ready")
+async def ready():
+    """v142.19 — Ultra-lightweight readiness probe.
+
+    Returns immediately without touching the DB or waiting for background
+    migrations. Kubernetes readiness probes should point at THIS endpoint
+    (not `/health`) so slow Atlas migrations never block pod Ready state.
+    """
+    return {"ok": True, "status": "ready"}
+
+
 @api_router.get("/health")
 async def health():
     """Lightweight liveness probe used post-deploy to confirm the API router is mounted."""
@@ -10437,17 +10448,40 @@ async def startup():
     # Now they run in a background task; failures are logged, never fatal.
     async def _run_heavy_migrations():
         _mig_log = logging.getLogger("migrations")
+        # v142.19 — Migration checkpoint helper. Each migration_id is stored in
+        # the `_migrations` collection after success; re-boots skip completed
+        # ones so Atlas re-scans don't happen every startup.
+        async def _run_once(mid: str, fn):
+            _migrations = db["_migrations"]  # bracket form — Motor blocks _attr access
+            existing = await _migrations.find_one({"migration_id": mid, "success": True})
+            if existing:
+                _mig_log.info(f"skipping {mid} — already ran at {existing.get('ran_at')}")
+                return
+            try:
+                await fn()
+                await _migrations.update_one(
+                    {"migration_id": mid},
+                    {"$set": {
+                        "migration_id": mid,
+                        "ran_at": datetime.now(timezone.utc).isoformat(),
+                        "success": True,
+                    }},
+                    upsert=True,
+                )
+                _mig_log.info(f"completed {mid}")
+            except Exception as e:
+                _mig_log.warning(f"{mid} failed: {e}")
+
         # One-shot legacy `/app/uploads/*` → Emergent Object Store migration.
-        try:
+        async def _mig_legacy_uploads():
             from scripts.migrate_legacy_uploads import migrate_legacy_uploads
             summary = await migrate_legacy_uploads(db)
             if summary.get("migrated") or summary.get("failed"):
                 _mig_log.info(f"legacy uploads migration: {summary}")
-        except Exception as _e:
-            _mig_log.warning(f"legacy uploads migration: {_e}")
+        await _run_once("legacy_uploads_v1", _mig_legacy_uploads)
 
         # F10 / Aşama seed — every (slug, level, stage) combination.
-        try:
+        async def _mig_f10_seed():
             _building_slugs = [
                 "komuta_merkezi", "kalkan_kislasi", "bombaci_kislasi",
                 "tetikci_kislasi", "revir", "iletisim_merkezi", "forticlad_lab",
@@ -10486,11 +10520,10 @@ async def startup():
                 _mig_log.info(
                     f"unit-cost seed: migrated={migrated} seeded={seeded} (5 stages × F6-F10)"
                 )
-        except Exception as _e:
-            _mig_log.warning(f"F10/stage seed: {_e}")
+        await _run_once("f10_stage_seed_v1", _mig_f10_seed)
 
         # Backfill missing `status` field on legacy attendance docs.
-        try:
+        async def _mig_attendance_status():
             r = await db.event_attendance.update_many(
                 {"status": {"$exists": False}},
                 {"$set": {"status": "attending"}},
@@ -10499,11 +10532,10 @@ async def startup():
                 _mig_log.info(
                     f"attendance status backfill: set 'attending' on {r.modified_count} legacy rows"
                 )
-        except Exception as _e:
-            _mig_log.warning(f"attendance backfill: {_e}")
+        await _run_once("attendance_status_backfill_v1", _mig_attendance_status)
 
         # Backfill alliance_name for legacy members.
-        try:
+        async def _mig_alliance_backfill():
             legacy = await db.members.find(
                 {"$or": [{"alliance_name": {"$exists": False}}, {"alliance_name": None}]},
                 {"_id": 0, "id": 1},
@@ -10512,11 +10544,10 @@ async def startup():
                 await db.members.update_one({"id": m["id"]}, {"$set": {"alliance_name": random.choice(ALLIANCES)}})
             if legacy:
                 _mig_log.info(f"Backfilled alliance_name for {len(legacy)} members")
-        except Exception as _e:
-            _mig_log.warning(f"alliance_name backfill: {_e}")
+        await _run_once("alliance_name_backfill_v1", _mig_alliance_backfill)
 
         # Strip non-digit chars from numeric level fields.
-        try:
+        async def _mig_numeric_fields():
             import re as _re
             numeric_fields = ["castle_level", "tetikci_f", "tetikci_t", "bombaci_f", "bombaci_t", "kalkanli_f", "kalkanli_t"]
             ored = [{f: {"$regex": r"[^0-9]"}} for f in numeric_fields]
@@ -10534,11 +10565,10 @@ async def startup():
                     migrated += 1
             if migrated:
                 _mig_log.info(f"Stripped non-digit chars from level fields for {migrated} members")
-        except Exception as _e:
-            _mig_log.warning(f"numeric-fields migration failed: {_e}")
+        await _run_once("numeric_fields_strip_v1", _mig_numeric_fields)
 
         # Strip stray brackets from alliance_name.
-        try:
+        async def _mig_alliance_brackets():
             dirty_alliance = await db.members.find(
                 {"alliance_name": {"$regex": r"[\[\]]"}},
                 {"_id": 0, "id": 1, "alliance_name": 1},
@@ -10556,11 +10586,10 @@ async def startup():
                     alliance_fixed += 1
             if alliance_fixed:
                 _mig_log.info(f"Stripped brackets from alliance_name for {alliance_fixed} members")
-        except Exception as _e:
-            _mig_log.warning(f"alliance_name migration failed: {_e}")
+        await _run_once("alliance_bracket_strip_v1", _mig_alliance_brackets)
 
         # Pasha email + member_ids link migration.
-        try:
+        async def _mig_pasha_email():
             TARGET_EMAIL = "pasha@titanxis.com"
             pasha_member = await db.members.find_one({"name": "PasHa"}, {"_id": 0, "id": 1})
             pasha_mid = pasha_member["id"] if pasha_member else None
@@ -10579,8 +10608,7 @@ async def startup():
                 if updates:
                     await db.users.update_one({"username": uname}, {"$set": updates})
                     _mig_log.info(f"pasha-email migration: updated user '{uname}' fields={list(updates.keys())}")
-        except Exception as _e:
-            _mig_log.warning(f"pasha-email migration failed: {_e}")
+        await _run_once("pasha_email_link_v1", _mig_pasha_email)
 
         _mig_log.info("heavy migrations complete")
 

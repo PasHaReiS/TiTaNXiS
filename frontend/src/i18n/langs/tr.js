@@ -627,6 +627,8 @@ const tr = {
   ocr_diff_new: "Yeni",
   ocr_diff_new_record: "Yeni kayıt",
   ocr_bulk_save_all_split_btn: "Tümünü Ekle ({{u}} güncelleme, {{n}} yeni)",
+  ocr_retry_failed_btn: "Hata olanları tekrar dene ({{n}})",
+  ocr_retry_success: "Tüm hatalı satırlar başarıyla kaydedildi ✅",
   match_sheet_new_member_title: "Yeni Üye Olarak Ekle",
   match_sheet_new_member_subtitle: "Sisteme yeni kayıt eklenecek",
   cancel: "İptal",

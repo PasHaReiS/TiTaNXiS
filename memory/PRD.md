@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 10, 2026 (v142.19 — Readiness Probe + Migrations Checkpoint + OCR Retry)** — Full-stack:
+  - **Readiness probe** (`GET /api/ready`): DB'ye dokunmayan ultra-hafif endpoint, `{"ok": true, "status": "ready"}` döndürür. Kubernetes probe artık buraya işaret edebilir → migration'lar startup'ı bloke etse bile pod hızla Ready olur. Test: 314ms latency, PASS.
+  - **Migrations checkpoint** (`_migrations` collection): `_run_once(mid, fn)` yardımcısı — her migration_id success ile kaydedilir; reboot'ta zaten kayıtlıysa "skipping {mid}" loglanır. 7 migration id'lendi: `legacy_uploads_v1`, `f10_stage_seed_v1`, `attendance_status_backfill_v1`, `alliance_name_backfill_v1`, `numeric_fields_strip_v1`, `alliance_bracket_strip_v1`, `pasha_email_link_v1`.
+  - **OCR Retry Button** (`OcrDialog.jsx`): `failedRows` state; batch response'ta `errors[]` gelirse `Hata olanları tekrar dene (N)` kırmızı butonu görünür. Sadece failing subset re-POST edilir, başarılılar tekrar gönderilmez. Success sonrası state clear + toast.
+  - 2 yeni i18n key (tr + en): `ocr_retry_failed_btn`, `ocr_retry_success`.
+  - `deployment_agent`: PASS ✅
+
 - **Feb 10, 2026 (v142.18 — DEPLOY STEP 8 ROOT CAUSE FIX)** — Backend:
   - **KÖK NEDEN**: `server.py::startup()` event'i ~20-35 saniye bloke ediyordu:
     - F6-F10 unit-cost seed loop: 7 slug × 5 level × 5 stage = 175 iteration × ~2 Atlas round-trip her biri = ~350 network hop

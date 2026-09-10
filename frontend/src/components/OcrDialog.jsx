@@ -172,6 +172,9 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
   const [progress, setProgress] = useState({ current: 0, total: 0, errors: 0 });
   const [result, setResult] = useState(null);
   const [applying, setApplying] = useState(false);
+  // v142.19 — OCR retry state: names that failed on last batch-create so admin
+  // can re-POST only the failing subset without re-uploading the whole screen.
+  const [failedRows, setFailedRows] = useState([]);
   const [mergeStrategy, setMergeStrategy] = useState("sum"); // sum | max | first
   const [cropIdx, setCropIdx] = useState(-1); // index of image currently being cropped, -1 = none
   // Preview-and-eliminate: OCR rows the user has struck out before save.
@@ -522,6 +525,9 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
     }
     setApplying(true);
     try {
+      // v142.19 — Clear previous retry state; if this call has its own errors
+      // we'll re-populate below.
+      setFailedRows([]);
       const extra = requireSelection ? { [`${requireSelection.type}_id`]: selection } : {};
       // Event mode sends the duplicate policy alongside so the backend knows
       // whether to overwrite or skip existing point rows.
@@ -597,6 +603,13 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
         filteredData.members = applyEditsAndKeep(result.data.members || [], "members");
       }
       const _applyRes = await onApply(filteredData, extra);
+      // v142.19 — Capture per-row errors so the retry button can re-POST just
+      // the failing subset instead of the whole batch.
+      const errArr = (_applyRes?.errors) || (_applyRes?.data?.errors) || [];
+      if (errArr.length > 0) {
+        const failNames = errArr.map((e) => e.name).filter(Boolean);
+        setFailedRows(failNames);
+      }
       // v135.51 — Audit kaydı (created/updated ID'ler onApply'ın döndürdüğü
       // response'ta varsa toplanır). Frontend bu ID'leri yakalayamıyorsa (bazı
       // OcrDialog kullanımlarında onApply hiçbir şey döndürmüyor) audit yine
@@ -2190,6 +2203,53 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                         ? t("ocr_bulk_saving", "Kaydediliyor…")
                         : t("ocr_bulk_save_all_split_btn", "Tümünü Ekle ({{u}} güncelleme, {{n}} yeni)", { u: matchedCount, n: newCount })}
                     </button>
+                    {/* v142.19 — Retry-failed-only button. Only visible when
+                        last apply left errors[]. Filters the OCR rows down to
+                        the failed names, re-runs onApply, clears state on
+                        success. */}
+                    {failedRows.length > 0 && !applying && (
+                      <button
+                        type="button"
+                        data-testid="ocr-retry-failed-btn"
+                        onClick={async () => {
+                          if (!result?.data || failedRows.length === 0) return;
+                          setApplying(true);
+                          try {
+                            const failSet = new Set(failedRows.map((n) => (n || "").trim().toLowerCase()));
+                            const src = mode === "event" ? (result.data.participants || []) : (result.data.members || []);
+                            const filtered = src.filter((r, i) => {
+                              const nm = (rowEdits[i]?.name ?? r.name ?? "").trim().toLowerCase();
+                              return failSet.has(nm);
+                            });
+                            const retryPayload = mode === "event"
+                              ? { participants: filtered }
+                              : { members: filtered };
+                            const res = await onApply(retryPayload, requireSelection ? { [`${requireSelection.type}_id`]: selection } : {});
+                            const remaining = (res?.errors) || (res?.data?.errors) || [];
+                            if (remaining.length === 0) {
+                              setFailedRows([]);
+                              toast.success(t("ocr_retry_success", { defaultValue: "Tüm hatalı satırlar başarıyla kaydedildi ✅" }));
+                            } else {
+                              setFailedRows(remaining.map((e) => e.name).filter(Boolean));
+                            }
+                          } catch (e) {
+                            toast.error(e?.response?.data?.detail || e.message);
+                          } finally {
+                            setApplying(false);
+                          }
+                        }}
+                        className="btn ml-2"
+                        style={{
+                          background: "linear-gradient(135deg,#B91C1C,#EF4444)",
+                          color: "#fff",
+                          fontWeight: 700,
+                          padding: "8px 14px",
+                          borderRadius: 8,
+                        }}
+                      >
+                        {t("ocr_retry_failed_btn", { defaultValue: "Hata olanları tekrar dene ({{n}})", n: failedRows.length })}
+                      </button>
+                    )}
                   </>
                 );
               })()}
