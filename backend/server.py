@@ -9860,7 +9860,9 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
     if u:
         identity_base = u.get("username") or u["id"]
         identity = f"{identity_base}-{u['id'][:6]}"
-        display = u.get("username") or u.get("email") or "Komutan"
+        # v141 — Kullanıcı kalıcı görünen adını Ses Odası'nda kalem ikonuyla
+        # değiştirebilir. LiveKit `.with_name()` için display_name > username > email.
+        display = (u.get("display_name") or "").strip() or u.get("username") or u.get("email") or "Komutan"
     else:
         gn = (body.guest_name or "Ziyaretçi").strip()[:32] or "Ziyaretçi"
         identity = f"guest-{uuid.uuid4().hex[:8]}"

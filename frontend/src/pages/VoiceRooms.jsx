@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Mic, MicOff, LogOut, Users, Plus, Lock, Globe, Trash2, Eye, EyeOff, Copy, Check } from "lucide-react";
+import { Mic, MicOff, LogOut, Users, Plus, Lock, Globe, Trash2, Eye, EyeOff, Copy, Check, Pencil } from "lucide-react";
 import {
   LiveKitRoom,
   RoomAudioRenderer,
@@ -626,6 +626,7 @@ function CreateRoomButton({ onCreated }) {
 
 export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
   const { t } = useTranslation();
+  const { user, refreshMe } = useAuth() || {};
   const participants = useParticipants();
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const tracks = useTracks([{ source: Track.Source.Microphone, withPlaceholder: true }]);
@@ -961,6 +962,13 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
     return () => { room.off(RoomEvent.ParticipantDisconnected, onLeave); };
   }, [room]);
 
+  // v141 — Aktif oda mount edildiğinde LegalFooter'ı gizle. Global legal footer
+  // z-1500'da sabit ve bar ile çakışıyor; body class ile CSS üzerinden kapatıyoruz.
+  useEffect(() => {
+    document.body.classList.add("voice-room-active");
+    return () => { document.body.classList.remove("voice-room-active"); };
+  }, []);
+
   const toggleLocalMute = useCallback((p) => {
     // Kendini local-mute etme; kendi susturman için normal mute butonu var.
     if (!p || (localParticipant && p.identity === localParticipant.identity)) return;
@@ -984,101 +992,205 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
     });
   }, [localParticipant]);
 
+  // v141 — Kalıcı görünen ad düzenleme (kalem ikonu). Modal input açar,
+  // Kaydet → PUT /auth/me/display-name → refreshMe. Yeni değer tüm sistemde
+  // (leaderboard, chat, LiveKit `.with_name()`) geçerli olur.
+  const [nameEditOpen, setNameEditOpen] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [nameSaving, setNameSaving] = useState(false);
+  const openNameEdit = useCallback(() => {
+    setNameDraft((user?.display_name || user?.username || "").slice(0, 40));
+    setNameEditOpen(true);
+  }, [user]);
+  const submitNameEdit = useCallback(async () => {
+    const trimmed = (nameDraft || "").trim();
+    if (trimmed.length > 40) {
+      toast.error(t("voice_display_name_too_long", "Görünen ad en fazla 40 karakter olabilir"));
+      return;
+    }
+    setNameSaving(true);
+    try {
+      await api.put("/auth/me/display-name", { display_name: trimmed });
+      if (refreshMe) await refreshMe();
+      toast.success(t("voice_display_name_saved", "Görünen ad güncellendi. Yeni ad sonraki katılımlarda geçerli olacak."));
+      setNameEditOpen(false);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally {
+      setNameSaving(false);
+    }
+  }, [nameDraft, refreshMe, t]);
+
   return (
-    <div className="max-w-3xl mx-auto p-6" data-testid="voice-active-room">
-      <div className="mb-6">
-        <h2 className="text-xl font-black mb-3" style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}>
-          🎙️ {roomName}
-        </h2>
-        {/* v136 — İki satırlı buton düzeni (mobilde taşmasın).
-            Satır 1: Admin aksiyonları (Davetleri Yönet + Şifre Değiştir).
-            Satır 2: Bilgi + Davet Linki (katılımcı, oturum sayacı, davet linki). */}
-        {isAdmin && (
-          <div className="flex flex-wrap items-center gap-2 mb-2" data-testid="voice-actions-row-1">
-            <button
-              data-testid="voice-invite-panel-toggle"
-              onClick={() => setInviteOpen((v) => !v)}
-              className="chip text-xs flex items-center gap-1"
-              style={{
-                borderColor: inviteOpen ? "#22C55E" : "rgba(34,197,94,0.5)",
-                color: "#22C55E",
-                background: inviteOpen ? "rgba(34,197,94,0.15)" : "transparent",
-              }}
-              title={t("voice_invite_manage_title", "Davetlileri yönet")}
+    <div
+      className="fixed inset-0 flex flex-col"
+      style={{ background: "#0f0a14", zIndex: 1550 }}
+      data-testid="voice-active-room"
+    >
+      {/* v141 — Top Bar (56px, #0a0608) with room name + participant count + display_name edit */}
+      <div
+        className="flex items-center gap-3 px-4 shrink-0"
+        style={{
+          height: 56,
+          background: "#0a0608",
+          borderBottom: "1px solid rgba(245,166,35,0.20)",
+        }}
+        data-testid="voice-top-bar"
+      >
+        <div className="flex-1 min-w-0">
+          <h2
+            className="text-base font-black truncate leading-tight"
+            style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}
+            data-testid="voice-top-bar-title"
+          >
+            🎙️ {roomName}
+          </h2>
+          <div className="flex items-center gap-2 text-[10px] mt-0.5" style={{ color: "#94A3B8" }}>
+            <span className="flex items-center gap-1"><Users size={10} /> {participants.length}</span>
+            <span
+              data-testid="voice-talk-time-self"
+              style={{ color: localIsSpeaking ? "#C4B5FD" : "#94A3B8" }}
             >
-              🎫 {t("voice_invite_manage_btn", "Davetleri Yönet")}
-              {invitedIds.length > 0 && (
-                <span
-                  className="ml-1 px-1.5 rounded-full text-[9px] font-bold"
-                  style={{ background: "rgba(34,197,94,0.30)", color: "#86EFAC" }}
+              · 🕒 {talkTimeLabel}
+            </span>
+          </div>
+        </div>
+        {user && (
+          <button
+            data-testid="voice-display-name-edit-btn"
+            onClick={openNameEdit}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] transition-colors shrink-0"
+            style={{
+              background: "rgba(245,166,35,0.10)",
+              border: "1px solid rgba(245,166,35,0.35)",
+              color: "#F5A623",
+              cursor: "pointer",
+            }}
+            title={t("voice_display_name_edit_title", "Görünen adını düzenle")}
+            aria-label={t("voice_display_name_edit_title", "Görünen adını düzenle")}
+          >
+            <Pencil size={11} />
+            <span className="truncate max-w-[110px] font-medium">
+              {user.display_name || user.username}
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* Scrollable middle content (leaves room for fixed bottom bar) */}
+      <div
+        className="flex-1 overflow-y-auto"
+        style={{ paddingBottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }}
+      >
+        <div className="max-w-3xl mx-auto px-4 pt-3">
+          {/* v141 — Horizontal scrollable action button row */}
+          <div
+            data-testid="voice-actions-scroll"
+            className="flex items-center gap-2 overflow-x-auto pb-3 -mx-4 px-4"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          >
+            {isAdmin && (
+              <>
+                <button
+                  data-testid="voice-invite-panel-toggle"
+                  onClick={() => setInviteOpen((v) => !v)}
+                  className="shrink-0 chip text-xs flex items-center gap-1 whitespace-nowrap"
+                  style={{
+                    borderColor: inviteOpen ? "#22C55E" : "rgba(34,197,94,0.5)",
+                    color: "#22C55E",
+                    background: inviteOpen ? "rgba(34,197,94,0.15)" : "transparent",
+                  }}
+                  title={t("voice_invite_manage_title", "Davetlileri yönet")}
                 >
-                  {invitedIds.length}
-                </span>
-              )}
+                  🎫 {t("voice_invite_manage_btn", "Davetleri Yönet")}
+                  {invitedIds.length > 0 && (
+                    <span
+                      className="ml-1 px-1.5 rounded-full text-[9px] font-bold"
+                      style={{ background: "rgba(34,197,94,0.30)", color: "#86EFAC" }}
+                    >
+                      {invitedIds.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  data-testid="voice-pwd-change-toggle"
+                  onClick={() => setPwdOpen((v) => !v)}
+                  className="shrink-0 chip text-xs flex items-center gap-1 whitespace-nowrap"
+                  style={{
+                    borderColor: pwdOpen ? "#F5A623" : "rgba(245,166,35,0.5)",
+                    color: "#F5A623",
+                    background: pwdOpen ? "rgba(245,166,35,0.15)" : "transparent",
+                  }}
+                  title={t("voice_pwd_change_title", "Oda şifresini değiştir")}
+                >
+                  🔑 {t("voice_pwd_change_btn", "Şifre Değiştir")}
+                </button>
+                <button
+                  data-testid="voice-invite-link-quick"
+                  onClick={async () => {
+                    try {
+                      const r = await api.post(`/voice/rooms/${roomId}/invite-link`, {});
+                      const link = r.data?.link;
+                      if (link) {
+                        try {
+                          await navigator.clipboard.writeText(link);
+                          toast.success(t("voice_invite_link_copied", "Davet linki oluşturuldu ve kopyalandı"));
+                        } catch {
+                          toast.success(t("voice_invite_created", "Davet linki oluşturuldu"));
+                        }
+                      }
+                    } catch (e) {
+                      toast.error(e?.response?.data?.detail || e.message);
+                    }
+                  }}
+                  className="shrink-0 chip text-xs flex items-center gap-1 whitespace-nowrap"
+                  style={{
+                    borderColor: "rgba(168,85,247,0.55)",
+                    color: "#C4B5FD",
+                    background: "transparent",
+                  }}
+                  title={t("voice_invite_link_btn_title", "Tek tıkla davet linki oluştur ve kopyala")}
+                >
+                  🔗 {t("voice_invite_link_btn", "Davet Linki")}
+                </button>
+              </>
+            )}
+            <span
+              className="shrink-0 text-[10px] uppercase tracking-widest px-1"
+              style={{ color: "#64748B" }}
+            >
+              {t("voice_mic_mode_label", "Mikrofon")}
+            </span>
+            <button
+              data-testid="voice-mic-mode-continuous"
+              role="tab"
+              aria-selected={micMode === "continuous"}
+              onClick={() => setMicMode("continuous")}
+              className="shrink-0 chip text-xs flex items-center gap-1 whitespace-nowrap"
+              style={{
+                borderColor: micMode === "continuous" ? "#22C55E" : "rgba(148,163,184,0.5)",
+                color: micMode === "continuous" ? "#22C55E" : "#94A3B8",
+                background: micMode === "continuous" ? "rgba(34,197,94,0.10)" : "transparent",
+              }}
+            >
+              <Mic size={12} /> {t("voice_mic_mode_continuous", "Sürekli Açık")}
             </button>
             <button
-              data-testid="voice-pwd-change-toggle"
-              onClick={() => setPwdOpen((v) => !v)}
-              className="chip text-xs flex items-center gap-1"
+              data-testid="voice-mic-mode-ptt"
+              role="tab"
+              aria-selected={micMode === "ptt"}
+              onClick={() => setMicMode("ptt")}
+              className="shrink-0 chip text-xs flex items-center gap-1 whitespace-nowrap"
               style={{
-                borderColor: pwdOpen ? "#F5A623" : "rgba(245,166,35,0.5)",
-                color: "#F5A623",
-                background: pwdOpen ? "rgba(245,166,35,0.15)" : "transparent",
+                borderColor: micMode === "ptt" ? "#F5A623" : "rgba(148,163,184,0.5)",
+                color: micMode === "ptt" ? "#F5A623" : "#94A3B8",
+                background: micMode === "ptt" ? "rgba(245,166,35,0.10)" : "transparent",
               }}
-              title={t("voice_pwd_change_title", "Oda şifresini değiştir")}
             >
-              🔑 {t("voice_pwd_change_btn", "Şifre Değiştir")}
+              🎤 {t("voice_mic_mode_ptt", "PTT")}
             </button>
           </div>
-        )}
-        <div className="flex flex-wrap items-center gap-2" data-testid="voice-actions-row-2">
-          <span className="chip text-xs flex items-center gap-1" style={{ borderColor: "#22C55E", color: "#22C55E" }}>
-            <Users size={12} /> {participants.length}
-          </span>
-          <span
-            data-testid="voice-talk-time-self"
-            className="chip text-xs flex items-center gap-1"
-            style={{
-              borderColor: "rgba(168,85,247,0.55)",
-              color: "#C4B5FD",
-              background: localIsSpeaking ? "rgba(168,85,247,0.20)" : "transparent",
-            }}
-            title={t("voice_talk_time_title", "Bu oturumdaki toplam konuşma süren")}
-          >
-            🕒 {t("voice_talk_time_label", "Bu oturum")}: {talkTimeLabel}
-          </span>
-          {isAdmin && (
-            <button
-              data-testid="voice-invite-link-quick"
-              onClick={async () => {
-                try {
-                  const r = await api.post(`/voice/rooms/${roomId}/invite-link`, {});
-                  const link = r.data?.link;
-                  if (link) {
-                    try {
-                      await navigator.clipboard.writeText(link);
-                      toast.success(t("voice_invite_link_copied", "Davet linki oluşturuldu ve kopyalandı"));
-                    } catch {
-                      toast.success(t("voice_invite_created", "Davet linki oluşturuldu"));
-                    }
-                  }
-                } catch (e) {
-                  toast.error(e?.response?.data?.detail || e.message);
-                }
-              }}
-              className="chip text-xs flex items-center gap-1"
-              style={{
-                borderColor: "rgba(168,85,247,0.55)",
-                color: "#C4B5FD",
-                background: "transparent",
-              }}
-              title={t("voice_invite_link_btn_title", "Tek tıkla davet linki oluştur ve kopyala")}
-            >
-              🔗 {t("voice_invite_link_btn", "Davet Linki")}
-            </button>
-          )}
-        </div>
-      </div>
+
 
       {/* v140.37 — Admin: in-room password change */}
       {isAdmin && pwdOpen && (
@@ -1275,45 +1387,7 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
         </div>
       )}
 
-      {/* v140.24 — Mikrofon modu seçici */}
-      <div
-        data-testid="voice-mic-mode-selector"
-        className="mb-4 flex items-center justify-center gap-2"
-        role="tablist"
-        aria-label={t("voice_mic_mode_label", "Mikrofon Modu")}
-      >
-        <span className="text-[11px] uppercase tracking-widest" style={{ color: "#94A3B8" }}>
-          {t("voice_mic_mode_label", "Mikrofon Modu")}
-        </span>
-        <button
-          data-testid="voice-mic-mode-continuous"
-          role="tab"
-          aria-selected={micMode === "continuous"}
-          onClick={() => setMicMode("continuous")}
-          className="chip text-xs flex items-center gap-1 px-3 py-1.5"
-          style={{
-            borderColor: micMode === "continuous" ? "#22C55E" : "rgba(148,163,184,0.5)",
-            color: micMode === "continuous" ? "#22C55E" : "#94A3B8",
-            background: micMode === "continuous" ? "rgba(34,197,94,0.10)" : "transparent",
-          }}
-        >
-          <Mic size={12} /> {t("voice_mic_mode_continuous", "Sürekli Açık")}
-        </button>
-        <button
-          data-testid="voice-mic-mode-ptt"
-          role="tab"
-          aria-selected={micMode === "ptt"}
-          onClick={() => setMicMode("ptt")}
-          className="chip text-xs flex items-center gap-1 px-3 py-1.5"
-          style={{
-            borderColor: micMode === "ptt" ? "#F5A623" : "rgba(148,163,184,0.5)",
-            color: micMode === "ptt" ? "#F5A623" : "#94A3B8",
-            background: micMode === "ptt" ? "rgba(245,166,35,0.10)" : "transparent",
-          }}
-        >
-          🎤 {t("voice_mic_mode_ptt", "Push to Talk")}
-        </button>
-      </div>
+      {/* v141 — Mic mode selector moved into the horizontal action row above. */}
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
         {tracks.map((tr, idx) => {
@@ -1336,7 +1410,6 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
             >
               {!isSelf && (
                 <div className="absolute top-2 right-2 flex items-center gap-1">
-                  {/* v140.36 — Admin kick */}
                   {isAdmin && (
                     <button
                       data-testid={`voice-kick-${p.identity}`}
@@ -1378,6 +1451,23 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
                     {locallyMuted ? "🔇" : "🔊"}
                   </button>
                 </div>
+              )}
+              {isSelf && user && (
+                <button
+                  data-testid="voice-display-name-edit-tile"
+                  onClick={openNameEdit}
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+                  style={{
+                    background: "rgba(245,166,35,0.15)",
+                    border: "1px solid #F5A623",
+                    color: "#F5A623",
+                    cursor: "pointer",
+                  }}
+                  title={t("voice_display_name_edit_title", "Görünen adını düzenle")}
+                  aria-label={t("voice_display_name_edit_title", "Görünen adını düzenle")}
+                >
+                  <Pencil size={12} />
+                </button>
               )}
               <div
                 className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black"
@@ -1452,63 +1542,146 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
         })}
       </div>
 
-      <div className="flex gap-3 justify-center">
-        {micMode === "continuous" ? (
-          <button
-            data-testid="voice-mute-btn"
-            onClick={toggleMic}
-            className="chip text-sm flex items-center gap-2 px-4 py-2"
-            style={{
-              borderColor: isMicrophoneEnabled ? "#22C55E" : "#EF4444",
-              color: isMicrophoneEnabled ? "#22C55E" : "#EF4444",
-              background: isMicrophoneEnabled ? "rgba(34,197,94,0.10)" : "rgba(239,68,68,0.10)",
-            }}
-          >
-            {isMicrophoneEnabled ? <Mic size={16} /> : <MicOff size={16} />}
-            {isMicrophoneEnabled ? t("voice_mute", "Sustur") : t("voice_unmute", "Aç")}
-          </button>
-        ) : (
-          <button
-            data-testid="voice-ptt-btn"
-            onMouseDown={pttPress}
-            onMouseUp={pttRelease}
-            onMouseLeave={pttRelease}
-            onTouchStart={(e) => { e.preventDefault(); pttPress(); }}
-            onTouchEnd={(e) => { e.preventDefault(); pttRelease(); }}
-            onContextMenu={(e) => e.preventDefault()}
-            aria-label={t("voice_ptt_hint", "Basılı tut → konuş, bırak → kapat")}
-            className="chip text-sm flex items-center gap-2 px-6 py-3 select-none"
-            style={{
-              borderColor: pttHeld ? "#22C55E" : "#F5A623",
-              color: pttHeld ? "#22C55E" : "#F5A623",
-              background: pttHeld ? "rgba(34,197,94,0.20)" : "rgba(245,166,35,0.15)",
-              boxShadow: pttHeld ? "0 0 24px rgba(34,197,94,0.55)" : "none",
-              userSelect: "none",
-              touchAction: "none",
-              transition: "all 120ms ease-out",
-              cursor: pttHeld ? "grabbing" : "grab",
-            }}
-          >
-            <Mic size={18} />
-            {pttHeld
-              ? t("voice_ptt_active", "🔴 Konuşuyorsun...")
-              : t("voice_ptt_hold", "Basılı Tut → Konuş")}
-          </button>
-        )}
+        </div>
+      </div>
+
+      {/* v141 — Fixed Bottom Bar (72px + safe-area) */}
+      <div
+        data-testid="voice-bottom-bar"
+        className="fixed left-0 right-0 bottom-0 flex items-center justify-between gap-2 px-4"
+        style={{
+          height: `calc(72px + env(safe-area-inset-bottom, 0px))`,
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          background: "#0a0608",
+          borderTop: "1px solid rgba(245,166,35,0.20)",
+          zIndex: 1560,
+        }}
+      >
+        <div className="flex-1 flex items-center justify-center">
+          {micMode === "continuous" ? (
+            <button
+              data-testid="voice-mute-btn"
+              onClick={toggleMic}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold uppercase tracking-widest"
+              style={{
+                border: `1px solid ${isMicrophoneEnabled ? "#22C55E" : "#EF4444"}`,
+                color: isMicrophoneEnabled ? "#22C55E" : "#EF4444",
+                background: isMicrophoneEnabled ? "rgba(34,197,94,0.10)" : "rgba(239,68,68,0.10)",
+                cursor: "pointer",
+                letterSpacing: "0.08em",
+              }}
+            >
+              {isMicrophoneEnabled ? <Mic size={16} /> : <MicOff size={16} />}
+              {isMicrophoneEnabled ? t("voice_mute", "Sustur") : t("voice_unmute", "Aç")}
+            </button>
+          ) : (
+            <button
+              data-testid="voice-ptt-btn"
+              onMouseDown={pttPress}
+              onMouseUp={pttRelease}
+              onMouseLeave={pttRelease}
+              onTouchStart={(e) => { e.preventDefault(); pttPress(); }}
+              onTouchEnd={(e) => { e.preventDefault(); pttRelease(); }}
+              onContextMenu={(e) => e.preventDefault()}
+              aria-label={t("voice_ptt_hint", "Basılı tut → konuş, bırak → kapat")}
+              className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold select-none"
+              style={{
+                border: `1px solid ${pttHeld ? "#22C55E" : "#F5A623"}`,
+                color: pttHeld ? "#22C55E" : "#F5A623",
+                background: pttHeld ? "rgba(34,197,94,0.20)" : "rgba(245,166,35,0.15)",
+                boxShadow: pttHeld ? "0 0 24px rgba(34,197,94,0.55)" : "none",
+                userSelect: "none",
+                touchAction: "none",
+                transition: "all 120ms ease-out",
+                cursor: pttHeld ? "grabbing" : "grab",
+              }}
+            >
+              <Mic size={18} />
+              {pttHeld
+                ? t("voice_ptt_active", "🔴 Konuşuyorsun...")
+                : t("voice_ptt_hold", "Basılı Tut")}
+            </button>
+          )}
+        </div>
         <button
           data-testid="voice-leave-btn"
           onClick={onLeave}
-          className="chip text-sm flex items-center gap-2 px-4 py-2"
-          style={{ borderColor: "#EF4444", color: "#EF4444", background: "rgba(239,68,68,0.10)" }}
+          className="flex items-center gap-2 py-2 px-3 text-sm font-black uppercase shrink-0"
+          style={{
+            background: "transparent",
+            border: "none",
+            color: "#EF4444",
+            cursor: "pointer",
+            letterSpacing: "0.14em",
+            fontFamily: "Cinzel, serif",
+          }}
+          aria-label={t("voice_leave", "Ayrıl")}
         >
           <LogOut size={16} /> {t("voice_leave", "Ayrıl")}
         </button>
       </div>
 
-      {micMode === "ptt" && (
-        <p className="mt-3 text-center text-[11px] opacity-70" style={{ color: "#94A3B8" }} data-testid="voice-ptt-help">
-          {t("voice_ptt_help", "Push to Talk aktif — konuşurken butona basılı tut (veya Boşluk tuşuna). Bırakınca mikrofon kapanır.")}
-        </p>
+      {/* v141 — Kalıcı görünen ad düzenleme modalı */}
+      {nameEditOpen && (
+        <div
+          className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/80 p-4"
+          onClick={() => !nameSaving && setNameEditOpen(false)}
+        >
+          <div
+            data-testid="voice-display-name-modal"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-xl p-5"
+            style={{ background: "#1E1410", border: "1px solid rgba(245,166,35,0.55)" }}
+          >
+            <h3 className="text-base font-bold mb-2" style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}>
+              ✍️ {t("voice_display_name_title", "Görünen Adını Düzenle")}
+            </h3>
+            <p className="text-[11px] mb-3 leading-relaxed" style={{ color: "#94A3B8" }}>
+              {t("voice_display_name_hint", "Bu ad tüm sistemde (ses odaları, sohbet, sıralama) görünecek. Kalıcı olarak güncellenir; sonraki katılımlarda geçerli olur.")}
+            </p>
+            <input
+              data-testid="voice-display-name-input"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              autoFocus
+              maxLength={40}
+              placeholder={user?.username || t("voice_display_name_placeholder", "Yeni görünen ad")}
+              className="w-full bg-black/40 border border-amber-500/40 rounded px-3 py-2 text-sm text-white mb-1"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !nameSaving) { e.preventDefault(); submitNameEdit(); }
+                if (e.key === "Escape" && !nameSaving) { setNameEditOpen(false); }
+              }}
+            />
+            <div className="text-[10px] text-right mb-3" style={{ color: "#64748B" }}>
+              {(nameDraft || "").length}/40
+            </div>
+            <div className="flex gap-2">
+              <button
+                data-testid="voice-display-name-save"
+                onClick={submitNameEdit}
+                disabled={nameSaving}
+                className="flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-widest"
+                style={{
+                  background: "linear-gradient(135deg, #F5A623, #E74C1A)",
+                  color: "#0B0704",
+                  border: "none",
+                  cursor: nameSaving ? "not-allowed" : "pointer",
+                  opacity: nameSaving ? 0.6 : 1,
+                }}
+              >
+                {nameSaving ? t("saving", "Kaydediliyor…") : t("save", "Kaydet")}
+              </button>
+              <button
+                onClick={() => setNameEditOpen(false)}
+                disabled={nameSaving}
+                className="chip text-xs"
+                style={{ borderColor: "rgba(148,163,184,0.5)", color: "#E5E7EB" }}
+              >
+                {t("cancel", "İptal")}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -20,6 +20,18 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 10, 2026 (v142.20 — Voice Room UI Full Overhaul)** — Full-stack:
+  - **Backend**: New `PUT /api/auth/me/display-name` endpoint (`auth.py`) — kullanıcının kalıcı görünen adı (max 40 char). `public_user()` yanıtı artık `display_name` alanı döndürüyor. `/api/voice/token` LiveKit `.with_name()` çağrısı için `display_name > username > email` fallback zincirini kullanıyor.
+  - **Frontend `VoiceRooms.jsx` — ActiveRoomUI**: Tam UI yenilemesi (mobil-first spec):
+    - **Top Bar** (56px, `#0a0608`): Oda adı + katılımcı sayısı + oturum sayacı + kalıcı görünen ad düzenleme (kalem ikonlu chip)
+    - **Yatay kaydırılabilir Action Row**: Davetleri Yönet, Şifre Değiştir, Davet Linki, Mikrofon Modu (Sürekli/PTT) — tek satır, mobilde taşmıyor
+    - **2 sütunlu katılımcı grid** (md:3-col): Self tile'da kalem ikonu overlay ile hızlı görünen ad düzenleme
+    - **Sabit Alt Bar** (72px + safe-area padding): Yeşil pill "SUSTUR"/"AÇ" veya PTT butonu + kırmızı text "AYRIL" (Cinzel serif, uppercase, letter-spacing 0.14em)
+    - **Kalıcı görünen ad modalı**: 40 karakter limit, Enter/Escape klavye desteği, karakter sayacı
+  - **CSS `index.css`**: `body.voice-room-active` class'ı → LegalFooter + RadialMenu display:none. `useEffect` ile mount/unmount otomatik toggle. Bottom bar site footer ile çakışmıyor.
+  - Test: `mcp_screenshot_tool` 390x844 + 1920x800 viewport'larda doğrulandı. Display name save+persist API ile confirm edildi. Ayrıl butonu list sayfasına dönüş çalışıyor.
+  - `deployment_agent`: PASS ✅
+
 - **Feb 10, 2026 (v142.19 — Readiness Probe + Migrations Checkpoint + OCR Retry)** — Full-stack:
   - **Readiness probe** (`GET /api/ready`): DB'ye dokunmayan ultra-hafif endpoint, `{"ok": true, "status": "ready"}` döndürür. Kubernetes probe artık buraya işaret edebilir → migration'lar startup'ı bloke etse bile pod hızla Ready olur. Test: 314ms latency, PASS.
   - **Migrations checkpoint** (`_migrations` collection): `_run_once(mid, fn)` yardımcısı — her migration_id success ile kaydedilir; reboot'ta zaten kayıtlıysa "skipping {mid}" loglanır. 7 migration id'lendi: `legacy_uploads_v1`, `f10_stage_seed_v1`, `attendance_status_backfill_v1`, `alliance_name_backfill_v1`, `numeric_fields_strip_v1`, `alliance_bracket_strip_v1`, `pasha_email_link_v1`.

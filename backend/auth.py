@@ -168,6 +168,7 @@ def public_user(u: dict) -> dict:
     return {
         "id": u["id"],
         "username": u["username"],
+        "display_name": u.get("display_name") or None,
         "email": u.get("email"),
         "role": u.get("role", "user"),
         "can_edit": bool(u.get("can_edit", False)) or u.get("role") == "admin",
@@ -463,6 +464,27 @@ def make_auth_router(db):
                       "birthday_updated_at": now_iso()}},
         )
         return {"ok": True, "birthday_mmdd": raw}
+
+    # v141 — Kullanıcının kendi görünen adı (max 40 karakter). Ses odalarında
+    # LiveKit `.with_name()` çağrısında ve @-etiketlerinde bu değer kullanılır.
+    # Boş / null → username fallback. Kullanıcı Ses Odası'nda kalem ikonuyla
+    # anlık düzenleyebilir; değişiklik kalıcıdır ve tüm sistemde geçerli olur.
+    @router.put("/auth/me/display-name")
+    async def put_display_name(body: dict, user: dict = Depends(require_auth)):
+        raw = (body or {}).get("display_name")
+        if raw is None:
+            raw = ""
+        if not isinstance(raw, str):
+            raise HTTPException(400, "display_name must be a string")
+        raw = raw.strip()
+        if len(raw) > 40:
+            raise HTTPException(400, "display_name max 40 karakter")
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$set": {"display_name": raw or None,
+                      "display_name_updated_at": now_iso()}},
+        )
+        return {"ok": True, "display_name": raw or None}
 
     # v135.29 — Optional public bio (max 280 chars). Rendered on the member
     # profile card so guildmates can leave a short intro / battle cry.
