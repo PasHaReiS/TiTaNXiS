@@ -756,70 +756,85 @@ async def batch_create_members(body: BatchCreateBody, _: dict = Depends(require_
     docs_to_insert: list[dict] = []
     updated_member_ids: list[str] = []
     report: list[dict] = []
+    errors: list[dict] = []  # v142.17 — Per-row failures surfaced to admin.
 
     for row in body.members:
-        raw_name = (row.name or "").strip()
-        if not raw_name:
-            continue
-        tag_from_bracket, clean_name = _split_alliance_from_name(raw_name)
-        # Explicit alliance_tag prop wins over the one embedded in the name.
-        alliance_tag = (row.alliance_tag or "").strip() or tag_from_bracket
-        canonical_alliance = await find_or_create_alliance(alliance_tag) if alliance_tag else None
-        # Track brand-new alliances (EXACT MATCH) for the response summary.
-        if canonical_alliance and canonical_alliance not in existing_alliances_cs:
-            if canonical_alliance not in new_alliances:
-                new_alliances.append(canonical_alliance)
-            existing_alliances_cs.add(canonical_alliance)
+        try:
+            raw_name = (row.name or "").strip()
+            if not raw_name:
+                continue
+            tag_from_bracket, clean_name = _split_alliance_from_name(raw_name)
+            # Explicit alliance_tag prop wins over the one embedded in the name.
+            alliance_tag = (row.alliance_tag or "").strip() or tag_from_bracket
+            canonical_alliance = await find_or_create_alliance(alliance_tag) if alliance_tag else None
+            # Track brand-new alliances (EXACT MATCH) for the response summary.
+            if canonical_alliance and canonical_alliance not in existing_alliances_cs:
+                if canonical_alliance not in new_alliances:
+                    new_alliances.append(canonical_alliance)
+                existing_alliances_cs.add(canonical_alliance)
 
-        key = clean_name  # case-sensitive; see by_name construction above
-        if key in by_name:
-            # v142.13 — Existing member — UPDATE the fields OCR captured
-            # (power / castle_level / rank / alliance) instead of silently
-            # skipping. The old code just bumped `existing_hits` and moved on,
-            # which broke Bireysel Güç OCR: powers scanned from screenshots
-            # were never written to the DB because every "power scan" hits
-            # existing members. Now we merge OCR values in and count as updates.
-            existing_hits += 1
-            existing_doc = by_name[key]
-            upd: dict = {}
-            if row.power and row.power > 0:
-                upd["bireysel_guc"] = int(row.power)
-            if row.castle_level and row.castle_level > 0:
-                upd["castle_level"] = int(row.castle_level)
-            if row.rank in ("R1", "R2", "R3", "R4", "R5"):
-                upd["rank"] = row.rank
-            if canonical_alliance:
-                upd["alliance_name"] = canonical_alliance
-            if upd:
-                await db.members.update_one({"id": existing_doc["id"]}, {"$set": upd})
-                updated_members += 1
-                updated_member_ids.append(existing_doc["id"])
-                report.append({
-                    "name": clean_name,
-                    "alliance": canonical_alliance,
-                    "status": "updated",
-                    "fields": list(upd.keys()),
-                })
-            else:
-                report.append({"name": clean_name, "alliance": canonical_alliance, "status": "existing"})
-            continue
-        doc = {
-            "id": str(uuid.uuid4()),
-            "name": clean_name,
-            "rank": (row.rank if row.rank in ("R1", "R2", "R3", "R4", "R5") else "R1"),
-            "alliance_name": canonical_alliance or "",
-            "bireysel_guc": int(row.power) if row.power and row.power > 0 else 0,
-            "castle_level": int(row.castle_level) if row.castle_level and row.castle_level > 0 else 0,
-        }
-        docs_to_insert.append(doc)
-        by_name[key] = doc
-        created_members += 1
-        report.append({"name": clean_name, "alliance": canonical_alliance, "status": "new"})
+            key = clean_name  # case-sensitive; see by_name construction above
+            if key in by_name:
+                # v142.13 — Existing member — UPDATE the fields OCR captured
+                # (power / castle_level / rank / alliance) instead of silently
+                # skipping. Now wrapped in try/except so one bad row (e.g. a
+                # deleted document mid-flight) doesn't blow the whole batch.
+                existing_hits += 1
+                existing_doc = by_name[key]
+                upd: dict = {}
+                if row.power and row.power > 0:
+                    upd["bireysel_guc"] = int(row.power)
+                if row.castle_level and row.castle_level > 0:
+                    upd["castle_level"] = int(row.castle_level)
+                if row.rank in ("R1", "R2", "R3", "R4", "R5"):
+                    upd["rank"] = row.rank
+                if canonical_alliance:
+                    upd["alliance_name"] = canonical_alliance
+                if upd:
+                    res = await db.members.update_one({"id": existing_doc["id"]}, {"$set": upd})
+                    if res.matched_count == 0:
+                        errors.append({"name": clean_name, "reason": "member vanished mid-flight"})
+                        continue
+                    updated_members += 1
+                    updated_member_ids.append(existing_doc["id"])
+                    report.append({
+                        "name": clean_name,
+                        "alliance": canonical_alliance,
+                        "status": "updated",
+                        "fields": list(upd.keys()),
+                    })
+                else:
+                    report.append({"name": clean_name, "alliance": canonical_alliance, "status": "existing"})
+                continue
+            doc = {
+                "id": str(uuid.uuid4()),
+                "name": clean_name,
+                "rank": (row.rank if row.rank in ("R1", "R2", "R3", "R4", "R5") else "R1"),
+                "alliance_name": canonical_alliance or "",
+                "bireysel_guc": int(row.power) if row.power and row.power > 0 else 0,
+                "castle_level": int(row.castle_level) if row.castle_level and row.castle_level > 0 else 0,
+            }
+            docs_to_insert.append(doc)
+            by_name[key] = doc
+            created_members += 1
+            report.append({"name": clean_name, "alliance": canonical_alliance, "status": "new"})
+        except Exception as e:
+            errors.append({"name": (row.name or "?"), "reason": str(e)[:200]})
 
     if docs_to_insert:
-        await db.members.insert_many(docs_to_insert)
-    # v136 / v142.13 — Return created + updated ids so OCR audit / undo can
-    # roll BOTH kinds back (previously only creates were tracked).
+        try:
+            await db.members.insert_many(docs_to_insert)
+        except Exception as e:
+            errors.append({"name": "<insert_many>", "reason": str(e)[:200]})
+            # Fall back to per-doc inserts so the good ones still land.
+            for doc in docs_to_insert:
+                try:
+                    await db.members.insert_one(doc)
+                except Exception as ie:
+                    errors.append({"name": doc.get("name") or "?", "reason": str(ie)[:200]})
+    # v136 / v142.13 / v142.17 — Return created + updated ids so OCR audit / undo
+    # can roll BOTH kinds back, and surface any per-row failures so the frontend
+    # can toast them instead of silently dropping writes.
     return {
         "created": created_members,
         "existing": existing_hits,
@@ -828,6 +843,7 @@ async def batch_create_members(body: BatchCreateBody, _: dict = Depends(require_
         "report": report,
         "created_member_ids": [d["id"] for d in docs_to_insert],
         "updated_member_ids": updated_member_ids,
+        "errors": errors,
     }
 
 

@@ -1525,8 +1525,6 @@ export default function Members() {
         title={ocrSubMode === "castle_rank" ? "Kale & Rank OCR" : "Bireysel Güç OCR"}
         onApply={async (data) => {
           const rows = data.members || [];
-          // Sadece o alt modun alanları gönderilir — diğer alanlar backend tarafında
-          // dokunulmaz (batch-create null'ları görmezden gelir).
           const payload = rows.map((r) => ({
             name: r.name,
             alliance_tag: r.alliance_name || null,
@@ -1534,21 +1532,50 @@ export default function Members() {
             castle_level: ocrSubMode === "castle_rank" ? (r.castle_level || null) : null,
             rank: ocrSubMode === "castle_rank" ? (r.rank || null) : null,
           }));
-          const res = await api.post("/members/batch-create", { members: payload });
+          // v142.17 — Robust bulk save: try/catch surfaces network / server errors
+          // and the `errors` array in the response surfaces per-row failures so
+          // silent write drops become impossible.
+          let res;
+          try {
+            res = await api.post("/members/batch-create", { members: payload });
+          } catch (err) {
+            toast.error(
+              t("ocr_bulk_save_network_error", {
+                defaultValue: `Kaydetme başarısız: ${err?.response?.data?.detail || err.message}`,
+              }),
+            );
+            throw err;
+          }
           mutate((k) => typeof k === "string" && k.startsWith("/members"));
           mutate("/stats");
           const newAlliances = (res.data.new_alliances || []).length;
           const created = res.data.created || 0;
           const updated = res.data.updated || 0;
           const existing = res.data.existing || 0;
-          toast.success(
-            // v142.13 — Show update count too so admins verify power writes.
-            `Eklendi: ${created} · Güncellendi: ${updated} · Mevcut: ${existing}` +
-              (newAlliances ? ` · Yeni ittifak: ${newAlliances}` : ""),
-          );
-          // v136 — Return response so OcrDialog audit call captures
-          // created_member_ids + updated_member_ids; undo then actually
-          // deletes the members instead of just marking the audit undone.
+          const errors = res.data.errors || [];
+          if (errors.length > 0) {
+            const first = errors[0];
+            toast.error(
+              t("ocr_bulk_save_partial", {
+                defaultValue: `${errors.length} satır kaydedilemedi. İlk hata: ${first.name} — ${first.reason}`,
+              }),
+              { duration: 8000 },
+            );
+          } else if (created + updated + existing < payload.length) {
+            toast.warning(
+              t("ocr_bulk_save_mismatch", {
+                defaultValue: `Uyarı: ${payload.length} gönderildi, ${
+                  created + updated + existing
+                } işlendi. Boş isim veya duplike olabilir.`,
+              }),
+              { duration: 6000 },
+            );
+          } else {
+            toast.success(
+              `Eklendi: ${created} · Güncellendi: ${updated} · Mevcut: ${existing}` +
+                (newAlliances ? ` · Yeni ittifak: ${newAlliances}` : ""),
+            );
+          }
           return res.data;
         }}
       />

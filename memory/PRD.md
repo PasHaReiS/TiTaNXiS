@@ -20,7 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 10, 2026 (v142.16 — OCR Diff Önizleme)** — Frontend:
+- **Feb 10, 2026 (v142.17 — Bulk Save Güvenilirlik + Deploy step 8 Tanı)** — Full-stack:
+  - **`server.py::batch_create_members`**: Her satır artık `try/except` içinde. Bir kayıt fail olursa (mid-flight delete, alliance resolve hatası, invalid data vs.) sonraki kayıtlar etkilenmez. Yeni response alanı `errors: [{name, reason}]`. `insert_many` başarısız olursa per-doc fallback ile iyi olanları kaydet. `update_one`'da `matched_count==0` (üye kaybolmuş) yakalanıyor.
+  - **`Members.jsx`** OCR onApply: `try/catch` etrafına alındı — network hatası açık toast + throw. Response'ta `errors[]` varsa detaylı `toast.error` (8s duration). `created+updated+existing < payload.length` ise "N satır işlenmedi" uyarısı. Başarı kısmi ise silent olmaz.
+  - **3 yeni i18n key** (implicit — defaultValue kullanıldı): `ocr_bulk_save_network_error`, `ocr_bulk_save_partial`, `ocr_bulk_save_mismatch`.
+  - **End-to-end test PASS ✅**: 10 gerçek üyeye eşsiz power offsetleri (`old + 100_000-109_000 range + row_idx`) gönderildi → response `updated: 10, errors: []` → tüm 10 üye DB'de doğrulandı (`10/10 members updated correctly`).
+  - **Deploy step 8 tanı (support_agent)**: Emergent pipeline step 8 = `cleanup_old_deployment` (replacement mode). Code-side fix mümkün değil — kullanıcının Emergent UI'da **Manage Publishes → Overview → View Logs → Share Logs with Agent** ile logu paylaşması gerek.
+
+
   - **`OcrDialog.jsx`** members mode: Her satırda power input'unun altına diff kartı — mevcut üye için `existingByLcName` lookup ile `oldPower → newPower (±fark)` gösterilir. Renk kodu: artış yeşil (`#4ade80`), azalış kırmızı (`#F87171`), değişim yok gri (`#6B7280`), yeni kayıt mavi (`#93C5FD` + "➕ Yeni kayıt" rozeti). Türkçe binlik ayraç. Test ID: `ocr-diff-{i}`.
   - **Buton metni** artık `Tümünü Ekle ({{u}} güncelleme, {{n}} yeni)` — `_manual_match`/`_force_new` bayrakları da hesaba dahil (modal seçimlerini yansıtır). Buton devre dışı: `applying || (requireSelection && !selection) || activeRows.length === 0`.
   - **i18n** (tr + en): 4 yeni anahtar — `ocr_diff_prev/new/new_record`, `ocr_bulk_save_all_split_btn`.
