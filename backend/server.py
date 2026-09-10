@@ -10428,81 +10428,163 @@ async def startup():
     except Exception as _e:
         logging.getLogger("server").warning(f"certificates index ensure: {_e}")
 
-    # One-shot legacy `/app/uploads/*` → Emergent Object Store migration.
-    # Idempotent (per-file), so it re-runs safely on every startup and
-    # only touches files that haven't been registered in `files` yet.
-    try:
-        from scripts.migrate_legacy_uploads import migrate_legacy_uploads
-        summary = await migrate_legacy_uploads(db)
-        if summary.get("migrated") or summary.get("failed"):
-            logging.getLogger("server").info(
-                f"legacy uploads migration: {summary}"
-            )
-    except Exception as _e:
-        logging.getLogger("server").warning(f"legacy uploads migration: {_e}")
+    # v142.18 — Move all heavy migrations off the startup critical path so the
+    # Kubernetes readiness probe returns green in <2s. Previously the F6-F10
+    # unit-cost seed loop (~175 upserts × ~50-100ms Atlas latency = 20-35s),
+    # legacy-uploads migration, alliance/level backfills and pasha-email
+    # migration all ran inline → pod never became Ready → deployment step 8
+    # (`cleanup_old_deployment`) fired against a still-booting pod and failed.
+    # Now they run in a background task; failures are logged, never fatal.
+    async def _run_heavy_migrations():
+        _mig_log = logging.getLogger("migrations")
+        # One-shot legacy `/app/uploads/*` → Emergent Object Store migration.
+        try:
+            from scripts.migrate_legacy_uploads import migrate_legacy_uploads
+            summary = await migrate_legacy_uploads(db)
+            if summary.get("migrated") or summary.get("failed"):
+                _mig_log.info(f"legacy uploads migration: {summary}")
+        except Exception as _e:
+            _mig_log.warning(f"legacy uploads migration: {_e}")
 
-    # F10 / Aşama seed — every (slug, level, stage) combination gets an empty
-    # unit-cost doc if missing so admins can jump straight into editing. Also
-    # migrates legacy `bina_{slug}_{lvl}` (no stage suffix) → `_a1` variant
-    # so existing F6-F9 data still surfaces on Aşama 1.
-    try:
-        _building_slugs = [
-            "komuta_merkezi", "kalkan_kislasi", "bombaci_kislasi",
-            "tetikci_kislasi", "revir", "iletisim_merkezi", "forticlad_lab",
-        ]
-        _levels = ["f6", "f7", "f8", "f9", "f10"]
-        _empty = {"yemek": 0, "odun": 0, "celik": 0, "benzin": 0,
-                  "sure_saniye": 0, "forticlad": 0, "gelismis_forticlad": 0}
-        migrated = 0
-        seeded = 0
-        for slug in _building_slugs:
-            for lvl in _levels:
-                # Migrate old-format doc into `_a1` if the new key is absent.
-                legacy_key = f"bina_{slug}_{lvl}"
-                legacy_doc = await db.unit_costs.find_one({"category": legacy_key})
-                if legacy_doc:
-                    a1_key = f"{legacy_key}_a1"
-                    a1_doc = await db.unit_costs.find_one({"category": a1_key})
-                    if not a1_doc:
-                        payload = {k: legacy_doc.get(k, 0) for k in _empty.keys()}
-                        payload["category"] = a1_key
-                        await db.unit_costs.update_one(
-                            {"category": a1_key},
-                            {"$setOnInsert": payload},
+        # F10 / Aşama seed — every (slug, level, stage) combination.
+        try:
+            _building_slugs = [
+                "komuta_merkezi", "kalkan_kislasi", "bombaci_kislasi",
+                "tetikci_kislasi", "revir", "iletisim_merkezi", "forticlad_lab",
+            ]
+            _levels = ["f6", "f7", "f8", "f9", "f10"]
+            _empty = {"yemek": 0, "odun": 0, "celik": 0, "benzin": 0,
+                      "sure_saniye": 0, "forticlad": 0, "gelismis_forticlad": 0}
+            migrated = 0
+            seeded = 0
+            for slug in _building_slugs:
+                for lvl in _levels:
+                    legacy_key = f"bina_{slug}_{lvl}"
+                    legacy_doc = await db.unit_costs.find_one({"category": legacy_key})
+                    if legacy_doc:
+                        a1_key = f"{legacy_key}_a1"
+                        a1_doc = await db.unit_costs.find_one({"category": a1_key})
+                        if not a1_doc:
+                            payload = {k: legacy_doc.get(k, 0) for k in _empty.keys()}
+                            payload["category"] = a1_key
+                            await db.unit_costs.update_one(
+                                {"category": a1_key},
+                                {"$setOnInsert": payload},
+                                upsert=True,
+                            )
+                            migrated += 1
+                    for stage in range(1, 6):
+                        cat = f"bina_{slug}_{lvl}_a{stage}"
+                        res = await db.unit_costs.update_one(
+                            {"category": cat},
+                            {"$setOnInsert": {"category": cat, **_empty}},
                             upsert=True,
                         )
-                        migrated += 1
-                # Seed empty docs for every stage that doesn't exist yet.
-                for stage in range(1, 6):
-                    cat = f"bina_{slug}_{lvl}_a{stage}"
-                    res = await db.unit_costs.update_one(
-                        {"category": cat},
-                        {"$setOnInsert": {"category": cat, **_empty}},
-                        upsert=True,
+                        if res.upserted_id:
+                            seeded += 1
+            if migrated or seeded:
+                _mig_log.info(
+                    f"unit-cost seed: migrated={migrated} seeded={seeded} (5 stages × F6-F10)"
+                )
+        except Exception as _e:
+            _mig_log.warning(f"F10/stage seed: {_e}")
+
+        # Backfill missing `status` field on legacy attendance docs.
+        try:
+            r = await db.event_attendance.update_many(
+                {"status": {"$exists": False}},
+                {"$set": {"status": "attending"}},
+            )
+            if r.modified_count:
+                _mig_log.info(
+                    f"attendance status backfill: set 'attending' on {r.modified_count} legacy rows"
+                )
+        except Exception as _e:
+            _mig_log.warning(f"attendance backfill: {_e}")
+
+        # Backfill alliance_name for legacy members.
+        try:
+            legacy = await db.members.find(
+                {"$or": [{"alliance_name": {"$exists": False}}, {"alliance_name": None}]},
+                {"_id": 0, "id": 1},
+            ).to_list(1000)
+            for m in legacy:
+                await db.members.update_one({"id": m["id"]}, {"$set": {"alliance_name": random.choice(ALLIANCES)}})
+            if legacy:
+                _mig_log.info(f"Backfilled alliance_name for {len(legacy)} members")
+        except Exception as _e:
+            _mig_log.warning(f"alliance_name backfill: {_e}")
+
+        # Strip non-digit chars from numeric level fields.
+        try:
+            import re as _re
+            numeric_fields = ["castle_level", "tetikci_f", "tetikci_t", "bombaci_f", "bombaci_t", "kalkanli_f", "kalkanli_t"]
+            ored = [{f: {"$regex": r"[^0-9]"}} for f in numeric_fields]
+            dirty = await db.members.find({"$or": ored}, {"_id": 0, **{"id": 1, **{f: 1 for f in numeric_fields}}}).to_list(5000)
+            migrated = 0
+            for m in dirty:
+                upd = {}
+                for f in numeric_fields:
+                    v = m.get(f)
+                    if isinstance(v, str) and v.strip() and _re.search(r"[^0-9]", v):
+                        cleaned = _re.sub(r"[^0-9]", "", v)
+                        upd[f] = cleaned if cleaned else None
+                if upd:
+                    await db.members.update_one({"id": m["id"]}, {"$set": upd})
+                    migrated += 1
+            if migrated:
+                _mig_log.info(f"Stripped non-digit chars from level fields for {migrated} members")
+        except Exception as _e:
+            _mig_log.warning(f"numeric-fields migration failed: {_e}")
+
+        # Strip stray brackets from alliance_name.
+        try:
+            dirty_alliance = await db.members.find(
+                {"alliance_name": {"$regex": r"[\[\]]"}},
+                {"_id": 0, "id": 1, "alliance_name": 1},
+            ).to_list(20000)
+            alliance_fixed = 0
+            for m in dirty_alliance:
+                v = m.get("alliance_name")
+                if not isinstance(v, str):
+                    continue
+                cleaned = v.replace("[", "").replace("]", "").strip()
+                if cleaned != v:
+                    await db.members.update_one(
+                        {"id": m["id"]}, {"$set": {"alliance_name": cleaned}}
                     )
-                    if res.upserted_id:
-                        seeded += 1
-        if migrated or seeded:
-            logging.getLogger("server").info(
-                f"unit-cost seed: migrated={migrated} seeded={seeded} (5 stages × F6-F10)"
-            )
-    except Exception as _e:
-        logging.getLogger("server").warning(f"F10/stage seed: {_e}")
+                    alliance_fixed += 1
+            if alliance_fixed:
+                _mig_log.info(f"Stripped brackets from alliance_name for {alliance_fixed} members")
+        except Exception as _e:
+            _mig_log.warning(f"alliance_name migration failed: {_e}")
 
-    # Backfill missing `status` field on legacy attendance docs → "attending".
-    try:
-        r = await db.event_attendance.update_many(
-            {"status": {"$exists": False}},
-            {"$set": {"status": "attending"}},
-        )
-        if r.modified_count:
-            logging.getLogger("server").info(
-                f"attendance status backfill: set 'attending' on {r.modified_count} legacy rows"
-            )
-    except Exception as _e:
-        logging.getLogger("server").warning(f"attendance backfill: {_e}")
+        # Pasha email + member_ids link migration.
+        try:
+            TARGET_EMAIL = "pasha@titanxis.com"
+            pasha_member = await db.members.find_one({"name": "PasHa"}, {"_id": 0, "id": 1})
+            pasha_mid = pasha_member["id"] if pasha_member else None
+            for uname in ("admin", "pasha"):
+                u = await db.users.find_one({"username": uname})
+                if not u:
+                    continue
+                updates = {}
+                if u.get("email") != TARGET_EMAIL:
+                    updates["email"] = TARGET_EMAIL
+                if pasha_mid:
+                    current_ids = list(u.get("member_ids") or [])
+                    if pasha_mid not in current_ids:
+                        current_ids.append(pasha_mid)
+                        updates["member_ids"] = current_ids
+                if updates:
+                    await db.users.update_one({"username": uname}, {"$set": updates})
+                    _mig_log.info(f"pasha-email migration: updated user '{uname}' fields={list(updates.keys())}")
+        except Exception as _e:
+            _mig_log.warning(f"pasha-email migration failed: {_e}")
 
-    # v135 — Badges + Event templates + Rollcalls indexes & preset badge seed.
+        _mig_log.info("heavy migrations complete")
+
+    # v135 — Fast index/seed calls stay INLINE (Ready state depends on them).
     try:
         from routes.badges import ensure_badges_indexes as _ebi, seed_preset_badges as _spb
         from routes.event_templates import ensure_event_templates_indexes as _eeti
@@ -10523,80 +10605,9 @@ async def startup():
     except Exception as _e:
         logging.getLogger("telegram").warning(f"setup_webhook at startup: {_e}")
 
-    # Backfill alliance_name for legacy members
-    legacy = await db.members.find(
-        {"$or": [{"alliance_name": {"$exists": False}}, {"alliance_name": None}]},
-        {"_id": 0, "id": 1},
-    ).to_list(1000)
-    for m in legacy:
-        await db.members.update_one({"id": m["id"]}, {"$set": {"alliance_name": random.choice(ALLIANCES)}})
-    if legacy:
-        logger.info(f"Backfilled alliance_name for {len(legacy)} members")
-
-    # One-time migration: strip non-digit chars from numeric level fields ("F8" -> "8", "T11" -> "11")
-    import re as _re
-    numeric_fields = ["castle_level", "tetikci_f", "tetikci_t", "bombaci_f", "bombaci_t", "kalkanli_f", "kalkanli_t"]
-    ored = [{f: {"$regex": r"[^0-9]"}} for f in numeric_fields]
-    dirty = await db.members.find({"$or": ored}, {"_id": 0, **{"id": 1, **{f: 1 for f in numeric_fields}}}).to_list(5000)
-    migrated = 0
-    for m in dirty:
-        upd = {}
-        for f in numeric_fields:
-            v = m.get(f)
-            if isinstance(v, str) and v.strip() and _re.search(r"[^0-9]", v):
-                cleaned = _re.sub(r"[^0-9]", "", v)
-                upd[f] = cleaned if cleaned else None
-        if upd:
-            await db.members.update_one({"id": m["id"]}, {"$set": upd})
-            migrated += 1
-    if migrated:
-        logger.info(f"Stripped non-digit chars from level fields for {migrated} members")
-
-    # One-time migration: strip stray brackets from alliance_name ("[GOW]" -> "GOW").
-    try:
-        dirty_alliance = await db.members.find(
-            {"alliance_name": {"$regex": r"[\[\]]"}},
-            {"_id": 0, "id": 1, "alliance_name": 1},
-        ).to_list(20000)
-        alliance_fixed = 0
-        for m in dirty_alliance:
-            v = m.get("alliance_name")
-            if not isinstance(v, str):
-                continue
-            cleaned = v.replace("[", "").replace("]", "").strip()
-            if cleaned != v:
-                await db.members.update_one(
-                    {"id": m["id"]}, {"$set": {"alliance_name": cleaned}}
-                )
-                alliance_fixed += 1
-        if alliance_fixed:
-            logger.info(f"Stripped brackets from alliance_name for {alliance_fixed} members")
-    except Exception as _e:
-        logger.warning(f"alliance_name migration failed: {_e}")
-    # Idempotent migration: set email=pasha@titanxis.com on admin & pasha users,
-    # and link both accounts to the "PasHa" member document if present.
-    # Runs on every startup but is a no-op once the desired state is reached.
-    try:
-        TARGET_EMAIL = "pasha@titanxis.com"
-        pasha_member = await db.members.find_one({"name": "PasHa"}, {"_id": 0, "id": 1})
-        pasha_mid = pasha_member["id"] if pasha_member else None
-        for uname in ("admin", "pasha"):
-            u = await db.users.find_one({"username": uname})
-            if not u:
-                continue
-            updates = {}
-            if u.get("email") != TARGET_EMAIL:
-                updates["email"] = TARGET_EMAIL
-            if pasha_mid:
-                current_ids = list(u.get("member_ids") or [])
-                if pasha_mid not in current_ids:
-                    current_ids.append(pasha_mid)
-                    updates["member_ids"] = current_ids
-            if updates:
-                await db.users.update_one({"username": uname}, {"$set": updates})
-                logger.info(f"pasha-email migration: updated user '{uname}' fields={list(updates.keys())}")
-    except Exception as _e:
-        logger.warning(f"pasha-email migration failed: {_e}")
+    # Fire heavy migrations off the critical path. Startup returns now → pod
+    # becomes Ready → Kubernetes deployment step 8 no longer fails on timeout.
+    _asyncio_cron.create_task(_run_heavy_migrations())
 
     # Auto-seed disabled: guild leaders now populate their own members.
     # To manually populate demo data, POST /api/seed?force=true with admin token.

@@ -20,7 +20,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 10, 2026 (v142.17 — Bulk Save Güvenilirlik + Deploy step 8 Tanı)** — Full-stack:
+- **Feb 10, 2026 (v142.18 — DEPLOY STEP 8 ROOT CAUSE FIX)** — Backend:
+  - **KÖK NEDEN**: `server.py::startup()` event'i ~20-35 saniye bloke ediyordu:
+    - F6-F10 unit-cost seed loop: 7 slug × 5 level × 5 stage = 175 iteration × ~2 Atlas round-trip her biri = ~350 network hop
+    - Legacy uploads migration (per-file scan)
+    - Alliance backfill / bracket strip / numeric-fields migration (5000+ üye tarama)
+    - Pasha email migration
+  - Kubernetes readiness probe timeout aşılıyor → pod Ready state'ine geçemiyor → yeni deployment eskiyi replace edemiyor → step 8 (`cleanup_old_deployment`) fail.
+  - **FIX**: Tüm ağır işlemler yeni `_run_heavy_migrations()` inner coroutine'ine taşındı, `asyncio.create_task()` ile fire-and-forget. Kritik path (indexes + telegram webhook) inline kaldı → startup <2s.
+  - **`deployment_agent`: PASS ✅**. Deploy step 8 hatası artık tetiklenmemeli.
+
+
   - **`server.py::batch_create_members`**: Her satır artık `try/except` içinde. Bir kayıt fail olursa (mid-flight delete, alliance resolve hatası, invalid data vs.) sonraki kayıtlar etkilenmez. Yeni response alanı `errors: [{name, reason}]`. `insert_many` başarısız olursa per-doc fallback ile iyi olanları kaydet. `update_one`'da `matched_count==0` (üye kaybolmuş) yakalanıyor.
   - **`Members.jsx`** OCR onApply: `try/catch` etrafına alındı — network hatası açık toast + throw. Response'ta `errors[]` varsa detaylı `toast.error` (8s duration). `created+updated+existing < payload.length` ise "N satır işlenmedi" uyarısı. Başarı kısmi ise silent olmaz.
   - **3 yeni i18n key** (implicit — defaultValue kullanıldı): `ocr_bulk_save_network_error`, `ocr_bulk_save_partial`, `ocr_bulk_save_mismatch`.
