@@ -20,6 +20,12 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 10, 2026 (v142.22 — PTT Beep Sesi Kaldırıldı)** — Frontend:
+  - **Kullanıcı isteği**: Push-to-Talk modunda mikrofon aç/kapa'da çıkan bip/beep sesi rahatsız ediyordu.
+  - **Silinen kod** (`VoiceRooms.jsx`): `audioCtxRef`, `ensureAudioCtx()`, `playBeep()` helper'ları (Web Audio API `AudioContext` + `createOscillator`); `pttPress`/`pttRelease` içinden `playBeep(880/440, 55, 0.09)` çağrıları temizlendi.
+  - Deps array'lerden `playBeep` çıkarıldı. PTT state toggle sessizce çalışıyor artık.
+  - Frontend hot-reload PASS, `deployment_agent`: PASS ✅ — Republish için hazır
+
 - **Feb 10, 2026 (v142.21 — Voice Room UI Polish: 5 Fixes)** — Full-stack:
   - **Fix 1 — Top bar renk override**: Global `h1,h2,h3` purple-blue gradient artık `voice-top-bar-title` span'ında `WebkitTextFillColor: #F59E0B` + `background: none` inline override ile amber gösteriliyor
   - **Fix 2 — Kompakt 48px satırlar**: Katılımcı kartı büyük kart yerine 12h (48px) yatay satır: 36px yuvarlak avatar (baş harf, amber gradient) + bold beyaz 13px isim + amber 10px ittifak/rol etiketi

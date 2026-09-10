@@ -822,61 +822,21 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
     localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled).catch(() => {});
   };
 
-  // v140.33 — PTT ses efekti: hafif "beep on/off" tonu (Web Audio API).
-  // v140.39 — pttPress/pttRelease deps'inde referanslandığı için bu blok
-  // temporal dead zone'u önlemek amacıyla PTT handler'larından ÖNCE deklare
-  // ediliyor.
-  const audioCtxRef = useRef(null);
-  const ensureAudioCtx = useCallback(() => {
-    if (!audioCtxRef.current) {
-      try {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (AC) audioCtxRef.current = new AC();
-      } catch {}
-    }
-    return audioCtxRef.current;
-  }, []);
-  const playBeep = useCallback((freq = 880, durationMs = 55, volume = 0.09) => {
-    try {
-      const ctx = ensureAudioCtx();
-      if (!ctx) return;
-      if (ctx.state === "suspended") ctx.resume().catch(() => {});
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      gain.gain.value = 0;
-      const now = ctx.currentTime;
-      gain.gain.linearRampToValueAtTime(volume, now + 0.005);
-      gain.gain.linearRampToValueAtTime(0, now + durationMs / 1000);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + durationMs / 1000 + 0.02);
-    } catch {}
-  }, [ensureAudioCtx]);
+  // v142.22 — PTT beep sesi tamamen kaldırıldı (kullanıcı isteği).
+  // Eskiden Web Audio API ile 880Hz/440Hz on/off tonu çalıyordu; artık yok.
 
   // PTT press/release handlers — pointer (mouse + touch), plus Spacebar hold.
-  // v140.33 — beep on/off geri bildirimi eklendi.
   // v140.40 — RTC guard: bağlantı hazır değilse track operasyonu yapma.
   const pttPress = useCallback(() => {
     if (micMode !== "ptt" || !localParticipant || !isConnected) return;
-    setPttHeld((prev) => {
-      if (prev) return prev; // zaten basılı — çift beep yok
-      try { playBeep(880, 55, 0.09); } catch {}
-      return true;
-    });
+    setPttHeld((prev) => (prev ? prev : true));
     localParticipant.setMicrophoneEnabled(true).catch(() => {});
-  }, [micMode, localParticipant, playBeep, isConnected]);
+  }, [micMode, localParticipant, isConnected]);
   const pttRelease = useCallback(() => {
     if (micMode !== "ptt" || !localParticipant || !isConnected) return;
-    setPttHeld((prev) => {
-      if (!prev) return prev; // zaten kapalı
-      try { playBeep(440, 55, 0.09); } catch {}
-      return false;
-    });
+    setPttHeld((prev) => (!prev ? prev : false));
     localParticipant.setMicrophoneEnabled(false).catch(() => {});
-  }, [micMode, localParticipant, playBeep, isConnected]);
+  }, [micMode, localParticipant, isConnected]);
 
   useEffect(() => {
     if (micMode !== "ptt") return undefined;
