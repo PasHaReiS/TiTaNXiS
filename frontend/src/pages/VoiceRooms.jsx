@@ -1038,13 +1038,19 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
         data-testid="voice-top-bar"
       >
         <div className="flex-1 min-w-0">
-          <h2
-            className="text-base font-black truncate leading-tight"
-            style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}
+          <span
+            className="block text-base font-black truncate leading-tight uppercase"
+            style={{
+              color: "#F59E0B",
+              WebkitTextFillColor: "#F59E0B",
+              background: "none",
+              fontFamily: "'Rajdhani', system-ui, sans-serif",
+              letterSpacing: "0.06em",
+            }}
             data-testid="voice-top-bar-title"
           >
             🎙️ {roomName}
-          </h2>
+          </span>
           <div className="flex items-center gap-2 text-[10px] mt-0.5" style={{ color: "#94A3B8" }}>
             <span className="flex items-center gap-1"><Users size={10} /> {participants.length}</span>
             <span
@@ -1387,80 +1393,88 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
         </div>
       )}
 
-      {/* v141 — Mic mode selector moved into the horizontal action row above. */}
+      {/* v142.21 — 2 sütun kompakt katılımcı listesi (Konuşuyor / Sessiz) */}
+      {(() => {
+        // Helper: strip @-suffix + resolve alliance/role from metadata
+        const fmtName = (raw) => {
+          if (!raw) return "?";
+          const s = String(raw);
+          return s.includes("@") ? s.split("@")[0] : s;
+        };
+        const parseMeta = (p) => {
+          try {
+            const raw = p?.metadata || "";
+            if (!raw) return {};
+            return JSON.parse(raw) || {};
+          } catch { return {}; }
+        };
+        const speakingList = tracks.filter((tr) => tr.participant?.isMicrophoneEnabled);
+        const mutedList = tracks.filter((tr) => !tr.participant?.isMicrophoneEnabled);
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-        {tracks.map((tr, idx) => {
+        const renderRow = (tr, idx) => {
           const p = tr.participant;
           const speaking = p.isSpeaking;
-          const muted = !p.isMicrophoneEnabled;
           const isSelf = localParticipant && p.identity === localParticipant.identity;
           const locallyMuted = !!localMutes[p.identity];
+          const meta = parseMeta(p);
+          const displayName = fmtName(p.name || p.identity);
+          const initial = (displayName || "?").charAt(0).toUpperCase();
+          const alliance = meta.alliance;
+          const role = meta.role;
+          const roleTag = alliance
+            ? alliance
+            : role === "admin"
+              ? t("voice_admin_tag", "ADMIN")
+              : role === "guest"
+                ? t("voice_guest_tag", "ZİYARETÇİ")
+                : t("voice_member_tag", "ÜYE");
           return (
             <div
               key={p.identity + idx}
               data-testid={`voice-participant-${p.identity}`}
-              className="rounded-xl p-4 flex flex-col items-center gap-2 relative"
+              className="flex items-center gap-2 h-12 px-2 rounded-lg relative"
               style={{
-                background: "rgba(15,10,20,0.65)",
-                border: `2px solid ${speaking ? "#22C55E" : "rgba(255,255,255,0.08)"}`,
-                boxShadow: speaking ? "0 0 20px rgba(34,197,94,0.55)" : "none",
+                background: speaking ? "rgba(34,197,94,0.10)" : "rgba(15,10,20,0.55)",
+                border: `1px solid ${speaking ? "#22C55E" : "rgba(255,255,255,0.08)"}`,
+                boxShadow: speaking ? "0 0 12px rgba(34,197,94,0.35)" : "none",
                 transition: "all 0.22s ease",
               }}
             >
-              {!isSelf && (
-                <div className="absolute top-2 right-2 flex items-center gap-1">
-                  {isAdmin && (
-                    <button
-                      data-testid={`voice-kick-${p.identity}`}
-                      onClick={() => kickParticipant(p)}
-                      title={t("voice_kick_title", "Bu kişiyi odadan at")}
-                      aria-label={t("voice_kick_title", "Bu kişiyi odadan at")}
-                      className="w-7 h-7 rounded-full flex items-center justify-center transition-colors font-bold"
-                      style={{
-                        background: "rgba(239,68,68,0.20)",
-                        border: "1px solid #EF4444",
-                        color: "#F87171",
-                        fontSize: 10,
-                        cursor: "pointer",
-                        letterSpacing: "0.05em",
-                      }}
-                    >
-                      {t("voice_kick_short", "AT")}
-                    </button>
-                  )}
-                  <button
-                    data-testid={`voice-local-mute-${p.identity}`}
-                    onClick={() => toggleLocalMute(p)}
-                    title={locallyMuted
-                      ? t("voice_local_unmute_title", "Bu kişinin sesini benim için aç")
-                      : t("voice_local_mute_title", "Bu kişinin sesini sadece benim için sustur")}
-                    aria-label={locallyMuted
-                      ? t("voice_local_unmute_title", "Bu kişinin sesini benim için aç")
-                      : t("voice_local_mute_title", "Bu kişinin sesini sadece benim için sustur")}
-                    aria-pressed={locallyMuted}
-                    className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
-                    style={{
-                      background: locallyMuted ? "rgba(239,68,68,0.20)" : "rgba(255,255,255,0.06)",
-                      border: `1px solid ${locallyMuted ? "#EF4444" : "rgba(255,255,255,0.15)"}`,
-                      color: locallyMuted ? "#EF4444" : "#94A3B8",
-                      fontSize: 12,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {locallyMuted ? "🔇" : "🔊"}
-                  </button>
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-black shrink-0"
+                style={{
+                  background: `linear-gradient(135deg, #F59E0B, #D4730A)`,
+                  color: "#0B0704",
+                  opacity: locallyMuted ? 0.55 : 1,
+                }}
+              >
+                {initial}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div
+                  className="text-[13px] font-bold truncate leading-tight"
+                  style={{ color: "#FFFFFF" }}
+                  data-testid={`voice-participant-name-${p.identity}`}
+                >
+                  {displayName}
                 </div>
-              )}
+                <div
+                  className="text-[10px] truncate leading-tight"
+                  style={{ color: "#F5A623", fontWeight: 600, letterSpacing: "0.04em" }}
+                  data-testid={`voice-participant-tag-${p.identity}`}
+                >
+                  {roleTag}
+                </div>
+              </div>
               {isSelf && user && (
                 <button
                   data-testid="voice-display-name-edit-tile"
                   onClick={openNameEdit}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+                  className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
                   style={{
-                    background: "rgba(245,166,35,0.15)",
-                    border: "1px solid #F5A623",
-                    color: "#F5A623",
+                    background: "rgba(245,158,11,0.15)",
+                    border: "1px solid #F59E0B",
+                    color: "#F59E0B",
                     cursor: "pointer",
                   }}
                   title={t("voice_display_name_edit_title", "Görünen adını düzenle")}
@@ -1469,78 +1483,89 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
                   <Pencil size={12} />
                 </button>
               )}
-              <div
-                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black"
-                style={{
-                  background: "linear-gradient(135deg, #F5A623, #E74C1A)",
-                  color: "#0B0704",
-                  opacity: locallyMuted ? 0.55 : 1,
-                }}
-              >
-                {(p.name || p.identity).charAt(0).toUpperCase()}
-              </div>
-              <span className="text-xs truncate max-w-full" style={{ color: "#F5F0E8" }}>
-                {p.name || p.identity}
-              </span>
-              {/* v140.33 — Mic mode rozeti (PTT vs Continuous) */}
-              {(() => {
-                const mode = isSelf ? micMode : remoteModes[p.identity];
-                if (!mode) return null;
-                const isPtt = mode === "ptt";
-                return (
-                  <span
-                    data-testid={`voice-mic-mode-badge-${p.identity}`}
-                    className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded"
-                    style={{
-                      border: `1px solid ${isPtt ? "#F5A623" : "#22C55E"}`,
-                      color: isPtt ? "#F5A623" : "#22C55E",
-                      background: isPtt ? "rgba(245,166,35,0.10)" : "rgba(34,197,94,0.10)",
-                      letterSpacing: "0.08em",
-                    }}
-                    title={isPtt
-                      ? t("voice_mic_mode_ptt", "Push to Talk")
-                      : t("voice_mic_mode_continuous", "Sürekli Açık")}
-                  >
-                    {isPtt
-                      ? `🎤 ${t("voice_mic_mode_badge_ptt", "PTT")}`
-                      : `🔊 ${t("voice_mic_mode_badge_live", "Live")}`}
-                  </span>
-                );
-              })()}
-              {/* v140.45 — Speaking rozeti (VAD): sadece o an konuşurken göster,
-                  pulsing yeşil, tile altında dikkat çekici. */}
-              {speakingIds.has(p.identity) && (
-                <span
-                  data-testid={`voice-speaking-badge-${p.identity}`}
-                  className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded animate-pulse flex items-center gap-1"
+              {!isSelf && isAdmin && (
+                <button
+                  data-testid={`voice-kick-${p.identity}`}
+                  onClick={() => kickParticipant(p)}
+                  title={t("voice_kick_title", "Bu kişiyi odadan at")}
+                  className="text-[10px] font-bold px-2 py-1 rounded shrink-0"
                   style={{
-                    background: "rgba(34,197,94,0.20)",
-                    color: "#86EFAC",
-                    border: "1px solid #22C55E",
-                    boxShadow: "0 0 8px rgba(34,197,94,0.55)",
-                    letterSpacing: "0.08em",
+                    background: "rgba(239,68,68,0.20)",
+                    border: "1px solid #EF4444",
+                    color: "#F87171",
+                    cursor: "pointer",
+                    letterSpacing: "0.06em",
                   }}
-                  aria-live="polite"
                 >
-                  🎙️ {t("voice_speaking_label", "Konuşuyor…")}
-                </span>
+                  {t("voice_kick_short", "AT")}
+                </button>
               )}
-              <div className="flex items-center gap-1">
-                {muted && <MicOff size={12} color="#EF4444" />}
-                {locallyMuted && (
-                  <span
-                    data-testid={`voice-local-muted-badge-${p.identity}`}
-                    className="text-[9px] uppercase tracking-widest"
-                    style={{ color: "#EF4444" }}
-                  >
-                    {t("voice_local_muted_badge", "Yerel Susturuldu")}
-                  </span>
+              {!isSelf && !isAdmin && (
+                <button
+                  data-testid={`voice-local-mute-${p.identity}`}
+                  onClick={() => toggleLocalMute(p)}
+                  title={locallyMuted
+                    ? t("voice_local_unmute_title", "Bu kişinin sesini benim için aç")
+                    : t("voice_local_mute_title", "Bu kişinin sesini sadece benim için sustur")}
+                  aria-pressed={locallyMuted}
+                  className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                  style={{
+                    background: locallyMuted ? "rgba(239,68,68,0.20)" : "transparent",
+                    color: locallyMuted ? "#EF4444" : "#94A3B8",
+                    border: `1px solid ${locallyMuted ? "#EF4444" : "rgba(255,255,255,0.15)"}`,
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  {locallyMuted ? "🔇" : "🔊"}
+                </button>
+              )}
+            </div>
+          );
+        };
+
+        return (
+          <>
+            <div
+              className="grid grid-cols-2 gap-3 mt-2 mb-2"
+              data-testid="voice-column-headers"
+            >
+              <div
+                className="flex items-center gap-1 text-[11px] font-black uppercase tracking-widest"
+                style={{ color: "#22C55E" }}
+                data-testid="voice-col-speaking-header"
+              >
+                🟢 {t("voice_col_speaking", "Konuşuyor")} ({speakingList.length})
+              </div>
+              <div
+                className="flex items-center gap-1 text-[11px] font-black uppercase tracking-widest"
+                style={{ color: "#94A3B8" }}
+                data-testid="voice-col-muted-header"
+              >
+                🔇 {t("voice_col_muted", "Sessiz")} ({mutedList.length})
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="flex flex-col gap-2" data-testid="voice-col-speaking">
+                {speakingList.map(renderRow)}
+                {speakingList.length === 0 && (
+                  <div className="text-[10px] italic py-2 text-center" style={{ color: "#64748B" }}>
+                    {t("voice_col_speaking_empty", "Kimse konuşmuyor")}
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-2" data-testid="voice-col-muted">
+                {mutedList.map(renderRow)}
+                {mutedList.length === 0 && (
+                  <div className="text-[10px] italic py-2 text-center" style={{ color: "#64748B" }}>
+                    {t("voice_col_muted_empty", "Sessiz kimse yok")}
+                  </div>
                 )}
               </div>
             </div>
-          );
-        })}
-      </div>
+          </>
+        );
+      })()}
 
         </div>
       </div>
@@ -1562,17 +1587,20 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
             <button
               data-testid="voice-mute-btn"
               onClick={toggleMic}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold uppercase tracking-widest"
+              className="w-14 h-14 rounded-full flex items-center justify-center transition-all"
               style={{
-                border: `1px solid ${isMicrophoneEnabled ? "#22C55E" : "#EF4444"}`,
-                color: isMicrophoneEnabled ? "#22C55E" : "#EF4444",
-                background: isMicrophoneEnabled ? "rgba(34,197,94,0.10)" : "rgba(239,68,68,0.10)",
+                background: isMicrophoneEnabled ? "#F59E0B" : "#EF4444",
+                border: "none",
                 cursor: "pointer",
-                letterSpacing: "0.08em",
+                boxShadow: isMicrophoneEnabled
+                  ? "0 0 24px rgba(245,158,11,0.60), 0 0 8px rgba(245,158,11,0.35)"
+                  : "0 0 12px rgba(239,68,68,0.55)",
+                color: "#FFFFFF",
               }}
+              aria-label={isMicrophoneEnabled ? t("voice_mute", "Sustur") : t("voice_unmute", "Aç")}
+              title={isMicrophoneEnabled ? t("voice_mute", "Sustur") : t("voice_unmute", "Aç")}
             >
-              {isMicrophoneEnabled ? <Mic size={16} /> : <MicOff size={16} />}
-              {isMicrophoneEnabled ? t("voice_mute", "Sustur") : t("voice_unmute", "Aç")}
+              {isMicrophoneEnabled ? <Mic size={22} color="#FFFFFF" /> : <MicOff size={22} color="#FFFFFF" />}
             </button>
           ) : (
             <button
@@ -1584,22 +1612,21 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
               onTouchEnd={(e) => { e.preventDefault(); pttRelease(); }}
               onContextMenu={(e) => e.preventDefault()}
               aria-label={t("voice_ptt_hint", "Basılı tut → konuş, bırak → kapat")}
-              className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold select-none"
+              title={t("voice_ptt_hint", "Basılı tut → konuş, bırak → kapat")}
+              className="w-14 h-14 rounded-full flex items-center justify-center select-none transition-all"
               style={{
-                border: `1px solid ${pttHeld ? "#22C55E" : "#F5A623"}`,
-                color: pttHeld ? "#22C55E" : "#F5A623",
-                background: pttHeld ? "rgba(34,197,94,0.20)" : "rgba(245,166,35,0.15)",
-                boxShadow: pttHeld ? "0 0 24px rgba(34,197,94,0.55)" : "none",
+                background: pttHeld ? "#F59E0B" : "#EF4444",
+                border: "none",
+                boxShadow: pttHeld
+                  ? "0 0 32px rgba(245,158,11,0.75), 0 0 12px rgba(245,158,11,0.5)"
+                  : "0 0 12px rgba(239,68,68,0.45)",
                 userSelect: "none",
                 touchAction: "none",
-                transition: "all 120ms ease-out",
                 cursor: pttHeld ? "grabbing" : "grab",
+                color: "#FFFFFF",
               }}
             >
-              <Mic size={18} />
-              {pttHeld
-                ? t("voice_ptt_active", "🔴 Konuşuyorsun...")
-                : t("voice_ptt_hold", "Basılı Tut")}
+              <Mic size={22} color="#FFFFFF" />
             </button>
           )}
         </div>

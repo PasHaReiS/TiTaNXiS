@@ -9862,15 +9862,39 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
         identity = f"{identity_base}-{u['id'][:6]}"
         # v141 — Kullanıcı kalıcı görünen adını Ses Odası'nda kalem ikonuyla
         # değiştirebilir. LiveKit `.with_name()` için display_name > username > email.
-        display = (u.get("display_name") or "").strip() or u.get("username") or u.get("email") or "Komutan"
+        # v142.21 — @ içeren username/email için @'den önceki kısmı kullan.
+        raw_display = (u.get("display_name") or "").strip()
+        if not raw_display:
+            raw_display = u.get("username") or u.get("email") or "Komutan"
+            if "@" in raw_display:
+                raw_display = raw_display.split("@", 1)[0]
+        display = raw_display
+        # v142.21 — Katılımcı kartında ittifak etiketi göstermek için metadata.
+        # İlk linked member'ın ittifakını al (yoksa None).
+        alliance_name = None
+        member_ids = [x for x in (u.get("member_ids") or []) if x]
+        legacy_mid = u.get("member_id")
+        if legacy_mid and legacy_mid not in member_ids:
+            member_ids.append(legacy_mid)
+        if member_ids:
+            m = await db.members.find_one(
+                {"id": member_ids[0]},
+                {"_id": 0, "alliance_name": 1},
+            )
+            if m:
+                alliance_name = m.get("alliance_name")
+        role_tag = u.get("role") or "user"
+        meta_payload = json.dumps({"role": role_tag, "alliance": alliance_name})
     else:
         gn = (body.guest_name or "Ziyaretçi").strip()[:32] or "Ziyaretçi"
         identity = f"guest-{uuid.uuid4().hex[:8]}"
-        display = f"{gn} (ziyaretçi)"
+        display = gn
+        meta_payload = json.dumps({"role": "guest", "alliance": None})
     from livekit.api import AccessToken, VideoGrants
     at = AccessToken(lk_key, lk_secret) \
         .with_identity(identity) \
         .with_name(display) \
+        .with_metadata(meta_payload) \
         .with_grants(VideoGrants(room_join=True, room=room["name"], can_publish=True, can_subscribe=True))
     return {"token": at.to_jwt(), "url": lk_url, "room": room["name"],
             "room_id": room["id"], "identity": identity,

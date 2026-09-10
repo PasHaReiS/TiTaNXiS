@@ -20,6 +20,16 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 10, 2026 (v142.21 — Voice Room UI Polish: 5 Fixes)** — Full-stack:
+  - **Fix 1 — Top bar renk override**: Global `h1,h2,h3` purple-blue gradient artık `voice-top-bar-title` span'ında `WebkitTextFillColor: #F59E0B` + `background: none` inline override ile amber gösteriliyor
+  - **Fix 2 — Kompakt 48px satırlar**: Katılımcı kartı büyük kart yerine 12h (48px) yatay satır: 36px yuvarlak avatar (baş harf, amber gradient) + bold beyaz 13px isim + amber 10px ittifak/rol etiketi
+  - **Fix 3 — Display name fallback**: Backend `.with_name()` @-suffix'i strip ediyor (`pasha@titanxis.com` → `pasha`). Frontend `fmtName()` helper ile de fallback korunuyor.
+  - **Fix 4 — 56px yuvarlak mic butonu**: Alt bar mic butonu pill yerine `w-14 h-14 rounded-full`, aktif → amber (#F59E0B) + glow shadow, susturulunca kırmızı (#EF4444). PTT modu için de aynı circle + basılıyken amber glow, boşta kırmızı.
+  - **Fix 5 — Sütun başlıkları**: `🟢 KONUŞUYOR (N)` yeşil + `🔇 SESSİZ (N)` gri başlıklar 2-sütun listenin üzerinde. Katılımcılar `p.isMicrophoneEnabled` ile split ediliyor.
+  - **Backend metadata**: `/api/voice/token` artık LiveKit `.with_metadata()` ile `{role, alliance}` JSON payload gönderiyor. Alliance = kullanıcının ilk linked member'ının `alliance_name`. Frontend `p.metadata` parse ederek satırın altında ittifak etiketi gösteriyor (yoksa role: ADMIN/ÜYE/ZİYARETÇİ).
+  - Test: 390x844 mobile viewport screenshot — 5 sorun da düzeltildi. Top title amber, kompakt satır, "admin" (email değil), 56px yuvarlak amber mic, sütun başlıkları görünür.
+  - `deployment_agent`: PASS ✅
+
 - **Feb 10, 2026 (v142.20 — Voice Room UI Full Overhaul)** — Full-stack:
   - **Backend**: New `PUT /api/auth/me/display-name` endpoint (`auth.py`) — kullanıcının kalıcı görünen adı (max 40 char). `public_user()` yanıtı artık `display_name` alanı döndürüyor. `/api/voice/token` LiveKit `.with_name()` çağrısı için `display_name > username > email` fallback zincirini kullanıyor.
   - **Frontend `VoiceRooms.jsx` — ActiveRoomUI**: Tam UI yenilemesi (mobil-first spec):
