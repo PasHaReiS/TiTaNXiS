@@ -20,7 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 10, 2026 (v142.15 — PWA Android İkon Padding Fix)** — Assets:
+- **Feb 10, 2026 (v142.16 — OCR Diff Önizleme)** — Frontend:
+  - **`OcrDialog.jsx`** members mode: Her satırda power input'unun altına diff kartı — mevcut üye için `existingByLcName` lookup ile `oldPower → newPower (±fark)` gösterilir. Renk kodu: artış yeşil (`#4ade80`), azalış kırmızı (`#F87171`), değişim yok gri (`#6B7280`), yeni kayıt mavi (`#93C5FD` + "➕ Yeni kayıt" rozeti). Türkçe binlik ayraç. Test ID: `ocr-diff-{i}`.
+  - **Buton metni** artık `Tümünü Ekle ({{u}} güncelleme, {{n}} yeni)` — `_manual_match`/`_force_new` bayrakları da hesaba dahil (modal seçimlerini yansıtır). Buton devre dışı: `applying || (requireSelection && !selection) || activeRows.length === 0`.
+  - **i18n** (tr + en): 4 yeni anahtar — `ocr_diff_prev/new/new_record`, `ocr_bulk_save_all_split_btn`.
+  - **Smoke test**: Frontend compile clean (failed-to-compile overlay = 0). Deployment agent: pass (v142.15'te aynı codebase geçti).
+
+
   - **Sorun**: Android launcher `maskable` icon'u kenarlara yapışık — TiTaNXiS logosu bezel'e değiyor.
   - **Fix (`/tmp/pad_icons.py` script)**: PIL/Pillow ile mevcut `icons/pwa-192.png` + `icons/pwa-512.png` sources'lardan:
     - Logo %70 boyutuna küçültüldü (Lanczos resample).

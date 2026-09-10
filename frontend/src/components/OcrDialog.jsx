@@ -1489,6 +1489,65 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                                     }}
                                     title={currPower ? `Güç: ${powerDisplay}` : "Güç"}
                                   />
+                                  {/* v142.16 — OCR Diff önizleme: mevcut değer → yeni değer (±fark).
+                                      isExisting ise existing member'ın bireysel_guc / castle_level'ı ile karşılaştır.
+                                      Değişim yoksa gri, artış yeşil, azalış kırmızı. Yeni kayıt ise "Yeni kayıt" rozeti. */}
+                                  {(() => {
+                                    if (isExcluded) return null;
+                                    const em = existingByLcName.get(cleanName.toLowerCase())
+                                            || existingByLcName.get(currName.toLowerCase());
+                                    const oldPower = em ? Number(em.bireysel_guc || 0) : null;
+                                    const newPower = Number(currPower || 0);
+                                    if (!isExisting || !em) {
+                                      if (newPower > 0) {
+                                        return (
+                                          <div
+                                            data-testid={`ocr-diff-${i}`}
+                                            className="text-[9px] mt-1 font-bold"
+                                            style={{ color: "#93C5FD", textAlign: "right", fontFamily: "monospace" }}
+                                          >
+                                            ➕ {t("ocr_diff_new_record", "Yeni kayıt")}
+                                          </div>
+                                        );
+                                      }
+                                      return null;
+                                    }
+                                    if (newPower <= 0 || newPower === oldPower) {
+                                      return (
+                                        <div
+                                          data-testid={`ocr-diff-${i}`}
+                                          className="text-[9px] mt-1"
+                                          style={{ color: "#6B7280", textAlign: "right", fontFamily: "monospace" }}
+                                          title={`${t("ocr_diff_prev", "Önceki")}: ${oldPower.toLocaleString("tr-TR")}`}
+                                        >
+                                          = {oldPower.toLocaleString("tr-TR")}
+                                        </div>
+                                      );
+                                    }
+                                    const diff = newPower - oldPower;
+                                    const up = diff > 0;
+                                    const color = up ? "#4ade80" : "#F87171";
+                                    const arrow = up ? "▲" : "▼";
+                                    const sign = up ? "+" : "";
+                                    return (
+                                      <div
+                                        data-testid={`ocr-diff-${i}`}
+                                        className="text-[9px] mt-1 font-bold"
+                                        style={{ color, textAlign: "right", fontFamily: "monospace", lineHeight: 1.3 }}
+                                        title={`${t("ocr_diff_prev", "Önceki")}: ${oldPower.toLocaleString("tr-TR")} → ${t("ocr_diff_new", "Yeni")}: ${newPower.toLocaleString("tr-TR")}`}
+                                      >
+                                        <div style={{ opacity: 0.75, color: "#94A3B8" }}>
+                                          {oldPower.toLocaleString("tr-TR")}
+                                        </div>
+                                        <div>
+                                          → {newPower.toLocaleString("tr-TR")}
+                                        </div>
+                                        <div style={{ marginTop: 1 }}>
+                                          {arrow} {sign}{diff.toLocaleString("tr-TR")}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                                 )}
                               </>);
@@ -2083,12 +2142,19 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
 
               {result && rows.length > 0 && (() => {
                 // v135.49 — "Tümünü Ekle" summary: eşleşen (mevcut) + eşleşmeyen (yeni)
-                // + hariç tutulan sayılarını admin görsün. Matched count için
-                // existingNamesLc üzerinden hızlı hesap.
-                const activeRows = rows.filter((_, i) => !excludedRows.has(i));
-                const matchedCount = activeRows.reduce((acc, r, _i) => {
-                  const nm = _stripTagAndJunk(_stripTag(String(r.name || ""))).toLowerCase();
-                  return acc + (existingNamesLc.has(nm) ? 1 : 0);
+                // + hariç tutulan sayılarını admin görsün. v142.16 — Manual match
+                // (_manual_match) ve force-new (_force_new) bayrakları da hesaba dahil
+                // ki button metnindeki güncelleme/yeni sayıları modal seçimlerini yansıtsın.
+                const activeRows = rows
+                  .map((r, i) => ({ r, i }))
+                  .filter(({ i }) => !excludedRows.has(i));
+                const matchedCount = activeRows.reduce((acc, { r, i }) => {
+                  const currName = rowEdits[i]?.name ?? r.name ?? "";
+                  const nm = _stripTagAndJunk(_stripTag(String(currName || ""))).toLowerCase();
+                  const forcedMatched = rowEdits[i]?._manual_match === true;
+                  const forcedNew = rowEdits[i]?._force_new === true;
+                  const isExisting = forcedNew ? false : (forcedMatched || existingNamesLc.has(nm));
+                  return acc + (isExisting ? 1 : 0);
                 }, 0);
                 const newCount = activeRows.length - matchedCount;
                 const excluded = excludedRows.size;
@@ -2122,7 +2188,7 @@ export default function OcrDialog({ open, onClose, mode, onApply, title, require
                       {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                       {applying
                         ? t("ocr_bulk_saving", "Kaydediliyor…")
-                        : t("ocr_bulk_save_all_btn", "Tümünü Ekle ({{n}})", { n: activeRows.length })}
+                        : t("ocr_bulk_save_all_split_btn", "Tümünü Ekle ({{u}} güncelleme, {{n}} yeni)", { u: matchedCount, n: newCount })}
                     </button>
                   </>
                 );
