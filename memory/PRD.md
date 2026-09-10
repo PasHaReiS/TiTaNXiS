@@ -20,7 +20,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
-- **Feb 9, 2026 (v142.14 — Güç Tam Precision + OCR Prompt Numeric Preservation)** — Full-stack:
+- **Feb 10, 2026 (v142.15 — PWA Android İkon Padding Fix)** — Assets:
+  - **Sorun**: Android launcher `maskable` icon'u kenarlara yapışık — TiTaNXiS logosu bezel'e değiyor.
+  - **Fix (`/tmp/pad_icons.py` script)**: PIL/Pillow ile mevcut `icons/pwa-192.png` + `icons/pwa-512.png` sources'lardan:
+    - Logo %70 boyutuna küçültüldü (Lanczos resample).
+    - Aynı canvas boyutunda (192x192 / 512x512) transparan arka plana ortalandı → ~%15 padding her kenar.
+    - Kaydedildi: `icons/pwa-192-padded.png` (40 KB, inner 134x134) + `icons/pwa-512-padded.png` (243 KB, inner 358x358).
+  - **`manifest.json`**: `pwa-192.png` + `pwa-512.png` referansları `-padded` versiyonlarına çevrildi (hem `purpose: any` hem `purpose: maskable` için — daha güvenli, iOS'a dokunulmadı).
+  - **`apple-touch-180.png`** ve `<link rel="apple-touch-icon">` meta tag'i (`index.html`) DEĞİŞMEDİ — iOS ana ekran davranışı korundu.
+  - **Doğrulama**: manifest 7 icon entry — 4'ü padded (192/512 × any/maskable). Corner pixel (5,5) = transparent (0,0,0,0) ✅, center pixel = logo dolgu ✅.
+
+
   - **`lib/api.js`** `fmt`: `Math.round(n)` kaldırıldı → `Number(n)` (integer input aynen render, float güvenliği yok). `5503115` → `"5.503.115"` (yuvarlama yok).
   - **`routes/ocr.py`** members prompt'una eklendi:
     - "power FULL integer olarak — '5.503.115' → 5503115, ASLA 5500000 veya '5.5M' değil"
