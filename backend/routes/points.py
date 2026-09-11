@@ -4,11 +4,23 @@ Bağımlı helper'lar callable olarak inject edilir:
 - `enrich_points_batch(docs)`: many docs'a member/event enrichment
 - `enrich_point(doc)`: single doc enrichment
 """
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
+
+log = logging.getLogger("points")
+
+
+async def _fire_live(msg: dict) -> None:
+    """v143.3 — Live WS broadcast helper (import lazy to avoid import cycles)."""
+    try:
+        from live_ws import live_ws as _lws
+        await _lws.broadcast(msg)
+    except Exception as e:
+        log.warning(f"[live-ws] points broadcast failed: {e}")
 
 
 def _now_iso() -> str:
@@ -88,6 +100,7 @@ def make_points_router(db, require_edit, enrich_point, enrich_points_batch):
             })
         except Exception:
             pass
+        await _fire_live({"type": "points.updated", "member_id": doc.get("member_id"), "event_id": doc.get("event_id")})
         return doc
 
     @router.post("/points/bulk")
@@ -107,13 +120,19 @@ def make_points_router(db, require_edit, enrich_point, enrich_points_batch):
             await db.points.insert_many(docs_to_insert)
         for d in docs_to_insert:
             d.pop("_id", None)
+        if docs_to_insert:
+            await _fire_live({"type": "points.updated", "event_id": body.event_id})
         return {"created": len(docs_to_insert), "points": docs_to_insert}
 
     @router.delete("/points/{point_id}")
     async def delete_point(point_id: str, _: dict = Depends(require_edit)):
+        before = await db.points.find_one({"id": point_id}, {"_id": 0, "member_id": 1, "event_id": 1})
         res = await db.points.delete_one({"id": point_id})
         if res.deleted_count == 0:
             raise HTTPException(404, "Puan kaydı bulunamadı")
+        await _fire_live({"type": "points.updated",
+                          "member_id": (before or {}).get("member_id"),
+                          "event_id": (before or {}).get("event_id")})
         return {"ok": True}
 
     @router.patch("/points/{point_id}")
@@ -128,6 +147,9 @@ def make_points_router(db, require_edit, enrich_point, enrich_points_batch):
         if res.matched_count == 0:
             raise HTTPException(404, "Puan kaydı bulunamadı")
         doc = await db.points.find_one({"id": point_id}, {"_id": 0})
+        await _fire_live({"type": "points.updated",
+                          "member_id": (doc or {}).get("member_id"),
+                          "event_id": (doc or {}).get("event_id")})
         return doc
 
     # ---------- Scores alias (aynı koleksiyon, aynı davranış) ----------

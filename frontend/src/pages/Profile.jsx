@@ -9,6 +9,7 @@ import CropDialog from "@/components/CropDialog";
 import { Switch } from "@/components/ui/switch";
 import { KeyRound, Shield, User, LogOut, AlertTriangle, Link2, Bell, BellOff, Volume2, VolumeX, X as XIcon, Plus, Trophy, Zap, Castle, Crown, Medal, GitCompare, Flame, Trash2, Camera, Upload as UploadIcon } from "lucide-react";
 import BadgeAISuggestions from "@/components/BadgeAISuggestions";
+import { BADGES_ENABLED } from "@/lib/features";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -316,7 +317,7 @@ export default function Profile() {
                 {/* v120 — RSVP streak badge. Only renders when streak >= 5
                     (threshold from backend). Fiery orange glow so it reads
                     as an earned achievement, not a system chip. */}
-                {streakData && streakData.has_badge && (
+                {streakData && streakData.has_badge && BADGES_ENABLED && (
                   <span
                     data-testid="profile-rsvp-streak-badge"
                     className="text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1"
@@ -576,9 +577,11 @@ export default function Profile() {
                       </div>
                     )}
                     {/* v142.3 — AI Badge Suggestion panel per linked member */}
-                    <div className="mt-2">
-                      <BadgeAISuggestions memberId={m.id} memberName={m.name} />
-                    </div>
+                    {BADGES_ENABLED && (
+                      <div className="mt-2">
+                        <BadgeAISuggestions memberId={m.id} memberName={m.name} />
+                      </div>
+                    )}
                   </div>
                   );
                 })}

@@ -3,6 +3,7 @@ import ReactDOM from "react-dom";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
+import { BADGES_ENABLED } from "@/lib/features";
 import { Sun, Moon, LogIn, LogOut, User as UserIcon, Shield, Settings, Download, KeyRound, Activity, Sparkles, LayoutGrid, LifeBuoy, LayoutDashboard, History, BellRing, Megaphone, ChevronDown, ChevronRight, Smartphone } from "lucide-react";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 import { useTranslation } from "react-i18next";
@@ -394,7 +395,7 @@ export default function Header({ title, children }) {
                               testId="dropdown-points-about"
                             />
                           )}
-                          {isAdmin && (
+                          {isAdmin && BADGES_ENABLED && (
                             <MenuItem
                               emoji="🏅"
                               label={t("nav_badges_admin", "Rozet Yönetimi")}

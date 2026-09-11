@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Query, Depends, UploadFile, File, Form, Request, Response
+from fastapi import FastAPI, APIRouter, HTTPException, Query, Depends, UploadFile, File, Form, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -898,6 +898,14 @@ async def update_member(member_id: str, body: MemberUpdate, user: dict = Depends
     await db.members.update_one({"id": member_id}, {"$set": update})
     await _record_member_changes(member_id, before, update, user)
     doc = await db.members.find_one({"id": member_id}, {"_id": 0})
+    # v143.3 — Live push: leaderboard/sıralama etkilenen alanlar değişti mi?
+    try:
+        power_fields = {"bireysel_guc", "ittifak_guc", "toplam_guc", "castle_level", "rank", "alliance_name"}
+        if any(k in update for k in power_fields):
+            from live_ws import live_ws as _lws
+            await _lws.broadcast({"type": "leaderboard.updated", "member_id": member_id})
+    except Exception as _bex:
+        logger.warning(f"[live-ws] leaderboard broadcast failed: {_bex}")
     return doc
 
 
@@ -7666,8 +7674,19 @@ async def event_rsvp(event_id: str, body: EventRsvpBody, user: dict = Depends(re
                 await _fire_streak_celebration(user_id, user.get("username") or "")
             except Exception as _stex:
                 logger.warning(f"[streak-celebrate] failed: {_stex}")
+        # v143.3 — Live push: rsvp counts changed
+        try:
+            from live_ws import live_ws as _lws
+            await _lws.broadcast({"type": "rsvp.updated", "event_id": event_id})
+        except Exception as _bex:
+            logger.warning(f"[live-ws] rsvp broadcast failed: {_bex}")
         return {"event_id": event_id, "status": body.status}
     await db.event_rsvps.delete_one({"event_id": event_id, "user_id": user_id})
+    try:
+        from live_ws import live_ws as _lws
+        await _lws.broadcast({"type": "rsvp.updated", "event_id": event_id})
+    except Exception as _bex:
+        logger.warning(f"[live-ws] rsvp broadcast failed: {_bex}")
     return {"event_id": event_id, "status": None}
 
 
@@ -9932,6 +9951,36 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
         from auth import verify_password as _verify_password
         if not body.password or not _verify_password(body.password, room.get("password_hash", "")):
             raise HTTPException(403, "Şifre yanlış")
+    # v143.3 — Kapasite enforcement. LiveKit'ten mevcut katılımcı sayısını
+    # oku; `max_capacity` doluysa admin dışındaki herkese 403 dön. LiveKit
+    # sorgusu başarısız olursa (network/timeout) fail-open — bu aşamada
+    # kullanıcının odaya girişini engellememek daha güvenli. Admin her
+    # zaman bypass.
+    cap = int(room.get("max_capacity") or 0)
+    if cap > 0 and not is_admin:
+        try:
+            http_url = lk_url.replace("wss://", "https://").replace("ws://", "http://")
+            from livekit.api import LiveKitAPI, ListParticipantsRequest
+            lkapi = LiveKitAPI(http_url, lk_key, lk_secret)
+            try:
+                pres = await lkapi.room.list_participants(
+                    ListParticipantsRequest(room=room["name"])
+                )
+                current = len(getattr(pres, "participants", []) or [])
+            finally:
+                try:
+                    await lkapi.aclose()
+                except Exception:
+                    pass
+            if current >= cap:
+                raise HTTPException(
+                    403,
+                    f"Oda dolu ({current}/{cap}). Lütfen daha sonra tekrar dene.",
+                )
+        except HTTPException:
+            raise
+        except Exception as _cap_err:
+            logger.warning(f"[voice-capacity] check failed, fail-open: {_cap_err}")
     if u:
         identity_base = u.get("username") or u["id"]
         identity = f"{identity_base}-{u['id'][:6]}"
@@ -10001,6 +10050,26 @@ async def _voice_seed_hook():
 
 app.include_router(api_router)
 app.include_router(make_auth_router(db))
+
+# v143.3 — Canlı güncellemeler için WebSocket endpoint. Kimliksiz kabul edilir
+# (yayın sadece "change happened" sinyali içerir, veri yok). Bağlı istemciler
+# leaderboard/points/rsvp mutasyonlarında otomatik olarak SWR cache'lerini
+# yeniden validate eder. `app` üzerine kayıt: api_router freeze edildikten sonra.
+from live_ws import live_ws as _live_ws  # noqa: E402
+
+
+@app.websocket("/api/ws/live")
+async def ws_live_endpoint(ws: WebSocket):
+    await _live_ws.connect(ws)
+    try:
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        await _live_ws.disconnect(ws)
 from routes.polls import make_polls_router
 app.include_router(make_polls_router(db, require_auth, require_admin, on_poll_created=_poll_broadcast, on_poll_closed=_poll_broadcast_closed, auto_translate=lambda t: globals()["_auto_translate_all"](t)), prefix="/api")
 from routes.invites import make_invites_router

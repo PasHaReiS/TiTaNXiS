@@ -20,6 +20,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 11, 2026 (v143.3 — Kapasite + Rozet Gizle + Canlı WebSocket)** — Full-stack:
+  - **1. Kapasite enforcement**: `/api/voice/token` LiveKit `list_participants` ile mevcut sayıyı okur; `max_capacity` doluysa admin dışındaki herkese 403 döner ("Oda dolu (N/M)"). LiveKit çağrısı başarısızsa fail-open (kullanıcıyı bloklamayız).
+  - **2. Rozet UI gizli**: Yeni `frontend/src/lib/features.js:BADGES_ENABLED=false` flag'i ile Header dropdown "Rozet Yönetimi" satırı, App.js `/rozetler` + `/admin/rozetler` route'ları, Profile.jsx RSVP streak badge (`🔥 ETKİNLİK SERİSİ`) ve `BadgeAISuggestions` paneli gizlendi. Kod silinmedi, `true` yapılınca tümü geri gelir.
+  - **3. Canlı WebSocket**: Yeni backend modülü `backend/live_ws.py` (`LiveWSManager` singleton) + endpoint `/api/ws/live` (auth'suz, sadece "change happened" sinyali). Broadcast çağrıları eklendi:
+    - `PATCH /members/{id}` (power/rank/alliance değişimi) → `leaderboard.updated`
+    - `POST /events/{id}/rsvp` (yes/maybe/no + clear) → `rsvp.updated`
+    - `routes/points.py` create/bulk/patch/delete → `points.updated`
+    - Frontend hook `useLiveUpdates()` Layout.jsx'te mount; SWR `mutate()` cache prefix eşleşmesi ile leaderboard/points/rsvp/scores/event-group-results otomatik revalidate. Auto-reconnect 3sn.
+  - **E2E doğrulama**: (a) admin member power PATCH → WS `leaderboard.updated` alındı ✓ (b) ingress WSS bağlantısı OK ✓ (c) capacity 5 odada admin token 200 ✓
+  - **`deployment_agent`: PASS ✅**
+
 - **Feb 11, 2026 (v143.2 — Ses Odası Erişim Kuralları + Kara Liste)** — Full-stack:
   - **Şifre zorunlu**: `VoiceRoomCreate.password` yeniden `str` (opsiyonel değil). Backend `voice_room_create` → boş şifre → 400 "Şifre zorunludur"; kısa şifre (<4) → 400 "Şifre en az 4 karakter olmalı". Frontend create modal placeholder "Zorunlu — en az 4 karakter" + client-side validation.
   - **Giriş mantığı** (mevcut, doğrulandı): `/voice/token` sırayla → admin bypass → davetli user_id bypass → aktif davet token bypass → aksi hâlde şifre zorunlu. Kullanıcı 2 yöntemden (şifre veya davet) birini seçebilir.

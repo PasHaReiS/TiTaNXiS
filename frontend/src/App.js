@@ -39,6 +39,7 @@ import MemberHome from "@/pages/MemberHome";
 import Events from "@/pages/Events";
 import Announcements from "@/pages/Announcements";
 import BadgeManagement from "@/pages/BadgeManagement";
+import { BADGES_ENABLED } from "@/lib/features";
 import TelegramTemplates from "@/pages/TelegramTemplates";
 import Templates from "@/pages/Templates";
 import MemberAddOcr from "@/pages/MemberAddOcr";
@@ -157,8 +158,8 @@ function AppShell() {
           <Route path="/etkinlikler" element={<RequireAuth><MotionPage><Events /></MotionPage></RequireAuth>} />
           <Route path="/duyurular" element={<MotionPage><Announcements /></MotionPage>} />
           <Route path="/admin/duyurular" element={<RequireAdmin><MotionPage><Announcements /></MotionPage></RequireAdmin>} />
-          <Route path="/rozetler" element={<RequireAdmin><MotionPage><BadgeManagement /></MotionPage></RequireAdmin>} />
-          <Route path="/admin/rozetler" element={<RequireAdmin><MotionPage><BadgeManagement /></MotionPage></RequireAdmin>} />
+          {BADGES_ENABLED && <Route path="/rozetler" element={<RequireAdmin><MotionPage><BadgeManagement /></MotionPage></RequireAdmin>} />}
+          {BADGES_ENABLED && <Route path="/admin/rozetler" element={<RequireAdmin><MotionPage><BadgeManagement /></MotionPage></RequireAdmin>} />}
           <Route path="/admin/telegram-sablonlar" element={<RequireAdmin><MotionPage><Templates /></MotionPage></RequireAdmin>} />
           <Route path="/admin/telegram-gruplari" element={<RequireAdmin><MotionPage><TelegramGroups /></MotionPage></RequireAdmin>} />
           <Route path="/admin/bildirim-yonlendirme" element={<RequireAdmin><MotionPage><NotificationRouting /></MotionPage></RequireAdmin>} />

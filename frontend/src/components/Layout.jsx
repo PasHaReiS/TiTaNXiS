@@ -5,6 +5,7 @@ import ChatFab from "@/components/ChatFab";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 import RadialMenu from "@/components/RadialMenu";
 import CookieBanner from "@/components/CookieBanner";
+import { useLiveUpdates } from "@/hooks/useLiveUpdates";
 
 /**
  * Layout emits TWO siblings that are DIRECT children of `.app-shell`
@@ -21,6 +22,8 @@ import CookieBanner from "@/components/CookieBanner";
  * scroll with the page — they are floating overlays anyway.
  */
 export default function Layout({ children }) {
+  // v143.3 — WebSocket live update aboneliği (sıralama / puanlar / RSVP).
+  useLiveUpdates();
   return (
     <>
       <div
