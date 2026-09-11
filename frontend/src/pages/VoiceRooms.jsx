@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Mic, MicOff, LogOut, Users, Plus, Lock, Globe, Trash2, Eye, EyeOff, Copy, Check, Pencil } from "lucide-react";
+import { Mic, MicOff, LogOut, Users, Plus, Lock, Globe, Trash2, Eye, EyeOff, Copy, Check, Pencil, Settings, X, Radio, Volume2, VolumeX, Grid2X2, Grid3X3, Timer } from "lucide-react";
 import {
   LiveKitRoom,
   RoomAudioRenderer,
@@ -155,6 +155,7 @@ export default function VoiceRooms() {
         <ActiveRoomUI
           roomId={active.roomDoc.id}
           roomName={active.roomDoc.name}
+          countdownEndsAt={active.roomDoc.countdown_ends_at}
           isAdmin={isAdmin}
           onLeave={leave}
           onInvitedChange={() => refetch()}
@@ -468,155 +469,191 @@ function CreateRoomButton({ onCreated }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  // v140.35 — Davet ettiğim üyelerin id listesi.
-  const [invitedIds, setInvitedIds] = useState([]);
-  const [userSearch, setUserSearch] = useState("");
-  const { data: usersList = [] } = useSWR(open ? "/users" : null, fetcher);
-  const filteredUsers = React.useMemo(() => {
-    const q = userSearch.trim().toLowerCase();
-    const arr = Array.isArray(usersList) ? usersList : (usersList.items || []);
-    if (!q) return arr;
-    return arr.filter((u) =>
-      (u.username || "").toLowerCase().includes(q) ||
-      (u.email || "").toLowerCase().includes(q)
-    );
-  }, [usersList, userSearch]);
-
-  const toggleInvite = (id) => {
-    setInvitedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
+  const [showPwd, setShowPwd] = useState(false);
+  const [capacity, setCapacity] = useState(15);
+  const [countdownEnabled, setCountdownEnabled] = useState(false);
+  const CAPACITIES = [5, 10, 15, 20, 30, 50];
 
   const submit = async () => {
-    if (!password.trim()) {
-      toast.error(t("voice_password_required", "Şifre zorunludur"));
+    if (!name.trim()) {
+      toast.error(t("voice_room_name_required", "Oda adı zorunludur"));
       return;
     }
     try {
       await api.post("/voice/rooms", {
         name: name.trim(),
-        password: password.trim(),
-        invited_user_ids: invitedIds,
+        password: password.trim() || null,
+        max_capacity: capacity,
+        countdown_enabled: countdownEnabled,
       });
       toast.success(t("voice_room_created", "Oda oluşturuldu"));
-      setOpen(false); setName(""); setPassword(""); setInvitedIds([]); setUserSearch("");
+      setOpen(false);
+      setName(""); setPassword(""); setShowPwd(false);
+      setCapacity(15); setCountdownEnabled(false);
       onCreated();
-    } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    }
   };
+
   return (
     <>
       <button
         data-testid="voice-room-new-btn"
         onClick={() => setOpen(true)}
         className="chip text-xs flex items-center gap-1"
-        style={{ borderColor: "#F5A623", color: "#F5A623", background: "rgba(245,166,35,0.15)" }}
+        style={{ borderColor: "#FFD700", color: "#FFD700", background: "rgba(255,215,0,0.10)" }}
       >
         <Plus size={14} /> {t("voice_room_new", "Yeni Oda")}
       </button>
       {open && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 p-4" onClick={() => setOpen(false)}>
+        <div
+          className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/85 p-4"
+          onClick={() => setOpen(false)}
+        >
           <div
             data-testid="voice-room-new-modal"
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-xl p-5 max-h-[90vh] overflow-y-auto"
-            style={{ background: "#1E1410", border: "1px solid rgba(245,166,35,0.55)" }}
+            className="w-full max-w-md rounded-2xl p-5 max-h-[90vh] overflow-y-auto"
+            style={{
+              background: "rgba(18,18,26,0.94)",
+              border: "1px solid rgba(255,215,0,0.35)",
+              backdropFilter: "blur(14px)",
+              WebkitBackdropFilter: "blur(14px)",
+              boxShadow: "0 10px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,215,0,0.08) inset",
+            }}
           >
-            <h3 className="text-lg font-bold mb-4" style={{ color: "#F5A623", fontFamily: "Cinzel, serif" }}>
+            <h3
+              className="text-lg font-black mb-4 uppercase"
+              style={{
+                background: "linear-gradient(135deg, #FFD700 0%, #C8860A 100%)",
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                letterSpacing: "0.10em",
+                fontFamily: "'Rajdhani', system-ui, sans-serif",
+              }}
+            >
               {t("voice_room_new", "Yeni Oda")}
             </h3>
+
+            <label className="block text-[10px] uppercase tracking-widest mb-1" style={{ color: "#C8860A" }}>
+              {t("voice_room_field_name", "Oda Adı")}
+            </label>
             <input
               data-testid="voice-room-name-input"
               placeholder={t("voice_room_name_ph", "Oda adı")}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white mb-3"
-            />
-            <input
-              data-testid="voice-room-password-input"
-              type="text"
-              placeholder={t("voice_room_password_ph", "Oda şifresi (zorunlu)")}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-black/40 border border-amber-500/40 rounded px-3 py-2 text-sm text-white mb-3"
+              className="w-full rounded-lg px-3 py-2 text-sm text-white mb-4"
+              style={{ background: "rgba(8,8,15,0.75)", border: "1px solid rgba(255,215,0,0.25)" }}
+              maxLength={80}
+              autoFocus
             />
 
-            {/* v140.35 — Üye davet listesi */}
-            <div
-              data-testid="voice-room-invite-picker"
-              className="mb-3 rounded-lg p-3"
-              style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(34,197,94,0.35)" }}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#22C55E" }}>
-                  🎫 {t("voice_room_invite_title", "Davet Et (Opsiyonel)")}
-                </span>
-                <span className="text-[10px]" style={{ color: "#94A3B8" }}>
-                  {invitedIds.length > 0 ? t("voice_room_invited_selected", "{{n}} seçildi", { n: invitedIds.length }) : ""}
-                </span>
-              </div>
-              <p className="text-[10px] mb-2 leading-relaxed" style={{ color: "#94A3B8" }}>
-                {t("voice_room_invite_hint", "Davetli üyeler odaya şifre girmeden doğrudan katılabilir.")}
-              </p>
+            <label className="block text-[10px] uppercase tracking-widest mb-1" style={{ color: "#C8860A" }}>
+              {t("voice_room_field_password_opt", "Şifre (Opsiyonel)")}
+            </label>
+            <div className="relative mb-4">
               <input
-                data-testid="voice-room-invite-search"
-                placeholder={t("voice_room_invite_search_ph", "Üye ara…")}
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded px-3 py-1.5 text-xs text-white mb-2"
+                data-testid="voice-room-password-input"
+                type={showPwd ? "text" : "password"}
+                placeholder={t("voice_room_password_ph_opt", "Boş bırakılabilir")}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-lg px-3 py-2 pr-10 text-sm text-white"
+                style={{ background: "rgba(8,8,15,0.75)", border: "1px solid rgba(255,215,0,0.25)" }}
+                maxLength={40}
               />
-              <div
-                className="max-h-40 overflow-y-auto rounded"
-                style={{ background: "rgba(0,0,0,0.25)" }}
+              <button
+                type="button"
+                onClick={() => setShowPwd((v) => !v)}
+                data-testid="voice-room-password-eye"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded opacity-75 hover:opacity-100"
+                aria-label={showPwd ? t("hide", "Gizle") : t("show", "Göster")}
+                style={{ background: "transparent", border: "none", cursor: "pointer" }}
               >
-                {filteredUsers.length === 0 ? (
-                  <div className="text-[10px] text-center py-3" style={{ color: "#94A3B8" }}>
-                    {t("voice_room_invite_no_users", "Üye bulunamadı")}
-                  </div>
-                ) : (
-                  filteredUsers.map((u) => (
-                    <label
-                      key={u.id}
-                      data-testid={`voice-room-invite-row-${u.id}`}
-                      className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-white/5"
-                      style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
-                    >
-                      <input
-                        type="checkbox"
-                        data-testid={`voice-room-invite-check-${u.id}`}
-                        checked={invitedIds.includes(u.id)}
-                        onChange={() => toggleInvite(u.id)}
-                        className="accent-amber-500"
-                        style={{ width: 12, height: 12 }}
-                      />
-                      <span className="text-xs" style={{ color: "#F5F0E8" }}>{u.username}</span>
-                      {u.role === "admin" && (
-                        <span className="text-[9px] px-1 rounded" style={{ background: "rgba(245,166,35,0.20)", color: "#F5A623" }}>ADMIN</span>
-                      )}
-                    </label>
-                  ))
-                )}
-              </div>
+                {showPwd ? <EyeOff size={14} color="#C8860A" /> : <Eye size={14} color="#C8860A" />}
+              </button>
             </div>
 
-            <p className="text-[10px] mb-4 leading-relaxed" style={{ color: "#94A3B8" }}>
-              {t("voice_room_password_hint_v2", "Davetsiz üyeler ve ziyaretçiler için bu şifre gerekli. Adminler ve davetliler şifresiz girer.")}
-            </p>
-            <div className="flex gap-2">
+            <label className="block text-[10px] uppercase tracking-widest mb-2" style={{ color: "#C8860A" }}>
+              {t("voice_room_field_max_capacity", "Maksimum Kapasite")}
+            </label>
+            <div className="flex flex-wrap gap-2 mb-5" data-testid="voice-room-capacity-picker">
+              {CAPACITIES.map((c) => {
+                const sel = c === capacity;
+                return (
+                  <button
+                    key={c}
+                    onClick={() => setCapacity(c)}
+                    data-testid={`voice-room-capacity-${c}`}
+                    className="px-4 py-1.5 rounded-full text-xs font-black transition-all"
+                    style={{
+                      background: sel ? "linear-gradient(135deg, #FFD700, #C8860A)" : "rgba(8,8,15,0.65)",
+                      color: sel ? "#08080F" : "#94A3B8",
+                      border: sel ? "1px solid #FFD700" : "1px solid rgba(148,163,184,0.35)",
+                      cursor: "pointer",
+                      boxShadow: sel ? "0 0 12px rgba(255,215,0,0.45)" : "none",
+                    }}
+                  >
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              className="flex items-center justify-between mb-5 rounded-lg px-3 py-2.5"
+              style={{ background: "rgba(8,8,15,0.55)", border: "1px solid rgba(255,215,0,0.20)" }}
+            >
+              <div className="flex items-center gap-2">
+                <Timer size={14} color="#FFD700" />
+                <div>
+                  <div className="text-sm font-bold text-white">
+                    {t("voice_room_field_countdown", "Sayaç")}
+                  </div>
+                  <div className="text-[10px]" style={{ color: "#94A3B8" }}>
+                    {t("voice_room_field_countdown_hint", "1 saatlik geri sayım aktif olur")}
+                  </div>
+                </div>
+              </div>
               <button
-                data-testid="voice-room-create-submit"
-                onClick={submit}
-                className="flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-widest"
-                style={{ background: "linear-gradient(135deg, #F5A623, #E74C1A)", color: "#0B0704", border: "none", cursor: "pointer" }}
+                onClick={() => setCountdownEnabled((v) => !v)}
+                data-testid="voice-room-countdown-toggle"
+                aria-pressed={countdownEnabled}
+                className="relative w-11 h-6 rounded-full transition-colors shrink-0"
+                style={{
+                  background: countdownEnabled ? "#FFD700" : "rgba(148,163,184,0.35)",
+                  border: "none",
+                  cursor: "pointer",
+                }}
               >
-                {t("voice_room_create", "Oluştur")}
-              </button>
-              <button
-                onClick={() => setOpen(false)}
-                className="chip text-xs"
-                style={{ borderColor: "rgba(148,163,184,0.5)", color: "#E5E7EB" }}
-              >
-                {t("cancel", "İptal")}
+                <span
+                  className="absolute top-0.5 w-5 h-5 rounded-full transition-transform"
+                  style={{
+                    background: countdownEnabled ? "#08080F" : "#E5E7EB",
+                    left: countdownEnabled ? "22px" : "2px",
+                  }}
+                />
               </button>
             </div>
+
+            <button
+              data-testid="voice-room-create-submit"
+              onClick={submit}
+              className="w-full py-3 rounded-lg text-sm font-black uppercase"
+              style={{
+                background: "linear-gradient(135deg, #FFD700 0%, #C8860A 100%)",
+                color: "#08080F",
+                border: "none",
+                cursor: "pointer",
+                letterSpacing: "0.14em",
+                boxShadow: "0 6px 20px rgba(255,215,0,0.35)",
+              }}
+            >
+              {t("voice_room_create_full", "Oda Oluştur")}
+            </button>
           </div>
         </div>
       )}
@@ -624,7 +661,7 @@ function CreateRoomButton({ onCreated }) {
   );
 }
 
-export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChange }) {
+export function ActiveRoomUI({ roomId, roomName, countdownEndsAt, isAdmin, onLeave, onInvitedChange }) {
   const { t } = useTranslation();
   const { user, refreshMe } = useAuth() || {};
   const participants = useParticipants();
@@ -922,6 +959,43 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
     return () => { room.off(RoomEvent.ParticipantDisconnected, onLeave); };
   }, [room]);
 
+  // v143 — Ayarlar dropdown, grid sütun sayısı (2/3), deafen (tümünü sustur), countdown.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [gridCols, setGridCols] = useState(2);
+  const [deafenAll, setDeafenAll] = useState(false);
+  const [countdownLabel, setCountdownLabel] = useState("");
+  useEffect(() => {
+    if (!countdownEndsAt) { setCountdownLabel(""); return undefined; }
+    const tick = () => {
+      const end = new Date(countdownEndsAt).getTime();
+      if (Number.isNaN(end)) { setCountdownLabel(""); return; }
+      const rem = Math.max(0, Math.floor((end - Date.now()) / 1000));
+      const h = Math.floor(rem / 3600);
+      const m = Math.floor((rem % 3600) / 60);
+      const s = rem % 60;
+      setCountdownLabel(
+        h > 0
+          ? `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+          : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+      );
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [countdownEndsAt]);
+  // v143 — Deafen all: uzak katılımcıların yerel sesini kıs/aç.
+  useEffect(() => {
+    if (!participants || participants.length === 0) return;
+    participants.forEach((p) => {
+      if (localParticipant && p.identity === localParticipant.identity) return;
+      try {
+        if (typeof p.setVolume === "function") {
+          p.setVolume(deafenAll ? 0 : 1);
+        }
+      } catch {}
+    });
+  }, [deafenAll, participants, localParticipant]);
+
   // v141 — Aktif oda mount edildiğinde LegalFooter'ı gizle. Global legal footer
   // z-1500'da sabit ve bar ile çakışıyor; body class ile CSS üzerinden kapatıyoruz.
   useEffect(() => {
@@ -984,115 +1058,155 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
   return (
     <div
       className="fixed inset-0 flex flex-col"
-      style={{ background: "#0f0a14", zIndex: 1550 }}
+      style={{ background: "#08080F", zIndex: 1550 }}
       data-testid="voice-active-room"
     >
-      {/* v141 — Top Bar (56px, #0a0608) with room name + participant count + display_name edit */}
+      {/* v143 — Top Bar (56px, obsidian #08080f) — sol katılımcı sayısı badge, orta oda adı gold gradient, sağ countdown + gear */}
       <div
-        className="flex items-center gap-3 px-4 shrink-0"
+        className="flex items-center gap-2 px-3 shrink-0 relative"
         style={{
           height: 56,
-          background: "#0a0608",
-          borderBottom: "1px solid rgba(245,166,35,0.20)",
+          background: "#08080F",
+          borderBottom: "1px solid rgba(255,215,0,0.20)",
         }}
         data-testid="voice-top-bar"
       >
-        <div className="flex-1 min-w-0">
+        <span
+          data-testid="voice-participant-count-badge"
+          className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-black shrink-0"
+          style={{
+            background: "rgba(255,215,0,0.10)",
+            border: "1px solid rgba(255,215,0,0.40)",
+            color: "#FFD700",
+          }}
+        >
+          <Users size={11} /> {participants.length}
+        </span>
+        <div className="flex-1 min-w-0 text-center">
           <span
-            className="block text-base font-black truncate leading-tight uppercase"
+            className="block text-base font-black truncate uppercase"
             style={{
-              color: "#F59E0B",
-              WebkitTextFillColor: "#F59E0B",
-              background: "none",
+              background: "linear-gradient(135deg, #FFD700 0%, #C8860A 100%)",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              WebkitTextFillColor: "transparent",
               fontFamily: "'Rajdhani', system-ui, sans-serif",
-              letterSpacing: "0.06em",
+              letterSpacing: "0.10em",
             }}
             data-testid="voice-top-bar-title"
           >
-            🎙️ {roomName}
+            {roomName}
           </span>
-          <div className="flex items-center gap-2 text-[10px] mt-0.5" style={{ color: "#94A3B8" }}>
-            <span className="flex items-center gap-1"><Users size={10} /> {participants.length}</span>
-            <span
-              data-testid="voice-talk-time-self"
-              style={{ color: localIsSpeaking ? "#C4B5FD" : "#94A3B8" }}
+          {user && (
+            <button
+              data-testid="voice-display-name-edit-btn"
+              onClick={openNameEdit}
+              className="flex items-center gap-1 mx-auto text-[10px] mt-0.5"
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#C8860A",
+                cursor: "pointer",
+                lineHeight: 1,
+              }}
+              title={t("voice_display_name_edit_title", "Görünen adını düzenle")}
             >
-              · 🕒 {talkTimeLabel}
-            </span>
-          </div>
+              <Pencil size={9} />
+              <span className="truncate max-w-[130px]">
+                {user.display_name || user.username}
+              </span>
+            </button>
+          )}
         </div>
-        {user && (
-          <button
-            data-testid="voice-display-name-edit-btn"
-            onClick={openNameEdit}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] transition-colors shrink-0"
+        {countdownLabel && (
+          <span
+            data-testid="voice-countdown"
+            className="text-xs font-black tabular-nums shrink-0 px-2 py-1 rounded-md"
             style={{
-              background: "rgba(245,166,35,0.10)",
-              border: "1px solid rgba(245,166,35,0.35)",
-              color: "#F5A623",
-              cursor: "pointer",
+              color: "#C8860A",
+              background: "rgba(200,134,10,0.10)",
+              border: "1px solid rgba(200,134,10,0.35)",
+              fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+              letterSpacing: "0.05em",
             }}
-            title={t("voice_display_name_edit_title", "Görünen adını düzenle")}
-            aria-label={t("voice_display_name_edit_title", "Görünen adını düzenle")}
           >
-            <Pencil size={11} />
-            <span className="truncate max-w-[110px] font-medium">
-              {user.display_name || user.username}
-            </span>
-          </button>
+            {countdownLabel}
+          </span>
         )}
-      </div>
+        <button
+          data-testid="voice-settings-toggle"
+          onClick={() => setSettingsOpen((v) => !v)}
+          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-colors"
+          style={{
+            background: settingsOpen ? "rgba(255,215,0,0.20)" : "rgba(255,215,0,0.08)",
+            border: "1px solid rgba(255,215,0,0.40)",
+            color: "#FFD700",
+            cursor: "pointer",
+          }}
+          aria-label={t("voice_settings_open", "Ayarlar")}
+          title={t("voice_settings_open", "Ayarlar")}
+        >
+          <Settings size={16} />
+        </button>
 
-      {/* Scrollable middle content (leaves room for fixed bottom bar) */}
-      <div
-        className="flex-1 overflow-y-auto"
-        style={{ paddingBottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }}
-      >
-        <div className="max-w-3xl mx-auto px-4 pt-3">
-          {/* v141 — Horizontal scrollable action button row */}
+        {/* v143 — Ayarlar dropdown paneli */}
+        {settingsOpen && (
           <div
-            data-testid="voice-actions-scroll"
-            className="flex items-center gap-2 overflow-x-auto pb-3 -mx-4 px-4"
-            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            data-testid="voice-settings-panel"
+            className="absolute right-3 top-[60px] w-[280px] rounded-2xl overflow-hidden"
+            style={{
+              background: "rgba(18,18,26,0.96)",
+              border: "1px solid rgba(255,215,0,0.35)",
+              backdropFilter: "blur(14px)",
+              WebkitBackdropFilter: "blur(14px)",
+              boxShadow: "0 12px 40px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,215,0,0.08) inset",
+              zIndex: 1600,
+            }}
           >
+            <div className="p-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,215,0,0.15)" }}>
+              <span
+                className="text-xs font-black uppercase"
+                style={{ color: "#FFD700", letterSpacing: "0.12em", fontFamily: "'Rajdhani', system-ui, sans-serif" }}
+              >
+                {t("voice_settings_title", "Ayarlar")}
+              </span>
+              <button
+                onClick={() => setSettingsOpen(false)}
+                data-testid="voice-settings-close-x"
+                className="w-6 h-6 rounded-full flex items-center justify-center"
+                style={{ background: "transparent", border: "none", color: "#94A3B8", cursor: "pointer" }}
+                aria-label={t("close", "Kapat")}
+              >
+                <X size={14} />
+              </button>
+            </div>
             {isAdmin && (
               <>
                 <button
-                  data-testid="voice-invite-panel-toggle"
-                  onClick={() => setInviteOpen((v) => !v)}
-                  className="shrink-0 chip text-xs flex items-center gap-1 whitespace-nowrap"
-                  style={{
-                    borderColor: inviteOpen ? "#22C55E" : "rgba(34,197,94,0.5)",
-                    color: "#22C55E",
-                    background: inviteOpen ? "rgba(34,197,94,0.15)" : "transparent",
-                  }}
-                  title={t("voice_invite_manage_title", "Davetlileri yönet")}
+                  data-testid="voice-settings-invite-manage"
+                  onClick={() => { setInviteOpen((v) => !v); setSettingsOpen(false); }}
+                  className="w-full flex items-center justify-between px-3 py-3 text-left"
+                  style={{ background: "transparent", border: "none", color: "#E5E7EB", cursor: "pointer" }}
                 >
-                  🎫 {t("voice_invite_manage_btn", "Davetleri Yönet")}
+                  <span className="text-xs font-bold">🎫 {t("voice_invite_manage_btn", "Davetleri Yönet")}</span>
                   {invitedIds.length > 0 && (
-                    <span
-                      className="ml-1 px-1.5 rounded-full text-[9px] font-bold"
-                      style={{ background: "rgba(34,197,94,0.30)", color: "#86EFAC" }}
-                    >
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: "rgba(255,215,0,0.20)", color: "#FFD700" }}>
                       {invitedIds.length}
                     </span>
                   )}
                 </button>
+                <div style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }} />
                 <button
-                  data-testid="voice-pwd-change-toggle"
-                  onClick={() => setPwdOpen((v) => !v)}
-                  className="shrink-0 chip text-xs flex items-center gap-1 whitespace-nowrap"
-                  style={{
-                    borderColor: pwdOpen ? "#F5A623" : "rgba(245,166,35,0.5)",
-                    color: "#F5A623",
-                    background: pwdOpen ? "rgba(245,166,35,0.15)" : "transparent",
-                  }}
-                  title={t("voice_pwd_change_title", "Oda şifresini değiştir")}
+                  data-testid="voice-settings-pwd-change"
+                  onClick={() => { setPwdOpen((v) => !v); setSettingsOpen(false); }}
+                  className="w-full flex items-center px-3 py-3 text-left text-xs font-bold"
+                  style={{ background: "transparent", border: "none", color: "#E5E7EB", cursor: "pointer" }}
                 >
                   🔑 {t("voice_pwd_change_btn", "Şifre Değiştir")}
                 </button>
+                <div style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }} />
                 <button
-                  data-testid="voice-invite-link-quick"
+                  data-testid="voice-settings-invite-link"
                   onClick={async () => {
                     try {
                       const r = await api.post(`/voice/rooms/${roomId}/invite-link`, {});
@@ -1101,61 +1215,117 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
                         try {
                           await navigator.clipboard.writeText(link);
                           toast.success(t("voice_invite_link_copied", "Davet linki oluşturuldu ve kopyalandı"));
-                        } catch {
-                          toast.success(t("voice_invite_created", "Davet linki oluşturuldu"));
-                        }
+                        } catch { toast.success(t("voice_invite_created", "Davet linki oluşturuldu")); }
                       }
-                    } catch (e) {
-                      toast.error(e?.response?.data?.detail || e.message);
-                    }
+                      setSettingsOpen(false);
+                    } catch (e) { toast.error(e?.response?.data?.detail || e.message); }
                   }}
-                  className="shrink-0 chip text-xs flex items-center gap-1 whitespace-nowrap"
-                  style={{
-                    borderColor: "rgba(168,85,247,0.55)",
-                    color: "#C4B5FD",
-                    background: "transparent",
-                  }}
-                  title={t("voice_invite_link_btn_title", "Tek tıkla davet linki oluştur ve kopyala")}
+                  className="w-full flex items-center px-3 py-3 text-left text-xs font-bold"
+                  style={{ background: "transparent", border: "none", color: "#E5E7EB", cursor: "pointer" }}
                 >
-                  🔗 {t("voice_invite_link_btn", "Davet Linki")}
+                  🔗 {t("voice_invite_link_copy", "Davet Linki Kopyala")}
                 </button>
+                <div style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }} />
               </>
             )}
-            <span
-              className="shrink-0 text-[10px] uppercase tracking-widest px-1"
-              style={{ color: "#64748B" }}
-            >
-              {t("voice_mic_mode_label", "Mikrofon")}
-            </span>
+            <div className="px-3 py-2 text-[10px] uppercase tracking-widest" style={{ color: "#C8860A" }}>
+              {t("voice_mic_mode_label", "Mikrofon Modu")}
+            </div>
             <button
-              data-testid="voice-mic-mode-continuous"
-              role="tab"
-              aria-selected={micMode === "continuous"}
+              data-testid="voice-settings-mic-continuous"
               onClick={() => setMicMode("continuous")}
-              className="shrink-0 chip text-xs flex items-center gap-1 whitespace-nowrap"
-              style={{
-                borderColor: micMode === "continuous" ? "#22C55E" : "rgba(148,163,184,0.5)",
-                color: micMode === "continuous" ? "#22C55E" : "#94A3B8",
-                background: micMode === "continuous" ? "rgba(34,197,94,0.10)" : "transparent",
-              }}
+              className="w-full flex items-center justify-between px-3 py-2.5"
+              style={{ background: "transparent", border: "none", color: "#E5E7EB", cursor: "pointer" }}
             >
-              <Mic size={12} /> {t("voice_mic_mode_continuous", "Sürekli Açık")}
+              <span className="text-xs font-bold flex items-center gap-2"><Mic size={12} /> {t("voice_mic_mode_continuous", "Sürekli Açık")}</span>
+              <span
+                className="relative w-10 h-5 rounded-full transition-colors shrink-0"
+                aria-hidden
+                style={{ background: micMode === "continuous" ? "#FFD700" : "rgba(148,163,184,0.35)" }}
+              >
+                <span
+                  className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
+                  style={{
+                    background: micMode === "continuous" ? "#08080F" : "#E5E7EB",
+                    left: micMode === "continuous" ? "22px" : "2px",
+                  }}
+                />
+              </span>
             </button>
             <button
-              data-testid="voice-mic-mode-ptt"
-              role="tab"
-              aria-selected={micMode === "ptt"}
+              data-testid="voice-settings-mic-ptt"
               onClick={() => setMicMode("ptt")}
-              className="shrink-0 chip text-xs flex items-center gap-1 whitespace-nowrap"
+              className="w-full flex items-center justify-between px-3 py-2.5"
+              style={{ background: "transparent", border: "none", color: "#E5E7EB", cursor: "pointer" }}
+            >
+              <span className="text-xs font-bold flex items-center gap-2">🎤 {t("voice_mic_mode_ptt", "Push to Talk")}</span>
+              <span
+                className="relative w-10 h-5 rounded-full transition-colors shrink-0"
+                aria-hidden
+                style={{ background: micMode === "ptt" ? "#FFD700" : "rgba(148,163,184,0.35)" }}
+              >
+                <span
+                  className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
+                  style={{
+                    background: micMode === "ptt" ? "#08080F" : "#E5E7EB",
+                    left: micMode === "ptt" ? "22px" : "2px",
+                  }}
+                />
+              </span>
+            </button>
+            <div style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }} />
+            <div className="px-3 py-2 text-[10px] uppercase tracking-widest" style={{ color: "#C8860A" }}>
+              {t("voice_grid_label", "Sütun Sayısı")}
+            </div>
+            <div className="px-3 pb-3 flex items-center gap-2" data-testid="voice-grid-toggle">
+              {[2, 3].map((n) => {
+                const sel = gridCols === n;
+                return (
+                  <button
+                    key={n}
+                    onClick={() => setGridCols(n)}
+                    data-testid={`voice-grid-${n}`}
+                    className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-full text-xs font-black"
+                    style={{
+                      background: sel ? "linear-gradient(135deg, #FFD700, #C8860A)" : "rgba(8,8,15,0.65)",
+                      color: sel ? "#08080F" : "#94A3B8",
+                      border: sel ? "1px solid #FFD700" : "1px solid rgba(148,163,184,0.35)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {n === 2 ? <Grid2X2 size={12} /> : <Grid3X3 size={12} />}
+                    {n === 2 ? t("voice_grid_2", "2'li") : t("voice_grid_3", "3'lü")}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              data-testid="voice-settings-close"
+              onClick={() => setSettingsOpen(false)}
+              className="w-full py-2.5 text-xs font-black uppercase tracking-widest"
               style={{
-                borderColor: micMode === "ptt" ? "#F5A623" : "rgba(148,163,184,0.5)",
-                color: micMode === "ptt" ? "#F5A623" : "#94A3B8",
-                background: micMode === "ptt" ? "rgba(245,166,35,0.10)" : "transparent",
+                background: "rgba(255,215,0,0.08)",
+                borderTop: "1px solid rgba(255,215,0,0.20)",
+                border: "none",
+                borderTopWidth: 1,
+                borderTopStyle: "solid",
+                borderTopColor: "rgba(255,215,0,0.20)",
+                color: "#FFD700",
+                cursor: "pointer",
               }}
             >
-              🎤 {t("voice_mic_mode_ptt", "PTT")}
+              {t("close", "Kapat")}
             </button>
           </div>
+        )}
+      </div>
+
+      {/* Scrollable middle content (leaves room for fixed bottom bar) */}
+      <div
+        className="flex-1 overflow-y-auto"
+        style={{ paddingBottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }}
+      >
+        <div className="max-w-3xl mx-auto px-3 pt-3">
 
 
       {/* v140.37 — Admin: in-room password change */}
@@ -1353,9 +1523,9 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
         </div>
       )}
 
-      {/* v142.21 — 2 sütun kompakt katılımcı listesi (Konuşuyor / Sessiz) */}
+      {/* v143 — Tek liste, 2 veya 3 sütun (gridCols), tüm satırlar 48px sabit yükseklik.
+          Konuşuyor: altın halka + altın isim + equalizer. Sessiz: gri isim + mic-off. */}
       {(() => {
-        // Helper: strip @-suffix + resolve alliance/role from metadata
         const fmtName = (raw) => {
           if (!raw) return "?";
           const s = String(raw);
@@ -1368,12 +1538,11 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
             return JSON.parse(raw) || {};
           } catch { return {}; }
         };
-        const speakingList = tracks.filter((tr) => tr.participant?.isMicrophoneEnabled);
-        const mutedList = tracks.filter((tr) => !tr.participant?.isMicrophoneEnabled);
 
         const renderRow = (tr, idx) => {
           const p = tr.participant;
-          const speaking = p.isSpeaking;
+          const isSpeaking = !!p.isSpeaking;
+          const isSilent = !p.isMicrophoneEnabled;
           const isSelf = localParticipant && p.identity === localParticipant.identity;
           const locallyMuted = !!localMutes[p.identity];
           const meta = parseMeta(p);
@@ -1388,39 +1557,51 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
               : role === "guest"
                 ? t("voice_guest_tag", "ZİYARETÇİ")
                 : t("voice_member_tag", "ÜYE");
+          const nameColor = isSpeaking ? "#FFD700" : "#AAAAAA";
           return (
             <div
               key={p.identity + idx}
               data-testid={`voice-participant-${p.identity}`}
-              className="flex items-center gap-2 h-12 px-2 rounded-lg relative"
+              className="flex items-center gap-2 h-12 px-2 rounded-lg"
               style={{
-                background: speaking ? "rgba(34,197,94,0.10)" : "rgba(15,10,20,0.55)",
-                border: `1px solid ${speaking ? "#22C55E" : "rgba(255,255,255,0.08)"}`,
-                boxShadow: speaking ? "0 0 12px rgba(34,197,94,0.35)" : "none",
+                background: "rgba(18,18,26,0.75)",
+                border: `1px solid ${isSpeaking ? "rgba(255,215,0,0.35)" : "rgba(255,255,255,0.05)"}`,
+                backdropFilter: "blur(6px)",
+                WebkitBackdropFilter: "blur(6px)",
                 transition: "all 0.22s ease",
               }}
             >
               <div
                 className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-black shrink-0"
                 style={{
-                  background: `linear-gradient(135deg, #F59E0B, #D4730A)`,
-                  color: "#0B0704",
+                  background: `linear-gradient(135deg, #FFD700, #C8860A)`,
+                  color: "#08080F",
+                  boxShadow: isSpeaking
+                    ? "0 0 0 2px #FFD700, 0 0 12px rgba(255,215,0,0.55)"
+                    : "none",
                   opacity: locallyMuted ? 0.55 : 1,
                 }}
               >
                 {initial}
               </div>
               <div className="flex-1 min-w-0">
-                <div
-                  className="text-[13px] font-bold truncate leading-tight"
-                  style={{ color: "#FFFFFF" }}
-                  data-testid={`voice-participant-name-${p.identity}`}
-                >
-                  {displayName}
+                <div className="flex items-center gap-1">
+                  <div
+                    className="text-[13px] font-bold truncate leading-tight"
+                    style={{ color: nameColor }}
+                    data-testid={`voice-participant-name-${p.identity}`}
+                  >
+                    {displayName}
+                  </div>
+                  {isSpeaking ? (
+                    <Radio size={11} color="#FFD700" className="shrink-0 animate-pulse" />
+                  ) : isSilent ? (
+                    <MicOff size={11} color="#666666" className="shrink-0" />
+                  ) : null}
                 </div>
                 <div
                   className="text-[10px] truncate leading-tight"
-                  style={{ color: "#F5A623", fontWeight: 600, letterSpacing: "0.04em" }}
+                  style={{ color: "#C8860A", fontWeight: 600, letterSpacing: "0.04em" }}
                   data-testid={`voice-participant-tag-${p.identity}`}
                 >
                   {roleTag}
@@ -1432,13 +1613,12 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
                   onClick={openNameEdit}
                   className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
                   style={{
-                    background: "rgba(245,158,11,0.15)",
-                    border: "1px solid #F59E0B",
-                    color: "#F59E0B",
+                    background: "rgba(255,215,0,0.15)",
+                    border: "1px solid #FFD700",
+                    color: "#FFD700",
                     cursor: "pointer",
                   }}
                   title={t("voice_display_name_edit_title", "Görünen adını düzenle")}
-                  aria-label={t("voice_display_name_edit_title", "Görünen adını düzenle")}
                 >
                   <Pencil size={12} />
                 </button>
@@ -1464,9 +1644,6 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
                 <button
                   data-testid={`voice-local-mute-${p.identity}`}
                   onClick={() => toggleLocalMute(p)}
-                  title={locallyMuted
-                    ? t("voice_local_unmute_title", "Bu kişinin sesini benim için aç")
-                    : t("voice_local_mute_title", "Bu kişinin sesini sadece benim için sustur")}
                   aria-pressed={locallyMuted}
                   className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
                   style={{
@@ -1484,83 +1661,78 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
           );
         };
 
+        const colsClass = gridCols === 3 ? "grid-cols-3" : "grid-cols-2";
         return (
-          <>
-            <div
-              className="grid grid-cols-2 gap-3 mt-2 mb-2"
-              data-testid="voice-column-headers"
-            >
-              <div
-                className="flex items-center gap-1 text-[11px] font-black uppercase tracking-widest"
-                style={{ color: "#22C55E" }}
-                data-testid="voice-col-speaking-header"
-              >
-                🟢 {t("voice_col_speaking", "Konuşuyor")} ({speakingList.length})
+          <div
+            className={`grid ${colsClass} gap-2 mb-4`}
+            data-testid="voice-members-grid"
+          >
+            {tracks.map(renderRow)}
+            {tracks.length === 0 && (
+              <div className="col-span-full text-[10px] italic py-4 text-center" style={{ color: "#64748B" }}>
+                {t("voice_no_participants", "Henüz kimse yok")}
               </div>
-              <div
-                className="flex items-center gap-1 text-[11px] font-black uppercase tracking-widest"
-                style={{ color: "#94A3B8" }}
-                data-testid="voice-col-muted-header"
-              >
-                🔇 {t("voice_col_muted", "Sessiz")} ({mutedList.length})
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="flex flex-col gap-2" data-testid="voice-col-speaking">
-                {speakingList.map(renderRow)}
-                {speakingList.length === 0 && (
-                  <div className="text-[10px] italic py-2 text-center" style={{ color: "#64748B" }}>
-                    {t("voice_col_speaking_empty", "Kimse konuşmuyor")}
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-col gap-2" data-testid="voice-col-muted">
-                {mutedList.map(renderRow)}
-                {mutedList.length === 0 && (
-                  <div className="text-[10px] italic py-2 text-center" style={{ color: "#64748B" }}>
-                    {t("voice_col_muted_empty", "Sessiz kimse yok")}
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
+            )}
+          </div>
         );
       })()}
 
         </div>
       </div>
 
-      {/* v141 — Fixed Bottom Bar (72px + safe-area) */}
+      {/* v143 — Fixed Bottom Bar (72px + safe-area) — gold hairline separator + deafen left + 54px gold mic + crimson AYRIL pill right */}
       <div
         data-testid="voice-bottom-bar"
-        className="fixed left-0 right-0 bottom-0 flex items-center justify-between gap-2 px-4"
+        className="fixed left-0 right-0 bottom-0 flex items-center gap-3 px-4"
         style={{
           height: `calc(72px + env(safe-area-inset-bottom, 0px))`,
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
-          background: "#0a0608",
-          borderTop: "1px solid rgba(245,166,35,0.20)",
+          background: "#08080F",
+          borderTop: "1px solid rgba(255,215,0,0.35)",
+          boxShadow: "0 -8px 24px rgba(255,215,0,0.06), 0 -1px 0 rgba(255,215,0,0.15)",
           zIndex: 1560,
         }}
       >
+        <button
+          data-testid="voice-deafen-toggle"
+          onClick={() => setDeafenAll((v) => !v)}
+          aria-pressed={deafenAll}
+          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors"
+          style={{
+            background: deafenAll ? "rgba(239,68,68,0.20)" : "rgba(255,215,0,0.08)",
+            border: `1px solid ${deafenAll ? "#EF4444" : "rgba(255,215,0,0.35)"}`,
+            color: deafenAll ? "#EF4444" : "#C8860A",
+            cursor: "pointer",
+          }}
+          title={deafenAll ? t("voice_undeafen_all", "Herkesin sesini aç") : t("voice_deafen_all", "Herkesi sustur")}
+          aria-label={deafenAll ? t("voice_undeafen_all", "Herkesin sesini aç") : t("voice_deafen_all", "Herkesi sustur")}
+        >
+          {deafenAll ? <VolumeX size={16} /> : <Volume2 size={16} />}
+        </button>
+
         <div className="flex-1 flex items-center justify-center">
           {micMode === "continuous" ? (
             <button
               data-testid="voice-mute-btn"
               onClick={toggleMic}
-              className="w-14 h-14 rounded-full flex items-center justify-center transition-all"
+              className="rounded-full flex items-center justify-center transition-all"
               style={{
-                background: isMicrophoneEnabled ? "#F59E0B" : "#EF4444",
+                width: 54,
+                height: 54,
+                background: isMicrophoneEnabled
+                  ? "linear-gradient(135deg, #FFD700 0%, #C8860A 100%)"
+                  : "#EF4444",
                 border: "none",
                 cursor: "pointer",
                 boxShadow: isMicrophoneEnabled
-                  ? "0 0 24px rgba(245,158,11,0.60), 0 0 8px rgba(245,158,11,0.35)"
-                  : "0 0 12px rgba(239,68,68,0.55)",
+                  ? "0 0 24px rgba(255,215,0,0.60), 0 0 8px rgba(255,215,0,0.35)"
+                  : "0 0 14px rgba(239,68,68,0.55)",
                 color: "#FFFFFF",
               }}
               aria-label={isMicrophoneEnabled ? t("voice_mute", "Sustur") : t("voice_unmute", "Aç")}
               title={isMicrophoneEnabled ? t("voice_mute", "Sustur") : t("voice_unmute", "Aç")}
             >
-              {isMicrophoneEnabled ? <Mic size={22} color="#FFFFFF" /> : <MicOff size={22} color="#FFFFFF" />}
+              {isMicrophoneEnabled ? <Mic size={22} color="#08080F" /> : <MicOff size={22} color="#FFFFFF" />}
             </button>
           ) : (
             <button
@@ -1573,38 +1745,43 @@ export function ActiveRoomUI({ roomId, roomName, isAdmin, onLeave, onInvitedChan
               onContextMenu={(e) => e.preventDefault()}
               aria-label={t("voice_ptt_hint", "Basılı tut → konuş, bırak → kapat")}
               title={t("voice_ptt_hint", "Basılı tut → konuş, bırak → kapat")}
-              className="w-14 h-14 rounded-full flex items-center justify-center select-none transition-all"
+              className="rounded-full flex items-center justify-center select-none transition-all"
               style={{
-                background: pttHeld ? "#F59E0B" : "#EF4444",
+                width: 54,
+                height: 54,
+                background: pttHeld
+                  ? "linear-gradient(135deg, #FFD700 0%, #C8860A 100%)"
+                  : "#EF4444",
                 border: "none",
                 boxShadow: pttHeld
-                  ? "0 0 32px rgba(245,158,11,0.75), 0 0 12px rgba(245,158,11,0.5)"
+                  ? "0 0 32px rgba(255,215,0,0.75), 0 0 12px rgba(255,215,0,0.55)"
                   : "0 0 12px rgba(239,68,68,0.45)",
                 userSelect: "none",
                 touchAction: "none",
                 cursor: pttHeld ? "grabbing" : "grab",
-                color: "#FFFFFF",
               }}
             >
-              <Mic size={22} color="#FFFFFF" />
+              <Mic size={22} color={pttHeld ? "#08080F" : "#FFFFFF"} />
             </button>
           )}
         </div>
+
         <button
           data-testid="voice-leave-btn"
           onClick={onLeave}
-          className="flex items-center gap-2 py-2 px-3 text-sm font-black uppercase shrink-0"
+          className="flex items-center gap-2 py-2 px-4 text-xs font-black uppercase shrink-0 rounded-full"
           style={{
-            background: "transparent",
-            border: "none",
-            color: "#EF4444",
+            background: "linear-gradient(135deg, #8B0000 0%, #5A0000 100%)",
+            border: "1px solid rgba(139,0,0,0.65)",
+            color: "#FFFFFF",
             cursor: "pointer",
             letterSpacing: "0.14em",
-            fontFamily: "Cinzel, serif",
+            fontFamily: "'Rajdhani', system-ui, sans-serif",
+            boxShadow: "0 4px 12px rgba(139,0,0,0.35)",
           }}
           aria-label={t("voice_leave", "Ayrıl")}
         >
-          <LogOut size={16} /> {t("voice_leave", "Ayrıl")}
+          <LogOut size={14} /> {t("voice_leave", "Ayrıl")}
         </button>
       </div>
 

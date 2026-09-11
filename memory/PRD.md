@@ -20,6 +20,19 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 11, 2026 (v143 — Voice Room UI Full Redesign: Obsidian + Gold)** — Full-stack:
+  - **Backend** (`server.py` VoiceRoomCreate + `voice_room_create`):
+    - Şifre artık opsiyonel (boş bırakılırsa 8-char random üretilir).
+    - Yeni alanlar: `max_capacity` (whitelist {5,10,15,20,30,50}, default 15), `countdown_enabled` (bool), `countdown_ends_at` (iso, `+1h` default when enabled), `countdown_duration_seconds` (60-86400 clamp).
+  - **Frontend `VoiceRooms.jsx`**:
+    - **Yeni oda modalı**: Oda Adı, opsiyonel Şifre (Eye toggle), Maksimum Kapasite pill selectors (15 default gold), Sayaç toggle, gold gradient ODA OLUŞTUR butonu. Davet listesi kaldırıldı (mount sonrası Ayarlar → "Davetleri Yönet"'den yönetilir).
+    - **Top Bar** (56px, obsidian #08080F): Sol katılımcı sayısı badge (altın halka), orta oda adı `linear-gradient(135deg, #FFD700 → #C8860A)` gold gradient, sağ countdown amber monospace (JetBrains Mono) + gear (⚙️) butonu.
+    - **Ayarlar dropdown**: Gear'dan açılır, `rgba(18,18,26,0.96)` glass, altın hairline border, 16px rounded. Satırlar: Davetleri Yönet, Şifre Değiştir, Davet Linki Kopyala, Mikrofon Modu (Sürekli Açık ON / Push to Talk OFF toggles), Sütun Sayısı (2'li | 3'lü pill toggle), Kapat.
+    - **Tek liste katılımcılar** (Konuşuyor/Sessiz sütun bölünmesi kaldırıldı): Aynı 48px yüksekliğinde, `gridCols` state ile 2 veya 3 sütun. Konuşan üye: 36px avatar üstünde altın halka + altın (#FFD700) isim + `Radio` (equalizer) ikonu. Sessiz üye: normal avatar + gri (#AAAAAA) isim + `MicOff` ikonu.
+    - **Alt Bar** (72px): Altın hairline separator + sol deafen toggle (`Volume2`/`VolumeX`, herkesin sesini yerel olarak sustur), orta 54px gold circle mic butonu (`isMicrophoneEnabled` → gold gradient + glow; muted → red), sağ crimson AYRIL pill (`#8B0000` → `#5A0000` gradient).
+    - **Countdown**: `useEffect` her saniye tick, kalan süreyi `HH:MM:SS` (veya `MM:SS`) formatında gösterir; countdown biterse 00:00'da kalır.
+  - Test: 390x844 mobile — 3 screenshot (create modal, active room, settings panel açık) tüm requirement'ları karşılıyor. `deployment_agent`: PASS ✅
+
 - **Feb 10, 2026 (v142.22 — PTT Beep Sesi Kaldırıldı)** — Frontend:
   - **Kullanıcı isteği**: Push-to-Talk modunda mikrofon aç/kapa'da çıkan bip/beep sesi rahatsız ediyordu.
   - **Silinen kod** (`VoiceRooms.jsx`): `audioCtxRef`, `ensureAudioCtx()`, `playBeep()` helper'ları (Web Audio API `AudioContext` + `createOscillator`); `pttPress`/`pttRelease` içinden `playBeep(880/440, 55, 0.09)` çağrıları temizlendi.

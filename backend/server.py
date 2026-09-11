@@ -9250,11 +9250,15 @@ except Exception:
 
 class VoiceRoomCreate(BaseModel):
     name: str
-    password: str  # v139 — zorunlu; şifresiz oda yok
+    password: Optional[str] = None  # v143 — artık opsiyonel; boş bırakılırsa rastgele üretilir
     # v140.35 — Davetli üye ID listesi. Davetli olan üyeler şifre girmeden
     # doğrudan odaya katılabilir. Boş bırakılırsa oda "sadece şifre" modunda
     # kalır (mevcut davranış).
     invited_user_ids: Optional[List[str]] = None
+    # v143 — Yeni oda oluşturma UI'ından gelen ek alanlar
+    max_capacity: Optional[int] = 15
+    countdown_enabled: Optional[bool] = False
+    countdown_duration_seconds: Optional[int] = 3600  # varsayılan 1 saat
 
 
 class VoiceRoomInviteUpdate(BaseModel):
@@ -9265,10 +9269,22 @@ class VoiceRoomInviteUpdate(BaseModel):
 async def voice_room_create(body: VoiceRoomCreate, u: dict = Depends(require_admin)):
     if not (body.name or "").strip():
         raise HTTPException(400, "Oda adı boş olamaz")
-    if not (body.password or "").strip():
-        raise HTTPException(400, "Oda şifresi zorunludur")
-    pw = body.password.strip()
+    # v143 — Şifre opsiyonel; boş verilirse 8 karakterlik rastgele üret.
+    pw = (body.password or "").strip()
+    if not pw:
+        pw = uuid.uuid4().hex[:8]
     invited = list({(x or "").strip() for x in (body.invited_user_ids or []) if (x or "").strip()})
+    # v143 — Kapasite whitelist
+    ALLOWED_CAPS = {5, 10, 15, 20, 30, 50}
+    cap = int(body.max_capacity or 15)
+    if cap not in ALLOWED_CAPS:
+        cap = 15
+    # v143 — Countdown
+    countdown_ends_at = None
+    if body.countdown_enabled:
+        dur = int(body.countdown_duration_seconds or 3600)
+        dur = max(60, min(dur, 86400))  # 1min..24h
+        countdown_ends_at = (datetime.now(timezone.utc) + timedelta(seconds=dur)).isoformat()
     doc = {
         "id": str(uuid.uuid4()),
         "name": body.name.strip()[:80],
@@ -9281,6 +9297,10 @@ async def voice_room_create(body: VoiceRoomCreate, u: dict = Depends(require_adm
         "password_plain": pw,
         # v140.35 — Davetli listesi (invite bypass, ayrı sistem değil).
         "invited_user_ids": invited,
+        # v143 — Kapasite + geri sayım
+        "max_capacity": cap,
+        "countdown_enabled": bool(body.countdown_enabled),
+        "countdown_ends_at": countdown_ends_at,
     }
     await db.voice_rooms.insert_one(doc)
     doc.pop("_id", None)
