@@ -9537,9 +9537,10 @@ def _extract_user_id_prefix(identity: str) -> Optional[str]:
 async def voice_room_kick(room_id: str, body: VoiceKickBody,
                           admin: dict = Depends(require_admin)):
     """v140.36 — Admin bir katılımcıyı odadan çıkarır (LiveKit removeParticipant).
-    v140.37 — Kick edilen üye otomatik olarak bu odanın `banned_user_ids`
-    listesine eklenir. Ziyaretçiler için ban etkisizdir (identity her join'de
-    yenilenir); yalnızca üye tabanlı ban uygulanır."""
+    v143.7 — SIRA GARANTİSİ: (1) kara liste kaydı, (2) LiveKit remove_participant,
+    (3) grant/session temizliği ve şifre rotate. Guest kickleri ARTIK `device_id`
+    bazlı olarak hem oda hem genel kara listeye eklenir; şifre değişse bile geri
+    giremezler."""
     identity = (body.identity or "").strip()
     if not identity:
         raise HTTPException(400, "identity gerekli")
@@ -9553,6 +9554,110 @@ async def voice_room_kick(room_id: str, body: VoiceKickBody,
     lk_url = os.environ.get("LIVEKIT_URL", "").strip()
     if not (lk_key and lk_secret and lk_url):
         raise HTTPException(500, "LiveKit credentials .env'de eksik")
+
+    # v143.7 — ADIM 1: Kara liste kayıtları ÖNCE oluşur. remove_participant başarısız
+    # olsa bile kullanıcı bir daha giremeyecek hale gelir.
+    banned_user_id = None
+    banned_username = None
+    banned_device_id = None
+    reason = ((body.reason or "").strip() or None)
+    is_guest_kick = identity.startswith("guest-")
+    now_iso_val = datetime.now(timezone.utc).isoformat()
+    admin_uname = admin.get("username") or ""
+
+    if is_guest_kick:
+        # Guest identity rastgele; kalıcı hedef `device_id`. Session eşlemesinden bul.
+        sess = await db.voice_guest_sessions.find_one(
+            {"room_id": room_id, "identity": identity},
+            {"_id": 0, "device_id": 1, "guest_name": 1},
+        )
+        if sess and sess.get("device_id"):
+            banned_device_id = sess.get("device_id")
+            gname = sess.get("guest_name") or "Ziyaretçi"
+            device_ban_record = {
+                "device_id": banned_device_id,
+                "guest_name": gname,
+                "reason": reason,
+                "banned_at": now_iso_val,
+                "banned_by_username": admin_uname,
+            }
+            await db.voice_rooms.update_one(
+                {"id": room_id},
+                {"$pull": {"banned_devices": {"device_id": banned_device_id}}},
+            )
+            await db.voice_rooms.update_one(
+                {"id": room_id},
+                {
+                    "$push": {"banned_devices": device_ban_record},
+                    "$addToSet": {"banned_device_ids": banned_device_id},
+                },
+            )
+            try:
+                await db.voice_global_device_blacklist.update_one(
+                    {"device_id": banned_device_id},
+                    {"$set": {"device_id": banned_device_id,
+                              "guest_name": gname,
+                              "reason": reason,
+                              "banned_at": now_iso_val,
+                              "banned_by_username": admin_uname,
+                              "origin_room_id": room_id}},
+                    upsert=True,
+                )
+            except Exception as _gex:
+                logger.warning(f"[voice-global-dbl] add failed: {_gex}")
+            # Cihazın odadaki grantını da sil (yeni şifreyle tekrar giremesin).
+            try:
+                await db.voice_room_grants.delete_many(
+                    {"room_id": room_id, "device_id": banned_device_id}
+                )
+            except Exception:
+                pass
+            banned_username = gname
+        else:
+            logger.warning(f"[voice-kick] guest session yok, device_id çözülemedi: {identity}")
+    else:
+        uid_prefix = _extract_user_id_prefix(identity)
+        if uid_prefix:
+            u_ban = await db.users.find_one(
+                {"id": {"$regex": f"^{uid_prefix}"}},
+                {"_id": 0, "id": 1, "username": 1},
+            )
+            if u_ban:
+                banned_user_id = u_ban.get("id")
+                banned_username = u_ban.get("username")
+                ban_record = {
+                    "user_id": banned_user_id,
+                    "username": banned_username,
+                    "reason": reason,
+                    "banned_at": now_iso_val,
+                    "banned_by_username": admin_uname,
+                }
+                await db.voice_rooms.update_one(
+                    {"id": room_id},
+                    {"$pull": {"banned_users": {"user_id": banned_user_id}}},
+                )
+                await db.voice_rooms.update_one(
+                    {"id": room_id},
+                    {
+                        "$push": {"banned_users": ban_record},
+                        "$addToSet": {"banned_user_ids": banned_user_id},
+                    },
+                )
+                try:
+                    await db.voice_global_blacklist.update_one(
+                        {"user_id": banned_user_id},
+                        {"$set": {"user_id": banned_user_id,
+                                  "username": banned_username,
+                                  "reason": reason,
+                                  "banned_at": now_iso_val,
+                                  "banned_by_username": admin_uname,
+                                  "origin_room_id": room_id}},
+                        upsert=True,
+                    )
+                except Exception as _gex:
+                    logger.warning(f"[voice-global-bl] add failed: {_gex}")
+
+    # v143.7 — ADIM 2: Kara liste yazıldıktan sonra LiveKit'ten çıkar.
     http_url = lk_url.replace("wss://", "https://").replace("ws://", "http://")
     try:
         from livekit.api import LiveKitAPI, RoomParticipantIdentity
@@ -9571,53 +9676,6 @@ async def voice_room_kick(room_id: str, body: VoiceKickBody,
         try: await lkapi.aclose()
         except Exception: pass
 
-    # v140.37 — Ban listesine ekle (mümkünse user_id ile).
-    # v140.42 — Sebep (opsiyonel) kaydediliyor; ban listesi UI'ında görünür.
-    banned_user_id = None
-    banned_username = None
-    reason = ((body.reason or "").strip() or None)
-    uid_prefix = _extract_user_id_prefix(identity)
-    if uid_prefix:
-        u = await db.users.find_one(
-            {"id": {"$regex": f"^{uid_prefix}"}},
-            {"_id": 0, "id": 1, "username": 1},
-        )
-        if u:
-            banned_user_id = u.get("id")
-            banned_username = u.get("username")
-            ban_record = {
-                "user_id": banned_user_id,
-                "username": banned_username,
-                "reason": reason,
-                "banned_at": datetime.now(timezone.utc).isoformat(),
-                "banned_by_username": admin.get("username") or "",
-            }
-            # Aynı kullanıcı için mevcut kayıt varsa değiştir; yoksa ekle.
-            await db.voice_rooms.update_one(
-                {"id": room_id},
-                {"$pull": {"banned_users": {"user_id": banned_user_id}}},
-            )
-            await db.voice_rooms.update_one(
-                {"id": room_id},
-                {
-                    "$push": {"banned_users": ban_record},
-                    "$addToSet": {"banned_user_ids": banned_user_id},  # geri uyumluluk
-                },
-            )
-            # v143.4 — Genel kara listeye de ekle (her odada geçerli olsun).
-            try:
-                await db.voice_global_blacklist.update_one(
-                    {"user_id": banned_user_id},
-                    {"$set": {"user_id": banned_user_id,
-                              "username": banned_username,
-                              "reason": reason,
-                              "banned_at": datetime.now(timezone.utc).isoformat(),
-                              "banned_by_username": admin.get("username") or "",
-                              "origin_room_id": room_id}},
-                    upsert=True,
-                )
-            except Exception as _gex:
-                logger.warning(f"[voice-global-bl] add failed: {_gex}")
     # v143.4 — Kick sonrası: şifre rotate + aktif davetleri sil + adminlere bildirim
     pw_rotated = False
     invites_invalidated = 0
@@ -9638,10 +9696,11 @@ async def voice_room_kick(room_id: str, body: VoiceKickBody,
     return {
         "ok": True, "kicked": identity, "room": room["name"],
         "banned_user_id": banned_user_id, "banned_username": banned_username,
+        "banned_device_id": banned_device_id,
         "reason": reason,
         "password_rotated": pw_rotated,
         "invites_invalidated": invites_invalidated,
-        "is_guest": identity.startswith("guest-"),
+        "is_guest": is_guest_kick,
     }
 
 
@@ -9751,6 +9810,39 @@ async def voice_global_blacklist_remove(user_id: str, _: dict = Depends(require_
     return {"ok": True, "removed": r.deleted_count}
 
 
+# v143.7 — Genel cihaz (guest) kara listesi yönetimi.
+
+
+@api_router.get("/voice/global-device-blacklist")
+async def voice_global_device_blacklist_list(_: dict = Depends(require_admin)):
+    docs = await db.voice_global_device_blacklist.find({}, {"_id": 0}).sort("banned_at", -1).to_list(500)
+    return {"banned_devices": docs}
+
+
+@api_router.delete("/voice/global-device-blacklist/{device_id}")
+async def voice_global_device_blacklist_remove(device_id: str, _: dict = Depends(require_admin)):
+    r = await db.voice_global_device_blacklist.delete_one({"device_id": device_id})
+    return {"ok": True, "removed": r.deleted_count}
+
+
+@api_router.delete("/voice/rooms/{room_id}/blacklist-device/{device_id}")
+async def voice_room_device_blacklist_remove(room_id: str, device_id: str,
+                                             _: dict = Depends(require_admin)):
+    """v143.7 — Bir guest device_id'sini odanın kara listesinden çıkarır."""
+    r = await db.voice_rooms.update_one(
+        {"id": room_id},
+        {
+            "$pull": {
+                "banned_devices": {"device_id": device_id},
+                "banned_device_ids": device_id,
+            }
+        },
+    )
+    if not r.matched_count:
+        raise HTTPException(404, "Oda bulunamadı")
+    return {"ok": True, "device_id": device_id}
+
+
 # v143.2 — Blacklist (banned users) yönetimi. Kick endpoint zaten kullanıcıyı
 # `banned_users` (obj array) + `banned_user_ids` alanlarına ekliyor; aşağıdaki
 # iki endpoint listeyi görüntüleme + kaldırma imkânı sağlar. Sadece admin.
@@ -9758,10 +9850,12 @@ async def voice_global_blacklist_remove(user_id: str, _: dict = Depends(require_
 
 @api_router.get("/voice/rooms/{room_id}/blacklist")
 async def voice_room_blacklist_list(room_id: str, _: dict = Depends(require_admin)):
-    """v143.2 — Bir odanın kara listesini döner (ban_at, reason, banned_by dahil)."""
+    """v143.2 — Bir odanın kara listesini döner (ban_at, reason, banned_by dahil).
+    v143.7 — `banned_devices` (guest device_id bazlı) da aynı listeye eklenir."""
     room = await db.voice_rooms.find_one(
         {"id": room_id},
-        {"_id": 0, "id": 1, "name": 1, "banned_users": 1, "banned_user_ids": 1},
+        {"_id": 0, "id": 1, "name": 1, "banned_users": 1, "banned_user_ids": 1,
+         "banned_devices": 1, "banned_device_ids": 1},
     )
     if not room:
         raise HTTPException(404, "Oda bulunamadı")
@@ -9780,7 +9874,21 @@ async def voice_room_blacklist_list(room_id: str, _: dict = Depends(require_admi
             "banned_at": None,
             "banned_by_username": None,
         })
-    return {"room_id": room_id, "room_name": room.get("name"), "banned": entries}
+    # v143.7 — Guest device bans.
+    dev_entries = list(room.get("banned_devices") or [])
+    seen_dev = {d.get("device_id") for d in dev_entries if d.get("device_id")}
+    for did in (room.get("banned_device_ids") or []):
+        if did in seen_dev:
+            continue
+        dev_entries.append({
+            "device_id": did,
+            "guest_name": "Ziyaretçi",
+            "reason": None,
+            "banned_at": None,
+            "banned_by_username": None,
+        })
+    return {"room_id": room_id, "room_name": room.get("name"),
+            "banned": entries, "banned_devices": dev_entries}
 
 
 @api_router.delete("/voice/rooms/{room_id}/blacklist/{user_id}")
@@ -10073,10 +10181,22 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
     banned_ids = list(room.get("banned_user_ids") or [])
     if u and u.get("id") in banned_ids:
         raise HTTPException(403, "Bu odadan yasaklandınız")
+    # v143.7 — Guest için oda-özel device_id ban kontrolü.
+    if not u and body.device_id:
+        room_banned_devices = list(room.get("banned_device_ids") or [])
+        if body.device_id in room_banned_devices:
+            raise HTTPException(403, "Bu odadan yasaklandınız")
     # v143.4 — Genel kara liste kontrolü (tüm odalar için geçerli). Admin bypass yok.
     if u:
         gbl = await db.voice_global_blacklist.find_one({"user_id": u.get("id")}, {"_id": 0, "user_id": 1})
         if gbl:
+            raise HTTPException(403, "Genel kara listede olduğunuz için hiçbir odaya giremezsiniz")
+    # v143.7 — Guest için genel device_id kara listesi.
+    if not u and body.device_id:
+        gdbl = await db.voice_global_device_blacklist.find_one(
+            {"device_id": body.device_id}, {"_id": 0, "device_id": 1}
+        )
+        if gdbl:
             raise HTTPException(403, "Genel kara listede olduğunuz için hiçbir odaya giremezsiniz")
     is_invited = bool(u) and u.get("id") in invited_ids
     # v143.4 — Oturum bazlı grant kontrolü. Şifre bir kez doğru girildiyse,
@@ -10196,6 +10316,23 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
         identity = f"guest-{uuid.uuid4().hex[:8]}"
         display = gn
         meta_payload = json.dumps({"role": "guest", "alliance": None})
+        # v143.7 — Guest kick için identity → device_id eşlemesi. Kick sırasında
+        # `voice_guest_sessions` üzerinden device_id çözülüp kara listeye eklenir.
+        if body.device_id:
+            try:
+                await db.voice_guest_sessions.update_one(
+                    {"room_id": room["id"], "identity": identity},
+                    {"$set": {
+                        "room_id": room["id"],
+                        "identity": identity,
+                        "device_id": body.device_id,
+                        "guest_name": gn,
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                    }},
+                    upsert=True,
+                )
+            except Exception as _sex:
+                logger.warning(f"[voice-guest-session] upsert failed: {_sex}")
     from livekit.api import AccessToken, VideoGrants
     at = AccessToken(lk_key, lk_secret) \
         .with_identity(identity) \

@@ -20,6 +20,22 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 11, 2026 (v143.7 — Guest Kick + Kara Liste)** — Backend + Frontend:
+  - **KRİTİK BUG DÜZELTİLDİ**: Atılan ziyaretçiler yeni şifreyle geri girebiliyordu.
+  - **Kick sırası düzeltildi**: (1) kara liste kaydı, (2) LiveKit remove_participant, (3) şifre rotate. Ban artık kick başarısız olsa bile kalır.
+  - **Guest identity → device_id eşlemesi**: `voice_guest_sessions` koleksiyonu — `/voice/token` guest join'inde `(room_id, identity, device_id, guest_name)` upsert edilir. Kick sırasında bu eşlemeden `device_id` çözülür.
+  - **Yeni ban alanları**:
+    - `voice_rooms.banned_devices` (obj array, reason/banned_at/banned_by dahil)
+    - `voice_rooms.banned_device_ids` (id-only array, hızlı kontrol için)
+    - `voice_global_device_blacklist` (tüm odalar için geçerli, admin bypass yok)
+  - **Erişim kontrolü**: `/voice/token` — guest için `body.device_id` hem oda-özel hem genel cihaz kara listesine karşı kontrol edilir. Şifre/davet linki/grant hiçbiri bypass etmez.
+  - **Yeni endpointler**:
+    - `GET /api/voice/global-device-blacklist` (admin)
+    - `DELETE /api/voice/global-device-blacklist/{device_id}` (admin)
+    - `DELETE /api/voice/rooms/{room_id}/blacklist-device/{device_id}` (admin)
+  - **Frontend**: Blacklist modal artık `banned_devices` satırlarını da gösterir (📱 avatar, guest_name + device_id prefix, X ile silme). Toast: "Ziyaretçi atıldı ve cihazı kara listeye eklendi".
+  - **Test**: `/tmp/test_kick_ban_flow.py` (temizlendi) — 6 senaryo: login, wrong-pw, oda-özel device ban blokladı, global device ban blokladı, admin endpoint'ler, blacklist listesinde banned_devices alanı. Hepsi PASS ✅.
+
 - **Feb 11, 2026 (v143.6 — /katilim Hizalı Tablo)** — Backend:
   - `telegram_bot.py::katilim_command` güncellendi:
     - Katılımcılar üye gücüne göre AZALAN sıralanır (`individual_power` → `bireysel_guc` → `power` fallback).

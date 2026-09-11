@@ -812,8 +812,11 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
       if (r.data?.banned_user_id) {
         toast.success(t("voice_kick_and_ban_success", "Katılımcı atıldı ve yasaklandı"));
         refetchBans();
+      } else if (r.data?.banned_device_id) {
+        toast.success(t("voice_kick_guest_banned", "Ziyaretçi atıldı ve cihazı kara listeye eklendi"));
+        refetchBans();
       } else if (r.data?.is_guest) {
-        toast.success(t("voice_kick_guest_note", "Ziyaretçi atıldı (ban etkisiz — kimliği rastgeledir)"));
+        toast.success(t("voice_kick_guest_note", "Ziyaretçi atıldı (cihaz oturumu bulunamadı — ban uygulanamadı)"));
       } else {
         toast.success(t("voice_kick_success", "Katılımcı odadan atıldı"));
       }
@@ -1021,8 +1024,10 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
   }, [deafenAll, participants, localParticipant]);
 
   // v143.2 — Kara liste (blacklist) yönetimi: admin görüntüler + kullanıcı silebilir.
+  // v143.7 — Guest cihazları da (`banned_devices`) listelenir.
   const [blacklistOpen, setBlacklistOpen] = useState(false);
   const [blacklistData, setBlacklistData] = useState([]);
+  const [blacklistDevices, setBlacklistDevices] = useState([]);
   const [blacklistBusy, setBlacklistBusy] = useState(false);
   const fetchBlacklist = useCallback(async () => {
     if (!isAdmin) return;
@@ -1030,6 +1035,7 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
     try {
       const r = await api.get(`/voice/rooms/${roomId}/blacklist`);
       setBlacklistData(r.data?.banned || []);
+      setBlacklistDevices(r.data?.banned_devices || []);
     } catch (e) {
       toast.error(e?.response?.data?.detail || e.message);
     } finally {
@@ -1041,6 +1047,15 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
     setSettingsOpen(false);
     fetchBlacklist();
   }, [fetchBlacklist]);
+  const removeDeviceFromBlacklist = useCallback(async (deviceId) => {
+    try {
+      await api.delete(`/voice/rooms/${roomId}/blacklist-device/${deviceId}`);
+      toast.success(t("voice_blacklist_device_removed", "Ziyaretçi cihazı kara listeden çıkarıldı"));
+      fetchBlacklist();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    }
+  }, [roomId, fetchBlacklist, t]);
   const removeFromBlacklist = useCallback(async (userId) => {
     try {
       await api.delete(`/voice/rooms/${roomId}/blacklist/${userId}`);
@@ -1908,12 +1923,13 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
                   <div className="text-[11px] italic text-center py-4" style={{ color: "#64748B" }}>
                     {t("loading", "Yükleniyor…")}
                   </div>
-                ) : blacklistData.length === 0 ? (
+                ) : blacklistData.length === 0 && blacklistDevices.length === 0 ? (
                   <div className="text-[11px] italic text-center py-6" style={{ color: "#64748B" }}>
                     {t("voice_blacklist_empty", "Kara liste boş")}
                   </div>
                 ) : (
-                  blacklistData.map((b) => (
+                  <>
+                  {blacklistData.map((b) => (
                     <div
                       key={b.user_id}
                       data-testid={`voice-blacklist-row-${b.user_id}`}
@@ -1958,7 +1974,58 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
                         <X size={14} />
                       </button>
                     </div>
-                  ))
+                  ))}
+                  {blacklistDevices.map((d) => (
+                    <div
+                      key={`dev-${d.device_id}`}
+                      data-testid={`voice-blacklist-device-row-${d.device_id}`}
+                      className="flex items-center gap-3 px-3 py-2.5"
+                      style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                    >
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-[9px] font-black shrink-0"
+                        style={{
+                          background: "linear-gradient(135deg, #6B7280, #374151)",
+                          color: "#FFF",
+                        }}
+                        title={t("voice_blacklist_guest_device", "Ziyaretçi cihazı")}
+                      >
+                        📱
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-bold text-white truncate">
+                          {d.guest_name || t("voice_blacklist_guest", "Ziyaretçi")}
+                          <span className="text-[9px] font-normal ml-1" style={{ color: "#94A3B8" }}>
+                            · {(d.device_id || "").slice(0, 10)}…
+                          </span>
+                        </div>
+                        <div className="text-[10px] truncate" style={{ color: "#94A3B8" }}>
+                          {d.reason
+                            ? `${d.reason}`
+                            : t("voice_blacklist_no_reason", "Sebep belirtilmedi")}
+                          {d.banned_by_username && (
+                            <span> · {t("voice_blacklist_by", "Atan")}: {d.banned_by_username}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => removeDeviceFromBlacklist(d.device_id)}
+                        data-testid={`voice-blacklist-device-remove-${d.device_id}`}
+                        className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                        style={{
+                          background: "rgba(34,197,94,0.15)",
+                          border: "1px solid #22C55E",
+                          color: "#22C55E",
+                          cursor: "pointer",
+                        }}
+                        title={t("voice_blacklist_remove_title", "Kara listeden çıkar")}
+                        aria-label={t("voice_blacklist_remove_title", "Kara listeden çıkar")}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  </>
                 )}
               </div>
             </div>
