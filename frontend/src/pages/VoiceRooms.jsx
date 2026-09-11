@@ -121,7 +121,17 @@ export default function VoiceRooms() {
       if (password === null) return;
     }
     try {
-      const res = await api.post("/voice/token", { room_id: room.id, password, guest_name: guestName });
+      // v143.4 — Cihaz kimliği (sessionStorage): ziyaretçi oturumu, aynı sekmede
+      // açık kaldığı sürece odaya tekrar şifre sormaz. Sekme/uygulama kapanınca sıfırlanır.
+      let deviceId = "";
+      try {
+        deviceId = window.sessionStorage.getItem("ol_voice_device") || "";
+        if (!deviceId) {
+          deviceId = (window.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)) + "-" + Date.now().toString(36);
+          window.sessionStorage.setItem("ol_voice_device", deviceId);
+        }
+      } catch {}
+      const res = await api.post("/voice/token", { room_id: room.id, password, guest_name: guestName, device_id: deviceId });
       setActive({ ...res.data, roomDoc: room });
     } catch (e) {
       const detail = e?.response?.data?.detail;
@@ -129,7 +139,7 @@ export default function VoiceRooms() {
         const retry = window.prompt(t("voice_room_password_prompt", "Oda şifresini gir:"));
         if (retry === null) return;
         try {
-          const res2 = await api.post("/voice/token", { room_id: room.id, password: retry, guest_name: guestName });
+          const res2 = await api.post("/voice/token", { room_id: room.id, password: retry, guest_name: guestName, device_id: deviceId });
           setActive({ ...res2.data, roomDoc: room });
         } catch (e2) { toast.error(e2?.response?.data?.detail || e2.message); }
         return;

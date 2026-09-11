@@ -20,6 +20,16 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 11, 2026 (v143.4 — Erişim v2: Oturum Grantları + Genel Kara Liste + Kick Sonrası Otomatik Rotate)** — Full-stack:
+  - **Session grant sistemi** (yeni `voice_room_grants` koleksiyonu): Şifre bir kez doğrulanınca `(room_id, user_id)` veya `(room_id, device_id)` upsert edilir; sonraki `/voice/token` çağrıları şifre sormaz. Grant, oda boşalınca veya kick sonrası rotate ile silinir.
+  - **Guest device oturumu**: Frontend `sessionStorage.ol_voice_device` içinde UUID tutar; sekme/uygulama kapanınca sıfırlanır. `/voice/token` body'sinde `device_id` gönderilir.
+  - **Genel kara liste** (`voice_global_blacklist` koleksiyonu): Kick edilen user her odadaki lokal ban listesine EK olarak buraya da yazılır. `/voice/token` üstünde global check → 403 "Genel kara listede olduğunuz için hiçbir odaya giremezsiniz". Endpointler: `GET /api/voice/global-blacklist` (admin), `DELETE /api/voice/global-blacklist/{user_id}` (admin).
+  - **Kick sonrası oda temizliği** (`_rotate_room_password`): (a) yeni rastgele şifre, (b) tüm grantları sil, (c) aktif davet linklerini `active=false` yap, (d) tüm adminlere bell notification insert et ("🔒 Ses odası şifresi değiştirildi"). Kick endpoint bunu her çağırışta tetikler.
+  - **Oda boşalınca sıfırlama** (`_try_reset_if_empty` + `_delayed_reset`): Her `/voice/token` sonrası 60 sn sonra ve her kick sonrası 45 sn sonra LiveKit `list_participants` sorulur; sayı 0 ise `_rotate_room_password` tetiklenir. Böylece şifre + grantlar oda boşalınca sıfır atar.
+  - **Admin bypass**: Tüm erişim kurallarında admin şifresiz ve davetsiz girer (mevcut davranış korundu).
+  - **E2E doğrulama**: pasha 1. join → 200 (grant); 2. join şifresiz → 200 ✓; global bl seed → 403 ✓; admin GET/DELETE global bl round-trip ✓; guest device_id grant ✓.
+  - **`deployment_agent`: PASS ✅** — Republish için hazır.
+
 - **Feb 11, 2026 (v143.3 — Kapasite + Rozet Gizle + Canlı WebSocket)** — Full-stack:
   - **1. Kapasite enforcement**: `/api/voice/token` LiveKit `list_participants` ile mevcut sayıyı okur; `max_capacity` doluysa admin dışındaki herkese 403 döner ("Oda dolu (N/M)"). LiveKit çağrısı başarısızsa fail-open (kullanıcıyı bloklamayız).
   - **2. Rozet UI gizli**: Yeni `frontend/src/lib/features.js:BADGES_ENABLED=false` flag'i ile Header dropdown "Rozet Yönetimi" satırı, App.js `/rozetler` + `/admin/rozetler` route'ları, Profile.jsx RSVP streak badge (`🔥 ETKİNLİK SERİSİ`) ve `BadgeAISuggestions` paneli gizlendi. Kod silinmedi, `true` yapılınca tümü geri gelir.

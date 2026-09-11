@@ -7,6 +7,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import secrets
 import httpx
+import asyncio
 import logging
 import io
 import csv
@@ -9603,12 +9604,151 @@ async def voice_room_kick(room_id: str, body: VoiceKickBody,
                     "$addToSet": {"banned_user_ids": banned_user_id},  # geri uyumluluk
                 },
             )
+            # v143.4 — Genel kara listeye de ekle (her odada geçerli olsun).
+            try:
+                await db.voice_global_blacklist.update_one(
+                    {"user_id": banned_user_id},
+                    {"$set": {"user_id": banned_user_id,
+                              "username": banned_username,
+                              "reason": reason,
+                              "banned_at": datetime.now(timezone.utc).isoformat(),
+                              "banned_by_username": admin.get("username") or "",
+                              "origin_room_id": room_id}},
+                    upsert=True,
+                )
+            except Exception as _gex:
+                logger.warning(f"[voice-global-bl] add failed: {_gex}")
+    # v143.4 — Kick sonrası: şifre rotate + aktif davetleri sil + adminlere bildirim
+    pw_rotated = False
+    invites_invalidated = 0
+    try:
+        # Kaç aktif davet var? (bilgi amaçlı sayacın önce, rotate helper zaten sıfırlar)
+        invites_invalidated = await db.voice_invite_tokens.count_documents(
+            {"room_id": room_id, "active": True}
+        )
+        await _rotate_room_password(room_id, room["name"], f"üye atıldı ({banned_username or identity})")
+        pw_rotated = True
+    except Exception as _rex:
+        logger.warning(f"[voice-kick] rotate failed: {_rex}")
+    # 45sn sonra oda hâlâ boşsa tekrar rotate (guest'lar dahil temiz oturum).
+    try:
+        asyncio.create_task(_delayed_reset(room_id, 45))
+    except Exception:
+        pass
     return {
         "ok": True, "kicked": identity, "room": room["name"],
         "banned_user_id": banned_user_id, "banned_username": banned_username,
         "reason": reason,
+        "password_rotated": pw_rotated,
+        "invites_invalidated": invites_invalidated,
         "is_guest": identity.startswith("guest-"),
     }
+
+
+# v143.4 — Ses odası oturum & rotate helper'ları.
+
+def _random_room_password() -> str:
+    import secrets as _s
+    return _s.token_urlsafe(6)[:10]
+
+
+async def _rotate_room_password(room_id: str, room_name: str, cause: str) -> str:
+    """Yeni rastgele şifre üretip odaya yazar, grantları ve aktif davetleri
+    temizler, adminlere bell bildirimi bırakır. Yeni şifreyi döndürür."""
+    new_pw = _random_room_password()
+    await db.voice_rooms.update_one(
+        {"id": room_id},
+        {"$set": {
+            "password_hash": _hash_password(new_pw),
+            "password_plain": new_pw,
+            "password_updated_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    # Bu odanın tüm grantlarını sıfırla.
+    try:
+        await db.voice_room_grants.delete_many({"room_id": room_id})
+    except Exception:
+        pass
+    # Aktif davetleri iptal et.
+    try:
+        await db.voice_invite_tokens.update_many(
+            {"room_id": room_id, "active": True},
+            {"$set": {"active": False, "deactivated_at": datetime.now(timezone.utc).isoformat(),
+                      "deactivated_reason": cause}},
+        )
+    except Exception:
+        pass
+    # Adminlere bell bildirimi.
+    try:
+        admins = await db.users.find({"role": "admin"}, {"_id": 0, "id": 1}).to_list(200)
+        docs = [{
+            "id": uuid.uuid4().hex,
+            "user_id": a.get("id"),
+            "channel": "voice",
+            "kind": "voice_password_rotated",
+            "title": "🔒 Ses odası şifresi değiştirildi",
+            "body": f"'{room_name}' odasının şifresi otomatik olarak yenilendi ({cause}).",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "read": False,
+        } for a in admins if a.get("id")]
+        if docs:
+            await db.notifications.insert_many(docs)
+    except Exception as _nex:
+        logger.warning(f"[voice-rotate] notify admins failed: {_nex}")
+    return new_pw
+
+
+async def _try_reset_if_empty(room_id: str) -> None:
+    """LiveKit'e sorup katılımcı sayısı 0 ise odayı sıfırla: şifre rotate,
+    grant temizle, aktif davetleri iptal. Guest oturumları da bu şekilde
+    (grant silme yoluyla) sıfırlanır."""
+    room = await db.voice_rooms.find_one({"id": room_id})
+    if not room:
+        return
+    lk_key = os.environ.get("LIVEKIT_API_KEY", "").strip()
+    lk_secret = os.environ.get("LIVEKIT_API_SECRET", "").strip()
+    lk_url = os.environ.get("LIVEKIT_URL", "").strip()
+    if not (lk_key and lk_secret and lk_url):
+        return
+    try:
+        http_url = lk_url.replace("wss://", "https://").replace("ws://", "http://")
+        from livekit.api import LiveKitAPI, ListParticipantsRequest
+        lkapi = LiveKitAPI(http_url, lk_key, lk_secret)
+        try:
+            pres = await lkapi.room.list_participants(ListParticipantsRequest(room=room["name"]))
+            count = len(getattr(pres, "participants", []) or [])
+        finally:
+            try:
+                await lkapi.aclose()
+            except Exception:
+                pass
+        if count == 0:
+            await _rotate_room_password(room_id, room["name"], "oda boşaldı")
+    except Exception as e:
+        logger.warning(f"[voice-empty-reset] {e}")
+
+
+async def _delayed_reset(room_id: str, delay_seconds: int = 45) -> None:
+    try:
+        await asyncio.sleep(delay_seconds)
+        await _try_reset_if_empty(room_id)
+    except Exception:
+        pass
+
+
+# v143.4 — Genel kara liste yönetimi.
+
+
+@api_router.get("/voice/global-blacklist")
+async def voice_global_blacklist_list(_: dict = Depends(require_admin)):
+    docs = await db.voice_global_blacklist.find({}, {"_id": 0}).sort("banned_at", -1).to_list(500)
+    return {"banned": docs}
+
+
+@api_router.delete("/voice/global-blacklist/{user_id}")
+async def voice_global_blacklist_remove(user_id: str, _: dict = Depends(require_admin)):
+    r = await db.voice_global_blacklist.delete_one({"user_id": user_id})
+    return {"ok": True, "removed": r.deleted_count}
 
 
 # v143.2 — Blacklist (banned users) yönetimi. Kick endpoint zaten kullanıcıyı
@@ -9824,6 +9964,7 @@ class VoiceTokenBody(BaseModel):
     password: Optional[str] = None
     guest_name: Optional[str] = None  # ziyaretçi için görünen ad
     invite_token: Optional[str] = None  # v136 — tek kullanımlık davet token'ı
+    device_id: Optional[str] = None  # v143.4 — ziyaretçi cihaz oturumu
 
 
 class VoiceInviteCreateBody(BaseModel):
@@ -9932,7 +10073,26 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
     banned_ids = list(room.get("banned_user_ids") or [])
     if u and u.get("id") in banned_ids:
         raise HTTPException(403, "Bu odadan yasaklandınız")
+    # v143.4 — Genel kara liste kontrolü (tüm odalar için geçerli). Admin bypass yok.
+    if u:
+        gbl = await db.voice_global_blacklist.find_one({"user_id": u.get("id")}, {"_id": 0, "user_id": 1})
+        if gbl:
+            raise HTTPException(403, "Genel kara listede olduğunuz için hiçbir odaya giremezsiniz")
     is_invited = bool(u) and u.get("id") in invited_ids
+    # v143.4 — Oturum bazlı grant kontrolü. Şifre bir kez doğru girildiyse,
+    # aynı oturumda aynı odaya tekrar şifre sorulmaz.
+    #   • Authed user: (user_id, room_id) → grant
+    #   • Guest: (device_id, room_id) → grant
+    # Grant, oda boşaldığında veya şifre rotate edildiğinde silinir.
+    grant_ok = False
+    if u:
+        g = await db.voice_room_grants.find_one({"room_id": room.get("id"), "user_id": u.get("id")}, {"_id": 0})
+        if g:
+            grant_ok = True
+    elif body.device_id:
+        g = await db.voice_room_grants.find_one({"room_id": room.get("id"), "device_id": body.device_id}, {"_id": 0})
+        if g:
+            grant_ok = True
     # v136 — AKTİF davet token doğrulama. Çok kullanımlık: `active=true` &&
     # `room_id` eşleşmesi yeter, silinmediği sürece defalarca kullanılabilir.
     invite_ok = False
@@ -9947,10 +10107,32 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
         if invite.get("room_id") != room.get("id"):
             raise HTTPException(403, "Davet linki bu oda için değil")
         invite_ok = True
-    if not (is_admin or is_invited or invite_ok):
+    password_used = False
+    if not (is_admin or is_invited or invite_ok or grant_ok):
         from auth import verify_password as _verify_password
         if not body.password or not _verify_password(body.password, room.get("password_hash", "")):
             raise HTTPException(403, "Şifre yanlış")
+        password_used = True
+    # v143.4 — Şifre başarıyla doğrulandıysa, grant kaydı oluştur (upsert).
+    if password_used:
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+            if u:
+                await db.voice_room_grants.update_one(
+                    {"room_id": room.get("id"), "user_id": u.get("id")},
+                    {"$set": {"room_id": room.get("id"), "user_id": u.get("id"),
+                              "granted_at": now, "device_id": None}},
+                    upsert=True,
+                )
+            elif body.device_id:
+                await db.voice_room_grants.update_one(
+                    {"room_id": room.get("id"), "device_id": body.device_id, "user_id": None},
+                    {"$set": {"room_id": room.get("id"), "device_id": body.device_id,
+                              "user_id": None, "granted_at": now}},
+                    upsert=True,
+                )
+        except Exception as _grant_err:
+            logger.warning(f"[voice-grant] upsert failed: {_grant_err}")
     # v143.3 — Kapasite enforcement. LiveKit'ten mevcut katılımcı sayısını
     # oku; `max_capacity` doluysa admin dışındaki herkese 403 dön. LiveKit
     # sorgusu başarısız olursa (network/timeout) fail-open — bu aşamada
@@ -10020,6 +10202,12 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
         .with_name(display) \
         .with_metadata(meta_payload) \
         .with_grants(VideoGrants(room_join=True, room=room["name"], can_publish=True, can_subscribe=True))
+    # v143.4 — Odaya katılım/ayrılış sonrası 60sn sonra boşluk kontrolü:
+    # oda boşsa şifre rotate + grantlar temizlensin.
+    try:
+        asyncio.create_task(_delayed_reset(room["id"], 60))
+    except Exception:
+        pass
     return {"token": at.to_jwt(), "url": lk_url, "room": room["name"],
             "room_id": room["id"], "identity": identity,
             "invite_used": invite_ok}
