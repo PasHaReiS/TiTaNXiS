@@ -20,6 +20,18 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 11, 2026 (v143.2 — Ses Odası Erişim Kuralları + Kara Liste)** — Full-stack:
+  - **Şifre zorunlu**: `VoiceRoomCreate.password` yeniden `str` (opsiyonel değil). Backend `voice_room_create` → boş şifre → 400 "Şifre zorunludur"; kısa şifre (<4) → 400 "Şifre en az 4 karakter olmalı". Frontend create modal placeholder "Zorunlu — en az 4 karakter" + client-side validation.
+  - **Giriş mantığı** (mevcut, doğrulandı): `/voice/token` sırayla → admin bypass → davetli user_id bypass → aktif davet token bypass → aksi hâlde şifre zorunlu. Kullanıcı 2 yöntemden (şifre veya davet) birini seçebilir.
+  - **Admin bypass**: Sadece adminler şifre/davet olmaksızın direkt katılır (`is_admin` check line 9856).
+  - **Kara liste**: Kick endpoint zaten `banned_users` (obj) + `banned_user_ids` (id) alanlarına yazıyordu. `/voice/token` line 9859-9860'de banned kontrolü var → banned user 403.
+  - **Yeni endpoint'ler** (admin only):
+    - `GET /api/voice/rooms/{room_id}/blacklist` → banned_users listesi (legacy `banned_user_ids` de zenginleştirilir).
+    - `DELETE /api/voice/rooms/{room_id}/blacklist/{user_id}` → hem `banned_users` (obj match) hem `banned_user_ids` alanından çıkarır.
+  - **Frontend**: Settings dropdown'a "🚫 Kara Liste" (admin only) satırı; tıklayınca modal açılır: bannedları avatar + username + reason + kim atmış + ✕ (unban) butonu ile listeler.
+  - **E2E doğrulama**: (a) empty pw → 400, short pw → 400, valid → 200 ✓ (b) synthetic ban seed → GET blacklist döner ✓ (c) DELETE → GET boş döner ✓ (d) settings dropdown'da Kara Liste satırı görünür, modal açılıyor ✓.
+  - **`deployment_agent`: PASS ✅** — Republish için hazır.
+
 - **Feb 11, 2026 (v143.1 — Sayaç: Countdown → Count-Up)** — Frontend:
   - Kullanıcı isteği: geri sayım yerine artan sayaç.
   - `ActiveRoomUI` prop'ları güncellendi: `countdownEndsAt` → `timerEnabled` (bool) + `roomStartedAt` (iso).

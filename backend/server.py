@@ -9250,7 +9250,7 @@ except Exception:
 
 class VoiceRoomCreate(BaseModel):
     name: str
-    password: Optional[str] = None  # v143 — artık opsiyonel; boş bırakılırsa rastgele üretilir
+    password: str  # v143.2 — Yeniden zorunlu (en az 4 karakter)
     # v140.35 — Davetli üye ID listesi. Davetli olan üyeler şifre girmeden
     # doğrudan odaya katılabilir. Boş bırakılırsa oda "sadece şifre" modunda
     # kalır (mevcut davranış).
@@ -9269,10 +9269,13 @@ class VoiceRoomInviteUpdate(BaseModel):
 async def voice_room_create(body: VoiceRoomCreate, u: dict = Depends(require_admin)):
     if not (body.name or "").strip():
         raise HTTPException(400, "Oda adı boş olamaz")
-    # v143 — Şifre opsiyonel; boş verilirse 8 karakterlik rastgele üret.
+    # v143.2 — Şifre yeniden zorunlu. Kullanıcılar şifre + davet linki iki
+    # yönteminden biriyle giriyor (adminler bypass). Boş / kısa şifre yok.
     pw = (body.password or "").strip()
     if not pw:
-        pw = uuid.uuid4().hex[:8]
+        raise HTTPException(400, "Şifre zorunludur")
+    if len(pw) < 4:
+        raise HTTPException(400, "Şifre en az 4 karakter olmalı")
     invited = list({(x or "").strip() for x in (body.invited_user_ids or []) if (x or "").strip()})
     # v143 — Kapasite whitelist
     ALLOWED_CAPS = {5, 10, 15, 20, 30, 50}
@@ -9587,6 +9590,58 @@ async def voice_room_kick(room_id: str, body: VoiceKickBody,
         "reason": reason,
         "is_guest": identity.startswith("guest-"),
     }
+
+
+# v143.2 — Blacklist (banned users) yönetimi. Kick endpoint zaten kullanıcıyı
+# `banned_users` (obj array) + `banned_user_ids` alanlarına ekliyor; aşağıdaki
+# iki endpoint listeyi görüntüleme + kaldırma imkânı sağlar. Sadece admin.
+
+
+@api_router.get("/voice/rooms/{room_id}/blacklist")
+async def voice_room_blacklist_list(room_id: str, _: dict = Depends(require_admin)):
+    """v143.2 — Bir odanın kara listesini döner (ban_at, reason, banned_by dahil)."""
+    room = await db.voice_rooms.find_one(
+        {"id": room_id},
+        {"_id": 0, "id": 1, "name": 1, "banned_users": 1, "banned_user_ids": 1},
+    )
+    if not room:
+        raise HTTPException(404, "Oda bulunamadı")
+    entries = list(room.get("banned_users") or [])
+    # Eski kayıtlarda sadece `banned_user_ids` olabilir → bunları da nesne
+    # olarak zenginleştir (username lookup).
+    seen = {e.get("user_id") for e in entries if e.get("user_id")}
+    for uid in (room.get("banned_user_ids") or []):
+        if uid in seen:
+            continue
+        u = await db.users.find_one({"id": uid}, {"_id": 0, "username": 1})
+        entries.append({
+            "user_id": uid,
+            "username": (u or {}).get("username") or uid[:8],
+            "reason": None,
+            "banned_at": None,
+            "banned_by_username": None,
+        })
+    return {"room_id": room_id, "room_name": room.get("name"), "banned": entries}
+
+
+@api_router.delete("/voice/rooms/{room_id}/blacklist/{user_id}")
+async def voice_room_blacklist_remove(room_id: str, user_id: str,
+                                      _: dict = Depends(require_admin)):
+    """v143.2 — Bir kullanıcıyı odanın kara listesinden çıkarır. Kaldırıldıktan
+    sonra kullanıcı normal erişim kuralları çerçevesinde (şifre veya davet ile)
+    tekrar girebilir."""
+    r = await db.voice_rooms.update_one(
+        {"id": room_id},
+        {
+            "$pull": {
+                "banned_users": {"user_id": user_id},
+                "banned_user_ids": user_id,
+            }
+        },
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Oda bulunamadı")
+    return {"ok": True, "room_id": room_id, "user_id": user_id}
 
 
 @api_router.patch("/voice/rooms/{room_id}/password")

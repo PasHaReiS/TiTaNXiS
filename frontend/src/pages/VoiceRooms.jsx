@@ -480,10 +480,20 @@ function CreateRoomButton({ onCreated }) {
       toast.error(t("voice_room_name_required", "Oda adı zorunludur"));
       return;
     }
+    // v143.2 — Şifre zorunlu (min 4 karakter).
+    const pw = (password || "").trim();
+    if (!pw) {
+      toast.error(t("voice_room_password_required", "Şifre zorunludur"));
+      return;
+    }
+    if (pw.length < 4) {
+      toast.error(t("voice_room_password_short", "Şifre en az 4 karakter olmalı"));
+      return;
+    }
     try {
       await api.post("/voice/rooms", {
         name: name.trim(),
-        password: password.trim() || null,
+        password: pw,
         max_capacity: capacity,
         countdown_enabled: countdownEnabled,
       });
@@ -553,13 +563,13 @@ function CreateRoomButton({ onCreated }) {
             />
 
             <label className="block text-[10px] uppercase tracking-widest mb-1" style={{ color: "#C8860A" }}>
-              {t("voice_room_field_password_opt", "Şifre (Opsiyonel)")}
+              {t("voice_room_field_password", "Şifre")}
             </label>
             <div className="relative mb-4">
               <input
                 data-testid="voice-room-password-input"
                 type={showPwd ? "text" : "password"}
-                placeholder={t("voice_room_password_ph_opt", "Boş bırakılabilir")}
+                placeholder={t("voice_room_password_ph_req", "Zorunlu — en az 4 karakter")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-lg px-3 py-2 pr-10 text-sm text-white"
@@ -1000,6 +1010,37 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
     });
   }, [deafenAll, participants, localParticipant]);
 
+  // v143.2 — Kara liste (blacklist) yönetimi: admin görüntüler + kullanıcı silebilir.
+  const [blacklistOpen, setBlacklistOpen] = useState(false);
+  const [blacklistData, setBlacklistData] = useState([]);
+  const [blacklistBusy, setBlacklistBusy] = useState(false);
+  const fetchBlacklist = useCallback(async () => {
+    if (!isAdmin) return;
+    setBlacklistBusy(true);
+    try {
+      const r = await api.get(`/voice/rooms/${roomId}/blacklist`);
+      setBlacklistData(r.data?.banned || []);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally {
+      setBlacklistBusy(false);
+    }
+  }, [isAdmin, roomId]);
+  const openBlacklist = useCallback(() => {
+    setBlacklistOpen(true);
+    setSettingsOpen(false);
+    fetchBlacklist();
+  }, [fetchBlacklist]);
+  const removeFromBlacklist = useCallback(async (userId) => {
+    try {
+      await api.delete(`/voice/rooms/${roomId}/blacklist/${userId}`);
+      toast.success(t("voice_blacklist_removed", "Kara listeden çıkarıldı"));
+      fetchBlacklist();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    }
+  }, [roomId, fetchBlacklist, t]);
+
   // v141 — Aktif oda mount edildiğinde LegalFooter'ı gizle. Global legal footer
   // z-1500'da sabit ve bar ile çakışıyor; body class ile CSS üzerinden kapatıyoruz.
   useEffect(() => {
@@ -1228,6 +1269,15 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
                   style={{ background: "transparent", border: "none", color: "#E5E7EB", cursor: "pointer" }}
                 >
                   🔗 {t("voice_invite_link_copy", "Davet Linki Kopyala")}
+                </button>
+                <div style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }} />
+                <button
+                  data-testid="voice-settings-blacklist"
+                  onClick={openBlacklist}
+                  className="w-full flex items-center px-3 py-3 text-left text-xs font-bold"
+                  style={{ background: "transparent", border: "none", color: "#F87171", cursor: "pointer" }}
+                >
+                  🚫 {t("voice_blacklist_manage_btn", "Kara Liste")}
                 </button>
                 <div style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }} />
               </>
@@ -1788,6 +1838,141 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
           <LogOut size={14} /> {t("voice_leave", "Ayrıl")}
         </button>
       </div>
+
+      {/* v143.2 — Kara liste modalı (admin) */}
+      {blacklistOpen && (
+        <div
+          className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/85 p-4"
+          onClick={() => setBlacklistOpen(false)}
+        >
+          <div
+            data-testid="voice-blacklist-modal"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl overflow-hidden"
+            style={{
+              background: "rgba(18,18,26,0.96)",
+              border: "1px solid rgba(239,68,68,0.35)",
+              backdropFilter: "blur(14px)",
+              WebkitBackdropFilter: "blur(14px)",
+              boxShadow: "0 12px 40px rgba(0,0,0,0.75), 0 0 0 1px rgba(239,68,68,0.08) inset",
+              maxHeight: "80vh",
+            }}
+          >
+            <div
+              className="flex items-center justify-between px-4 py-3"
+              style={{ borderBottom: "1px solid rgba(239,68,68,0.30)" }}
+            >
+              <h3
+                className="text-sm font-black uppercase"
+                style={{
+                  color: "#F87171",
+                  letterSpacing: "0.12em",
+                  fontFamily: "'Rajdhani', system-ui, sans-serif",
+                }}
+              >
+                🚫 {t("voice_blacklist_title", "Kara Liste")}
+              </h3>
+              <button
+                onClick={() => setBlacklistOpen(false)}
+                className="w-6 h-6 rounded-full flex items-center justify-center"
+                style={{ background: "transparent", border: "none", color: "#94A3B8", cursor: "pointer" }}
+                aria-label={t("close", "Kapat")}
+                data-testid="voice-blacklist-close"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[11px] mb-3 leading-relaxed" style={{ color: "#94A3B8" }}>
+                {t(
+                  "voice_blacklist_hint",
+                  "Bu odadan atılanlar burada listelenir. Kara listedeki üye şifre veya davet ile bile odaya giremez. Silmek için ✕ butonuna bas."
+                )}
+              </p>
+              <div
+                className="overflow-y-auto rounded-lg"
+                style={{ background: "rgba(8,8,15,0.55)", border: "1px solid rgba(255,255,255,0.05)", maxHeight: "50vh" }}
+                data-testid="voice-blacklist-list"
+              >
+                {blacklistBusy ? (
+                  <div className="text-[11px] italic text-center py-4" style={{ color: "#64748B" }}>
+                    {t("loading", "Yükleniyor…")}
+                  </div>
+                ) : blacklistData.length === 0 ? (
+                  <div className="text-[11px] italic text-center py-6" style={{ color: "#64748B" }}>
+                    {t("voice_blacklist_empty", "Kara liste boş")}
+                  </div>
+                ) : (
+                  blacklistData.map((b) => (
+                    <div
+                      key={b.user_id}
+                      data-testid={`voice-blacklist-row-${b.user_id}`}
+                      className="flex items-center gap-3 px-3 py-2.5"
+                      style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                    >
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shrink-0"
+                        style={{
+                          background: "linear-gradient(135deg, #EF4444, #991B1B)",
+                          color: "#FFF",
+                        }}
+                      >
+                        {(b.username || "?").charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-bold text-white truncate">
+                          {b.username || b.user_id.slice(0, 8)}
+                        </div>
+                        <div className="text-[10px] truncate" style={{ color: "#94A3B8" }}>
+                          {b.reason
+                            ? `${b.reason}`
+                            : t("voice_blacklist_no_reason", "Sebep belirtilmedi")}
+                          {b.banned_by_username && (
+                            <span> · {t("voice_blacklist_by", "Atan")}: {b.banned_by_username}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => removeFromBlacklist(b.user_id)}
+                        data-testid={`voice-blacklist-remove-${b.user_id}`}
+                        className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                        style={{
+                          background: "rgba(34,197,94,0.15)",
+                          border: "1px solid #22C55E",
+                          color: "#22C55E",
+                          cursor: "pointer",
+                        }}
+                        title={t("voice_blacklist_remove_title", "Kara listeden çıkar")}
+                        aria-label={t("voice_blacklist_remove_title", "Kara listeden çıkar")}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => setBlacklistOpen(false)}
+              data-testid="voice-blacklist-done"
+              className="w-full py-3 text-xs font-black uppercase"
+              style={{
+                background: "rgba(239,68,68,0.10)",
+                borderTop: "1px solid rgba(239,68,68,0.30)",
+                border: "none",
+                borderTopWidth: 1,
+                borderTopStyle: "solid",
+                borderTopColor: "rgba(239,68,68,0.30)",
+                color: "#F87171",
+                cursor: "pointer",
+                letterSpacing: "0.12em",
+              }}
+            >
+              {t("close", "Kapat")}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* v141 — Kalıcı görünen ad düzenleme modalı */}
       {nameEditOpen && (
