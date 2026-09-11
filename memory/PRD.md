@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 11, 2026 (v143.6 — Oda Ayarları Kara Liste Girişi)** — Doğrulama:
+  - Kullanıcı isteği: Oda ayarlar paneline "Kara Liste >" satırı ekle.
+  - İnceleme sonucu: Özellik `VoiceRooms.jsx` içinde v143.2 sürümünde zaten uygulanmış.
+    - Ayarlar paneli satır 1284-1291: `🚫 Kara Liste` butonu (`data-testid="voice-settings-blacklist"`), admin-only.
+    - Modal (satır 1853-1963): kullanıcı adı, sebep, banlayan admin, ✕ ile silme.
+    - Backend: `GET/DELETE /api/voice/rooms/{room_id}/blacklist[/{user_id}]` (server.py 9759-9807).
+  - Sonuç: Yeni kod gerekmedi.
+
 - **Feb 11, 2026 (v143.5 — Telegram `/katilim` Komutu)** — Backend:
   - Yeni handler `katilim_command` (`telegram_bot.py`): 
     - Argsız → arşivlenmemiş aktif etkinliklerin listesi (isim + tarih + grup)
