@@ -155,7 +155,8 @@ export default function VoiceRooms() {
         <ActiveRoomUI
           roomId={active.roomDoc.id}
           roomName={active.roomDoc.name}
-          countdownEndsAt={active.roomDoc.countdown_ends_at}
+          timerEnabled={!!active.roomDoc.countdown_enabled}
+          roomStartedAt={active.roomDoc.created_at}
           isAdmin={isAdmin}
           onLeave={leave}
           onInvitedChange={() => refetch()}
@@ -614,7 +615,7 @@ function CreateRoomButton({ onCreated }) {
                     {t("voice_room_field_countdown", "Sayaç")}
                   </div>
                   <div className="text-[10px]" style={{ color: "#94A3B8" }}>
-                    {t("voice_room_field_countdown_hint", "1 saatlik geri sayım aktif olur")}
+                    {t("voice_room_field_countdown_hint_up", "Oda açılışından itibaren yukarı sayar")}
                   </div>
                 </div>
               </div>
@@ -661,7 +662,7 @@ function CreateRoomButton({ onCreated }) {
   );
 }
 
-export function ActiveRoomUI({ roomId, roomName, countdownEndsAt, isAdmin, onLeave, onInvitedChange }) {
+export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, isAdmin, onLeave, onInvitedChange }) {
   const { t } = useTranslation();
   const { user, refreshMe } = useAuth() || {};
   const participants = useParticipants();
@@ -959,30 +960,33 @@ export function ActiveRoomUI({ roomId, roomName, countdownEndsAt, isAdmin, onLea
     return () => { room.off(RoomEvent.ParticipantDisconnected, onLeave); };
   }, [room]);
 
-  // v143 — Ayarlar dropdown, grid sütun sayısı (2/3), deafen (tümünü sustur), countdown.
+  // v143 — Ayarlar dropdown, grid sütun sayısı (2/3), deafen (tümünü sustur), count-up sayaç.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [gridCols, setGridCols] = useState(2);
   const [deafenAll, setDeafenAll] = useState(false);
-  const [countdownLabel, setCountdownLabel] = useState("");
+  const [timerLabel, setTimerLabel] = useState("");
+  // v143.1 — Geri sayım yerine ARTAN sayaç. Oda açıldığı andan (roomStartedAt)
+  // itibaren geçen süreyi HH:MM:SS olarak gösterir. `timerEnabled` false ise
+  // sayaç görünmez. Fallback: roomStartedAt yoksa katılım anını başlangıç al.
+  const timerAnchorRef = useRef(null);
   useEffect(() => {
-    if (!countdownEndsAt) { setCountdownLabel(""); return undefined; }
+    if (!timerEnabled) { setTimerLabel(""); return undefined; }
+    const parsed = roomStartedAt ? new Date(roomStartedAt).getTime() : NaN;
+    const anchor = Number.isFinite(parsed) ? parsed : (timerAnchorRef.current ?? Date.now());
+    timerAnchorRef.current = anchor;
     const tick = () => {
-      const end = new Date(countdownEndsAt).getTime();
-      if (Number.isNaN(end)) { setCountdownLabel(""); return; }
-      const rem = Math.max(0, Math.floor((end - Date.now()) / 1000));
-      const h = Math.floor(rem / 3600);
-      const m = Math.floor((rem % 3600) / 60);
-      const s = rem % 60;
-      setCountdownLabel(
-        h > 0
-          ? `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
-          : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+      const elapsed = Math.max(0, Math.floor((Date.now() - anchor) / 1000));
+      const h = Math.floor(elapsed / 3600);
+      const m = Math.floor((elapsed % 3600) / 60);
+      const s = elapsed % 60;
+      setTimerLabel(
+        `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
       );
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [countdownEndsAt]);
+  }, [timerEnabled, roomStartedAt]);
   // v143 — Deafen all: uzak katılımcıların yerel sesini kıs/aç.
   useEffect(() => {
     if (!participants || participants.length === 0) return;
@@ -1118,7 +1122,7 @@ export function ActiveRoomUI({ roomId, roomName, countdownEndsAt, isAdmin, onLea
             </button>
           )}
         </div>
-        {countdownLabel && (
+        {timerLabel && (
           <span
             data-testid="voice-countdown"
             className="text-xs font-black tabular-nums shrink-0 px-2 py-1 rounded-md"
@@ -1130,7 +1134,7 @@ export function ActiveRoomUI({ roomId, roomName, countdownEndsAt, isAdmin, onLea
               letterSpacing: "0.05em",
             }}
           >
-            {countdownLabel}
+            {timerLabel}
           </span>
         )}
         <button

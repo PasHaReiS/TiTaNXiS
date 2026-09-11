@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 11, 2026 (v143.1 — Sayaç: Countdown → Count-Up)** — Frontend:
+  - Kullanıcı isteği: geri sayım yerine artan sayaç.
+  - `ActiveRoomUI` prop'ları güncellendi: `countdownEndsAt` → `timerEnabled` (bool) + `roomStartedAt` (iso).
+  - Yeni `useEffect`: `roomStartedAt`'tan (yoksa ilk tick anından) geçen süreyi her saniye HH:MM:SS formatında `setTimerLabel`'a yazar; `useRef` fallback anchor ile stabil.
+  - Yeni oda modalındaki "Sayaç" toggle açıklaması: "Oda açılışından itibaren yukarı sayar".
+  - Backend `countdown_enabled` alanı korunuyor (breaking change yok); `countdown_ends_at` artık kullanılmıyor ama silinmedi.
+  - Doğrulama: 00:00:08 → 00:00:10 (2sn arayla artıyor ✓). `deployment_agent`: PASS ✅
+
 - **Feb 11, 2026 (v143 — Voice Room UI Full Redesign: Obsidian + Gold)** — Full-stack:
   - **Backend** (`server.py` VoiceRoomCreate + `voice_room_create`):
     - Şifre artık opsiyonel (boş bırakılırsa 8-char random üretilir).
