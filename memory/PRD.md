@@ -20,6 +20,18 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 11, 2026 (v143.6 — /katilim Hizalı Tablo)** — Backend:
+  - `telegram_bot.py::katilim_command` güncellendi:
+    - Katılımcılar üye gücüne göre AZALAN sıralanır (`individual_power` → `bireysel_guc` → `power` fallback).
+    - Madalya emojisi kaldırıldı.
+    - Çıktı monospace kod bloğu (```...```) içinde hizalı tablo:
+      - Sıra: sağa hizalı, 4 kolon genişliği (numara için 3, "Sıra" başlığı sığsın).
+      - İsim: sola hizalı, 18 kolon (uzunsa `…` ile kes).
+      - Güç: sağa hizalı, TR nokta ayraçlı (`1.234.567.890`). Güç 0/yoksa `bilinmiyor`.
+    - Başlık: `📋 *{ev_name}* — {count} katılımcı` (bold, kod bloğu dışında).
+  - Test: `/tmp/test_katilim_format.py` — 3 senaryo (mixed / all-unknown / single), tüm assertion'lar geçti.
+  - Deployment: `deployment_agent` PASS ✅ — deploy edilmedi (kullanıcı isteği).
+
 - **Feb 11, 2026 (v143.6 — Oda Ayarları Kara Liste Girişi)** — Doğrulama:
   - Kullanıcı isteği: Oda ayarlar paneline "Kara Liste >" satırı ekle.
   - İnceleme sonucu: Özellik `VoiceRooms.jsx` içinde v143.2 sürümünde zaten uygulanmış.

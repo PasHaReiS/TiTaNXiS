@@ -1879,20 +1879,51 @@ async def katilim_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     members = await _db.members.find(
         {"id": {"$in": list(member_ids)}},
-        {"_id": 0, "id": 1, "name": 1},
+        {"_id": 0, "id": 1, "name": 1, "bireysel_guc": 1, "individual_power": 1, "power": 1},
     ).to_list(len(member_ids))
-    name_by_id = {m["id"]: m.get("name", "?") for m in members}
 
-    rows = [(name_by_id.get(mid, mid[:8]), pts_by_member.get(mid, 0)) for mid in member_ids]
+    def _power_of(m: dict) -> int:
+        for k in ("individual_power", "bireysel_guc", "power"):
+            v = m.get(k)
+            if v:
+                try:
+                    n = int(v)
+                    if n > 0:
+                        return n
+                except Exception:
+                    pass
+        return 0
+
+    info_by_id = {m["id"]: (m.get("name", "?"), _power_of(m)) for m in members}
+    rows = []
+    for mid in member_ids:
+        nm, pw = info_by_id.get(mid, (mid[:8], 0))
+        rows.append((nm, pw))
+    # v143.6 — güce göre azalan, sonra ada göre.
     rows.sort(key=lambda r: (-r[1], (r[0] or "").lower()))
 
-    lines = [f"📋 *{ev_name}* katılımcıları ({len(rows)} kişi):\n"]
-    for i, (nm, pts) in enumerate(rows, 1):
-        if pts > 0:
-            lines.append(f"{i}. {nm} — `{pts:,}`")
-        else:
-            lines.append(f"{i}. {nm}")
-    await reply_ml(update, "\n".join(lines))
+    def _fmt_power_tr(n: int) -> str:
+        if not n or n <= 0:
+            return "bilinmiyor"
+        return f"{n:,}".replace(",", ".")
+
+    def _trunc(s: str, w: int) -> str:
+        s = s or ""
+        return s if len(s) <= w else (s[: w - 1] + "…")
+
+    NAME_W = 18
+    pow_strs = [_fmt_power_tr(pw) for _, pw in rows]
+    POW_W = max([len("Güç")] + [len(x) for x in pow_strs]) if pow_strs else len("Güç")
+
+    header_line = f"{'Sıra':>4}  {'İsim':<{NAME_W}}  {'Güç':>{POW_W}}"
+    sep_line = "─" * max(len(header_line), 20)
+
+    body_lines = []
+    for i, (nm, pw) in enumerate(rows, 1):
+        body_lines.append(f"{i:>4}  {_trunc(nm, NAME_W):<{NAME_W}}  {_fmt_power_tr(pw):>{POW_W}}")
+
+    table = "```\n" + header_line + "\n" + sep_line + "\n" + "\n".join(body_lines) + "\n```"
+    await reply_ml(update, f"📋 *{ev_name}* — {len(rows)} katılımcı\n{table}")
 
 
 
