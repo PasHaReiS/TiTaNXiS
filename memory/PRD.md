@@ -20,6 +20,20 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 11, 2026 (v143.5 — Telegram `/katilim` Komutu)** — Backend:
+  - Yeni handler `katilim_command` (`telegram_bot.py`): 
+    - Argsız → arşivlenmemiş aktif etkinliklerin listesi (isim + tarih + grup)
+    - Argslı → `re.escape(q)` + IGNORECASE regex ile `events.name` kısmi eşleşme
+    - Çoklu eşleşme → hepsini listele, daha spesifik olması istenir
+    - Tek eşleşme → `event_attendance` (per-member + array desenleri) ∪ `points.aggregate` sum-per-member; üye adı + puan (puan>0 ise), puana göre azalan
+    - Katılım yoksa → "Bu etkinlikte henüz katılım kaydı yok"
+    - Etkinlik yoksa → "Etkinlik bulunamadı: `<arama>`"
+    - Arşivli etkinlikler her adımda hariç (`archived: {$ne: true}`)
+  - Alias: `/attendance`. NLP intent mapping'e eklendi. `setMyCommands` menüsüne "Etkinlik katılımcı listesi" olarak eklendi.
+  - `import re` modül seviyesinde eklendi.
+  - **E2E**: 3 test case doğrulandı — argsız → aktif etkinlikler listesi ✓; olmayan → 404 mesajı ✓; kısmi eşleşme "kskx" → *kskxj* katılımcıları (8 kişi, puan sıralı) ✓
+  - **`deployment_agent`: PASS ✅**
+
 - **Feb 11, 2026 (v143.4 — Erişim v2: Oturum Grantları + Genel Kara Liste + Kick Sonrası Otomatik Rotate)** — Full-stack:
   - **Session grant sistemi** (yeni `voice_room_grants` koleksiyonu): Şifre bir kez doğrulanınca `(room_id, user_id)` veya `(room_id, device_id)` upsert edilir; sonraki `/voice/token` çağrıları şifre sormaz. Grant, oda boşalınca veya kick sonrası rotate ile silinir.
   - **Guest device oturumu**: Frontend `sessionStorage.ol_voice_device` içinde UUID tutar; sekme/uygulama kapanınca sıfırlanır. `/voice/token` body'sinde `device_id` gönderilir.

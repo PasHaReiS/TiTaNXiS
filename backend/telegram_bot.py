@@ -17,6 +17,7 @@ cancels the scheduled reminder for that chat.
 from __future__ import annotations
 
 import os
+import re
 import asyncio
 import logging
 import contextvars
@@ -378,6 +379,8 @@ def init_bot(db) -> Optional[Application]:
     _app.add_handler(CommandHandler("yakinda", yakinda_command))
     _app.add_handler(CommandHandler("katil", katil_command))
     _app.add_handler(CommandHandler("katilmiyorum", katilmiyorum_command))
+    _app.add_handler(CommandHandler("katilim", katilim_command))
+    _app.add_handler(CommandHandler("attendance", katilim_command))
     _app.add_handler(CommandHandler("profil", profil_command))
     _app.add_handler(CommandHandler("rozet", rozet_command))
     _app.add_handler(CommandHandler("istatistik", istatistik_command))
@@ -474,6 +477,7 @@ async def setup_webhook() -> bool:
                 {"command": "arsiv",           "description": "Son arşivler"},
                 {"command": "katil",           "description": "Etkinliğe katıl"},
                 {"command": "katilmiyorum",    "description": "Katılmayacağını bildir"},
+                {"command": "katilim",         "description": "Etkinlik katılımcı listesi"},
                 {"command": "hatirlatici",     "description": "Etkinliğe hatırlatıcı kur"},
                 {"command": "profil",          "description": "Profil özeti"},
                 {"command": "rozet",           "description": "Rozetler"},
@@ -1789,6 +1793,110 @@ async def davet_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
     )
     await reply_ml(update, letter)
 
+# v143.5 — /katilim: aktif etkinlikleri regex ile bul + katılım kaydı olan
+# üyeleri sırala. Format: sıra + üye adı + toplam puan (varsa).
+async def katilim_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if _db is None:
+        await reply_ml(update, "⚠️ Veritabanı hazır değil.")
+        return
+    args = getattr(context, "args", None) or []
+
+    # Argsız → aktif etkinlikleri listele.
+    if not args:
+        cur = _db.events.find(
+            {"archived": {"$ne": True}},
+            {"_id": 0, "id": 1, "name": 1, "date": 1, "group_name": 1},
+        ).sort("date", -1).limit(30)
+        evs = await cur.to_list(30)
+        if not evs:
+            await reply_ml(update, "📅 Aktif etkinlik yok.")
+            return
+        lines = ["📋 *Aktif Etkinlikler* (katılım sorgusu için ad ver):\n"]
+        for e in evs:
+            d = (e.get("date") or "")[:10]
+            grp = e.get("group_name") or "-"
+            lines.append(f"• *{e.get('name','?')}* — `{d}` · {grp}")
+        lines.append("\n💡 Kullanım: `/katilim <etkinlik adı>` (kısmi eşleşme yeterli)")
+        await reply_ml(update, "\n".join(lines))
+        return
+
+    q_raw = " ".join(args).strip()
+    if not q_raw:
+        await reply_ml(update, f"Etkinlik bulunamadı: `{q_raw}`")
+        return
+    try:
+        pattern = re.compile(re.escape(q_raw), re.IGNORECASE)
+    except re.error:
+        await reply_ml(update, f"Etkinlik bulunamadı: `{q_raw}`")
+        return
+    matches = await _db.events.find(
+        {"archived": {"$ne": True}, "name": {"$regex": pattern}},
+        {"_id": 0, "id": 1, "name": 1, "date": 1, "group_name": 1},
+    ).sort("date", -1).limit(20).to_list(20)
+    if not matches:
+        await reply_ml(update, f"Etkinlik bulunamadı: `{q_raw}`")
+        return
+    if len(matches) > 1:
+        lines = [f"🔎 *{len(matches)} etkinlik eşleşti* — daha spesifik ol:\n"]
+        for e in matches:
+            d = (e.get("date") or "")[:10]
+            grp = e.get("group_name") or "-"
+            lines.append(f"• *{e.get('name','?')}* — `{d}` · {grp}")
+        await reply_ml(update, "\n".join(lines))
+        return
+
+    ev = matches[0]
+    ev_id = ev["id"]
+    ev_name = ev.get("name", "?")
+
+    # Katılımcılar: event_attendance (per-member + array patterns) + points'ten.
+    member_ids: set = set()
+    async for row in _db.event_attendance.find(
+        {"event_id": ev_id},
+        {"_id": 0, "member_id": 1, "member_ids": 1},
+    ):
+        mid = row.get("member_id")
+        if mid:
+            member_ids.add(mid)
+        for mid2 in (row.get("member_ids") or []):
+            if mid2:
+                member_ids.add(mid2)
+
+    pts_by_member: dict = {}
+    async for row in _db.points.aggregate([
+        {"$match": {"event_id": ev_id}},
+        {"$group": {"_id": "$member_id", "total": {"$sum": "$points"}}},
+    ]):
+        mid = row.get("_id")
+        if not mid:
+            continue
+        pts_by_member[mid] = int(row.get("total") or 0)
+        member_ids.add(mid)
+
+    if not member_ids:
+        await reply_ml(update, f"📋 *{ev_name}*\n\nBu etkinlikte henüz katılım kaydı yok.")
+        return
+
+    members = await _db.members.find(
+        {"id": {"$in": list(member_ids)}},
+        {"_id": 0, "id": 1, "name": 1},
+    ).to_list(len(member_ids))
+    name_by_id = {m["id"]: m.get("name", "?") for m in members}
+
+    rows = [(name_by_id.get(mid, mid[:8]), pts_by_member.get(mid, 0)) for mid in member_ids]
+    rows.sort(key=lambda r: (-r[1], (r[0] or "").lower()))
+
+    lines = [f"📋 *{ev_name}* katılımcıları ({len(rows)} kişi):\n"]
+    for i, (nm, pts) in enumerate(rows, 1):
+        if pts > 0:
+            lines.append(f"{i}. {nm} — `{pts:,}`")
+        else:
+            lines.append(f"{i}. {nm}")
+    await reply_ml(update, "\n".join(lines))
+
+
+
+
 
 async def hatirlatici_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = getattr(context, "args", None) or []
@@ -2293,6 +2401,7 @@ _NLP_COMMAND_TO_HANDLER = {
     "guc": "guc_command",
     "etkinlik": "etkinlik_command",
     "etkinlikler": "etkinlikler_command",
+    "katilim": "katilim_command",
     "mola": "mola_command",
     "bildirimler": "bildirimler_command",
     "dil": "dil_command",
