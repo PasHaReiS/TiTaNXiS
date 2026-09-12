@@ -1673,7 +1673,27 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
                     {displayName}
                   </div>
                   {isSpeaking ? (
-                    <Radio size={11} color="#FFD700" className="shrink-0 animate-pulse" />
+                    <span
+                      className="inline-flex items-end gap-[2px] shrink-0"
+                      style={{ height: 12, width: 14, marginLeft: 2 }}
+                      data-testid={`voice-eq-${p.identity}`}
+                      aria-hidden
+                    >
+                      {[0, 1, 2, 3].map((i) => (
+                        <span
+                          key={i}
+                          style={{
+                            display: "inline-block",
+                            width: 2,
+                            borderRadius: 1,
+                            background: "linear-gradient(180deg, #FFE066 0%, #FFD700 45%, #C8860A 100%)",
+                            boxShadow: "0 0 4px rgba(255,215,0,0.75), 0 0 8px rgba(255,180,0,0.35)",
+                            animation: `voiceEqBounce 0.85s ease-in-out ${i * 0.12}s infinite`,
+                            transformOrigin: "bottom",
+                          }}
+                        />
+                      ))}
+                    </span>
                   ) : isSilent ? (
                     <MicOff size={11} color="#666666" className="shrink-0" />
                   ) : null}

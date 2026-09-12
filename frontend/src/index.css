@@ -755,6 +755,17 @@ select:focus, textarea:focus {
 .border-gray-700 { border-color: rgba(231, 76, 26, 0.4) !important; }
 .border-gray-800 { border-color: rgba(231, 76, 26, 0.3) !important; }
 
+/* v143.7 — Ses odası equalizer animasyonu. Konuşan üye avatarının yanında 4
+   dikey çubuk; altın gradient, farklı gecikmelerle "dans eden" epik dalga. */
+@keyframes voiceEqBounce {
+  0%   { height: 3px; opacity: 0.55; }
+  20%  { height: 11px; opacity: 1; }
+  40%  { height: 5px; opacity: 0.75; }
+  60%  { height: 12px; opacity: 1; }
+  80%  { height: 4px; opacity: 0.65; }
+  100% { height: 3px; opacity: 0.55; }
+}
+
 @keyframes musicPulse {
   0%   { transform: scale(1);    box-shadow: 0 4px 12px rgba(231,76,26,0.5); }
   50%  { transform: scale(1.08); box-shadow: 0 6px 20px rgba(231,76,26,0.7); }

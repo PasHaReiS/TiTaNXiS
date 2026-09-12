@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 11, 2026 (v143.7 — Konuşan Üye Equalizer)** — Frontend:
+  - `VoiceRooms.jsx::renderRow`: `isSpeaking && <Radio />` yerine 4 dikey çubuklu equalizer bileşeni.
+  - Her çubuk: 2px genişlik, altın→amber gradient (`#FFE066 → #FFD700 → #C8860A`), altın glow shadow.
+  - `voiceEqBounce` keyframes (`index.css`): 0.85s ease-in-out infinite; çubukların yükseklik/opacity dansı 3px→12px arası.
+  - Stagger: her çubuk 0.12s gecikmeli başlar → doğal "dalgalanma" efekti.
+  - Sessiz üyelerde çubuklar görünmez (yalnız `isSpeaking === true` ise render).
+  - `data-testid="voice-eq-{identity}"` eklendi.
+
 - **Feb 11, 2026 (v143.7 — Guest Kick + Kara Liste)** — Backend + Frontend:
   - **KRİTİK BUG DÜZELTİLDİ**: Atılan ziyaretçiler yeni şifreyle geri girebiliyordu.
   - **Kick sırası düzeltildi**: (1) kara liste kaydı, (2) LiveKit remove_participant, (3) şifre rotate. Ban artık kick başarısız olsa bile kalır.
