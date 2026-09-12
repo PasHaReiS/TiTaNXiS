@@ -20,6 +20,20 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 11, 2026 (v143.8 — Ses Odası 3 Özellik)** — Backend + Frontend:
+  - **Task 1**: `_try_reset_if_empty` NO-OP oldu — oda boşaldığında ŞİFRE OTOMATİK DEĞİŞMEZ (kullanıcı isteği). `_delayed_reset` çağrıları hâlâ zamanlanıyor ama etkisiz.
+  - **Task 2**: Odaya girmeden şifre değiştirme UI — `RoomCard`'a 🔑 (KeyRound) ikonu eklendi (admin-only). Popup: input + Kaydet, `PATCH /api/voice/rooms/{id}/password` (mevcut endpoint kullanıldı). Enter/Esc kısayolları. Min 4 karakter.
+  - **Task 3**: Oda Kilitleme — `voice_rooms.locked: bool` alanı + `locked_at`. Yeni endpoint'ler:
+    - `POST /api/voice/rooms/{id}/lock`
+    - `POST /api/voice/rooms/{id}/unlock`
+    - `PATCH /api/voice/rooms/{id}/lock` body `{locked: bool}`
+    - `/voice/token`: `locked=True` ve admin değilse → 403 "Bu oda şu an kilitli"
+    - Admin bypass'ı var (kilidi açabilmek için).
+    - Kilit durumu `/voice/rooms` listesinde `locked` alanı olarak dönüyor.
+    - Frontend: RoomCard'da 🔒/LockOpen ikon toggle + "🔒 Kilitli" badge. Active room header'ında ayrıca 🔒 toggle (admin). Join'de kilit mesajı geldiğinde şifre prompt atlanır.
+  - **Test**: `/tmp/test_v143_8.py` (temizlendi) — 13 assertion (kod inceleme + API + cleanup) PASS ✅.
+  - **Deploy**: Preview canlı; production Republish kullanıcı tarafından yapılacak.
+
 - **Feb 11, 2026 (v143.7 — Konuşan Üye Equalizer)** — Frontend:
   - `VoiceRooms.jsx::renderRow`: `isSpeaking && <Radio />` yerine 4 dikey çubuklu equalizer bileşeni.
   - Her çubuk: 2px genişlik, altın→amber gradient (`#FFE066 → #FFD700 → #C8860A`), altın glow shadow.

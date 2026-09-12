@@ -9446,6 +9446,12 @@ class VoiceRoomPasswordUpdate(BaseModel):
     password: str
 
 
+class VoiceRoomLockUpdate(BaseModel):
+    """v143.8 — Oda kilit durumu. `locked=True` → yeni katılımcı giremez;
+    mevcut katılımcılar odada kalır."""
+    locked: bool
+
+
 # v140.42 — Public SEO URL list. Yeni public sayfa eklerken buraya bir satır
 # ekle → hem `/api/sitemap.xml` hem de container startup'ta üretilen static
 # `/sitemap.xml` otomatik güncellenir.
@@ -9758,33 +9764,10 @@ async def _rotate_room_password(room_id: str, room_name: str, cause: str) -> str
 
 
 async def _try_reset_if_empty(room_id: str) -> None:
-    """LiveKit'e sorup katılımcı sayısı 0 ise odayı sıfırla: şifre rotate,
-    grant temizle, aktif davetleri iptal. Guest oturumları da bu şekilde
-    (grant silme yoluyla) sıfırlanır."""
-    room = await db.voice_rooms.find_one({"id": room_id})
-    if not room:
-        return
-    lk_key = os.environ.get("LIVEKIT_API_KEY", "").strip()
-    lk_secret = os.environ.get("LIVEKIT_API_SECRET", "").strip()
-    lk_url = os.environ.get("LIVEKIT_URL", "").strip()
-    if not (lk_key and lk_secret and lk_url):
-        return
-    try:
-        http_url = lk_url.replace("wss://", "https://").replace("ws://", "http://")
-        from livekit.api import LiveKitAPI, ListParticipantsRequest
-        lkapi = LiveKitAPI(http_url, lk_key, lk_secret)
-        try:
-            pres = await lkapi.room.list_participants(ListParticipantsRequest(room=room["name"]))
-            count = len(getattr(pres, "participants", []) or [])
-        finally:
-            try:
-                await lkapi.aclose()
-            except Exception:
-                pass
-        if count == 0:
-            await _rotate_room_password(room_id, room["name"], "oda boşaldı")
-    except Exception as e:
-        logger.warning(f"[voice-empty-reset] {e}")
+    """v143.8 — Empty-triggered password rotate KALDIRILDI. Oda boşalınca şifre
+    olduğu gibi kalır (kullanıcı isteği). Fonksiyon güvenlik için no-op olarak
+    tutuldu — çağıran kodları kırmamak amaçlı."""
+    return
 
 
 async def _delayed_reset(room_id: str, delay_seconds: int = 45) -> None:
@@ -9933,6 +9916,46 @@ async def voice_room_update_password(room_id: str, body: VoiceRoomPasswordUpdate
     if r.matched_count == 0:
         raise HTTPException(404, "Oda bulunamadı")
     return {"ok": True}
+
+
+# v143.8 — Oda kilitleme (yeni katılımcı engelleme). Mevcut katılımcılar odada
+# kalır; sadece `/voice/token` çağrıları 403 döner. Admin bypass'ı VARDIR
+# (kilidi açmak için odaya girmesi gerekebilir).
+
+
+@api_router.patch("/voice/rooms/{room_id}/lock")
+async def voice_room_set_lock(room_id: str, body: VoiceRoomLockUpdate,
+                              _: dict = Depends(require_admin)):
+    r = await db.voice_rooms.update_one(
+        {"id": room_id},
+        {"$set": {"locked": bool(body.locked),
+                  "locked_at": datetime.now(timezone.utc).isoformat() if body.locked else None}},
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Oda bulunamadı")
+    return {"ok": True, "locked": bool(body.locked)}
+
+
+@api_router.post("/voice/rooms/{room_id}/lock")
+async def voice_room_lock(room_id: str, _: dict = Depends(require_admin)):
+    r = await db.voice_rooms.update_one(
+        {"id": room_id},
+        {"$set": {"locked": True, "locked_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Oda bulunamadı")
+    return {"ok": True, "locked": True}
+
+
+@api_router.post("/voice/rooms/{room_id}/unlock")
+async def voice_room_unlock(room_id: str, _: dict = Depends(require_admin)):
+    r = await db.voice_rooms.update_one(
+        {"id": room_id},
+        {"$set": {"locked": False, "locked_at": None}},
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, "Oda bulunamadı")
+    return {"ok": True, "locked": False}
 
 
 @api_router.get("/voice/rooms/{room_id}/bans")
@@ -10198,6 +10221,9 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
         )
         if gdbl:
             raise HTTPException(403, "Genel kara listede olduğunuz için hiçbir odaya giremezsiniz")
+    # v143.8 — Kilit kontrolü. Admin bypass edebilir (kilidi açması gerekebilir).
+    if bool(room.get("locked")) and not is_admin:
+        raise HTTPException(403, "Bu oda şu an kilitli")
     is_invited = bool(u) and u.get("id") in invited_ids
     # v143.4 — Oturum bazlı grant kontrolü. Şifre bir kez doğru girildiyse,
     # aynı oturumda aynı odaya tekrar şifre sorulmaz.

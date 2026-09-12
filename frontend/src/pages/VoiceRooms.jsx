@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Mic, MicOff, LogOut, Users, Plus, Lock, Globe, Trash2, Eye, EyeOff, Copy, Check, Pencil, Settings, X, Radio, Volume2, VolumeX, Grid2X2, Grid3X3, Timer } from "lucide-react";
+import { Mic, MicOff, LogOut, Users, Plus, Lock, LockOpen, KeyRound, Globe, Trash2, Eye, EyeOff, Copy, Check, Pencil, Settings, X, Radio, Volume2, VolumeX, Grid2X2, Grid3X3, Timer } from "lucide-react";
 import {
   LiveKitRoom,
   RoomAudioRenderer,
@@ -135,6 +135,11 @@ export default function VoiceRooms() {
       setActive({ ...res.data, roomDoc: room });
     } catch (e) {
       const detail = e?.response?.data?.detail;
+      // v143.8 — Kilitli oda: şifre girmesin, doğrudan hata göster.
+      if (e?.response?.status === 403 && typeof detail === "string" && detail.toLowerCase().includes("kilit")) {
+        toast.error(detail);
+        return;
+      }
       if (e?.response?.status === 403 && !password) {
         const retry = window.prompt(t("voice_room_password_prompt", "Oda şifresini gir:"));
         if (retry === null) return;
@@ -212,6 +217,50 @@ function RoomCard({ room, onJoin, isAdmin, onDeleted }) {
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
+  // v143.8 — Odaya girmeden şifre değiştirme popup'ı.
+  const [pwdEditOpen, setPwdEditOpen] = useState(false);
+  const [newPwdInput, setNewPwdInput] = useState("");
+  const [pwdSaving, setPwdSaving] = useState(false);
+  // v143.8 — Oda kilit durumu (locked bool, optimistic UI).
+  const [locked, setLocked] = useState(!!room.locked);
+  const [lockBusy, setLockBusy] = useState(false);
+  useEffect(() => { setLocked(!!room.locked); }, [room.locked]);
+
+  const savePwd = async () => {
+    const pw = (newPwdInput || "").trim();
+    if (pw.length < 4) {
+      toast.error(t("voice_pwd_min", "Şifre en az 4 karakter olmalı"));
+      return;
+    }
+    setPwdSaving(true);
+    try {
+      await api.patch(`/voice/rooms/${room.id}/password`, { password: pw });
+      setPwd(pw);
+      setPwdEditOpen(false);
+      setNewPwdInput("");
+      toast.success(t("voice_pwd_updated", "Oda şifresi güncellendi"));
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally {
+      setPwdSaving(false);
+    }
+  };
+
+  const toggleLock = async () => {
+    setLockBusy(true);
+    const next = !locked;
+    try {
+      await api.post(`/voice/rooms/${room.id}/${next ? "lock" : "unlock"}`);
+      setLocked(next);
+      toast.success(next
+        ? t("voice_room_locked_toast", "Oda kilitlendi (yeni katılımcı giremez)")
+        : t("voice_room_unlocked_toast", "Oda kilidi açıldı"));
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally {
+      setLockBusy(false);
+    }
+  };
 
   const fetchPwd = useCallback(async () => {
     if (pwd !== null) return pwd;
@@ -267,14 +316,109 @@ function RoomCard({ room, onJoin, isAdmin, onDeleted }) {
         <div className="flex items-center gap-2 min-w-0">
           <Lock size={14} color="#F5A623" />
           <span className="font-bold text-sm truncate" style={{ color: "#F5F0E8", fontFamily: "Cinzel, serif" }}>{room.name}</span>
+          {locked && (
+            <span
+              data-testid={`voice-room-locked-badge-${room.id}`}
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black uppercase shrink-0"
+              style={{
+                background: "rgba(239,68,68,0.18)",
+                border: "1px solid rgba(239,68,68,0.55)",
+                color: "#F87171",
+                letterSpacing: "0.08em",
+              }}
+              title={t("voice_room_locked_hint", "Bu oda kilitli — yeni katılımcı giremez")}
+            >
+              🔒 {t("voice_room_locked_label", "Kilitli")}
+            </span>
+          )}
         </div>
-        {/* v140.8 — Sistem odaları dahil TÜM odalar admin tarafından silinebilir. */}
-        {isAdmin && (
-          <button data-testid={`voice-room-delete-${room.id}`} onClick={doDelete} className="opacity-60 hover:opacity-100" title={t("voice_room_delete", "Odayı sil")}>
-            <Trash2 size={14} color="#EF4444" />
-          </button>
-        )}
+        <div className="flex items-center gap-1 shrink-0">
+          {isAdmin && (
+            <>
+              <button
+                data-testid={`voice-room-pwd-edit-${room.id}`}
+                onClick={() => setPwdEditOpen((v) => !v)}
+                className="opacity-70 hover:opacity-100"
+                title={t("voice_room_pwd_edit_title", "Şifreyi değiştir")}
+                aria-label={t("voice_room_pwd_edit_title", "Şifreyi değiştir")}
+                style={{ background: "transparent", border: "none", cursor: "pointer" }}
+              >
+                <KeyRound size={14} color="#F5A623" />
+              </button>
+              <button
+                data-testid={`voice-room-lock-toggle-${room.id}`}
+                onClick={toggleLock}
+                disabled={lockBusy}
+                className="opacity-70 hover:opacity-100"
+                title={locked
+                  ? t("voice_room_unlock_title", "Kilidi aç")
+                  : t("voice_room_lock_title", "Odayı kilitle")}
+                aria-label={locked
+                  ? t("voice_room_unlock_title", "Kilidi aç")
+                  : t("voice_room_lock_title", "Odayı kilitle")}
+                style={{ background: "transparent", border: "none", cursor: "pointer", opacity: lockBusy ? 0.4 : 0.7 }}
+              >
+                {locked
+                  ? <Lock size={14} color="#F87171" />
+                  : <LockOpen size={14} color="#94A3B8" />}
+              </button>
+              <button data-testid={`voice-room-delete-${room.id}`} onClick={doDelete} className="opacity-60 hover:opacity-100" title={t("voice_room_delete", "Odayı sil")} style={{ background: "transparent", border: "none", cursor: "pointer" }}>
+                <Trash2 size={14} color="#EF4444" />
+              </button>
+            </>
+          )}
+        </div>
       </div>
+      {/* v143.8 — Şifre değiştir popup */}
+      {isAdmin && pwdEditOpen && (
+        <div
+          data-testid={`voice-room-pwd-edit-panel-${room.id}`}
+          className="rounded-lg px-2 py-2 flex items-center gap-2"
+          style={{
+            background: "rgba(245,166,35,0.08)",
+            border: "1px solid rgba(245,166,35,0.45)",
+          }}
+        >
+          <input
+            data-testid={`voice-room-pwd-edit-input-${room.id}`}
+            type="text"
+            autoFocus
+            value={newPwdInput}
+            onChange={(e) => setNewPwdInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") savePwd(); if (e.key === "Escape") { setPwdEditOpen(false); setNewPwdInput(""); } }}
+            placeholder={t("voice_room_pwd_new_placeholder", "Yeni şifre (min. 4 karakter)")}
+            className="flex-1 text-xs px-2 py-1 rounded"
+            style={{
+              background: "rgba(0,0,0,0.55)",
+              border: "1px solid rgba(245,166,35,0.35)",
+              color: "#F5F0E8",
+              fontFamily: "ui-monospace, monospace",
+            }}
+          />
+          <button
+            data-testid={`voice-room-pwd-edit-save-${room.id}`}
+            onClick={savePwd}
+            disabled={pwdSaving}
+            className="text-[10px] font-black uppercase px-2 py-1 rounded"
+            style={{
+              background: "linear-gradient(135deg,#F5A623,#D4730A)",
+              color: "#0B0704", border: "none", cursor: "pointer",
+              letterSpacing: "0.06em", opacity: pwdSaving ? 0.5 : 1,
+            }}
+          >
+            {pwdSaving ? t("saving", "Kaydediliyor…") : t("save", "Kaydet")}
+          </button>
+          <button
+            data-testid={`voice-room-pwd-edit-cancel-${room.id}`}
+            onClick={() => { setPwdEditOpen(false); setNewPwdInput(""); }}
+            className="text-[10px] px-1 py-1 rounded"
+            style={{ background: "transparent", border: "none", color: "#94A3B8", cursor: "pointer" }}
+            aria-label={t("cancel", "İptal")}
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
       <div className="text-[10px] uppercase tracking-wider" style={{ color: "#94A3B8" }}>
         {t("voice_room_password_badge", "🔒 Şifreli")}
         {isAdmin && <span className="ml-2" style={{ color: "#F5A623" }}>{t("voice_room_admin_bypass", "· 👑 Admin (şifresiz)")}</span>}
@@ -770,6 +914,35 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
   const [newPwd, setNewPwd] = useState("");
   const [pwdBusy, setPwdBusy] = useState(false);
 
+  // v143.8 — Aktif oda içinden kilit/kilit-aç butonu için oda durumu.
+  const { data: roomMeta, mutate: refetchRoomMeta } = useSWR(
+    isAdmin && roomId ? `/voice/rooms/${roomId}` : null,
+    fetcher,
+    { refreshInterval: 30000 },
+  );
+  const [roomLocked, setRoomLocked] = useState(false);
+  const [roomLockBusy, setRoomLockBusy] = useState(false);
+  useEffect(() => {
+    if (roomMeta && typeof roomMeta.locked !== "undefined") setRoomLocked(!!roomMeta.locked);
+  }, [roomMeta]);
+  const toggleRoomLock = async () => {
+    if (roomLockBusy) return;
+    setRoomLockBusy(true);
+    const next = !roomLocked;
+    try {
+      await api.post(`/voice/rooms/${roomId}/${next ? "lock" : "unlock"}`);
+      setRoomLocked(next);
+      refetchRoomMeta();
+      toast.success(next
+        ? t("voice_room_locked_toast", "Oda kilitlendi (yeni katılımcı giremez)")
+        : t("voice_room_unlocked_toast", "Oda kilidi açıldı"));
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally {
+      setRoomLockBusy(false);
+    }
+  };
+
   const toggleInvitedUser = async (uid) => {
     const next = invitedIds.includes(uid)
       ? invitedIds.filter((x) => x !== uid)
@@ -1218,6 +1391,29 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
         >
           <Settings size={16} />
         </button>
+        {isAdmin && (
+          <button
+            data-testid="voice-room-lock-active-toggle"
+            onClick={toggleRoomLock}
+            disabled={roomLockBusy}
+            className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-colors ml-1"
+            style={{
+              background: roomLocked ? "rgba(239,68,68,0.20)" : "rgba(148,163,184,0.10)",
+              border: `1px solid ${roomLocked ? "rgba(239,68,68,0.55)" : "rgba(148,163,184,0.35)"}`,
+              color: roomLocked ? "#F87171" : "#94A3B8",
+              cursor: roomLockBusy ? "wait" : "pointer",
+              opacity: roomLockBusy ? 0.55 : 1,
+            }}
+            aria-label={roomLocked
+              ? t("voice_room_unlock_title", "Kilidi aç")
+              : t("voice_room_lock_title", "Odayı kilitle")}
+            title={roomLocked
+              ? t("voice_room_unlock_title", "Kilidi aç")
+              : t("voice_room_lock_title", "Odayı kilitle")}
+          >
+            {roomLocked ? <Lock size={16} /> : <LockOpen size={16} />}
+          </button>
+        )}
 
         {/* v143 — Ayarlar dropdown paneli */}
         {settingsOpen && (
