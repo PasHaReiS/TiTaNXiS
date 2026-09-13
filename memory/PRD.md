@@ -20,6 +20,14 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 11, 2026 (v143.11 — Ses Kalitesi + Arka Plan)** — Frontend:
+  - **Task 1 — Yüksek Kalite**: `LiveKitRoom.options.publishDefaults` = `AudioPresets.music` + `audioMaxBitrate: 128000` (128 kbps) + `dtx: false` + `red: true`. `audioCaptureDefaults.sampleRate: 48000` + `channelCount: 1`.
+  - **Task 2 — Gürültü Engelleme**: `audioCaptureDefaults.noiseSuppression: true`.
+  - **Task 3 — Eko Engelleme**: `audioCaptureDefaults.echoCancellation: true` + `autoGainControl: true` (bonus).
+  - **Task 4 — Arka Plan**: `BackgroundAudioKeeper` component — `visibilitychange`, `focus`, `pageshow` event'lerinde `room.startAudio()` + `audio.play()` fallback. `manifest.json`'a `permissions: ["microphone", "background-audio"]` eklendi.
+  - **Test**: `/tmp/test_v143_11.js` (temizlendi) — 16 config assertion PASS ✅ (audio bitrate/preset/sampleRate/dtx, noise/echo suppression, background events, manifest permissions).
+  - **deployment_agent**: PASS ✅. Frontend `webpack compiled` (1 mevcut warning).
+
 - **Feb 11, 2026 (v143.10 — Cascade Unban Fix)** — Backend:
   - **KRİTİK BUG DÜZELTİLDİ**: Kara listeden silinen kullanıcı hâlâ odaya giremiyordu. Kök sebep: DELETE endpoint sadece ROOM-level ban kaydını siliyor, kick sırasında otomatik oluşan GLOBAL kara liste kaydı kalıyordu; `/voice/token` global kontrolde 403 dönmeye devam ediyordu.
   - **Server tarafında token/ban cache YOK** doğrulandı (sadece DeepL translation cache mevcut; ban okumaları her seferinde Mongo'dan taze okunuyor).

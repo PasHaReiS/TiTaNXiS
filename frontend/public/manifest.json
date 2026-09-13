@@ -11,6 +11,7 @@
   "background_color": "#0B0704",
   "lang": "tr",
   "categories": ["games", "productivity", "utilities"],
+  "permissions": ["microphone", "background-audio"],
   "icons": [
     {
       "src": "favicon.ico",

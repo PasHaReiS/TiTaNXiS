@@ -15,7 +15,7 @@ import {
   useSpeakingParticipants,
   StartAudio,
 } from "@livekit/components-react";
-import { Track, RoomEvent, ConnectionState } from "livekit-client";
+import { Track, RoomEvent, ConnectionState, AudioPresets } from "livekit-client";
 import "@livekit/components-styles";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -166,6 +166,23 @@ export default function VoiceRooms() {
   }, [active, t]);
 
   if (active) {
+    // v143.11 — Yüksek kalite ses + noise/echo suppression + background audio.
+    const lkRoomOptions = {
+      audioCaptureDefaults: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 48000,
+        channelCount: 1,
+      },
+      publishDefaults: {
+        audioPreset: AudioPresets.music,   // 48kHz + 20kbps→48kbps stereo; we override maxBitrate below
+        dtx: false,
+        red: true,
+        forceStereo: false,
+        audioMaxBitrate: 128000,           // 128 kbps
+      },
+    };
     return (
       <LiveKitRoom
         data-lk-theme="default"
@@ -174,6 +191,7 @@ export default function VoiceRooms() {
         connect
         audio
         video={false}
+        options={lkRoomOptions}
         onDisconnected={handleDisconnect}
         style={{ minHeight: "calc(100vh - 120px)" }}
       >
@@ -188,6 +206,7 @@ export default function VoiceRooms() {
         />
         <RoomAudioRenderer />
         <StartAudio label={t("voice_start_audio", "🔊 Sesi Başlat")} />
+        <BackgroundAudioKeeper />
       </LiveKitRoom>
     );
   }
@@ -218,6 +237,44 @@ export default function VoiceRooms() {
       </div>
     </div>
   );
+}
+
+function BackgroundAudioKeeper() {
+  // v143.11 — iOS/Android arka plana geçince Web Audio context'i suspend
+  // olabiliyor ve LiveKit playback duruyor. visibilitychange event'inde
+  // context.resume() ile audio pipeline'ı canlı tutar.
+  const room = useRoomContext();
+  useEffect(() => {
+    let cancelled = false;
+    const resumeAudio = async () => {
+      try {
+        if (room && typeof room.startAudio === "function") {
+          await room.startAudio();
+        }
+      } catch { /* startAudio only works after user gesture; safe */ }
+      try {
+        document.querySelectorAll("audio").forEach((el) => {
+          if (el && el.paused && !cancelled) {
+            const p = el.play(); if (p && p.catch) p.catch(() => {});
+          }
+        });
+      } catch { /* ignore */ }
+    };
+    const onVis = () => { if (document.visibilityState === "visible") resumeAudio(); };
+    const onFocus = () => resumeAudio();
+    const onResume = () => resumeAudio();
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("pageshow", onResume);
+    resumeAudio();
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("pageshow", onResume);
+    };
+  }, [room]);
+  return null;
 }
 
 function TempMuteMenu({ identity, roomId, t }) {
