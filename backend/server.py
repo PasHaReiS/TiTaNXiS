@@ -9795,8 +9795,26 @@ async def voice_global_blacklist_list(_: dict = Depends(require_admin)):
 
 @api_router.delete("/voice/global-blacklist/{user_id}")
 async def voice_global_blacklist_remove(user_id: str, _: dict = Depends(require_admin)):
+    """v143.10 — CASCADE UNBAN: Genel kara listeden silmek, TÜM odaların
+    `banned_users`/`banned_user_ids` alanlarından da bu kullanıcıyı çıkarır.
+    Bu sayede admin tek noktadan tam engel kaldırma yapabilir."""
+    import time as _time
+    _t0 = _time.time()
     r = await db.voice_global_blacklist.delete_one({"user_id": user_id})
-    return {"ok": True, "removed": r.deleted_count}
+    # Cascade: tüm odalardan da temizle.
+    room_r = await db.voice_rooms.update_many(
+        {"$or": [
+            {"banned_users.user_id": user_id},
+            {"banned_user_ids": user_id},
+        ]},
+        {"$pull": {
+            "banned_users": {"user_id": user_id},
+            "banned_user_ids": user_id,
+        }},
+    )
+    return {"ok": True, "removed": r.deleted_count,
+            "rooms_updated": room_r.modified_count,
+            "elapsed_ms": int((_time.time() - _t0) * 1000)}
 
 
 # v143.7 — Genel cihaz (guest) kara listesi yönetimi.
@@ -9810,14 +9828,33 @@ async def voice_global_device_blacklist_list(_: dict = Depends(require_admin)):
 
 @api_router.delete("/voice/global-device-blacklist/{device_id}")
 async def voice_global_device_blacklist_remove(device_id: str, _: dict = Depends(require_admin)):
+    """v143.10 — CASCADE UNBAN: Genel cihaz kara listesinden silmek TÜM odaların
+    `banned_devices`/`banned_device_ids` alanlarından da bu cihazı çıkarır."""
+    import time as _time
+    _t0 = _time.time()
     r = await db.voice_global_device_blacklist.delete_one({"device_id": device_id})
-    return {"ok": True, "removed": r.deleted_count}
+    room_r = await db.voice_rooms.update_many(
+        {"$or": [
+            {"banned_devices.device_id": device_id},
+            {"banned_device_ids": device_id},
+        ]},
+        {"$pull": {
+            "banned_devices": {"device_id": device_id},
+            "banned_device_ids": device_id,
+        }},
+    )
+    return {"ok": True, "removed": r.deleted_count,
+            "rooms_updated": room_r.modified_count,
+            "elapsed_ms": int((_time.time() - _t0) * 1000)}
 
 
 @api_router.delete("/voice/rooms/{room_id}/blacklist-device/{device_id}")
 async def voice_room_device_blacklist_remove(room_id: str, device_id: str,
                                              _: dict = Depends(require_admin)):
-    """v143.7 — Bir guest device_id'sini odanın kara listesinden çıkarır."""
+    """v143.7 — Bir guest device_id'sini odanın kara listesinden çıkarır.
+    v143.10 — CASCADE UNBAN: Genel cihaz kara listesinden de otomatik siler."""
+    import time as _time
+    _t0 = _time.time()
     r = await db.voice_rooms.update_one(
         {"id": room_id},
         {
@@ -9829,7 +9866,15 @@ async def voice_room_device_blacklist_remove(room_id: str, device_id: str,
     )
     if not r.matched_count:
         raise HTTPException(404, "Oda bulunamadı")
-    return {"ok": True, "device_id": device_id}
+    global_removed = 0
+    try:
+        gr = await db.voice_global_device_blacklist.delete_one({"device_id": device_id})
+        global_removed = gr.deleted_count
+    except Exception as _e:
+        logger.warning(f"[voice-blacklist-unban-dev] global remove failed: {_e}")
+    return {"ok": True, "device_id": device_id,
+            "global_removed": global_removed,
+            "elapsed_ms": int((_time.time() - _t0) * 1000)}
 
 
 # v143.2 — Blacklist (banned users) yönetimi. Kick endpoint zaten kullanıcıyı
@@ -9885,7 +9930,14 @@ async def voice_room_blacklist_remove(room_id: str, user_id: str,
                                       _: dict = Depends(require_admin)):
     """v143.2 — Bir kullanıcıyı odanın kara listesinden çıkarır. Kaldırıldıktan
     sonra kullanıcı normal erişim kuralları çerçevesinde (şifre veya davet ile)
-    tekrar girebilir."""
+    tekrar girebilir.
+
+    v143.10 — CASCADE UNBAN: Kick sırasında hem oda hem GENEL kara listeye
+    eklendiği için, DELETE de her ikisinden birden temizler. Ayrıca eski
+    lazy-rejection kayıtları da silinir. Kullanıcı 200ms içinde tekrar
+    girebilir hale gelmelidir."""
+    import time as _time
+    _t0 = _time.time()
     r = await db.voice_rooms.update_one(
         {"id": room_id},
         {
@@ -9897,7 +9949,21 @@ async def voice_room_blacklist_remove(room_id: str, user_id: str,
     )
     if r.matched_count == 0:
         raise HTTPException(404, "Oda bulunamadı")
-    return {"ok": True, "room_id": room_id, "user_id": user_id}
+    # Genel kara listeden de kaldır (kick auto-add ile gelmiş olabilir).
+    global_removed = 0
+    try:
+        gr = await db.voice_global_blacklist.delete_one({"user_id": user_id})
+        global_removed = gr.deleted_count
+    except Exception as _e:
+        logger.warning(f"[voice-blacklist-unban] global remove failed: {_e}")
+    # Eski lazy-rejection kayıtlarını da temizle (bu odayla eşleşenler).
+    try:
+        await db.voice_lazy_rejections.delete_many({"room_id": room_id})
+    except Exception:
+        pass
+    return {"ok": True, "room_id": room_id, "user_id": user_id,
+            "global_removed": global_removed,
+            "elapsed_ms": int((_time.time() - _t0) * 1000)}
 
 
 @api_router.patch("/voice/rooms/{room_id}/password")

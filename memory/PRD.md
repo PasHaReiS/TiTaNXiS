@@ -20,6 +20,17 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 11, 2026 (v143.10 — Cascade Unban Fix)** — Backend:
+  - **KRİTİK BUG DÜZELTİLDİ**: Kara listeden silinen kullanıcı hâlâ odaya giremiyordu. Kök sebep: DELETE endpoint sadece ROOM-level ban kaydını siliyor, kick sırasında otomatik oluşan GLOBAL kara liste kaydı kalıyordu; `/voice/token` global kontrolde 403 dönmeye devam ediyordu.
+  - **Server tarafında token/ban cache YOK** doğrulandı (sadece DeepL translation cache mevcut; ban okumaları her seferinde Mongo'dan taze okunuyor).
+  - **Cascade unban** (simetrik silme):
+    - `DELETE /voice/rooms/{id}/blacklist/{user_id}` → global user kara listeden de siler + eski `voice_lazy_rejections` temizler
+    - `DELETE /voice/global-blacklist/{user_id}` → tüm odaların `banned_users`/`banned_user_ids` alanlarından da çıkarır
+    - `DELETE /voice/rooms/{id}/blacklist-device/{did}` → global device kara listeden de siler
+    - `DELETE /voice/global-device-blacklist/{did}` → tüm odaların `banned_devices`/`banned_device_ids` alanlarından da çıkarır
+  - Yanıtlarda `global_removed`, `rooms_updated`, `elapsed_ms` alanları döner (izlenebilirlik).
+  - **Test**: `/tmp/test_v143_10.py` (temizlendi) — 12 assertion PASS ✅. DB işlemleri 5ms; end-to-end (banla → engelle → un-banla → gir) 733ms.
+
 - **Feb 11, 2026 (v143.9 — Lazy Validation + Local Mute + Temp Mute)** — Backend + Frontend:
   - **Task 1 — Lazy Validation**: `VoiceTokenBody.lazy` bool eklendi. `lazy=True` iken password/invite doğrulaması ARKA PLANDA yapılır (`_bg_verify_lazy_credentials`). Yanlış ise 400ms sonra LiveKit `remove_participant` çağrılır ve `voice_lazy_rejections` koleksiyonuna kayıt düşer. Frontend `join()` `lazy: true` gönderir; `connectStartedAt` state'i tutulur ve `onDisconnected` 3sn içinde tetiklenirse "Geçersiz şifre veya davet kodu" toast'ı çıkar. Legacy `lazy=false` akışı korundu (403 hâlâ anında döner).
   - **Task 2 — Bireysel Local Mute**: `!isAdmin` kısıtlaması kaldırıldı; artık admin dahil herkes başkasının sesini kendi cihazında kısabilir (`RemoteParticipant.setVolume(0)`). Avatar üzerinde küçük 🔇 rozeti (sadece kısan kişinin ekranında görünür) + hover ipucu. Local-only, kimse diğer katılımcıları etkilemez.
