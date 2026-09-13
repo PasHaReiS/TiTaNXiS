@@ -9452,6 +9452,12 @@ class VoiceRoomLockUpdate(BaseModel):
     locked: bool
 
 
+class VoiceMuteBody(BaseModel):
+    """v143.9 — Admin geçici susturma. `duration_seconds` 30/60/300."""
+    participant_id: str  # LiveKit identity
+    duration_seconds: int
+
+
 # v140.42 — Public SEO URL list. Yeni public sayfa eklerken buraya bir satır
 # ekle → hem `/api/sitemap.xml` hem de container startup'ta üretilen static
 # `/sitemap.xml` otomatik güncellenir.
@@ -10093,6 +10099,9 @@ class VoiceTokenBody(BaseModel):
     room_id: Optional[str] = None
     room_name: Optional[str] = None  # v136 — davet linki `/ses/{room_name}` üzerinden geldiğinde
     password: Optional[str] = None
+    # v143.9 — Lazy validation: token'ı hemen döndür, şifre/davet doğrulamasını
+    # arka planda yap. Doğrulama başarısızsa arka planda remove_participant.
+    lazy: Optional[bool] = False
     guest_name: Optional[str] = None  # ziyaretçi için görünen ad
     invite_token: Optional[str] = None  # v136 — tek kullanımlık davet token'ı
     device_id: Optional[str] = None  # v143.4 — ziyaretçi cihaz oturumu
@@ -10241,8 +10250,9 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
             grant_ok = True
     # v136 — AKTİF davet token doğrulama. Çok kullanımlık: `active=true` &&
     # `room_id` eşleşmesi yeter, silinmediği sürece defalarca kullanılabilir.
+    # v143.9 — Lazy modda invite doğrulaması ARKA PLANDA yapılır.
     invite_ok = False
-    if body.invite_token:
+    if body.invite_token and not body.lazy:
         invite = await db.voice_invite_tokens.find_one(
             {"token": body.invite_token}, {"_id": 0},
         )
@@ -10254,11 +10264,17 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
             raise HTTPException(403, "Davet linki bu oda için değil")
         invite_ok = True
     password_used = False
+    lazy_bg_verify = False
     if not (is_admin or is_invited or invite_ok or grant_ok):
-        from auth import verify_password as _verify_password
-        if not body.password or not _verify_password(body.password, room.get("password_hash", "")):
-            raise HTTPException(403, "Şifre yanlış")
-        password_used = True
+        if body.lazy and (body.password or body.invite_token):
+            # v143.9 — Şifre/davet var; token'ı hemen döndür, doğrulamayı arka
+            # planda yap. Yanlışsa remove_participant tetiklenir.
+            lazy_bg_verify = True
+        else:
+            from auth import verify_password as _verify_password
+            if not body.password or not _verify_password(body.password, room.get("password_hash", "")):
+                raise HTTPException(403, "Şifre yanlış")
+            password_used = True
     # v143.4 — Şifre başarıyla doğrulandıysa, grant kaydı oluştur (upsert).
     if password_used:
         try:
@@ -10365,6 +10381,21 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
         .with_name(display) \
         .with_metadata(meta_payload) \
         .with_grants(VideoGrants(room_join=True, room=room["name"], can_publish=True, can_subscribe=True))
+    # v143.9 — Lazy validation: token verilmeden önce arka plan doğrulaması
+    # kuyruğa alınır. LiveKit connect'i frontend başlatır (~200-500ms); background
+    # task 400ms sonra pw/invite doğrular ve yanlışsa remove_participant çağırır.
+    if lazy_bg_verify:
+        try:
+            asyncio.create_task(_bg_verify_lazy_credentials(
+                room_id=room["id"],
+                room_name=room["name"],
+                identity=identity,
+                password=body.password,
+                invite_token=body.invite_token,
+                room_password_hash=room.get("password_hash", ""),
+            ))
+        except Exception as _lex:
+            logger.warning(f"[voice-lazy] schedule failed: {_lex}")
     # v143.4 — Odaya katılım/ayrılış sonrası 60sn sonra boşluk kontrolü:
     # oda boşsa şifre rotate + grantlar temizlensin.
     try:
@@ -10373,7 +10404,184 @@ async def voice_token(body: VoiceTokenBody, u: Optional[dict] = Depends(_optiona
         pass
     return {"token": at.to_jwt(), "url": lk_url, "room": room["name"],
             "room_id": room["id"], "identity": identity,
-            "invite_used": invite_ok}
+            "invite_used": invite_ok, "lazy": bool(lazy_bg_verify)}
+
+
+# v143.9 — Lazy validation & Geçici Sustur helper'ları.
+
+async def _bg_verify_lazy_credentials(*, room_id: str, room_name: str, identity: str,
+                                      password: Optional[str], invite_token: Optional[str],
+                                      room_password_hash: str) -> None:
+    """v143.9 — Arka planda şifre/davet linkini doğrula; başarısızsa katılımcıyı
+    LiveKit'ten çıkar. Geçerliyse hiçbir şey yapmaz."""
+    try:
+        from auth import verify_password as _verify_password
+        pw_ok = False
+        if password:
+            try:
+                pw_ok = bool(_verify_password(password, room_password_hash))
+            except Exception:
+                pw_ok = False
+        inv_ok = False
+        if invite_token and not pw_ok:
+            invite = await db.voice_invite_tokens.find_one({"token": invite_token}, {"_id": 0})
+            inv_ok = bool(invite and invite.get("active") and invite.get("room_id") == room_id)
+        if pw_ok or inv_ok:
+            return  # geçerli
+        # Geçersiz: kısa bir gecikme (client connect edebilsin) sonra kick.
+        await asyncio.sleep(0.4)
+        lk_key = os.environ.get("LIVEKIT_API_KEY", "").strip()
+        lk_secret = os.environ.get("LIVEKIT_API_SECRET", "").strip()
+        lk_url = os.environ.get("LIVEKIT_URL", "").strip()
+        if not (lk_key and lk_secret and lk_url):
+            return
+        http_url = lk_url.replace("wss://", "https://").replace("ws://", "http://")
+        try:
+            from livekit.api import LiveKitAPI, RoomParticipantIdentity
+            lkapi = LiveKitAPI(http_url, lk_key, lk_secret)
+            try:
+                await lkapi.room.remove_participant(
+                    RoomParticipantIdentity(room=room_name, identity=identity)
+                )
+            finally:
+                try: await lkapi.aclose()
+                except Exception: pass
+        except Exception as _kex:
+            logger.warning(f"[voice-lazy] remove failed: {_kex}")
+        # Frontend'in disconnect nedenini ayırt edebilmesi için kayıt bırak.
+        try:
+            await db.voice_lazy_rejections.update_one(
+                {"identity": identity, "room_id": room_id},
+                {"$set": {"identity": identity, "room_id": room_id,
+                          "reason": "invalid_credentials",
+                          "created_at": datetime.now(timezone.utc).isoformat()}},
+                upsert=True,
+            )
+        except Exception:
+            pass
+    except Exception as e:
+        logger.warning(f"[voice-lazy] verify error: {e}")
+
+
+async def _scheduled_unmute_tracks(room_name: str, identity: str,
+                                   track_sids: list, delay_seconds: int) -> None:
+    """v143.9 — `delay_seconds` sonra hedef track'leri unmute eder."""
+    try:
+        await asyncio.sleep(max(1, int(delay_seconds)))
+        lk_key = os.environ.get("LIVEKIT_API_KEY", "").strip()
+        lk_secret = os.environ.get("LIVEKIT_API_SECRET", "").strip()
+        lk_url = os.environ.get("LIVEKIT_URL", "").strip()
+        if not (lk_key and lk_secret and lk_url) or not track_sids:
+            return
+        http_url = lk_url.replace("wss://", "https://").replace("ws://", "http://")
+        from livekit.api import LiveKitAPI, MuteRoomTrackRequest
+        lkapi = LiveKitAPI(http_url, lk_key, lk_secret)
+        try:
+            for sid in track_sids:
+                try:
+                    await lkapi.room.mute_published_track(
+                        MuteRoomTrackRequest(room=room_name, identity=identity,
+                                             track_sid=sid, muted=False)
+                    )
+                except Exception as _ue:
+                    logger.warning(f"[voice-unmute] sid={sid}: {_ue}")
+        finally:
+            try: await lkapi.aclose()
+            except Exception: pass
+    except Exception as e:
+        logger.warning(f"[voice-scheduled-unmute] {e}")
+
+
+@api_router.patch("/voice/rooms/{room_id}/mute")
+async def voice_room_temp_mute(room_id: str, body: VoiceMuteBody,
+                               admin: dict = Depends(require_admin)):
+    """v143.9 — Admin bir katılımcının mikrofonunu geçici olarak susturur.
+    30/60/300 saniye sonra otomatik açılır."""
+    if body.duration_seconds not in (30, 60, 300):
+        raise HTTPException(400, "Süre 30, 60 veya 300 saniye olmalı")
+    identity = (body.participant_id or "").strip()
+    if not identity:
+        raise HTTPException(400, "participant_id gerekli")
+    room = await db.voice_rooms.find_one({"id": room_id})
+    if not room:
+        raise HTTPException(404, "Oda bulunamadı")
+    if not _LK_OK:
+        raise HTTPException(500, "LiveKit SDK yüklü değil")
+    lk_key = os.environ.get("LIVEKIT_API_KEY", "").strip()
+    lk_secret = os.environ.get("LIVEKIT_API_SECRET", "").strip()
+    lk_url = os.environ.get("LIVEKIT_URL", "").strip()
+    if not (lk_key and lk_secret and lk_url):
+        raise HTTPException(500, "LiveKit credentials .env'de eksik")
+    http_url = lk_url.replace("wss://", "https://").replace("ws://", "http://")
+    from livekit.api import (
+        LiveKitAPI, ListParticipantsRequest, MuteRoomTrackRequest, SendDataRequest,
+    )
+    lkapi = LiveKitAPI(http_url, lk_key, lk_secret)
+    muted_sids: list = []
+    try:
+        try:
+            pres = await asyncio.wait_for(
+                lkapi.room.list_participants(
+                    ListParticipantsRequest(room=room["name"])
+                ),
+                timeout=4.0,
+            )
+        except asyncio.TimeoutError:
+            try: await lkapi.aclose()
+            except Exception: pass
+            raise HTTPException(504, "LiveKit yanıt vermiyor")
+        target = None
+        for p in getattr(pres, "participants", []) or []:
+            if getattr(p, "identity", "") == identity:
+                target = p
+                break
+        if not target:
+            raise HTTPException(404, "Katılımcı odada değil")
+        # Audio track SID'lerini topla — pratik olarak tüm publish edilenleri
+        # susturmak yeterli (bu app sadece mikrofon publish eder).
+        for tr in getattr(target, "tracks", []) or []:
+            sid = getattr(tr, "sid", None)
+            if not sid:
+                continue
+            try:
+                await lkapi.room.mute_published_track(
+                    MuteRoomTrackRequest(room=room["name"], identity=identity,
+                                         track_sid=sid, muted=True)
+                )
+                muted_sids.append(sid)
+            except Exception as _me:
+                logger.warning(f"[voice-mute] sid={sid}: {_me}")
+        # Muted user'a data mesajı: "Admin X saniye susturdu".
+        try:
+            import json as _json
+            payload = _json.dumps({
+                "kind": "admin_temp_mute",
+                "duration_seconds": int(body.duration_seconds),
+                "by": admin.get("username") or "admin",
+            }).encode()
+            await lkapi.room.send_data(
+                SendDataRequest(room=room["name"], data=payload, kind=0,
+                                destination_identities=[identity], topic="admin-action")
+            )
+        except Exception as _de:
+            logger.warning(f"[voice-mute] send_data failed: {_de}")
+    except HTTPException:
+        try: await lkapi.aclose()
+        except Exception: pass
+        raise
+    finally:
+        try: await lkapi.aclose()
+        except Exception: pass
+    # Auto-unmute
+    try:
+        asyncio.create_task(_scheduled_unmute_tracks(
+            room["name"], identity, muted_sids, int(body.duration_seconds)
+        ))
+    except Exception:
+        pass
+    return {"ok": True, "muted_tracks": len(muted_sids),
+            "duration_seconds": int(body.duration_seconds),
+            "identity": identity}
 
 
 async def _voice_rooms_seed():

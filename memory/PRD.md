@@ -20,6 +20,13 @@ Build and extend a full-stack Gaming Guild Management App. Advanced 29-language 
 - **Admin** (`admin` / `Admin123`)
 - **Editor** (`pasha` / `pasha123`)
 
+- **Feb 11, 2026 (v143.9 — Lazy Validation + Local Mute + Temp Mute)** — Backend + Frontend:
+  - **Task 1 — Lazy Validation**: `VoiceTokenBody.lazy` bool eklendi. `lazy=True` iken password/invite doğrulaması ARKA PLANDA yapılır (`_bg_verify_lazy_credentials`). Yanlış ise 400ms sonra LiveKit `remove_participant` çağrılır ve `voice_lazy_rejections` koleksiyonuna kayıt düşer. Frontend `join()` `lazy: true` gönderir; `connectStartedAt` state'i tutulur ve `onDisconnected` 3sn içinde tetiklenirse "Geçersiz şifre veya davet kodu" toast'ı çıkar. Legacy `lazy=false` akışı korundu (403 hâlâ anında döner).
+  - **Task 2 — Bireysel Local Mute**: `!isAdmin` kısıtlaması kaldırıldı; artık admin dahil herkes başkasının sesini kendi cihazında kısabilir (`RemoteParticipant.setVolume(0)`). Avatar üzerinde küçük 🔇 rozeti (sadece kısan kişinin ekranında görünür) + hover ipucu. Local-only, kimse diğer katılımcıları etkilemez.
+  - **Task 3 — Admin Geçici Sustur**: `PATCH /api/voice/rooms/{room_id}/mute` — `{participant_id, duration_seconds ∈ {30, 60, 300}}`. LiveKit `mute_published_track` ile tüm audio track'leri mute'lanır; `SendDataRequest` ile hedefe `admin-action` topic'inde JSON mesaj gönderilir. `_scheduled_unmute_tracks` ile süre bitince otomatik unmute. Frontend: her katılımcı satırında (admin için) "⋯" menüsü → 30sn/1dk/5dk seçenekleri. Data channel listener admin_temp_mute mesajını yakalar ve "Admin tarafından X saniye susturuldunuz" toast'ı gösterir. LiveKit `list_participants` için 4sn hard timeout.
+  - **Test**: `/tmp/test_v143_9.py` (temizlendi) — 14 assertion PASS ✅ (Task 1: 3, Task 3: 6, auth + cleanup).
+  - **Deployment_agent**: (bekleniyor)
+
 - **Feb 11, 2026 (v143.8 — Ses Odası 3 Özellik)** — Backend + Frontend:
   - **Task 1**: `_try_reset_if_empty` NO-OP oldu — oda boşaldığında ŞİFRE OTOMATİK DEĞİŞMEZ (kullanıcı isteği). `_delayed_reset` çağrıları hâlâ zamanlanıyor ama etkisiz.
   - **Task 2**: Odaya girmeden şifre değiştirme UI — `RoomCard`'a 🔑 (KeyRound) ikonu eklendi (admin-only). Popup: input + Kaydet, `PATCH /api/voice/rooms/{id}/password` (mevcut endpoint kullanıldı). Enter/Esc kısayolları. Min 4 karakter.

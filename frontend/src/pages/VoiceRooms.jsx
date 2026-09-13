@@ -131,8 +131,8 @@ export default function VoiceRooms() {
           window.sessionStorage.setItem("ol_voice_device", deviceId);
         }
       } catch {}
-      const res = await api.post("/voice/token", { room_id: room.id, password, guest_name: guestName, device_id: deviceId });
-      setActive({ ...res.data, roomDoc: room });
+      const res = await api.post("/voice/token", { room_id: room.id, password, guest_name: guestName, device_id: deviceId, lazy: true });
+      setActive({ ...res.data, roomDoc: room, connectStartedAt: Date.now() });
     } catch (e) {
       const detail = e?.response?.data?.detail;
       // v143.8 — Kilitli oda: şifre girmesin, doğrudan hata göster.
@@ -144,8 +144,8 @@ export default function VoiceRooms() {
         const retry = window.prompt(t("voice_room_password_prompt", "Oda şifresini gir:"));
         if (retry === null) return;
         try {
-          const res2 = await api.post("/voice/token", { room_id: room.id, password: retry, guest_name: guestName, device_id: deviceId });
-          setActive({ ...res2.data, roomDoc: room });
+          const res2 = await api.post("/voice/token", { room_id: room.id, password: retry, guest_name: guestName, device_id: deviceId, lazy: true });
+          setActive({ ...res2.data, roomDoc: room, connectStartedAt: Date.now() });
         } catch (e2) { toast.error(e2?.response?.data?.detail || e2.message); }
         return;
       }
@@ -154,6 +154,16 @@ export default function VoiceRooms() {
   }, [user, isAdmin, t]);
 
   const leave = () => setActive(null);
+  // v143.9 — Lazy validation: eğer connect başladıktan sonra 3sn içinde
+  // disconnect olursa "geçersiz şifre/davet kodu" olarak yorumla.
+  const handleDisconnect = useCallback(() => {
+    const startedAt = active?.connectStartedAt || 0;
+    const elapsed = startedAt ? Date.now() - startedAt : Infinity;
+    if (active?.lazy && elapsed < 3000) {
+      toast.error(t("voice_lazy_invalid", "Geçersiz şifre veya davet kodu"), { duration: 6000 });
+    }
+    setActive(null);
+  }, [active, t]);
 
   if (active) {
     return (
@@ -164,7 +174,7 @@ export default function VoiceRooms() {
         connect
         audio
         video={false}
-        onDisconnected={leave}
+        onDisconnected={handleDisconnect}
         style={{ minHeight: "calc(100vh - 120px)" }}
       >
         <ActiveRoomUI
@@ -206,6 +216,94 @@ export default function VoiceRooms() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function TempMuteMenu({ identity, roomId, t }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    window.addEventListener("mousedown", onDoc);
+    return () => window.removeEventListener("mousedown", onDoc);
+  }, [open]);
+  const doMute = async (secs) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await api.patch(`/voice/rooms/${roomId}/mute`, { participant_id: identity, duration_seconds: secs });
+      const label = secs >= 60 ? `${Math.round(secs / 60)} dk` : `${secs} sn`;
+      toast.success(t("voice_temp_muted_ok", "Katılımcı {{d}} susturuldu", { d: label }));
+      setOpen(false);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="relative shrink-0" ref={ref}>
+      <button
+        data-testid={`voice-temp-mute-menu-${identity}`}
+        onClick={() => setOpen((v) => !v)}
+        title={t("voice_temp_mute_menu", "Geçici Sustur")}
+        aria-label={t("voice_temp_mute_menu", "Geçici Sustur")}
+        className="w-7 h-7 rounded-full flex items-center justify-center"
+        style={{
+          background: open ? "rgba(200,134,10,0.20)" : "transparent",
+          border: `1px solid ${open ? "#C8860A" : "rgba(255,255,255,0.15)"}`,
+          color: open ? "#F5A623" : "#94A3B8",
+          cursor: "pointer",
+          fontSize: 13,
+          fontWeight: 900,
+          lineHeight: 1,
+        }}
+      >
+        ⋯
+      </button>
+      {open && (
+        <div
+          data-testid={`voice-temp-mute-panel-${identity}`}
+          className="absolute right-0 top-8 rounded-lg overflow-hidden"
+          style={{
+            background: "rgba(18,18,26,0.98)",
+            border: "1px solid rgba(200,134,10,0.55)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.65)",
+            zIndex: 1700,
+            minWidth: 150,
+          }}
+        >
+          <div className="px-3 py-2 text-[10px] uppercase tracking-widest"
+               style={{ color: "#C8860A", borderBottom: "1px solid rgba(200,134,10,0.20)" }}>
+            {t("voice_temp_mute_title", "Geçici Sustur")}
+          </div>
+          {[
+            { secs: 30, label: "30 sn" },
+            { secs: 60, label: "1 dk" },
+            { secs: 300, label: "5 dk" },
+          ].map((opt) => (
+            <button
+              key={opt.secs}
+              data-testid={`voice-temp-mute-${opt.secs}s-${identity}`}
+              onClick={() => doMute(opt.secs)}
+              disabled={busy}
+              className="w-full px-3 py-2 text-left text-xs font-bold"
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#E5E7EB",
+                cursor: busy ? "wait" : "pointer",
+                opacity: busy ? 0.5 : 1,
+              }}
+            >
+              🔇 {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1114,6 +1212,22 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
     } catch {}
   });
 
+  // v143.9 — Admin geçici susturma bildirimi (data channel `admin-action`).
+  useDataChannel("admin-action", (msg) => {
+    try {
+      const raw = new TextDecoder().decode(msg.payload);
+      const parsed = JSON.parse(raw);
+      if (parsed?.kind === "admin_temp_mute") {
+        const secs = Number(parsed.duration_seconds || 0);
+        const mins = secs >= 60 ? Math.round(secs / 60) : 0;
+        const label = mins > 0
+          ? t("voice_temp_muted_min", "Admin tarafından {{n}} dakika susturuldunuz", { n: mins })
+          : t("voice_temp_muted_sec", "Admin tarafından {{n}} saniye susturuldunuz", { n: secs });
+        toast.error(label, { duration: Math.max(4000, Math.min(8000, secs * 1000)) });
+      }
+    } catch {}
+  });
+
   const broadcastMode = useCallback((mode) => {
     try {
       if (!sendMicMode) return;
@@ -1847,7 +1961,7 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
               }}
             >
               <div
-                className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-black shrink-0"
+                className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-black shrink-0 relative"
                 style={{
                   background: `linear-gradient(135deg, #FFD700, #C8860A)`,
                   color: "#08080F",
@@ -1858,6 +1972,22 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
                 }}
               >
                 {initial}
+                {locallyMuted && (
+                  <span
+                    data-testid={`voice-local-mute-badge-${p.identity}`}
+                    className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[9px]"
+                    style={{
+                      background: "#EF4444",
+                      border: "2px solid #0a0608",
+                      color: "#FFFFFF",
+                      lineHeight: 1,
+                    }}
+                    aria-label={t("voice_local_muted_hint", "Bu kişinin sesi sadece senin cihazında kısıldı")}
+                    title={t("voice_local_muted_hint", "Bu kişinin sesi sadece senin cihazında kısıldı")}
+                  >
+                    🔇
+                  </span>
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1">
@@ -1918,6 +2048,29 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
                   <Pencil size={12} />
                 </button>
               )}
+              {!isSelf && (
+                <button
+                  data-testid={`voice-local-mute-${p.identity}`}
+                  onClick={() => toggleLocalMute(p)}
+                  aria-pressed={locallyMuted}
+                  className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                  style={{
+                    background: locallyMuted ? "rgba(239,68,68,0.20)" : "transparent",
+                    color: locallyMuted ? "#EF4444" : "#94A3B8",
+                    border: `1px solid ${locallyMuted ? "#EF4444" : "rgba(255,255,255,0.15)"}`,
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                  title={locallyMuted
+                    ? t("voice_local_unmute_title", "Sesi tekrar aç (sadece senin için)")
+                    : t("voice_local_mute_title", "Sesi kıs (sadece senin için)")}
+                >
+                  {locallyMuted ? "🔇" : "🔊"}
+                </button>
+              )}
+              {!isSelf && isAdmin && (
+                <TempMuteMenu identity={p.identity} roomId={roomId} t={t} />
+              )}
               {!isSelf && isAdmin && (
                 <button
                   data-testid={`voice-kick-${p.identity}`}
@@ -1933,23 +2086,6 @@ export function ActiveRoomUI({ roomId, roomName, timerEnabled, roomStartedAt, is
                   }}
                 >
                   {t("voice_kick_short", "AT")}
-                </button>
-              )}
-              {!isSelf && !isAdmin && (
-                <button
-                  data-testid={`voice-local-mute-${p.identity}`}
-                  onClick={() => toggleLocalMute(p)}
-                  aria-pressed={locallyMuted}
-                  className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
-                  style={{
-                    background: locallyMuted ? "rgba(239,68,68,0.20)" : "transparent",
-                    color: locallyMuted ? "#EF4444" : "#94A3B8",
-                    border: `1px solid ${locallyMuted ? "#EF4444" : "rgba(255,255,255,0.15)"}`,
-                    fontSize: 12,
-                    cursor: "pointer",
-                  }}
-                >
-                  {locallyMuted ? "🔇" : "🔊"}
                 </button>
               )}
             </div>
